@@ -10,8 +10,8 @@ import Foundation
 import OSLog
 
 actor ScanAndCreateThumbnails {
-    // 1. Isolated State
-    // Memory cache removed, using SharedMemoryCache.shared
+    // MARK: - Isolated State
+
     private var successCount = 0
     private let diskCache: DiskCacheManager
 
@@ -22,19 +22,24 @@ actor ScanAndCreateThumbnails {
     // Timing tracking
     private var processingTimes: [TimeInterval] = []
     private var totalFilesToProcess = 0
-    private var estimationStartIndex = 10
+
+    /// Minimum number of items processed before ETA estimation begins.
+    private static let minimumSamplesBeforeEstimation = 10
 
     private var preloadTask: Task<Int, Never>?
     private var fileHandlers: FileHandlers?
 
-    private var savedsettings: SavedSettings? // Kept for getCacheCostsAfterSettingsUpdate
+    private var savedsettings: SavedSettings?
     private var setupTask: Task<Void, Never>?
 
-    /// Cached cost per pixel to avoid recomputation
+    /// Cached cost-per-pixel; cleared when settings change via `getCacheCostsAfterSettingsUpdate`.
     private var cachedCostPerPixel: Int?
-    /// Used in time remaining
+
+    /// Timestamp of the last completed item, used for rolling ETA calculation.
     private var lastItemTime: Date?
     private var lastEstimatedSeconds: Int?
+
+    // MARK: - Init
 
     init(
         config _: CacheConfig? = nil,
@@ -43,6 +48,8 @@ actor ScanAndCreateThumbnails {
         self.diskCache = diskCache ?? DiskCacheManager()
         Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
     }
+
+    // MARK: - Setup
 
     func getSettings() async {
         if savedsettings == nil {
@@ -56,19 +63,19 @@ actor ScanAndCreateThumbnails {
         }
 
         let newTask = Task {
-            // 1. Ensure Cache is ready
             await SharedMemoryCache.shared.ensureReady()
-            // 2. Ensure we have settings for UI functions
             await self.getSettings()
         }
 
-        self.setupTask = newTask
+        setupTask = newTask
         await newTask.value
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
     }
+
+    // MARK: - Settings / Cost
 
     private func getCostPerPixel() -> Int {
         if let cached = cachedCostPerPixel {
@@ -78,6 +85,13 @@ actor ScanAndCreateThumbnails {
         cachedCostPerPixel = cost
         return cost
     }
+
+    /// Call this whenever settings change to force re-evaluation of the cost-per-pixel.
+    func getCacheCostsAfterSettingsUpdate() {
+        cachedCostPerPixel = nil
+    }
+
+    // MARK: - Preload
 
     private func cancelPreload() {
         preloadTask?.cancel()
@@ -90,15 +104,23 @@ actor ScanAndCreateThumbnails {
         await ensureReady()
         cancelPreload()
 
-        let task = Task {
+        let task = Task<Int, Never> {
             successCount = 0
             processingTimes = []
+            lastItemTime = nil
+            lastEstimatedSeconds = nil
+
             let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
             totalFilesToProcess = urls.count
 
             await fileHandlers?.maxfilesHandler(urls.count)
 
-            return await withThrowingTaskGroup(of: Void.self) { group in
+            // withThrowingTaskGroup child tasks all hop back to this actor via
+            // `await self.processSingleFile(...)`, so mutations to actor-isolated state
+            // (successCount, processingTimes, etc.) are serialised correctly.
+            // Reading `successCount` after `waitForAll()` is safe because all child tasks
+            // have completed and re-joined the actor before this line executes.
+            return await withTaskGroup(of: Void.self) { group in
                 let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
 
                 for (index, url) in urls.enumerated() {
@@ -108,7 +130,7 @@ actor ScanAndCreateThumbnails {
                     }
 
                     if index >= maxConcurrent {
-                        try? await group.next()
+                        await group.next()
                     }
 
                     group.addTask {
@@ -116,7 +138,7 @@ actor ScanAndCreateThumbnails {
                     }
                 }
 
-                try? await group.waitForAll()
+                await group.waitForAll()
                 return successCount
             }
         }
@@ -125,12 +147,15 @@ actor ScanAndCreateThumbnails {
         return await task.value
     }
 
+    // MARK: - Single File Processing
+
     private func processSingleFile(_ url: URL, targetSize: Int, itemIndex _: Int) async {
         let startTime = Date()
 
         if Task.isCancelled { return }
 
         // A. Check RAM (Shared)
+        // SharedMemoryCache uses internal locking — synchronous access is intentional and safe.
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
             cacheMemory += 1
@@ -154,7 +179,7 @@ actor ScanAndCreateThumbnails {
             return
         }
 
-        // C. Extract
+        // C. Extract from source file
         do {
             if Task.isCancelled { return }
 
@@ -166,7 +191,9 @@ actor ScanAndCreateThumbnails {
                 qualityCost: costPerPixel
             )
 
-            // Normalize to single representation (matches disk-loaded images)
+            // Normalise to a single JPEG-backed NSImage representation to match disk-loaded images.
+            // Note: JPEG at 0.7 quality introduces mild compression artefacts. Acceptable for
+            // culling/preview use; change to PNG if lossless fidelity is required.
             let image = try cgImageToNormalizedNSImage(cgImage)
 
             storeInMemoryCache(image, for: url)
@@ -177,13 +204,17 @@ actor ScanAndCreateThumbnails {
 
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
-            Task.detached(priority: .background) { [cgImage] in
-                await self.diskCache.save(cgImage, for: url)
+            // Capture diskCache directly to avoid retaining the whole actor in the detached task.
+            let dc = diskCache
+            Task.detached(priority: .background) { [cgImage, dc] in
+                await dc.save(cgImage, for: url)
             }
         } catch {
             Logger.process.warning("Failed: \(url.lastPathComponent)")
         }
     }
+
+    // MARK: - ETA
 
     private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
         let now = Date()
@@ -194,13 +225,13 @@ actor ScanAndCreateThumbnails {
         }
         lastItemTime = now
 
-        if itemsProcessed >= estimationStartIndex, !processingTimes.isEmpty {
+        if itemsProcessed >= Self.minimumSamplesBeforeEstimation, !processingTimes.isEmpty {
             let recentTimes = processingTimes.suffix(min(10, processingTimes.count))
             let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
 
-            // Only update if the new estimate is lower than the current one
+            // Only update UI if the new estimate is lower (avoids ETA jumping upward).
             if let current = lastEstimatedSeconds, estimatedSeconds > current {
                 return
             }
@@ -210,9 +241,12 @@ actor ScanAndCreateThumbnails {
         }
     }
 
+    // MARK: - Image Conversion
+
+    /// Converts a `CGImage` to an `NSImage` backed by a single JPEG representation.
+    /// This normalises the in-memory format to match images loaded from the disk cache,
+    /// ensuring consistent behaviour throughout the cache lookup chain.
     private func cgImageToNormalizedNSImage(_ cgImage: CGImage) throws -> NSImage {
-        // Convert CGImage → JPEG data → NSImage
-        // This normalizes it to match disk-loaded images (single representation)
         let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
 
         guard let data = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) else {
@@ -227,14 +261,14 @@ actor ScanAndCreateThumbnails {
     }
 
     private func nsImageToCGImage(_ nsImage: NSImage) throws -> CGImage {
-        // Try to extract existing CGImage directly from representations (cheapest)
+        // Prefer extracting an existing CGImage directly from bitmap representations (cheapest path).
         for rep in nsImage.representations {
             if let bitmapRep = rep as? NSBitmapImageRep, let cgImage = bitmapRep.cgImage {
                 return cgImage
             }
         }
 
-        // Fallback: use TIFF only if no bitmap representation exists
+        // Fallback: decode via TIFF only when no bitmap representation is available.
         guard let tiffData = nsImage.tiffRepresentation,
               let bitmapRep = NSBitmapImageRep(data: tiffData),
               let cgImage = bitmapRep.cgImage
@@ -244,6 +278,8 @@ actor ScanAndCreateThumbnails {
         return cgImage
     }
 
+    // MARK: - Cache Helpers
+
     private func incrementAndGetCount() -> Int {
         successCount += 1
         return successCount
@@ -252,8 +288,11 @@ actor ScanAndCreateThumbnails {
     private func storeInMemoryCache(_ image: NSImage, for url: URL) {
         let costPerPixel = getCostPerPixel()
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
+        // SharedMemoryCache uses internal locking — synchronous access is intentional and safe.
         SharedMemoryCache.shared.setObject(wrapper, forKey: url as NSURL, cost: wrapper.cost)
     }
+
+    // MARK: - Public Thumbnail Lookup
 
     func thumbnail(for url: URL, targetSize: Int) async -> CGImage? {
         await ensureReady()
@@ -269,12 +308,12 @@ actor ScanAndCreateThumbnails {
         let nsUrl = url as NSURL
 
         // A. Check RAM
+        // SharedMemoryCache uses internal locking — synchronous access is intentional and safe.
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
             cacheMemory += 1
             Logger.process.debugThreadOnly("resolveImage: found in RAM Cache (hits: \(cacheMemory))")
-            let nsImage = wrapper.image
-            return try nsImageToCGImage(nsImage)
+            return try nsImageToCGImage(wrapper.image)
         }
 
         // B. Check Disk
@@ -285,11 +324,9 @@ actor ScanAndCreateThumbnails {
             return try nsImageToCGImage(diskImage)
         }
 
-        // C. Extract
+        // C. Extract from source file
         Logger.process.debugThreadOnly("resolveImage: CREATING thumbnail")
 
-        // New (Actor safe access):
-        // We need 'await' here because we are reading the protected '_costPerPixel' property.
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
         let cgImage = try await ExtractSonyThumbnail().extractSonyThumbnail(
@@ -298,13 +335,14 @@ actor ScanAndCreateThumbnails {
             qualityCost: costPerPixel
         )
 
-        // Normalize to single representation (matches disk-loaded images)
+        // Normalise to a single JPEG-backed NSImage representation (see cgImageToNormalizedNSImage).
         let image = try cgImageToNormalizedNSImage(cgImage)
-
         storeInMemoryCache(image, for: url)
 
-        Task.detached(priority: .background) { [cgImage] in
-            await self.diskCache.save(cgImage, for: url)
+        // Capture diskCache directly to avoid retaining the whole actor in the detached task.
+        let dc = diskCache
+        Task.detached(priority: .background) { [cgImage, dc] in
+            await dc.save(cgImage, for: url)
         }
 
         return cgImage

@@ -62,6 +62,9 @@ actor ExtractSonyThumbnail {
             throw ThumbnailError.generationFailed
         }
 
+        // Re-render into a known-good colour space and fixed bitmap format.
+        // CGImageSourceCreateThumbnailAtIndex may return an image with an unusual alpha/colour-space
+        // combination that is incompatible with later CGContext operations, so we normalise here.
         return try rerender(rawThumbnail, qualityCost: qualityCost)
     }
 
@@ -78,14 +81,18 @@ actor ExtractSonyThumbnail {
 
         let colorSpace = CGColorSpaceCreateDeviceRGB()
 
+        // Use a fixed, known-good bitmap format (premultipliedLast / RGBA) instead of forwarding
+        // the source image's bitmapInfo, which can carry unsupported alpha flags for some RAW files.
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+
         guard let context = CGContext(
             data: nil,
             width: image.width,
             height: image.height,
-            bitsPerComponent: image.bitsPerComponent,
-            bytesPerRow: 0,                        // Let ImageIO compute the optimal stride
+            bitsPerComponent: 8,           // Fixed 8 bpc to match premultipliedLast / RGBA
+            bytesPerRow: 0,                // Let CoreGraphics compute the optimal stride
             space: colorSpace,
-            bitmapInfo: image.bitmapInfo.rawValue
+            bitmapInfo: bitmapInfo.rawValue
         ) else {
             throw ThumbnailError.contextCreationFailed
         }
