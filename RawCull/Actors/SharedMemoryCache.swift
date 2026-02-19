@@ -81,7 +81,8 @@ actor SharedMemoryCache {
     /// Nonisolated because it doesn't access actor state.
     func calculateConfig(from settings: SavedSettings) -> CacheConfig {
         let thumbnailCostPerPixel = settings.thumbnailCostPerPixel // 4 default
-        let memoryCacheSizeMB = settings.memoryCacheSizeMB // 500MB default
+        let memoryCacheSizeMB = settings.memoryCacheSizeMB // 5000 MB default  - 20,000 MB max
+        
 
         // totalCostLimit is the PRIMARY memory constraint (based on allocated MB)
         // countLimit is set very high (10000) so memory, not item count, limits the cache

@@ -27,7 +27,7 @@ final class SettingsViewModel {
 
     // MARK: - Memory Cache Settings
 
-    /// Maximum memory cache size in MB (default: 500)
+    /// Maximum memory cache size in MB (default: 5000)
     var memoryCacheSizeMB: Int = 5000
 
     // MARK: - Thumbnail Size Settings
