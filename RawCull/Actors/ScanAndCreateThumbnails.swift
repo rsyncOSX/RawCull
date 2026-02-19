@@ -304,6 +304,8 @@ actor ScanAndCreateThumbnails {
         }
     }
 
+    private var inflightTasks: [URL: Task<NSImage, Error>] = [:]
+    
     private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
         let nsUrl = url as NSURL
 
@@ -324,27 +326,60 @@ actor ScanAndCreateThumbnails {
             return try nsImageToCGImage(diskImage)
         }
 
-        // C. Extract from source file
-        Logger.process.debugThreadOnly("resolveImage: CREATING thumbnail")
-
-        let costPerPixel = await SharedMemoryCache.shared.costPerPixel
-
-        let cgImage = try await ExtractSonyThumbnail().extractSonyThumbnail(
-            from: url,
-            maxDimension: CGFloat(targetSize),
-            qualityCost: costPerPixel
-        )
-
-        // Normalise to a single JPEG-backed NSImage representation (see cgImageToNormalizedNSImage).
-        let image = try cgImageToNormalizedNSImage(cgImage)
-        storeInMemoryCache(image, for: url)
-
-        // Capture diskCache directly to avoid retaining the whole actor in the detached task.
-        let dcache = diskCache
-        Task.detached(priority: .background) { [cgImage, dcache] in
-            await dcache.save(cgImage, for: url)
+        // C. Check In-Flight Requests (Request Coalescing)
+        // If the image is currently being fetched/created by another task, wait for that result.
+        if let existingTask = inflightTasks[url] {
+            Logger.process.debugThreadOnly("resolveImage: coalescing request for \(url.lastPathComponent)")
+            let image = try await existingTask.value
+            // The existing task handles caching, we just return the converted result
+            return try nsImageToCGImage(image)
         }
 
-        return cgImage
+        // D. Start New Work
+        // We create a task that produces an NSImage (ready for caching).
+        // Note: We create an unstructured Task here. Because we are inside an Actor,
+        // this Task runs on the actor context, allowing us to mutate `inflightTasks` safely.
+        let task = Task { () throws -> NSImage in
+            // 1. Get Settings
+            let costPerPixel = await SharedMemoryCache.shared.costPerPixel
+
+            // 2. Extract (Calling static method to avoid allocation overhead)
+            // Assumes ExtractSonyThumbnail has been updated to use static methods.
+            let cgImage = try await ExtractSonyThumbnail().extractSonyThumbnail(
+                from: url,
+                maxDimension: CGFloat(targetSize),
+                qualityCost: costPerPixel
+            )
+
+            // 3. Normalize to NSImage for Caching
+            let image = try self.cgImageToNormalizedNSImage(cgImage)
+
+            // 4. Store in Memory
+            self.storeInMemoryCache(image, for: url)
+
+            // 5. Save to Disk (Fire and forget)
+            let dcache = self.diskCache
+            Task.detached(priority: .background) { [cgImage, dcache] in
+                await dcache.save(cgImage, for: url)
+            }
+
+            // 6. Clean up In-Flight tracker
+            // It is safe to access `self.inflightTasks` here because we are running on the Actor.
+            self.inflightTasks[url] = nil
+
+            return image
+        }
+
+        // Register task
+        inflightTasks[url] = task
+
+        do {
+            let image = try await task.value
+            return try nsImageToCGImage(image)
+        } catch {
+            // Ensure cleanup if the task fails
+            inflightTasks[url] = nil
+            throw error
+        }
     }
 }
