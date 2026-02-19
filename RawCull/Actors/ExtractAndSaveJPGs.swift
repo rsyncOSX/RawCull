@@ -20,6 +20,9 @@ actor ExtractAndSaveJPGs {
     private var processingTimes: [TimeInterval] = []
     private var totalFilesToProcess = 0
     private var estimationStartIndex = 10 // After 10 items, we can estimate
+    
+    /// Used in time remaining
+    private var lastItemTime: Date?
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
@@ -76,17 +79,24 @@ actor ExtractAndSaveJPGs {
 
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemIndex: itemIndex, itemsProcessed: newCount)
+            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
         }
     }
 
-    private func updateEstimatedTime(for startTime: Date, itemIndex _: Int, itemsProcessed: Int) async {
-        let elapsed = Date().timeIntervalSince(startTime)
-        processingTimes.append(elapsed)
+    private func updateEstimatedTime(for startTime: Date, itemsProcessed: Int) async {
+        let now = Date()
+        
+        // Store the per-item processing time (delta from last item, not total elapsed)
+        if let lastTime = lastItemTime {
+            let delta = now.timeIntervalSince(lastTime)
+            processingTimes.append(delta)
+        }
+        lastItemTime = now  // requires: private var lastItemTime: Date?
 
-        // Once we have at least 10 measurements, calculate estimate
         if itemsProcessed >= estimationStartIndex, !processingTimes.isEmpty {
-            let avgTimePerItem = processingTimes.reduce(0, +) / Double(processingTimes.count)
+            // Use only the last 10 items to exclude warm-up overhead and track current speed
+            let recentTimes = processingTimes.suffix(min(10, processingTimes.count))
+            let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
 

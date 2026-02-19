@@ -32,6 +32,8 @@ actor ScanAndCreateThumbnails {
 
     /// Cached cost per pixel to avoid recomputation
     private var cachedCostPerPixel: Int?
+    /// Used in time remaining
+    private var lastItemTime: Date?
 
     init(
         config _: CacheConfig? = nil,
@@ -133,7 +135,7 @@ actor ScanAndCreateThumbnails {
             cacheMemory += 1
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemIndex: itemIndex, itemsProcessed: newCount)
+            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in RAM Cache")
             return
         }
@@ -146,7 +148,7 @@ actor ScanAndCreateThumbnails {
             cacheDisk += 1
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemIndex: itemIndex, itemsProcessed: newCount)
+            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in DISK Cache")
             return
         }
@@ -170,7 +172,7 @@ actor ScanAndCreateThumbnails {
 
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemIndex: itemIndex, itemsProcessed: newCount)
+            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
 
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
@@ -182,12 +184,18 @@ actor ScanAndCreateThumbnails {
         }
     }
 
-    private func updateEstimatedTime(for startTime: Date, itemIndex _: Int, itemsProcessed: Int) async {
-        let elapsed = Date().timeIntervalSince(startTime)
-        processingTimes.append(elapsed)
+    private func updateEstimatedTime(for startTime: Date, itemsProcessed: Int) async {
+        let now = Date()
+        
+        // Store the per-item processing time (delta from last item, not total elapsed)
+        if let lastTime = lastItemTime {
+            let delta = now.timeIntervalSince(lastTime)
+            processingTimes.append(delta)
+        }
+        lastItemTime = now  // requires: private var lastItemTime: Date?
 
         if itemsProcessed >= estimationStartIndex, !processingTimes.isEmpty {
-            // Use only the last 10 items to exclude warm-up/extraction overhead and track current speed
+            // Use only the last 10 items to exclude warm-up overhead and track current speed
             let recentTimes = processingTimes.suffix(min(10, processingTimes.count))
             let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
