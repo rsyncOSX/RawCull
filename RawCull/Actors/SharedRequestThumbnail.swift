@@ -109,7 +109,7 @@ actor SharedRequestThumbnail {
         // We need 'await' here because we are reading the protected '_costPerPixel' property.
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
-        let cgImage = try await ExtractSonyThumbnail().extractSonyThumbnail(
+        let cgImage = try await enumExtractSonyThumbnail.extractSonyThumbnail(
             from: url,
             maxDimension: CGFloat(targetSize),
             qualityCost: costPerPixel
