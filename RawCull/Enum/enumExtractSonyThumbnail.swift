@@ -1,5 +1,5 @@
 //
-//  grids.swift
+//  enumExtractSonyThumbnail.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 19/02/2026.
@@ -23,8 +23,8 @@ enum enumExtractSonyThumbnail {
         // We MUST explicitly hop off the current thread.
         // Since we are an enum and static, we have no isolation of our own.
         // If we don't do this, we run on the caller's thread (the Actor), causing serialization.
-        
-        return try await withCheckedThrowingContinuation { continuation in
+
+        try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let image = try Self.extractSync(from: url, maxDimension: maxDimension, qualityCost: qualityCost)
@@ -38,7 +38,7 @@ enum enumExtractSonyThumbnail {
 
     // MARK: - Private
 
-    nonisolated private static func extractSync(
+    private nonisolated static func extractSync(
         from url: URL,
         maxDimension: CGFloat,
         qualityCost: Int
@@ -63,7 +63,7 @@ enum enumExtractSonyThumbnail {
         return try rerender(rawThumbnail, qualityCost: qualityCost)
     }
 
-    nonisolated private static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
+    private nonisolated static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
         let interpolationQuality: CGInterpolationQuality
         switch qualityCost {
         case 1 ... 2: interpolationQuality = .low
@@ -99,4 +99,3 @@ enum enumExtractSonyThumbnail {
         return result
     }
 }
-

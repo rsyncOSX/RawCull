@@ -305,7 +305,7 @@ actor ScanAndCreateThumbnails {
     }
 
     private var inflightTasks: [URL: Task<NSImage, Error>] = [:]
-    
+
     private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
         let nsUrl = url as NSURL
 

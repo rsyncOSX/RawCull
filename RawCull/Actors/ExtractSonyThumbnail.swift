@@ -68,8 +68,10 @@ actor ExtractSonyThumbnail {
         switch qualityCost {
         case 1 ... 2:
             interpolationQuality = .low
+
         case 3 ... 4:
             interpolationQuality = .medium
+
         default: // 5...8
             interpolationQuality = .high
         }
