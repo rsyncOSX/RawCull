@@ -23,6 +23,8 @@ actor ExtractAndSaveJPGs {
     
     /// Used in time remaining
     private var lastItemTime: Date?
+    private var lastEstimatedSeconds: Int?
+
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
@@ -85,21 +87,25 @@ actor ExtractAndSaveJPGs {
 
     private func updateEstimatedTime(for startTime: Date, itemsProcessed: Int) async {
         let now = Date()
-        
-        // Store the per-item processing time (delta from last item, not total elapsed)
+
         if let lastTime = lastItemTime {
             let delta = now.timeIntervalSince(lastTime)
             processingTimes.append(delta)
         }
-        lastItemTime = now  // requires: private var lastItemTime: Date?
+        lastItemTime = now
 
         if itemsProcessed >= estimationStartIndex, !processingTimes.isEmpty {
-            // Use only the last 10 items to exclude warm-up overhead and track current speed
             let recentTimes = processingTimes.suffix(min(10, processingTimes.count))
             let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
 
+            // Only update if the new estimate is lower than the current one
+            if let current = lastEstimatedSeconds, estimatedSeconds > current {
+                return
+            }
+
+            lastEstimatedSeconds = estimatedSeconds
             await fileHandlers?.estimatedTimeHandler(estimatedSeconds)
         }
     }
