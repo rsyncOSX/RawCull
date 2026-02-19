@@ -1,0 +1,40 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.08619,0.17538,1.00000,1.00000",
+      "srgb:0.37651,0.41216,1.00000,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "photography.png",
+          "name" : "photography",
+          "position" : {
+            "scale" : 2,
+            "translation-in-points" : [
+              -0.75,
+              -0.75
+            ]
+          }
+        }
+      ],
+      "name" : "Group",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
