@@ -24,17 +24,10 @@ actor ExtractSonyThumbnail {
         maxDimension: CGFloat,
         qualityCost: Int = 4
     ) async throws -> CGImage {
-        // Hop off the actor onto a background thread for the blocking ImageIO work
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let image = try Self.extractSync(from: url, maxDimension: maxDimension, qualityCost: qualityCost)
-                    continuation.resume(returning: image)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
+        // Modern Swift Concurrency way to run background work
+        try await Task.detached(priority: .userInitiated) {
+            try Self.extractSync(from: url, maxDimension: maxDimension, qualityCost: qualityCost)
+        }.value
     }
 
     // MARK: - Private
@@ -81,25 +74,27 @@ actor ExtractSonyThumbnail {
             interpolationQuality = .high
         }
 
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        // FIX: Use sRGB for consistent color across devices
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+            throw ThumbnailError.contextCreationFailed
+        }
 
-        // Use a fixed, known-good bitmap format (premultipliedLast / RGBA) instead of forwarding
-        // the source image's bitmapInfo, which can carry unsupported alpha flags for some RAW files.
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
 
         guard let context = CGContext(
             data: nil,
             width: image.width,
             height: image.height,
-            bitsPerComponent: 8, // Fixed 8 bpc to match premultipliedLast / RGBA
-            bytesPerRow: 0, // Let CoreGraphics compute the optimal stride
-            space: colorSpace,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace, // Use the standard sRGB space
             bitmapInfo: bitmapInfo.rawValue
         ) else {
             throw ThumbnailError.contextCreationFailed
         }
 
         context.interpolationQuality = interpolationQuality
+        // FIX: Draw the image respecting its original color space into the new sRGB context
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
 
         guard let result = context.makeImage() else {
