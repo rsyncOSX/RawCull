@@ -20,11 +20,10 @@ actor ExtractAndSaveJPGs {
     private var processingTimes: [TimeInterval] = []
     private var totalFilesToProcess = 0
     private var estimationStartIndex = 10 // After 10 items, we can estimate
-    
+
     /// Used in time remaining
     private var lastItemTime: Date?
     private var lastEstimatedSeconds: Int?
-
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
@@ -71,7 +70,7 @@ actor ExtractAndSaveJPGs {
         return await task.value
     }
 
-    private func processSingleExtraction(_ url: URL, itemIndex: Int) async {
+    private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {
         let startTime = Date()
 
         if let cgImage = await ExtractEmbeddedPreview().extractEmbeddedPreview(
@@ -85,7 +84,7 @@ actor ExtractAndSaveJPGs {
         }
     }
 
-    private func updateEstimatedTime(for startTime: Date, itemsProcessed: Int) async {
+    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
         let now = Date()
 
         if let lastTime = lastItemTime {

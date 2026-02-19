@@ -43,9 +43,12 @@ struct CacheSettingsTab: View {
                                     Text("Memory")
                                         .font(.system(size: 10, weight: .medium))
                                     Spacer()
-                                    Text("\(settingsManager.memoryCacheSizeMB) MB")
+                                    // Only the label uses the converted display value
+                                    Text("Approx images in Memory Cache " +
+                                        displayValue(for: settingsManager.memoryCacheSizeMB))
                                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                                 }
+                                // slider still uses the real internal values (3000–20000)
                                 Slider(
                                     value: Binding<Double>(
                                         get: { Double(settingsManager.memoryCacheSizeMB) },
@@ -247,27 +250,24 @@ struct CacheSettingsTab: View {
         )
     }
 
-    private func updateImageCapacity() async -> Int {
-        await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
-        await SharedMemoryCache.shared.refreshConfig()
-        let newConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
-        cacheConfig = newConfig
+    private func displayValue(for megabytes: Int) -> String {
+        // Convert MB to bytes
+        let bytes = megabytes * 1024 * 1024
 
-        // Calculate actual image capacity based on MB and cost per image
-        if let totalCostLimitBytes = newConfig?.totalCostLimit {
-            // Cost per image = thumbnail_size × thumbnail_size × costPerPixel
-            // Use the preview size setting (user-configurable)
-            let thumbnailSize = settingsManager.thumbnailSizePreview
-            let costPerPixel = settingsManager.thumbnailCostPerPixel
-            let costPerImage = thumbnailSize * thumbnailSize * costPerPixel
+        // Calculate actual image capacity based on bytes and cost per image
+        // Cost per image = thumbnail_size × thumbnail_size × costPerPixel
+        // Use the preview size setting (user-configurable)
+        let thumbnailSize = settingsManager.thumbnailSizePreview
+        let costPerPixel = settingsManager.thumbnailCostPerPixel
+        let costPerImage = thumbnailSize * thumbnailSize * costPerPixel
 
-            if costPerImage > 0 {
-                let calculatedCapacity = totalCostLimitBytes / costPerImage
-                let imageCapacity = max(1, Int(calculatedCapacity))
-                Logger.process.debugMessageOnly("Image capacity: ~\(imageCapacity) images, \(settingsManager.memoryCacheSizeMB) MB, \(thumbnailSize)×\(thumbnailSize) size, \(costPerImage) bytes/image")
-                return imageCapacity
-            }
+        if costPerImage > 0 {
+            let calculatedCapacity = bytes / costPerImage
+            let imageCapacity = max(1, Int(calculatedCapacity))
+            Logger.process.debugMessageOnly("Image capacity: ~\(imageCapacity) images, \(settingsManager.memoryCacheSizeMB) MB, \(thumbnailSize)×\(thumbnailSize) size, \(costPerImage) bytes/image")
+            return String(imageCapacity)
         }
-        return 0
+
+        return "0"
     }
 }

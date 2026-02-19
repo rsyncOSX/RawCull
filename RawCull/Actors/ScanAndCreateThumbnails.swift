@@ -125,7 +125,7 @@ actor ScanAndCreateThumbnails {
         return await task.value
     }
 
-    private func processSingleFile(_ url: URL, targetSize: Int, itemIndex: Int) async {
+    private func processSingleFile(_ url: URL, targetSize: Int, itemIndex _: Int) async {
         let startTime = Date()
 
         if Task.isCancelled { return }
@@ -185,7 +185,7 @@ actor ScanAndCreateThumbnails {
         }
     }
 
-    private func updateEstimatedTime(for startTime: Date, itemsProcessed: Int) async {
+    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
         let now = Date()
 
         if let lastTime = lastItemTime {

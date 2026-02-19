@@ -6,8 +6,8 @@
 //
 
 import AppKit
-@testable import RawCull
 import Foundation
+@testable import RawCull
 import Testing
 
 // MARK: - Test Image Generator
