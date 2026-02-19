@@ -29,7 +29,7 @@ struct CacheSettingsTab: View {
                     // Cache Size
                     VStack(alignment: .leading, spacing: 8) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Adjust memory cache size (3000-20000 MB)")
+                            Text("Adjust memory cache")
                                 .font(.system(size: 10, weight: .regular))
                                 .foregroundStyle(.secondary)
                         }
@@ -44,7 +44,7 @@ struct CacheSettingsTab: View {
                                         .font(.system(size: 10, weight: .medium))
                                     Spacer()
                                     // Only the label uses the converted display value
-                                    Text("Approx images in Memory Cache " +
+                                    Text("Approx images in memory cache: " +
                                         displayValue(for: settingsManager.memoryCacheSizeMB))
                                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                                 }
