@@ -55,7 +55,7 @@ struct ProgressCount: View {
             }
             .frame(width: 60, height: 60)
 
-/*
+
  
             VStack(alignment: .leading, spacing: 2) {
                 Text(statusText)
@@ -66,7 +66,6 @@ struct ProgressCount: View {
                     .font(.body)
                     .foregroundStyle(.primary)
             }
- */
 
             Spacer()
         }
