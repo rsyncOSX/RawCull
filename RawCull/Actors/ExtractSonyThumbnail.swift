@@ -38,6 +38,8 @@ actor ExtractSonyThumbnail {
         qualityCost: Int
     ) throws -> CGImage {
         // kCGImageSourceShouldCache: false — avoids caching the full RAW decode at source creation
+        // kCGImageSourceCreateThumbnailFromImageIfAbsent: true if RAW is missing embedded preview
+        // to avoid a full RAW decode of 40-60 MB
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
