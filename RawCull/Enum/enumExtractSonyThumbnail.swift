@@ -1,45 +1,48 @@
 //
-//  ExtractSonyThumbnail.swift
+//  grids.swift
 //  RawCull
 //
-//  Created by Thomas Evensen on 11/02/2026.
+//  Created by Thomas Evensen on 19/02/2026.
 //
 
 import AppKit
 import Foundation
 
-actor ExtractSonyThumbnail {
+enum enumExtractSonyThumbnail {
     /// Extract thumbnail using generic ImageIO framework.
     /// - Parameters:
     ///   - url: The URL of the RAW image file.
     ///   - maxDimension: Maximum pixel size for the longest edge of the thumbnail.
-    ///   - qualityCost: Interpolation cost on a scale of 1–8. Memory is always 4 bytes (RGBA)
-    ///                  regardless of this value. Higher values produce better quality at more CPU cost.
-    ///                  Defaults to 4 (medium).
+    ///   - qualityCost: Interpolation cost.
     /// - Returns: A `CGImage` thumbnail.
-    /// - Throws: `ThumbnailError.invalidSource`, `ThumbnailError.generationFailed`,
-    ///           or `ThumbnailError.contextCreationFailed`.
-    func extractSonyThumbnail(
+    static func extractSonyThumbnail(
         from url: URL,
         maxDimension: CGFloat,
         qualityCost: Int = 4
     ) async throws -> CGImage {
-        // Modern Swift Concurrency way to run background work
-        try await Task.detached(priority: .userInitiated) {
-            try Self.extractSync(from: url, maxDimension: maxDimension, qualityCost: qualityCost)
-        }.value
+        // We MUST explicitly hop off the current thread.
+        // Since we are an enum and static, we have no isolation of our own.
+        // If we don't do this, we run on the caller's thread (the Actor), causing serialization.
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let image = try Self.extractSync(from: url, maxDimension: maxDimension, qualityCost: qualityCost)
+                    continuation.resume(returning: image)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
     // MARK: - Private
 
-    private static func extractSync(
+    nonisolated private static func extractSync(
         from url: URL,
         maxDimension: CGFloat,
         qualityCost: Int
     ) throws -> CGImage {
-        // kCGImageSourceShouldCache: false — avoids caching the full RAW decode at source creation
-        // kCGImageSourceCreateThumbnailFromImageIfAbsent: true if RAW is missing embedded preview
-        // to avoid a full RAW decode of 40-60 MB
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
@@ -48,33 +51,26 @@ actor ExtractSonyThumbnail {
 
         let thumbOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true, // Respect EXIF orientation
+            kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-            kCGImageSourceShouldCacheImmediately: true // Pre-decode — we render immediately after
+            kCGImageSourceShouldCacheImmediately: true
         ]
 
         guard let rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary) else {
             throw ThumbnailError.generationFailed
         }
 
-        // Re-render into a known-good colour space and fixed bitmap format.
-        // CGImageSourceCreateThumbnailAtIndex may return an image with an unusual alpha/colour-space
-        // combination that is incompatible with later CGContext operations, so we normalise here.
         return try rerender(rawThumbnail, qualityCost: qualityCost)
     }
 
-    private static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
+    nonisolated private static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
         let interpolationQuality: CGInterpolationQuality
         switch qualityCost {
-        case 1 ... 2:
-            interpolationQuality = .low
-        case 3 ... 4:
-            interpolationQuality = .medium
-        default: // 5...8
-            interpolationQuality = .high
+        case 1 ... 2: interpolationQuality = .low
+        case 3 ... 4: interpolationQuality = .medium
+        default: interpolationQuality = .high
         }
 
-        // FIX: Use sRGB for consistent color across devices
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
             throw ThumbnailError.contextCreationFailed
         }
@@ -87,14 +83,13 @@ actor ExtractSonyThumbnail {
             height: image.height,
             bitsPerComponent: 8,
             bytesPerRow: 0,
-            space: colorSpace, // Use the standard sRGB space
+            space: colorSpace,
             bitmapInfo: bitmapInfo.rawValue
         ) else {
             throw ThumbnailError.contextCreationFailed
         }
 
         context.interpolationQuality = interpolationQuality
-        // FIX: Draw the image respecting its original color space into the new sRGB context
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
 
         guard let result = context.makeImage() else {
@@ -104,3 +99,4 @@ actor ExtractSonyThumbnail {
         return result
     }
 }
+
