@@ -205,9 +205,9 @@ actor ScanAndCreateThumbnails {
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
             // Capture diskCache directly to avoid retaining the whole actor in the detached task.
-            let dc = diskCache
-            Task.detached(priority: .background) { [cgImage, dc] in
-                await dc.save(cgImage, for: url)
+            let dcache = diskCache
+            Task.detached(priority: .background) { [cgImage, dcache] in
+                await dcache.save(cgImage, for: url)
             }
         } catch {
             Logger.process.warning("Failed: \(url.lastPathComponent)")
@@ -340,9 +340,9 @@ actor ScanAndCreateThumbnails {
         storeInMemoryCache(image, for: url)
 
         // Capture diskCache directly to avoid retaining the whole actor in the detached task.
-        let dc = diskCache
-        Task.detached(priority: .background) { [cgImage, dc] in
-            await dc.save(cgImage, for: url)
+        let dcache = diskCache
+        Task.detached(priority: .background) { [cgImage, dcache] in
+            await dcache.save(cgImage, for: url)
         }
 
         return cgImage
