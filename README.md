@@ -14,11 +14,11 @@ Download from  [GitHub Repository](https://github.com/rsyncOSX/RawCull/releases)
 
 ## Version
 
-Current version: v1.0.3 - Released (February 18, 2026)
+Current version: v1.0.3 - not yet released 
 
 ## Documentation
 
-- [User documentation](https://arwphotoculler.netlify.app)
-- [Changelog](https://arwphotoculler.netlify.app/blog/)
+- [User documentation](https://rawcull.netlify.app)
+- [Changelog](https://rawcull.netlify.app/blog/)
 
 ![](images/arwphotoculler.png)
