@@ -53,9 +53,9 @@ actor ExtractSonyThumbnail {
 
         let thumbOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,   // Respect EXIF orientation
+            kCGImageSourceCreateThumbnailWithTransform: true, // Respect EXIF orientation
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-            kCGImageSourceShouldCacheImmediately: true          // Pre-decode — we render immediately after
+            kCGImageSourceShouldCacheImmediately: true // Pre-decode — we render immediately after
         ]
 
         guard let rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary) else {
@@ -73,8 +73,10 @@ actor ExtractSonyThumbnail {
         switch qualityCost {
         case 1 ... 2:
             interpolationQuality = .low
+
         case 3 ... 4:
             interpolationQuality = .medium
+
         default: // 5...8
             interpolationQuality = .high
         }
@@ -89,8 +91,8 @@ actor ExtractSonyThumbnail {
             data: nil,
             width: image.width,
             height: image.height,
-            bitsPerComponent: 8,           // Fixed 8 bpc to match premultipliedLast / RGBA
-            bytesPerRow: 0,                // Let CoreGraphics compute the optimal stride
+            bitsPerComponent: 8, // Fixed 8 bpc to match premultipliedLast / RGBA
+            bytesPerRow: 0, // Let CoreGraphics compute the optimal stride
             space: colorSpace,
             bitmapInfo: bitmapInfo.rawValue
         ) else {

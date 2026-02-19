@@ -23,8 +23,10 @@ enum ThumbnailError: Error, LocalizedError {
         switch self {
         case .invalidSource:
             return "Could not create an image source from the provided URL."
+
         case .generationFailed:
             return "Failed to generate or render the thumbnail image."
+
         case .contextCreationFailed:
             return "Failed to create a CGContext for thumbnail re-rendering."
         }
