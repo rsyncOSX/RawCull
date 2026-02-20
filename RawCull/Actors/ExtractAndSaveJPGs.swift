@@ -73,10 +73,11 @@ actor ExtractAndSaveJPGs {
     private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {
         let startTime = Date()
 
-        if let cgImage = await ExtractEmbeddedPreview().extractEmbeddedPreview(
-            from: url
+        if let cgImage = await enumextractEmbeddedPreview.extractEmbeddedPreview(
+            from: url,
+            nonBlocking: true
         ) {
-            await ExtractEmbeddedPreview().save(image: cgImage, originalURL: url)
+            await SaveJPGImage().save(image: cgImage, originalURL: url)
 
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)
