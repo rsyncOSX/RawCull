@@ -73,9 +73,9 @@ actor ExtractAndSaveJPGs {
     private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {
         let startTime = Date()
 
-        if let cgImage = await enumextractEmbeddedPreview.extractEmbeddedPreview(
-            from: url,
-            nonBlocking: true
+        if let cgImage = await enumPreviewExtractor.extractEmbeddedPreview(
+            from: url
+            // nonBlocking: true
         ) {
             await SaveJPGImage().save(image: cgImage, originalURL: url)
 
