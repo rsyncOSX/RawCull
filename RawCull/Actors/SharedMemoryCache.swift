@@ -32,7 +32,7 @@ actor SharedMemoryCache {
 
     // MARK: - Get settings
 
-    private var savedsettings: SavedSettings? // Kept for getCacheCostsAfterSettingsUpdate
+    private var savedSettings: SavedSettings? // Kept for getCacheCostsAfterSettingsUpdate
 
     /// Only using the memory pressure warning
     private var fileHandlers: FileHandlers?
@@ -99,8 +99,8 @@ actor SharedMemoryCache {
     /// This function is executed as part of init, calculates new Cache Costs from
     /// saved settingd.
     func setCacheCostsFromSavedSettings() async {
-        savedsettings = await SettingsViewModel.shared.asyncgetsettings()
-        if let settings = savedsettings {
+        savedSettings = await SettingsViewModel.shared.asyncgetsettings()
+        if let settings = savedSettings {
             let thumbnailCostPerPixel = settings.thumbnailCostPerPixel // 4 default (RGBA bytes per pixel)
             let memoryCacheSizeMB = settings.memoryCacheSizeMB // 500MB default
 
@@ -119,7 +119,7 @@ actor SharedMemoryCache {
     }
 
     func getCacheCostsAfterSettingsUpdate() async -> CacheConfig? {
-        guard let settings = savedsettings else { return nil }
+        guard let settings = savedSettings else { return nil }
         return calculateConfig(from: settings)
     }
 

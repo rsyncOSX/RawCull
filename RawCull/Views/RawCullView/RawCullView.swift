@@ -14,7 +14,7 @@ struct RawCullView: View {
     @Binding var zoomNSImageWindowFocused: Bool
 
     @State var viewModel = RawCullViewModel()
-    @State var savedsettings: SavedSettings?
+    @State var savedSettings: SavedSettings?
     @State private var memoryWarningOpacity: Double = 0.3
 
     var body: some View {
@@ -98,7 +98,7 @@ struct RawCullView: View {
             if viewModel.focusExtractJPGs { labelextractjpgs }
         }
         .task {
-            savedsettings = await SettingsViewModel.shared.asyncgetsettings()
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
 
             let handlers = CreateFileHandlers().createFileHandlers(
                 fileHandler: { _ in },

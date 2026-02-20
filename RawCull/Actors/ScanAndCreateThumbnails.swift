@@ -29,7 +29,7 @@ actor ScanAndCreateThumbnails {
     private var preloadTask: Task<Int, Never>?
     private var fileHandlers: FileHandlers?
 
-    private var savedsettings: SavedSettings?
+    private var savedSettings: SavedSettings?
     private var setupTask: Task<Void, Never>?
 
     /// Cached cost-per-pixel; cleared when settings change via `getCacheCostsAfterSettingsUpdate`.
@@ -52,8 +52,8 @@ actor ScanAndCreateThumbnails {
     // MARK: - Setup
 
     func getSettings() async {
-        if savedsettings == nil {
-            savedsettings = await SettingsViewModel.shared.asyncgetsettings()
+        if savedSettings == nil {
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
     }
 
@@ -81,7 +81,7 @@ actor ScanAndCreateThumbnails {
         if let cached = cachedCostPerPixel {
             return cached
         }
-        let cost = savedsettings?.thumbnailCostPerPixel ?? 4
+        let cost = savedSettings?.thumbnailCostPerPixel ?? 4
         cachedCostPerPixel = cost
         return cost
     }

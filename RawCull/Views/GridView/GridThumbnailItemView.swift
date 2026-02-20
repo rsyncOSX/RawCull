@@ -20,35 +20,35 @@ struct GridThumbnailItemView: View {
 
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
-    @State private var savedsettings: SavedSettings?
+    @State private var savedSettings: SavedSettings?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 0) {
                 // Thumbnail
                 ZStack {
-                    if let thumbnailImage, let savedsettings {
+                    if let thumbnailImage, let savedSettings {
                         Image(nsImage: thumbnailImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(
-                                width: CGFloat(savedsettings.thumbnailSizeGridView),
-                                height: CGFloat(savedsettings.thumbnailSizeGridView)
+                                width: CGFloat(savedSettings.thumbnailSizeGridView),
+                                height: CGFloat(savedSettings.thumbnailSizeGridView)
                             )
                             .clipped()
-                    } else if isLoading, let savedsettings {
+                    } else if isLoading, let savedSettings {
                         Rectangle()
                             .fill(Color.gray.opacity(0.1))
-                            .frame(height: CGFloat(savedsettings.thumbnailSizeGridView))
+                            .frame(height: CGFloat(savedSettings.thumbnailSizeGridView))
                             .overlay {
                                 ProgressView()
                                     .fixedSize()
                             }
-                    } else if let savedsettings {
+                    } else if let savedSettings {
                         ZStack {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.1))
-                                .frame(height: CGFloat(savedsettings.thumbnailSizeGridView))
+                                .frame(height: CGFloat(savedSettings.thumbnailSizeGridView))
 
                             Label("No image", systemImage: "xmark")
                                 .font(.caption2)
@@ -97,7 +97,7 @@ struct GridThumbnailItemView: View {
             await loadThumbnail()
         }
         .task {
-            savedsettings = await SettingsViewModel.shared.asyncgetsettings()
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
         .onDisappear {
             // Clear when scrolled out of view to free memory

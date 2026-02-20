@@ -3,14 +3,14 @@ import SwiftUI
 struct PhotoGridView: View {
     // Use @State for Observable objects in the view that owns them
     @Bindable var cullingmanager: CullingModel
-    @State private var savedsettings: SavedSettings?
+    @State private var savedSettings: SavedSettings?
     var files: [FileItem]
     let photoURL: URL?
     var onPhotoSelected: (FileItem) -> Void = { _ in }
     var body: some View {
         ScrollView {
-            if let savedsettings {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: CGFloat(savedsettings.thumbnailSizeGrid)))]) {
+            if let savedSettings {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: CGFloat(savedSettings.thumbnailSizeGrid)))]) {
                     if let index = cullingmanager.savedFiles.firstIndex(where: { $0.catalog == photoURL }) {
                         if let filerecords = cullingmanager.savedFiles[index].filerecords {
                             let localfiles = filerecords.compactMap { record in record.fileName }
@@ -34,7 +34,7 @@ struct PhotoGridView: View {
             }
         }
         .task {
-            savedsettings = await SettingsViewModel.shared.asyncgetsettings()
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
     }
 }

@@ -12,7 +12,7 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
     @Bindable var cullingManager: CullingModel
 
-    @State private var savedsettings: SavedSettings?
+    @State private var savedSettings: SavedSettings?
     @State private var hoveredFileID: FileItem.ID?
 
     let files: [FileItem]
@@ -36,10 +36,10 @@ struct GridThumbnailSelectionView: View {
 
             // Grid view
             ScrollView {
-                if let savedsettings {
+                if let savedSettings {
                     LazyVGrid(
                         columns: [
-                            GridItem(.adaptive(minimum: CGFloat(savedsettings.thumbnailSizeGridView)), spacing: 12)
+                            GridItem(.adaptive(minimum: CGFloat(savedSettings.thumbnailSizeGridView)), spacing: 12)
                         ],
                         spacing: 12
                     ) {
@@ -67,7 +67,7 @@ struct GridThumbnailSelectionView: View {
         }
         .frame(minWidth: 400, minHeight: 400)
         .task {
-            savedsettings = await SettingsViewModel.shared.asyncgetsettings()
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
     }
 
