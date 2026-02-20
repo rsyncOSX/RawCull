@@ -42,9 +42,9 @@ enum JPGPreviewHandler {
                     setCGImage(nil)
                     // Open the view here to indicate process of extracting the cgImage
                     openWindow(WindowIdentifier.zoomcgImage.rawValue)
-                    let extractor = ExtractEmbeddedPreview()
+                    // let extractor = ExtractEmbeddedPreview()
                     if file.url.pathExtension.lowercased() == SupportedFileType.arw.rawValue {
-                        if let mycgImage = await extractor.extractEmbeddedPreview(from: file.url) {
+                        if let mycgImage = await enumextractEmbeddedPreview.extractEmbeddedPreview(from: file.url) {
                             setCGImage(mycgImage)
                         }
                     }
