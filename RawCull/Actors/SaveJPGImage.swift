@@ -11,7 +11,6 @@ import OSLog
 import UniformTypeIdentifiers
 
 actor SaveJPGImage {
-    
     /// Saves the extracted CGImage to disk as a JPEG.
     /// - Parameters:
     ///   - image: The CGImage to save.
