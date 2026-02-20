@@ -13,7 +13,11 @@ enum enumextractEmbeddedPreview {
     /// Cannot use @concurrent nonisolated here, the func getWidth
     /// will not work then.
     /// The func extractEmbeddedPreview and func getWidth must be on the same isolation
-    static func extractEmbeddedPreview(from arwURL: URL, fullSize: Bool = false) async -> CGImage? {
+    static func extractEmbeddedPreview(
+        from arwURL: URL,
+        fullSize: Bool = false,
+        nonBlocking: Bool = false
+    ) async -> CGImage? {
         // Target size for culling previews (width or height)
         // The system will resize the image to fit within this box during extraction
         // Use maxThumbnailSize = 0 to disable downsampling and keep original embedded JPEG
@@ -86,34 +90,65 @@ enum enumextractEmbeddedPreview {
         let shouldDownsample = requiresDownsampling
         let maxSize = maxThumbnailSize
 
-        // Run decoding/downsampling off the calling actor
-        return await Task<CGImage?, Never>.detached(priority: .utility) {
-            Logger.process.debugThreadOnly("enum: extractEmbeddedPreview(): DECODING")
+        if nonBlocking {
+            return await withCheckedContinuation { continuation in
+                DispatchQueue.global(qos: .utility).async { [imageSource, selectedIndex, shouldDownsample, maxSize] in
+                    let result: CGImage?
 
-            // Recreate the image source inside the detached task
-            guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
-                Logger.process.warning("enum: extractEmbeddedPreview(): Failed to create image source (detached)")
-                return nil
+                    Logger.process.debugThreadOnly("enum: extractEmbeddedPreview(): DispatchQueue DECODING")
+
+                    // Decode the image first
+                    let decodeOptions: [CFString: Any] = [
+                        kCGImageSourceShouldCacheImmediately: true,
+                        kCGImageSourceShouldAllowFloat: false
+                    ]
+                    let decodeDict = decodeOptions as CFDictionary
+                    guard let decodedImage = CGImageSourceCreateImageAtIndex(imageSource, selectedIndex, decodeDict) else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+
+                    if shouldDownsample {
+                        // Manually resize the decoded image to the target size
+                        result = self.resizeImage(decodedImage, maxPixelSize: maxSize)
+                    } else {
+                        // Use as-is
+                        result = decodedImage
+                    }
+
+                    continuation.resume(returning: result)
+                }
             }
+        } else {
+            // Run decoding/downsampling off the calling actor
+            return await Task<CGImage?, Never>.detached(priority: .utility) {
+                Logger.process.debugThreadOnly("enum: extractEmbeddedPreview(): Task DECODING")
 
-            // If we already determined the index and whether to downsample, use that directly
-            let indexToUse = selectedIndex
-            let downsample = shouldDownsample
-            let maxPixelSize = maxSize
+                // Recreate the image source inside the detached task
+                guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
+                    Logger.process.warning("enum: extractEmbeddedPreview(): Failed to create image source (detached)")
+                    return nil
+                }
 
-            // Decode the selected image at index
-            // Note: options here are for create; we pass nil to let ImageIO decode as-is
-            guard let decodedImage = CGImageSourceCreateImageAtIndex(imageSource, indexToUse, nil) else {
-                Logger.process.warning("enum: extractEmbeddedPreview(): Failed to decode image at index \(indexToUse)")
-                return nil
-            }
+                // If we already determined the index and whether to downsample, use that directly
+                let indexToUse = selectedIndex
+                let downsample = shouldDownsample
+                let maxPixelSize = maxSize
 
-            if downsample {
-                return Self.resizeImage(decodedImage, maxPixelSize: maxPixelSize)
-            } else {
-                return decodedImage
-            }
-        }.value
+                // Decode the selected image at index
+                // Note: options here are for create; we pass nil to let ImageIO decode as-is
+                guard let decodedImage = CGImageSourceCreateImageAtIndex(imageSource, indexToUse, nil) else {
+                    Logger.process.warning("enum: extractEmbeddedPreview(): Failed to decode image at index \(indexToUse)")
+                    return nil
+                }
+
+                if downsample {
+                    return Self.resizeImage(decodedImage, maxPixelSize: maxPixelSize)
+                } else {
+                    return decodedImage
+                }
+            }.value
+        }
     }
 
     private nonisolated static func getWidth(from properties: [CFString: Any]) -> Int? {
