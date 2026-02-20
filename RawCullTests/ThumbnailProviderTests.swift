@@ -121,7 +121,7 @@ struct RequestThumbnailTests {
         let provider = SharedRequestThumbnail(config: .testing)
         let missingURL = URL(fileURLWithPath: "/nonexistent/file.jpg")
 
-        let result = await provider.requestthumbnail(for: missingURL, targetSize: 256)
+        let result = await provider.requestThumbnail(for: missingURL, targetSize: 256)
 
         #expect(result == nil)
     }
@@ -163,9 +163,9 @@ struct RequestThumbnailTests {
         let testURL = URL(fileURLWithPath: "/test/file.jpg")
 
         // Attempt concurrent reads on non-existent file
-        async let result1 = provider.requestthumbnail(for: testURL, targetSize: 256)
-        async let result2 = provider.requestthumbnail(for: testURL, targetSize: 256)
-        async let result3 = provider.requestthumbnail(for: testURL, targetSize: 256)
+        async let result1 = provider.requestThumbnail(for: testURL, targetSize: 256)
+        async let result2 = provider.requestThumbnail(for: testURL, targetSize: 256)
+        async let result3 = provider.requestThumbnail(for: testURL, targetSize: 256)
 
         let (res1, res2, res3) = await (result1, result2, result3)
 

@@ -204,10 +204,10 @@ struct RealisticWorkloadTests {
         let testURL = URL(fileURLWithPath: "/photos/test.arw")
 
         // First access - cache miss (file not found in this test)
-        _ = await provider.requestthumbnail(for: testURL, targetSize: 2560)
+        _ = await provider.requestThumbnail(for: testURL, targetSize: 2560)
 
         // Second access - might be cached or miss again
-        _ = await provider.requestthumbnail(for: testURL, targetSize: 2560)
+        _ = await provider.requestThumbnail(for: testURL, targetSize: 2560)
 
         #expect(true)
     }
@@ -224,7 +224,7 @@ struct RealisticWorkloadTests {
         // Simulate rapid requests
         for index in 0 ..< 20 {
             let url = URL(fileURLWithPath: "/photos/\(index).arw")
-            _ = await provider.requestthumbnail(for: url, targetSize: 256)
+            _ = await provider.requestThumbnail(for: url, targetSize: 256)
         }
 
         let stats = await provider.getCacheStatistics()

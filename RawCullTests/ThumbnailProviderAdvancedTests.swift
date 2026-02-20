@@ -142,7 +142,7 @@ struct RequestThumbnailEdgeCaseTests {
         let provider = SharedRequestThumbnail(config: .testing)
 
         let veryLongPath = URL(fileURLWithPath: String(repeating: "/path", count: 100))
-        let result = await provider.requestthumbnail(for: veryLongPath, targetSize: 256)
+        let result = await provider.requestThumbnail(for: veryLongPath, targetSize: 256)
 
         #expect(result == nil)
     }

@@ -72,7 +72,7 @@ actor SharedRequestThumbnail {
         await newTask.value
     }
 
-    func requestthumbnail(for url: URL, targetSize: Int) async -> CGImage? {
+    func requestThumbnail(for url: URL, targetSize: Int) async -> CGImage? {
         await ensureReady()
         do {
             return try await resolveImage(for: url, targetSize: targetSize)
@@ -109,7 +109,7 @@ actor SharedRequestThumbnail {
         // We need 'await' here because we are reading the protected '_costPerPixel' property.
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
-        let cgImage = try await enumExtractSonyThumbnail.extractSonyThumbnail(
+        let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
             from: url,
             maxDimension: CGFloat(targetSize),
             qualityCost: costPerPixel

@@ -20,7 +20,7 @@ enum JPGPreviewHandler {
     ) {
         if useThumbnailAsZoomPreview {
             Task {
-                let cgThumb = await SharedRequestThumbnail.shared.requestthumbnail(
+                let cgThumb = await SharedRequestThumbnail.shared.requestThumbnail(
                     for: file.url,
                     targetSize: thumbnailSizePreview
                 )
@@ -44,7 +44,7 @@ enum JPGPreviewHandler {
                     openWindow(WindowIdentifier.zoomcgImage.rawValue)
                     // let extractor = ExtractEmbeddedPreview()
                     if file.url.pathExtension.lowercased() == SupportedFileType.arw.rawValue {
-                        if let mycgImage = await enumPreviewExtractor.extractEmbeddedPreview(
+                        if let mycgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
                             from: file.url
                         ) {
                             setCGImage(mycgImage)

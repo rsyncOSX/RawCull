@@ -185,7 +185,7 @@ actor ScanAndCreateThumbnails {
 
             let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
-            let cgImage = try await enumExtractSonyThumbnail.extractSonyThumbnail(
+            let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
                 from: url,
                 maxDimension: CGFloat(targetSize),
                 qualityCost: costPerPixel
@@ -345,7 +345,7 @@ actor ScanAndCreateThumbnails {
 
             // 2. Extract (Calling static method to avoid allocation overhead)
             // Assumes ExtractSonyThumbnail has been updated to use static methods.
-            let cgImage = try await enumExtractSonyThumbnail.extractSonyThumbnail(
+            let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
                 from: url,
                 maxDimension: CGFloat(targetSize),
                 qualityCost: costPerPixel

@@ -10,7 +10,7 @@ import Foundation
 import ImageIO
 import OSLog
 
-enum enumPreviewExtractor {
+enum EmbeddedPreviewExtractor {
     static func extractEmbeddedPreview(
         from arwURL: URL,
         fullSize: Bool = false

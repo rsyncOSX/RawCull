@@ -8,7 +8,7 @@
 import AppKit
 import Foundation
 
-enum enumExtractSonyThumbnail {
+enum SonyThumbnailExtractor {
     /// Extract thumbnail using generic ImageIO framework.
     /// - Parameters:
     ///   - url: The URL of the RAW image file.
