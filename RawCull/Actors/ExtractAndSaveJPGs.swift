@@ -30,7 +30,7 @@ actor ExtractAndSaveJPGs {
     }
 
     @discardableResult
-    func extractAndSaveAlljpgs(from catalogURL: URL, fullSize _: Bool = false) async -> Int {
+    func extractAndSaveAlljpgs(from catalogURL: URL) async -> Int {
         cancelExtractJPGSTask()
 
         let task = Task {
