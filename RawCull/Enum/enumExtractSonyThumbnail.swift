@@ -27,7 +27,11 @@ enum enumExtractSonyThumbnail {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let image = try Self.extractSync(from: url, maxDimension: maxDimension, qualityCost: qualityCost)
+                    let image = try Self.extractSync(
+                        from: url,
+                        maxDimension: maxDimension,
+                        qualityCost: qualityCost
+                    )
                     continuation.resume(returning: image)
                 } catch {
                     continuation.resume(throwing: error)
