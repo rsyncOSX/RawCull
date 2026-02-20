@@ -284,13 +284,13 @@ This is the most inconsistent aspect of the codebase.
 
 | Issue | Example | Recommendation |
 |---|---|---|
-| ~~Enum-as-namespace types use lowercase-first naming | `enumExtractSonyThumbnail`, `enumextractEmbeddedPreview` | Types should be `UpperCamelCase`: `SonyThumbnailExtractor`, `EmbeddedPreviewExtractor`~~|
-|~~ Function names use `snake_case` | `en_date_from_string()`, `localized_string_from_date()` | Swift convention is `lowerCamelCase`~~ |
-| ~~Inconsistent capitalisation in enum names | `enumExtractSonyThumbnail` vs `enumextractEmbeddedPreview` | Standardise~~|
-| ~~Typo in file name | `exstension+String+Date.swift` | Should be `extension+String+Date.swift` ~~|
-| ~~Method name is all-lowercase | `requestthumbnail(for:targetSize:)` | Should be `requestThumbnail(for:targetSize:)`~~|
-| ~~Variable name `savedsettings` | Used in many views | Should be `savedSettings`~~|
-| ~~Parameter `fullSize _:` (ignored parameter) | In `ExtractAndSaveJPGs.extractAndSaveAlljpgs` | Suppressed parameter should be removed or implemented~~|
+| ~~Enum-as-namespace types use lowercase-first naming~~ | `enumExtractSonyThumbnail`, `enumextractEmbeddedPreview` | Types should be `UpperCamelCase`: `SonyThumbnailExtractor`, `EmbeddedPreviewExtractor`|
+|~~Function names use~~ `snake_case` | `en_date_from_string()`, `localized_string_from_date()` | Swift convention is `lowerCamelCase` |
+| ~~Inconsistent capitalisation in enum names~~ | `enumExtractSonyThumbnail` vs `enumextractEmbeddedPreview` | Standardise|
+| ~~Typo in file name~~ | `exstension+String+Date.swift` | Should be `extension+String+Date.swift` |
+| ~~Method name is all-lowercase~~ | `requestthumbnail(for:targetSize:)` | Should be `requestThumbnail(for:targetSize:)`|
+| ~~Variable name~~ `savedsettings` | Used in many views | Should be `savedSettings`~~|
+| ~~Parameter~~ `fullSize _:` (ignored parameter) | In `ExtractAndSaveJPGs.extractAndSaveAlljpgs` | Suppressed parameter should be removed or implemented|
 
 The date-formatting extension methods inherit naming from the author's other Swift projects, but the `snake_case` style stands out in an otherwise camelCase codebase.
 
@@ -374,7 +374,7 @@ The date-formatting extension methods inherit naming from the author's other Swi
 | Data Persistence | ⭐⭐⭐⭐ | Sound JSON patterns; no migration strategy yet |
 | View Layer | ⭐⭐⭐½ | Well-composed; settings pattern and AnyView usage could improve |
 | Testing | ⭐⭐ | Good foundation; very limited coverage |
-| ~~Naming Conventions | ⭐⭐½ | Inconsistent; enum namespaces and snake_case need attention (fixed)~~|
+| ~~Naming Conventions~~ | ⭐⭐½ | Inconsistent; enum namespaces and snake_case need attention (fixed)|
 | Error Handling | ⭐⭐⭐ | Good typed errors; too many silent `try?` suppressions |
 | Tooling | ⭐⭐⭐⭐⭐ | Excellent: SwiftLint, SwiftFormat, Periphery, Makefile |
 | Security / Sandbox | ⭐⭐⭐⭐⭐ | Security-scoped resources, entitlements, privacy manifest |
