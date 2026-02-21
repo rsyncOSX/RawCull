@@ -9,8 +9,7 @@ import SwiftUI
 
 struct CacheStatisticsView: View {
     @State private var statistics: CacheStatistics?
-    let requestthumbnail: SharedRequestThumbnail
-
+    
     var body: some View {
         VStack(spacing: 8) {
             HStack {
@@ -110,7 +109,7 @@ struct CacheStatisticsView: View {
 
     private func refreshStatistics() {
         Task {
-            let stats = await requestthumbnail.getCacheStatistics()
+            let stats = await SharedMemoryCache.shared.getCacheStatistics()
             await MainActor.run {
                 self.statistics = stats
             }

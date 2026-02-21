@@ -30,7 +30,7 @@ struct RequestThumbnailTests {
 
     @Test("Initializes with production config by default")
     func productionConfigInitialization() async {
-        let provider = SharedRequestThumbnail()
+        let provider = RequestThumbnail()
         let stats = await provider.getCacheStatistics()
         #expect(stats.hitRate == 0)
         #expect(stats.hits == 0)
@@ -40,7 +40,7 @@ struct RequestThumbnailTests {
     @Test("Initializes with custom config")
     func customConfigInitialization() async {
         let testConfig = CacheConfig(totalCostLimit: 50000, countLimit: 3)
-        let provider = SharedRequestThumbnail(config: testConfig)
+        let provider = RequestThumbnail(config: testConfig)
         let stats = await provider.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
@@ -49,7 +49,7 @@ struct RequestThumbnailTests {
 
     @Test("Cache hit rate calculates correctly")
     func cacheHitRate() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         // Create test images
         let testImage = createTestImage()
@@ -65,7 +65,7 @@ struct RequestThumbnailTests {
 
     @Test("Statistics reset after clear caches")
     func statisticsResetAfterClear() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         // Get initial stats
         var stats = await provider.getCacheStatistics()
@@ -84,7 +84,7 @@ struct RequestThumbnailTests {
     @Test("Cache respects count limit")
     func testCountLimit() {
         let testConfig = CacheConfig(totalCostLimit: 10_000_000, countLimit: 3)
-        let provider = SharedRequestThumbnail(config: testConfig)
+        let provider = RequestThumbnail(config: testConfig)
 
         let testImage1 = createTestImage(width: 50, height: 50)
         let testImage2 = createTestImage(width: 50, height: 50)
@@ -106,7 +106,7 @@ struct RequestThumbnailTests {
     @Test("Cache respects cost limit")
     func costLimit() {
         let testConfig = CacheConfig(totalCostLimit: 100_000, countLimit: 100)
-        let provider = SharedRequestThumbnail(config: testConfig)
+        let provider = RequestThumbnail(config: testConfig)
 
         // With a very small cost limit, items should be evicted
         // This tests the memory management
@@ -118,7 +118,7 @@ struct RequestThumbnailTests {
 
     @Test("Thumbnail method handles missing files gracefully")
     func thumbnailMissingFile() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
         let missingURL = URL(fileURLWithPath: "/nonexistent/file.jpg")
 
         let result = await provider.requestThumbnail(for: missingURL, targetSize: 256)
@@ -130,7 +130,7 @@ struct RequestThumbnailTests {
 
     @Test("Clear caches removes all cached items")
     func testClearCaches() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         // Clear caches
         await provider.clearCaches()
@@ -159,7 +159,7 @@ struct RequestThumbnailTests {
 
     @Test("Provider handles concurrent access safely")
     func concurrentAccess() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
         let testURL = URL(fileURLWithPath: "/test/file.jpg")
 
         // Attempt concurrent reads on non-existent file
@@ -196,7 +196,7 @@ struct RequestThumbnailTests {
 
     @Test("Cache delegate is properly set")
     func cacheDelegateIsSet() {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         // Verify provider initializes without crashing
         // A full test would require exposing the delegate
@@ -208,7 +208,7 @@ struct RequestThumbnailTests {
 
     @Test("Provider is actor-isolated for thread safety")
     func actorIsolation() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         // Multiple concurrent accesses should not cause data races
         await withTaskGroup(of: Void.self) { group in
@@ -229,7 +229,7 @@ struct RequestThumbnailTests {
 struct RequestThumbnailPerformanceTests {
     @Test("Statistics gathering is fast")
     func statisticsPerformance() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         let startTime = Date()
         for _ in 0 ..< 1000 {
@@ -243,7 +243,7 @@ struct RequestThumbnailPerformanceTests {
 
     @Test("Clear operation completes promptly")
     func clearCachesPerformance() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         let startTime = Date()
         await provider.clearCaches()
@@ -261,7 +261,7 @@ struct RequestThumbnailPerformanceTests {
 struct RequestThumbnailIntegrationTests {
     @Test("Multiple operations in sequence work correctly")
     func multipleOperationsSequence() async {
-        let provider = SharedRequestThumbnail(config: .testing)
+        let provider = RequestThumbnail(config: .testing)
 
         // Get initial stats
         let initialStats = await provider.getCacheStatistics()
@@ -277,8 +277,8 @@ struct RequestThumbnailIntegrationTests {
 
     @Test("Provider maintains isolation across instances")
     func instanceIsolation() async {
-        let provider1 = SharedRequestThumbnail(config: .testing)
-        let provider2 = SharedRequestThumbnail(config: .testing)
+        let provider1 = RequestThumbnail(config: .testing)
+        let provider2 = RequestThumbnail(config: .testing)
 
         // Each instance should have independent state
         let stats1 = await provider1.getCacheStatistics()

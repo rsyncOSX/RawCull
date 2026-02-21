@@ -20,7 +20,7 @@ enum JPGPreviewHandler {
     ) {
         if useThumbnailAsZoomPreview {
             Task {
-                let cgThumb = await SharedRequestThumbnail.shared.requestThumbnail(
+                let cgThumb = await RequestThumbnail().requestThumbnail(
                     for: file.url,
                     targetSize: thumbnailSizePreview
                 )

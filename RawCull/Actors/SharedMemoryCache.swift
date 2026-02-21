@@ -16,6 +16,18 @@ import OSLog
 /// allowing us to access it synchronously without actor hops.
 actor SharedMemoryCache {
     nonisolated static let shared = SharedMemoryCache()
+    
+    
+    /// For Cache monitor
+    // 1. Isolated State
+    // Removed private memory cache - now using SharedMemoryCache.shared
+    private var successCount = 0
+    private let diskCache: DiskCacheManager
+    // Cache statistics for monitoring (Actor specific, not shared)
+    private var cacheMemory = 0
+    private var cacheDisk = 0
+    // Note: cacheEvictions is now tracked by CacheDelegate and read from there
+    /// For Cache monitor
 
     // MARK: - Non-Isolated State (Thread-Safe by design)
 
@@ -43,7 +55,10 @@ actor SharedMemoryCache {
         _costPerPixel
     }
 
-    private init() {}
+    init(diskCache: DiskCacheManager? = nil) {
+        self.diskCache = diskCache ?? DiskCacheManager()
+        Logger.process.debugMessageOnly("SharedMemoryCache: init() complete (pending setup)")
+    }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
@@ -254,5 +269,55 @@ actor SharedMemoryCache {
 
     nonisolated func removeAllObjects() {
         memoryCache.removeAllObjects()
+    }
+    
+    /// For Cache monitor
+    /// Get current cache statistics for monitoring
+    func getCacheStatistics() async -> CacheStatistics {
+        await ensureReady()
+        let total = cacheMemory + cacheDisk
+        let hitRate = total > 0 ? Double(cacheMemory) / Double(total) * 100 : 0
+        let evictions = CacheDelegate.shared.getEvictionCount()
+        return CacheStatistics(
+            hits: cacheMemory,
+            misses: cacheDisk,
+            evictions: evictions,
+            hitRate: hitRate
+        )
+    }
+
+    func getDiskCacheSize() async -> Int {
+        await diskCache.getDiskCacheSize()
+    }
+
+    func pruneDiskCache(maxAgeInDays: Int = 30) async {
+        await diskCache.pruneCache(maxAgeInDays: maxAgeInDays)
+    }
+
+    func clearCaches() async {
+        let hitRate = cacheMemory + cacheDisk > 0 ? Double(cacheMemory) / Double(cacheMemory + cacheDisk) * 100 : 0
+        let hitRateStr = String(format: "%.1f", hitRate)
+        Logger.process.info("Cache Statistics - Hits: \(self.cacheMemory), Misses: \(self.cacheDisk), Hit Rate: \(hitRateStr)%")
+
+        // Clear Shared Memory Cache
+        SharedMemoryCache.shared.removeAllObjects()
+
+        await diskCache.pruneCache(maxAgeInDays: 0)
+
+        // Reset statistics
+        cacheMemory = 0
+        cacheDisk = 0
+        CacheDelegate.shared.resetEvictionCount()
+    }
+    
+    func updateCacheMemory() async {
+        cacheMemory += 1
+        Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheMemory))")
+    }
+    
+    func upadateCacheDisk() async {
+        cacheDisk += 1
+        Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheDisk))")
+        
     }
 }

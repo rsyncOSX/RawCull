@@ -33,21 +33,10 @@ enum ThumbnailError: Error, LocalizedError {
     }
 }
 
-actor SharedRequestThumbnail {
-    nonisolated static let shared = SharedRequestThumbnail()
-
-    // 1. Isolated State
-    // Removed private memory cache - now using SharedMemoryCache.shared
-    private var successCount = 0
-    private let diskCache: DiskCacheManager
-
-    // Cache statistics for monitoring (Actor specific, not shared)
-    private var cacheMemory = 0
-    private var cacheDisk = 0
-    // Note: cacheEvictions is now tracked by CacheDelegate and read from there
-
-    /// Ensures settings are loaded before any work starts
+actor RequestThumbnail {
+     /// Ensures settings are loaded before any work starts
     private var setupTask: Task<Void, Never>?
+    private let diskCache: DiskCacheManager
 
     init(
         config _: CacheConfig? = nil,
@@ -88,8 +77,7 @@ actor SharedRequestThumbnail {
         // A. Check RAM (Using Shared Cache)
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
-            cacheMemory += 1
-            Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheMemory))")
+            await SharedMemoryCache.shared.updateCacheMemory()
             let nsImage = wrapper.image
             return try nsImageToCGImage(nsImage)
         }
@@ -97,8 +85,7 @@ actor SharedRequestThumbnail {
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
             await storeInMemory(diskImage, for: url)
-            cacheDisk += 1
-            Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in Disk Cache (misses: \(cacheDisk))")
+            await SharedMemoryCache.shared.upadateCacheDisk()
             return try nsImageToCGImage(diskImage)
         }
 
@@ -142,43 +129,5 @@ actor SharedRequestThumbnail {
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
         SharedMemoryCache.shared.setObject(wrapper, forKey: url as NSURL, cost: wrapper.cost)
-    }
-
-    /// Get current cache statistics for monitoring
-    func getCacheStatistics() async -> CacheStatistics {
-        await ensureReady()
-        let total = cacheMemory + cacheDisk
-        let hitRate = total > 0 ? Double(cacheMemory) / Double(total) * 100 : 0
-        let evictions = CacheDelegate.shared.getEvictionCount()
-        return CacheStatistics(
-            hits: cacheMemory,
-            misses: cacheDisk,
-            evictions: evictions,
-            hitRate: hitRate
-        )
-    }
-
-    func getDiskCacheSize() async -> Int {
-        await diskCache.getDiskCacheSize()
-    }
-
-    func pruneDiskCache(maxAgeInDays: Int = 30) async {
-        await diskCache.pruneCache(maxAgeInDays: maxAgeInDays)
-    }
-
-    func clearCaches() async {
-        let hitRate = cacheMemory + cacheDisk > 0 ? Double(cacheMemory) / Double(cacheMemory + cacheDisk) * 100 : 0
-        let hitRateStr = String(format: "%.1f", hitRate)
-        Logger.process.info("Cache Statistics - Hits: \(self.cacheMemory), Misses: \(self.cacheDisk), Hit Rate: \(hitRateStr)%")
-
-        // Clear Shared Memory Cache
-        SharedMemoryCache.shared.removeAllObjects()
-
-        await diskCache.pruneCache(maxAgeInDays: 0)
-
-        // Reset statistics
-        cacheMemory = 0
-        cacheDisk = 0
-        CacheDelegate.shared.resetEvictionCount()
     }
 }

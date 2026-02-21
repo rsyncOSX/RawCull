@@ -204,7 +204,7 @@ struct CacheSettingsTab: View {
                 cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
             }
             .safeAreaInset(edge: .bottom) {
-                CacheStatisticsView(requestthumbnail: SharedRequestThumbnail.shared)
+                CacheStatisticsView()
                     .padding()
             }
         }
@@ -213,7 +213,7 @@ struct CacheSettingsTab: View {
     private func refreshDiskCacheSize() {
         isLoadingDiskCacheSize = true
         Task {
-            let size = await SharedRequestThumbnail.shared.getDiskCacheSize()
+            let size = await SharedMemoryCache.shared.getDiskCacheSize()
             await MainActor.run {
                 currentDiskCacheSize = size
                 isLoadingDiskCacheSize = false
@@ -224,9 +224,9 @@ struct CacheSettingsTab: View {
     private func pruneDiskCache() {
         isPruningDiskCache = true
         Task {
-            await SharedRequestThumbnail.shared.pruneDiskCache(maxAgeInDays: 0)
+            await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
             // Refresh the size after pruning
-            let size = await SharedRequestThumbnail.shared.getDiskCacheSize()
+            let size = await SharedMemoryCache.shared.getDiskCacheSize()
             await MainActor.run {
                 currentDiskCacheSize = size
                 isPruningDiskCache = false

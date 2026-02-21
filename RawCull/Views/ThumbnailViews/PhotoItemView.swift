@@ -75,7 +75,7 @@ struct PhotoItemView: View {
                 // Use preview size to match preload cache to avoid disk reads
                 let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
                 let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
-                let cgThumb = await SharedRequestThumbnail.shared.requestThumbnail(
+                let cgThumb = await RequestThumbnail().requestThumbnail(
                     for: url,
                     targetSize: thumbnailSizePreview
                 )

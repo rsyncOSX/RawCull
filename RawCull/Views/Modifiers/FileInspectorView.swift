@@ -53,7 +53,7 @@ struct FileInspectorView: View {
         .onChange(of: file) {
             Task {
                 if let file {
-                    let cgImage = await SharedRequestThumbnail.shared.requestThumbnail(for: file.url, targetSize: 1024)
+                    let cgImage = await RequestThumbnail().requestThumbnail(for: file.url, targetSize: 1024)
                     if let cgImage {
                         nsImage = NSImage(cgImage: cgImage, size: .zero)
                     } else {

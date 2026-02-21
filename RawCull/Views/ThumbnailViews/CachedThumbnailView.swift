@@ -61,7 +61,7 @@ struct CachedThumbnailView: View {
             isLoading = true
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
-            let cgImage = await SharedRequestThumbnail.shared.requestThumbnail(
+            let cgImage = await RequestThumbnail().requestThumbnail(
                 for: url,
                 targetSize: thumbnailSizePreview
             )

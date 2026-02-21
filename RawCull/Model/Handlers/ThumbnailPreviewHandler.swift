@@ -19,7 +19,7 @@ enum ThumbnailPreviewHandler {
         Task {
             let settingsManager = await SettingsViewModel.shared.asyncgetsettings()
             let thumbnailSizePreview = settingsManager.thumbnailSizePreview
-            let cgThumb = await SharedRequestThumbnail.shared.requestThumbnail(
+            let cgThumb = await RequestThumbnail().requestThumbnail(
                 for: file.url,
                 targetSize: thumbnailSizePreview
             )
