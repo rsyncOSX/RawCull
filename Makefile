@@ -18,7 +18,7 @@ archive: clean
 	echo "Exporting application archive (RELEASE)..."
 	xcodebuild \
 		-scheme $(APP) \
-		-destination 'platform=OS X,arch=x86_64' \
+		-destination 'platform=OS X,arch=arm64' \
 		-configuration Release archive \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 	echo "Application built, starting the export archive..."
@@ -33,7 +33,7 @@ archive-debug: clean
 	echo "Building application (DEBUG)..."
 	xcodebuild \
 		-scheme $(APP) \
-		-destination 'platform=OS X,arch=x86_64' \
+		-destination 'platform=OS X,arch=arm64' \
 		-configuration Debug archive \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 	echo "Application built, starting the export archive..."
