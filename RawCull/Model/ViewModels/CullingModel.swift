@@ -2,8 +2,9 @@ import Foundation
 import Observation
 import OSLog
 
-@Observable
+@Observable @MainActor
 final class CullingModel {
+    
     var savedFiles = [SavedFiles]()
 
     func loadSavedFiles() {

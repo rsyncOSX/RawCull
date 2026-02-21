@@ -108,16 +108,18 @@ enum WindowIdentifier: String {
 
 enum SupportedFileType: String, CaseIterable {
     case arw
-    case tiff, tif
     case jpeg, jpg
+    // case tiff, tif
 
     var extensions: [String] {
         switch self {
         case .arw: return ["arw"]
-        case .tiff: return ["tiff"]
-        case .jpeg: return ["jpeg"]
-        case .tif: return ["tif"]
         case .jpg: return ["jpg"]
+        case .jpeg: return ["jpeg"]
+        // case .tiff: return ["tiff"]
+        // case .jpeg: return ["jpeg"]
+        // case .tif: return ["tif"]
+        //
         }
     }
 }
