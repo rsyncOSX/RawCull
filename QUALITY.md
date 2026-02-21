@@ -336,18 +336,18 @@ All tests use the **Swift Testing** framework (`import Testing`, `@Suite`, `@Tes
 | Priority | ID | Issue |
 |---|---|---|
 | P1 | ARCH-008 | `abort()` is a no-op — user can trigger it from the menu with no effect. |
-| P1 | ~~SCAN-003~~ | `ScanFiles` only scans `.arw` files, inconsistent with `SupportedFileType` enum. |
-| P1 | ~~PERS-003~~ | `CullingModel` is not thread-safe — `savedFiles` is mutated without actor/main-actor protection. Added @MainActor to class|
-| P1 | ~~UI-003~~| `.onChange` for source selection uses unstructured `Task` — rapid changes can produce stale UI state. |
+| ~~P1~~ | ~~SCAN-003~~ | `ScanFiles` only scans `.arw` files, inconsistent with `SupportedFileType` enum. |
+| ~~P1~~ | ~~PERS-003~~ | `CullingModel` is not thread-safe — `savedFiles` is mutated without actor/main-actor protection. Added @MainActor to class|
+| ~~P1~~ | ~~UI-003~~| `.onChange` for source selection uses unstructured `Task` — rapid changes can produce stale UI state. |
 | P1 | ERR-005 | `errorMessageOnly` is `#if DEBUG` only — errors are invisible in Release builds. |
 | P1 | ERR-009 | `SaveJPGImage` failure path uses `errorMessageOnly` — silent in Release. |
 | P1 | CACHE-003 | No disk cache invalidation on source file change — stale thumbnails served after edits. |
-| P1 | ~~CACHE-011~~ | `DiskCacheManager.save` silently swallows write errors. |
+| ~~P1~~ | ~~CACHE-011~~ | `DiskCacheManager.save` silently swallows write errors. |
 | P1 | MEM-003 | Settings allow a 20 GB memory cache limit with no runtime cap against physical memory. |
-| P1 |  ~~NAME-005~~ | `upadateCacheDisk()` typo. |
+| ~~P1~~ |  ~~NAME-005~~ | `upadateCacheDisk()` typo. |
 | P1 | TEST-003 | `#expect(true)` placeholder tests provide false confidence. |
 | P1 | TEST-004 | No tests for `ScanFiles`, `CullingModel`, `SettingsViewModel`, `ExecuteCopyFiles`. |
-| P1 | BUILD-002 | xcodebuild targets `x86_64` only — Apple Silicon builds are not produced. |
+| ~~P1~~ | ~~BUILD-002~~ | xcodebuild targets `x86_64` only — Apple Silicon builds are not produced. |
 
 ### ⚠️ WARN items (address in next iteration)
 
