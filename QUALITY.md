@@ -353,7 +353,7 @@ All tests use the **Swift Testing** framework (`import Testing`, `@Suite`, `@Tes
 
 | Priority | ID | Issue |
 |---|---|---|
-| P2 | ARCH-004 | `CullingModel` missing `@MainActor` annotation. |
+| ~~P2~~ | ~~ARCH-004~~ | `CullingModel` missing `@MainActor` annotation. |
 | P2 | CONC-007 | `.onChange` tasks not stored/cancelled on view disappear. |
 | P2 | CONC-009 | `SettingsViewModel.init` race before first `Task` completion. |
 | P2 | CACHE-005 | Disk cache has no size-based eviction. |
