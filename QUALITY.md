@@ -56,8 +56,8 @@ RawCull/
 │   ├── SharedMemoryCache.swift
 │   └── SharedRequestThumbnail.swift
 ├── Enum/             # Static-method namespaces via enum (caseless)
-│   ├── enumExtractSonyThumbnail.swift
-│   └── enumextractEmbeddedPreview.swift
+│   ├── SonyThumbnailExtractor.swift
+│   └── EmbeddedPreviewExtractor.swift
 ├── Extensions/       # Swift extensions (String, Date, Logger, Thread)
 ├── Main/             # App entry point, window definitions, SupportedFileType
 ├── Model/            # ViewModels, JSON persistence, rsync integration, handlers
