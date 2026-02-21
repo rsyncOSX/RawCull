@@ -11,7 +11,12 @@ actor DiskCacheManager {
         let paths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         let folder = paths[0].appendingPathComponent("no.blogspot.RawCull/Thumbnails")
         cacheDirectory = folder
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        } catch {
+            // Optional: Log error to console
+            Logger.process.warning("DiskCacheManager: Failed to create directory \(folder): \(error)")
+        }
     }
 
     private func cacheURL(for sourceURL: URL) -> URL {

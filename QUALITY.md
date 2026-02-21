@@ -36,7 +36,7 @@ This document is a **checklist-style QA / code-quality audit**. Each item is mar
 | ID | Check | Status | Evidence | Notes / Action |
 |---|---|---|---|---|
 | CONC-001 | Heavy I/O and CPU work isolated from UI thread | PASS | actors in `RawCull/Actors/` | Good separation overall. |
-| CONC-002 | Actor isolation not violated from detached tasks (no `self` capture of actor-isolated state) | FAIL | `RawCull/Actors/DiscoverFiles.swift` uses `Task.detached` and references `self.supported` | Fix by copying `supported` into a local `let` before the detached closure. |
+| CONC-002 | Actor isolation not violated from detached tasks (no `self` capture of actor-isolated state) | ~~FAIL~~ (fixed) | `RawCull/Actors/DiscoverFiles.swift` uses `Task.detached` and references `self.supported` | Fix by copying `supported` into a local `let` before the detached closure. |
 | CONC-003 | Cancellation checks exist in long-running work | PASS | `ScanAndCreateThumbnails.processSingleFile` checks `Task.isCancelled` | Continue to propagate cancellation in loops/groups. |
 | CONC-004 | Detached tasks capture only what they need (avoid retaining whole actor) | PASS | `ScanAndCreateThumbnails` captures `dcache` | Good pattern; keep it consistent. |
 | CONC-005 | `nonisolated(unsafe)` usage is justified and documented | WARN | `SharedMemoryCache`/NSCache pattern implied by usage | Ensure comments explain thread-safety assumptions where used. |
@@ -71,7 +71,7 @@ This document is a **checklist-style QA / code-quality audit**. Each item is mar
 | ID | Check | Status | Evidence | Notes / Action |
 |---|---|---|---|---|
 | ERR-001 | Uses typed errors for core flows | PASS | `ThumbnailError` in `RequestThumbnail.swift` | Good user-facing descriptions. |
-| ERR-002 | Avoid silent `try?` for important I/O | FAIL | `DiskCacheManager` uses `try? createDirectory(...)` | Prefer `do/catch` + log warnings. |
+| ERR-002 | Avoid silent `try?` for important I/O | ~~FAIL~~ (fixed) | `DiskCacheManager` uses `try? createDirectory(...)` | Prefer `do/catch` + log warnings. |
 | ERR-003 | Background task failures are observable | WARN | Some warnings logged, but not all writes | Ensure disk write failures are logged. |
 
 ---

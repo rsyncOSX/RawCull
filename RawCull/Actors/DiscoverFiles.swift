@@ -10,12 +10,11 @@ import Foundation
 import OSLog
 
 actor DiscoverFiles {
-    let supported: Set<String> = [SupportedFileType.arw.rawValue]
+    nonisolated let supported: Set<String> = [SupportedFileType.arw.rawValue]
 
     func discoverFiles(at catalogURL: URL, recursive: Bool) async -> [URL] {
-        await Task.detached(priority: .utility) {
+        await Task.detached(priority: .utility) { [self] in
             let fileManager = FileManager.default
-
             var urls: [URL] = []
 
             guard let enumerator = fileManager.enumerator(
