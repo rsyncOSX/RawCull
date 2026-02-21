@@ -108,7 +108,7 @@ Heavy work (file scanning, thumbnail generation, JPEG extraction) is pushed into
 
 ### 3.4 Caseless Enums as Namespaces
 
-`enumExtractSonyThumbnail` and `enumextractEmbeddedPreview` use a caseless `enum` as a namespace for static methods — a Swift idiom for grouping static utilities without instantiation. This is valid but could be replaced by a `struct` with a `private init()` or simply a free function, and the naming convention is inconsistent (see section 10).
+`SonyThumbnailExtractor` and `EmbeddedPreviewExtractor` use a caseless `enum` as a namespace for static methods — a Swift idiom for grouping static utilities without instantiation. This is valid but could be replaced by a `struct` with a `private init()` or simply a free function, and the naming convention is inconsistent (see section 10).
 
 ### 3.5 Handler / Callback Injection
 
