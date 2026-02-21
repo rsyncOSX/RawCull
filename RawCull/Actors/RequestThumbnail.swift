@@ -85,7 +85,7 @@ actor RequestThumbnail {
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
             await storeInMemory(diskImage, for: url)
-            await SharedMemoryCache.shared.upadateCacheDisk()
+            await SharedMemoryCache.shared.updateCacheDisk()
             return try nsImageToCGImage(diskImage)
         }
 

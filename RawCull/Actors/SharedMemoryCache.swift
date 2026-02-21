@@ -314,7 +314,7 @@ actor SharedMemoryCache {
         Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheMemory))")
     }
 
-    func upadateCacheDisk() async {
+    func updateCacheDisk() async {
         cacheDisk += 1
         Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheDisk))")
     }

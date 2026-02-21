@@ -340,9 +340,9 @@ All tests use the **Swift Testing** framework (`import Testing`, `@Suite`, `@Tes
 | P1 | ERR-005 | `errorMessageOnly` is `#if DEBUG` only — errors are invisible in Release builds. |
 | P1 | ERR-009 | `SaveJPGImage` failure path uses `errorMessageOnly` — silent in Release. |
 | P1 | CACHE-003 | No disk cache invalidation on source file change — stale thumbnails served after edits. |
-| P1 | CACHE-011 | `DiskCacheManager.save` silently swallows write errors. |
+| P1 | ~~CACHE-011~~ | `DiskCacheManager.save` silently swallows write errors. |
 | P1 | MEM-003 | Settings allow a 20 GB memory cache limit with no runtime cap against physical memory. |
-| P1 | NAME-005 | `upadateCacheDisk()` typo. |
+| P1 |  ~~NAME-005 ~~ | `upadateCacheDisk()` typo. |
 | P1 | TEST-003 | `#expect(true)` placeholder tests provide false confidence. |
 | P1 | TEST-004 | No tests for `ScanFiles`, `CullingModel`, `SettingsViewModel`, `ExecuteCopyFiles`. |
 | P1 | BUILD-002 | xcodebuild targets `x86_64` only — Apple Silicon builds are not produced. |

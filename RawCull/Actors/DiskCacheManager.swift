@@ -51,7 +51,12 @@ actor DiskCacheManager {
         await Task.detached(priority: .background) {
             // cgImage is sent here. Since CGImage is a type-less wrapper and Sendable,
             // this is generally safe, though the compiler might warn about strict concurrency.
-            try? Self.writeImageToDisk(cgImage, to: fileURL)
+            do {
+                try Self.writeImageToDisk(cgImage, to: fileURL)
+            } catch {
+                Logger.process.warning("DiskCacheManager: Failed to write image to disk \(fileURL.path): \(error)")
+            }
+            
         }.value
     }
 
