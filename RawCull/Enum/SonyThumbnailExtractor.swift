@@ -1,5 +1,5 @@
 //
-//  enumExtractSonyThumbnail.swift
+//  SonyThumbnailExtractor.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 19/02/2026.

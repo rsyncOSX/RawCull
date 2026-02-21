@@ -16,8 +16,7 @@ import OSLog
 /// allowing us to access it synchronously without actor hops.
 actor SharedMemoryCache {
     nonisolated static let shared = SharedMemoryCache()
-    
-    
+
     /// For Cache monitor
     // 1. Isolated State
     // Removed private memory cache - now using SharedMemoryCache.shared
@@ -27,7 +26,7 @@ actor SharedMemoryCache {
     private var cacheMemory = 0
     private var cacheDisk = 0
     // Note: cacheEvictions is now tracked by CacheDelegate and read from there
-    /// For Cache monitor
+    // For Cache monitor
 
     // MARK: - Non-Isolated State (Thread-Safe by design)
 
@@ -270,7 +269,7 @@ actor SharedMemoryCache {
     nonisolated func removeAllObjects() {
         memoryCache.removeAllObjects()
     }
-    
+
     /// For Cache monitor
     /// Get current cache statistics for monitoring
     func getCacheStatistics() async -> CacheStatistics {
@@ -309,15 +308,14 @@ actor SharedMemoryCache {
         cacheDisk = 0
         CacheDelegate.shared.resetEvictionCount()
     }
-    
+
     func updateCacheMemory() async {
         cacheMemory += 1
         Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheMemory))")
     }
-    
+
     func upadateCacheDisk() async {
         cacheDisk += 1
         Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache (hits: \(cacheDisk))")
-        
     }
 }

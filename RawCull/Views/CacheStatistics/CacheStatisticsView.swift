@@ -9,7 +9,7 @@ import SwiftUI
 
 struct CacheStatisticsView: View {
     @State private var statistics: CacheStatistics?
-    
+
     var body: some View {
         VStack(spacing: 8) {
             HStack {

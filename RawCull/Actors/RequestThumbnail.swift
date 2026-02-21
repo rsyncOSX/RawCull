@@ -1,5 +1,5 @@
 //
-//  SharedRequestThumbnail.swift
+//  RequestThumbnail.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 11/02/2026.
@@ -34,7 +34,7 @@ enum ThumbnailError: Error, LocalizedError {
 }
 
 actor RequestThumbnail {
-     /// Ensures settings are loaded before any work starts
+    /// Ensures settings are loaded before any work starts
     private var setupTask: Task<Void, Never>?
     private let diskCache: DiskCacheManager
 

@@ -1,5 +1,5 @@
 //
-//  enumPreviewExtractor.swift
+//  EmbeddedPreviewExtractor.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 20/02/2026.
