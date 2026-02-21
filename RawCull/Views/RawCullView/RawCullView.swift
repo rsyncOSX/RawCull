@@ -119,7 +119,7 @@ struct RawCullView: View {
         .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
             handlePickerResult(result)
         }
-        .onChange(of: viewModel.selectedSource) {
+        .task(id: viewModel.selectedSource) {
             Task(priority: .background) {
                 if let url = viewModel.selectedSource?.url {
                     viewModel.scanning.toggle()

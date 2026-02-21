@@ -336,7 +336,7 @@ All tests use the **Swift Testing** framework (`import Testing`, `@Suite`, `@Tes
 | P1 | ARCH-008 | `abort()` is a no-op — user can trigger it from the menu with no effect. |
 | P1 | ~~SCAN-003~~ | `ScanFiles` only scans `.arw` files, inconsistent with `SupportedFileType` enum. |
 | P1 | ~~PERS-003~~ | `CullingModel` is not thread-safe — `savedFiles` is mutated without actor/main-actor protection. Added @MainActor to class|
-| P1 | UI-003 | `.onChange` for source selection uses unstructured `Task` — rapid changes can produce stale UI state. |
+| P1 | ~~UI-003~~| `.onChange` for source selection uses unstructured `Task` — rapid changes can produce stale UI state. |
 | P1 | ERR-005 | `errorMessageOnly` is `#if DEBUG` only — errors are invisible in Release builds. |
 | P1 | ERR-009 | `SaveJPGImage` failure path uses `errorMessageOnly` — silent in Release. |
 | P1 | CACHE-003 | No disk cache invalidation on source file change — stale thumbnails served after edits. |
