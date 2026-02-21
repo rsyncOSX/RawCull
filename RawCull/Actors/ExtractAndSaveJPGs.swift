@@ -85,7 +85,7 @@ actor ExtractAndSaveJPGs {
         }
     }
 
-    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
+    private func updateEstimatedTime(for: Date, itemsProcessed: Int) async {
         let now = Date()
 
         if let lastTime = lastItemTime {

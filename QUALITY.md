@@ -54,7 +54,7 @@ RawCull/
 │   ├── ScanFiles.swift
 │   ├── SaveJPGImage.swift
 │   ├── SharedMemoryCache.swift
-│   └── SharedRequestThumbnail.swift
+│   └── RequestThumbnail.swift
 ├── Enum/             # Static-method namespaces via enum (caseless)
 │   ├── SonyThumbnailExtractor.swift
 │   └── EmbeddedPreviewExtractor.swift
@@ -104,7 +104,7 @@ Heavy work (file scanning, thumbnail generation, JPEG extraction) is pushed into
 
 ### 3.3 Singleton Pattern
 
-`SettingsViewModel.shared` and `SharedMemoryCache.shared` are `nonisolated static let` singletons. These are appropriate for app-wide shared state (settings, memory cache). However, the dual singleton (`SharedRequestThumbnail.shared` also exists) creates some redundancy; `SharedRequestThumbnail` delegates all cache work to `SharedMemoryCache.shared` internally, which is good, but callers should decide which to use.
+`SettingsViewModel.shared` and `SharedMemoryCache.shared` are `nonisolated static let` singletons. These are appropriate for app-wide shared state (settings, memory and disk cache). 
 
 ### 3.4 Caseless Enums as Namespaces
 
@@ -127,7 +127,7 @@ RawCull makes extensive use of Swift's structured concurrency and the `actor` mo
 | `ScanFiles` | Directory scan + EXIF extraction |
 | `DiscoverFiles` | Raw URL discovery (recursive/flat) |
 | `ScanAndCreateThumbnails` | Preloads thumbnails for an entire catalog |
-| `SharedRequestThumbnail` | Per-URL thumbnail resolution (RAM → disk → generate) |
+| `RequestThumbnail` | Per-URL thumbnail resolution (RAM → disk → generate) |
 | `SharedMemoryCache` | Singleton `NSCache` wrapper with memory-pressure monitoring |
 | `DiskCacheManager` | Reads/writes JPEG thumbnails to the Caches directory |
 | `ExtractAndSaveJPGs` | Batch-extracts embedded JPEG previews from ARW files |
@@ -145,7 +145,7 @@ RawCull makes extensive use of Swift's structured concurrency and the `actor` mo
 
 - `DiscoverFiles` wraps its work in `Task.detached` *inside* an actor method. This is a `self`-capture in a detached task — since `self.supported` is read inside the detached closure and `self` refers to the actor, the compiler should warn under strict concurrency checking. The comment in `DiskCacheManager` acknowledges a similar issue with `CGImage`. Both should be replaced with a local copy of the value before the detached task.
 - `SharedMemoryCache` uses `nonisolated(unsafe) let memoryCache`, which bypasses actor isolation. This is intentional (NSCache is internally thread-safe) and is well-documented in the comments. However, the eviction counter that is "tracked by CacheDelegate" is referenced but no `CacheDelegate` assignment is visible in the read code — this should be verified as wired up correctly.
-- `ScanAndCreateThumbnails` and `SharedRequestThumbnail` have very similar `ensureReady()` / `setupTask` patterns. This duplication could be extracted into a shared helper protocol or base actor.
+- `ScanAndCreateThumbnails` and `RequestThumbnail` have very similar `ensureReady()` / `setupTask` patterns. This duplication could be extracted into a shared helper protocol or base actor.
 
 ---
 
@@ -234,7 +234,7 @@ Testing is performed using **Swift Testing** (the new `@Test` / `@Suite` framewo
 
 ### 8.1 Coverage
 
-Tests are scoped to `SharedRequestThumbnail` and `DiscardableThumbnail`. Three test files exist:
+Tests are scoped to `RequestThumbnail` and `DiscardableThumbnail`. Three test files exist:
 
 | File | Focus |
 |---|---|
