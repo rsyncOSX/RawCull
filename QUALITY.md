@@ -16,6 +16,8 @@ Each finding is classified as:
 
 ## Table of Contents
 
+Critical Fail (❌) summaries, presented in chapter 16, are periodically updated as new updates are implemented.
+
 1. [Repository Layout & Module Structure](#1-repository-layout--module-structure)
 2. [Architecture & MVVM Boundaries](#2-architecture--mvvm-boundaries)
 3. [Swift Concurrency Model](#3-swift-concurrency-model)
@@ -342,7 +344,7 @@ All tests use the **Swift Testing** framework (`import Testing`, `@Suite`, `@Tes
 | P1 | CACHE-003 | No disk cache invalidation on source file change — stale thumbnails served after edits. |
 | P1 | ~~CACHE-011~~ | `DiskCacheManager.save` silently swallows write errors. |
 | P1 | MEM-003 | Settings allow a 20 GB memory cache limit with no runtime cap against physical memory. |
-| P1 |  ~~NAME-005 ~~ | `upadateCacheDisk()` typo. |
+| P1 |  ~~NAME-005~~ | `upadateCacheDisk()` typo. |
 | P1 | TEST-003 | `#expect(true)` placeholder tests provide false confidence. |
 | P1 | TEST-004 | No tests for `ScanFiles`, `CullingModel`, `SettingsViewModel`, `ExecuteCopyFiles`. |
 | P1 | BUILD-002 | xcodebuild targets `x86_64` only — Apple Silicon builds are not produced. |
