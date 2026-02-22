@@ -28,11 +28,11 @@ struct CustomMemoryLimitTests {
         let provider = RequestThumbnail(config: config)
 
         // Test operations with this specific limit
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate >= 0)
 
         // Verify provider initializes correctly
-        await provider.clearCaches()
+        await SharedMemoryCache.shared.clearCaches()
     }
 
     /// Example 2: Test with 10 MB cache limit
@@ -45,7 +45,7 @@ struct CustomMemoryLimitTests {
         )
         let provider = RequestThumbnail(config: config)
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
     }
 
@@ -60,9 +60,9 @@ struct CustomMemoryLimitTests {
         let provider = RequestThumbnail(config: config)
 
         // Clear and verify operation
-        await provider.clearCaches()
+        await SharedMemoryCache.shared.clearCaches()
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.evictions == 0) // No evictions yet
     }
 
@@ -96,7 +96,7 @@ struct MemoryPressureScenarios {
 
         // Simulate rapid access
         for _ in 0 ..< 5 {
-            let stats = await provider.getCacheStatistics()
+            let stats = await SharedMemoryCache.shared.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
     }
@@ -111,7 +111,7 @@ struct MemoryPressureScenarios {
         let provider = RequestThumbnail(config: config)
 
         // With count limit of 2, any more items trigger eviction
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
     }
 }
@@ -131,7 +131,7 @@ struct ConfigComparisonTests {
 
         for (name, config) in configs {
             let provider = RequestThumbnail(config: config)
-            let stats = await provider.getCacheStatistics()
+            let stats = await SharedMemoryCache.shared.getCacheStatistics()
             let hitRate = stats.hitRate
 
             print("Config \(name): hitRate=\(hitRate)%")
@@ -150,14 +150,14 @@ struct EvictionMonitoringTests {
         let provider = RequestThumbnail(config: .testing)
 
         // Initial state
-        let initialStats = await provider.getCacheStatistics()
+        let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
         let initialEvictions = initialStats.evictions
         print("Initial evictions: \(initialEvictions)")
 
         // After operations
-        await provider.clearCaches()
+        await SharedMemoryCache.shared.clearCaches()
 
-        let finalStats = await provider.getCacheStatistics()
+        let finalStats = await SharedMemoryCache.shared.getCacheStatistics()
         let finalEvictions = finalStats.evictions
         print("Final evictions: \(finalEvictions)")
 
@@ -169,7 +169,7 @@ struct EvictionMonitoringTests {
     func hitMissRatio() async {
         let provider = RequestThumbnail(config: .testing)
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
 
         // Log statistics
         let hits = stats.hits
@@ -227,7 +227,7 @@ struct RealisticWorkloadTests {
             _ = await provider.requestThumbnail(for: url, targetSize: 256)
         }
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         print("Rapid scroll stats: \(stats)")
     }
 }
@@ -243,7 +243,7 @@ struct MemoryPerformanceTests {
 
         let start = Date()
         for _ in 0 ..< 100 {
-            _ = await provider.getCacheStatistics()
+            _ = await SharedMemoryCache.shared.getCacheStatistics()
         }
         let duration = Date().timeIntervalSince(start)
 
@@ -258,7 +258,7 @@ struct MemoryPerformanceTests {
 
         let start = Date()
         for _ in 0 ..< 100 {
-            _ = await provider.getCacheStatistics()
+            _ = await SharedMemoryCache.shared.getCacheStatistics()
         }
         let duration = Date().timeIntervalSince(start)
 
@@ -277,7 +277,7 @@ struct IntegrationTestExamples {
         let provider = RequestThumbnail(config: .testing)
 
         // Step 1: Get initial stats
-        let initialStats = await provider.getCacheStatistics()
+        let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
         let initialHits = initialStats.hits
         let initialMisses = initialStats.misses
         print("Initial: hits=\(initialHits), misses=\(initialMisses)")
@@ -286,7 +286,7 @@ struct IntegrationTestExamples {
         // ...
 
         // Step 3: Get final stats
-        let finalStats = await provider.getCacheStatistics()
+        let finalStats = await SharedMemoryCache.shared.getCacheStatistics()
         let finalHits = finalStats.hits
         let finalMisses = finalStats.misses
         print("Final: hits=\(finalHits), misses=\(finalMisses)")
@@ -295,10 +295,10 @@ struct IntegrationTestExamples {
         #expect(finalHits >= initialHits)
 
         // Step 5: Clean up
-        await provider.clearCaches()
+        await SharedMemoryCache.shared.clearCaches()
 
         // Step 6: Verify cleanup
-        let cleanStats = await provider.getCacheStatistics()
+        let cleanStats = await SharedMemoryCache.shared.getCacheStatistics()
         let cleanHits = cleanStats.hits
         #expect(cleanHits == 0 || cleanHits >= 0) // Reset
     }

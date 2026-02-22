@@ -20,12 +20,12 @@ struct RequestThumbnailAdvancedMemoryTests {
         let config = CacheConfig(totalCostLimit: 10000, countLimit: 100)
         let provider = RequestThumbnail(config: config)
 
-        let initialStats = await provider.getCacheStatistics()
+        let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(initialStats.evictions == 0)
 
         // After clear, evictions should still be tracked
-        await provider.clearCaches()
-        let finalStats = await provider.getCacheStatistics()
+        await SharedMemoryCache.shared.clearCaches()
+        let finalStats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(finalStats.evictions == 0) // Cleared
     }
 
@@ -34,7 +34,7 @@ struct RequestThumbnailAdvancedMemoryTests {
         let config = CacheConfig(totalCostLimit: 1_000_000, countLimit: 1)
         let provider = RequestThumbnail(config: config)
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
     }
@@ -60,7 +60,7 @@ struct RequestThumbnailStressTests {
         let provider = RequestThumbnail(config: .testing)
 
         for _ in 0 ..< 100 {
-            let stats = await provider.getCacheStatistics()
+            let stats = await SharedMemoryCache.shared.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
     }
@@ -72,7 +72,7 @@ struct RequestThumbnailStressTests {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 50 {
                 group.addTask {
-                    let stats = await provider.getCacheStatistics()
+                    let stats = await SharedMemoryCache.shared.getCacheStatistics()
                     #expect(stats.hits >= 0)
                 }
             }
@@ -83,8 +83,8 @@ struct RequestThumbnailStressTests {
     func concurrentClear() async {
         let provider = RequestThumbnail(config: .testing)
 
-        async let clearTask: () = provider.clearCaches()
-        async let statsTask = provider.getCacheStatistics()
+        async let clearTask: () = SharedMemoryCache.shared.clearCaches()
+        async let statsTask = SharedMemoryCache.shared.getCacheStatistics()
 
         _ = await (clearTask, statsTask)
     }
@@ -94,10 +94,10 @@ struct RequestThumbnailStressTests {
         let provider = RequestThumbnail(config: .testing)
 
         for _ in 0 ..< 10 {
-            await provider.clearCaches()
+            await SharedMemoryCache.shared.clearCaches()
         }
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
     }
 }
@@ -111,7 +111,7 @@ struct RequestThumbnailEdgeCaseTests {
         let config = CacheConfig(totalCostLimit: 0, countLimit: 10)
         let provider = RequestThumbnail(config: config)
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
 
@@ -121,7 +121,7 @@ struct RequestThumbnailEdgeCaseTests {
         let config = CacheConfig(totalCostLimit: 1_000_000, countLimit: 0)
         let provider = RequestThumbnail(config: config)
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
 
@@ -133,7 +133,7 @@ struct RequestThumbnailEdgeCaseTests {
         )
         let provider = RequestThumbnail(config: config)
 
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
     }
 
@@ -181,7 +181,7 @@ struct RequestThumbnailConfigurationTests {
 
         for config in customConfigs {
             let provider = RequestThumbnail(config: config)
-            let stats = await provider.getCacheStatistics()
+            let stats = await SharedMemoryCache.shared.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
     }
@@ -230,33 +230,6 @@ struct RequestThumbnailDiscardableContentTests {
     }
 }
 
-@Suite("RequestThumbnail Isolation Tests")
-struct RequestThumbnailIsolationTests {
-    @Test("Shared instance is consistent")
-    func sharedInstanceConsistency() async {
-        let provider1 = RequestThumbnail.shared
-        let provider2 = RequestThumbnail.shared
-
-        let stats1 = await provider1.getCacheStatistics()
-        let stats2 = await provider2.getCacheStatistics()
-
-        #expect(stats1.hits == stats2.hits)
-        #expect(stats1.misses == stats2.misses)
-    }
-
-    @Test("Different instances are independent")
-    func instanceIndependence() async {
-        let provider1 = RequestThumbnail(config: .testing)
-        let provider2 = RequestThumbnail(config: .testing)
-
-        let stats1 = await provider1.getCacheStatistics()
-        let stats2 = await provider2.getCacheStatistics()
-
-        // Both should start fresh
-        #expect(stats1.hits == 0)
-        #expect(stats2.hits == 0)
-    }
-}
 
 @Suite("RequestThumbnail Scalability Tests")
 @MainActor

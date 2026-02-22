@@ -31,7 +31,7 @@ struct RequestThumbnailTests {
     @Test("Initializes with production config by default")
     func productionConfigInitialization() async {
         let provider = RequestThumbnail()
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
@@ -41,7 +41,7 @@ struct RequestThumbnailTests {
     func customConfigInitialization() async {
         let testConfig = CacheConfig(totalCostLimit: 50000, countLimit: 3)
         let provider = RequestThumbnail(config: testConfig)
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
 
@@ -57,7 +57,7 @@ struct RequestThumbnailTests {
         // Simulate a hit and a miss
         // Note: We'd need access to storeInMemory to fully test this
         // For now, we test the statistics gathering
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         let expectedHitRate = 0.0 // Initially no hits or misses
 
         #expect(stats.hitRate == expectedHitRate)
@@ -68,13 +68,13 @@ struct RequestThumbnailTests {
         let provider = RequestThumbnail(config: .testing)
 
         // Get initial stats
-        var stats = await provider.getCacheStatistics()
+        var stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
 
         // Clear and verify
-        await provider.clearCaches()
-        stats = await provider.getCacheStatistics()
+        await SharedMemoryCache.shared.clearCaches()
+        stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
     }
@@ -133,10 +133,10 @@ struct RequestThumbnailTests {
         let provider = RequestThumbnail(config: .testing)
 
         // Clear caches
-        await provider.clearCaches()
+        await SharedMemoryCache.shared.clearCaches()
 
         // Verify statistics are reset
-        let stats = await provider.getCacheStatistics()
+        let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
         #expect(stats.evictions == 0)
@@ -214,7 +214,7 @@ struct RequestThumbnailTests {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 5 {
                 group.addTask {
-                    let stats = await provider.getCacheStatistics()
+                    let stats = await SharedMemoryCache.shared.getCacheStatistics()
                     #expect(stats.hitRate >= 0)
                 }
             }
@@ -233,7 +233,7 @@ struct RequestThumbnailPerformanceTests {
 
         let startTime = Date()
         for _ in 0 ..< 1000 {
-            _ = await provider.getCacheStatistics()
+            _ = await SharedMemoryCache.shared.getCacheStatistics()
         }
         let duration = Date().timeIntervalSince(startTime)
 
@@ -246,7 +246,7 @@ struct RequestThumbnailPerformanceTests {
         let provider = RequestThumbnail(config: .testing)
 
         let startTime = Date()
-        await provider.clearCaches()
+        await SharedMemoryCache.shared.clearCaches()
         let duration = Date().timeIntervalSince(startTime)
 
         // Should complete quickly even with empty cache
@@ -254,37 +254,3 @@ struct RequestThumbnailPerformanceTests {
     }
 }
 
-// MARK: - Integration Tests
-
-@Suite("RequestThumbnail Integration Tests")
-@MainActor
-struct RequestThumbnailIntegrationTests {
-    @Test("Multiple operations in sequence work correctly")
-    func multipleOperationsSequence() async {
-        let provider = RequestThumbnail(config: .testing)
-
-        // Get initial stats
-        let initialStats = await provider.getCacheStatistics()
-        #expect(initialStats.hits == 0)
-
-        // Clear
-        await provider.clearCaches()
-
-        // Get final stats
-        let finalStats = await provider.getCacheStatistics()
-        #expect(finalStats.hits == 0)
-    }
-
-    @Test("Provider maintains isolation across instances")
-    func instanceIsolation() async {
-        let provider1 = RequestThumbnail(config: .testing)
-        let provider2 = RequestThumbnail(config: .testing)
-
-        // Each instance should have independent state
-        let stats1 = await provider1.getCacheStatistics()
-        let stats2 = await provider2.getCacheStatistics()
-
-        #expect(stats1.hits == stats2.hits)
-        #expect(stats1.misses == stats2.misses)
-    }
-}
