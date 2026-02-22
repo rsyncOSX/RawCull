@@ -280,7 +280,7 @@ schemes:
 
 | ID | Check | Status | Notes |
 |---|---|---|---|
-| TOOL-008 | `retain_public: true` means public declarations are not reported as unused. Since this is a single-target app (not a framework), all types could be `internal`. Consider setting `retain_public: false` to catch unused public declarations. | ⚠️ WARN | |
+| ~~TOOL-008~~ | `retain_public: true` means public declarations are not reported as unused. Since this is a single-target app (not a framework), all types could be `internal`. Consider setting `retain_public: false` to catch unused public declarations. | ⚠️ WARN | |
 | TOOL-009 | Periphery is not run in the `Makefile`. Add a `periphery scan` target for CI integration. | ⚠️ WARN | |
 
 ### CI / GitHub Actions
