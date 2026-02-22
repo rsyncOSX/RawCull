@@ -1,5 +1,7 @@
 # Static Analysis Report — RawCull
 
+Fails (❌)  and Warnings (⚠️ ) are updated and marked with a ~~strikethrough~~ when fixed in the summarized  [chapter 16](#16-summary--priority-backlog).
+
 > **Report date:** 2026-02-21
 > **Analysed by:** GitHub Copilot (exhaustive static analysis)
 > **Repository:** https://github.com/rsyncOSX/RawCull
@@ -15,8 +17,6 @@ Each finding is classified as:
 ---
 
 ## Table of Contents
-
-Critical Fail (❌) summaries, presented in chapter 16, are periodically updated as new updates are implemented.
 
 1. [Repository Layout & Module Structure](#1-repository-layout--module-structure)
 2. [Architecture & MVVM Boundaries](#2-architecture--mvvm-boundaries)
