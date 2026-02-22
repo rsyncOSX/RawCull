@@ -22,4 +22,4 @@ Current version: v1.0.6 - released 22 February 2026
 - [User documentation](https://rawcull.netlify.app)
 - [Changelog](https://rawcull.netlify.app/blog/)
 
-![](images/arwphotoculler.png)
+![](images/rawcull.png)
