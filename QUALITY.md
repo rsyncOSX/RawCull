@@ -1,6 +1,6 @@
 # Static Analysis Report — RawCull
 
-Fails (❌)  and Warnings (⚠️) are updated and marked with a ~~strikethrough~~ when fixed in the summarized  [chapter 16](#16-summary--priority-backlog).
+Fails (❌)  and Warnings (⚠️) are updated and marked with a ~~strikethrough~~ in the summarized  [chapter 16](#16-summary--priority-backlog) when fixed.
 
 > **Report date:** 2026-02-21
 > **Analysed by:** GitHub Copilot (exhaustive static analysis)
