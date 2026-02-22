@@ -2,11 +2,12 @@
 
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
-macOS photo review and selection application for Sony A1 mkI and mkII ARW raw files.
+macOS photo review and selection application for Sony A1 mkI and mkII ARW raw files. This is a build for Apple Silicon only.
 
 ## Requirements
 
 - macOS 26 Tahoe and later
+- **Apple Silicon** (M-series) only
 
 ## Installation
 
