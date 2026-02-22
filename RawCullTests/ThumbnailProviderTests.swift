@@ -253,4 +253,3 @@ struct RequestThumbnailPerformanceTests {
         #expect(duration < 1.0)
     }
 }
-

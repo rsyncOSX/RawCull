@@ -79,14 +79,14 @@ actor RequestThumbnail {
             defer { wrapper.endContentAccess() }
             await SharedMemoryCache.shared.updateCacheMemory()
             let nsImage = wrapper.image
-            return try nsImageToCGImage(nsImage)
+            return try await nsImageToCGImage(nsImage)
         }
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
             await storeInMemory(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
-            return try nsImageToCGImage(diskImage)
+            return try await nsImageToCGImage(diskImage)
         }
 
         // C. Extract
@@ -114,15 +114,23 @@ actor RequestThumbnail {
         return cgImage
     }
 
-    /// Convert NSImage to CGImage for Sendable transport
-    private func nsImageToCGImage(_ nsImage: NSImage) throws -> CGImage {
-        guard let tiffData = nsImage.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmapRep.cgImage
-        else {
-            throw ThumbnailError.generationFailed
+    /// Convert NSImage to CGImage on a lower QoS to avoid priority inversions
+    private func nsImageToCGImage(_ nsImage: NSImage) async throws -> CGImage {
+        // If the NSImage already contains a CGImage, prefer that path to avoid re-encoding
+        if let cgRef = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            return cgRef
         }
-        return cgImage
+
+        // Fallback: perform TIFF roundtrip on a utility-priority detached task
+        return try await Task.detached(priority: .utility) { () throws -> CGImage in
+            guard let tiffData = nsImage.tiffRepresentation,
+                  let bitmapRep = NSBitmapImageRep(data: tiffData),
+                  let cgImage = bitmapRep.cgImage
+            else {
+                throw ThumbnailError.generationFailed
+            }
+            return cgImage
+        }.value
     }
 
     private func storeInMemory(_ image: NSImage, for url: URL) async {

@@ -230,7 +230,6 @@ struct RequestThumbnailDiscardableContentTests {
     }
 }
 
-
 @Suite("RequestThumbnail Scalability Tests")
 @MainActor
 struct RequestThumbnailScalabilityTests {

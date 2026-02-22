@@ -56,7 +56,6 @@ actor DiskCacheManager {
             } catch {
                 Logger.process.warning("DiskCacheManager: Failed to write image to disk \(fileURL.path): \(error)")
             }
-            
         }.value
     }
 

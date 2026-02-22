@@ -138,7 +138,10 @@ extension RawCullView {
                     Text(file.dateModified, style: .date)
                 }
             }
+
             if showPhotoGridView() {
+                Divider()
+
                 PhotoGridView(
                     cullingmanager: viewModel.cullingModel,
                     files: viewModel.filteredFiles,

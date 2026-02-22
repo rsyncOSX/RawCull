@@ -116,10 +116,10 @@ enum SupportedFileType: String, CaseIterable {
         case .arw: return ["arw"]
         case .jpg: return ["jpg"]
         case .jpeg: return ["jpeg"]
-        // case .tiff: return ["tiff"]
-        // case .jpeg: return ["jpeg"]
-        // case .tif: return ["tif"]
-        //
+            // case .tiff: return ["tiff"]
+            // case .jpeg: return ["jpeg"]
+            // case .tif: return ["tif"]
+            //
         }
     }
 }

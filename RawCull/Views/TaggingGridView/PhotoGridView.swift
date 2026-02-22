@@ -8,9 +8,9 @@ struct PhotoGridView: View {
     let photoURL: URL?
     var onPhotoSelected: (FileItem) -> Void = { _ in }
     var body: some View {
-        ScrollView {
-            if let savedSettings {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: CGFloat(savedSettings.thumbnailSizeGrid)))]) {
+        ScrollView(.horizontal) {
+            if savedSettings != nil {
+                LazyHStack(alignment: .top, spacing: 10) {
                     if let index = cullingmanager.savedFiles.firstIndex(where: { $0.catalog == photoURL }) {
                         if let filerecords = cullingmanager.savedFiles[index].filerecords {
                             let localfiles = filerecords.compactMap { record in record.fileName }
@@ -33,8 +33,19 @@ struct PhotoGridView: View {
                 .padding()
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
     }
 }
+
+/*
+  ScrollView(.horizontal) {
+ ///         LazyHStack(alignment: .top, spacing: 10) {
+ ///             ForEach(1...100, id: \.self) {
+ ///                 Text("Column \($0)")
+ ///             }
+ ///         }
+ ///     }
+  */

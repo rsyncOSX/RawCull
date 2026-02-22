@@ -4,7 +4,6 @@ import OSLog
 
 @Observable @MainActor
 final class CullingModel {
-    
     var savedFiles = [SavedFiles]()
 
     func loadSavedFiles() {
