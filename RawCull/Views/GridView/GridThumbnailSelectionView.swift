@@ -22,12 +22,10 @@ struct GridThumbnailSelectionView: View {
         VStack(spacing: 0) {
             // Header with info
             HStack {
-                Text("Thumbnail Grid")
-                    .font(.headline)
-
+                
                 Spacer()
 
-                Text("\(files.count) files")
+                Text("\(files.count) Thumbnails ")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
