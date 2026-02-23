@@ -19,7 +19,10 @@ struct ExifMetadata: Hashable {
 }
 
 actor ScanFiles {
-    func scanFiles(url: URL) async -> [FileItem] {
+    func scanFiles(
+        url: URL,
+        onProgress: ((_ count: Int) -> Void)? = nil
+    ) async -> [FileItem] {
         // Essential for Sandbox apps
         guard url.startAccessingSecurityScopedResource() else { return [] }
         defer { url.stopAccessingSecurityScopedResource() }
@@ -27,41 +30,60 @@ actor ScanFiles {
         Logger.process.debugThreadOnly("func scanFiles()")
 
         let keys: [URLResourceKey] = [
-            .nameKey,
-            .fileSizeKey,
-            .contentTypeKey,
-            .contentModificationDateKey
+            .nameKey, .fileSizeKey, .contentTypeKey, .contentModificationDateKey
         ]
-        let manager = FileManager.default
 
         do {
-            let contents = try manager.contentsOfDirectory(
+            let contents = try FileManager.default.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: keys,
                 options: [.skipsHiddenFiles]
             )
 
-            return contents.compactMap { fileURL -> FileItem? in
-                // Check for .arw extension (case-insensitive)
-                guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { return nil }
+            // Create a TaskGroup to process files concurrently
+            return await withTaskGroup(of: FileItem?.self) { group in
+                // 1. Queue up all the files to be processed in parallel
+                for fileURL in contents {
+                    guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
 
-                let res = try? fileURL.resourceValues(forKeys: Set(keys))
-                let exifData = extractExifData(from: fileURL)
+                    group.addTask {
+                        // This block now runs concurrently on background threads!
+                        let res = try? fileURL.resourceValues(forKeys: Set(keys))
 
-                return FileItem(
-                    url: fileURL,
-                    name: res?.name ?? fileURL.lastPathComponent,
-                    size: Int64(res?.fileSize ?? 0),
-                    type: res?.contentType?.localizedDescription ?? "File",
-                    dateModified: res?.contentModificationDate ?? Date(),
-                    exifData: exifData
-                )
+                        // Heavy work happens here, safely distributed across CPU cores
+                        let exifData = await self.extractExifData(from: fileURL)
+
+                        return FileItem(
+                            url: fileURL,
+                            name: res?.name ?? fileURL.lastPathComponent,
+                            size: Int64(res?.fileSize ?? 0),
+                            type: res?.contentType?.localizedDescription ?? "File",
+                            dateModified: res?.contentModificationDate ?? Date(),
+                            exifData: exifData
+                        )
+                    }
+                }
+
+                var result: [FileItem] = []
+                var discoveredCount = 0
+
+                // 2. Collect the results as soon as each concurrent task finishes
+                for await item in group {
+                    if let item = item {
+                        result.append(item)
+
+                        // Update the counter as each file finishes extracting
+                        discoveredCount += 1
+                        onProgress?(discoveredCount)
+                    }
+                }
+
+                return result
             }
         } catch {
             Logger.process.warning("Scan Error: \(error)")
+            return []
         }
-
-        return []
     }
 
     @concurrent
@@ -125,3 +147,16 @@ actor ScanFiles {
         return String(format: "ISO %.0f", iso.doubleValue)
     }
 }
+
+/*
+ Task {
+     let files = await scanFiles(url: selectedFolderURL) { count in
+         // Because UI updates must happen on the main thread:
+         Task { @MainActor in
+             self.myUICounterVariable = count
+         }
+     }
+
+     print("Finished scanning! Total files: \(files.count)")
+ }
+ */
