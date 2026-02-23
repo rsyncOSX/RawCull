@@ -9,6 +9,8 @@ struct FileContentView: View {
     @Binding var scanning: Bool
     @Binding var creatingThumbnails: Bool
 
+    @State var counterScannedFiles: Int = 0
+
     let files: [FileItem]
     let issorting: Bool
     let max: Double
@@ -27,9 +29,7 @@ struct FileContentView: View {
                     Button("Add Catalog") { isShowingPicker = true }
                 }
             } else if scanning {
-                
-                ProgressView("Scanning directory for ARW images, please wait: \(viewModel.counterScanDFiles)")
-                
+                ProgressView("Scanning directory for ARW images, please wait: \(counterScannedFiles)")
             } else if files.isEmpty && !scanning {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
@@ -110,6 +110,15 @@ struct FileContentView: View {
                                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                         )
                     }
+                }
+            }
+        }
+        .task(id: scanning) {
+            viewModel.countingScannedFiles = { count in
+                // Ensure UI state changes happen on the main actor
+                Task { @MainActor in
+                    // It's safe to access self on the main actor
+                    self.counterScannedFiles = count
                 }
             }
         }
