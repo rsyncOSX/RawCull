@@ -21,7 +21,7 @@ struct ExifMetadata: Hashable {
 actor ScanFiles {
     func scanFiles(
         url: URL,
-        onProgress: ((_ count: Int) -> Void)? = nil
+        onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil
     ) async -> [FileItem] {
         // Essential for Sandbox apps
         guard url.startAccessingSecurityScopedResource() else { return [] }
@@ -74,7 +74,7 @@ actor ScanFiles {
 
                         // Update the counter as each file finishes extracting
                         discoveredCount += 1
-                        onProgress?(discoveredCount)
+                        await onProgress?(discoveredCount)
                     }
                 }
 

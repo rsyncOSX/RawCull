@@ -57,22 +57,22 @@ final class RawCullViewModel {
     var useThumbnailAsZoomPreview: Bool {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
     }
-    
+
     var counterScanDFiles: Int = 0
 
     func handleSourceChange(url: URL) async {
         scanning = true
-        
-        files = await ScanFiles().scanFiles(url: url) { count in
-            // Because UI updates must happen on the main thread:
+
+        files = await ScanFiles().scanFiles(url: url) { [weak self] count in
+            // Safely hop back to the main thread
             Task { @MainActor in
-                self.counterScanDFiles = count
+                // Use self? because it is now weakly captured
+                self?.counterScanDFiles = count
             }
         }
-
-        print("Finished scanning! Total files: \(files.count)")
         
-        files = await ScanFiles().scanFiles(url: url)
+        Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
+        
         filteredFiles = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
