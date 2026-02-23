@@ -9,30 +9,6 @@ import AppKit
 import Foundation
 import OSLog
 
-//
-//  ThumbnailError.swift
-//  RawCull
-//
-
-enum ThumbnailError: Error, LocalizedError {
-    case invalidSource
-    case generationFailed
-    case contextCreationFailed
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidSource:
-            return "Could not create an image source from the provided URL."
-
-        case .generationFailed:
-            return "Failed to generate or render the thumbnail image."
-
-        case .contextCreationFailed:
-            return "Failed to create a CGContext for thumbnail re-rendering."
-        }
-    }
-}
-
 actor RequestThumbnail {
     /// Ensures settings are loaded before any work starts
     private var setupTask: Task<Void, Never>?

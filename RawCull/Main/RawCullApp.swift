@@ -98,28 +98,3 @@ struct RawCullApp: App {
         Logger.process.debugMessageOnly("RawCullApp: performCleanupTask(), shutting down, doing clean up")
     }
 }
-
-enum WindowIdentifier: String {
-    case main = "main-window"
-    case zoomcgImage = "zoom-window-cgImage"
-    case zoomnsImage = "zoom-window-nsImage"
-    case gridThumbnails = "grid-thumbnails-window"
-}
-
-enum SupportedFileType: String, CaseIterable {
-    case arw
-    case jpeg, jpg
-    // case tiff, tif
-
-    var extensions: [String] {
-        switch self {
-        case .arw: return ["arw"]
-        case .jpg: return ["jpg"]
-        case .jpeg: return ["jpeg"]
-            // case .tiff: return ["tiff"]
-            // case .jpeg: return ["jpeg"]
-            // case .tif: return ["tif"]
-            //
-        }
-    }
-}

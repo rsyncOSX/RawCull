@@ -73,8 +73,8 @@ RawCullTests/
 | ID | Finding | Status |
 |---|---|---|
 | LAYOUT-001 | Source tree is well-partitioned: Actors / Enum / Model / Views separation is consistent and idiomatic for a macOS SwiftUI app. | ✅ PASS |
-| LAYOUT-002 | `SupportedFileType` and `WindowIdentifier` enums live in `RawCullApp.swift` rather than their own files, mixing app-entry concerns with domain types. | ⚠️ WARN |
-| LAYOUT-003 | `ThumbnailError` is defined inside `RequestThumbnail.swift` (indicated by comment header `ThumbnailError.swift`). It is used by `DiskCacheManager` and `SonyThumbnailExtractor` — cross-file type dependency hidden inside a single file. | ⚠️ WARN |
+| ~~LAYOUT-002~~ | `SupportedFileType` and `WindowIdentifier` enums live in `RawCullApp.swift` rather than their own files, mixing app-entry concerns with domain types. | ⚠️ WARN |
+|~~LAYOUT-003~~ | `ThumbnailError` is defined inside `RequestThumbnail.swift` (indicated by comment header `ThumbnailError.swift`). It is used by `DiskCacheManager` and `SonyThumbnailExtractor` — cross-file type dependency hidden inside a single file. | ⚠️ WARN |
 | LAYOUT-004 | No `Package.swift` / Swift Package Manager manifest. The project is pure Xcode. Acceptable for a macOS-only app, but limits library extraction later. | ℹ️ INFO |
 
 ---
