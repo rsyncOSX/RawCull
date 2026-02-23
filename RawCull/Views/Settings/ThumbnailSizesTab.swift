@@ -161,7 +161,10 @@ struct ThumbnailSizesTab: View {
                                 )
                             )
 
-                            Text("When enabled, uses the thumbnail as the zoom preview. When disabled, extracts the JPG from ARW file for zoom.")
+                            Text("When enabled, uses the thumbnail as the zoom preview.")
+                                .font(.system(size: 11, weight: .regular))
+                                .foregroundStyle(.secondary)
+                            Text("When disabled, extracts the JPG from ARW file for zoom.")
                                 .font(.system(size: 11, weight: .regular))
                                 .foregroundStyle(.secondary)
                         }

@@ -35,7 +35,8 @@ enum EmbeddedPreviewExtractor {
                 for index in 0 ..< imageCount {
                     guard let properties = CGImageSourceCopyPropertiesAtIndex(
                         imageSource,
-                        index, nil
+                        index,
+                        nil
                     ) as? [CFString: Any]
                     else {
                         Logger.process.debugMessageOnly("enum: extractEmbeddedPreview(): Index \(index) - Failed to get properties")

@@ -264,7 +264,12 @@ struct CacheSettingsTab: View {
         if costPerImage > 0 {
             let calculatedCapacity = bytes / costPerImage
             let imageCapacity = max(1, Int(calculatedCapacity))
-            Logger.process.debugMessageOnly("Image capacity: ~\(imageCapacity) images, \(settingsManager.memoryCacheSizeMB) MB, \(thumbnailSize)×\(thumbnailSize) size, \(costPerImage) bytes/image")
+            Logger.process.debugMessageOnly(
+                "Image capacity: ~\(imageCapacity) images, " +
+                    "\(settingsManager.memoryCacheSizeMB) MB, " +
+                    "\(thumbnailSize)×\(thumbnailSize) size, " +
+                    "\(costPerImage) bytes/image"
+            )
             return String(imageCapacity)
         }
 
