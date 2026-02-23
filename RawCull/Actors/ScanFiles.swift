@@ -27,6 +27,8 @@ actor ScanFiles {
         guard url.startAccessingSecurityScopedResource() else { return [] }
         defer { url.stopAccessingSecurityScopedResource() }
 
+        var discoveredCount = 0
+
         Logger.process.debugThreadOnly("func scanFiles()")
 
         let keys: [URLResourceKey] = [
@@ -45,6 +47,10 @@ actor ScanFiles {
                 // 1. Queue up all the files to be processed in parallel
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
+
+                    // Update the counter as each file finishes extracting
+                    discoveredCount += 1
+                    await onProgress?(discoveredCount)
 
                     group.addTask {
                         // This block now runs concurrently on background threads!
@@ -65,16 +71,11 @@ actor ScanFiles {
                 }
 
                 var result: [FileItem] = []
-                var discoveredCount = 0
 
                 // 2. Collect the results as soon as each concurrent task finishes
                 for await item in group {
                     if let item = item {
                         result.append(item)
-
-                        // Update the counter as each file finishes extracting
-                        discoveredCount += 1
-                        await onProgress?(discoveredCount)
                     }
                 }
 
