@@ -10,10 +10,10 @@ import Foundation
 import OSLog
 
 actor DiscoverFiles {
-    nonisolated let supported: Set<String> = [SupportedFileType.arw.rawValue]
-
-    func discoverFiles(at catalogURL: URL, recursive: Bool) async -> [URL] {
-        await Task.detached(priority: .utility) { [self] in
+    @concurrent
+    nonisolated func discoverFiles(at catalogURL: URL, recursive: Bool) async -> [URL] {
+        await Task {
+            let supported: Set<String> = [SupportedFileType.arw.rawValue]
             let fileManager = FileManager.default
             var urls: [URL] = []
 
@@ -24,7 +24,7 @@ actor DiscoverFiles {
             ) else { return urls }
 
             while let fileURL = enumerator.nextObject() as? URL {
-                if self.supported.contains(fileURL.pathExtension.lowercased()) {
+                if supported.contains(fileURL.pathExtension.lowercased()) {
                     urls.append(fileURL)
                 }
             }

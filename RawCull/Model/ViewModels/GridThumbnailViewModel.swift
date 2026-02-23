@@ -24,16 +24,14 @@ final class GridThumbnailViewModel {
         selectedSource: ARWSourceCatalog?,
         filteredFiles: [FileItem]
     ) {
-        
-        
         self.viewModel = viewModel
         self.cullingModel = cullingManager
         self.selectedSource = selectedSource
         self.filteredFiles = filteredFiles
-        
+
         guard self.viewModel != nil else { return }
         guard self.cullingModel != nil else { return }
-        
+
         self.shouldShowWindow = true
     }
 
