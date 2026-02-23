@@ -33,7 +33,11 @@ enum EmbeddedPreviewExtractor {
 
                 // 1. Find the LARGEST JPEG available
                 for index in 0 ..< imageCount {
-                    guard let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil) as? [CFString: Any] else {
+                    guard let properties = CGImageSourceCopyPropertiesAtIndex(
+                        imageSource,
+                        index, nil
+                    ) as? [CFString: Any]
+                    else {
                         Logger.process.debugMessageOnly("enum: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
                         continue
                     }

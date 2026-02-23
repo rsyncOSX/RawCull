@@ -22,7 +22,6 @@ struct GridThumbnailSelectionView: View {
         VStack(spacing: 0) {
             // Header with info
             HStack {
-                
                 Spacer()
 
                 Text("\(files.count) Thumbnails ")
