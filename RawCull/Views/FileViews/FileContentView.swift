@@ -29,7 +29,7 @@ struct FileContentView: View {
                     Button("Add Catalog") { isShowingPicker = true }
                 }
             } else if scanning {
-                ProgressView("Scanning directory for ARW images, please wait: \(counterScannedFiles)")
+                ProgressView("Scanning directory for ARW images, counting files ... \(counterScannedFiles)")
             } else if files.isEmpty && !scanning {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")

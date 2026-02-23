@@ -36,6 +36,18 @@ struct GridThumbnailItemView: View {
                                 height: CGFloat(savedSettings.thumbnailSizeGridView)
                             )
                             .clipped()
+                            .overlay(alignment: .topTrailing) { // 👈 Add overlay with alignment
+                                Button(action: onToggle) {
+                                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                                        .foregroundStyle(.blue)
+                                        .font(.system(size: isHovered ? 12 : 10))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(6)
+                                .background(Color.white.opacity(0.9))
+                                .clipShape(Circle())
+                                .padding(4)
+                            }
                     } else if isLoading, let savedSettings {
                         Rectangle()
                             .fill(Color.gray.opacity(0.1))
@@ -65,23 +77,6 @@ struct GridThumbnailItemView: View {
                     .padding(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.gray.opacity(0.05))
-            }
-
-            // Selection indicator and checkbox
-            VStack(alignment: .trailing, spacing: 6) {
-                HStack(spacing: 6) {
-                    // Checkbox
-                    Button(action: onToggle) {
-                        Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(.blue)
-                            .font(.system(size: isHovered ? 18 : 16))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(6)
-                    .background(Color.white.opacity(0.9))
-                    .clipShape(Circle())
-                    .padding(4)
-                }
             }
         }
         .contentShape(Rectangle())
