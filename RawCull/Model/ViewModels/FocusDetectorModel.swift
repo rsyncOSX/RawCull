@@ -17,9 +17,14 @@ final class FocusDetectorModel: @unchecked Sendable {
             assertionFailure("FocusDetectorModel: Could not find default.metallib in bundle.")
             return nil
         }
+        
+        // Temporary: try loading ALL kernel names to see what's available
+        let kernelNames = CIKernel.kernelNames(fromMetalLibraryData: data)
+        print("✅ Available kernels in metallib: \(kernelNames)")
+        
         do {
             let kernel = try CIColorKernel(functionName: "sobelMagnitude", fromMetalLibraryData: data)
-            print("✅ FocusDetectorModel: sobelMagnitude kernel loaded successfully")
+            print("✅ sobelMagnitude kernel loaded successfully")
             return kernel
         } catch {
             assertionFailure("FocusDetectorModel: Failed to load sobelMagnitude kernel: \(error)")
