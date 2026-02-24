@@ -19,7 +19,7 @@ Download from  [GitHub Repository](https://github.com/rsyncOSX/RawCull/releases)
 
 ## Version
 
-Current version: v1.0.6 - released 22 February 2026
+Current version: v1.0.7 - released 23 February 2026
 
 ## Documentation
 
