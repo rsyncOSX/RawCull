@@ -64,6 +64,7 @@ struct CopyFilesView: View {
                     showingAlert = true
                 }
             )
+            .disabled(copyfilesinprogress == true)
         }
         .padding()
         .frame(width: 650, height: 500, alignment: .init(horizontal: .center, vertical: .center))
