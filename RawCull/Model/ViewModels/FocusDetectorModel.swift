@@ -8,7 +8,26 @@ final class FocusDetectorModel: @unchecked Sendable {
     // CIContext is thread-safe for rendering; created once for performance.
     // @unchecked Sendable is safe here since context is read-only after init.
     private let context = CIContext(options: [.workingColorSpace: NSNull()])
+    
+    private static let magnitudeKernel: CIColorKernel? = {
+        guard
+            let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
+            let data = try? Data(contentsOf: url)
+        else {
+            assertionFailure("FocusDetectorModel: Could not find default.metallib in bundle.")
+            return nil
+        }
+        do {
+            let kernel = try CIColorKernel(functionName: "sobelMagnitude", fromMetalLibraryData: data)
+            print("✅ FocusDetectorModel: sobelMagnitude kernel loaded successfully")
+            return kernel
+        } catch {
+            assertionFailure("FocusDetectorModel: Failed to load sobelMagnitude kernel: \(error)")
+            return nil
+        }
+    }()
 
+/*
     // Loaded once at class level; Metal kernel compilation is expensive.
     private static let magnitudeKernel: CIColorKernel? = {
         guard
@@ -25,11 +44,17 @@ final class FocusDetectorModel: @unchecked Sendable {
             return nil
         }
     }()
-
+*/
     func generateFocusMask(
         from nsImage: NSImage,
         scale: CGFloat
     ) async -> NSImage? {
+        // Temporary debug — remove once verified
+            print("Bundle contents:")
+            Bundle.main.urls(forResourcesWithExtension: nil, subdirectory: nil)?.forEach {
+                print($0.lastPathComponent)
+            }
+        
         // Extract what we need from NSImage before entering the detached task,
         // avoiding implicit capture of 'self' or non-Sendable NSImage across actor boundaries.
         guard let cgImage = nsImage.cgImage(
@@ -109,3 +134,7 @@ final class FocusDetectorModel: @unchecked Sendable {
         return NSImage(cgImage: outputCGImage, size: originalSize)
     }
 }
+
+/*
+ 
+ */

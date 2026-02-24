@@ -399,6 +399,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0.7;
+				MTL_LANGUAGE_REVISION = Metal40;
+				OTHER_METAL_FLAGS = "-fcikernel";
+				OTHER_MTLLINKER_FLAGS = "-cikernel";
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -456,6 +459,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0.7;
+				MTL_LANGUAGE_REVISION = Metal40;
+				OTHER_METAL_FLAGS = "-fcikernel";
+				OTHER_MTLLINKER_FLAGS = "-cikernel";
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
