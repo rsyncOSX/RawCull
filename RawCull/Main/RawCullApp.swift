@@ -55,7 +55,7 @@ struct RawCullApp: App {
         }
 
         Window("ZoomcgImage", id: "zoom-window-cgImage") {
-            ZoomableCSImageView(cgImage: cgImage)
+            ZoomableFocusePeekCSImageView(cgImage: cgImage)
                 .onAppear {
                     zoomCGImageWindowFocused = true
                 }

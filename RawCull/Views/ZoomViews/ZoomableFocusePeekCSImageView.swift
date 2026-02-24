@@ -1,12 +1,12 @@
 //
-//  ZoomableFocusePeekNSImageView.swift
+//  ZoomableFocusePeekCSImageView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 24/02/2026.
 //
 
 //
-//  ZoomableNSImageView.swift
+//  ZoomableCSImageView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 24/01/2026.
@@ -14,19 +14,19 @@
 
 import SwiftUI
 
-struct ZoomableFocusePeekNSImageView: View {
+struct ZoomableFocusePeekCSImageView: View {
     @Environment(\.dismiss) var dismiss
-    /// Use NSImage for macOS
-    let nsImage: NSImage?
-    @State private var focusMask: NSImage? // The image returned by your model
+    let cgImage: CGImage?
+
+    @State private var focusMask: CGImage? // The image returned by your model
 
     // State variables for zoom and pan
-    @State private var currentScale: CGFloat = 1.0
+    @State private var currentScale: CGFloat = 1.0 // Starts zoomed in
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
-    @State private var focusDetectorModel = FocusDetectorNSImageModel()
+    @State private var focusDetectorModel = FocusDetectorCGImageModel()
     @State private var showFocusMask: Bool = false
 
     private let zoomLevel: CGFloat = 2.0
@@ -35,15 +35,12 @@ struct ZoomableFocusePeekNSImageView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if let nsImage {
+            if let cgImage {
                 GeometryReader { geo in
                     if showFocusMask, let focusMask {
-                        Image(nsImage: focusMask)
+                        // FIX: Wrapped CGImage in UIImage for proper scaling/orientation
+                        Image(decorative: focusMask, scale: 1.0, orientation: .up)
                             .resizable()
-                            // Optional: Adjust opacity to make it blend better
-                            .opacity(1.0)
-                            // Optional: You can use blending modes to make it pop
-                            .blendMode(.screen)
                             .scaledToFit()
                             .frame(width: geo.size.width, height: geo.size.height)
                             .scaleEffect(currentScale)
@@ -87,7 +84,8 @@ struct ZoomableFocusePeekNSImageView: View {
                                 }
                             }
                     } else {
-                        Image(nsImage: nsImage)
+                        // FIX: Wrapped CGImage in UIImage for proper scaling/orientation
+                        Image(decorative: cgImage, scale: 1.0, orientation: .up)
                             .resizable()
                             .scaledToFit()
                             .frame(width: geo.size.width, height: geo.size.height)
@@ -138,7 +136,7 @@ struct ZoomableFocusePeekNSImageView: View {
                     ProgressView()
                         .fixedSize()
 
-                    Text("Loading image...")
+                    Text("Extracting image, please wait...")
                         .font(.title)
                 }
                 .padding()
@@ -213,8 +211,8 @@ struct ZoomableFocusePeekNSImageView: View {
                             .font(.caption)
                             .foregroundStyle(.black.opacity(0.5))
                     }
-                    if let nsImage {
-                        Text("\(Int(nsImage.size.width)) × \(Int(nsImage.size.height)) px")
+                    if let cgImage {
+                        Text("\(cgImage.width) × \(cgImage.height) px")
                             .font(.caption2)
                             .foregroundStyle(.black.opacity(0.4))
                     }
@@ -223,9 +221,9 @@ struct ZoomableFocusePeekNSImageView: View {
             }
         }
         .task {
-            if let nsImage {
+            if let cgImage {
                 let mask = await focusDetectorModel.generateFocusMask(
-                    from: nsImage,
+                    from: cgImage,
                     scale: currentScale
                 )
                 await MainActor.run {
@@ -233,10 +231,10 @@ struct ZoomableFocusePeekNSImageView: View {
                 }
             }
         }
-        .task(id: nsImage) {
-            if let nsImage {
+        .task(id: cgImage) {
+            if let cgImage {
                 let mask = await focusDetectorModel.generateFocusMask(
-                    from: nsImage,
+                    from: cgImage,
                     scale: currentScale
                 )
                 await MainActor.run {
