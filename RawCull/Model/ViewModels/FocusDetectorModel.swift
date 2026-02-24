@@ -1,62 +1,71 @@
 import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
-import Foundation
 import Observation
 
 @Observable
 final class FocusDetectorModel {
-    private let context = CIContext()
+    private let context = CIContext(options: [.workingColorSpace: NSNull()]) // Performance: skip color management for masks
 
-    func generateFocusMask(from nsImage: NSImage) async -> NSImage? {
-        // 1. Corrected Conversion: NSImage -> CGImage
-        // We pass nil for the rect, context, and hints to get the default full-size image.
-        guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            // Fallback: If cgImage fails, try via TIFF (covers some rare image loading cases)
-            guard let tiffData = nsImage.tiffRepresentation,
-                  let ciFallback = CIImage(data: tiffData) else { return nil }
-            return processImage(ciFallback, originalSize: nsImage.size)
-        }
+    func generateFocusMask(
+        from nsImage: NSImage,
+        scale: CGFloat
+    ) async -> NSImage? {
+        // Use a Task.detached to ensure we don't block the main actor during rendering
+        await Task.detached(priority: .userInitiated) { () -> NSImage? in
+            guard let cgImage = nsImage.cgImage(
+                forProposedRect: nil,
+                context: nil,
+                hints: nil
+            ) else {
+                return nil
+            }
 
-        let inputImage = CIImage(cgImage: cgImage)
-        return processImage(inputImage, originalSize: nsImage.size)
+            let inputImage = CIImage(cgImage: cgImage)
+            return await self.processImage(
+                inputImage,
+                originalSize: nsImage.size,
+                scale: scale
+            )
+        }.value
     }
 
-    private func processImage(_ inputImage: CIImage, originalSize: NSSize) -> NSImage? {
-        // 2. Downscale for Performance (0.5)
-        let scale: CGFloat = 1.0
+    private func processImage(
+        _ inputImage: CIImage,
+        originalSize: NSSize,
+        scale: CGFloat
+    ) -> NSImage? {
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
-        // 3. Edge Detection
-        let edgeFilter = CIFilter.edges()
-        edgeFilter.inputImage = scaledImage
-        edgeFilter.intensity = 5.0
+        // 2. Sobel Gradient (More accurate for focus detection than 'edges')
+        let sobelFilter = CIFilter.sobelGradients()
+        sobelFilter.inputImage = scaledImage
+        guard let edges = sobelFilter.outputImage else { return nil }
 
-        guard let edges = edgeFilter.outputImage else { return nil }
-
-        // 4. Thresholding (The "Focus" magic)
-        let thresholdFilter = CIFilter.colorControls()
+        // 3. Proper Thresholding (Adjust 'threshold' to change sensitivity)
+        let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = edges
-        thresholdFilter.contrast = 10.0 // High contrast acts as a threshold
-        thresholdFilter.brightness = 0.0
+        thresholdFilter.threshold = 0.15 // Lower = more sensitive (shows more "focus")
 
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // 5. Colorizing (Red Overlay)
+        // 4. Colorizing (Red Overlay)
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = thresholdedEdges
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
-        redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0) // Alpha = Intensity
+        redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0) // Alpha tied to intensity
 
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // 6. Render back to NSImage
+        // 5. Render
+        // Note: We render the 'extent' of the mask, which is already scaled down.
         guard let outputCGImage = context.createCGImage(redMask, from: redMask.extent) else {
             return nil
         }
 
+        // NSImage will upscale this back to the 'originalSize' when drawn
         return NSImage(cgImage: outputCGImage, size: originalSize)
     }
 }

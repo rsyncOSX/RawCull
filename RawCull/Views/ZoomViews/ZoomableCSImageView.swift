@@ -90,7 +90,7 @@ struct ZoomableCSImageView: View {
                 HStack {
                     Spacer()
                     Button(action: { decreaseZoom() }, label: {
-                        Image(systemName: "minus.magnifyingglass")
+                        Image(systemName: "minus.circle.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.white)
                             .frame(width: 30, height: 30)
@@ -114,7 +114,7 @@ struct ZoomableCSImageView: View {
                     .padding()
 
                     Button(action: { increaseZoom() }, label: {
-                        Image(systemName: "plus.magnifyingglass")
+                        Image(systemName: "plus.circle.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.white)
                             .frame(width: 30, height: 30)
