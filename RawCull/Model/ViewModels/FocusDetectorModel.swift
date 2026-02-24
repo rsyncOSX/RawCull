@@ -2,13 +2,14 @@ import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Observation
+import OSLog
 
 @Observable
 final class FocusDetectorModel: @unchecked Sendable {
-    // CIContext is thread-safe for rendering; created once for performance.
-    // @unchecked Sendable is safe here since context is read-only after init.
+    /// CIContext is thread-safe for rendering; created once for performance.
+    /// @unchecked Sendable is safe here since context is read-only after init.
     private let context = CIContext(options: [.workingColorSpace: NSNull()])
-    
+
     private static let magnitudeKernel: CIColorKernel? = {
         guard
             let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
@@ -17,14 +18,10 @@ final class FocusDetectorModel: @unchecked Sendable {
             assertionFailure("FocusDetectorModel: Could not find default.metallib in bundle.")
             return nil
         }
-        
-        // Temporary: try loading ALL kernel names to see what's available
-        let kernelNames = CIKernel.kernelNames(fromMetalLibraryData: data)
-        print("✅ Available kernels in metallib: \(kernelNames)")
-        
+
         do {
             let kernel = try CIColorKernel(functionName: "sobelMagnitude", fromMetalLibraryData: data)
-            print("✅ sobelMagnitude kernel loaded successfully")
+            Logger.process.debugMessageOnly("✅ sobelMagnitude kernel loaded successfully")
             return kernel
         } catch {
             assertionFailure("FocusDetectorModel: Failed to load sobelMagnitude kernel: \(error)")
@@ -32,34 +29,10 @@ final class FocusDetectorModel: @unchecked Sendable {
         }
     }()
 
-/*
-    // Loaded once at class level; Metal kernel compilation is expensive.
-    private static let magnitudeKernel: CIColorKernel? = {
-        guard
-            let url = Bundle.main.url(forResource: "Kernels", withExtension: "ci.metallib"),
-            let data = try? Data(contentsOf: url)
-        else {
-            assertionFailure("FocusDetectorModel: Could not find Kernels.ci.metallib in bundle.")
-            return nil
-        }
-        do {
-            return try CIColorKernel(functionName: "sobelMagnitude", fromMetalLibraryData: data)
-        } catch {
-            assertionFailure("FocusDetectorModel: Failed to load sobelMagnitude kernel: \(error)")
-            return nil
-        }
-    }()
-*/
     func generateFocusMask(
         from nsImage: NSImage,
         scale: CGFloat
     ) async -> NSImage? {
-        // Temporary debug — remove once verified
-            print("Bundle contents:")
-            Bundle.main.urls(forResourcesWithExtension: nil, subdirectory: nil)?.forEach {
-                print($0.lastPathComponent)
-            }
-        
         // Extract what we need from NSImage before entering the detached task,
         // avoiding implicit capture of 'self' or non-Sendable NSImage across actor boundaries.
         guard let cgImage = nsImage.cgImage(
@@ -82,7 +55,7 @@ final class FocusDetectorModel: @unchecked Sendable {
         }.value
     }
 
-    // Static to make it explicit that this function is pure/stateless.
+    /// Static to make it explicit that this function is pure/stateless.
     private static func processImage(
         _ inputImage: CIImage,
         originalSize: NSSize,
@@ -139,7 +112,3 @@ final class FocusDetectorModel: @unchecked Sendable {
         return NSImage(cgImage: outputCGImage, size: originalSize)
     }
 }
-
-/*
- 
- */
