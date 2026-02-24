@@ -26,6 +26,7 @@ struct ZoomableFocusePeekNSImageView: View {
     @State private var lastOffset: CGSize = .zero
 
     @State private var focusDetectorModel = FocusDetectorModel()
+    @State private var showFocusMask: Bool = false
 
     @Environment(\.dismiss) var dismiss
 
@@ -37,20 +38,55 @@ struct ZoomableFocusePeekNSImageView: View {
 
             if let nsImage {
                 GeometryReader { geo in
-                    // Image(nsImage:) is the native macOS initializer
-
-                    // ZStack {
-                    // 2. The Focus Peak Mask (Overlay)
-                    // We only show it if it exists
-
-                    if let focusMask {
+                    if showFocusMask, let focusMask {
                         Image(nsImage: focusMask)
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
                             // Optional: Adjust opacity to make it blend better
                             .opacity(1.0)
                             // Optional: You can use blending modes to make it pop
                             .blendMode(.screen)
+                            .scaledToFit()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .scaleEffect(currentScale)
+                            .offset(offset)
+                            .gesture(
+                                SimultaneousGesture(
+                                    MagnificationGesture()
+                                        .onChanged { value in
+                                            currentScale = lastScale * value
+                                        }
+                                        .onEnded { _ in
+                                            lastScale = currentScale
+                                            if currentScale < 1.0 {
+                                                withAnimation(.spring()) {
+                                                    resetToFit()
+                                                }
+                                            }
+                                        },
+
+                                    DragGesture()
+                                        .onChanged { value in
+                                            if currentScale > 1.0 {
+                                                offset = CGSize(
+                                                    width: lastOffset.width + value.translation.width,
+                                                    height: lastOffset.height + value.translation.height
+                                                )
+                                            }
+                                        }
+                                        .onEnded { _ in
+                                            lastOffset = offset
+                                        }
+                                )
+                            )
+                            .onTapGesture(count: 2) {
+                                withAnimation(.spring()) {
+                                    if currentScale > 1.0 {
+                                        resetToFit()
+                                    } else {
+                                        zoomToTarget()
+                                    }
+                                }
+                            }
                     } else {
                         Image(nsImage: nsImage)
                             .resizable()
@@ -116,8 +152,22 @@ struct ZoomableFocusePeekNSImageView: View {
             VStack {
                 HStack {
                     Spacer()
+
+                    Button(action: { showFocusMask.toggle() }, label: {
+                        Image(systemName: "viewfinder.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.white)
+                            .frame(width: 30, height: 30)
+                            .background(Material.ultraThinMaterial)
+                            .clipShape(Circle())
+                    })
+                    .buttonStyle(.plain)
+                    .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
+                    .padding()
+                    .disabled(focusMask == nil)
+
                     Button(action: { decreaseZoom() }, label: {
-                        Image(systemName: "minus.magnifyingglass")
+                        Image(systemName: "minus.circle.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.white)
                             .frame(width: 30, height: 30)
@@ -141,7 +191,7 @@ struct ZoomableFocusePeekNSImageView: View {
                     .padding()
 
                     Button(action: { increaseZoom() }, label: {
-                        Image(systemName: "plus.magnifyingglass")
+                        Image(systemName: "plus.circle.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.white)
                             .frame(width: 30, height: 30)
@@ -174,6 +224,14 @@ struct ZoomableFocusePeekNSImageView: View {
             }
         }
         .task {
+            if let nsImage {
+                let mask = await focusDetectorModel.generateFocusMask(from: nsImage)
+                await MainActor.run {
+                    self.focusMask = mask
+                }
+            }
+        }
+        .task(id: nsImage) {
             if let nsImage {
                 let mask = await focusDetectorModel.generateFocusMask(from: nsImage)
                 await MainActor.run {
