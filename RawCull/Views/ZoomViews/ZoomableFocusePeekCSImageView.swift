@@ -26,7 +26,7 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
-    @State private var focusDetectorModel: FocusDetectorMaskModel?
+    @State private var focusDetectorModel: FocusDetectorMaskModel = .init()
     @State private var showFocusMask: Bool = false
 
     private let zoomLevel: CGFloat = 2.0
@@ -220,22 +220,16 @@ struct ZoomableFocusePeekCSImageView: View {
                 .padding(.bottom, 20)
             }
         }
-        .task {
-            focusDetectorModel = FocusDetectorMaskModel()
-            if let cgImage {
-                let mask = await focusDetectorModel?.generateFocusMask(
-                    from: cgImage,
-                    scale: currentScale
-                )
-                await MainActor.run {
-                    self.focusMask = mask
-                }
-            }
-        }
         .task(id: cgImage) {
+            await MainActor.run {
+                self.focusMask = nil
+            } // free memory first
             if let cgImage {
-                let mask = await focusDetectorModel?.generateFocusMask(
-                    from: cgImage,
+                // Downscale first — the mask doesn't need full resolution
+                let downscaled = cgImage.downscaled(toWidth: 1024)
+
+                let mask = await focusDetectorModel.generateFocusMask(
+                    from: downscaled ?? cgImage,
                     scale: currentScale
                 )
                 await MainActor.run {
@@ -269,5 +263,28 @@ struct ZoomableFocusePeekCSImageView: View {
         withAnimation(.spring()) {
             currentScale = max(0.5, currentScale - 0.4)
         }
+    }
+}
+
+extension CGImage {
+    func downscaled(toWidth maxWidth: Int) -> CGImage? {
+        guard width > maxWidth else { return self }
+        let scale = CGFloat(maxWidth) / CGFloat(width)
+        let newWidth = maxWidth
+        let newHeight = Int(CGFloat(height) * scale)
+
+        guard let context = CGContext(
+            data: nil,
+            width: newWidth,
+            height: newHeight,
+            bitsPerComponent: bitsPerComponent,
+            bytesPerRow: 0,
+            space: colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: bitmapInfo.rawValue
+        ) else { return nil }
+
+        context.interpolationQuality = .medium
+        context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+        return context.makeImage()
     }
 }

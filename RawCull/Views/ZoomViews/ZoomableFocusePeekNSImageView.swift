@@ -26,7 +26,7 @@ struct ZoomableFocusePeekNSImageView: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
-    @State private var focusDetectorModel: FocusDetectorMaskModel?
+    @State private var focusDetectorModel: FocusDetectorMaskModel = .init()
     @State private var showFocusMask: Bool = false
 
     private let zoomLevel: CGFloat = 2.0
@@ -222,21 +222,12 @@ struct ZoomableFocusePeekNSImageView: View {
                 .padding(.bottom, 20)
             }
         }
-        .task {
-            focusDetectorModel = FocusDetectorMaskModel()
-            if let nsImage {
-                let mask = await focusDetectorModel?.generateFocusMask(
-                    from: nsImage,
-                    scale: currentScale
-                )
-                await MainActor.run {
-                    self.focusMask = mask
-                }
-            }
-        }
         .task(id: nsImage) {
+            await MainActor.run {
+                self.focusMask = nil
+            } // free memory first
             if let nsImage {
-                let mask = await focusDetectorModel?.generateFocusMask(
+                let mask = await focusDetectorModel.generateFocusMask(
                     from: nsImage,
                     scale: currentScale
                 )
