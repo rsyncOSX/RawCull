@@ -5,7 +5,7 @@ import Observation
 import OSLog
 
 @Observable
-final class FocusDetectorNSImageModel: @unchecked Sendable {
+final class FocusDetectorMaskModel: @unchecked Sendable {
     /// CIContext is thread-safe for rendering; created once for performance.
     /// @unchecked Sendable is safe here since context is read-only after init.
     private let context = CIContext(options: [.workingColorSpace: NSNull()])
@@ -110,5 +110,58 @@ final class FocusDetectorNSImageModel: @unchecked Sendable {
         }
 
         return NSImage(cgImage: outputCGImage, size: originalSize)
+    }
+    
+    func generateFocusMask(
+        from cgImage: CGImage,
+        scale: CGFloat
+    ) async -> CGImage? {
+        let context = self.context
+
+        return await Task.detached(priority: .userInitiated) {
+            let inputImage = CIImage(cgImage: cgImage)
+            return await Self.processImage(
+                inputImage,
+                scale: scale,
+                context: context
+            )
+        }.value
+    }
+    
+    private static func processImage(
+        _ inputImage: CIImage,
+        scale: CGFloat,
+        context: CIContext
+    ) -> CGImage? {
+        let scaledImage = inputImage.transformed(
+            by: CGAffineTransform(scaleX: scale, y: scale)
+        )
+
+        let sobelFilter = CIFilter.sobelGradients()
+        sobelFilter.inputImage = scaledImage
+        guard let sobelOutput = sobelFilter.outputImage else { return nil }
+
+        guard
+            let magnitudeKernel = Self.magnitudeKernel,
+            let magnitudeImage = magnitudeKernel.apply(
+                extent: sobelOutput.extent,
+                arguments: [sobelOutput]
+            )
+        else { return nil }
+
+        let thresholdFilter = CIFilter.colorThreshold()
+        thresholdFilter.inputImage = magnitudeImage
+        thresholdFilter.threshold = 0.15
+        guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
+
+        let redMatrix = CIFilter.colorMatrix()
+        redMatrix.inputImage = thresholdedEdges
+        redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        guard let redMask = redMatrix.outputImage else { return nil }
+
+        return context.createCGImage(redMask, from: redMask.extent)
     }
 }
