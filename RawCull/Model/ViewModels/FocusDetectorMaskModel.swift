@@ -111,7 +111,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
 
         return NSImage(cgImage: outputCGImage, size: originalSize)
     }
-    
+
     func generateFocusMask(
         from cgImage: CGImage,
         scale: CGFloat
@@ -127,7 +127,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
             )
         }.value
     }
-    
+
     private static func processImage(
         _ inputImage: CIImage,
         scale: CGFloat,
