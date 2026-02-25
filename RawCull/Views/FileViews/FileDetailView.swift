@@ -20,7 +20,10 @@ struct FileDetailView: View {
 
     var body: some View {
         if showDetailsTagView, let url = file?.url {
-            DeepDiveTagsView(url: url)
+            DeepDiveTagsView(
+                showDetailsTagView: $showDetailsTagView,
+                url: url
+            )
         } else {
             if let file = file {
                 VStack(spacing: 20) {
