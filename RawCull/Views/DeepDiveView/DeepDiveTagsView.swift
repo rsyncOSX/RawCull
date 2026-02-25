@@ -15,7 +15,9 @@ enum MetadataValue: Identifiable {
     case array([String])
     case group(String, [MetadataEntry])
 
-    var id: UUID { UUID() }
+    var id: UUID {
+        UUID()
+    }
 }
 
 struct MetadataEntry: Identifiable {
@@ -110,16 +112,76 @@ struct DeepDiveTagsView: View {
     @State private var searchText = ""
     @State private var selectedIndex = 0
 
-    // Pass a URL to load; for preview/demo purposes use an optional
+    /// Pass a URL to load; for preview/demo purposes use an optional
     var url: URL?
 
-    enum Tab: String, CaseIterable {
+    enum Tab: String, CaseIterable, Identifiable {
         case properties = "Properties"
         case xmp = "XMP Tags"
+        var id: Self {
+            self
+        }
     }
 
     var body: some View {
-        NavigationStack {
+        // Do NOT use NavigationStack here if this view is already inside one
+        // (e.g. presented as a sheet or detail pane). Wrap only at the app root.
+        // The toolbar crash comes from nested NavigationStacks + searchable
+        // registering conflicting AppKit toolbar identifiers.
+        VStack(spacing: 0) {
+            // ── Custom inline toolbar replacement ──────────────────────────
+            HStack(spacing: 12) {
+                // Title block
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(viewModel.fileName.isEmpty ? "Metadata Inspector" : viewModel.fileName)
+                        .font(.headline)
+                        .lineLimit(1)
+                    if !viewModel.fileType.isEmpty {
+                        Text(viewModel.fileType)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                // Index picker (only when multiple indices exist)
+                if viewModel.imageMetadata.count > 1 {
+                    IndexPickerView(selectedIndex: $selectedIndex, count: viewModel.imageMetadata.count)
+                }
+
+                // Tab switcher — plain buttons avoid toolbar identifier issues
+                TabToggleView(selectedTab: $selectedTab)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            .background(.bar)
+
+            Divider()
+
+            // ── Search field ───────────────────────────────────────────────
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.tertiary)
+                TextField("Filter tags…", text: $searchText)
+                    .textFieldStyle(.plain)
+                if !searchText.isEmpty {
+                    Button("Clear search", systemImage: "xmark.circle.fill") {
+                        searchText = ""
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tertiary)
+                    .labelStyle(.iconOnly)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+            .background(.background)
+
+            Divider()
+
+            // ── Content ────────────────────────────────────────────────────
             Group {
                 if viewModel.isLoading {
                     LoadingView()
@@ -131,42 +193,51 @@ struct DeepDiveTagsView: View {
                     mainContent
                 }
             }
-            .navigationTitle(viewModel.fileName.isEmpty ? "Metadata Inspector" : viewModel.fileName)
-            .navigationSubtitle(viewModel.fileType)
-            .searchable(text: $searchText, prompt: "Filter tags…")
-            .task {
-                if let url {
-                    await viewModel.load(url: url)
-                }
+        }
+        .task {
+            if let url {
+                await viewModel.load(url: url)
             }
         }
     }
 
     private var mainContent: some View {
-        VStack(spacing: 0) {
-            if viewModel.imageMetadata.count > 1 {
-                IndexPickerView(selectedIndex: $selectedIndex, count: viewModel.imageMetadata.count)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-            }
-
-            Picker("Tab", selection: $selectedTab) {
-                ForEach(Tab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding()
-
-            let current = viewModel.imageMetadata[selectedIndex]
-
+        let current = viewModel.imageMetadata[selectedIndex]
+        return Group {
             switch selectedTab {
             case .properties:
                 PropertiesTabView(entries: current.entries, searchText: searchText)
+
             case .xmp:
                 XMPTabView(tags: current.xmpTags, searchText: searchText)
             }
         }
+    }
+}
+
+// MARK: - Tab Toggle (avoids segmented Picker toolbar conflicts)
+
+struct TabToggleView: View {
+    @Binding var selectedTab: DeepDiveTagsView.Tab
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(DeepDiveTagsView.Tab.allCases) { tab in
+                let isSelected = selectedTab == tab
+                Button(tab.rawValue) {
+                    selectedTab = tab
+                }
+                .buttonStyle(.plain)
+                .font(.caption.bold())
+                .foregroundStyle(isSelected ? .white : .secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(isSelected ? Color.accentColor : Color.clear)
+                .contentShape(.rect)
+            }
+        }
+        .background(.secondary.opacity(0.12))
+        .clipShape(.rect(cornerRadius: 7))
     }
 }
 
@@ -177,17 +248,17 @@ struct IndexPickerView: View {
     let count: Int
 
     var body: some View {
-        HStack {
-            Text("Image Index")
+        HStack(spacing: 4) {
+            Text("Index:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Spacer()
-            Picker("Index", selection: $selectedIndex) {
+            Picker("Image Index", selection: $selectedIndex) {
                 ForEach(0 ..< count, id: \.self) { i in
-                    Text("Index \(i)").tag(i)
+                    Text("\(i)").tag(i)
                 }
             }
-            .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
         }
     }
 }
@@ -207,9 +278,9 @@ struct PropertiesTabView: View {
 
     private func entryContainsSearch(entry: MetadataEntry) -> Bool {
         switch entry.value {
-        case .scalar(let s): return s.localizedStandardContains(searchText)
-        case .array(let arr): return arr.contains { $0.localizedStandardContains(searchText) }
-        case .group(_, let children): return children.contains { entryContainsSearch(entry: $0) }
+        case let .scalar(s): return s.localizedStandardContains(searchText)
+        case let .array(arr): return arr.contains { $0.localizedStandardContains(searchText) }
+        case let .group(_, children): return children.contains { entryContainsSearch(entry: $0) }
         }
     }
 
@@ -233,17 +304,19 @@ struct MetadataEntryView: View {
     let depth: Int
     @State private var isExpanded = true
 
-    private var indentPadding: CGFloat { CGFloat(depth) * 16 }
+    private var indentPadding: CGFloat {
+        CGFloat(depth) * 16
+    }
 
     var body: some View {
         switch entry.value {
-        case .scalar(let value):
+        case let .scalar(value):
             ScalarRowView(key: entry.key, value: value, depth: depth)
 
-        case .array(let items):
+        case let .array(items):
             ArrayRowView(key: entry.key, items: items, depth: depth)
 
-        case .group(_, let children):
+        case let .group(_, children):
             GroupRowView(
                 key: entry.key,
                 children: children,
@@ -261,7 +334,9 @@ struct ScalarRowView: View {
     let value: String
     let depth: Int
 
-    private var indentPadding: CGFloat { CGFloat(depth) * 16 }
+    private var indentPadding: CGFloat {
+        CGFloat(depth) * 16
+    }
 
     var body: some View {
         HStack(alignment: .top) {
@@ -301,7 +376,9 @@ struct ArrayRowView: View {
     let depth: Int
     @State private var isExpanded = false
 
-    private var indentPadding: CGFloat { CGFloat(depth) * 16 }
+    private var indentPadding: CGFloat {
+        CGFloat(depth) * 16
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -368,7 +445,9 @@ struct GroupRowView: View {
     let depth: Int
     @Binding var isExpanded: Bool
 
-    private var indentPadding: CGFloat { CGFloat(depth) * 16 }
+    private var indentPadding: CGFloat {
+        CGFloat(depth) * 16
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -432,7 +511,7 @@ struct XMPTabView: View {
         }
     }
 
-    // Group by namespace prefix
+    /// Group by namespace prefix
     var groupedTags: [(namespace: String, tags: [XMPTag])] {
         var groups: [String: [XMPTag]] = [:]
         for tag in filteredTags {
@@ -560,11 +639,11 @@ struct XMPTagRowView: View {
 struct SummaryCardView: View {
     let metadata: ImageIndexMetadata
 
-    // Extract key EXIF values for quick summary
+    /// Extract key EXIF values for quick summary
     private func scalar(_ key: String, in entries: [MetadataEntry]) -> String? {
         for entry in entries {
-            if entry.key == key, case .scalar(let v) = entry.value { return v }
-            if case .group(_, let children) = entry.value, let found = scalar(key, in: children) { return found }
+            if entry.key == key, case let .scalar(v) = entry.value { return v }
+            if case let .group(_, children) = entry.value, let found = scalar(key, in: children) { return found }
         }
         return nil
     }
@@ -588,12 +667,12 @@ struct SummaryCardView: View {
                     QuickInfoChip(icon: "camera.aperture", label: "f/\(fn)")
                 }
                 if let isos = entries.first(where: {
-                    $0.key == "{Exif}" }),
-                    case .group(_, let exifChildren) = isos.value,
+                    $0.key == "{Exif}"
+                }),
+                    case let .group(_, exifChildren) = isos.value,
                     let isoEntry = exifChildren.first(where: { $0.key == "ISOSpeedRatings" }),
-                    case .array(let arr) = isoEntry.value,
-                    let first = arr.first
-                {
+                    case let .array(arr) = isoEntry.value,
+                    let first = arr.first {
                     QuickInfoChip(icon: "bolt.fill", label: "ISO \(first)")
                 }
                 if let w = scalar("PixelWidth", in: entries), let h = scalar("PixelHeight", in: entries) {
@@ -671,4 +750,3 @@ struct EmptyStateView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-

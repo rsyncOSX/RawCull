@@ -11,7 +11,6 @@ import Observation
 
 @Observable
 final class DeepDiveTagsModel {
-    
     func printAllMetadata(for url: URL) {
         print("\n--- 📂 DEEP SCAN START: \(url.lastPathComponent) ---")
 
