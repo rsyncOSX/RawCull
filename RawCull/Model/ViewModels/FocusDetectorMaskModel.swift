@@ -10,21 +10,18 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
     /// @unchecked Sendable is safe here since context is read-only after init.
     private let context = CIContext(options: [.workingColorSpace: NSNull()])
 
-    private static let magnitudeKernel: CIColorKernel? = {
-        guard
-            let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
-            let data = try? Data(contentsOf: url)
+    /// Static property to load the Metal kernel
+    private static let magnitudeKernel: CIKernel? = {
+        guard let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
+              let data = try? Data(contentsOf: url)
         else {
-            assertionFailure("FocusDetectorModel: Could not find default.metallib in bundle.")
             return nil
         }
-
         do {
-            let kernel = try CIColorKernel(functionName: "sobelMagnitude", fromMetalLibraryData: data)
-            Logger.process.debugMessageOnly("✅ sobelMagnitude kernel loaded successfully")
-            return kernel
+            // Loading as a general CIKernel to allow neighbor sampling (sampler)
+            return try CIKernel(functionName: "focusLaplacian", fromMetalLibraryData: data)
         } catch {
-            assertionFailure("FocusDetectorModel: Failed to load sobelMagnitude kernel: \(error)")
+            print("FocusDetector: Failed to load: \(error)")
             return nil
         }
     }()
@@ -55,56 +52,55 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         }.value
     }
 
-    /// Static to make it explicit that this function is pure/stateless.
-    private static func processImage(
+    static func processImage(
         _ inputImage: CIImage,
         originalSize: NSSize,
         scale: CGFloat,
         context: CIContext
     ) -> NSImage? {
         // 1. Scale down for performance
-        let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale)
+        let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+
+        // 2. Pre-Blur (Crucial for the puffin's feet)
+        // This smooths out soft high-contrast edges so they don't trigger the sharpness math.
+        let preBlur = CIFilter.gaussianBlur()
+        preBlur.inputImage = scaledImage
+        preBlur.radius = 1.0
+        guard let smoothedImage = preBlur.outputImage else { return nil }
+
+        // 3. Apply custom Laplacian Kernel
+        guard let laplacianKernel = self.magnitudeKernel else { return nil }
+
+        let laplacianImage = laplacianKernel.apply(
+            extent: smoothedImage.extent,
+            roiCallback: { _, rect in
+                // We need 1 pixel of context around each pixel to calculate sharpness
+                rect.insetBy(dx: -1, dy: -1)
+            },
+            arguments: [smoothedImage]
         )
 
-        // 2. Sobel Gradients — outputs Gx in red channel, Gy in green channel
-        let sobelFilter = CIFilter.sobelGradients()
-        sobelFilter.inputImage = scaledImage
-        guard let sobelOutput = sobelFilter.outputImage else { return nil }
+        guard let laplacianOutput = laplacianImage else { return nil }
 
-        // 3. Compute true Euclidean gradient magnitude sqrt(Gx² + Gy²) via Metal kernel.
-        //    This gives a linear, consistently tunable edge strength value.
-        guard
-            let magnitudeKernel = Self.magnitudeKernel,
-            let magnitudeImage = magnitudeKernel.apply(
-                extent: sobelOutput.extent,
-                arguments: [sobelOutput]
-            )
-        else { return nil }
-
-        // 4. Threshold — lower value = more sensitive (shows more edges as "in focus")
+        // 4. Threshold (This defines what counts as "in focus")
+        // Use a higher value (0.6 - 0.75) to ensure the blurred feet disappear.
         let thresholdFilter = CIFilter.colorThreshold()
-        thresholdFilter.inputImage = magnitudeImage
-        thresholdFilter.threshold = 0.15
+        thresholdFilter.inputImage = laplacianOutput
+        thresholdFilter.threshold = 0.7
 
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
         // 5. Colorize as red overlay.
-        //    aVector x:1 maps input red (our magnitude) to output alpha,
-        //    so edges fade out where intensity is low.
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = thresholdedEdges
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
-        // Alpha = input red channel (magnitude), making edges semi-transparent where soft
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
 
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // 6. Render. The mask extent may have a non-zero origin due to filter padding;
-        //    using redMask.extent handles this correctly.
-        //    NSImage will scale this back up to originalSize when drawn.
+        // 6. Render
         guard let outputCGImage = context.createCGImage(redMask, from: redMask.extent) else {
             return nil
         }
@@ -120,6 +116,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
 
         return await Task.detached(priority: .userInitiated) {
             let inputImage = CIImage(cgImage: cgImage)
+
             return await Self.processImage(
                 inputImage,
                 scale: scale,
@@ -133,35 +130,52 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         scale: CGFloat,
         context: CIContext
     ) -> CGImage? {
+        // 1. Scale down for performance
         let scaledImage = inputImage.transformed(
             by: CGAffineTransform(scaleX: scale, y: scale)
         )
 
-        let sobelFilter = CIFilter.sobelGradients()
-        sobelFilter.inputImage = scaledImage
-        guard let sobelOutput = sobelFilter.outputImage else { return nil }
+        // 2. Pre-Blur (Crucial to ignore blurred high-contrast areas like feet)
+        let preBlur = CIFilter.gaussianBlur()
+        preBlur.inputImage = scaledImage
+        preBlur.radius = 0.6 // Consistent with the NSImage version
+        guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        guard
-            let magnitudeKernel = Self.magnitudeKernel,
-            let magnitudeImage = magnitudeKernel.apply(
-                extent: sobelOutput.extent,
-                arguments: [sobelOutput]
-            )
-        else { return nil }
+        // 3. Custom Laplacian Kernel (Sharpness Detection)
+        // We replace SobelGradients with the custom Metal Kernel
+        guard let laplacianKernel = Self.magnitudeKernel else { return nil }
 
+        let laplacianImage = laplacianKernel.apply(
+            extent: smoothedImage.extent,
+            roiCallback: { _, rect in
+                // Neighborhood sampling requires 1 pixel of context
+                rect.insetBy(dx: -1, dy: -1)
+            },
+            arguments: [smoothedImage]
+        )
+
+        guard let laplacianOutput = laplacianImage else { return nil }
+
+        // 4. Threshold
+        // Lowered to 0.15 to let the eyes/fish scales through while the blur stays hidden
         let thresholdFilter = CIFilter.colorThreshold()
-        thresholdFilter.inputImage = magnitudeImage
+        thresholdFilter.inputImage = laplacianOutput
         thresholdFilter.threshold = 0.15
+
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
+        // 5. Colorize as Red
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = thresholdedEdges
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+
         guard let redMask = redMatrix.outputImage else { return nil }
 
+        // 6. Render directly to CGImage
+        // Using redMask.extent ensures we don't get artifacts from filter padding
         return context.createCGImage(redMask, from: redMask.extent)
     }
 }
