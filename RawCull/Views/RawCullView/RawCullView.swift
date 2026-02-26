@@ -40,7 +40,7 @@ struct RawCullView: View {
                 issorting: viewModel.issorting,
                 max: viewModel.max,
 
-                filetableview: AnyView(filetableview)
+                filetable: AnyView(filetablescannedarwfiles)
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) ARW files)")

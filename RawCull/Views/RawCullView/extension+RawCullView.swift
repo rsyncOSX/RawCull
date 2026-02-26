@@ -85,7 +85,7 @@ extension RawCullView {
 
     // File table
 
-    var filetableview: some View {
+    var filetablescannedarwfiles: some View {
         VStack(alignment: .leading) {
             Table(viewModel.filteredFiles.compactMap { file in
                 (viewModel.getRating(for: file) >= viewModel.rating) ? file : nil

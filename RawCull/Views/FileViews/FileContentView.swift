@@ -15,7 +15,7 @@ struct FileContentView: View {
     let issorting: Bool
     let max: Double
 
-    let filetableview: AnyView
+    let filetable: AnyView
 
     var body: some View {
         Group {
@@ -83,7 +83,7 @@ struct FileContentView: View {
                         }
                         .padding()
 
-                        filetableview
+                        filetable
 
                         Spacer()
 
