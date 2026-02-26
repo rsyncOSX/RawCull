@@ -26,7 +26,10 @@ struct FileDetailView: View {
             )
         } else {
             if let file = file {
+                
                 VStack(spacing: 20) {
+                    Text("Toggle Inspector (⌘I)")
+                    
                     CachedThumbnailView(
                         url: file.url,
                         scale: $scale,
@@ -43,7 +46,7 @@ struct FileDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ToggleViewDefault(
-                            text: "Details",
+                            text: "Show Details",
                             binding: Binding<Bool>(
                                 get: { showDetailsTagView },
                                 set: { newValue in
