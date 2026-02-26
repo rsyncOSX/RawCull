@@ -76,7 +76,7 @@ struct DeepDiveTagsView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.tertiary)
-                //.labelStyle(.iconOnly)
+                // .labelStyle(.iconOnly)
                 .foregroundColor(.blue)
 
                 if !searchText.isEmpty {

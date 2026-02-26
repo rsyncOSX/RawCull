@@ -24,7 +24,6 @@ struct MenuCommands: Commands {
 
             CommandButton("Toggle Hide Inspector", action: { hideInspector = true }, shortcut: "i")
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
-
         }
     }
 }

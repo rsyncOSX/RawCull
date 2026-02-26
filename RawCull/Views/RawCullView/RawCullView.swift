@@ -16,9 +16,11 @@ struct RawCullView: View {
     @State var viewModel = RawCullViewModel()
     @State var savedSettings: SavedSettings?
     @State private var memoryWarningOpacity: Double = 0.3
+    @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
+    // .detailOnly
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             // --- SIDEBAR ---
             CatalogSidebarView(
                 sources: $viewModel.sources,

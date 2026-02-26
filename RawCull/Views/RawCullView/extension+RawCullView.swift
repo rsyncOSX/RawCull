@@ -20,8 +20,8 @@ extension RawCullView {
                         viewModel.scale = max(0.5, viewModel.scale - 0.2)
                     }
                 }, label: {
-                    Image(systemName: "minus.magnifyingglass")
-                        .font(.system(size: 16))
+                    Image(systemName: "minus")
+                        .font(.system(size: 12))
                 })
                 .disabled(viewModel.scale <= 0.5)
                 .help("Zoom out")
@@ -33,7 +33,7 @@ extension RawCullView {
                         viewModel.resetZoom()
                     }
                 }, label: {
-                    Text("Reset")
+                    Text("Reset \(String(format: "%.0f%%", viewModel.scale * 100))")
                         .font(.caption)
                 })
                 .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
@@ -46,19 +46,11 @@ extension RawCullView {
                         viewModel.scale = min(4.0, viewModel.scale + 0.2)
                     }
                 }, label: {
-                    Image(systemName: "plus.magnifyingglass")
-                        .font(.system(size: 16))
+                    Image(systemName: "plus")
+                        .font(.system(size: 12))
                 })
                 .disabled(viewModel.scale >= 4.0)
                 .help("Zoom in")
-            }
-
-            ToolbarItem(placement: .secondaryAction) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Zoom: \(String(format: "%.0f%%", viewModel.scale * 100))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
         }
 

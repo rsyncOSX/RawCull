@@ -49,6 +49,7 @@ struct FileContentView: View {
                                 viewModel.showcopytask = true
                             }
                             .disabled(viewModel.creatingthumbnails)
+                            .frame(width: 100)
 
                             ConditionalGlassButton(
                                 systemImage: "trash.fill",
@@ -59,6 +60,7 @@ struct FileContentView: View {
                                 viewModel.showingAlert = true
                             }
                             .disabled(viewModel.creatingthumbnails)
+                            .frame(width: 100)
 
                             ConditionalGlassButton(
                                 systemImage: "trash",
@@ -69,6 +71,7 @@ struct FileContentView: View {
                                 viewModel.showingAlert = true
                             }
                             .disabled(viewModel.creatingthumbnails)
+                            .frame(width: 100)
 
                             if !viewModel.files.isEmpty {
                                 Picker("Rating", selection: $viewModel.rating) {

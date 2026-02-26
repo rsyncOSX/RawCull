@@ -26,10 +26,7 @@ struct FileDetailView: View {
             )
         } else {
             if let file = file {
-                
                 VStack(spacing: 20) {
-                    Text("Toggle Inspector (⌘I)")
-                    
                     CachedThumbnailView(
                         url: file.url,
                         scale: $scale,
