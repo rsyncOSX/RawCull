@@ -1,6 +1,6 @@
 APP = RawCull
 BUNDLE_ID = no.blogspot.$(APP)
-VERSION = 1.0.8
+VERSION = 1.0.9
 BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
