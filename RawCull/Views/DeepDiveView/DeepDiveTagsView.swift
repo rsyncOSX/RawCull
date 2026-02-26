@@ -71,12 +71,13 @@ struct DeepDiveTagsView: View {
                 TextField("Filter tags…", text: $searchText)
                     .textFieldStyle(.plain)
 
-                Button("Return", systemImage: "return") {
+                Button("Close details", systemImage: "return") {
                     showDetailsTagView.toggle()
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.tertiary)
-                .labelStyle(.iconOnly)
+                //.labelStyle(.iconOnly)
+                .foregroundColor(.blue)
 
                 if !searchText.isEmpty {
                     Button("Clear search", systemImage: "xmark.circle.fill") {
