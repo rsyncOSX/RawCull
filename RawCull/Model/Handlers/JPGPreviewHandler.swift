@@ -33,10 +33,9 @@ enum JPGPreviewHandler {
             }
         } else {
             let filejpg = file.url.deletingPathExtension().appendingPathExtension(SupportedFileType.jpg.rawValue)
-            if let image = NSImage(contentsOf: filejpg) {
-                setNSImage(image)
-                // The jpgs are already created, open view shows the photo immidiate
-                openWindow(WindowIdentifier.zoomnsImage.rawValue)
+            if let cgImage = loadCGImage(from: filejpg) {
+                setCGImage(cgImage)
+                openWindow(WindowIdentifier.zoomcgImage.rawValue)
             } else {
                 Task {
                     setCGImage(nil)
@@ -53,5 +52,13 @@ enum JPGPreviewHandler {
                 }
             }
         }
+    }
+    
+    private static func loadCGImage(from url: URL) -> CGImage? {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+            return nil
+        }
+        return cgImage
     }
 }
