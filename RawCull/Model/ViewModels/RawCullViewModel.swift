@@ -64,15 +64,6 @@ final class RawCullViewModel {
     func handleSourceChange(url: URL) async {
         scanning = true
 
-        /*
-                files = await ScanFiles().scanFiles(url: url) { [weak self] count in
-                    // Safely hop back to the main thread
-                    Task { @MainActor in
-                        // Use self? because it is now weakly captured
-                        self?.counterScannedFiles = count
-                    }
-                }
-         */
         files = await ScanFiles().scanFiles(
             url: url,
             onProgress: countingScannedFiles

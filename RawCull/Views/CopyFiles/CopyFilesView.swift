@@ -72,16 +72,14 @@ struct CopyFilesView: View {
             guard let selectedSource else { return }
             sourcecatalog = selectedSource.url.path
         }
-        .alert(isPresented: $showingAlert) {
-            Alert(
-                title: Text("Copy ARW files"),
-                message: Text("Are you sure you want to copy all tagged ARW files?"),
-                primaryButton: .destructive(Text("Copy")) {
-                    copyfilesinprogress = true
-                    executeCopyFiles()
-                },
-                secondaryButton: .cancel()
-            )
+        .alert("Copy ARW files", isPresented: $showingAlert) {
+            Button("Copy", role: .destructive) {
+                copyfilesinprogress = true
+                executeCopyFiles()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to copy all tagged ARW files?")
         }
     }
 
