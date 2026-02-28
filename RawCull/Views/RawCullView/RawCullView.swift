@@ -65,20 +65,32 @@ struct RawCullView: View {
                     showcopytask: $viewModel.showcopytask
                 )
             }
-            .alert(isPresented: $viewModel.showingAlert) {
-                RawCullAlertView.alert(
-                    type: viewModel.alertType,
-                    selectedSource: viewModel.selectedSource,
-                    cullingModel: viewModel.cullingModel,
-                    actions: (
-                        extractJPGS: extractAllJPGS,
-                        clearCaches: {
-                            Task {
-                                await viewModel.clearMemoryCachesandTagging()
-                            }
+            .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
+                switch viewModel.alertType {
+                case .extractJPGs:
+                    Button("Extract", role: .destructive) {
+                        extractAllJPGS()
+                    }
+
+                case .clearToggledFiles:
+                    Button("Clear", role: .destructive) {
+                        if let url = viewModel.selectedSource?.url {
+                            viewModel.cullingModel.resetSavedFiles(in: url)
                         }
-                    )
-                )
+                    }
+
+                case .resetSavedFiles:
+                    Button("Reset", role: .destructive) {
+                        viewModel.cullingModel.savedFiles.removeAll()
+                        WriteSavedFilesJSON(viewModel.cullingModel.savedFiles)
+                    }
+
+                case .none:
+                    EmptyView()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(viewModel.alertMessage)
             }
         } detail: {
             // --- DETAIL VIEW ---

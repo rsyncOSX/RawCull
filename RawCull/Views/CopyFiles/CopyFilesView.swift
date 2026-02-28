@@ -77,7 +77,7 @@ struct CopyFilesView: View {
                 copyfilesinprogress = true
                 executeCopyFiles()
             }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to copy all tagged ARW files?")
         }

@@ -3,6 +3,12 @@ import Observation
 import OSAKit
 import OSLog
 
+enum AlertType {
+    case extractJPGs
+    case clearToggledFiles
+    case resetSavedFiles
+}
+
 @Observable @MainActor
 final class RawCullViewModel {
     var sources: [ARWSourceCatalog] = []
@@ -32,7 +38,7 @@ final class RawCullViewModel {
     var focusPressEnter: Bool = false
 
     var showcopytask: Bool = false
-    var alertType: RawCullAlertView.AlertType?
+    var alertType: AlertType?
     var sheetType: SheetType? = .copytasksview
     var remotedatanumbers: RemoteDataNumbers?
     var rating: Int = 0
@@ -56,6 +62,24 @@ final class RawCullViewModel {
     /// Use Thumbnail as Zoom Preview - reads from SettingsViewModel
     var useThumbnailAsZoomPreview: Bool {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
+    }
+
+    var alertTitle: String {
+        switch alertType {
+        case .extractJPGs: "Extract JPGs"
+        case .clearToggledFiles: "Clear Tagged Files"
+        case .resetSavedFiles: "Reset Saved Files"
+        case .none: ""
+        }
+    }
+
+    var alertMessage: String {
+        switch alertType {
+        case .extractJPGs: "Are you sure you want to extract JPG images from ARW files?"
+        case .clearToggledFiles: "Are you sure you want to clear all tagged files?"
+        case .resetSavedFiles: "Are you sure you want to reset all saved files?"
+        case .none: ""
+        }
     }
 
     /// Closure to count scanning files
