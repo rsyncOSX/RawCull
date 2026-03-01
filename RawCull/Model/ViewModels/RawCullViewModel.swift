@@ -199,7 +199,7 @@ final class RawCullViewModel {
         currentPreloadActor = nil
         creatingthumbnails = false
     }
-    
+
     /*
      abort()
        ├─ preloadTask?.cancel()          → cancels the outer Task (ViewModel)

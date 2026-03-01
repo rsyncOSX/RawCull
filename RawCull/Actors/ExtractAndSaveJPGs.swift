@@ -73,20 +73,19 @@ actor ExtractAndSaveJPGs {
     private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {
         let startTime = Date()
 
-        if Task.isCancelled { return }
+        if Task.isCancelled { return } // ← NEW
 
-                if let cgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
-                    from: url
-                ) {
-                    // Critical — don't save/count after abort
-                    if Task.isCancelled { return }
+        if let cgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
+            from: url
+        ) {
+            if Task.isCancelled { return } // ← NEW: critical one
 
-                    await SaveJPGImage().save(image: cgImage, originalURL: url)
+            await SaveJPGImage().save(image: cgImage, originalURL: url)
 
-                    let newCount = incrementAndGetCount()
-                    await fileHandlers?.fileHandler(newCount)
-                    await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
-                }
+            let newCount = incrementAndGetCount()
+            await fileHandlers?.fileHandler(newCount)
+            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+        }
     }
 
     private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {

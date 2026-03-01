@@ -277,12 +277,12 @@ extension RawCullView {
 
             let extract = ExtractAndSaveJPGs()
             await extract.setFileHandlers(handlers)
-            viewModel.currentExtractActor = extract
-            
+            viewModel.currentExtractActor = extract // ← NEW: store it
+
             guard let url = viewModel.selectedSource?.url else { return }
             await extract.extractAndSaveAlljpgs(from: url)
 
-            viewModel.currentExtractActor = nil 
+            viewModel.currentExtractActor = nil // ← NEW: clean up
             viewModel.creatingthumbnails = false
         }
     }
