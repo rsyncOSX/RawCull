@@ -185,20 +185,24 @@ final class RawCullViewModel {
     }
 
     func abort() {
-        Logger.process.debugMessageOnly("Abort scanning")
-        preloadTask?.cancel()
-        preloadTask = nil
-
-        // Cancel the INNER task on the actor — this is the one the task group children inherit from
-        if let actor = currentPreloadActor {
-            Task {
-                await actor.cancelPreload()
+            Logger.process.debugMessageOnly("Abort scanning")
+            
+            // Cancel thumbnail preload
+            preloadTask?.cancel()
+            preloadTask = nil
+            if let actor = currentPreloadActor {
+                Task { await actor.cancelPreload() }
             }
-        }
+            currentPreloadActor = nil
 
-        currentPreloadActor = nil
-        creatingthumbnails = false
-    }
+            // Cancel JPG extraction — same pattern
+            if let actor = currentExtractActor {
+                Task { await actor.cancelExtractJPGSTask() }
+            }
+            currentExtractActor = nil
+
+            creatingthumbnails = false
+        }
 
     /*
      abort()
