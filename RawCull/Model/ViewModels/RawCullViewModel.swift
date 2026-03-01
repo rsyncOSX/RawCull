@@ -185,8 +185,16 @@ final class RawCullViewModel {
 
     func abort() {
         Logger.process.debugMessageOnly("Abort scanning")
-        preloadTask?.cancel() // cancels the structured task
+        preloadTask?.cancel()
         preloadTask = nil
+
+        // Cancel the INNER task on the actor — this is the one the task group children inherit from
+        if let actor = currentPreloadActor {
+            Task {
+                await actor.cancelPreload()
+            }
+        }
+
         currentPreloadActor = nil
         creatingthumbnails = false
     }

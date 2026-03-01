@@ -93,7 +93,7 @@ actor ScanAndCreateThumbnails {
 
     // MARK: - Preload
 
-    private func cancelPreload() {
+    func cancelPreload() {
         preloadTask?.cancel()
         preloadTask = nil
         Logger.process.debugMessageOnly("ThumbnailProvider: Preload Cancelled")
