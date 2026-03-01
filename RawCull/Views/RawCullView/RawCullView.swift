@@ -56,6 +56,7 @@ struct RawCullView: View {
             .focusedSceneValue(\.pressEnter, $viewModel.focusPressEnter)
             .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
             .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
+            .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
             .sheet(isPresented: $viewModel.showcopytask) {
                 RawCullSheetContent(
                     viewModel: viewModel,

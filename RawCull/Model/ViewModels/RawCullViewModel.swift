@@ -85,6 +85,10 @@ final class RawCullViewModel {
     /// Closure to count scanning files
     var countingScannedFiles: (@Sendable (Int) -> Void)?
 
+    // Add a property to hold the current preload actor
+    private var currentPreloadActor: ScanAndCreateThumbnails?
+    private var preloadTask: Task<Void, Never>?
+
     func handleSourceChange(url: URL) async {
         scanning = true
 
@@ -116,8 +120,6 @@ final class RawCullViewModel {
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
 
-            Logger.process.debugMessageOnly("SidebarRawCullViewModel: targetSize: \(thumbnailSizePreview)")
-
             let handlers = CreateFileHandlers().createFileHandlers(
                 fileHandler: fileHandler,
                 maxfilesHandler: maxfilesHandler,
@@ -125,13 +127,18 @@ final class RawCullViewModel {
                 memorypressurewarning: memorypressurewarning
             )
 
-            let scanAndCreateThumbnails = ScanAndCreateThumbnails()
-            await scanAndCreateThumbnails.setFileHandlers(handlers)
-            await scanAndCreateThumbnails.preloadCatalog(
-                at: url,
-                targetSize: thumbnailSizePreview
-            )
+            let actor = ScanAndCreateThumbnails()
+            await actor.setFileHandlers(handlers)
+            currentPreloadActor = actor
 
+            preloadTask = Task {
+                await actor.preloadCatalog(
+                    at: url,
+                    targetSize: thumbnailSizePreview
+                )
+            }
+
+            await preloadTask?.value // wait for completion (or cancellation)
             creatingthumbnails = false
         }
     }
@@ -177,7 +184,11 @@ final class RawCullViewModel {
     }
 
     func abort() {
-        // Implementation deferred - abort functionality to be added
+        Logger.process.debugMessageOnly("Abort scanning")
+        preloadTask?.cancel() // cancels the structured task
+        preloadTask = nil
+        currentPreloadActor = nil
+        creatingthumbnails = false
     }
 
     func extractRatedfilenames(_ rating: Int) -> [String] {
