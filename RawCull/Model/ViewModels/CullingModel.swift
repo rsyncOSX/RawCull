@@ -13,10 +13,12 @@ final class CullingModel {
     }
 
     func resetSavedFiles(in catalog: URL) {
-        if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
-            savedFiles[index].filerecords = nil
-            // Save updated
-            WriteSavedFilesJSON(savedFiles)
+        Task {
+            if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
+                savedFiles[index].filerecords = nil
+                // Save updated
+                await WriteSavedFilesJSON(savedFiles)
+            }
         }
     }
 
@@ -34,7 +36,7 @@ final class CullingModel {
         return false
     }
 
-    func toggleSelectionSavedFiles(in fileurl: URL?, toggledfilename: String) {
+    func toggleSelectionSavedFiles(in fileurl: URL?, toggledfilename: String) async {
         if let fileurl {
             let arwcatalog = fileurl.deletingLastPathComponent()
 
@@ -80,7 +82,7 @@ final class CullingModel {
                     }
                 }
             }
-            WriteSavedFilesJSON(savedFiles)
+            await WriteSavedFilesJSON(savedFiles)
         }
     }
 

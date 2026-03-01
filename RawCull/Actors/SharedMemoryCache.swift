@@ -37,7 +37,6 @@ actor SharedMemoryCache {
     // MARK: - Isolated State (Protected by Actor)
 
     private var _costPerPixel: Int = 4
-    private var isConfigured = false
     private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var currentMemoryPressure: DispatchSource.MemoryPressureEvent = .normal
 
@@ -63,32 +62,38 @@ actor SharedMemoryCache {
         self.fileHandlers = fileHandlers
     }
 
+    private var setupTask: Task<Void, Never>?
+
     /// Ensures settings are loaded and cache is configured before use.
     func ensureReady(config: CacheConfig? = nil) async {
-        // Fast path: check if already configured
-        if isConfigured {
-            return
+        // If setup is already in progress (or done), just await it
+        if let task = setupTask {
+            return await task.value
         }
 
-        // Start memory pressure monitoring
-        startMemoryPressureMonitoring()
+        // Capture config for the closure
+        let capturedConfig = config
 
-        // Logic to determine config
-        let finalConfig: CacheConfig
-        if let config = config {
-            finalConfig = config
-        } else {
-            // Calculate from saved settings
-            // This is an await call, which is safe inside the actor
-            let settings = await SettingsViewModel.shared.asyncgetsettings()
-            finalConfig = calculateConfig(from: settings)
+        let newTask = Task {
+            // Start memory pressure monitoring
+            self.startMemoryPressureMonitoring()
+
+            // Logic to determine config
+            let finalConfig: CacheConfig
+            if let cfg = capturedConfig {
+                finalConfig = cfg
+            } else {
+                let settings = await SettingsViewModel.shared.asyncgetsettings()
+                finalConfig = self.calculateConfig(from: settings)
+            }
+
+            // Apply config
+            self.applyConfig(finalConfig)
         }
 
-        // Apply config
-        // We can access 'memoryCache' directly here even though it is nonisolated(unsafe),
-        // because we are setting up the limits.
-        applyConfig(finalConfig)
-        isConfigured = true
+        // Store BEFORE any suspension — this is the critical line
+        self.setupTask = newTask
+        await newTask.value
     }
 
     /// Helper to calculate configuration from settings.

@@ -247,10 +247,12 @@ extension RawCullView {
     }
 
     func handleToggleSelection(for file: FileItem) {
-        viewModel.cullingModel.toggleSelectionSavedFiles(
-            in: file.url,
-            toggledfilename: file.name
-        )
+        Task {
+            await viewModel.cullingModel.toggleSelectionSavedFiles(
+                in: file.url,
+                toggledfilename: file.name
+            )
+        }
     }
 
     func handlePickerResult(_ result: Result<URL, Error>) {

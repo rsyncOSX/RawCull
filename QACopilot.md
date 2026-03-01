@@ -290,12 +290,12 @@ RawCullTests/
 | 🔴 P1 | ERR-009 | `SaveJPGImage` error path gated by `#if DEBUG`. | ❌ FAIL |
 | 🟠 P2 | CONC-007 | `.task(id:)` wraps inner unstructured `Task` — previous scan not fully cancelled on rapid source change. | ⚠️ WARN |
 | 🟠 P2 | CONC-013 | `viewModel.scanning.toggle()` in view conflicts with `handleSourceChange` owning `scanning` state. | ⚠️ WARN |
-| 🟠 P2 | CACHE-010 | `ensureReady()` double-configure race — use `setupTask` pattern. | ⚠️ WARN |
+|~~🟠~~ P2 | CACHE-010 | `ensureReady()` double-configure race — use `setupTask` pattern. | ✅ FIXED |
 | 🟠 P2 | CACHE-014 | `updateCacheDisk` logs "found in RAM Cache" — copy-paste bug obscures diagnostics. | ⚠️ WARN |
 | 🟠 P2 | ERR-006 | Memory pressure handler logs at debug level — critical events invisible in Release. | ⚠️ WARN |
 | 🟠 P2 | UI-010 | `performCleanupTask()` does nothing — cache and settings not flushed on quit. | ⚠️ WARN |
 | 🟠 P2 | UI-011 | `applicationWillTerminate` is empty stub — cleanup may not run on forced termination. | ⚠️ WARN |
-| 🟠 P2 | PERS-002 | `WriteSavedFilesJSON` called synchronously on main actor — may block UI for large catalogs. | ⚠️ WARN |
+| ~~🟠~~P2 | PERS-002 | `WriteSavedFilesJSON` called synchronously on main actor — may block UI for large catalogs. | ✅ FIXED |
 | 🟠 P2 | MEM-005 | Multiple `DiskCacheManager` instances for same directory — should be shared singleton. | ⚠️ WARN |
 | 🟡 P3 | CONC-008 | `ExtractAndSaveJPGs` inner `Task` may stall actor for large loops. | ⚠️ WARN |
 | 🟡 P3 | CONC-009 | `SettingsViewModel` init race — defaults returned if accessed before load completes. | ⚠️ WARN |

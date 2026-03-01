@@ -238,11 +238,13 @@ final class RawCullViewModel {
     }
 
     func updateRating(for file: FileItem, rating: Int) {
-        guard let selectedSource = selectedSource else { return }
-        if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource.url }),
-           let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-            cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
-            WriteSavedFilesJSON(cullingModel.savedFiles)
+        Task {
+            guard let selectedSource = selectedSource else { return }
+            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource.url }),
+               let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
+                cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
+                await WriteSavedFilesJSON(cullingModel.savedFiles)
+            }
         }
     }
 

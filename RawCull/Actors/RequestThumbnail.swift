@@ -25,15 +25,14 @@ actor RequestThumbnail {
     /// 3. The magic helper: Creates the task if it doesn't exist, then awaits it.
     private func ensureReady() async {
         if let task = setupTask {
-            return await task.value
+            return await task.value // ✅ Second caller just waits for the first
         }
 
         let newTask = Task {
-            // Delegating to the shared cache manager
             await SharedMemoryCache.shared.ensureReady()
         }
 
-        self.setupTask = newTask
+        self.setupTask = newTask // ✅ Stored BEFORE the await
         await newTask.value
     }
 
