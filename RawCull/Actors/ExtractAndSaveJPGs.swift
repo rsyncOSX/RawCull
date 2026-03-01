@@ -73,16 +73,20 @@ actor ExtractAndSaveJPGs {
     private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {
         let startTime = Date()
 
-        if let cgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
-            from: url
-            // nonBlocking: true
-        ) {
-            await SaveJPGImage().save(image: cgImage, originalURL: url)
+        if Task.isCancelled { return }
 
-            let newCount = incrementAndGetCount()
-            await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
-        }
+                if let cgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
+                    from: url
+                ) {
+                    // Critical — don't save/count after abort
+                    if Task.isCancelled { return }
+
+                    await SaveJPGImage().save(image: cgImage, originalURL: url)
+
+                    let newCount = incrementAndGetCount()
+                    await fileHandlers?.fileHandler(newCount)
+                    await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+                }
     }
 
     private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
@@ -110,7 +114,7 @@ actor ExtractAndSaveJPGs {
         }
     }
 
-    private func cancelExtractJPGSTask() {
+    func cancelExtractJPGSTask() {
         extractJPEGSTask?.cancel()
         extractJPEGSTask = nil
         Logger.process.debugMessageOnly("ExtractAndSaveAlljpgs: Preload Cancelled")

@@ -86,8 +86,9 @@ final class RawCullViewModel {
     var countingScannedFiles: (@Sendable (Int) -> Void)?
 
     // Add a property to hold the current preload actor
-    private var currentPreloadActor: ScanAndCreateThumbnails?
-    private var preloadTask: Task<Void, Never>?
+    var currentPreloadActor: ScanAndCreateThumbnails?
+    var currentExtractActor: ExtractAndSaveJPGs?
+    var preloadTask: Task<Void, Never>?
 
     func handleSourceChange(url: URL) async {
         scanning = true
