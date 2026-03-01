@@ -198,6 +198,15 @@ final class RawCullViewModel {
         currentPreloadActor = nil
         creatingthumbnails = false
     }
+    
+    /*
+     abort()
+       ├─ preloadTask?.cancel()          → cancels the outer Task (ViewModel)
+       └─ actor.cancelPreload()          → cancels the INNER Task (actor.preloadTask)
+            └─ actor.preloadTask.cancel()
+                 └─ Task.isCancelled = true for the task group + all children
+                      └─ processSingleFile checks fire → return immediately
+     */
 
     func extractRatedfilenames(_ rating: Int) -> [String] {
         let result = filteredFiles.compactMap { file in
