@@ -185,24 +185,24 @@ final class RawCullViewModel {
     }
 
     func abort() {
-            Logger.process.debugMessageOnly("Abort scanning")
-            
-            // Cancel thumbnail preload
-            preloadTask?.cancel()
-            preloadTask = nil
-            if let actor = currentPreloadActor {
-                Task { await actor.cancelPreload() }
-            }
-            currentPreloadActor = nil
+        Logger.process.debugMessageOnly("Abort scanning")
 
-            // Cancel JPG extraction — same pattern
-            if let actor = currentExtractActor {
-                Task { await actor.cancelExtractJPGSTask() }
-            }
-            currentExtractActor = nil
-
-            creatingthumbnails = false
+        // Cancel thumbnail preload
+        preloadTask?.cancel()
+        preloadTask = nil
+        if let actor = currentPreloadActor {
+            Task { await actor.cancelPreload() }
         }
+        currentPreloadActor = nil
+
+        // Cancel JPG extraction — same pattern
+        if let actor = currentExtractActor {
+            Task { await actor.cancelExtractJPGSTask() }
+        }
+        currentExtractActor = nil
+
+        creatingthumbnails = false
+    }
 
     /*
      abort()
