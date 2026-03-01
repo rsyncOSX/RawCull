@@ -191,6 +191,9 @@ actor ScanAndCreateThumbnails {
                 qualityCost: costPerPixel
             )
 
+            // ⬇️ NEW: check AFTER the expensive extraction — this is the critical one
+            if Task.isCancelled { return }
+
             // Normalise to a single JPEG-backed NSImage representation to match disk-loaded images.
             // Note: JPEG at 0.7 quality introduces mild compression artefacts. Acceptable for
             // culling/preview use; change to PNG if lossless fidelity is required.
