@@ -34,9 +34,21 @@ struct ZoomableFocusePeekCSImageView: View {
 
             if cgImage != nil {
                 GeometryReader { geo in
-                    if let image = displayedImage {
-                        zoomableImage(image, in: geo.size)
+                    // ✅ ZStack so image, focus overlay, and control bar can all layer
+                    ZStack(alignment: .bottom) {
+
+                        // 1️⃣ Image (or focus mask when toggled)
+                        if let image = displayedImage {
+                            zoomableImage(image, in: geo.size)
+                        }
+
+                        // 2️⃣ Focus point overlay (on top, same scale + offset as image)
+                        focusPoint()
+
+                        // 3️⃣ Control bar pill at the bottom — always visible
+                        focuspointcontroller
                     }
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
             } else {
                 HStack {
@@ -47,10 +59,10 @@ struct ZoomableFocusePeekCSImageView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
             }
 
+            // ── Top toolbar overlay (dismiss, zoom, focus mask) ──────────
             VStack {
                 HStack {
                     Spacer()
-                    
                     toolbarButton("viewfinder.circle.fill") { showFocusMask.toggle() }
                         .disabled(focusMask == nil)
                     toolbarButton("minus.circle.fill") { decreaseZoom() }
@@ -78,6 +90,8 @@ struct ZoomableFocusePeekCSImageView: View {
             }
         }
     }
+
+    // MARK: - Zoomable Image
 
     @ViewBuilder
     private func zoomableImage(_ image: CGImage, in size: CGSize) -> some View {
@@ -109,10 +123,12 @@ struct ZoomableFocusePeekCSImageView: View {
                 withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
             }
     }
-    
+
+    // MARK: - Focus Point Overlay
+
     @ViewBuilder
     private func focusPoint() -> some View {
-        // 2️⃣ Focus overlay SECOND (on top of image)
+        // 2️⃣ Focus overlay on top of image, same scale + offset as the image
         if showFocusPoints, let focusPoints {
             FocusOverlayView(
                 focusPoints: focusPoints,
@@ -125,30 +141,12 @@ struct ZoomableFocusePeekCSImageView: View {
         }
     }
 
-    @ViewBuilder
-    private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 30)
-                .background(Material.ultraThinMaterial)
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
-        .padding()
-    }
+    // MARK: - Focus Point Control Bar
 
-    private func resetToFit() { currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero }
-    private func zoomToTarget() { currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero }
-    private func increaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) } }
-    private func decreaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) } }
-    
     private var focuspointcontroller: some View {
         // ── macOS 26 glass control bar ───────────────────────────
         HStack(spacing: 12) {
-            // Marker size slider
+            // Marker size slider (visible only when focus points are shown)
             if showFocusPoints {
                 HStack(spacing: 6) {
                     Image(systemName: "viewfinder")
@@ -186,6 +184,30 @@ struct ZoomableFocusePeekCSImageView: View {
         .padding(14)
         .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
+
+    // MARK: - Toolbar Button
+
+    @ViewBuilder
+    private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(Material.ultraThinMaterial)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
+        .padding()
+    }
+
+    // MARK: - Zoom Helpers
+
+    private func resetToFit() { currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero }
+    private func zoomToTarget() { currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero }
+    private func increaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) } }
+    private func decreaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) } }
 }
 
 extension CGImage {
