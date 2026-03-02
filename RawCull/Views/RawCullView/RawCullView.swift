@@ -105,7 +105,8 @@ struct RawCullView: View {
                 lastScale: $viewModel.lastScale,
                 offset: $viewModel.offset,
                 files: viewModel.files,
-                file: viewModel.selectedFile
+                file: viewModel.selectedFile,
+                focusPoints: getFocusPoints()
             )
 
             // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
@@ -233,7 +234,6 @@ struct RawCullView: View {
         }
     }
 
-    /// MUST FIX
     func abort() {
         viewModel.abort()
     }
@@ -243,6 +243,17 @@ struct RawCullView: View {
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             memoryWarningOpacity = 0.8
         }
+    }
+    
+    private func getFocusPoints() -> [FocusPoint]? {
+        guard viewModel.focusPoints != nil else {
+            return nil
+        }
+        if let imageName = viewModel.selectedFile?.name {
+            
+        }
+        
+        return nil
     }
 }
 

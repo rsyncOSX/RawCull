@@ -17,6 +17,7 @@ struct FileDetailView: View {
 
     let files: [FileItem]
     let file: FileItem?
+    let focusPoints: [FocusPoint]?
 
     var body: some View {
         if showDetailsTagView, let url = file?.url {
