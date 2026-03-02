@@ -21,14 +21,7 @@ struct CachedThumbnailView: View {
                     // Image display with zoom
                     GeometryReader { geo in
                         ZStack {
-                            if showFocusPoints, let focusPoints {
-                                FocusOverlayView(
-                                    focusPoints: focusPoints,
-                                    markerSize: markerSize
-                                )
-                                .transition(.opacity.combined(with: .blurReplace))
-                            }
-
+                            // 1️⃣ Image FIRST (background)
                             Image(nsImage: image)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
@@ -58,6 +51,18 @@ struct CachedThumbnailView: View {
                                             // Gesture ended
                                         }
                                 )
+
+                            // 2️⃣ Focus overlay SECOND (on top of image)
+                            if showFocusPoints, let focusPoints {
+                                FocusOverlayView(
+                                    focusPoints: focusPoints,
+                                    markerSize: markerSize
+                                )
+                                .scaleEffect(scale)
+                                .offset(offset)
+                                .allowsHitTesting(false)
+                                .transition(.opacity.combined(with: .blurReplace))
+                            }
                         }
 
                         // ── macOS 26 glass control bar ───────────────────────────
