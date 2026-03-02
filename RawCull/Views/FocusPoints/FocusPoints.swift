@@ -5,9 +5,6 @@
 //  Created by Thomas Evensen on 02/03/2026.
 //
 
-
-
-
 import SwiftUI
 
 // MARK: - Focus Point Marker Shape (corner brackets)
@@ -248,7 +245,6 @@ struct DetailImageView: View {
     .frame(width: 900, height: 620)
 }
 
-
 //
 //  FocusPointsModel.swift
 //  RawCull
@@ -306,5 +302,3 @@ final class FocusPointStore {
    "FocusLocation": "8640 5760 3820 2928"
  }]
  */
-
-

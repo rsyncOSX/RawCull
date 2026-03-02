@@ -8,7 +8,6 @@
 import AppKit
 import SwiftUI
 
-
 struct FocusPointsModel: Identifiable {
     let id = UUID()
     let sourceFile: String
