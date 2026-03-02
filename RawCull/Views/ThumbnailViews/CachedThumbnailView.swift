@@ -7,13 +7,13 @@ struct CachedThumbnailView: View {
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
     }
-    
+
     @Binding var scale: CGFloat
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
 
     let url: URL
-   
+
     @State private var image: NSImage?
     @State private var isLoading = false
 
