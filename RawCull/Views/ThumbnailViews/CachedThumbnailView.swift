@@ -11,7 +11,7 @@ struct CachedThumbnailView: View {
     @State private var image: NSImage?
     @State private var isLoading = false
 
-    @State private var showFocusPoints = true
+    @State private var showFocusPoints = false
     @State private var markerSize: CGFloat = 64
 
     var body: some View {

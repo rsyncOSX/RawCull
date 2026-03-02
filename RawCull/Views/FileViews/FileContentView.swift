@@ -11,6 +11,8 @@ struct FileContentView: View {
 
     @State var counterScannedFiles: Int = 0
 
+    @State var focuspoints: Bool = true
+
     let files: [FileItem]
     let issorting: Bool
     let max: Double
@@ -82,6 +84,12 @@ struct FileContentView: View {
                                 }
                                 .pickerStyle(DefaultPickerStyle())
                                 .frame(width: 100)
+                            }
+
+                            if (viewModel.focusPoints?.isEmpty) != nil {
+                                ToggleViewDefault(text: "Focus Points",
+                                                  binding: $focuspoints)
+                                    .disabled(focuspoints)
                             }
                         }
                         .padding()
