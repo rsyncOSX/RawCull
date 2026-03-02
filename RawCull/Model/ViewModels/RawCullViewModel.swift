@@ -59,6 +59,9 @@ final class RawCullViewModel {
 
     var memorypressurewarning: Bool = false
 
+    /// If there is created Focus Data with exiftool
+    var focusPoints: [FocusPointsModel]?
+
     /// Use Thumbnail as Zoom Preview - reads from SettingsViewModel
     var useThumbnailAsZoomPreview: Bool {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
@@ -93,10 +96,14 @@ final class RawCullViewModel {
     func handleSourceChange(url: URL) async {
         scanning = true
 
-        files = await ScanFiles().scanFiles(
+        let scan = ScanFiles()
+
+        files = await scan.scanFiles(
             url: url,
             onProgress: countingScannedFiles
         )
+        // Get the focuspoints if created
+        focusPoints = await scan.focusPoints
 
         Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
 

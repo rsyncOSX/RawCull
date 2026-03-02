@@ -19,12 +19,10 @@ struct ExifMetadata: Hashable {
 }
 
 actor ScanFiles {
-    
-    // If there are created focuspoints with exitfool
-    // exiftool -Sony:FocusLocation *.ARW -j >> focuspoints.json
+    /// If there are created focuspoints with exitfool
+    /// exiftool -Sony:FocusLocation *.ARW -j >> focuspoints.json
     var focusPoints: [FocusPointsModel]?
-    
-    
+
     func scanFiles(
         url: URL,
         onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil
@@ -86,10 +84,9 @@ actor ScanFiles {
                 }
 
                 // Read FocusPoints here
-                focusPoints  = await ReadFocusPointsJSON(urlCatalog: url).readFocusPointsJSON()
+                focusPoints = await ReadFocusPointsJSON(urlCatalog: url).readFocusPointsJSON()
                 return result
             }
-            
         } catch {
             Logger.process.warning("Scan Error: \(error)")
             return []
@@ -110,7 +107,7 @@ actor ScanFiles {
             return sorted.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
     }
-    
+
     // MARK: - EXIF Extraction
 
     private func extractExifData(from url: URL) -> ExifMetadata? {
