@@ -1,13 +1,19 @@
 import SwiftUI
 
 struct CachedThumbnailView: View {
+    @Environment(RawCullViewModel.self) private var viewModel
+
+    /// Replace the let focusPoints property with a computed one:
+    private var focusPoints: [FocusPoint]? {
+        viewModel.getFocusPoints()
+    }
+    
     @Binding var scale: CGFloat
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
 
     let url: URL
-    let focusPoints: [FocusPoint]?
-
+   
     @State private var image: NSImage?
     @State private var isLoading = false
 

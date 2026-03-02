@@ -29,8 +29,7 @@ struct FileDetailView: View {
                         scale: $scale,
                         lastScale: $lastScale,
                         offset: $offset,
-                        url: file.url,
-                        focusPoints: focusPoints
+                        url: file.url
                     )
 
                     HStack {
