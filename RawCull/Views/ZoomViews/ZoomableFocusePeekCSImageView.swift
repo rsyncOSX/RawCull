@@ -34,21 +34,18 @@ struct ZoomableFocusePeekCSImageView: View {
 
             if cgImage != nil {
                 GeometryReader { geo in
-                    // ✅ ZStack so image, focus overlay, and control bar can all layer
-                    ZStack(alignment: .bottom) {
 
-                        // 1️⃣ Image (or focus mask when toggled)
+                    // 1️⃣ Image + focus overlay in a ZStack (fills the full geo frame)
+                    ZStack {
                         if let image = displayedImage {
                             zoomableImage(image, in: geo.size)
                         }
-
-                        // 2️⃣ Focus point overlay (on top, same scale + offset as image)
                         focusPoint()
-
-                        // 3️⃣ Control bar pill at the bottom — always visible
-                        focuspointcontroller
                     }
-                    .frame(width: geo.size.width, height: geo.size.height)
+
+                    // 2️⃣ Control bar — direct child of GeometryReader, sits below the ZStack
+                    focuspointcontroller
+
                 }
             } else {
                 HStack {
@@ -59,7 +56,7 @@ struct ZoomableFocusePeekCSImageView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
             }
 
-            // ── Top toolbar overlay (dismiss, zoom, focus mask) ──────────
+            // ── Top toolbar overlay ───────────────────────────────────────
             VStack {
                 HStack {
                     Spacer()
