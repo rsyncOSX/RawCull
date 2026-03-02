@@ -271,4 +271,20 @@ final class RawCullViewModel {
         lastScale = 1.0
         offset = .zero
     }
+    
+    /// Pick the right focus points
+    func getFocusPoints() -> [FocusPoint]? {
+        guard focusPoints != nil else {
+            return nil
+        }
+        if let imageName = selectedFile?.name {
+            if let points = focusPoints?.filter({ $0.sourceFile == imageName }) {
+                guard points.count == 1 else {
+                    return nil
+                }
+                return points[0].focusPoints
+            }
+        }
+        return nil
+    }
 }

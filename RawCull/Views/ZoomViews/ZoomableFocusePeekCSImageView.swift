@@ -10,6 +10,7 @@ import SwiftUI
 struct ZoomableFocusePeekCSImageView: View {
     @Environment(\.dismiss) var dismiss
     let cgImage: CGImage?
+    let focusPoints: [FocusPoint]?
 
     @State private var focusMask: CGImage?
     @State private var currentScale: CGFloat = 1.0
@@ -18,6 +19,9 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var focusDetectorModel: FocusDetectorMaskModel = .init()
     @State private var showFocusMask: Bool = false
+
+    @State private var showFocusPoints = false
+    @State private var markerSize: CGFloat = 64
 
     private let zoomLevel: CGFloat = 2.0
 
@@ -104,6 +108,21 @@ struct ZoomableFocusePeekCSImageView: View {
             .onTapGesture(count: 2) {
                 withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
             }
+    }
+    
+    @ViewBuilder
+    private func focusPoint() -> some View {
+        // 2️⃣ Focus overlay SECOND (on top of image)
+        if showFocusPoints, let focusPoints {
+            FocusOverlayView(
+                focusPoints: focusPoints,
+                markerSize: markerSize
+            )
+            .scaleEffect(currentScale)
+            .offset(offset)
+            .allowsHitTesting(false)
+            .transition(.opacity.combined(with: .blurReplace))
+        }
     }
 
     @ViewBuilder

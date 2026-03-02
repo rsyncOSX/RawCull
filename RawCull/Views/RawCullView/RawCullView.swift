@@ -7,13 +7,13 @@ extension KeyPath<FileItem, String>: @unchecked @retroactive Sendable {}
 struct RawCullView: View {
     @Environment(\.openWindow) var openWindow
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
+    @Bindable var viewModel: RawCullViewModel
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
     @Binding var zoomCGImageWindowFocused: Bool
     @Binding var zoomNSImageWindowFocused: Bool
 
-    @State var viewModel = RawCullViewModel()
     @State var savedSettings: SavedSettings?
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
@@ -106,7 +106,7 @@ struct RawCullView: View {
                 offset: $viewModel.offset,
                 files: viewModel.files,
                 file: viewModel.selectedFile,
-                focusPoints: getFocusPoints()
+                focusPoints: viewModel.getFocusPoints()
             )
 
             // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
@@ -243,21 +243,5 @@ struct RawCullView: View {
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             memoryWarningOpacity = 0.8
         }
-    }
-
-    /// Pick the right focus points
-    private func getFocusPoints() -> [FocusPoint]? {
-        guard viewModel.focusPoints != nil else {
-            return nil
-        }
-        if let imageName = viewModel.selectedFile?.name {
-            if let points = viewModel.focusPoints?.filter({ $0.sourceFile == imageName }) {
-                guard points.count == 1 else {
-                    return nil
-                }
-                return points[0].focusPoints
-            }
-        }
-        return nil
     }
 }

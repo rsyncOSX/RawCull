@@ -26,10 +26,12 @@ struct RawCullApp: App {
     @State private var gridThumbnailWindowFocused: Bool = false
     @State private var settingsviewmodel = SettingsViewModel.shared
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
+    @State private var viewModel = RawCullViewModel()
 
     var body: some Scene {
         Window("Photo Culling", id: "main-window") {
             RawCullView(
+                viewModel: viewModel,
                 nsImage: $nsImage,
                 cgImage: $cgImage,
                 zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
@@ -55,7 +57,10 @@ struct RawCullApp: App {
         }
 
         Window("ZoomcgImage", id: "zoom-window-cgImage") {
-            ZoomableFocusePeekCSImageView(cgImage: cgImage)
+            ZoomableFocusePeekCSImageView(
+                cgImage: cgImage,
+                focusPoints: viewModel.getFocusPoints()
+            )
                 .onAppear {
                     zoomCGImageWindowFocused = true
                 }
