@@ -271,7 +271,7 @@ final class RawCullViewModel {
         lastScale = 1.0
         offset = .zero
     }
-    
+
     /// Pick the right focus points
     func getFocusPoints() -> [FocusPoint]? {
         guard focusPoints != nil else {

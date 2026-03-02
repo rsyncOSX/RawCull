@@ -58,16 +58,17 @@ struct RawCullApp: App {
 
         Window("ZoomcgImage", id: "zoom-window-cgImage") {
             ZoomableFocusePeekCSImageView(
-                cgImage: cgImage,
-                focusPoints: viewModel.getFocusPoints()
+                cgImage: cgImage // ← pass viewModel instead
             )
-                .onAppear {
-                    zoomCGImageWindowFocused = true
-                }
-                .onDisappear {
-                    zoomCGImageWindowFocused = false
-                }
+            .environment(viewModel)
+            .onAppear {
+                zoomCGImageWindowFocused = true
+            }
+            .onDisappear {
+                zoomCGImageWindowFocused = false
+            }
         }
+
         .defaultPosition(.center)
         .defaultSize(width: 800, height: 600)
 

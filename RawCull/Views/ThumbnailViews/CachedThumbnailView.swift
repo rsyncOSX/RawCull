@@ -109,7 +109,6 @@ struct CachedThumbnailView: View {
                 .shadow(radius: 4)
                 .background(Color(nsColor: .textBackgroundColor))
                 .cornerRadius(8)
-                
             } else if isLoading {
                 ProgressView()
                     .fixedSize()

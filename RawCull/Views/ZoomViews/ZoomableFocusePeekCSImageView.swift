@@ -9,8 +9,14 @@ import SwiftUI
 
 struct ZoomableFocusePeekCSImageView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(RawCullViewModel.self) private var viewModel
+
+    /// Replace the let focusPoints property with a computed one:
+    private var focusPoints: [FocusPoint]? {
+        viewModel.getFocusPoints()
+    }
+
     let cgImage: CGImage?
-    let focusPoints: [FocusPoint]?
 
     @State private var focusMask: CGImage?
     @State private var currentScale: CGFloat = 1.0
@@ -91,7 +97,6 @@ struct ZoomableFocusePeekCSImageView: View {
 
     // MARK: - Zoomable Image
 
-    @ViewBuilder
     private func zoomableImage(_ image: CGImage, in size: CGSize) -> some View {
         Image(decorative: image, scale: 1.0, orientation: .up)
             .resizable()
@@ -169,7 +174,7 @@ struct ZoomableFocusePeekCSImageView: View {
                     ? "viewfinder.circle.fill"
                     : "viewfinder.circle")
                     .font(.title3)
-                    .foregroundStyle(showFocusPoints ? .yellow : .white)  // ← was .primary (black on black!)
+                    .foregroundStyle(showFocusPoints ? .yellow : .white) // ← was .primary (black on black!)
                     .symbolEffect(.bounce, value: showFocusPoints)
             }
             .buttonStyle(.plain)
@@ -177,14 +182,13 @@ struct ZoomableFocusePeekCSImageView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(.white.opacity(0.15), in: Capsule())  // ← was .ultraThinMaterial (invisible on black)
+        .background(.white.opacity(0.15), in: Capsule()) // ← was .ultraThinMaterial (invisible on black)
         .padding(14)
         .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
 
     // MARK: - Toolbar Button
 
-    @ViewBuilder
     private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
@@ -201,10 +205,21 @@ struct ZoomableFocusePeekCSImageView: View {
 
     // MARK: - Zoom Helpers
 
-    private func resetToFit() { currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero }
-    private func zoomToTarget() { currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero }
-    private func increaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) } }
-    private func decreaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) } }
+    private func resetToFit() {
+        currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero
+    }
+
+    private func zoomToTarget() {
+        currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero
+    }
+
+    private func increaseZoom() {
+        withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) }
+    }
+
+    private func decreaseZoom() {
+        withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) }
+    }
 }
 
 extension CGImage {

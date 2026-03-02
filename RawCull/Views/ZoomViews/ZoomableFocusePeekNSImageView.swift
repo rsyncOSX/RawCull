@@ -74,7 +74,6 @@ struct ZoomableFocusePeekNSImageView: View {
         }
     }
 
-    @ViewBuilder
     private func zoomableImage(_ image: NSImage, in size: CGSize, isMask: Bool) -> some View {
         Image(nsImage: image)
             .resizable()
@@ -106,7 +105,6 @@ struct ZoomableFocusePeekNSImageView: View {
             }
     }
 
-    @ViewBuilder
     private func toolbarButton(_ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
@@ -121,13 +119,24 @@ struct ZoomableFocusePeekNSImageView: View {
         .padding()
     }
 
-    private func resetToFit() { currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero }
-    private func zoomToTarget() { currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero }
-    private func increaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) } }
-    private func decreaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) } }
+    private func resetToFit() {
+        currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero
+    }
+
+    private func zoomToTarget() {
+        currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero
+    }
+
+    private func increaseZoom() {
+        withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) }
+    }
+
+    private func decreaseZoom() {
+        withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) }
+    }
 }
 
-// Handy utility to conditionally apply modifiers
+/// Handy utility to conditionally apply modifiers
 extension View {
     @ViewBuilder
     func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
