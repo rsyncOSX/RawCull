@@ -39,13 +39,3 @@ struct PhotoGridView: View {
         }
     }
 }
-
-/*
-  ScrollView(.horizontal) {
- ///         LazyHStack(alignment: .top, spacing: 10) {
- ///             ForEach(1...100, id: \.self) {
- ///                 Text("Column \($0)")
- ///             }
- ///         }
- ///     }
-  */
