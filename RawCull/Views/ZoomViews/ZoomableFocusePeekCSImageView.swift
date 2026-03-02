@@ -41,11 +41,6 @@ struct ZoomableFocusePeekCSImageView: View {
                         focusPoint()
                     }
                 }
-                // ✅ Attach the control bar as a bottom overlay on the GeometryReader
-                // This guarantees it is always visible, regardless of GeometryReader sizing
-                .overlay(alignment: .bottom) {
-                    focuspointcontroller
-                }
             } else {
                 HStack {
                     ProgressView().fixedSize()
@@ -55,8 +50,9 @@ struct ZoomableFocusePeekCSImageView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
             }
 
-            // ── Top toolbar overlay ───────────────────────────────────────
+            // ── All UI chrome in ONE VStack overlay ───────────────────────
             VStack {
+                // Top toolbar
                 HStack {
                     Spacer()
                     toolbarButton("viewfinder.circle.fill") { showFocusMask.toggle() }
@@ -65,13 +61,19 @@ struct ZoomableFocusePeekCSImageView: View {
                     toolbarButton("xmark.circle") { dismiss() }
                     toolbarButton("plus.circle.fill") { increaseZoom() }
                 }
+
                 Spacer()
+
+                // ✅ Focus point controller — bottom centre, above hint text
+                focuspointcontroller
+
+                // Bottom hint text
                 VStack(spacing: 8) {
                     Text(currentScale <= 1.0 ? "Double Tap to Zoom" : "Double Tap to Fit Screen")
-                        .font(.caption).foregroundStyle(.black.opacity(0.5))
+                        .font(.caption).foregroundStyle(.white.opacity(0.5))
                     if let cgImage {
                         Text("\(cgImage.width) × \(cgImage.height) px")
-                            .font(.caption2).foregroundStyle(.black.opacity(0.4))
+                            .font(.caption2).foregroundStyle(.white.opacity(0.4))
                     }
                 }
                 .padding(.bottom, 20)
