@@ -7,8 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Focus Point Marker Shape (corner brackets)
-
 // MARK: - Focus Overlay
 
 struct FocusOverlayView: View {
@@ -18,21 +16,23 @@ struct FocusOverlayView: View {
     var lineWidth: CGFloat = 2.5
 
     var body: some View {
-        GeometryReader { _ in
-            ZStack {
-                ForEach(focusPoints) { point in
-                    FocusPointMarker(
-                        normalizedX: point.normalizedX,
-                        normalizedY: point.normalizedY,
-                        boxSize: markerSize
-                    )
-                    .stroke(markerColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                    .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
-                }
+        // GeometryReader removed: FocusPointMarker is a Shape and receives
+        // its rect directly via path(in:) — no proxy needed here.
+        ZStack {
+            ForEach(focusPoints) { point in
+                FocusPointMarker(
+                    normalizedX: point.normalizedX,
+                    normalizedY: point.normalizedY,
+                    boxSize: markerSize
+                )
+                .stroke(markerColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
             }
         }
     }
 }
+
+// MARK: - Focus Point Marker Shape (corner brackets)
 
 struct FocusPointMarker: Shape {
     let normalizedX: CGFloat

@@ -5,6 +5,13 @@
 //  Created by Thomas Evensen on 20/01/2026.
 //
 
+//
+//  ScanFiles.swift
+//  RawCull
+//
+//  Created by Thomas Evensen on 20/01/2026.
+//
+
 import Foundation
 import ImageIO
 import OSLog
@@ -19,7 +26,7 @@ struct ExifMetadata: Hashable {
 }
 
 actor ScanFiles {
-    /// If there are created focuspoints with exitfool
+    /// Populated after scanFiles() completes if focuspoints.json exists in the catalog.
     /// exiftool -Sony:FocusLocation *.ARW -j >> focuspoints.json
     var focusPoints: [FocusPointsModel]?
 
@@ -27,7 +34,6 @@ actor ScanFiles {
         url: URL,
         onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil
     ) async -> [FileItem] {
-        // Essential for Sandbox apps
         guard url.startAccessingSecurityScopedResource() else { return [] }
         defer { url.stopAccessingSecurityScopedResource() }
 
@@ -46,21 +52,16 @@ actor ScanFiles {
                 options: [.skipsHiddenFiles]
             )
 
-            // Create a TaskGroup to process files concurrently
-            return await withTaskGroup(of: FileItem?.self) { group in
-                // 1. Queue up all the files to be processed in parallel
+            // 1. Scan and build FileItems concurrently
+            let result: [FileItem] = await withTaskGroup(of: FileItem?.self) { group in
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
 
-                    // Update the counter as each file finishes extracting
                     discoveredCount += 1
                     await onProgress?(discoveredCount)
 
                     group.addTask {
-                        // This block now runs concurrently on background threads!
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
-
-                        // Heavy work happens here, safely distributed across CPU cores
                         let exifData = await self.extractExifData(from: fileURL)
 
                         return FileItem(
@@ -74,19 +75,19 @@ actor ScanFiles {
                     }
                 }
 
-                var result: [FileItem] = []
-
-                // 2. Collect the results as soon as each concurrent task finishes
+                var items: [FileItem] = []
                 for await item in group {
-                    if let item = item {
-                        result.append(item)
-                    }
+                    if let item { items.append(item) }
                 }
-
-                // Read FocusPoints here
-                focusPoints = await ReadFocusPointsJSON(urlCatalog: url).readFocusPointsJSON()
-                return result
+                return items
             }
+
+            // 2. Read focus points AFTER the task group — we are back on the
+            //    ScanFiles actor here, so mutating focusPoints is safe and
+            //    no isolation warning is emitted.
+            focusPoints = await ReadFocusPointsJSON(urlCatalog: url).readFocusPointsJSON()
+
+            return result
         } catch {
             Logger.process.warning("Scan Error: \(error)")
             return []
