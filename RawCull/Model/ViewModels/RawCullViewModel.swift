@@ -103,7 +103,14 @@ final class RawCullViewModel {
             onProgress: countingScannedFiles
         )
         // Get the focuspoints if created
-        focusPoints = await scan.focusPoints
+        // Map raw decoded data → FocusPointsModel here on @MainActor — no isolation issue
+        if let raw = await scan.decodedFocusPoints {
+            focusPoints = raw.map {
+                FocusPointsModel(sourceFile: $0.sourceFile, focusLocations: [$0.focusLocation])
+            }
+        } else {
+            focusPoints = nil
+        }
 
         Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
 

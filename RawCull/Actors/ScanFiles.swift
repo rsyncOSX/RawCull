@@ -25,10 +25,19 @@ struct ExifMetadata: Hashable {
     let lensModel: String?
 }
 
+struct DecodeFocusPoints: Codable {
+    let sourceFile: String
+    let focusLocation: String
+
+    enum CodingKeys: String, CodingKey {
+        case sourceFile = "SourceFile"
+        case focusLocation = "FocusLocation"
+    }
+}
+
 actor ScanFiles {
-    /// Populated after scanFiles() completes if focuspoints.json exists in the catalog.
-    /// exiftool -Sony:FocusLocation *.ARW -j >> focuspoints.json
-    var focusPoints: [FocusPointsModel]?
+    /// Store raw decoded data — no @MainActor types involved
+    var decodedFocusPoints: [DecodeFocusPoints]?
 
     func scanFiles(
         url: URL,
@@ -38,7 +47,6 @@ actor ScanFiles {
         defer { url.stopAccessingSecurityScopedResource() }
 
         var discoveredCount = 0
-
         Logger.process.debugThreadOnly("func scanFiles()")
 
         let keys: [URLResourceKey] = [
@@ -52,18 +60,14 @@ actor ScanFiles {
                 options: [.skipsHiddenFiles]
             )
 
-            // 1. Scan and build FileItems concurrently
             let result: [FileItem] = await withTaskGroup(of: FileItem?.self) { group in
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
-
                     discoveredCount += 1
                     await onProgress?(discoveredCount)
-
                     group.addTask {
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
                         let exifData = await self.extractExifData(from: fileURL)
-
                         return FileItem(
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
@@ -74,7 +78,6 @@ actor ScanFiles {
                         )
                     }
                 }
-
                 var items: [FileItem] = []
                 for await item in group {
                     if let item { items.append(item) }
@@ -82,15 +85,28 @@ actor ScanFiles {
                 return items
             }
 
-            // 2. Read focus points AFTER the task group — we are back on the
-            //    ScanFiles actor here, so mutating focusPoints is safe and
-            //    no isolation warning is emitted.
-            focusPoints = await ReadFocusPointsJSON(urlCatalog: url).readFocusPointsJSON()
+            // Decode raw JSON — plain Codable struct, no @MainActor involved
+            decodedFocusPoints = decodeFocusPointsJSON(from: url)
 
             return result
         } catch {
             Logger.process.warning("Scan Error: \(error)")
             return []
+        }
+    }
+
+    /// Synchronous — plain Data read + JSONDecoder, no actor-isolated types touched
+    private func decodeFocusPointsJSON(from url: URL) -> [DecodeFocusPoints]? {
+        let fileURL = url.appendingPathComponent("focuspoints.json")
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoded = try JSONDecoder().decode([DecodeFocusPoints].self, from: data)
+            Logger.process.debugThreadOnly("decodeFocusPointsJSON - read \(decoded.count) records")
+            return decoded
+        } catch {
+            // Logger.process.errorMessageOnly("decodeFocusPointsJSON: ERROR \(error)")
+            return nil
         }
     }
 
