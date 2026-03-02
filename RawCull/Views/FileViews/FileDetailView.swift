@@ -29,10 +29,11 @@ struct FileDetailView: View {
             if let file = file {
                 VStack(spacing: 20) {
                     CachedThumbnailView(
-                        url: file.url,
                         scale: $scale,
                         lastScale: $lastScale,
-                        offset: $offset
+                        offset: $offset,
+                        url: file.url,
+                        focusPoints: focusPoints
                     )
 
                     HStack {

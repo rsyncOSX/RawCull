@@ -244,15 +244,20 @@ struct RawCullView: View {
             memoryWarningOpacity = 0.8
         }
     }
-    
+
+    /// Pick the right focus points
     private func getFocusPoints() -> [FocusPoint]? {
         guard viewModel.focusPoints != nil else {
             return nil
         }
         if let imageName = viewModel.selectedFile?.name {
-            
+            if let points = viewModel.focusPoints?.filter({ $0.sourceFile == imageName }) {
+                guard points.count == 1 else {
+                    return nil
+                }
+                return points[0].focusPoints
+            }
         }
-        
         return nil
     }
 }
