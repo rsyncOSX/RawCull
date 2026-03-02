@@ -19,8 +19,7 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var focusDetectorModel: FocusDetectorMaskModel = .init()
     @State private var showFocusMask: Bool = false
-
-    @State private var showFocusPoints = false
+    @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
 
     private let zoomLevel: CGFloat = 2.0
@@ -51,6 +50,7 @@ struct ZoomableFocusePeekCSImageView: View {
             VStack {
                 HStack {
                     Spacer()
+                    
                     toolbarButton("viewfinder.circle.fill") { showFocusMask.toggle() }
                         .disabled(focusMask == nil)
                     toolbarButton("minus.circle.fill") { decreaseZoom() }
@@ -144,6 +144,48 @@ struct ZoomableFocusePeekCSImageView: View {
     private func zoomToTarget() { currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero }
     private func increaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) } }
     private func decreaseZoom() { withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) } }
+    
+    private var focuspointcontroller: some View {
+        // ── macOS 26 glass control bar ───────────────────────────
+        HStack(spacing: 12) {
+            // Marker size slider
+            if showFocusPoints {
+                HStack(spacing: 6) {
+                    Image(systemName: "viewfinder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Slider(value: $markerSize, in: 32 ... 120, step: 4)
+                        .frame(width: 100)
+                        .controlSize(.small)
+                    Image(systemName: "viewfinder")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+
+            // Toggle button
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showFocusPoints.toggle()
+                }
+            } label: {
+                Image(systemName: showFocusPoints
+                    ? "viewfinder.circle.fill"
+                    : "viewfinder.circle")
+                    .font(.title3)
+                    .symbolEffect(.bounce, value: showFocusPoints)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(showFocusPoints ? .yellow : .primary)
+            .help(showFocusPoints ? "Hide focus points" : "Show focus points")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: Capsule())
+        .padding(14)
+        .animation(.spring(duration: 0.3), value: showFocusPoints)
+    }
 }
 
 extension CGImage {
