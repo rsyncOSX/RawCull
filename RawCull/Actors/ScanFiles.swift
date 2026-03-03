@@ -140,7 +140,7 @@ actor ScanFiles {
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
             focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),
             aperture: formatAperture(exifDict[kCGImagePropertyExifFNumber]),
-            iso: formatISO(exifDict[kCGImagePropertyExifISOSpeedRatings]),
+            iso: formatISO((exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first),
             camera: tiffDict[kCGImagePropertyTIFFModel] as? String,
             lensModel: exifDict[kCGImagePropertyExifLensModel] as? String
         )
@@ -166,8 +166,8 @@ actor ScanFiles {
         return String(format: "ƒ/%.1f", aperture.doubleValue)
     }
 
-    private func formatISO(_ value: Any?) -> String? {
-        guard let iso = value as? NSNumber else { return nil }
-        return String(format: "ISO %.0f", iso.doubleValue)
+    func formatISO(_ iso: Int?) -> String? {
+        guard let iso else { return nil }
+        return "ISO \(iso)"
     }
 }
