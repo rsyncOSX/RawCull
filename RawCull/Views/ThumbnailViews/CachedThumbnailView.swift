@@ -106,13 +106,13 @@ struct CachedThumbnailView: View {
 
     private var focuspointcontroller: some View {
         HStack(spacing: 12) {
-            // Marker size slider (visible only when focus points are shown)
+            // Marker size slider
             if showFocusPoints {
                 HStack(spacing: 6) {
                     Image(systemName: "viewfinder")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Slider(value: $markerSize, in: 32 ... 120, step: 4)
+                        .foregroundStyle(.secondary) // .secondary adapts to background automatically
+                    Slider(value: $markerSize, in: 32 ... 100, step: 4)
                         .frame(width: 100)
                         .controlSize(.small)
                     Image(systemName: "viewfinder")
@@ -122,7 +122,7 @@ struct CachedThumbnailView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
 
-            // Toggle button — always white so it's visible on black background
+            // Toggle button
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showFocusPoints.toggle()
@@ -132,7 +132,9 @@ struct CachedThumbnailView: View {
                     ? "viewfinder.circle.fill"
                     : "viewfinder.circle")
                     .font(.title3)
-                    .foregroundStyle(showFocusPoints ? .yellow : .white) // ← was .primary (black on black!)
+                    // CHANGE 1: Use .primary for the inactive state.
+                    // This renders as Black on Light backgrounds and White on Dark backgrounds.
+                    .foregroundStyle(showFocusPoints ? .yellow : .primary)
                     .symbolEffect(.bounce, value: showFocusPoints)
             }
             .buttonStyle(.plain)
@@ -140,7 +142,15 @@ struct CachedThumbnailView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .background(.white.opacity(0.15), in: Capsule()) // ← was .ultraThinMaterial (invisible on black)
+        // CHANGE 2: Use .ultraThinMaterial with a subtle border.
+        // Material blurs the background, creating contrast automatically.
+        .background(.ultraThinMaterial, in: Capsule())
+        // CHANGE 3: Add a stroke border.
+        // This guarantees the component has an "edge" even if the background is pure white or pure black.
+        .overlay {
+            Capsule()
+                .strokeBorder(.primary.opacity(0.1), lineWidth: 0.5)
+        }
         .padding(10)
         .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
