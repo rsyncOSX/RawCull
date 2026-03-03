@@ -61,8 +61,7 @@ struct ZoomableFocusePeekCSImageView: View {
                 // Top toolbar
                 HStack {
                     Spacer()
-                    toolbarButton("viewfinder.circle.fill") { showFocusMask.toggle() }
-                        .disabled(focusMask == nil)
+
                     toolbarButton("minus.circle.fill") { decreaseZoom() }
                     toolbarButton("xmark.circle") { dismiss() }
                     toolbarButton("plus.circle.fill") { increaseZoom() }
@@ -70,8 +69,12 @@ struct ZoomableFocusePeekCSImageView: View {
 
                 Spacer()
 
-                // ✅ Focus point controller — bottom centre, above hint text
-                focuspointcontroller
+                HStack {
+                    toolbarButton("viewfinder.circle.fill") { showFocusMask.toggle() }
+                        .disabled(focusMask == nil)
+
+                    focuspointcontroller
+                }
 
                 // Bottom hint text
                 VStack(spacing: 8) {

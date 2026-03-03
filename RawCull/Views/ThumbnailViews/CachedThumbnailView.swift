@@ -69,47 +69,11 @@ struct CachedThumbnailView: View {
                                 .allowsHitTesting(false)
                                 .transition(.opacity.combined(with: .blurReplace))
                             }
-                        }
 
-                        // ── macOS 26 glass control bar ───────────────────────────
-                        HStack(spacing: 12) {
-                            // Marker size slider
-                            if showFocusPoints {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "viewfinder")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Slider(value: $markerSize, in: 32 ... 120, step: 4)
-                                        .frame(width: 100)
-                                        .controlSize(.small)
-                                    Image(systemName: "viewfinder")
-                                        .font(.body)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .transition(.move(edge: .trailing).combined(with: .opacity))
-                            }
+                            Spacer()
 
-                            // Toggle button
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showFocusPoints.toggle()
-                                }
-                            } label: {
-                                Image(systemName: showFocusPoints
-                                    ? "viewfinder.circle.fill"
-                                    : "viewfinder.circle")
-                                    .font(.title3)
-                                    .symbolEffect(.bounce, value: showFocusPoints)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(showFocusPoints ? .yellow : .primary)
-                            .help(showFocusPoints ? "Hide focus points" : "Show focus points")
+                            focuspointcontroller
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .padding(14)
-                        .animation(.spring(duration: 0.3), value: showFocusPoints)
                     }
                 }
                 .shadow(radius: 4)
@@ -137,5 +101,46 @@ struct CachedThumbnailView: View {
             }
             isLoading = false
         }
+    }
+
+    private var focuspointcontroller: some View {
+        HStack(spacing: 12) {
+            // Marker size slider (visible only when focus points are shown)
+            if showFocusPoints {
+                HStack(spacing: 6) {
+                    Image(systemName: "viewfinder")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Slider(value: $markerSize, in: 32 ... 120, step: 4)
+                        .frame(width: 100)
+                        .controlSize(.small)
+                    Image(systemName: "viewfinder")
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+
+            // Toggle button — always white so it's visible on black background
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showFocusPoints.toggle()
+                }
+            } label: {
+                Image(systemName: showFocusPoints
+                    ? "viewfinder.circle.fill"
+                    : "viewfinder.circle")
+                    .font(.title3)
+                    .foregroundStyle(showFocusPoints ? .yellow : .white) // ← was .primary (black on black!)
+                    .symbolEffect(.bounce, value: showFocusPoints)
+            }
+            .buttonStyle(.plain)
+            .help(showFocusPoints ? "Hide focus points" : "Show focus points")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.white.opacity(0.15), in: Capsule()) // ← was .ultraThinMaterial (invisible on black)
+        .padding(14)
+        .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
 }
