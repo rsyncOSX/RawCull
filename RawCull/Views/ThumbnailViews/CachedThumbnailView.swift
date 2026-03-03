@@ -70,9 +70,10 @@ struct CachedThumbnailView: View {
                                 .transition(.opacity.combined(with: .blurReplace))
                             }
 
-                            Spacer()
-
-                            focuspointcontroller
+                            VStack {
+                                Spacer()
+                                focuspointcontroller
+                            }
                         }
                     }
                 }
