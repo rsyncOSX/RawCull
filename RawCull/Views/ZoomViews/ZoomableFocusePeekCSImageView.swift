@@ -156,13 +156,13 @@ struct ZoomableFocusePeekCSImageView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "viewfinder")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(.secondary)
                     Slider(value: $markerSize, in: 32 ... 120, step: 4)
                         .frame(width: 100)
                         .controlSize(.small)
                     Image(systemName: "viewfinder")
                         .font(.body)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(.secondary)
                 }
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
@@ -183,10 +183,10 @@ struct ZoomableFocusePeekCSImageView: View {
             .buttonStyle(.plain)
             .help(showFocusPoints ? "Hide focus points" : "Show focus points")
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .background(.white.opacity(0.15), in: Capsule()) // ← was .ultraThinMaterial (invisible on black)
-        .padding(14)
+        .padding(10)
         .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
 
