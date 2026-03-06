@@ -15,7 +15,6 @@ import Testing
 
 // MARK: - Example: Custom Memory Limit Scenarios
 
-@Suite("Custom Memory Limit Tests")
 struct CustomMemoryLimitTests {
     /// Example 1: Test with 5 MB cache limit
     /// Useful for testing with moderate cache sizes
@@ -82,7 +81,6 @@ struct CustomMemoryLimitTests {
 
 // MARK: - Example: Memory Pressure Scenarios
 
-@Suite("Memory Pressure Scenarios")
 struct MemoryPressureScenarios {
     /// Test behavior when cache limit is reached
     @Test("Cache behavior near limit")
@@ -118,7 +116,6 @@ struct MemoryPressureScenarios {
 
 // MARK: - Example: Comparing Configs
 
-@Suite("Configuration Comparison Tests")
 struct ConfigComparisonTests {
     /// Compare behavior across multiple config sizes
     @Test("Behavior across config sizes")
@@ -142,7 +139,6 @@ struct ConfigComparisonTests {
 
 // MARK: - Example: Eviction Monitoring
 
-@Suite("Cache Eviction Monitoring")
 struct EvictionMonitoringTests {
     /// Monitor eviction statistics
     @Test("Eviction statistics collection")
@@ -188,7 +184,6 @@ struct EvictionMonitoringTests {
 
 // MARK: - Example: Realistic Scenarios
 
-@Suite("Realistic Workload Tests")
 struct RealisticWorkloadTests {
     /// Simulate typical thumbnail browsing session
     @Test("Typical browsing session")
@@ -234,7 +229,6 @@ struct RealisticWorkloadTests {
 
 // MARK: - Performance Measurement Tests
 
-@Suite("Memory Performance Tests")
 struct MemoryPerformanceTests {
     /// Measure cache operations with different configs
     @Test("Operations speed with testing config")
@@ -269,7 +263,6 @@ struct MemoryPerformanceTests {
 
 // MARK: - Integration Test Template
 
-@Suite("Integration Test Examples")
 struct IntegrationTestExamples {
     /// Template for testing multiple operations together
     @Test("Multi-operation workflow")

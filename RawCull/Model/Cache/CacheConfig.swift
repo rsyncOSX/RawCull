@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CacheConfig: Sendable {
+struct CacheConfig {
     nonisolated let totalCostLimit: Int
     nonisolated let countLimit: Int
     /// Need this in return to settingsview

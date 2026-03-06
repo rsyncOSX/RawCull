@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CacheStatistics: Sendable {
+struct CacheStatistics {
     nonisolated let hits: Int
     nonisolated let misses: Int
     nonisolated let evictions: Int

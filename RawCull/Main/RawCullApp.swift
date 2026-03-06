@@ -24,7 +24,7 @@ struct RawCullApp: App {
     @State private var zoomCGImageWindowFocused: Bool = false
     @State private var zoomNSImageWindowFocused: Bool = false
     @State private var gridThumbnailWindowFocused: Bool = false
-    
+
     @State private var settingsviewmodel = SettingsViewModel.shared
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
     @State private var viewModel = RawCullViewModel()

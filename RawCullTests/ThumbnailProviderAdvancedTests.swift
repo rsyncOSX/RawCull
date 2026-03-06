@@ -13,7 +13,6 @@ import Foundation
 @testable import RawCull
 import Testing
 
-@Suite("RequestThumbnail Advanced Memory Tests")
 struct RequestThumbnailAdvancedMemoryTests {
     @Test("Small cost limit triggers rapid evictions")
     func rapidEvictionsWithSmallCostLimit() async {
@@ -52,7 +51,6 @@ struct RequestThumbnailAdvancedMemoryTests {
     }
 }
 
-@Suite("RequestThumbnail Stress Tests")
 @MainActor
 struct RequestThumbnailStressTests {
     @Test("Handles rapid sequential operations")
@@ -102,7 +100,6 @@ struct RequestThumbnailStressTests {
     }
 }
 
-@Suite("RequestThumbnail Edge Case Tests")
 @MainActor
 struct RequestThumbnailEdgeCaseTests {
     @Test("Config with zero cost limit")
@@ -158,7 +155,6 @@ struct RequestThumbnailEdgeCaseTests {
     }
 }
 
-@Suite("RequestThumbnail Configuration Tests")
 @MainActor
 struct RequestThumbnailConfigurationTests {
     @Test("Different configs have different limits")
@@ -187,7 +183,6 @@ struct RequestThumbnailConfigurationTests {
     }
 }
 
-@Suite("RequestThumbnail Discardable Content Tests")
 @MainActor
 struct RequestThumbnailDiscardableContentTests {
     @Test("DiscardableThumbnail tracks access correctly")
@@ -230,7 +225,6 @@ struct RequestThumbnailDiscardableContentTests {
     }
 }
 
-@Suite("RequestThumbnail Scalability Tests")
 @MainActor
 struct RequestThumbnailScalabilityTests {
     @Test("Handles variable target sizes")

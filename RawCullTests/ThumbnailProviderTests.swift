@@ -24,7 +24,6 @@ func createTestImage(width: Int = 100, height: Int = 100) -> NSImage {
 
 // MARK: - Tests
 
-@Suite("RequestThumbnail Tests")
 struct RequestThumbnailTests {
     // MARK: - Initialization Tests
 
@@ -224,7 +223,6 @@ struct RequestThumbnailTests {
 
 // MARK: - Performance Tests
 
-@Suite("RequestThumbnail Performance Tests")
 @MainActor
 struct RequestThumbnailPerformanceTests {
     @Test("Statistics gathering is fast")

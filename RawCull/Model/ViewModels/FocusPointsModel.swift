@@ -8,7 +8,7 @@
 import CoreGraphics
 import Foundation
 
-struct FocusPointsModel: Identifiable, Sendable {
+struct FocusPointsModel: Identifiable {
     let id: UUID
     let sourceFile: String
     let focusPoints: [FocusPoint]
@@ -20,7 +20,7 @@ struct FocusPointsModel: Identifiable, Sendable {
     }
 }
 
-struct FocusPoint: Identifiable, Sendable {
+struct FocusPoint: Identifiable {
     let id: UUID
     let sensorWidth: CGFloat
     let sensorHeight: CGFloat
