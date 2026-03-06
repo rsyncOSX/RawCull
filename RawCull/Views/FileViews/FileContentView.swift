@@ -104,11 +104,11 @@ struct FileContentView: View {
                         .padding()
 
                         ARWFileTableRowView(viewModel: viewModel,
-                                      nsImage: $nsImage,
-                                      cgImage: $cgImage,
-                                      zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                      zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                      openWindow: { id in openWindow(id: id) })
+                                            nsImage: $nsImage,
+                                            cgImage: $cgImage,
+                                            zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                            zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                            openWindow: { id in openWindow(id: id) })
 
                         Spacer()
 
