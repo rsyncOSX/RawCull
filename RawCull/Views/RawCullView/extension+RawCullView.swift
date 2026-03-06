@@ -126,7 +126,7 @@ extension RawCullView {
                     Text(file.formattedSize).monospacedDigit()
                 }
                 .width(75)
-                TableColumn("Modified", value: \.dateModified) { file in
+                TableColumn("Created", value: \.dateModified) { file in
                     Text(file.dateModified, style: .date)
                 }
             }
