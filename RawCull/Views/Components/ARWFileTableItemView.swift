@@ -43,7 +43,7 @@ struct ARWFileTableItemView: View {
                     } else if isLoading, let savedSettings {
                         Rectangle()
                             .fill(Color.gray.opacity(0.1))
-                            .frame(height: CGFloat(savedSettings.thumbnailSizeGridView))
+                            .frame(height: CGFloat(savedSettings.thumbnailSizeGrid))
                             .overlay {
                                 ProgressView()
                                     .fixedSize()
@@ -52,7 +52,7 @@ struct ARWFileTableItemView: View {
                         ZStack {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.1))
-                                .frame(height: CGFloat(savedSettings.thumbnailSizeGridView))
+                                .frame(height: CGFloat(savedSettings.thumbnailSizeGrid))
 
                             Label("No image", systemImage: "xmark")
                                 .font(.caption2)

@@ -101,6 +101,7 @@ struct RawCullView: View {
         } detail: {
             // --- DETAIL VIEW ---
             FileDetailView(
+                viewModel: viewModel,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 selectedFileID: $viewModel.selectedFileID,

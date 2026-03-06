@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FileDetailView: View {
     @Environment(\.openWindow) var openWindow
+    @Bindable var viewModel: RawCullViewModel
 
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
@@ -65,6 +66,15 @@ struct FileDetailView: View {
                         openWindow: { id in openWindow(id: id) }
                     )
                 }
+
+                Spacer()
+
+                ARWFileTableImageView(
+                    viewModel: viewModel,
+                    cullingManager: viewModel.cullingModel,
+                    files: viewModel.files,
+                    selectedSource: viewModel.selectedSource
+                )
             } else {
                 ContentUnavailableView(
                     "No Selection",
