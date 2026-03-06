@@ -35,10 +35,17 @@ struct ARWFileTableImageView: View {
                             file: file,
                             selectedSource: selectedSource
                         )
+                        .onTapGesture {
+                            handleSelection(file: file)
+                        }
                     }
                 }
             }
         }
+    }
+
+    private func handleSelection(file: FileItem) {
+        viewModel.selectedFile = file
     }
 
     private func handleToggleSelection(for file: FileItem) {

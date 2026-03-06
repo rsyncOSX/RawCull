@@ -54,7 +54,7 @@ struct FileDetailView: View {
                     .padding()
                 }
                 .padding()
-                .frame(minWidth: 300, minHeight: 300)
+                // .frame(minWidth: 300, minHeight: 300)
                 .onTapGesture(count: 2) {
                     guard let selectedID = selectedFileID,
                           let file = files.first(where: { $0.id == selectedID }) else { return }
