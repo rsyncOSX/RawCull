@@ -38,11 +38,14 @@ struct RawCullView: View {
                 scanning: $viewModel.scanning,
                 creatingThumbnails: $viewModel.creatingthumbnails,
 
+                nsImage: $nsImage,
+                cgImage: $cgImage,
+                zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+
                 files: viewModel.files,
                 issorting: viewModel.issorting,
-                max: viewModel.max,
-
-                filetable: AnyView(filetablescannedarwfiles)
+                max: viewModel.max
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) ARW files)")

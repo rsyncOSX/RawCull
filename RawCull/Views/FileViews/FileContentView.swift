@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct FileContentView: View {
+    @Environment(\.openWindow) var openWindow
+
     @Bindable var viewModel: RawCullViewModel
     @Binding var isShowingPicker: Bool
     @Binding var progress: Double
@@ -9,13 +11,18 @@ struct FileContentView: View {
     @Binding var scanning: Bool
     @Binding var creatingThumbnails: Bool
 
+    @Binding var nsImage: NSImage?
+    @Binding var cgImage: CGImage?
+    @Binding var zoomCGImageWindowFocused: Bool
+    @Binding var zoomNSImageWindowFocused: Bool
+
     @State var counterScannedFiles: Int = 0
 
     let files: [FileItem]
     let issorting: Bool
     let max: Double
 
-    let filetable: AnyView
+    // let filetable: AnyView
 
     var body: some View {
         Group {
@@ -96,7 +103,12 @@ struct FileContentView: View {
                         }
                         .padding()
 
-                        filetable
+                        ARWFileTableRowView(viewModel: viewModel,
+                                      nsImage: $nsImage,
+                                      cgImage: $cgImage,
+                                      zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                      zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                      openWindow: { id in openWindow(id: id) })
 
                         Spacer()
 
