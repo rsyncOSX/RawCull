@@ -10,6 +10,7 @@ import SwiftUI
 struct DetailOnlyView: View {
     @Environment(\.openWindow) var openWindow
     @Bindable var viewModel: RawCullViewModel
+    @Binding var showDetailOnly: Bool
 
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
@@ -17,7 +18,7 @@ struct DetailOnlyView: View {
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
 
-    @State private var showInspector: Bool = true
+    @State var showInspector: Bool = true
 
     var body: some View {
         if let file = viewModel.selectedFile {
@@ -28,6 +29,7 @@ struct DetailOnlyView: View {
                     offset: $offset,
                     url: file.url
                 )
+                .padding()
 
                 HStack {
                     VStack {
@@ -38,8 +40,8 @@ struct DetailOnlyView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding()
             }
+
             .inspector(isPresented: $showInspector) {
                 FileInspectorView(file: $viewModel.selectedFile)
             }
@@ -71,6 +73,7 @@ struct DetailOnlyView: View {
             selectedSource: viewModel.selectedSource
         )
         .padding()
+        .toolbar { toolbarContent }
     }
 
     var files: [FileItem] {
@@ -92,5 +95,34 @@ struct DetailOnlyView: View {
                 toggledfilename: file.name
             )
         }
+    }
+}
+
+extension DetailOnlyView {
+    @ToolbarContentBuilder
+    var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button(action: toggleshowinspector) {
+                Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Toggle Inspector")
+        }
+
+        ToolbarItem(placement: .navigation) {
+            Button(action: toggleshowdetailonly) {
+                Label("Details", systemImage: "return")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Close Details")
+        }
+    }
+
+    func toggleshowinspector() {
+        showInspector.toggle()
+    }
+
+    func toggleshowdetailonly() {
+        showDetailOnly.toggle()
     }
 }

@@ -67,10 +67,8 @@ extension RawCullView {
                 Label("Details", systemImage: "photo")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Open thumbnail grid view")
+            .help("Show details")
         }
-
-        ToolbarItem { Spacer() }
     }
 
     func toggleshowdetailonly() {

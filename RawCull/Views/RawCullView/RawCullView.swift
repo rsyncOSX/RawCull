@@ -24,6 +24,7 @@ struct RawCullView: View {
             // --- DETAIL VIEW ---
             DetailOnlyView(
                 viewModel: viewModel,
+                showDetailOnly: $showDetailOnly,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 scale: $viewModel.scale,
