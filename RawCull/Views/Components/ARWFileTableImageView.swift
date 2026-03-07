@@ -62,6 +62,7 @@ struct ARWFileTableImageView: View {
 
     private func handleSelection(file: FileItem) {
         viewModel.selectedFile = file
+        viewModel.selectedFileID = file.id
     }
 
     private func navigateToNext() {

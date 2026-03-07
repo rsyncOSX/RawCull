@@ -122,7 +122,7 @@ struct RawCullView: View {
                 )
 
                 // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
-                if viewModel.focustagimage == true { labeltogglerow }
+                if viewModel.focustagimage == true { labeltageimage }
                 if viewModel.focusaborttask { labelaborttask }
                 if viewModel.focushideInspector == true { labelhideinspector }
                 if viewModel.focusExtractJPGs { labelextractjpgs }
@@ -193,7 +193,7 @@ struct RawCullView: View {
             }
     }
 
-    var labeltogglerow: some View {
+    var labeltageimage: some View {
         Label("", systemImage: "play.fill")
             .onAppear {
                 viewModel.focustagimage = false

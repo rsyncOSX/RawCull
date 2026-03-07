@@ -9,6 +9,7 @@ import SwiftUI
 
 struct DetailOnlyThumbnailsListView: View {
     @Environment(\.openWindow) var openWindow
+
     @Bindable var viewModel: RawCullViewModel
     @Binding var showDetailOnly: Bool
 
@@ -74,6 +75,20 @@ struct DetailOnlyThumbnailsListView: View {
         )
         .padding()
         .toolbar { toolbarContent }
+        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+
+        if viewModel.focustagimage == true { labeltagimage }
+    }
+
+    var labeltagimage: some View {
+        Label("", systemImage: "play.fill")
+            .onAppear {
+                viewModel.focustagimage = false
+                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
+                    let fileitem = viewModel.files[index]
+                    handleToggleSelection(for: fileitem)
+                }
+            }
     }
 
     var files: [FileItem] {
