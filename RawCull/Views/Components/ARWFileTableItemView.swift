@@ -77,8 +77,9 @@ struct ARWFileTableItemView: View {
 
     // MARK: - Helper Methods
 
+    
     private func loadThumbnail() async {
-        Logger.process.debugMessageOnly("GridThumbnailItemView LOAD thumbnail for \(file.url)")
+        Logger.process.debugThreadOnly("ARWFileTableItemView LOAD thumbnail for \(file.url)")
         isLoading = true
 
         let settingsManager = await SettingsViewModel.shared.asyncgetsettings()

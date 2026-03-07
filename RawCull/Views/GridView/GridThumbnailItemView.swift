@@ -113,7 +113,7 @@ struct GridThumbnailItemView: View {
     }
 
     private func loadThumbnail() async {
-        Logger.process.debugMessageOnly("GridThumbnailItemView LOAD thumbnail for \(file.url)")
+        Logger.process.debugThreadOnly("GridThumbnailItemView LOAD thumbnail for \(file.url)")
         isLoading = true
 
         let settingsManager = await SettingsViewModel.shared.asyncgetsettings()
