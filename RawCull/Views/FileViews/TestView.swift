@@ -18,6 +18,8 @@ struct TestView: View {
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
 
+    @State private var showInspector: Bool = true
+
     var body: some View {
         if let file = viewModel.selectedFile {
             VStack(spacing: 20) {
@@ -38,6 +40,9 @@ struct TestView: View {
                     }
                 }
                 .padding()
+            }
+            .inspector(isPresented: $showInspector) {
+                FileInspectorView(file: $viewModel.selectedFile)
             }
             .padding()
             // .frame(minWidth: 300, minHeight: 300)
