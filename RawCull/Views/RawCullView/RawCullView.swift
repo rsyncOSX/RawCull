@@ -17,88 +17,10 @@ struct RawCullView: View {
     @State var savedSettings: SavedSettings?
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
-    // .detailOnly
+    @State private var showDetailOnly: Bool = false
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            // --- SIDEBAR ---
-            CatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
-                cullingManager: viewModel.cullingModel
-            )
-        } content: {
-            // --- MIDDLE COLUMN (TABLE) ---
-            SidebarContentView(
-                viewModel: viewModel,
-                isShowingPicker: $viewModel.isShowingPicker,
-                progress: $viewModel.progress,
-                selectedSource: $viewModel.selectedSource,
-                scanning: $viewModel.scanning,
-                creatingThumbnails: $viewModel.creatingthumbnails,
-
-                nsImage: $nsImage,
-                cgImage: $cgImage,
-                zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-
-                files: viewModel.files,
-                issorting: viewModel.issorting,
-                max: viewModel.max
-            )
-            .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-                " (\(viewModel.filteredFiles.count) ARW files)")
-            .searchable(
-                text: $viewModel.searchText,
-                placement: .toolbar,
-                prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")..."
-            )
-            .toolbar { toolbarContent }
-            .focusedSceneValue(\.togglerow, $viewModel.focustogglerow)
-            .focusedSceneValue(\.pressEnter, $viewModel.focusPressEnter)
-            .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
-            .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
-            .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
-            .sheet(isPresented: $viewModel.showcopyARWFilesView) {
-                CopyARWFilesView(
-                    viewModel: viewModel,
-                    sheetType: $viewModel.sheetType,
-                    selectedSource: $viewModel.selectedSource,
-                    remotedatanumbers: $viewModel.remotedatanumbers,
-                    showcopytask: $viewModel.showcopyARWFilesView
-                )
-            }
-            .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
-                switch viewModel.alertType {
-                case .extractJPGs:
-                    Button("Extract", role: .destructive) {
-                        extractAllJPGS()
-                    }
-
-                case .clearToggledFiles:
-                    Button("Clear", role: .destructive) {
-                        if let url = viewModel.selectedSource?.url {
-                            viewModel.cullingModel.resetSavedFiles(in: url)
-                        }
-                    }
-
-                case .resetSavedFiles:
-                    Button("Reset", role: .destructive) {
-                        viewModel.cullingModel.savedFiles.removeAll()
-                        Task {
-                            await WriteSavedFilesJSON(viewModel.cullingModel.savedFiles)
-                        }
-                    }
-
-                case .none:
-                    EmptyView()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text(viewModel.alertMessage)
-            }
-        } detail: {
+        if showDetailOnly {
             // --- DETAIL VIEW ---
             FileDetailView(
                 viewModel: viewModel,
@@ -108,66 +30,165 @@ struct RawCullView: View {
                 scale: $viewModel.scale,
                 lastScale: $viewModel.lastScale,
                 offset: $viewModel.offset,
+                showDetailOnly: $showDetailOnly,
                 files: viewModel.files,
                 file: viewModel.selectedFile,
                 focusPoints: viewModel.getFocusPoints()
             )
+        } else {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                // --- SIDEBAR ---
+                CatalogSidebarView(
+                    sources: $viewModel.sources,
+                    selectedSource: $viewModel.selectedSource,
+                    isShowingPicker: $viewModel.isShowingPicker,
+                    cullingManager: viewModel.cullingModel
+                )
+            } content: {
+                // --- MIDDLE COLUMN (TABLE) ---
+                SidebarContentView(
+                    viewModel: viewModel,
+                    isShowingPicker: $viewModel.isShowingPicker,
+                    progress: $viewModel.progress,
+                    selectedSource: $viewModel.selectedSource,
+                    scanning: $viewModel.scanning,
+                    creatingThumbnails: $viewModel.creatingthumbnails,
 
-            // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
-            if viewModel.focustogglerow == true { labeltogglerow }
-            if viewModel.focusaborttask { labelaborttask }
-            if viewModel.focushideInspector == true { labelhideinspector }
-            if viewModel.focusExtractJPGs { labelextractjpgs }
-        }
-        .task {
-            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
+                    nsImage: $nsImage,
+                    cgImage: $cgImage,
+                    zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                    zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
 
-            let handlers = CreateFileHandlers().createFileHandlers(
-                fileHandler: { _ in },
-                maxfilesHandler: { _ in },
-                estimatedTimeHandler: { _ in },
-                memorypressurewarning: viewModel.memorypressurewarning
-            )
-            // Set the handler for reporting memorypressurewarning
-            await SharedMemoryCache.shared.setFileHandlers(handlers)
-        }
-        // --- RIGHT INSPECTOR ---
-        // Inside your body, replace the old .inspector with:
-        .if(viewModel.hideInspector == false) { view in
-            view.inspector(isPresented: $viewModel.isInspectorPresented) {
-                FileInspectorView(file: $viewModel.selectedFile)
+                    files: viewModel.files,
+                    issorting: viewModel.issorting,
+                    max: viewModel.max
+                )
+                .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
+                    " (\(viewModel.filteredFiles.count) ARW files)")
+                .searchable(
+                    text: $viewModel.searchText,
+                    placement: .toolbar,
+                    prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")..."
+                )
+                .toolbar { toolbarContent }
+                .focusedSceneValue(\.togglerow, $viewModel.focustogglerow)
+                .focusedSceneValue(\.pressEnter, $viewModel.focusPressEnter)
+                .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
+                .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
+                .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
+                .sheet(isPresented: $viewModel.showcopyARWFilesView) {
+                    CopyARWFilesView(
+                        viewModel: viewModel,
+                        sheetType: $viewModel.sheetType,
+                        selectedSource: $viewModel.selectedSource,
+                        remotedatanumbers: $viewModel.remotedatanumbers,
+                        showcopytask: $viewModel.showcopyARWFilesView
+                    )
+                }
+                .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
+                    switch viewModel.alertType {
+                    case .extractJPGs:
+                        Button("Extract", role: .destructive) {
+                            extractAllJPGS()
+                        }
+                        .frame(width: 100)
+
+                    case .clearToggledFiles:
+                        Button("Clear", role: .destructive) {
+                            if let url = viewModel.selectedSource?.url {
+                                viewModel.cullingModel.resetSavedFiles(in: url)
+                            }
+                        }
+                        .frame(width: 100)
+
+                    case .resetSavedFiles:
+                        Button("Reset", role: .destructive) {
+                            viewModel.cullingModel.savedFiles.removeAll()
+                            Task {
+                                await WriteSavedFilesJSON(viewModel.cullingModel.savedFiles)
+                            }
+                        }
+                        .frame(width: 100)
+
+                    case .none:
+                        EmptyView()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text(viewModel.alertMessage)
+                }
+            } detail: {
+                // --- DETAIL VIEW ---
+                FileDetailView(
+                    viewModel: viewModel,
+                    cgImage: $cgImage,
+                    nsImage: $nsImage,
+                    selectedFileID: $viewModel.selectedFileID,
+                    scale: $viewModel.scale,
+                    lastScale: $viewModel.lastScale,
+                    offset: $viewModel.offset,
+                    showDetailOnly: $showDetailOnly,
+                    files: viewModel.files,
+                    file: viewModel.selectedFile,
+                    focusPoints: viewModel.getFocusPoints()
+                )
+
+                // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
+                if viewModel.focustogglerow == true { labeltogglerow }
+                if viewModel.focusaborttask { labelaborttask }
+                if viewModel.focushideInspector == true { labelhideinspector }
+                if viewModel.focusExtractJPGs { labelextractjpgs }
             }
-        }
-        .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
-            handlePickerResult(result)
-        }
-        .task(id: viewModel.selectedSource) {
-            Task(priority: .background) {
-                if let url = viewModel.selectedSource?.url {
-                    viewModel.scanning.toggle()
-                    await viewModel.handleSourceChange(url: url)
+            .task {
+                savedSettings = await SettingsViewModel.shared.asyncgetsettings()
+
+                let handlers = CreateFileHandlers().createFileHandlers(
+                    fileHandler: { _ in },
+                    maxfilesHandler: { _ in },
+                    estimatedTimeHandler: { _ in },
+                    memorypressurewarning: viewModel.memorypressurewarning
+                )
+                // Set the handler for reporting memorypressurewarning
+                await SharedMemoryCache.shared.setFileHandlers(handlers)
+            }
+            // --- RIGHT INSPECTOR ---
+            // Inside your body, replace the old .inspector with:
+            .if(viewModel.hideInspector == false) { view in
+                view.inspector(isPresented: $viewModel.isInspectorPresented) {
+                    FileInspectorView(file: $viewModel.selectedFile)
                 }
             }
-        }
-        .onChange(of: viewModel.sortOrder) {
-            Task(priority: .background) {
-                await viewModel.handleSortOrderChange()
+            .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
+                handlePickerResult(result)
             }
-        }
-        .onChange(of: viewModel.searchText) {
-            Task(priority: .background) {
-                await viewModel.handleSearchTextChange()
+            .task(id: viewModel.selectedSource) {
+                Task(priority: .background) {
+                    if let url = viewModel.selectedSource?.url {
+                        viewModel.scanning.toggle()
+                        await viewModel.handleSourceChange(url: url)
+                    }
+                }
             }
-        }
-        .overlay(alignment: .bottom) {
-            if viewModel.memorypressurewarning {
-                memoryWarningLabel
-                    .transition(.move(edge: .top).combined(with: .opacity))
+            .onChange(of: viewModel.sortOrder) {
+                Task(priority: .background) {
+                    await viewModel.handleSortOrderChange()
+                }
             }
-        }
-        .onChange(of: viewModel.memorypressurewarning) {
-            if viewModel.memorypressurewarning {
-                startMemoryWarningFlash()
+            .onChange(of: viewModel.searchText) {
+                Task(priority: .background) {
+                    await viewModel.handleSearchTextChange()
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if viewModel.memorypressurewarning {
+                    memoryWarningLabel
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .onChange(of: viewModel.memorypressurewarning) {
+                if viewModel.memorypressurewarning {
+                    startMemoryWarningFlash()
+                }
             }
         }
     }

@@ -10,6 +10,7 @@ struct FileDetailView: View {
     @Binding var scale: CGFloat
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
+    @Binding var showDetailOnly: Bool
 
     @State var showDetailsTagView: Bool = false
 
@@ -68,13 +69,16 @@ struct FileDetailView: View {
                 }
 
                 Spacer()
-
-                ARWFileTableImageView(
-                    viewModel: viewModel,
-                    cullingManager: viewModel.cullingModel,
-                    files: viewModel.files,
-                    selectedSource: viewModel.selectedSource
-                )
+                
+                if showDetailOnly {
+                    ARWFileTableImageView(
+                        viewModel: viewModel,
+                        cullingManager: viewModel.cullingModel,
+                        files: viewModel.files,
+                        selectedSource: viewModel.selectedSource
+                    )
+                }
+                
             } else {
                 ContentUnavailableView(
                     "No Selection",
