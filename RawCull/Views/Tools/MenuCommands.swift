@@ -9,15 +9,14 @@ import Foundation
 import SwiftUI
 
 struct MenuCommands: Commands {
-    @FocusedBinding(\.togglerow) private var togglerow
+    @FocusedBinding(\.tagimage) private var tagimage
     @FocusedBinding(\.aborttask) private var aborttask
-    @FocusedBinding(\.pressEnter) private var pressEnter
     @FocusedBinding(\.hideInspector) private var hideInspector
     @FocusedBinding(\.extractJPGs) private var extractJPGs
 
     var body: some Commands {
         CommandMenu("Actions") {
-            CommandButton("Tag row", action: { togglerow = true }, shortcut: "t")
+            CommandButton("Tag Image", action: { tagimage = true }, shortcut: "t")
             CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
 
             Divider()
@@ -60,14 +59,14 @@ struct CommandButton: View {
     }
 }
 
-struct Togglerow: View {
-    @Binding var tagsnapshot: Bool?
+struct TagImage: View {
+    @Binding var tagimage: Bool?
 
     var body: some View {
         Button {
-            tagsnapshot = true
+            tagimage = true
         } label: {
-            Text("Tag row")
+            Text("Tag Image")
         }
         .keyboardShortcut("t", modifiers: [.command])
     }
@@ -101,15 +100,11 @@ struct HideInspector: View {
 
 // MARK: - Focused Value Keys
 
-struct FocusedTogglerow: FocusedValueKey {
+struct FocusedTagImage: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
 struct FocusedAborttask: FocusedValueKey {
-    typealias Value = Binding<Bool>
-}
-
-struct FocusedPressEnter: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
@@ -122,19 +117,14 @@ struct FocusedExtractJPGs: FocusedValueKey {
 }
 
 extension FocusedValues {
-    var togglerow: FocusedTogglerow.Value? {
-        get { self[FocusedTogglerow.self] }
-        set { self[FocusedTogglerow.self] = newValue }
+    var tagimage: FocusedTagImage.Value? {
+        get { self[FocusedTagImage.self] }
+        set { self[FocusedTagImage.self] = newValue }
     }
 
     var aborttask: FocusedAborttask.Value? {
         get { self[FocusedAborttask.self] }
         set { self[FocusedAborttask.self] = newValue }
-    }
-
-    var pressEnter: FocusedPressEnter.Value? {
-        get { self[FocusedPressEnter.self] }
-        set { self[FocusedPressEnter.self] = newValue }
     }
 
     var hideInspector: FocusedHideInspector.Value? {

@@ -112,28 +112,6 @@ struct ARWFileTableRowView: View {
                 viewModel.isInspectorPresented = false
             }
         }
-        .onChange(of: viewModel.focusPressEnter) {
-            if viewModel.focusPressEnter {
-                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                    viewModel.selectedFileID = viewModel.files[index].id
-                    viewModel.selectedFile = viewModel.files[index]
-                    viewModel.isInspectorPresented = true
-
-                    let file = viewModel.files[index]
-                    if zoomCGImageWindowFocused || zoomNSImageWindowFocused {
-                        JPGPreviewHandler.handle(
-                            file: file,
-                            useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                            setNSImage: { nsImage = $0 },
-                            setCGImage: { cgImage = $0 },
-                            openWindow: { _ in }
-                        )
-                    }
-                } else {
-                    viewModel.isInspectorPresented = false
-                }
-            }
-        }
         .contextMenu(forSelectionType: FileItem.ID.self) { _ in
         } primaryAction: { _ in
             guard let selectedID = viewModel.selectedFileID,

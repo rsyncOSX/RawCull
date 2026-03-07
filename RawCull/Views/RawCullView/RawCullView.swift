@@ -64,8 +64,7 @@ struct RawCullView: View {
                     prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")..."
                 )
                 .toolbar { toolbarContent }
-                .focusedSceneValue(\.togglerow, $viewModel.focustogglerow)
-                .focusedSceneValue(\.pressEnter, $viewModel.focusPressEnter)
+                .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
                 .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
                 .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
                 .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
@@ -123,7 +122,7 @@ struct RawCullView: View {
                 )
 
                 // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
-                if viewModel.focustogglerow == true { labeltogglerow }
+                if viewModel.focustagimage == true { labeltogglerow }
                 if viewModel.focusaborttask { labelaborttask }
                 if viewModel.focushideInspector == true { labelhideinspector }
                 if viewModel.focusExtractJPGs { labelextractjpgs }
@@ -197,7 +196,7 @@ struct RawCullView: View {
     var labeltogglerow: some View {
         Label("", systemImage: "play.fill")
             .onAppear {
-                viewModel.focustogglerow = false
+                viewModel.focustagimage = false
                 if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
                     let fileitem = viewModel.files[index]
                     handleToggleSelection(for: fileitem)
