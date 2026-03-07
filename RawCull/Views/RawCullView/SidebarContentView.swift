@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct FileContentView: View {
+struct SidebarContentView: View {
     @Environment(\.openWindow) var openWindow
 
     @Bindable var viewModel: RawCullViewModel
@@ -53,7 +53,7 @@ struct FileContentView: View {
                                 helpText: "Copy tagged images to destination..."
                             ) {
                                 viewModel.sheetType = .copytasksview
-                                viewModel.showcopytask = true
+                                viewModel.showcopyARWFilesView = true
                             }
                             .disabled(viewModel.creatingthumbnails)
 

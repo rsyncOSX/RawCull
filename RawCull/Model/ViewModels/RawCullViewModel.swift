@@ -37,7 +37,7 @@ final class RawCullViewModel {
     var focusExtractJPGs: Bool = false
     var focusPressEnter: Bool = false
 
-    var showcopytask: Bool = false
+    var showcopyARWFilesView: Bool = false
     var alertType: AlertType?
     var sheetType: SheetType? = .copytasksview
     var remotedatanumbers: RemoteDataNumbers?

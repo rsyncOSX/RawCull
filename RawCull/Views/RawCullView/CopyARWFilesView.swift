@@ -5,7 +5,7 @@ enum SheetType {
     case detailsview
 }
 
-struct RawCullSheetContent: View {
+struct CopyARWFilesView: View {
     @Bindable var viewModel: RawCullViewModel
     @Binding var sheetType: SheetType?
     @Binding var selectedSource: ARWSourceCatalog?

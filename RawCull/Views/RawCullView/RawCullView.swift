@@ -30,7 +30,7 @@ struct RawCullView: View {
             )
         } content: {
             // --- MIDDLE COLUMN (TABLE) ---
-            FileContentView(
+            SidebarContentView(
                 viewModel: viewModel,
                 isShowingPicker: $viewModel.isShowingPicker,
                 progress: $viewModel.progress,
@@ -60,13 +60,13 @@ struct RawCullView: View {
             .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
             .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
             .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
-            .sheet(isPresented: $viewModel.showcopytask) {
-                RawCullSheetContent(
+            .sheet(isPresented: $viewModel.showcopyARWFilesView) {
+                CopyARWFilesView(
                     viewModel: viewModel,
                     sheetType: $viewModel.sheetType,
                     selectedSource: $viewModel.selectedSource,
                     remotedatanumbers: $viewModel.remotedatanumbers,
-                    showcopytask: $viewModel.showcopytask
+                    showcopytask: $viewModel.showcopyARWFilesView
                 )
             }
             .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
