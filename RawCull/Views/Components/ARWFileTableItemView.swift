@@ -16,7 +16,6 @@ import OSLog
 import SwiftUI
 
 struct ARWFileTableItemView: View {
-    
     @Bindable var viewModel: RawCullViewModel
 
     let file: FileItem

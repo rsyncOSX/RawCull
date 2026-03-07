@@ -1,5 +1,5 @@
 //
-//  TestView.swift
+//  DetailOnlyView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 07/03/2026.
@@ -80,11 +80,11 @@ struct DetailOnlyView: View {
     var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
     }
-    
+
     var cullingManager: CullingModel {
         viewModel.cullingModel
     }
-    
+
     private func handleToggleSelection(for file: FileItem) {
         Task {
             await cullingManager.toggleSelectionSavedFiles(
@@ -94,5 +94,3 @@ struct DetailOnlyView: View {
         }
     }
 }
-
-
