@@ -21,7 +21,7 @@ struct RawCullView: View {
 
     var body: some View {
         if showDetailOnly {
-            DetailOnlyView(
+            DetailOnlyThumbnailsListView(
                 viewModel: viewModel,
                 showDetailOnly: $showDetailOnly,
                 cgImage: $cgImage,

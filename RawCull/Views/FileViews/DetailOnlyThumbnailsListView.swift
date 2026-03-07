@@ -1,5 +1,5 @@
 //
-//  DetailOnlyView.swift
+//  DetailOnlyThumbnailsListView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 07/03/2026.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct DetailOnlyView: View {
+struct DetailOnlyThumbnailsListView: View {
     @Environment(\.openWindow) var openWindow
     @Bindable var viewModel: RawCullViewModel
     @Binding var showDetailOnly: Bool
@@ -98,7 +98,7 @@ struct DetailOnlyView: View {
     }
 }
 
-extension DetailOnlyView {
+extension DetailOnlyThumbnailsListView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
