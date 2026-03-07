@@ -22,11 +22,10 @@ struct RawCullView: View {
     var body: some View {
         if showDetailOnly {
             // --- DETAIL VIEW ---
-            TestView(
+            DetailOnlyView(
                 viewModel: viewModel,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
-                selectedFileID: $viewModel.selectedFileID,
                 scale: $viewModel.scale,
                 lastScale: $viewModel.lastScale,
                 offset: $viewModel.offset

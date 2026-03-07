@@ -7,13 +7,12 @@
 
 import SwiftUI
 
-struct TestView: View {
+struct DetailOnlyView: View {
     @Environment(\.openWindow) var openWindow
     @Bindable var viewModel: RawCullViewModel
 
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
-    @Binding var selectedFileID: UUID?
     @Binding var scale: CGFloat
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
@@ -45,9 +44,8 @@ struct TestView: View {
                 FileInspectorView(file: $viewModel.selectedFile)
             }
             .padding()
-            // .frame(minWidth: 300, minHeight: 300)
             .onTapGesture(count: 2) {
-                guard let selectedID = selectedFileID,
+                guard let selectedID = viewModel.selectedFile?.id,
                       let file = files.first(where: { $0.id == selectedID }) else { return }
 
                 JPGPreviewHandler.handle(
@@ -69,7 +67,6 @@ struct TestView: View {
 
         ARWFileTableImageView(
             viewModel: viewModel,
-            cullingManager: viewModel.cullingModel,
             files: viewModel.files,
             selectedSource: viewModel.selectedSource
         )
@@ -83,12 +80,19 @@ struct TestView: View {
     var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
     }
+    
+    var cullingManager: CullingModel {
+        viewModel.cullingModel
+    }
+    
+    private func handleToggleSelection(for file: FileItem) {
+        Task {
+            await cullingManager.toggleSelectionSavedFiles(
+                in: file.url,
+                toggledfilename: file.name
+            )
+        }
+    }
 }
 
-/*
- .if(viewModel.hideInspector == false) { view in
-     view.inspector(isPresented: $viewModel.isInspectorPresented) {
-         FileInspectorView(file: $viewModel.selectedFile)
-     }
- }
- */
+
