@@ -21,7 +21,6 @@ struct RawCullView: View {
 
     var body: some View {
         if showDetailOnly {
-            // --- DETAIL VIEW ---
             DetailOnlyView(
                 viewModel: viewModel,
                 showDetailOnly: $showDetailOnly,
@@ -33,16 +32,14 @@ struct RawCullView: View {
             )
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
-                // --- SIDEBAR ---
-                CatalogSidebarView(
+                ARWCatalogSidebarView(
                     sources: $viewModel.sources,
                     selectedSource: $viewModel.selectedSource,
                     isShowingPicker: $viewModel.isShowingPicker,
                     cullingManager: viewModel.cullingModel
                 )
             } content: {
-                // --- MIDDLE COLUMN (TABLE) ---
-                SidebarContentView(
+                SidebarARWCatalogFileView(
                     viewModel: viewModel,
                     isShowingPicker: $viewModel.isShowingPicker,
                     progress: $viewModel.progress,
@@ -114,7 +111,6 @@ struct RawCullView: View {
                     Text(viewModel.alertMessage)
                 }
             } detail: {
-                // --- DETAIL VIEW ---
                 FileDetailView(
                     viewModel: viewModel,
                     cgImage: $cgImage,

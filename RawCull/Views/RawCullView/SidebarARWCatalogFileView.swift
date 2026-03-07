@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SidebarContentView: View {
+struct SidebarARWCatalogFileView: View {
     @Environment(\.openWindow) var openWindow
 
     @Bindable var viewModel: RawCullViewModel
