@@ -54,7 +54,7 @@ extension RawCullView {
             }
         }
 
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .navigation) {
             Button(action: openGridThumbnailWindow) {
                 Label("Grid View", systemImage: "square.grid.2x2")
             }
@@ -62,7 +62,19 @@ extension RawCullView {
             .help("Open thumbnail grid view")
         }
 
+        ToolbarItem(placement: .navigation) {
+            Button(action: toggleshowdetailonly) {
+                Label("Details", systemImage: "photo")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Open thumbnail grid view")
+        }
+
         ToolbarItem { Spacer() }
+    }
+
+    func toggleshowdetailonly() {
+        showDetailOnly.toggle()
     }
 
     func openGridThumbnailWindow() {

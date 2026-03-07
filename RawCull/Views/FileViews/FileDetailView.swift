@@ -10,13 +10,10 @@ struct FileDetailView: View {
     @Binding var scale: CGFloat
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
-    @Binding var showDetailOnly: Bool
 
     @State var showDetailsTagView: Bool = false
 
-    let files: [FileItem]
     let file: FileItem?
-    let focusPoints: [FocusPoint]?
 
     var body: some View {
         if showDetailsTagView, let url = file?.url {
@@ -67,18 +64,6 @@ struct FileDetailView: View {
                         openWindow: { id in openWindow(id: id) }
                     )
                 }
-
-                Spacer()
-                
-                if showDetailOnly {
-                    ARWFileTableImageView(
-                        viewModel: viewModel,
-                        cullingManager: viewModel.cullingModel,
-                        files: viewModel.files,
-                        selectedSource: viewModel.selectedSource
-                    )
-                }
-                
             } else {
                 ContentUnavailableView(
                     "No Selection",
@@ -87,5 +72,13 @@ struct FileDetailView: View {
                 )
             }
         }
+    }
+
+    var files: [FileItem] {
+        viewModel.files
+    }
+
+    var focusPoints: [FocusPoint]? {
+        viewModel.getFocusPoints()
     }
 }

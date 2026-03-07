@@ -17,23 +17,19 @@ struct RawCullView: View {
     @State var savedSettings: SavedSettings?
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
-    @State private var showDetailOnly: Bool = false
+    @State var showDetailOnly: Bool = false
 
     var body: some View {
         if showDetailOnly {
             // --- DETAIL VIEW ---
-            FileDetailView(
+            TestView(
                 viewModel: viewModel,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 selectedFileID: $viewModel.selectedFileID,
                 scale: $viewModel.scale,
                 lastScale: $viewModel.lastScale,
-                offset: $viewModel.offset,
-                showDetailOnly: $showDetailOnly,
-                files: viewModel.files,
-                file: viewModel.selectedFile,
-                focusPoints: viewModel.getFocusPoints()
+                offset: $viewModel.offset
             )
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -127,10 +123,7 @@ struct RawCullView: View {
                     scale: $viewModel.scale,
                     lastScale: $viewModel.lastScale,
                     offset: $viewModel.offset,
-                    showDetailOnly: $showDetailOnly,
-                    files: viewModel.files,
-                    file: viewModel.selectedFile,
-                    focusPoints: viewModel.getFocusPoints()
+                    file: viewModel.selectedFile
                 )
 
                 // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
