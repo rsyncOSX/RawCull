@@ -36,7 +36,7 @@ struct RawCullView: View {
                     sources: $viewModel.sources,
                     selectedSource: $viewModel.selectedSource,
                     isShowingPicker: $viewModel.isShowingPicker,
-                    cullingManager: viewModel.cullingModel
+                    cullingModel: viewModel.cullingModel
                 )
             } content: {
                 SidebarARWCatalogFileView(

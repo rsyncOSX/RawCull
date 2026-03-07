@@ -54,6 +54,7 @@ final class RawCullViewModel {
     var lastScale: CGFloat = 1.0
     var offset: CGSize = .zero
 
+    // This is the oncly place the Cuuling Model is initialzed.
     var cullingModel = CullingModel()
     private var processedURLs: Set<URL> = []
 

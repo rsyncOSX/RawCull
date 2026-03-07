@@ -9,7 +9,7 @@ import OSLog
 import SwiftUI
 
 struct GridThumbnailItemView: View {
-    @Bindable var cullingManager: CullingModel
+    @Bindable var cullingModel: CullingModel
     @Bindable var viewModel: RawCullViewModel
 
     let file: FileItem
@@ -106,10 +106,10 @@ struct GridThumbnailItemView: View {
 
     private var isSelected: Bool {
         guard let photoURL = selectedSource?.url else { return false }
-        guard let index = cullingManager.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
+        guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
             return false
         }
-        return cullingManager.savedFiles[index].filerecords?.contains { $0.fileName == file.name } ?? false
+        return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == file.name } ?? false
     }
 
     private func loadThumbnail() async {

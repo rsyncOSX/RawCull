@@ -5,13 +5,13 @@ struct ARWCatalogSidebarView: View {
     @Binding var selectedSource: ARWSourceCatalog?
     @Binding var isShowingPicker: Bool
 
-    let cullingManager: CullingModel
+    let cullingModel: CullingModel
 
     var body: some View {
         List(sources, selection: $selectedSource) { source in
             NavigationLink(value: source) {
                 Label(source.name, systemImage: "folder.badge.plus")
-                    .badge("(" + String(cullingManager.countSelectedFiles(in: source.url)) + ")")
+                    .badge("(" + String(cullingModel.countSelectedFiles(in: source.url)) + ")")
             }
         }
         .navigationTitle("Catalogs")

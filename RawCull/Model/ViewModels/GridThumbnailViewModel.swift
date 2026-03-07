@@ -20,12 +20,12 @@ final class GridThumbnailViewModel {
 
     func open(
         viewModel: RawCullViewModel,
-        cullingManager: CullingModel,
+        cullingModel: CullingModel,
         selectedSource: ARWSourceCatalog?,
         filteredFiles: [FileItem]
     ) {
         self.viewModel = viewModel
-        self.cullingModel = cullingManager
+        self.cullingModel = cullingModel
         self.selectedSource = selectedSource
         self.filteredFiles = filteredFiles
 

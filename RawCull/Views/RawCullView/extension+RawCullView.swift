@@ -78,7 +78,7 @@ extension RawCullView {
     func openGridThumbnailWindow() {
         gridthumbnailviewmodel.open(
             viewModel: viewModel,
-            cullingManager: viewModel.cullingModel,
+            cullingModel: viewModel.cullingModel,
             selectedSource: viewModel.selectedSource,
             filteredFiles: viewModel.filteredFiles
         )

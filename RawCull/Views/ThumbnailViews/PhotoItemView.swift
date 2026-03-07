@@ -13,7 +13,7 @@ struct PhotoItemView: View {
     let photoURL: URL?
     var onSelected: () -> Void = {}
 
-    @Bindable var cullingmanager: CullingModel
+    @Bindable var cullingModel: CullingModel
 
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
@@ -105,7 +105,7 @@ struct PhotoItemView: View {
     func setbackground() -> Bool {
         guard let photoURL else { return false }
         // Find the saved file entry matching this photoURL
-        guard let entry = cullingmanager.savedFiles.first(where: { $0.catalog == photoURL }) else {
+        guard let entry = cullingModel.savedFiles.first(where: { $0.catalog == photoURL }) else {
             return false
         }
         // Check if any filerecord has a matching fileName

@@ -17,7 +17,7 @@ struct GridThumbnailView: View {
                let cullingModel = gridthumbnailviewmodel.cullingModel {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
-                    cullingManager: cullingModel,
+                    cullingModel: cullingModel,
                     files: gridthumbnailviewmodel.filteredFiles,
                     selectedSource: gridthumbnailviewmodel.selectedSource
                 )

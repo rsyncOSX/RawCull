@@ -84,13 +84,13 @@ struct DetailOnlyView: View {
         viewModel.getFocusPoints()
     }
 
-    var cullingManager: CullingModel {
+    var cullingModel: CullingModel {
         viewModel.cullingModel
     }
 
     private func handleToggleSelection(for file: FileItem) {
         Task {
-            await cullingManager.toggleSelectionSavedFiles(
+            await cullingModel.toggleSelectionSavedFiles(
                 in: file.url,
                 toggledfilename: file.name
             )

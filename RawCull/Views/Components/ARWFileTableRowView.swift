@@ -77,7 +77,7 @@ struct ARWFileTableRowView: View {
                 Divider()
 
                 PhotoGridView(
-                    cullingmanager: viewModel.cullingModel,
+                    cullingModel: viewModel.cullingModel,
                     files: viewModel.filteredFiles,
                     photoURL: viewModel.selectedSource?.url,
                     onPhotoSelected: { file in
