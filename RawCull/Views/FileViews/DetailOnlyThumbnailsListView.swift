@@ -70,7 +70,6 @@ struct DetailOnlyThumbnailsListView: View {
 
         ARWFileTableImageView(
             viewModel: viewModel,
-            files: viewModel.files,
             selectedSource: viewModel.selectedSource
         )
         .padding()

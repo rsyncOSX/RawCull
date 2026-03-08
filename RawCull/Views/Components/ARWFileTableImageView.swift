@@ -18,7 +18,6 @@ import SwiftUI
 
 struct ARWFileTableImageView: View {
     @Bindable var viewModel: RawCullViewModel
-    let files: [FileItem]
     let selectedSource: ARWSourceCatalog?
 
     var body: some View {
@@ -77,5 +76,9 @@ struct ARWFileTableImageView: View {
               let index = files.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
         viewModel.selectedFile = files[index - 1]
+    }
+
+    var files: [FileItem] {
+        viewModel.files
     }
 }

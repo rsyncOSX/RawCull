@@ -89,15 +89,17 @@ struct RawCullApp: App {
         .defaultSize(width: 800, height: 600)
 
         Window("Grid Thumbnails", id: "grid-thumbnails-window") {
-            GridThumbnailView()
-                .environment(settingsviewmodel)
-                .environment(gridthumbnailviewmodel)
-                .onAppear {
-                    gridThumbnailWindowFocused = true
-                }
-                .onDisappear {
-                    gridThumbnailWindowFocused = false
-                }
+            GridThumbnailView(
+                viewModel: viewModel
+            )
+            .environment(settingsviewmodel)
+            .environment(gridthumbnailviewmodel)
+            .onAppear {
+                gridThumbnailWindowFocused = true
+            }
+            .onDisappear {
+                gridThumbnailWindowFocused = false
+            }
         }
         .defaultPosition(.center)
         .defaultSize(width: 900, height: 700)

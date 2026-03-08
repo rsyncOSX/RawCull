@@ -12,24 +12,19 @@ import OSLog
 @Observable
 @MainActor
 final class GridThumbnailViewModel {
-    var viewModel: RawCullViewModel?
     var cullingModel: CullingModel?
     var selectedSource: ARWSourceCatalog?
     var filteredFiles: [FileItem] = []
     var shouldShowWindow = false
 
     func open(
-        viewModel: RawCullViewModel,
         cullingModel: CullingModel,
         selectedSource: ARWSourceCatalog?,
         filteredFiles: [FileItem]
     ) {
-        self.viewModel = viewModel
         self.cullingModel = cullingModel
         self.selectedSource = selectedSource
         self.filteredFiles = filteredFiles
-
-        guard self.viewModel != nil else { return }
         guard self.cullingModel != nil else { return }
 
         self.shouldShowWindow = true
@@ -37,7 +32,6 @@ final class GridThumbnailViewModel {
 
     func close() {
         shouldShowWindow = false
-        viewModel = nil
         cullingModel = nil
         selectedSource = nil
         filteredFiles = []
