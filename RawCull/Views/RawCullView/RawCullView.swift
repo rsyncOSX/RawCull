@@ -52,7 +52,6 @@ struct RawCullView: View {
                     zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
                     zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
 
-                    files: viewModel.files,
                     issorting: viewModel.issorting,
                     max: viewModel.max
                 )

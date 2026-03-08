@@ -18,7 +18,6 @@ struct SidebarARWCatalogFileView: View {
 
     @State var counterScannedFiles: Int = 0
 
-    let files: [FileItem]
     let issorting: Bool
     let max: Double
 
@@ -141,5 +140,9 @@ struct SidebarARWCatalogFileView: View {
                 }
             }
         }
+    }
+
+    var files: [FileItem] {
+        viewModel.files
     }
 }
