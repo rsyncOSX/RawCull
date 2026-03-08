@@ -38,7 +38,7 @@ struct GridThumbnailItemView: View {
                             .clipped()
                             .overlay(alignment: .topTrailing) { // 👈 Add overlay with alignment
                                 Button(action: onToggle) {
-                                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                                    Image(systemName: isTagged ? "checkmark.square.fill" : "square")
                                         .foregroundStyle(.blue)
                                         .font(.system(size: isHovered ? 12 : 10))
                                 }
@@ -67,8 +67,8 @@ struct GridThumbnailItemView: View {
                         }
                     }
                 }
-                .background(isSelected ? Color.blue.opacity(0.2) : Color.clear)
-                .border(Color.blue.opacity(0.5), width: isSelected ? 2 : 0)
+                .background(isTagged ? Color.blue.opacity(0.2) : Color.clear)
+                .border(Color.red.opacity(0.5), width: isSelected ? 2 : 0)
 
                 // File name
                 Text(file.name)
@@ -104,11 +104,16 @@ struct GridThumbnailItemView: View {
 
     // MARK: - Helper Methods
 
-    private var isSelected: Bool {
+    private var isTagged: Bool {
         guard let photoURL = selectedSource?.url else { return false }
         guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
             return false
         }
         return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == file.name } ?? false
+    }
+
+    private var isSelected: Bool {
+        let selectedID = viewModel.selectedFile?.id
+        return selectedID == file.id
     }
 }

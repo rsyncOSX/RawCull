@@ -15,7 +15,6 @@ struct GridThumbnailSelectionView: View {
     @State private var savedSettings: SavedSettings?
     @State private var hoveredFileID: FileItem.ID?
 
-    let files: [FileItem]
     let selectedSource: ARWSourceCatalog?
 
     var body: some View {
@@ -48,10 +47,16 @@ struct GridThumbnailSelectionView: View {
                                 file: file,
                                 selectedSource: selectedSource,
                                 isHovered: hoveredFileID == file.id,
+                                // One click for select only
                                 onToggle: { handleToggleSelection(for: file) },
+                                // Double clik for tag Image
                                 onSelected: {
-                                    viewModel.selectedFileID = file.id
-                                    viewModel.selectedFile = file
+                                    Task {
+                                        await cullingModel.toggleSelectionSavedFiles(
+                                            in: file.url,
+                                            toggledfilename: file.name
+                                        )
+                                    }
                                 }
                             )
                             .onHover { isHovered in
@@ -70,11 +75,11 @@ struct GridThumbnailSelectionView: View {
     }
 
     private func handleToggleSelection(for file: FileItem) {
-        Task {
-            await cullingModel.toggleSelectionSavedFiles(
-                in: file.url,
-                toggledfilename: file.name
-            )
-        }
+        viewModel.selectedFileID = file.id
+        viewModel.selectedFile = file
+    }
+
+    var files: [FileItem] {
+        viewModel.files
     }
 }
