@@ -62,7 +62,7 @@ struct ARWFileTableItemView: View {
         }
         .contentShape(Rectangle())
         .task(id: file.url) {
-            await loadThumbnail()
+            thumbnailImage = await LoadThumbnail().loadThumbnail(file: file)
         }
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
@@ -73,30 +73,5 @@ struct ARWFileTableItemView: View {
             isLoading = false
             thumbnailImage = nil
         }
-    }
-
-    // MARK: - Helper Methods
-
-    
-    private func loadThumbnail() async {
-        Logger.process.debugThreadOnly("ARWFileTableItemView LOAD thumbnail for \(file.url)")
-        isLoading = true
-
-        let settingsManager = await SettingsViewModel.shared.asyncgetsettings()
-        let thumbnailSizePreview = settingsManager.thumbnailSizePreview
-
-        let cgThumb = await RequestThumbnail().requestThumbnail(
-            for: file.url,
-            targetSize: thumbnailSizePreview
-        )
-
-        if let cgThumb {
-            let nsImage = NSImage(cgImage: cgThumb, size: .zero)
-            thumbnailImage = nsImage
-        } else {
-            thumbnailImage = nil
-        }
-
-        isLoading = false
     }
 }

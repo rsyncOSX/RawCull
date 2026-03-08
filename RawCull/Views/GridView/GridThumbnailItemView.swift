@@ -89,7 +89,7 @@ struct GridThumbnailItemView: View {
             onToggle()
         }
         .task(id: file.url) {
-            await loadThumbnail()
+            thumbnailImage = await LoadThumbnail().loadThumbnail(file: file)
         }
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
@@ -110,27 +110,5 @@ struct GridThumbnailItemView: View {
             return false
         }
         return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == file.name } ?? false
-    }
-
-    private func loadThumbnail() async {
-        Logger.process.debugThreadOnly("GridThumbnailItemView LOAD thumbnail for \(file.url)")
-        isLoading = true
-
-        let settingsManager = await SettingsViewModel.shared.asyncgetsettings()
-        let thumbnailSizePreview = settingsManager.thumbnailSizePreview
-
-        let cgThumb = await RequestThumbnail().requestThumbnail(
-            for: file.url,
-            targetSize: thumbnailSizePreview
-        )
-
-        if let cgThumb {
-            let nsImage = NSImage(cgImage: cgThumb, size: .zero)
-            thumbnailImage = nsImage
-        } else {
-            thumbnailImage = nil
-        }
-
-        isLoading = false
     }
 }
