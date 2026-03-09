@@ -11,6 +11,10 @@ enum AlertType {
 
 @Observable @MainActor
 final class RawCullViewModel {
+    /// Remember previous selected source to avoid a new rescan of
+    /// already scanned catalog
+    @ObservationIgnored var currentselectedSource: ARWSourceCatalog?
+
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
     var files: [FileItem] = []
@@ -53,7 +57,7 @@ final class RawCullViewModel {
     var lastScale: CGFloat = 1.0
     var offset: CGSize = .zero
 
-    // This is the oncly place the Cuuling Model is initialzed.
+    // This is the oncly place the Culling Model is initialzed.
     var cullingModel = CullingModel()
     private var processedURLs: Set<URL> = []
 

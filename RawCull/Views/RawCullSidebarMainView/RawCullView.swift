@@ -127,6 +127,9 @@ struct RawCullView: View {
                 if viewModel.focusExtractJPGs { labelextractjpgs }
             }
             .task {
+                // Only scan new files if there is a change of source
+                // guard viewModel.sourcechange == false else { return}
+
                 savedSettings = await SettingsViewModel.shared.asyncgetsettings()
 
                 let handlers = CreateFileHandlers().createFileHandlers(
@@ -149,6 +152,9 @@ struct RawCullView: View {
                 handlePickerResult(result)
             }
             .task(id: viewModel.selectedSource) {
+                guard viewModel.currentselectedSource != viewModel.selectedSource else { return }
+                viewModel.currentselectedSource = viewModel.selectedSource
+
                 Task(priority: .background) {
                     if let url = viewModel.selectedSource?.url {
                         viewModel.scanning.toggle()

@@ -47,7 +47,7 @@ actor ScanFiles {
         defer { url.stopAccessingSecurityScopedResource() }
 
         var discoveredCount = 0
-        Logger.process.debugThreadOnly("func scanFiles()")
+        Logger.process.debugThreadOnly("ScanFiles: func scanFiles()")
 
         let keys: [URLResourceKey] = [
             .nameKey, .fileSizeKey, .contentTypeKey, .contentModificationDateKey
