@@ -21,7 +21,7 @@ struct FileTableImageView: View {
             ScrollViewReader { proxy in
                 if let savedSettings {
                     ScrollView(.horizontal) {
-                        HStack(spacing: 4) {
+                        LazyHStack(spacing: 4) {
                             ForEach(files, id: \.id) { file in
                                 ImageItemView(
                                     viewModel: viewModel,
@@ -50,6 +50,7 @@ struct FileTableImageView: View {
                             }
                         }
                     }
+                    .frame(height: CGFloat(savedSettings.thumbnailSizeGrid) + 40)
                     .onChange(of: viewModel.selectedFile?.id) { _, newID in
                         if let newID {
                             withAnimation {
