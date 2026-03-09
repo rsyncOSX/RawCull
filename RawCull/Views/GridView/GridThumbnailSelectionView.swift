@@ -48,6 +48,7 @@ struct GridThumbnailSelectionView: View {
                                 selectedSource: selectedSource,
                                 isHovered: hoveredFileID == file.id,
                                 gridview: true,
+                                thumbnailSize: savedSettings.thumbnailSizeGridView,
                                 // One click for select only
                                 onToggle: { handleToggleSelection(for: file) },
                                 // Double clik for tag Image

@@ -14,47 +14,55 @@ struct FileTableImageView: View {
     let selectedSource: ARWSourceCatalog?
 
     @State private var hoveredFileID: FileItem.ID?
+    @State private var savedSettings: SavedSettings?
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
-                ScrollView(.horizontal) {
-                    HStack(spacing: 4) {
-                        ForEach(files, id: \.id) { file in
-                            ImageItemView(
-                                viewModel: viewModel,
-                                cullingModel: cullingModel,
-                                file: file,
-                                selectedSource: selectedSource,
-                                isHovered: hoveredFileID == file.id,
-                                gridview: false,
-                                // One click for select only
-                                onToggle: { handleToggleSelection(for: file) },
-                                // Double clik for tag Image
-                                onSelected: {
-                                    Task {
-                                        await cullingModel.toggleSelectionSavedFiles(
-                                            in: file.url,
-                                            toggledfilename: file.name
-                                        )
+                if let savedSettings {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 4) {
+                            ForEach(files, id: \.id) { file in
+                                ImageItemView(
+                                    viewModel: viewModel,
+                                    cullingModel: cullingModel,
+                                    file: file,
+                                    selectedSource: selectedSource,
+                                    isHovered: hoveredFileID == file.id,
+                                    gridview: false,
+                                    thumbnailSize: savedSettings.thumbnailSizeGrid,
+
+                                    // One click for select only
+                                    onToggle: { handleToggleSelection(for: file) },
+                                    // Double clik for tag Image
+                                    onSelected: {
+                                        Task {
+                                            await cullingModel.toggleSelectionSavedFiles(
+                                                in: file.url,
+                                                toggledfilename: file.name
+                                            )
+                                        }
                                     }
+                                )
+                                .id(file.id)
+                                .onHover { isHovered in
+                                    hoveredFileID = isHovered ? file.id : nil
                                 }
-                            )
-                            .id(file.id)
-                            .onHover { isHovered in
-                                hoveredFileID = isHovered ? file.id : nil
+                            }
+                        }
+                    }
+                    .onChange(of: viewModel.selectedFile?.id) { _, newID in
+                        if let newID {
+                            withAnimation {
+                                proxy.scrollTo(newID, anchor: .center)
                             }
                         }
                     }
                 }
-                .onChange(of: viewModel.selectedFile?.id) { _, newID in
-                    if let newID {
-                        withAnimation {
-                            proxy.scrollTo(newID, anchor: .center)
-                        }
-                    }
-                }
             }
+        }
+        .task {
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
         .focusable()
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }
