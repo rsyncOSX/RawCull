@@ -41,15 +41,6 @@ struct FileTableImageView: View {
                                 }
                             )
                             .id(file.id)
-                            /*
-                             .overlay(
-                                 RoundedRectangle(cornerRadius: 6)
-                                     .stroke(
-                                         viewModel.selectedFile?.id == file.id ? Color.accentColor : Color.clear,
-                                         lineWidth: 3
-                                     )
-                             )
-                              */
                             .onHover { isHovered in
                                 hoveredFileID = isHovered ? file.id : nil
                             }

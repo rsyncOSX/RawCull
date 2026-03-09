@@ -60,6 +60,7 @@ struct GridThumbnailSelectionView: View {
                                     }
                                 }
                             )
+                            .id(file.id)
                             .onHover { isHovered in
                                 hoveredFileID = isHovered ? file.id : nil
                             }

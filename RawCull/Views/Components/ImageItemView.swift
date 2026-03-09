@@ -42,7 +42,7 @@ struct ImageItemView: View {
                                 Button(action: onToggle) {
                                     Image(systemName: isTagged ? "checkmark.square.fill" : "square")
                                         .foregroundStyle(.blue)
-                                        .font(.system(size: isHovered ? 12 : 10))
+                                        .font(.system(size: isHovered ? 12 : 8))
                                 }
                                 .buttonStyle(.plain)
                                 .padding(6)
