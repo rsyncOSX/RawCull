@@ -65,4 +65,14 @@ actor ThumbnailLoader {
         }
         return nil
     }
+    
+    func cancelAll() {
+        // Resume all pending continuations so they unfreeze
+        // They will then hit the Task.isCancelled check and bail out
+        for continuation in pendingContinuations {
+            continuation.resume()
+        }
+        pendingContinuations.removeAll()
+        activeTasks = 0  // Reset the counter cleanly
+    }
 }

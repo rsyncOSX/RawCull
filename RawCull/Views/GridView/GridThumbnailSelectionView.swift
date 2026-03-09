@@ -74,6 +74,9 @@ struct GridThumbnailSelectionView: View {
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
+        .task(id: viewModel.selectedSource) {
+            await ThumbnailLoader.shared.cancelAll()
+        }
     }
 
     private func handleToggleSelection(for file: FileItem) {

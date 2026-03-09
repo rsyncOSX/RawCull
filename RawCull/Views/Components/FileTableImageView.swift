@@ -58,6 +58,9 @@ struct FileTableImageView: View {
                             }
                         }
                     }
+                    .task(id: viewModel.selectedSource) {
+                        await ThumbnailLoader.shared.cancelAll()
+                    }
                 }
             }
         }
