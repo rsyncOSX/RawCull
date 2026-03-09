@@ -19,7 +19,6 @@ actor RequestThumbnail {
         diskCache: DiskCacheManager? = nil
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        Logger.process.debugMessageOnly("RequestThumbnail: init() complete (pending setup)")
     }
 
     /// 3. The magic helper: Creates the task if it doesn't exist, then awaits it.
