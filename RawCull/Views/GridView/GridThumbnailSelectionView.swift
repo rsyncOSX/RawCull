@@ -47,7 +47,6 @@ struct GridThumbnailSelectionView: View {
                                 file: file,
                                 selectedSource: selectedSource,
                                 isHovered: hoveredFileID == file.id,
-                                gridview: true,
                                 thumbnailSize: savedSettings.thumbnailSizeGridView,
                                 // One click for select only
                                 onToggle: { handleToggleSelection(for: file) },

@@ -15,7 +15,6 @@ struct ImageItemView: View {
     let file: FileItem
     let selectedSource: ARWSourceCatalog?
     let isHovered: Bool
-    let gridview: Bool
     let thumbnailSize: Int
 
     var onToggle: () -> Void = {}
@@ -54,7 +53,7 @@ struct ImageItemView: View {
                             .fill(Color(white: 0.15))
                             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                         VStack(spacing: 4) {
-                            Image(systemName: "photo.slash")
+                            Image(systemName: "photo")
                                 .font(.system(size: 20, weight: .thin))
                                 .foregroundStyle(Color(white: 0.4))
                             Text("No image")

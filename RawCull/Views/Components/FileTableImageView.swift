@@ -29,7 +29,6 @@ struct FileTableImageView: View {
                                     file: file,
                                     selectedSource: selectedSource,
                                     isHovered: hoveredFileID == file.id,
-                                    gridview: false,
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
 
                                     // One click for select only
