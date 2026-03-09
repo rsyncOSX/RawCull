@@ -91,16 +91,19 @@ struct ImageItemView: View {
             onToggle()
         }
         .task(id: file.url) {
-            thumbnailImage = await LoadThumbnail().loadThumbnail(file: file)
+            guard thumbnailImage == nil else { return }
+            isLoading = true
+            thumbnailImage = await ThumbnailLoader.shared.loadThumbnail(file: file)
+            isLoading = false
         }
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
         .onDisappear {
-            // Clear when scrolled out of view to free memory
-            Logger.process.debugMessageOnly("ImageItemView RELEASE thumbnail for \(file.url)")
-            isLoading = false
+            // Only nil out — the .task is already cancelled by SwiftUI
+            // because the view left the hierarchy
             thumbnailImage = nil
+            isLoading = false
         }
     }
 
