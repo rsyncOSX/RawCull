@@ -45,7 +45,7 @@ actor ThumbnailLoader {
         }
     }
 
-    func loadThumbnail(file: FileItem, priority _: TaskPriority = .medium) async -> NSImage? {
+    func thumbnailLoader(file: FileItem) async -> NSImage? {
         await acquireSlot()
         defer { releaseSlot() }
 

@@ -93,7 +93,7 @@ struct ImageItemView: View {
         .task(id: file.url) {
             guard thumbnailImage == nil else { return }
             isLoading = true
-            thumbnailImage = await ThumbnailLoader.shared.loadThumbnail(file: file)
+            thumbnailImage = await ThumbnailLoader.shared.thumbnailLoader(file: file)
             isLoading = false
         }
         .task {
