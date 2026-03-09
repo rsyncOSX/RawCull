@@ -86,7 +86,7 @@ struct DetailOnlyThumbnailsListView: View {
                 viewModel.focustagimage = false
                 if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
                     let fileitem = viewModel.files[index]
-                    handleToggleSelection(for: fileitem)
+                    handleTagImage(for: fileitem)
                 }
             }
     }
@@ -103,7 +103,7 @@ struct DetailOnlyThumbnailsListView: View {
         viewModel.cullingModel
     }
 
-    private func handleToggleSelection(for file: FileItem) {
+    private func handleTagImage(for file: FileItem) {
         Task {
             await cullingModel.toggleSelectionSavedFiles(
                 in: file.url,

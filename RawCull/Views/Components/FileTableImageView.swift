@@ -71,6 +71,7 @@ struct FileTableImageView: View {
               let index = files.firstIndex(where: { $0.id == current.id }),
               index + 1 < files.count else { return }
         viewModel.selectedFile = files[index + 1]
+        viewModel.selectedFileID = files[index + 1].id
     }
 
     private func navigateToPrevious() {
@@ -78,6 +79,7 @@ struct FileTableImageView: View {
               let index = files.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
         viewModel.selectedFile = files[index - 1]
+        viewModel.selectedFileID = files[index - 1].id
     }
 
     var files: [FileItem] {
