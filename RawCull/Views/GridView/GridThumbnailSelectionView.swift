@@ -41,12 +41,13 @@ struct GridThumbnailSelectionView: View {
                         spacing: 12
                     ) {
                         ForEach(files, id: \.id) { file in
-                            GridThumbnailItemView(
-                                cullingModel: cullingModel,
+                            ImageItemView(
                                 viewModel: viewModel,
+                                cullingModel: cullingModel,
                                 file: file,
                                 selectedSource: selectedSource,
                                 isHovered: hoveredFileID == file.id,
+                                gridview: true,
                                 // One click for select only
                                 onToggle: { handleToggleSelection(for: file) },
                                 // Double clik for tag Image

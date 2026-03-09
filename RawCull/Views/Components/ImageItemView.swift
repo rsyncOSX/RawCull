@@ -1,20 +1,23 @@
 //
-//  GridThumbnailItemView.swift
+//  ImageItemView.swift
 //  RawCull
 //
-//  Created by Thomas Evensen on 13/02/2026.
+//  Created by Thomas Evensen on 09/03/2026.
 //
+
 
 import OSLog
 import SwiftUI
 
-struct GridThumbnailItemView: View {
-    @Bindable var cullingModel: CullingModel
+struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
+    @Bindable var cullingModel: CullingModel
 
     let file: FileItem
     let selectedSource: ARWSourceCatalog?
     let isHovered: Bool
+    let gridview: Bool
+
     var onToggle: () -> Void = {}
     var onSelected: () -> Void = {}
 
@@ -27,13 +30,13 @@ struct GridThumbnailItemView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Thumbnail
                 ZStack {
-                    if let thumbnailImage, let savedSettings {
+                    if let thumbnailImage {
                         Image(nsImage: thumbnailImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(
-                                width: CGFloat(savedSettings.thumbnailSizeGridView),
-                                height: CGFloat(savedSettings.thumbnailSizeGridView)
+                                width: CGFloat(framewidtheight()),
+                                height: CGFloat(framewidtheight())
                             )
                             .clipped()
                             .overlay(alignment: .topTrailing) { // 👈 Add overlay with alignment
@@ -48,19 +51,19 @@ struct GridThumbnailItemView: View {
                                 .clipShape(Circle())
                                 .padding(4)
                             }
-                    } else if isLoading, let savedSettings {
+                    } else if isLoading {
                         Rectangle()
                             .fill(Color.gray.opacity(0.1))
-                            .frame(height: CGFloat(savedSettings.thumbnailSizeGridView))
+                            .frame(height: CGFloat(framewidtheight()))
                             .overlay {
                                 ProgressView()
                                     .fixedSize()
                             }
-                    } else if let savedSettings {
+                    } else {
                         ZStack {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.1))
-                                .frame(height: CGFloat(savedSettings.thumbnailSizeGridView))
+                                .frame(height: CGFloat(framewidtheight()))
 
                             Label("No image", systemImage: "xmark")
                                 .font(.caption2)
@@ -96,7 +99,7 @@ struct GridThumbnailItemView: View {
         }
         .onDisappear {
             // Clear when scrolled out of view to free memory
-            Logger.process.debugMessageOnly("GridThumbnailItemView RELEASE thumbnail for \(file.url)")
+            Logger.process.debugMessageOnly("ImageItemView RELEASE thumbnail for \(file.url)")
             isLoading = false
             thumbnailImage = nil
         }
@@ -115,5 +118,17 @@ struct GridThumbnailItemView: View {
     private var isSelected: Bool {
         let selectedID = viewModel.selectedFile?.id
         return selectedID == file.id
+    }
+
+    /// Set frame heigth and width
+    private func framewidtheight() -> Int {
+        if let savedSettings {
+            if gridview {
+                return savedSettings.thumbnailSizeGridView
+            } else {
+                return savedSettings.thumbnailSizeGrid
+            }
+        }
+        return 100
     }
 }
