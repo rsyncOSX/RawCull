@@ -86,11 +86,6 @@ actor ScanAndCreateThumbnails {
         return cost
     }
 
-    /// Call this whenever settings change to force re-evaluation of the cost-per-pixel.
-    func getCacheCostsAfterSettingsUpdate() {
-        cachedCostPerPixel = nil
-    }
-
     // MARK: - Preload
 
     func cancelPreload() {

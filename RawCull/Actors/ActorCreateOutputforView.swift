@@ -18,16 +18,4 @@ actor ActorCreateOutputforView {
         }
         return []
     }
-
-    /// From Set<String>
-    @concurrent
-    nonisolated func createOutputForView(_ setoutputfromrsync: Set<String>?) async -> [RsyncOutputData] {
-        Logger.process.debugThreadOnly("ActorCreateOutputforView: createaoutputforview()")
-        if let setoutputfromrsync {
-            return setoutputfromrsync.map { line in
-                RsyncOutputData(record: line)
-            }
-        }
-        return []
-    }
 }

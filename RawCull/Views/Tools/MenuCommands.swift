@@ -44,57 +44,12 @@ struct CommandButton: View {
         }
     }
 
-    init(_ label: String, action: @escaping () -> Void, shortcut: KeyboardShortcut) {
-        self.label = label
-        self.action = action
-        self.shortcut = shortcut
-    }
-
     var body: some View {
         if let shortcut = shortcut {
             Button(label, action: action).keyboardShortcut(shortcut)
         } else {
             Button(label, action: action)
         }
-    }
-}
-
-struct TagImage: View {
-    @Binding var tagimage: Bool?
-
-    var body: some View {
-        Button {
-            tagimage = true
-        } label: {
-            Text("Tag Image")
-        }
-        .keyboardShortcut("t", modifiers: [.command])
-    }
-}
-
-struct Abborttask: View {
-    @Binding var aborttask: Bool?
-
-    var body: some View {
-        Button {
-            aborttask = true
-        } label: {
-            Text("Abort task")
-        }
-        .keyboardShortcut("k", modifiers: [.command])
-    }
-}
-
-struct HideInspector: View {
-    @Binding var hideInspector: Bool?
-
-    var body: some View {
-        Button {
-            hideInspector = true
-        } label: {
-            Text("Hide Inspector")
-        }
-        .keyboardShortcut("i", modifiers: [.command])
     }
 }
 

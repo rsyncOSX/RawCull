@@ -10,8 +10,6 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SettingsViewModel.self) var settingsManager
 
-    @State private var showResetConfirmation = false
-
     var body: some View {
         TabView {
             CacheSettingsTab()

@@ -47,9 +47,3 @@ struct FocusPoint: Identifiable {
         y / sensorHeight
     }
 }
-
-extension CGFloat {
-    static let focusMarkerThumbnail: CGFloat = 14 // grid cell ~160pt wide
-    static let focusMarkerMedium: CGFloat = 32 // inspector / filmstrip
-    static let focusMarkerFullscreen: CGFloat = 64 // extracted JPG / detail view
-}
