@@ -1,5 +1,5 @@
 //
-//  ARWFileTableRowView.swift
+//  FileTableRowView.swift
 //  RawCull
 //
 
@@ -7,7 +7,7 @@ import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct ARWFileTableRowView: View {
+struct FileTableRowView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @Binding var nsImage: NSImage?

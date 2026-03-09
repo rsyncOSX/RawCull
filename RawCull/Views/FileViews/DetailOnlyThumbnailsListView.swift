@@ -68,7 +68,7 @@ struct DetailOnlyThumbnailsListView: View {
 
         Spacer()
 
-        ARWFileTableImageView(
+        FileTableImageView(
             viewModel: viewModel,
             cullingModel: viewModel.cullingModel,
             selectedSource: viewModel.selectedSource

@@ -5,7 +5,6 @@
 //  Created by Thomas Evensen on 09/03/2026.
 //
 
-
 import OSLog
 import SwiftUI
 
@@ -71,7 +70,7 @@ struct ImageItemView: View {
                     }
                 }
                 .background(isTagged ? Color.blue.opacity(0.2) : Color.clear)
-                .border(Color.red.opacity(0.5), width: isSelected ? 2 : 0)
+                .border(Color.blue.opacity(0.5), width: isSelected ? 4 : 0)
 
                 // File name
                 Text(file.name)

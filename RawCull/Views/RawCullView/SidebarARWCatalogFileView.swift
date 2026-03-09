@@ -98,12 +98,12 @@ struct SidebarARWCatalogFileView: View {
                         }
                         .padding()
 
-                        ARWFileTableRowView(viewModel: viewModel,
-                                            nsImage: $nsImage,
-                                            cgImage: $cgImage,
-                                            zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                            zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                            openWindow: { id in openWindow(id: id) })
+                        FileTableRowView(viewModel: viewModel,
+                                         nsImage: $nsImage,
+                                         cgImage: $cgImage,
+                                         zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                         zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                         openWindow: { id in openWindow(id: id) })
 
                         if creatingThumbnails {
                             ProgressCount(progress: $progress,

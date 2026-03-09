@@ -1,5 +1,5 @@
 //
-//  ARWFileTableImageView.swift
+//  FileTableImageView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 06/03/2026.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct ARWFileTableImageView: View {
+struct FileTableImageView: View {
     @Bindable var viewModel: RawCullViewModel
     @Bindable var cullingModel: CullingModel
 
