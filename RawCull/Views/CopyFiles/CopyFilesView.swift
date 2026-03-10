@@ -23,6 +23,7 @@ struct CopyFilesView: View {
     @State var showingAlert: Bool = false
     @State var copyFilesinProgress: Bool = false
     @State var max: Double = 0
+    @State var progress: Double = 0
 
     @State private var executionManager: ExecuteCopyFiles?
     @State private var showprogressview = false
@@ -46,7 +47,7 @@ struct CopyFilesView: View {
                 HStack {
                     ProgressView()
 
-                    Text(": \(executionManager?.progress ?? 0, format: .number)")
+                    Text(": \(progress, format: .number)")
                 }
 
                 /*
@@ -72,6 +73,13 @@ struct CopyFilesView: View {
                         showingAlert = true
                     }
                 )
+            }
+        }
+        .task(id: copyFilesinProgress) {
+            guard copyFilesinProgress, let stream = executionManager?.progressStream else { return }
+            for await count in stream {
+                progress = Double(count)
+                try? await Task.sleep(nanoseconds: 50_000_000) // throttle to ~20fps
             }
         }
         .padding()

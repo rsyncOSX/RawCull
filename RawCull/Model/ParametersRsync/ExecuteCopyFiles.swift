@@ -44,7 +44,9 @@ final class ExecuteCopyFiles {
     /// Callback
     var onCompletion: ((CopyDataResult) -> Void)?
 
-    var progress: Double = 0
+    /// Progress update
+    var progressStream: AsyncStream<Int>?
+    private var progressContinuation: AsyncStream<Int>.Continuation?
 
     func startcopyfiles(
         fallbacksource: String,
@@ -141,6 +143,10 @@ final class ExecuteCopyFiles {
         self.rating = rating
         self.sidebarRawCullViewModel = sidebarRawCullViewModel
         self.copytaggedfiles = copytaggedfiles
+
+        let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
+        self.progressStream = stream
+        self.progressContinuation = continuation
     }
 
     deinit {
@@ -152,9 +158,7 @@ final class ExecuteCopyFiles {
     private func setupStreamingHandlers() {
         streamingHandlers = CreateStreamingHandlers().createHandlersWithCleanup(
             fileHandler: { [weak self] count in
-                Task { @MainActor in
-                    self?.progress = Double(count)
-                }
+                self?.progressContinuation?.yield(count)
             },
             processTermination: { [weak self] output, hiddenID in
                 Task { @MainActor in
@@ -194,6 +198,10 @@ final class ExecuteCopyFiles {
     }
 
     private func cleanup() {
+        progressContinuation?.finish() // <-- add this
+        progressContinuation = nil
+        progressStream = nil
+
         // Stop accessing security-scoped resources
         sourceAccessedURL?.stopAccessingSecurityScopedResource()
         destAccessedURL?.stopAccessingSecurityScopedResource()
