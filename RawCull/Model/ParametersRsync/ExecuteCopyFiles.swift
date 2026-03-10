@@ -42,7 +42,7 @@ final class ExecuteCopyFiles {
     private var destAccessedURL: URL?
 
     // Callbacks
-    var onProgressUpdate: ((Double) -> Void)?
+    var onProgressUpdate: ((Int) -> Void)?
     var onCompletion: ((CopyDataResult) -> Void)?
 
     func startcopyfiles(
@@ -153,7 +153,7 @@ final class ExecuteCopyFiles {
             fileHandler: { [weak self] count in
                 Task { @MainActor in
                     if let update = self?.onProgressUpdate {
-                        update(Double(count))
+                        update(count)
                     }
                 }
             },

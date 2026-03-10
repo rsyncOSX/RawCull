@@ -22,7 +22,7 @@ struct CopyFilesView: View {
 
     @State var showingAlert: Bool = false
     @State var progress: Double = 0
-    @State var max: Double = 70
+    @State var max: Double = 0
     @State var copyfilesinprogress: Bool = false
 
     @State private var executionManager: ExecuteCopyFiles?
@@ -44,10 +44,19 @@ struct CopyFilesView: View {
             Divider()
 
             if copyfilesinprogress {
+                
+                HStack {
+                    
+                    ProgressView()
+                    
+                    Text(": \(progress)")
+                }
+                /*
                 ProgressCount(progress: $progress,
                               estimatedSeconds: $viewModel.estimatedSeconds,
                               max: max,
                               statusText: "Copy files in progress, please wait..")
+                 */
             }
 
             // Source and destination catalogs
@@ -55,16 +64,20 @@ struct CopyFilesView: View {
 
             Spacer()
 
-            // Action buttons
-            CopyActionButtonsSection(
-                dismiss: dismiss,
-                onCopyTapped: {
-                    guard sourcecatalog.isEmpty == false,
-                          destinationcatalog.isEmpty == false else { return }
-                    showingAlert = true
-                }
-            )
-            .disabled(copyfilesinprogress == true)
+            if copyfilesinprogress == false {
+                // Action buttons
+                CopyActionButtonsSection(
+                    dismiss: dismiss,
+                    onCopyTapped: {
+                        guard sourcecatalog.isEmpty == false,
+                              destinationcatalog.isEmpty == false else { return }
+                        showingAlert = true
+                    }
+                )
+            }
+        }
+        .task(id: max) {
+            print(max)
         }
         .padding()
         .frame(width: 650, height: 500, alignment: .init(horizontal: .center, vertical: .center))
@@ -95,7 +108,10 @@ struct CopyFilesView: View {
         )
 
         executionManager?.onProgressUpdate = { count in
-            progress = count
+            Task { @MainActor in
+                print(count)
+                onProgressUpdate(count: count)
+            }
         }
 
         executionManager?.onCompletion = { result in
@@ -131,5 +147,10 @@ struct CopyFilesView: View {
 
         sheetType = .detailsview
         showcopytask = true
+    }
+
+    private func onProgressUpdate(count: Int) {
+        progress = Double(count)
+        print(progress)
     }
 }
