@@ -36,7 +36,7 @@ struct DecodeFocusPoints: Codable {
 }
 
 actor ScanFiles {
-    /// Store raw decoded data — no @MainActor types involved
+    /// Store raw decoded data 
     var decodedFocusPoints: [DecodeFocusPoints]?
 
     func scanFiles(

@@ -64,7 +64,7 @@ extension RawCullView {
 
         ToolbarItem(placement: .navigation) {
             Button(action: toggleshowdetailonly) {
-                Label("Details", systemImage: "photo")
+                Label("Details", systemImage: "photo.stack")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
             .help("Show details")
