@@ -22,7 +22,7 @@ struct CopyFilesView: View {
 
     @State var showingAlert: Bool = false
     @State var progress: Double = 0
-    @State var max: Double = 0
+    @State var max: Double = 70
     @State var copyfilesinprogress: Bool = false
 
     @State private var executionManager: ExecuteCopyFiles?
@@ -94,16 +94,12 @@ struct CopyFilesView: View {
             sidebarRawCullViewModel: viewModel
         )
 
-        executionManager?.onProgressUpdate = { _ in
-            Task { @MainActor in
-                onProgressUpdate
-            }
+        executionManager?.onProgressUpdate = { count in
+            progress = count
         }
 
         executionManager?.onCompletion = { result in
-            Task { @MainActor in
-                handleCompletion(result: result)
-            }
+            handleCompletion(result: result)
         }
 
         executionManager?.startcopyfiles(
@@ -135,9 +131,5 @@ struct CopyFilesView: View {
 
         sheetType = .detailsview
         showcopytask = true
-    }
-    
-    private func onProgressUpdate(count: Double) {
-        progress = count
     }
 }

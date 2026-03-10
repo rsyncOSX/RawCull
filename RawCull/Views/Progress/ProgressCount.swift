@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ProgressCount: View {
+    
     @Binding var progress: Double
     @Binding var estimatedSeconds: Int // seconds to completion
     let max: Double
