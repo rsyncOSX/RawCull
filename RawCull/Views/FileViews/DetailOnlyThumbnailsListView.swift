@@ -22,6 +22,7 @@ struct DetailOnlyThumbnailsListView: View {
     @State var showInspector: Bool = true
 
     var body: some View {
+        // let _ = Self._printChanges()
         if let file = viewModel.selectedFile {
             VStack(spacing: 20) {
                 CachedThumbnailView(

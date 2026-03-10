@@ -20,6 +20,7 @@ struct RawCullView: View {
     @State var showDetailOnly: Bool = false
 
     var body: some View {
+        // let _ = Self._printChanges()
         if showDetailOnly {
             DetailOnlyThumbnailsListView(
                 viewModel: viewModel,
@@ -63,10 +64,6 @@ struct RawCullView: View {
                     prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")..."
                 )
                 .toolbar { toolbarContent }
-                .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
-                .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
-                .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
-                .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
                 .sheet(isPresented: $viewModel.showcopyARWFilesView) {
                     CopyARWFilesView(
                         viewModel: viewModel,
@@ -126,6 +123,10 @@ struct RawCullView: View {
                 if viewModel.focushideInspector == true { labelhideinspector }
                 if viewModel.focusExtractJPGs { labelextractjpgs }
             }
+            .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+            .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
+            .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
+            .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
             .task {
                 // Only scan new files if there is a change of source
                 // guard viewModel.sourcechange == false else { return}

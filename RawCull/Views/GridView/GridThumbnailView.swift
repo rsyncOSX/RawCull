@@ -13,6 +13,7 @@ struct GridThumbnailView: View {
     @Environment(SettingsViewModel.self) var settingsviewmodel
 
     var body: some View {
+        // let _ = Self._printChanges()
         Group {
             if let cullingModel = gridthumbnailviewmodel.cullingModel {
                 GridThumbnailSelectionView(
