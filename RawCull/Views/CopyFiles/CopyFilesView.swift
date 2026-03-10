@@ -94,9 +94,9 @@ struct CopyFilesView: View {
             sidebarRawCullViewModel: viewModel
         )
 
-        executionManager?.onProgressUpdate = { newProgress in
+        executionManager?.onProgressUpdate = { _ in
             Task { @MainActor in
-                progress = newProgress
+                onProgressUpdate
             }
         }
 
@@ -135,5 +135,9 @@ struct CopyFilesView: View {
 
         sheetType = .detailsview
         showcopytask = true
+    }
+    
+    private func onProgressUpdate(count: Double) {
+        progress = count
     }
 }

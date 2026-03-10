@@ -152,8 +152,9 @@ final class ExecuteCopyFiles {
         streamingHandlers = CreateStreamingHandlers().createHandlersWithCleanup(
             fileHandler: { [weak self] count in
                 Task { @MainActor in
-                    let progress = Double(count)
-                    self?.onProgressUpdate?(progress)
+                    if let update = self?.onProgressUpdate {
+                        update(Double(count))
+                    }
                 }
             },
             processTermination: { [weak self] output, hiddenID in
