@@ -69,6 +69,17 @@ extension RawCullView {
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
             .help("Show details")
         }
+
+        ToolbarItem(placement: .navigation) {
+            Button(action: toggleshowsavedfiles) {
+                Label("Details", systemImage: "square.and.arrow.down")
+            }
+            .help("Show SavedFiles")
+        }
+    }
+
+    func toggleshowsavedfiles() {
+        showSavedFiles.toggle()
     }
 
     func toggleshowdetailonly() {

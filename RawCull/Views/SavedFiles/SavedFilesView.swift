@@ -3,92 +3,112 @@ import SwiftUI
 // MARK: - Main View
 
 struct SavedFilesView: View {
-    let savedFiles: SavedFiles
+    @Environment(\.dismiss) var dismiss
 
+    @State private var savedFiles: [SavedFiles] = []
+    @State private var selectedCatalog: SavedFiles?
     @State private var selectedRecord: FileRecord?
+    @State private var hoveredCatalog: UUID?
     @State private var hoveredRecord: UUID?
 
-    private var catalogName: String {
-        savedFiles.catalog?.lastPathComponent ?? "Unknown Catalog"
-    }
-
-    private var catalogPath: String {
-        savedFiles.catalog?.path ?? "—"
-    }
-
-    private var formattedDate: String {
-        savedFiles.dateStart ?? "No date"
-    }
-
     private var records: [FileRecord] {
-        savedFiles.filerecords ?? []
+        selectedCatalog?.filerecords ?? []
     }
 
     var body: some View {
-        HSplitView {
-            // Left panel: file records list
-            VStack(spacing: 0) {
-                listHeader
-                Divider()
-                fileRecordsList
-            }
-            .frame(minWidth: 300, idealWidth: 360, maxWidth: 480)
-
-            // Right panel: detail view
-            detailPanel
-                .frame(minWidth: 300, idealWidth: 420)
-        }
-        .frame(minWidth: 720, minHeight: 480)
-        .background(Color(NSColor.windowBackgroundColor))
-    }
-
-    // MARK: - Left Panel
-
-    private var listHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: "folder.fill")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(catalogName)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text(catalogPath)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+        NavigationSplitView {
+            // Column 1: Catalogs
+            catalogList
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+        } content: {
+            // Column 2: File Records
+            fileRecordsList
+                .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 400)
+        } detail: {
+            Group {
+                if let record = selectedRecord {
+                    FileRecordDetailView(record: record)
+                } else {
+                    placeholderDetail
                 }
             }
-
-            HStack(spacing: 16) {
-                Label(formattedDate, systemImage: "calendar")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Text("\(records.count) file\(records.count == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule().fill(Color(NSColor.separatorColor).opacity(0.4))
-                    )
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Color(NSColor.controlBackgroundColor))
+        .frame(minWidth: 820, minHeight: 500)
+        .task {
+            savedFiles = ReadSavedFilesJSON().readjsonfilesavedfiles() ?? []
+        }
     }
+
+    // MARK: - Column 1: Catalog List
+
+    private var catalogList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if savedFiles.isEmpty {
+                    emptyCatalogs
+                } else {
+                    ForEach(savedFiles) { entry in
+                        CatalogRow(
+                            entry: entry,
+                            isSelected: selectedCatalog?.id == entry.id,
+                            isHovered: hoveredCatalog == entry.id
+                        )
+                        .onTapGesture {
+                            if selectedCatalog?.id != entry.id {
+                                selectedRecord = nil
+                            }
+                            selectedCatalog = entry
+                        }
+                        .onHover { hovering in
+                            hoveredCatalog = hovering ? entry.id : nil
+                        }
+                        Divider().padding(.leading, 52)
+                    }
+                }
+            }
+            .padding(.top, 8)
+        }
+        .background(Color(NSColor.controlBackgroundColor))
+        .navigationTitle("Catalogs")
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Text("\(savedFiles.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(NSColor.separatorColor).opacity(0.5)))
+            }
+        }
+    }
+
+    private var emptyCatalogs: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "folder.badge.questionmark")
+                .font(.largeTitle)
+                .foregroundStyle(.tertiary)
+            Text("No catalogs")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    // MARK: - Column 2: File Records List
 
     private var fileRecordsList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if records.isEmpty {
-                    emptyState
+                if selectedCatalog == nil {
+                    placeholderRecords
+                } else if records.isEmpty {
+                    emptyRecords
                 } else {
                     ForEach(records) { record in
                         FileRecordRow(
@@ -104,11 +124,38 @@ struct SavedFilesView: View {
                     }
                 }
             }
+            .padding(.top, 8)
         }
         .background(Color(NSColor.controlBackgroundColor))
+        .navigationTitle(selectedCatalog.map { $0.catalog?.lastPathComponent ?? "Files" } ?? "Files")
+        .toolbar {
+            if !records.isEmpty {
+                ToolbarItem(placement: .automatic) {
+                    Text("\(records.count) file\(records.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color(NSColor.separatorColor).opacity(0.5)))
+                }
+            }
+        }
     }
 
-    private var emptyState: some View {
+    private var placeholderRecords: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "sidebar.left")
+                .font(.largeTitle)
+                .foregroundStyle(.tertiary)
+            Text("Select a catalog")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    private var emptyRecords: some View {
         VStack(spacing: 10) {
             Image(systemName: "doc.badge.ellipsis")
                 .font(.largeTitle)
@@ -121,18 +168,7 @@ struct SavedFilesView: View {
         .padding(.top, 60)
     }
 
-    // MARK: - Right Panel
-
-    private var detailPanel: some View {
-        Group {
-            if let record = selectedRecord {
-                FileRecordDetailView(record: record)
-            } else {
-                placeholderDetail
-            }
-        }
-        .background(Color(NSColor.windowBackgroundColor))
-    }
+    // MARK: - Column 3: Placeholder
 
     private var placeholderDetail: some View {
         VStack(spacing: 12) {
@@ -144,6 +180,72 @@ struct SavedFilesView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+// MARK: - Catalog Row
+
+struct CatalogRow: View {
+    let entry: SavedFiles
+    let isSelected: Bool
+    let isHovered: Bool
+
+    private var catalogName: String {
+        entry.catalog?.lastPathComponent ?? "Unknown Catalog"
+    }
+
+    private var fileCount: Int {
+        entry.filerecords?.count ?? 0
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color(NSColor.separatorColor).opacity(0.25))
+                    .frame(width: 32, height: 32)
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(catalogName)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                    .foregroundStyle(isSelected ? Color.accentColor : .primary)
+
+                if let dateStart = entry.dateStart, !dateStart.isEmpty {
+                    Text(dateStart)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Text("\(fileCount)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color(NSColor.separatorColor).opacity(0.4)))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Group {
+                if isSelected {
+                    Color.accentColor.opacity(0.08)
+                } else if isHovered {
+                    Color(NSColor.selectedContentBackgroundColor).opacity(0.06)
+                } else {
+                    Color.clear
+                }
+            }
+        )
+        .contentShape(Rectangle())
     }
 }
 
@@ -156,7 +258,6 @@ struct FileRecordRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // File icon
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? Color.accentColor.opacity(0.15) : Color(NSColor.separatorColor).opacity(0.3))
@@ -166,25 +267,21 @@ struct FileRecordRow: View {
                     .foregroundStyle(isSelected ? Color.accentColor : .secondary)
             }
 
-            // File info
             VStack(alignment: .leading, spacing: 3) {
                 Text(record.fileName ?? "Unnamed File")
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                     .foregroundStyle(isSelected ? Color.accentColor : .primary)
 
-                HStack(spacing: 8) {
-                    if let dateTagged = record.dateTagged {
-                        Label(dateTagged, systemImage: "tag")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                if let dateTagged = record.dateTagged {
+                    Label(dateTagged, systemImage: "tag")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
 
             Spacer()
 
-            // Rating stars
             if let rating = record.rating {
                 StarRatingView(rating: rating, compact: true)
             }
@@ -228,11 +325,9 @@ struct FileRecordDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Hero header
                 detailHeader
                     .padding(.bottom, 24)
 
-                // Info grid
                 VStack(alignment: .leading, spacing: 12) {
                     SectionHeader(title: "File Details")
 
@@ -243,7 +338,6 @@ struct FileRecordDetailView: View {
                     DetailRow(icon: "arrow.right.doc.on.clipboard", label: "Date Copied", value: record.dateCopied ?? "—")
                     Divider()
 
-                    // Rating row
                     HStack(alignment: .center) {
                         Image(systemName: "star.fill")
                             .foregroundStyle(.secondary)
@@ -272,11 +366,10 @@ struct FileRecordDetailView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color(NSColor.controlBackgroundColor))
                 )
-
-                Spacer()
             }
             .padding(24)
         }
+        .background(Color(NSColor.windowBackgroundColor))
     }
 
     private var detailHeader: some View {
@@ -359,7 +452,7 @@ struct StarRatingView: View {
     }
 }
 
-// MARK: - FileRecord convenience init for preview/construction
+// MARK: - FileRecord convenience init for preview
 
 extension FileRecord {
     init(fileName: String?, dateTagged: String?, dateCopied: String?, rating: Int?) {

@@ -19,6 +19,8 @@ struct RawCullView: View {
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State var showDetailOnly: Bool = false
 
+    @State var showSavedFiles: Bool = false
+
     var body: some View {
         // let _ = Self._printChanges()
         if showDetailOnly {
@@ -122,6 +124,10 @@ struct RawCullView: View {
                 if viewModel.focusaborttask { labelaborttask }
                 if viewModel.focushideInspector == true { labelhideinspector }
                 if viewModel.focusExtractJPGs { labelextractjpgs }
+            }
+
+            .sheet(isPresented: $showSavedFiles) {
+                SavedFilesView()
             }
             .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
             .focusedSceneValue(\.hideInspector, $viewModel.focushideInspector)
