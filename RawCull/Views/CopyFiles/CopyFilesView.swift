@@ -21,9 +21,8 @@ struct CopyFilesView: View {
     @State var destinationcatalog: String = ""
 
     @State var showingAlert: Bool = false
-    @State var progress: Double = 0
+    @State var copyFilesinProgress: Bool = false
     @State var max: Double = 0
-    @State var copyfilesinprogress: Bool = false
 
     @State private var executionManager: ExecuteCopyFiles?
     @State private var showprogressview = false
@@ -43,20 +42,19 @@ struct CopyFilesView: View {
 
             Divider()
 
-            if copyfilesinprogress {
-                
+            if copyFilesinProgress {
                 HStack {
-                    
                     ProgressView()
-                    
-                    Text(": \(progress)")
+
+                    Text(": \(executionManager?.progress ?? 0, format: .number)")
                 }
+
                 /*
-                ProgressCount(progress: $progress,
-                              estimatedSeconds: $viewModel.estimatedSeconds,
-                              max: max,
-                              statusText: "Copy files in progress, please wait..")
-                 */
+                 ProgressCount(progress: $progress,
+                               estimatedSeconds: $viewModel.estimatedSeconds,
+                               max: max,
+                               statusText: "Copy files in progress, please wait..")
+                  */
             }
 
             // Source and destination catalogs
@@ -64,7 +62,7 @@ struct CopyFilesView: View {
 
             Spacer()
 
-            if copyfilesinprogress == false {
+            if copyFilesinProgress == false {
                 // Action buttons
                 CopyActionButtonsSection(
                     dismiss: dismiss,
@@ -76,9 +74,6 @@ struct CopyFilesView: View {
                 )
             }
         }
-        .task(id: max) {
-            print(max)
-        }
         .padding()
         .frame(width: 650, height: 500, alignment: .init(horizontal: .center, vertical: .center))
         .task(id: selectedSource) {
@@ -87,7 +82,7 @@ struct CopyFilesView: View {
         }
         .alert("Copy ARW files", isPresented: $showingAlert) {
             Button("Copy", role: .destructive) {
-                copyfilesinprogress = true
+                copyFilesinProgress = true
                 executeCopyFiles()
             }
             Button("Cancel", role: .cancel) {}
@@ -107,13 +102,6 @@ struct CopyFilesView: View {
             sidebarRawCullViewModel: viewModel
         )
 
-        executionManager?.onProgressUpdate = { count in
-            Task { @MainActor in
-                print(count)
-                onProgressUpdate(count: count)
-            }
-        }
-
         executionManager?.onCompletion = { result in
             handleCompletion(result: result)
         }
@@ -130,7 +118,7 @@ struct CopyFilesView: View {
         configuration.localCatalog = sourcecatalog
         configuration.offsiteCatalog = destinationcatalog
 
-        copyfilesinprogress = false
+        copyFilesinProgress = false
 
         remotedatanumbers = RemoteDataNumbers(
             stringoutputfromrsync: result.output,
@@ -147,10 +135,5 @@ struct CopyFilesView: View {
 
         sheetType = .detailsview
         showcopytask = true
-    }
-
-    private func onProgressUpdate(count: Int) {
-        progress = Double(count)
-        print(progress)
     }
 }

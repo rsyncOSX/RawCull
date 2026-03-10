@@ -41,9 +41,10 @@ final class ExecuteCopyFiles {
     private var sourceAccessedURL: URL?
     private var destAccessedURL: URL?
 
-    // Callbacks
-    var onProgressUpdate: ((Int) -> Void)?
+    /// Callback
     var onCompletion: ((CopyDataResult) -> Void)?
+
+    var progress: Double = 0
 
     func startcopyfiles(
         fallbacksource: String,
@@ -152,9 +153,7 @@ final class ExecuteCopyFiles {
         streamingHandlers = CreateStreamingHandlers().createHandlersWithCleanup(
             fileHandler: { [weak self] count in
                 Task { @MainActor in
-                    if let update = self?.onProgressUpdate {
-                        update(count)
-                    }
+                    self?.progress = Double(count)
                 }
             },
             processTermination: { [weak self] output, hiddenID in
