@@ -1,5 +1,5 @@
 //
-//  JPGPreviewHandler.swift
+//  ZoomPreviewHandler.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 08/02/2026.

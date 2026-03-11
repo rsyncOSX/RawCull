@@ -7,14 +7,22 @@ import SwiftUI
 
 struct ZoomableFocusePeekNSImageView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(RawCullViewModel.self) private var viewModel
+
     let nsImage: NSImage?
+
+    private var focusPoints: [FocusPoint]? {
+        viewModel.getFocusPoints()
+    }
 
     @State private var focusMask: NSImage?
     @State private var currentScale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var focusDetectorModel: FocusDetectorMaskModel = .init()
+    @State private var focusDetectorModel = FocusDetectorMaskModel()
+    @State private var showFocusPoints: Bool = false
+    @State private var markerSize: CGFloat = 64
     @State private var showFocusMask: Bool = false
     @State private var overlayOpacity: Double = 0.85
     @State private var maskTask: Task<Void, Never>?
@@ -43,10 +51,14 @@ struct ZoomableFocusePeekNSImageView: View {
             VStack {
                 HStack {
                     Spacer()
+
+                    focuspointcontroller
+
                     toolbarButton("viewfinder.circle.fill") {
                         withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
                     }
                     .disabled(focusMask == nil)
+
                     toolbarButton("minus.circle.fill") { decreaseZoom() }
                     toolbarButton("xmark.circle") { dismiss() }
                     toolbarButton("plus.circle.fill") { increaseZoom() }
@@ -84,6 +96,44 @@ struct ZoomableFocusePeekNSImageView: View {
                 await regenerateMask()
             }
         }
+    }
+
+    // MARK: - Focus Point Control Bar
+
+    private var focuspointcontroller: some View {
+        HStack(spacing: 12) {
+            if showFocusPoints {
+                HStack(spacing: 6) {
+                    Image(systemName: "viewfinder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Slider(value: $markerSize, in: 32 ... 100, step: 4)
+                        .frame(width: 100)
+                        .controlSize(.small)
+                    Image(systemName: "viewfinder")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showFocusPoints.toggle() }
+            } label: {
+                Image(systemName: showFocusPoints ? "viewfinder.circle.fill" : "viewfinder.circle")
+                    .font(.title3)
+                    .foregroundStyle(showFocusPoints ? .yellow : .primary)
+                    .symbolEffect(.bounce, value: showFocusPoints)
+            }
+            .buttonStyle(.plain)
+            .help(showFocusPoints ? "Hide focus points" : "Show focus points")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+        .padding(10)
+        .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
 
     // MARK: - Focus Mask Controls

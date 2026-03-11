@@ -76,14 +76,17 @@ struct RawCullApp: App {
 
         // If there is a extracted JPG image
         Window("ZoomnsImage", id: "zoom-window-nsImage") {
-            ZoomableFocusePeekNSImageView(nsImage: nsImage)
-                // ZoomableNSImageView(nsImage: nsImage)
-                .onAppear {
-                    zoomNSImageWindowFocused = true
-                }
-                .onDisappear {
-                    zoomNSImageWindowFocused = false
-                }
+            ZoomableFocusePeekNSImageView(
+                nsImage: nsImage
+            )
+            .environment(viewModel)
+            // ZoomableNSImageView(nsImage: nsImage)
+            .onAppear {
+                zoomNSImageWindowFocused = true
+            }
+            .onDisappear {
+                zoomNSImageWindowFocused = false
+            }
         }
         .defaultPosition(.center)
         .defaultSize(width: 800, height: 600)
