@@ -2,8 +2,6 @@
 //  ZoomableFocusePeekCSImageView.swift
 //  RawCull
 //
-//  Created by Thomas Evensen on 24/02/2026.
-//
 
 import SwiftUI
 
@@ -11,7 +9,6 @@ struct ZoomableFocusePeekCSImageView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(RawCullViewModel.self) private var viewModel
 
-    /// Replace the let focusPoints property with a computed one:
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
     }
@@ -27,14 +24,10 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
-
+    @State private var overlayOpacity: Double = 0.85
     @State private var maskTask: Task<Void, Never>?
 
     private let zoomLevel: CGFloat = 2.0
-
-    private var displayedImage: CGImage? {
-        cgImage
-    }
 
     var body: some View {
         ZStack {
@@ -43,7 +36,7 @@ struct ZoomableFocusePeekCSImageView: View {
             if cgImage != nil {
                 GeometryReader { geo in
                     ZStack {
-                        if let image = displayedImage {
+                        if let image = cgImage {
                             zoomableImage(image, in: geo.size)
                         }
                         focusPoint()
@@ -58,12 +51,10 @@ struct ZoomableFocusePeekCSImageView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
             }
 
-            // ── All UI chrome in ONE VStack overlay ───────────────────────
             VStack {
                 // Top toolbar
                 HStack {
                     Spacer()
-
                     toolbarButton("minus.circle.fill") { decreaseZoom() }
                     toolbarButton("xmark.circle") { dismiss() }
                     toolbarButton("plus.circle.fill") { increaseZoom() }
@@ -82,7 +73,6 @@ struct ZoomableFocusePeekCSImageView: View {
                     focuspointcontroller
                 }
 
-                // Bottom hint text
                 VStack(spacing: 8) {
                     Text(currentScale <= 1.0 ? "Double Tap to Zoom" : "Double Tap to Fit Screen")
                         .font(.caption).foregroundStyle(.white.opacity(0.5))
@@ -92,10 +82,7 @@ struct ZoomableFocusePeekCSImageView: View {
                     }
 
                     if showFocusMask {
-                        FocusDetectorControlsView(model: focusDetectorModel)
-                            .padding(.horizontal)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                            .padding(.horizontal)
+                        focusMaskControls
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -105,17 +92,9 @@ struct ZoomableFocusePeekCSImageView: View {
         .task(id: cgImage?.hashValue) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            if let cgImage {
-                let downscaled = cgImage.downscaled(toWidth: 1024)
-                let mask = await focusDetectorModel.generateFocusMask(
-                    from: downscaled ?? cgImage,
-                    scale: 1.0
-                )
-                await MainActor.run { self.focusMask = mask }
-            }
+            await regenerateMask()
         }
         .onChange(of: focusDetectorModel.config) { _, _ in
-            print("discover change")
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -124,6 +103,62 @@ struct ZoomableFocusePeekCSImageView: View {
             }
         }
     }
+
+    // MARK: - Focus Mask Controls
+
+    private var focusMaskControls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Focus Mask")
+                    .font(.headline)
+                Spacer()
+                Button("Reset") {
+                    focusDetectorModel.config = FocusDetectorConfig()
+                    overlayOpacity = 0.85
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            LabeledSlider(
+                label: "Threshold",
+                value: $focusDetectorModel.config.threshold,
+                range: 0.10 ... 0.50,
+                hint: "Lower = more highlighted, Higher = only sharpest edges"
+            )
+
+            LabeledSlider(
+                label: "Pre-blur",
+                value: $focusDetectorModel.config.preBlurRadius,
+                range: 0.5 ... 2.5,
+                hint: "Higher = ignore more background texture"
+            )
+
+            LabeledSlider(
+                label: "Amplify",
+                value: $focusDetectorModel.config.energyMultiplier,
+                range: 4.0 ... 20.0,
+                hint: "Amplification of sharpness signal"
+            )
+
+            // Overlay opacity — instant, no recompute
+            LabeledSlider(
+                label: "Overlay",
+                value: Binding(
+                    get: { Float(overlayOpacity) },
+                    set: { overlayOpacity = Double($0) }
+                ),
+                range: 0.3 ... 1.0,
+                hint: "Overlay strength"
+            )
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
+
+    // MARK: - Regenerate Mask
 
     private func regenerateMask() async {
         guard let cgImage else { return }
@@ -149,8 +184,8 @@ struct ZoomableFocusePeekCSImageView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: size.width, height: size.height)
-                    .blendMode(.screen) // red on black blends cleanly over the photo
-                    .opacity(0.85)
+                    .blendMode(.screen)
+                    .opacity(overlayOpacity)
                     .transition(.opacity)
             }
         }
@@ -183,16 +218,12 @@ struct ZoomableFocusePeekCSImageView: View {
 
     @ViewBuilder
     private func focusPoint() -> some View {
-        // 2️⃣ Focus overlay on top of image, same scale + offset as the image
         if showFocusPoints, let focusPoints {
-            FocusOverlayView(
-                focusPoints: focusPoints,
-                markerSize: markerSize
-            )
-            .scaleEffect(currentScale)
-            .offset(offset)
-            .allowsHitTesting(false)
-            .transition(.opacity.combined(with: .blurReplace))
+            FocusOverlayView(focusPoints: focusPoints, markerSize: markerSize)
+                .scaleEffect(currentScale)
+                .offset(offset)
+                .allowsHitTesting(false)
+                .transition(.opacity.combined(with: .blurReplace))
         }
     }
 
@@ -200,12 +231,11 @@ struct ZoomableFocusePeekCSImageView: View {
 
     private var focuspointcontroller: some View {
         HStack(spacing: 12) {
-            // Marker size slider
             if showFocusPoints {
                 HStack(spacing: 6) {
                     Image(systemName: "viewfinder")
                         .font(.caption)
-                        .foregroundStyle(.secondary) // .secondary adapts to background automatically
+                        .foregroundStyle(.secondary)
                     Slider(value: $markerSize, in: 32 ... 100, step: 4)
                         .frame(width: 100)
                         .controlSize(.small)
@@ -216,18 +246,11 @@ struct ZoomableFocusePeekCSImageView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
 
-            // Toggle button
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showFocusPoints.toggle()
-                }
+                withAnimation(.easeInOut(duration: 0.2)) { showFocusPoints.toggle() }
             } label: {
-                Image(systemName: showFocusPoints
-                    ? "viewfinder.circle.fill"
-                    : "viewfinder.circle")
+                Image(systemName: showFocusPoints ? "viewfinder.circle.fill" : "viewfinder.circle")
                     .font(.title3)
-                    // CHANGE 1: Use .primary for the inactive state.
-                    // This renders as Black on Light backgrounds and White on Dark backgrounds.
                     .foregroundStyle(showFocusPoints ? .yellow : .primary)
                     .symbolEffect(.bounce, value: showFocusPoints)
             }
@@ -236,15 +259,8 @@ struct ZoomableFocusePeekCSImageView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        // CHANGE 2: Use .ultraThinMaterial with a subtle border.
-        // Material blurs the background, creating contrast automatically.
         .background(.ultraThinMaterial, in: Capsule())
-        // CHANGE 3: Add a stroke border.
-        // This guarantees the component has an "edge" even if the background is pure white or pure black.
-        .overlay {
-            Capsule()
-                .strokeBorder(.primary.opacity(0.1), lineWidth: 0.5)
-        }
+        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
         .padding(10)
         .animation(.spring(duration: 0.3), value: showFocusPoints)
     }
@@ -290,12 +306,12 @@ extension CGImage {
         let scale = CGFloat(maxWidth) / CGFloat(width)
         let newWidth = maxWidth
         let newHeight = Int(CGFloat(height) * scale)
-        guard let context = CGContext( // <-- replace from here
+        guard let context = CGContext(
             data: nil, width: newWidth, height: newHeight,
             bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil } // <-- to here
+        ) else { return nil }
         context.interpolationQuality = .medium
         context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
         return context.makeImage()

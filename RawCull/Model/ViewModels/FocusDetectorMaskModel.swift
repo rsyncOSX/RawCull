@@ -5,10 +5,10 @@ import Observation
 import OSLog
 
 struct FocusDetectorConfig: Equatable {
-    var preBlurRadius: Float = 1.0
-    var threshold: Float = 0.18
-    var dilationRadius: Float = 1.5
-    var energyMultiplier: Float = 12.0
+    var preBlurRadius: Float = 1.5 // was 1.0 — reduces water noise immediately
+    var threshold: Float = 0.30 // was 0.18 — cleaner first impression
+    var dilationRadius: Float = 1.5 // unchanged
+    var energyMultiplier: Float = 8.0
 }
 
 @Observable

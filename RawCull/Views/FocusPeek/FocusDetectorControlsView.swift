@@ -40,25 +40,28 @@ struct FocusDetectorControlsView: View {
     }
 }
 
-private struct LabeledSlider: View {
+// MARK: - Shared Slider Component
+
+struct LabeledSlider: View {
     let label: String
     @Binding var value: Float
     let range: ClosedRange<Float>
     let hint: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(label)
-                    .font(.subheadline)
+                    .font(.caption) // was .subheadline
                 Spacer()
                 Text(String(format: "%.2f", value))
-                    .font(.subheadline.monospacedDigit())
+                    .font(.caption.monospacedDigit()) // was .subheadline
                     .foregroundStyle(.secondary)
             }
             Slider(value: $value, in: range)
+                .controlSize(.small) // <-- key change
             Text(hint)
-                .font(.caption)
+                .font(.caption2) // was .caption
                 .foregroundStyle(.secondary)
         }
     }
