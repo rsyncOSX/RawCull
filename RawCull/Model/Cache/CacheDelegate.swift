@@ -27,7 +27,7 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
             _evictionCount += 1
             evictionLock.unlock()
             Logger.process.debugMessageOnly(
-                "CacheDelegate: Evicted DiscardableThumbnail, total evictions: \(_evictionCount)"
+                "CacheDelegate: Evicted DiscardableThumbnail, total evictions: \(_evictionCount)",
             )
         }
     }

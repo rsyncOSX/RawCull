@@ -39,7 +39,7 @@ struct OpencatalogView: View {
                                   let bookmarkData = try url.bookmarkData(
                                       options: .withSecurityScope,
                                       includingResourceValuesForKeys: nil,
-                                      relativeTo: nil
+                                      relativeTo: nil,
                                   )
                                   UserDefaults.standard.set(bookmarkData, forKey: bookmarkKey)
                                   Logger.process.debugMessageOnly("Bookmark saved for key: \(bookmarkKey)")

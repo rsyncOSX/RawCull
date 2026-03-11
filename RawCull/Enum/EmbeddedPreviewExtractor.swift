@@ -13,7 +13,7 @@ import OSLog
 enum EmbeddedPreviewExtractor {
     static func extractEmbeddedPreview(
         from arwURL: URL,
-        fullSize: Bool = false
+        fullSize: Bool = false,
     ) async -> CGImage? {
         let maxThumbnailSize: CGFloat = fullSize ? 8640 : 4320
 
@@ -36,7 +36,7 @@ enum EmbeddedPreviewExtractor {
                     guard let properties = CGImageSourceCopyPropertiesAtIndex(
                         imageSource,
                         index,
-                        nil
+                        nil,
                     ) as? [CFString: Any]
                     else {
                         Logger.process.debugMessageOnly("enum: extractEmbeddedPreview(): Index \(index) - Failed to get properties")

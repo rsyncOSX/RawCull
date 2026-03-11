@@ -52,10 +52,10 @@ struct CacheSettingsTab: View {
                                 Slider(
                                     value: Binding<Double>(
                                         get: { Double(settingsManager.memoryCacheSizeMB) },
-                                        set: { settingsManager.memoryCacheSizeMB = Int($0) }
+                                        set: { settingsManager.memoryCacheSizeMB = Int($0) },
                                     ),
                                     in: 3000 ... 20000,
-                                    step: 250
+                                    step: 250,
                                 )
                                 .frame(height: 18)
                             }
@@ -83,7 +83,7 @@ struct CacheSettingsTab: View {
                             ConditionalGlassButton(
                                 systemImage: "trash",
                                 text: "Prune Disk Cache",
-                                helpText: "Prune disk cache to free up space."
+                                helpText: "Prune disk cache to free up space.",
                             ) {
                                 pruneDiskCache()
                             }
@@ -150,7 +150,7 @@ struct CacheSettingsTab: View {
                 ConditionalGlassButton(
                     systemImage: "square.and.arrow.down.fill",
                     text: "Save Settings",
-                    helpText: "Save settings"
+                    helpText: "Save settings",
                 ) {
                     Task {
                         await settingsManager.saveSettings()
@@ -163,7 +163,7 @@ struct CacheSettingsTab: View {
                     label: {
                         Label("Reset to Defaults", systemImage: "arrow.uturn.backward")
                             .font(.system(size: 12, weight: .medium))
-                    }
+                    },
                 )
                 .buttonStyle(RefinedGlassButtonStyle())
                 .confirmationDialog(
@@ -179,7 +179,7 @@ struct CacheSettingsTab: View {
                     },
                     message: {
                         Text("Are you sure you want to reset all settings to their default values?")
-                    }
+                    },
                 )
             }
             .onAppear(perform: refreshDiskCacheSize)
@@ -246,7 +246,7 @@ struct CacheSettingsTab: View {
         let availableMemory = ProcessInfo.processInfo.physicalMemory
         return NumberFormatter.localizedString(
             from: NSNumber(value: availableMemory / 1_073_741_824),
-            number: NumberFormatter.Style.decimal
+            number: NumberFormatter.Style.decimal,
         )
     }
 
@@ -268,7 +268,7 @@ struct CacheSettingsTab: View {
                 "Image capacity: ~\(imageCapacity) images, " +
                     "\(settingsManager.memoryCacheSizeMB) MB, " +
                     "\(thumbnailSize)×\(thumbnailSize) size, " +
-                    "\(costPerImage) bytes/image"
+                    "\(costPerImage) bytes/image",
             )
             return String(imageCapacity)
         }

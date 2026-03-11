@@ -14,8 +14,8 @@ import Foundation
 import Testing
 
 struct RequestThumbnailAdvancedMemoryTests {
-    @Test("Small cost limit triggers rapid evictions")
-    func rapidEvictionsWithSmallCostLimit() async {
+    @Test
+    func `Small cost limit triggers rapid evictions`() async {
         let config = CacheConfig(totalCostLimit: 10000, countLimit: 100)
         let provider = RequestThumbnail(config: config)
 
@@ -28,8 +28,8 @@ struct RequestThumbnailAdvancedMemoryTests {
         #expect(finalStats.evictions == 0) // Cleared
     }
 
-    @Test("Very small count limit prevents accumulation")
-    func countLimitStrictEnforcement() async {
+    @Test
+    func `Very small count limit prevents accumulation`() async {
         let config = CacheConfig(totalCostLimit: 1_000_000, countLimit: 1)
         let provider = RequestThumbnail(config: config)
 
@@ -38,8 +38,8 @@ struct RequestThumbnailAdvancedMemoryTests {
         #expect(stats.misses == 0)
     }
 
-    @Test("Cost calculation accuracy")
-    func costCalculation() {
+    @Test
+    func `Cost calculation accuracy`() {
         let image = createTestImage(width: 256, height: 256)
         let thumbnail = DiscardableThumbnail(image: image)
 
@@ -53,8 +53,8 @@ struct RequestThumbnailAdvancedMemoryTests {
 
 @MainActor
 struct RequestThumbnailStressTests {
-    @Test("Handles rapid sequential operations")
-    func rapidSequentialOperations() async {
+    @Test
+    func `Handles rapid sequential operations`() async {
         let provider = RequestThumbnail(config: .testing)
 
         for _ in 0 ..< 100 {
@@ -63,8 +63,8 @@ struct RequestThumbnailStressTests {
         }
     }
 
-    @Test("Handles many concurrent statistics calls")
-    func highConcurrencyStatistics() async {
+    @Test
+    func `Handles many concurrent statistics calls`() async {
         let provider = RequestThumbnail(config: .testing)
 
         await withTaskGroup(of: Void.self) { group in
@@ -77,8 +77,8 @@ struct RequestThumbnailStressTests {
         }
     }
 
-    @Test("Clear during concurrent operations")
-    func concurrentClear() async {
+    @Test
+    func `Clear during concurrent operations`() async {
         let provider = RequestThumbnail(config: .testing)
 
         async let clearTask: () = SharedMemoryCache.shared.clearCaches()
@@ -87,8 +87,8 @@ struct RequestThumbnailStressTests {
         _ = await (clearTask, statsTask)
     }
 
-    @Test("Multiple rapid clear operations")
-    func rapidClears() async {
+    @Test
+    func `Multiple rapid clear operations`() async {
         let provider = RequestThumbnail(config: .testing)
 
         for _ in 0 ..< 10 {
@@ -102,8 +102,8 @@ struct RequestThumbnailStressTests {
 
 @MainActor
 struct RequestThumbnailEdgeCaseTests {
-    @Test("Config with zero cost limit")
-    func zeroCostLimit() async {
+    @Test
+    func `Config with zero cost limit`() async {
         // Edge case: what happens with totalCostLimit = 0?
         let config = CacheConfig(totalCostLimit: 0, countLimit: 10)
         let provider = RequestThumbnail(config: config)
@@ -112,8 +112,8 @@ struct RequestThumbnailEdgeCaseTests {
         #expect(stats.hitRate == 0)
     }
 
-    @Test("Config with zero count limit")
-    func zeroCountLimit() async {
+    @Test
+    func `Config with zero count limit`() async {
         // Edge case: what happens with countLimit = 0?
         let config = CacheConfig(totalCostLimit: 1_000_000, countLimit: 0)
         let provider = RequestThumbnail(config: config)
@@ -122,11 +122,11 @@ struct RequestThumbnailEdgeCaseTests {
         #expect(stats.hitRate == 0)
     }
 
-    @Test("Very large cache configuration")
-    func largeCacheConfig() async {
+    @Test
+    func `Very large cache configuration`() async {
         let config = CacheConfig(
             totalCostLimit: Int.max / 2,
-            countLimit: Int.max / 2
+            countLimit: Int.max / 2,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -134,8 +134,8 @@ struct RequestThumbnailEdgeCaseTests {
         #expect(stats.hits == 0)
     }
 
-    @Test("Thumbnail with extreme URL paths")
-    func extremeURLPaths() async {
+    @Test
+    func `Thumbnail with extreme URL paths`() async {
         let provider = RequestThumbnail(config: .testing)
 
         let veryLongPath = URL(fileURLWithPath: String(repeating: "/path", count: 100))
@@ -144,8 +144,8 @@ struct RequestThumbnailEdgeCaseTests {
         #expect(result == nil)
     }
 
-    @Test("Preload with nonexistent directory")
-    func preloadNonexistentDirectory() async {
+    @Test
+    func `Preload with nonexistent directory`() async {
         let provider = ScanAndCreateThumbnails(config: .testing)
         let fakeDir = URL(fileURLWithPath: "/fake/nonexistent/path/\(UUID().uuidString)")
 
@@ -157,8 +157,8 @@ struct RequestThumbnailEdgeCaseTests {
 
 @MainActor
 struct RequestThumbnailConfigurationTests {
-    @Test("Different configs have different limits")
-    func configDifferences() {
+    @Test
+    func `Different configs have different limits`() {
         let config1 = CacheConfig.production
         let config2 = CacheConfig.testing
 
@@ -166,8 +166,8 @@ struct RequestThumbnailConfigurationTests {
         #expect(config1.countLimit > config2.countLimit)
     }
 
-    @Test("Custom config creation")
-    func customConfigCreation() async {
+    @Test
+    func `Custom config creation`() async {
         let customConfigs = [
             CacheConfig(totalCostLimit: 1000, countLimit: 1),
             CacheConfig(totalCostLimit: 10000, countLimit: 5),
@@ -185,8 +185,8 @@ struct RequestThumbnailConfigurationTests {
 
 @MainActor
 struct RequestThumbnailDiscardableContentTests {
-    @Test("DiscardableThumbnail tracks access correctly")
-    func discardableThumbnailAccess() {
+    @Test
+    func `DiscardableThumbnail tracks access correctly`() {
         let image = createTestImage()
         let thumbnail = DiscardableThumbnail(image: image)
 
@@ -198,8 +198,8 @@ struct RequestThumbnailDiscardableContentTests {
         thumbnail.endContentAccess()
     }
 
-    @Test("DiscardableThumbnail image property accessible")
-    func discardableThumbnailImageAccess() {
+    @Test
+    func `DiscardableThumbnail image property accessible`() {
         let originalImage = createTestImage()
         let thumbnail = DiscardableThumbnail(image: originalImage)
 
@@ -212,8 +212,8 @@ struct RequestThumbnailDiscardableContentTests {
         thumbnail.endContentAccess()
     }
 
-    @Test("DiscardableThumbnail cost reflects size")
-    func discardableThumbnailCostVariation() {
+    @Test
+    func `DiscardableThumbnail cost reflects size`() {
         let smallImage = createTestImage(width: 50, height: 50)
         let largeImage = createTestImage(width: 500, height: 500)
 
@@ -227,8 +227,8 @@ struct RequestThumbnailDiscardableContentTests {
 
 @MainActor
 struct RequestThumbnailScalabilityTests {
-    @Test("Handles variable target sizes")
-    func variousTargetSizes() async {
+    @Test
+    func `Handles variable target sizes`() async {
         let provider = ScanAndCreateThumbnails(config: .testing)
         let testURL = URL(fileURLWithPath: "/test.jpg")
 
@@ -240,8 +240,8 @@ struct RequestThumbnailScalabilityTests {
         }
     }
 
-    @Test("Multiple concurrent preloads")
-    func concurrentPreloads() async {
+    @Test
+    func `Multiple concurrent preloads`() async {
         let provider = ScanAndCreateThumbnails(config: .testing)
         let testDir = FileManager.default.temporaryDirectory
 

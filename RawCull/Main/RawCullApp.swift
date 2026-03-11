@@ -36,7 +36,7 @@ struct RawCullApp: App {
                 nsImage: $nsImage,
                 cgImage: $cgImage,
                 zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                zoomNSImageWindowFocused: $zoomNSImageWindowFocused
+                zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
             )
             .environment(settingsviewmodel)
             .environment(gridthumbnailviewmodel)
@@ -60,7 +60,7 @@ struct RawCullApp: App {
 
         Window("ZoomcgImage", id: "zoom-window-cgImage") {
             ZoomableFocusePeekCSImageView(
-                cgImage: cgImage // ← pass viewModel instead
+                cgImage: cgImage, // ← pass viewModel instead
             )
             .environment(viewModel)
             .onAppear {
@@ -77,7 +77,7 @@ struct RawCullApp: App {
         // If there is a extracted JPG image
         Window("ZoomnsImage", id: "zoom-window-nsImage") {
             ZoomableFocusePeekNSImageView(
-                nsImage: nsImage
+                nsImage: nsImage,
             )
             .environment(viewModel)
             // ZoomableNSImageView(nsImage: nsImage)
@@ -93,7 +93,7 @@ struct RawCullApp: App {
 
         Window("Grid Thumbnails", id: "grid-thumbnails-window") {
             GridThumbnailView(
-                viewModel: viewModel
+                viewModel: viewModel,
             )
             .environment(settingsviewmodel)
             .environment(gridthumbnailviewmodel)

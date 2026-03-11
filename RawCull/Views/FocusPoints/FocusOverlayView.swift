@@ -23,7 +23,7 @@ struct FocusOverlayView: View {
                 FocusPointMarker(
                     normalizedX: point.normalizedX,
                     normalizedY: point.normalizedY,
-                    boxSize: markerSize
+                    boxSize: markerSize,
                 )
                 .stroke(markerColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)

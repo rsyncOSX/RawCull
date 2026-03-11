@@ -53,14 +53,14 @@ final class CullingModel {
                     fileName: toggledfilename,
                     dateTagged: Date().en_string_from_date(),
                     dateCopied: nil,
-                    rating: 3
+                    rating: 3,
                 )
 
                 if savedFiles.isEmpty {
                     let savedfiles = SavedFiles(
                         catalog: arwcatalog,
                         dateStart: Date().en_string_from_date(),
-                        filerecord: newrecord
+                        filerecord: newrecord,
                     )
                     savedFiles.append(savedfiles)
                 } else {
@@ -76,7 +76,7 @@ final class CullingModel {
                         let savedfiles = SavedFiles(
                             catalog: arwcatalog,
                             dateStart: Date().en_string_from_date(),
-                            filerecord: newrecord
+                            filerecord: newrecord,
                         )
                         savedFiles.append(savedfiles)
                     }

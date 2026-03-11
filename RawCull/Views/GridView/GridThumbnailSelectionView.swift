@@ -38,7 +38,7 @@ struct GridThumbnailSelectionView: View {
                         columns: [
                             GridItem(.adaptive(minimum: CGFloat(savedSettings.thumbnailSizeGridView)), spacing: 12)
                         ],
-                        spacing: 12
+                        spacing: 12,
                     ) {
                         ForEach(files, id: \.id) { file in
                             ImageItemView(
@@ -55,10 +55,10 @@ struct GridThumbnailSelectionView: View {
                                     Task {
                                         await cullingModel.toggleSelectionSavedFiles(
                                             in: file.url,
-                                            toggledfilename: file.name
+                                            toggledfilename: file.name,
                                         )
                                     }
-                                }
+                                },
                             )
                             .id(file.id)
                             .onHover { isHovered in

@@ -20,13 +20,13 @@ extension CopyFilesView {
                     .padding()
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                     )
 
                     OpencatalogView(
                         selecteditem: $sourcecatalog,
                         catalogs: true,
-                        bookmarkKey: "sourceBookmark"
+                        bookmarkKey: "sourceBookmark",
                     )
                 }
 
@@ -40,7 +40,7 @@ extension CopyFilesView {
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                         )
                     } else {
                         HStack {
@@ -50,14 +50,14 @@ extension CopyFilesView {
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                         )
                     }
 
                     OpencatalogView(
                         selecteditem: $destinationcatalog,
                         catalogs: true,
-                        bookmarkKey: "destBookmark"
+                        bookmarkKey: "destBookmark",
                     )
                     .onChange(of: destinationcatalog) {
                         if copytaggedfiles {
@@ -159,7 +159,7 @@ struct CopyActionButtonsSection: View {
             ConditionalGlassButton(
                 systemImage: "arrowshape.right.fill",
                 text: "Start Copy",
-                helpText: "Start copying files"
+                helpText: "Start copying files",
             ) {
                 onCopyTapped()
             }

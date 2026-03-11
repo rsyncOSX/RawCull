@@ -65,7 +65,7 @@ actor DiskCacheManager {
             fileURL as CFURL,
             UTType.jpeg.identifier as CFString,
             1,
-            nil
+            nil,
         ) else {
             throw ThumbnailError.generationFailed
         }
@@ -91,7 +91,7 @@ actor DiskCacheManager {
             guard let urls = try? fileManager.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: resourceKeys,
-                options: .skipsHiddenFiles
+                options: .skipsHiddenFiles,
             ) else { return 0 }
 
             var totalSize = 0
@@ -120,7 +120,7 @@ actor DiskCacheManager {
             guard let urls = try? fileManager.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: resourceKeys,
-                options: .skipsHiddenFiles
+                options: .skipsHiddenFiles,
             ) else { return }
 
             guard let expirationDate = Calendar.current.date(byAdding: .day, value: -maxAgeInDays, to: Date()) else { return }

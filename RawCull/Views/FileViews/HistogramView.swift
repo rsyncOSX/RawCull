@@ -29,8 +29,8 @@ struct HistogramView: View {
                         LinearGradient(
                             gradient: Gradient(colors: [.blue, .purple]),
                             startPoint: .top,
-                            endPoint: .bottom
-                        )
+                            endPoint: .bottom,
+                        ),
                     )
                     // Inset slightly to prevent clipping
                     .padding(2)

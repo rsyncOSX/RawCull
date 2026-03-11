@@ -37,7 +37,7 @@ final class ReadSavedFilesJSON {
         } catch let err {
             let error = err
             Logger.process.errorMessageOnly(
-                "ReadSavedFilesJSON: some ERROR encoding filerecords \(error)"
+                "ReadSavedFilesJSON: some ERROR encoding filerecords \(error)",
             )
         }
         return nil

@@ -41,7 +41,7 @@ actor ScanFiles {
 
     func scanFiles(
         url: URL,
-        onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil
+        onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil,
     ) async -> [FileItem] {
         guard url.startAccessingSecurityScopedResource() else { return [] }
         defer { url.stopAccessingSecurityScopedResource() }
@@ -57,7 +57,7 @@ actor ScanFiles {
             let contents = try FileManager.default.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: keys,
-                options: [.skipsHiddenFiles]
+                options: [.skipsHiddenFiles],
             )
 
             let result: [FileItem] = await withTaskGroup(of: FileItem?.self) { group in
@@ -74,7 +74,7 @@ actor ScanFiles {
                             size: Int64(res?.fileSize ?? 0),
                             type: res?.contentType?.localizedDescription ?? "File",
                             dateModified: res?.contentModificationDate ?? Date(),
-                            exifData: exifData
+                            exifData: exifData,
                         )
                     }
                 }
@@ -111,10 +111,10 @@ actor ScanFiles {
     }
 
     @concurrent
-    nonisolated func sortFiles<C: SortComparator<FileItem>>(
+    nonisolated func sortFiles(
         _ files: [FileItem],
-        by sortOrder: [C],
-        searchText: String
+        by sortOrder: [some SortComparator<FileItem>],
+        searchText: String,
     ) async -> [FileItem] {
         Logger.process.debugThreadOnly("func sortFiles()")
         let sorted = files.sorted(using: sortOrder)
@@ -142,7 +142,7 @@ actor ScanFiles {
             aperture: formatAperture(exifDict[kCGImagePropertyExifFNumber]),
             iso: formatISO((exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first),
             camera: tiffDict[kCGImagePropertyTIFFModel] as? String,
-            lensModel: exifDict[kCGImagePropertyExifLensModel] as? String
+            lensModel: exifDict[kCGImagePropertyExifLensModel] as? String,
         )
     }
 

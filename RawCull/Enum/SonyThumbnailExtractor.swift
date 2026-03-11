@@ -18,7 +18,7 @@ enum SonyThumbnailExtractor {
     static func extractSonyThumbnail(
         from url: URL,
         maxDimension: CGFloat,
-        qualityCost: Int = 4
+        qualityCost: Int = 4,
     ) async throws -> CGImage {
         // We MUST explicitly hop off the current thread.
         // Since we are an enum and static, we have no isolation of our own.
@@ -30,7 +30,7 @@ enum SonyThumbnailExtractor {
                     let image = try Self.extractSync(
                         from: url,
                         maxDimension: maxDimension,
-                        qualityCost: qualityCost
+                        qualityCost: qualityCost,
                     )
                     continuation.resume(returning: image)
                 } catch {
@@ -45,7 +45,7 @@ enum SonyThumbnailExtractor {
     private nonisolated static func extractSync(
         from url: URL,
         maxDimension: CGFloat,
-        qualityCost: Int
+        qualityCost: Int,
     ) throws -> CGImage {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
 
@@ -68,11 +68,10 @@ enum SonyThumbnailExtractor {
     }
 
     private nonisolated static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
-        let interpolationQuality: CGInterpolationQuality
-        switch qualityCost {
-        case 1 ... 2: interpolationQuality = .low
-        case 3 ... 4: interpolationQuality = .medium
-        default: interpolationQuality = .high
+        let interpolationQuality: CGInterpolationQuality = switch qualityCost {
+        case 1 ... 2: .low
+        case 3 ... 4: .medium
+        default: .high
         }
 
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
@@ -88,7 +87,7 @@ enum SonyThumbnailExtractor {
             bitsPerComponent: 8,
             bytesPerRow: 0,
             space: colorSpace,
-            bitmapInfo: bitmapInfo.rawValue
+            bitmapInfo: bitmapInfo.rawValue,
         ) else {
             throw ThumbnailError.contextCreationFailed
         }

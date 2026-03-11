@@ -120,9 +120,9 @@ struct MemoryTab: View {
                                         .frame(
                                             width: geometry.size.width *
                                                 memoryModel.appMemoryPercentage / 100,
-                                            alignment: .leading
+                                            alignment: .leading,
                                         ),
-                                    alignment: .leading
+                                    alignment: .leading,
                                 )
                         }
                         .frame(height: 20)

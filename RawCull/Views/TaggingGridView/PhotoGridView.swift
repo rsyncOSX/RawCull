@@ -34,7 +34,7 @@ struct PhotoGridView: View {
                                                 onPhotoSelected(file)
                                             }
                                         },
-                                        cullingModel: cullingModel
+                                        cullingModel: cullingModel,
                                     )
                                 }
                             }

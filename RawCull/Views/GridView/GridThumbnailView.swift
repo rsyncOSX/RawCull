@@ -19,13 +19,13 @@ struct GridThumbnailView: View {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
                     cullingModel: cullingModel,
-                    selectedSource: gridthumbnailviewmodel.selectedSource
+                    selectedSource: gridthumbnailviewmodel.selectedSource,
                 )
             } else {
                 ContentUnavailableView(
                     "No Data",
                     systemImage: "photo.fill",
-                    description: Text("Please select a source from the main window to view thumbnails.")
+                    description: Text("Please select a source from the main window to view thumbnails."),
                 )
             }
         }
@@ -55,7 +55,7 @@ struct GridThumbnailView: View {
         Task {
             await gridthumbnailviewmodel.cullingModel?.toggleSelectionSavedFiles(
                 in: file.url,
-                toggledfilename: file.name
+                toggledfilename: file.name,
             )
         }
     }

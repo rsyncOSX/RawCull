@@ -19,16 +19,16 @@ struct FileDetailView: View {
         if showDetailsTagView, let url = file?.url {
             DeepDiveTagsView(
                 showDetailsTagView: $showDetailsTagView,
-                url: url
+                url: url,
             )
         } else {
-            if let file = file {
+            if let file {
                 VStack(spacing: 20) {
                     CachedThumbnailView(
                         scale: $scale,
                         lastScale: $lastScale,
                         offset: $offset,
-                        url: file.url
+                        url: file.url,
                     )
 
                     HStack {
@@ -45,8 +45,8 @@ struct FileDetailView: View {
                                 get: { showDetailsTagView },
                                 set: { newValue in
                                     showDetailsTagView = newValue
-                                }
-                            )
+                                },
+                            ),
                         )
                     }
                     .padding()
@@ -62,14 +62,14 @@ struct FileDetailView: View {
                         useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                         setNSImage: { nsImage = $0 },
                         setCGImage: { cgImage = $0 },
-                        openWindow: { id in openWindow(id: id) }
+                        openWindow: { id in openWindow(id: id) },
                     )
                 }
             } else {
                 ContentUnavailableView(
                     "No Selection",
                     systemImage: "doc.text",
-                    description: Text("Select a file to view its properties.")
+                    description: Text("Select a file to view its properties."),
                 )
             }
         }

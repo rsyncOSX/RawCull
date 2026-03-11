@@ -15,11 +15,11 @@ struct CacheConfig {
 
     nonisolated static let production = CacheConfig(
         totalCostLimit: 500 * 1024 * 1024, // ~500 MB for ~112 1024x1024 images
-        countLimit: 1000
+        countLimit: 1000,
     )
 
     nonisolated static let testing = CacheConfig(
         totalCostLimit: 100_000, // Very small for testing evictions
-        countLimit: 5
+        countLimit: 5,
     )
 }

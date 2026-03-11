@@ -20,7 +20,7 @@ struct CreateStreamingHandlers {
     func createHandlersWithCleanup(
         fileHandler: @escaping (Int) -> Void,
         processTermination: @escaping ([String]?, Int?) -> Void,
-        cleanup: @escaping () -> Void
+        cleanup: @escaping () -> Void,
     ) -> ProcessHandlers {
         ProcessHandlers(
             processTermination: { output, hiddenID in
@@ -33,7 +33,7 @@ struct CreateStreamingHandlers {
             updateProcess: { _ in },
             propagateError: { _ in },
             checkForErrorInRsyncOutput: false,
-            environment: ["": ""]
+            environment: ["": ""],
         )
     }
 }

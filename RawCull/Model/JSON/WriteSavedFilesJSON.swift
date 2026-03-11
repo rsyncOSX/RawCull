@@ -23,7 +23,7 @@ actor WriteSavedFilesJSON {
             } catch let err {
                 let error = err
                 await Logger.process.errorMessageOnly(
-                    "WriteSavedFilesJSON: some ERROR writing filerecords to permanent storage \(error)"
+                    "WriteSavedFilesJSON: some ERROR writing filerecords to permanent storage \(error)",
                 )
             }
         }
@@ -37,7 +37,7 @@ actor WriteSavedFilesJSON {
         } catch let err {
             let error = err
             await Logger.process.errorMessageOnly(
-                "WriteSavedFilesJSON: some ERROR encoding filerecords \(error)"
+                "WriteSavedFilesJSON: some ERROR encoding filerecords \(error)",
             )
         }
     }

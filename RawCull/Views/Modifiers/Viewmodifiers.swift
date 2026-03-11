@@ -20,7 +20,7 @@ struct FixedTag: ViewModifier {
                 minHeight: nil,
                 idealHeight: nil,
                 maxHeight: nil,
-                alignment: alignment
+                alignment: alignment,
             )
             .lineLimit(1)
     }

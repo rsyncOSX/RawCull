@@ -29,7 +29,7 @@ struct DetailOnlyThumbnailsListView: View {
                     scale: $scale,
                     lastScale: $lastScale,
                     offset: $offset,
-                    url: file.url
+                    url: file.url,
                 )
                 .padding()
 
@@ -57,14 +57,14 @@ struct DetailOnlyThumbnailsListView: View {
                     useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                     setNSImage: { nsImage = $0 },
                     setCGImage: { cgImage = $0 },
-                    openWindow: { id in openWindow(id: id) }
+                    openWindow: { id in openWindow(id: id) },
                 )
             }
         } else {
             ContentUnavailableView(
                 "No Selection",
                 systemImage: "doc.text",
-                description: Text("Select a file to view its properties.")
+                description: Text("Select a file to view its properties."),
             )
         }
 
@@ -73,7 +73,7 @@ struct DetailOnlyThumbnailsListView: View {
         FileTableImageView(
             viewModel: viewModel,
             cullingModel: viewModel.cullingModel,
-            selectedSource: viewModel.selectedSource
+            selectedSource: viewModel.selectedSource,
         )
         .padding()
         .toolbar { toolbarContent }
@@ -109,7 +109,7 @@ struct DetailOnlyThumbnailsListView: View {
         Task {
             await cullingModel.toggleSelectionSavedFiles(
                 in: file.url,
-                toggledfilename: file.name
+                toggledfilename: file.name,
             )
         }
     }

@@ -33,10 +33,10 @@ struct ThumbnailSizesTab: View {
                         Slider(
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGrid) },
-                                set: { settingsManager.thumbnailSizeGrid = Int($0) }
+                                set: { settingsManager.thumbnailSizeGrid = Int($0) },
                             ),
                             in: 50 ... 200,
-                            step: 10
+                            step: 10,
                         )
                         Text("Size for grid view thumbnails in Main View")
                             .font(.system(size: 11, weight: .regular))
@@ -54,10 +54,10 @@ struct ThumbnailSizesTab: View {
                         Slider(
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGridView) },
-                                set: { settingsManager.thumbnailSizeGridView = Int($0) }
+                                set: { settingsManager.thumbnailSizeGridView = Int($0) },
                             ),
                             in: 200 ... 500,
-                            step: 50
+                            step: 50,
                         )
                         Text("Size for view thumbnails in Grid View")
                             .font(.system(size: 11, weight: .regular))
@@ -76,10 +76,10 @@ struct ThumbnailSizesTab: View {
                         Slider(
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizePreview) },
-                                set: { settingsManager.thumbnailSizePreview = Int($0) }
+                                set: { settingsManager.thumbnailSizePreview = Int($0) },
                             ),
                             in: 256 ... 2048,
-                            step: 128
+                            step: 128,
                         )
                         Text("Size for preview view thumbnails")
                             .font(.system(size: 11, weight: .regular))
@@ -104,10 +104,10 @@ struct ThumbnailSizesTab: View {
                                     Task {
                                         await SharedMemoryCache.shared.setCostPerPixel(intValue)
                                     }
-                                }
+                                },
                             ),
                             in: 1 ... 8,
-                            step: 1
+                            step: 1,
                         )
                         HStack(spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
@@ -157,8 +157,8 @@ struct ThumbnailSizesTab: View {
                                     set: { newValue in
                                         settingsManager.useThumbnailAsZoomPreview = newValue
                                         Task { await settingsManager.saveSettings() }
-                                    }
-                                )
+                                    },
+                                ),
                             )
 
                             Text("When disabled, extracts the JPG from ARW file for zoom.")
@@ -182,7 +182,7 @@ struct ThumbnailSizesTab: View {
                 ConditionalGlassButton(
                     systemImage: "square.and.arrow.down.fill",
                     text: "Save Settings",
-                    helpText: "Save settings"
+                    helpText: "Save settings",
                 ) {
                     Task {
                         await settingsManager.saveSettings()
@@ -196,7 +196,7 @@ struct ThumbnailSizesTab: View {
                     label: {
                         Label("Reset to Defaults", systemImage: "arrow.uturn.backward")
                             .font(.system(size: 12, weight: .medium))
-                    }
+                    },
                 )
                 .buttonStyle(RefinedGlassButtonStyle())
                 .confirmationDialog(
@@ -212,7 +212,7 @@ struct ThumbnailSizesTab: View {
                     },
                     message: {
                         Text("Are you sure you want to reset all settings to their default values?")
-                    }
+                    },
                 )
             }
         }

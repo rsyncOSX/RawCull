@@ -36,7 +36,7 @@ struct SidebarARWCatalogFileView: View {
                 }
             } else if scanning {
                 ProgressView("Scanning directory for ARW images, counting files: \(counterScannedFiles)")
-            } else if files.isEmpty && !scanning {
+            } else if files.isEmpty, !scanning {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
                 } description: {
@@ -49,7 +49,7 @@ struct SidebarARWCatalogFileView: View {
                             ConditionalGlassButton(
                                 systemImage: "document.on.document",
                                 text: "Copy",
-                                helpText: "Copy tagged images to destination..."
+                                helpText: "Copy tagged images to destination...",
                             ) {
                                 viewModel.sheetType = .copytasksview
                                 viewModel.showcopyARWFilesView = true
@@ -59,7 +59,7 @@ struct SidebarARWCatalogFileView: View {
                             ConditionalGlassButton(
                                 systemImage: "trash.fill",
                                 text: "Clear",
-                                helpText: "Clear tagged files"
+                                helpText: "Clear tagged files",
                             ) {
                                 viewModel.alertType = .clearToggledFiles
                                 viewModel.showingAlert = true
@@ -69,7 +69,7 @@ struct SidebarARWCatalogFileView: View {
                             ConditionalGlassButton(
                                 systemImage: "trash",
                                 text: "Reset",
-                                helpText: "Clean up data from previous saves"
+                                helpText: "Clean up data from previous saves",
                             ) {
                                 viewModel.alertType = .resetSavedFiles
                                 viewModel.showingAlert = true
@@ -125,7 +125,7 @@ struct SidebarARWCatalogFileView: View {
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                         )
                     }
                 }

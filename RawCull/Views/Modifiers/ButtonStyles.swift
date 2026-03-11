@@ -50,7 +50,7 @@ public struct RefinedGlassButtonStyle: ButtonStyle {
         font: Font = .headline,
         disabledOpacity: Double = 0.6,
         disabledBrightness: Double = -0.02,
-        pressureHoldDuration: Double = 0.3
+        pressureHoldDuration: Double = 0.3,
     ) {
         self.cornerRadius = cornerRadius
         self.horizontalPadding = horizontalPadding
@@ -73,7 +73,7 @@ public struct RefinedGlassButtonStyle: ButtonStyle {
             pressureHoldDuration: pressureHoldDuration,
             colorScheme: colorScheme,
             reduceMotion: reduceMotion,
-            isEnabled: isEnabled
+            isEnabled: isEnabled,
         )
     }
 }
@@ -119,25 +119,25 @@ private struct PressureAnimatedButton: View {
                                 colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.18),
                                          Color.white.opacity(0.02)],
                                 startPoint: .top,
-                                endPoint: .center
-                            )
+                                endPoint: .center,
+                            ),
                         )
                         .blendMode(.overlay)
                         .mask(
                             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                .padding(.bottom, cornerRadius * 0.35)
+                                .padding(.bottom, cornerRadius * 0.35),
                         )
 
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .stroke(colorScheme == .dark ? Color.glassBorderDark : Color.glassBorderLight, lineWidth: 1)
-                }
+                },
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .shadow(
                 color: baseShadow.opacity(shadowOpacityMultiplier),
                 radius: showPressedState ? 2 : (isEnabled ? 8 : 3),
                 x: 0,
-                y: showPressedState ? 1 : (isEnabled ? 6 : 2)
+                y: showPressedState ? 1 : (isEnabled ? 6 : 2),
             )
             .scaleEffect((showPressedState && isEnabled) ? 0.975 : 1.0)
             .opacity(isEnabled ? 1.0 : disabledOpacity)

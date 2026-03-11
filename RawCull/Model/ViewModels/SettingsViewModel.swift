@@ -68,7 +68,7 @@ final class SettingsViewModel {
             try FileManager.default.createDirectory(
                 at: dirURL,
                 withIntermediateDirectories: true,
-                attributes: nil
+                attributes: nil,
             )
 
             // If file doesn't exist, just use defaults
@@ -110,7 +110,7 @@ final class SettingsViewModel {
             try FileManager.default.createDirectory(
                 at: dirURL,
                 withIntermediateDirectories: true,
-                attributes: nil
+                attributes: nil,
             )
 
             let settingsToSave = SavedSettings(
@@ -120,7 +120,7 @@ final class SettingsViewModel {
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
                 thumbnailCostPerPixel: thumbnailCostPerPixel,
                 thumbnailSizeGridView: thumbnailSizeGridView,
-                useThumbnailAsZoomPreview: useThumbnailAsZoomPreview
+                useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
             )
 
             let encoder = JSONEncoder()
@@ -186,7 +186,7 @@ final class SettingsViewModel {
             thumbnailSizeFullSize: self.thumbnailSizeFullSize,
             thumbnailCostPerPixel: self.thumbnailCostPerPixel,
             thumbnailSizeGridView: self.thumbnailSizeGridView,
-            useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview
+            useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
         )
     }
 }

@@ -38,7 +38,7 @@ struct CopyFilesView: View {
             CopyOptionsSection(
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
-                dryrun: $dryrun
+                dryrun: $dryrun,
             )
 
             Divider()
@@ -71,7 +71,7 @@ struct CopyFilesView: View {
                         guard sourcecatalog.isEmpty == false,
                               destinationcatalog.isEmpty == false else { return }
                         showingAlert = true
-                    }
+                    },
                 )
             }
         }
@@ -107,7 +107,7 @@ struct CopyFilesView: View {
             dryrun: dryrun,
             rating: copyratedfiles,
             copytaggedfiles: copytaggedfiles,
-            sidebarRawCullViewModel: viewModel
+            sidebarRawCullViewModel: viewModel,
         )
 
         executionManager?.onCompletion = { result in
@@ -116,7 +116,7 @@ struct CopyFilesView: View {
 
         executionManager?.startcopyfiles(
             fallbacksource: sourcecatalog,
-            fallbackdest: destinationcatalog
+            fallbackdest: destinationcatalog,
         )
     }
 
@@ -130,7 +130,7 @@ struct CopyFilesView: View {
 
         remotedatanumbers = RemoteDataNumbers(
             stringoutputfromrsync: result.output,
-            config: configuration
+            config: configuration,
         )
 
         // Set the output for view if available

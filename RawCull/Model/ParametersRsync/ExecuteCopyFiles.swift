@@ -50,10 +50,10 @@ final class ExecuteCopyFiles {
 
     func startcopyfiles(
         fallbacksource: String,
-        fallbackdest: String
+        fallbackdest: String,
     ) {
         let arguments = ArgumentsSynchronize(config: config).argumentsSynchronize(
-            dryRun: dryrun
+            dryRun: dryrun,
         )
 
         setupStreamingHandlers()
@@ -116,7 +116,7 @@ final class ExecuteCopyFiles {
             arguments: arguments,
             hiddenID: 0,
             handlers: streamingHandlers,
-            useFileHandler: true
+            useFileHandler: true,
         )
 
         do {
@@ -136,7 +136,7 @@ final class ExecuteCopyFiles {
         dryrun: Bool = true,
         rating: Int = 0,
         copytaggedfiles: Bool = true,
-        sidebarRawCullViewModel: RawCullViewModel
+        sidebarRawCullViewModel: RawCullViewModel,
     ) {
         self.config = configuration
         self.dryrun = dryrun
@@ -164,7 +164,7 @@ final class ExecuteCopyFiles {
                 Task { @MainActor in
                     await self?.handleProcessTermination(
                         stringoutputfromrsync: output,
-                        hiddenID: hiddenID
+                        hiddenID: hiddenID,
                     )
                 }
             },
@@ -173,7 +173,7 @@ final class ExecuteCopyFiles {
                 Task { @MainActor in
                     self?.cleanup()
                 }
-            }
+            },
         )
     }
 
@@ -187,7 +187,7 @@ final class ExecuteCopyFiles {
         let result = CopyDataResult(
             output: stringoutputfromrsync,
             viewOutput: viewOutput,
-            linesCount: linesCount
+            linesCount: linesCount,
         )
 
         // Call completion handler
@@ -224,7 +224,7 @@ final class ExecuteCopyFiles {
             throw NSError(
                 domain: "ExecuteCopyFiles",
                 code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to write filelist to URL: \(error)"]
+                userInfo: [NSLocalizedDescriptionKey: "Failed to write filelist to URL: \(error)"],
             )
         }
     }
@@ -238,7 +238,7 @@ final class ExecuteCopyFiles {
                     resolvingBookmarkData: bookmarkData,
                     options: .withSecurityScope,
                     relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
+                    bookmarkDataIsStale: &isStale,
                 )
                 guard url.startAccessingSecurityScopedResource() else {
                     Logger.process.errorMessageOnly(": Failed to start accessing bookmark for \(key)")

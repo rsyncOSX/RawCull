@@ -104,7 +104,7 @@ final class RawCullViewModel {
 
         files = await scan.scanFiles(
             url: url,
-            onProgress: countingScannedFiles
+            onProgress: countingScannedFiles,
         )
         // Get the focuspoints if created
         // Map raw decoded data → FocusPointsModel here on @MainActor — no isolation issue
@@ -121,7 +121,7 @@ final class RawCullViewModel {
         filteredFiles = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
-            searchText: searchText
+            searchText: searchText,
         )
 
         guard !files.isEmpty else {
@@ -143,7 +143,7 @@ final class RawCullViewModel {
                 fileHandler: fileHandler,
                 maxfilesHandler: maxfilesHandler,
                 estimatedTimeHandler: estimatedTimeHandler,
-                memorypressurewarning: memorypressurewarning
+                memorypressurewarning: memorypressurewarning,
             )
 
             let actor = ScanAndCreateThumbnails()
@@ -153,7 +153,7 @@ final class RawCullViewModel {
             preloadTask = Task {
                 await actor.preloadCatalog(
                     at: url,
-                    targetSize: thumbnailSizePreview
+                    targetSize: thumbnailSizePreview,
                 )
             }
 
@@ -167,7 +167,7 @@ final class RawCullViewModel {
         filteredFiles = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
-            searchText: searchText
+            searchText: searchText,
         )
         issorting = false
     }
@@ -177,7 +177,7 @@ final class RawCullViewModel {
         filteredFiles = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
-            searchText: searchText
+            searchText: searchText,
         )
         issorting = false
     }
@@ -235,13 +235,13 @@ final class RawCullViewModel {
         let result = filteredFiles.compactMap { file in
             (getRating(for: file) >= rating) ? file : nil
         }
-        return result.map { $0.name }
+        return result.map(\.name)
     }
 
     func extractTaggedfilenames() -> [String] {
         if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
            let taggedfilerecords = cullingModel.savedFiles[index].filerecords {
-            return taggedfilerecords.compactMap { $0.fileName }
+            return taggedfilerecords.compactMap(\.fileName)
         }
         return []
     }
@@ -257,7 +257,7 @@ final class RawCullViewModel {
 
     func updateRating(for file: FileItem, rating: Int) {
         Task {
-            guard let selectedSource = selectedSource else { return }
+            guard let selectedSource else { return }
             if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource.url }),
                let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
                 cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating

@@ -18,11 +18,11 @@ import Testing
 struct CustomMemoryLimitTests {
     /// Example 1: Test with 5 MB cache limit
     /// Useful for testing with moderate cache sizes
-    @Test("5 MB cache limit scenario")
-    func test5MBCacheLimit() async {
+    @Test
+    func `5 MB cache limit scenario`() async {
         let config = CacheConfig(
             totalCostLimit: 5_000_000, // 5 MB
-            countLimit: 50
+            countLimit: 50,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -36,11 +36,11 @@ struct CustomMemoryLimitTests {
 
     /// Example 2: Test with 10 MB cache limit
     /// Good for simulating larger caches
-    @Test("10 MB cache limit scenario")
-    func test10MBCacheLimit() async {
+    @Test
+    func `10 MB cache limit scenario`() async {
         let config = CacheConfig(
             totalCostLimit: 10_000_000, // 10 MB
-            countLimit: 100
+            countLimit: 100,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -50,11 +50,11 @@ struct CustomMemoryLimitTests {
 
     /// Example 3: Test with very small 100 KB limit
     /// Triggers evictions with small images
-    @Test("100 KB strict cache limit")
-    func test100KBLimit() async {
+    @Test
+    func `100 KB strict cache limit`() async {
         let config = CacheConfig(
             totalCostLimit: 100_000, // 100 KB
-            countLimit: 3
+            countLimit: 3,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -67,11 +67,11 @@ struct CustomMemoryLimitTests {
 
     /// Example 4: Test with custom cost-heavy scenario
     /// For testing behavior with large images
-    @Test("Custom cost-heavy scenario")
-    func costHeavyScenario() {
+    @Test
+    func `Custom cost-heavy scenario`() {
         let config = CacheConfig(
             totalCostLimit: 20_000_000, // 20 MB for large images
-            countLimit: 10
+            countLimit: 10,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -83,12 +83,12 @@ struct CustomMemoryLimitTests {
 
 struct MemoryPressureScenarios {
     /// Test behavior when cache limit is reached
-    @Test("Cache behavior near limit")
-    func cacheNearLimit() async {
+    @Test
+    func `Cache behavior near limit`() async {
         // Create a config where cache fills up quickly
         let config = CacheConfig(
             totalCostLimit: 500_000, // 500 KB - relatively small
-            countLimit: 20
+            countLimit: 20,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -100,11 +100,11 @@ struct MemoryPressureScenarios {
     }
 
     /// Test behavior when exceeding count limit
-    @Test("Cache exceeding count limit")
-    func exceedCountLimit() async {
+    @Test
+    func `Cache exceeding count limit`() async {
         let config = CacheConfig(
             totalCostLimit: 50_000_000, // Large cost limit
-            countLimit: 2 // Very low count limit
+            countLimit: 2, // Very low count limit
         )
         let provider = RequestThumbnail(config: config)
 
@@ -118,8 +118,8 @@ struct MemoryPressureScenarios {
 
 struct ConfigComparisonTests {
     /// Compare behavior across multiple config sizes
-    @Test("Behavior across config sizes")
-    func multipleConfigSizes() async {
+    @Test
+    func `Behavior across config sizes`() async {
         let configs = [
             ("Small", CacheConfig(totalCostLimit: 100_000, countLimit: 2)),
             ("Medium", CacheConfig(totalCostLimit: 1_000_000, countLimit: 10)),
@@ -141,8 +141,8 @@ struct ConfigComparisonTests {
 
 struct EvictionMonitoringTests {
     /// Monitor eviction statistics
-    @Test("Eviction statistics collection")
-    func evictionStats() async {
+    @Test
+    func `Eviction statistics collection`() async {
         let provider = RequestThumbnail(config: .testing)
 
         // Initial state
@@ -161,8 +161,8 @@ struct EvictionMonitoringTests {
     }
 
     /// Track hit/miss ratio
-    @Test("Hit and miss ratio tracking")
-    func hitMissRatio() async {
+    @Test
+    func `Hit and miss ratio tracking`() async {
         let provider = RequestThumbnail(config: .testing)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -186,12 +186,12 @@ struct EvictionMonitoringTests {
 
 struct RealisticWorkloadTests {
     /// Simulate typical thumbnail browsing session
-    @Test("Typical browsing session")
-    func typicalBrowsingSession() async {
+    @Test
+    func `Typical browsing session`() async {
         // Config for typical photo viewing (2560x2560 thumbnails)
         let config = CacheConfig(
             totalCostLimit: 500_000_000, // 500 MB - reasonable for 100-150 thumbs
-            countLimit: 200
+            countLimit: 200,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -208,11 +208,11 @@ struct RealisticWorkloadTests {
     }
 
     /// Simulate rapid scrolling with many thumbnails
-    @Test("Rapid scrolling pattern")
-    func rapidScrolling() async {
+    @Test
+    func `Rapid scrolling pattern`() async {
         let config = CacheConfig(
             totalCostLimit: 100_000_000, // 100 MB
-            countLimit: 50
+            countLimit: 50,
         )
         let provider = RequestThumbnail(config: config)
 
@@ -231,8 +231,8 @@ struct RealisticWorkloadTests {
 
 struct MemoryPerformanceTests {
     /// Measure cache operations with different configs
-    @Test("Operations speed with testing config")
-    func speedWithTestingConfig() async {
+    @Test
+    func `Operations speed with testing config`() async {
         let provider = RequestThumbnail(config: .testing)
 
         let start = Date()
@@ -246,8 +246,8 @@ struct MemoryPerformanceTests {
     }
 
     /// Measure cache operations with production config
-    @Test("Operations speed with production config")
-    func speedWithProductionConfig() async {
+    @Test
+    func `Operations speed with production config`() async {
         let provider = RequestThumbnail(config: .production)
 
         let start = Date()
@@ -265,8 +265,8 @@ struct MemoryPerformanceTests {
 
 struct IntegrationTestExamples {
     /// Template for testing multiple operations together
-    @Test("Multi-operation workflow")
-    func multiOperationWorkflow() async {
+    @Test
+    func `Multi-operation workflow`() async {
         let provider = RequestThumbnail(config: .testing)
 
         // Step 1: Get initial stats

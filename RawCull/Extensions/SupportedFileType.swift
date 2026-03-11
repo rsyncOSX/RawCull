@@ -12,9 +12,9 @@ enum SupportedFileType: String, CaseIterable {
 
     var extensions: [String] {
         switch self {
-        case .arw: return ["arw"]
-        case .jpg: return ["jpg"]
-        case .jpeg: return ["jpeg"]
+        case .arw: ["arw"]
+        case .jpg: ["jpg"]
+        case .jpeg: ["jpeg"]
             // case .tiff: return ["tiff"]
             // case .jpeg: return ["jpeg"]
             // case .tif: return ["tif"]

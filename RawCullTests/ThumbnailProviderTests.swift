@@ -27,8 +27,8 @@ func createTestImage(width: Int = 100, height: Int = 100) -> NSImage {
 struct RequestThumbnailTests {
     // MARK: - Initialization Tests
 
-    @Test("Initializes with production config by default")
-    func productionConfigInitialization() async {
+    @Test
+    func `Initializes with production config by default`() async {
         let provider = RequestThumbnail()
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
@@ -36,8 +36,8 @@ struct RequestThumbnailTests {
         #expect(stats.misses == 0)
     }
 
-    @Test("Initializes with custom config")
-    func customConfigInitialization() async {
+    @Test
+    func `Initializes with custom config`() async {
         let testConfig = CacheConfig(totalCostLimit: 50000, countLimit: 3)
         let provider = RequestThumbnail(config: testConfig)
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -46,8 +46,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Cache Statistics Tests
 
-    @Test("Cache hit rate calculates correctly")
-    func cacheHitRate() async {
+    @Test
+    func `Cache hit rate calculates correctly`() async {
         let provider = RequestThumbnail(config: .testing)
 
         // Create test images
@@ -62,8 +62,8 @@ struct RequestThumbnailTests {
         #expect(stats.hitRate == expectedHitRate)
     }
 
-    @Test("Statistics reset after clear caches")
-    func statisticsResetAfterClear() async {
+    @Test
+    func `Statistics reset after clear caches`() async {
         let provider = RequestThumbnail(config: .testing)
 
         // Get initial stats
@@ -80,8 +80,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Memory Limit Tests
 
-    @Test("Cache respects count limit")
-    func testCountLimit() {
+    @Test
+    func `Cache respects count limit`() {
         let testConfig = CacheConfig(totalCostLimit: 10_000_000, countLimit: 3)
         let provider = RequestThumbnail(config: testConfig)
 
@@ -102,8 +102,8 @@ struct RequestThumbnailTests {
         #expect(true) // Placeholder for conceptual test
     }
 
-    @Test("Cache respects cost limit")
-    func costLimit() {
+    @Test
+    func `Cache respects cost limit`() {
         let testConfig = CacheConfig(totalCostLimit: 100_000, countLimit: 100)
         let provider = RequestThumbnail(config: testConfig)
 
@@ -115,8 +115,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Cache Lookup Tests
 
-    @Test("Thumbnail method handles missing files gracefully")
-    func thumbnailMissingFile() async {
+    @Test
+    func `Thumbnail method handles missing files gracefully`() async {
         let provider = RequestThumbnail(config: .testing)
         let missingURL = URL(fileURLWithPath: "/nonexistent/file.jpg")
 
@@ -127,8 +127,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Clear Cache Tests
 
-    @Test("Clear caches removes all cached items")
-    func testClearCaches() async {
+    @Test
+    func `Clear caches removes all cached items`() async {
         let provider = RequestThumbnail(config: .testing)
 
         // Clear caches
@@ -143,8 +143,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Preload Catalog Tests
 
-    @Test("Preload catalog starts and can be tracked")
-    func preloadCatalogInitiation() async {
+    @Test
+    func `Preload catalog starts and can be tracked`() async {
         let provider = ScanAndCreateThumbnails(config: .testing)
         let testDir = FileManager.default.temporaryDirectory
 
@@ -156,8 +156,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Concurrency Tests
 
-    @Test("Provider handles concurrent access safely")
-    func concurrentAccess() async {
+    @Test
+    func `Provider handles concurrent access safely`() async {
         let provider = RequestThumbnail(config: .testing)
         let testURL = URL(fileURLWithPath: "/test/file.jpg")
 
@@ -175,16 +175,16 @@ struct RequestThumbnailTests {
 
     // MARK: - Configuration Tests
 
-    @Test("Config production has correct limits")
-    func productionConfigLimits() {
+    @Test
+    func `Config production has correct limits`() {
         let config = CacheConfig.production
 
         #expect(config.totalCostLimit == 200 * 2560 * 2560)
         #expect(config.countLimit == 500)
     }
 
-    @Test("Config testing has small limits")
-    func ingConfigLimits() {
+    @Test
+    func `Config testing has small limits`() {
         let config = CacheConfig.testing
 
         #expect(config.totalCostLimit == 100_000)
@@ -193,8 +193,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Cache Delegate Tests
 
-    @Test("Cache delegate is properly set")
-    func cacheDelegateIsSet() {
+    @Test
+    func `Cache delegate is properly set`() {
         let provider = RequestThumbnail(config: .testing)
 
         // Verify provider initializes without crashing
@@ -205,8 +205,8 @@ struct RequestThumbnailTests {
 
     // MARK: - Sendable Conformance Tests
 
-    @Test("Provider is actor-isolated for thread safety")
-    func actorIsolation() async {
+    @Test
+    func `Provider is actor-isolated for thread safety`() async {
         let provider = RequestThumbnail(config: .testing)
 
         // Multiple concurrent accesses should not cause data races
@@ -225,8 +225,8 @@ struct RequestThumbnailTests {
 
 @MainActor
 struct RequestThumbnailPerformanceTests {
-    @Test("Statistics gathering is fast")
-    func statisticsPerformance() async {
+    @Test
+    func `Statistics gathering is fast`() async {
         let provider = RequestThumbnail(config: .testing)
 
         let startTime = Date()
@@ -239,8 +239,8 @@ struct RequestThumbnailPerformanceTests {
         #expect(duration < 1.0)
     }
 
-    @Test("Clear operation completes promptly")
-    func clearCachesPerformance() async {
+    @Test
+    func `Clear operation completes promptly`() async {
         let provider = RequestThumbnail(config: .testing)
 
         let startTime = Date()

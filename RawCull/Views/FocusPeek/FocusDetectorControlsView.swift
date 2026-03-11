@@ -9,34 +9,35 @@ import SwiftUI
 
 struct FocusDetectorControlsView: View {
     @Bindable var model: FocusDetectorMaskModel
+    @State private var isCollapsed: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header — title centered, button pinned to trailing via overlay
             Text("Focus Mask Controls")
                 .font(.headline)
-
-            LabeledSlider(
-                label: "Threshold",
-                value: $model.config.threshold,
-                range: 0.05 ... 0.60,
-                hint: "Lower = more highlighted, Higher = only sharpest edges"
-            )
-
-            LabeledSlider(
-                label: "Pre-blur",
-                value: $model.config.preBlurRadius,
-                range: 0.0 ... 3.0,
-                hint: "Higher = ignore more background texture"
-            )
-
-            LabeledSlider(
-                label: "Sensitivity",
-                value: $model.config.energyMultiplier,
-                range: 4.0 ... 30.0,
-                hint: "Amplification of sharpness signal"
-            )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .trailing) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isCollapsed.toggle()
+                        }
+                    } label: {
+                        Label(
+                            isCollapsed ? "Show" : "Hide",
+                            systemImage: isCollapsed ? "eye" : "eye.slash",
+                        )
+                        .font(.caption)
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .help(isCollapsed ? "Show controls" : "Hide controls")
+                }
+                .padding()
         }
-        .padding()
     }
 }
 
@@ -52,16 +53,16 @@ struct LabeledSlider: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(label)
-                    .font(.caption) // was .subheadline
+                    .font(.caption)
                 Spacer()
                 Text(String(format: "%.2f", value))
-                    .font(.caption.monospacedDigit()) // was .subheadline
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             Slider(value: $value, in: range)
-                .controlSize(.small) // <-- key change
+                .controlSize(.small)
             Text(hint)
-                .font(.caption2) // was .caption
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }

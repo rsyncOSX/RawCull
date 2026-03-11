@@ -35,9 +35,9 @@ struct CacheStatisticsView: View {
                             LinearGradient(
                                 colors: [.green, .cyan],
                                 startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                                endPoint: .bottomTrailing,
                             ),
-                            style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round),
                         )
                         .rotationEffect(.degrees(-90))
 
@@ -56,17 +56,17 @@ struct CacheStatisticsView: View {
                     StatisticItemView(
                         imagelabel: "memorychip",
                         value: stats.hits,
-                        color: .green
+                        color: .green,
                     )
                     StatisticItemView(
                         imagelabel: "internaldrive",
                         value: stats.misses,
-                        color: .orange
+                        color: .orange,
                     )
                     StatisticItemView(
                         imagelabel: "trash",
                         value: stats.evictions,
-                        color: .red
+                        color: .red,
                     )
 
                     Spacer()

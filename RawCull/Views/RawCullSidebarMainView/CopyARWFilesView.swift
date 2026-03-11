@@ -20,7 +20,7 @@ struct CopyARWFilesView: View {
                 selectedSource: $selectedSource,
                 remotedatanumbers: $remotedatanumbers,
                 sheetType: $sheetType,
-                showcopytask: $showcopytask
+                showcopytask: $showcopytask,
             )
 
         case .detailsview:

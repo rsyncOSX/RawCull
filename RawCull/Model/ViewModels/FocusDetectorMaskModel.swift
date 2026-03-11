@@ -48,7 +48,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
                 originalSize: originalSize,
                 scale: scale,
                 context: context,
-                config: config // <-- pass it in
+                config: config, // <-- pass it in
             )
         }.value
     }
@@ -58,7 +58,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         originalSize: NSSize,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig // <-- add this
+        config: FocusDetectorConfig, // <-- add this
     ) -> NSImage? {
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
@@ -71,7 +71,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         let laplacianImage = laplacianKernel.apply(
             extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage]
+            arguments: [smoothedImage],
         )
         guard let laplacianOutput = laplacianImage else { return nil }
 
@@ -106,7 +106,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
 
     func generateFocusMask(
         from cgImage: CGImage,
-        scale: CGFloat
+        scale: CGFloat,
     ) async -> CGImage? {
         let context = self.context
         let config = self.config // <-- capture before detached task
@@ -117,7 +117,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
                 inputImage,
                 scale: scale,
                 context: context,
-                config: config // <-- pass captured value
+                config: config, // <-- pass captured value
             )
         }.value
     }
@@ -127,10 +127,10 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         _ inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig // <-- remove the underscore
+        config: FocusDetectorConfig, // <-- remove the underscore
     ) -> CGImage? {
         let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale)
+            by: CGAffineTransform(scaleX: scale, y: scale),
         )
 
         let preBlur = CIFilter.gaussianBlur()
@@ -143,7 +143,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         let laplacianImage = laplacianKernel.apply(
             extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage]
+            arguments: [smoothedImage],
         )
         guard let laplacianOutput = laplacianImage else { return nil }
 

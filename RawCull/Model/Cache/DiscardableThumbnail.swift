@@ -40,7 +40,7 @@ final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sen
         cost = Int(Double(totalCost) * 1.1)
 
         Logger.process.debugMessageOnly(
-            "DiscardableThumbnail: computed Cost \(cost) for image of \(image.size)"
+            "DiscardableThumbnail: computed Cost \(cost) for image of \(image.size)",
         )
 
         super.init()

@@ -56,7 +56,7 @@ struct SavedFilesView: View {
                         CatalogRow(
                             entry: entry,
                             isSelected: selectedCatalog?.id == entry.id,
-                            isHovered: hoveredCatalog == entry.id
+                            isHovered: hoveredCatalog == entry.id,
                         )
                         .onTapGesture {
                             if selectedCatalog?.id != entry.id {
@@ -114,7 +114,7 @@ struct SavedFilesView: View {
                         FileRecordRow(
                             record: record,
                             isSelected: selectedRecord?.id == record.id,
-                            isHovered: hoveredRecord == record.id
+                            isHovered: hoveredRecord == record.id,
                         )
                         .onTapGesture { selectedRecord = record }
                         .onHover { hovering in
@@ -243,7 +243,7 @@ struct CatalogRow: View {
                 } else {
                     Color.clear
                 }
-            }
+            },
         )
         .contentShape(Rectangle())
     }
@@ -297,7 +297,7 @@ struct FileRecordRow: View {
                 } else {
                     Color.clear
                 }
-            }
+            },
         )
         .contentShape(Rectangle())
     }
@@ -364,7 +364,7 @@ struct FileRecordDetailView: View {
                 .padding(20)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                        .fill(Color(NSColor.controlBackgroundColor)),
                 )
             }
             .padding(24)

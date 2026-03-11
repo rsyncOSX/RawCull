@@ -191,9 +191,9 @@ struct PropertiesTabView: View {
 
     private func entryContainsSearch(entry: MetadataEntry) -> Bool {
         switch entry.value {
-        case let .scalar(s): return s.localizedStandardContains(searchText)
-        case let .array(arr): return arr.contains { $0.localizedStandardContains(searchText) }
-        case let .group(_, children): return children.contains { entryContainsSearch(entry: $0) }
+        case let .scalar(s): s.localizedStandardContains(searchText)
+        case let .array(arr): arr.contains { $0.localizedStandardContains(searchText) }
+        case let .group(_, children): children.contains { entryContainsSearch(entry: $0) }
         }
     }
 
@@ -234,7 +234,7 @@ struct MetadataEntryView: View {
                 key: entry.key,
                 children: children,
                 depth: depth,
-                isExpanded: $isExpanded
+                isExpanded: $isExpanded,
             )
         }
     }
@@ -499,7 +499,7 @@ struct XMPNamespaceGroupView: View {
                 .clipShape(.rect(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(.secondary.opacity(0.1), lineWidth: 1)
+                        .stroke(.secondary.opacity(0.1), lineWidth: 1),
                 )
             }
         }
@@ -507,14 +507,14 @@ struct XMPNamespaceGroupView: View {
 
     private var namespaceColor: Color {
         switch namespace {
-        case "exif": return .blue
-        case "tiff": return .orange
-        case "xmp", "xmpMM": return .purple
-        case "aux": return .green
-        case "dc": return .red
-        case "exifEX": return .cyan
-        case "photoshop": return .indigo
-        default: return .gray
+        case "exif": .blue
+        case "tiff": .orange
+        case "xmp", "xmpMM": .purple
+        case "aux": .green
+        case "dc": .red
+        case "exifEX": .cyan
+        case "photoshop": .indigo
+        default: .gray
         }
     }
 }

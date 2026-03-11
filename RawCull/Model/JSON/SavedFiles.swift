@@ -62,7 +62,7 @@ struct SavedFiles: Identifiable, Codable {
                 fileName: record.fileName,
                 dateTagged: record.dateTagged,
                 dateCopied: record.dateCopied,
-                rating: record.rating
+                rating: record.rating,
             )
         }
     }

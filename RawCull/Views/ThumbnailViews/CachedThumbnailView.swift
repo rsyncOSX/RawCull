@@ -41,7 +41,7 @@ struct CachedThumbnailView: View {
                                         }
                                         .onEnded { _ in
                                             lastScale = scale
-                                        }
+                                        },
                                 )
                                 .simultaneousGesture(
                                     DragGesture()
@@ -49,20 +49,20 @@ struct CachedThumbnailView: View {
                                             if scale > 1.0 {
                                                 offset = CGSize(
                                                     width: value.translation.width,
-                                                    height: value.translation.height
+                                                    height: value.translation.height,
                                                 )
                                             }
                                         }
                                         .onEnded { _ in
                                             // Gesture ended
-                                        }
+                                        },
                                 )
 
                             // 2️⃣ Focus overlay SECOND (on top of image)
                             if showFocusPoints, let focusPoints {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
-                                    markerSize: markerSize
+                                    markerSize: markerSize,
                                 )
                                 .scaleEffect(scale)
                                 .offset(offset)
@@ -93,7 +93,7 @@ struct CachedThumbnailView: View {
             let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
             let cgImage = await RequestThumbnail().requestThumbnail(
                 for: url,
-                targetSize: thumbnailSizePreview
+                targetSize: thumbnailSizePreview,
             )
             if let cgImage {
                 image = NSImage(cgImage: cgImage, size: .zero)

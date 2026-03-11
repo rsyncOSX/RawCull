@@ -37,7 +37,7 @@ struct CommandButton: View {
     init(_ label: String, action: @escaping () -> Void, shortcut: String? = nil) {
         self.label = label
         self.action = action
-        if let shortcut = shortcut {
+        if let shortcut {
             self.shortcut = .init(KeyEquivalent(shortcut.first ?? "t"), modifiers: [.command])
         } else {
             self.shortcut = nil
@@ -45,7 +45,7 @@ struct CommandButton: View {
     }
 
     var body: some View {
-        if let shortcut = shortcut {
+        if let shortcut {
             Button(label, action: action).keyboardShortcut(shortcut)
         } else {
             Button(label, action: action)

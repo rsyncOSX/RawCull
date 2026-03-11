@@ -111,7 +111,7 @@ actor SharedMemoryCache {
         return CacheConfig(
             totalCostLimit: totalCostLimit,
             countLimit: countLimit,
-            costPerPixel: thumbnailCostPerPixel
+            costPerPixel: thumbnailCostPerPixel,
         )
     }
 
@@ -131,7 +131,7 @@ actor SharedMemoryCache {
             let config = CacheConfig(
                 totalCostLimit: totalCostLimit,
                 countLimit: countLimit,
-                costPerPixel: thumbnailCostPerPixel
+                costPerPixel: thumbnailCostPerPixel,
             )
             applyConfig(config)
         }
@@ -145,7 +145,7 @@ actor SharedMemoryCache {
     func setCostPerPixel(_ cost: Int) {
         _costPerPixel = cost
         Logger.process.debugMessageOnly(
-            "SharedMemoryCache: setCostPerPixel(\(cost)) called (Local override only)"
+            "SharedMemoryCache: setCostPerPixel(\(cost)) called (Local override only)",
         )
     }
 
@@ -169,7 +169,7 @@ actor SharedMemoryCache {
         Logger.process.debugMessageOnly(
             "CACHE CONFIG APPLIED: " +
                 "totalCostLimit=\(config.totalCostLimit) bytes (\(totalCostMB) MB), " +
-                "countLimit=\(config.countLimit) items (memory-limited, not item-count limited)"
+                "countLimit=\(config.countLimit) items (memory-limited, not item-count limited)",
         )
     }
 
@@ -182,7 +182,7 @@ actor SharedMemoryCache {
         }
 
         Logger.process.debugMessageOnly(
-            "SharedMemoryCache: startMemoryPressureMonitoring()"
+            "SharedMemoryCache: startMemoryPressureMonitoring()",
         )
 
         let source = DispatchSource.makeMemoryPressureSource(eventMask: .all, queue: .global(qos: .utility))
@@ -286,7 +286,7 @@ actor SharedMemoryCache {
             hits: cacheMemory,
             misses: cacheDisk,
             evictions: evictions,
-            hitRate: hitRate
+            hitRate: hitRate,
         )
     }
 

@@ -20,7 +20,7 @@ final class MemoryViewModel {
 
     init(
         updateInterval _: TimeInterval = 1.5,
-        pressureThresholdFactor: Double = 0.80
+        pressureThresholdFactor: Double = 0.80,
     ) {
         self.pressureThresholdFactor = pressureThresholdFactor
     }
@@ -62,7 +62,7 @@ final class MemoryViewModel {
 
         var stat = vm_statistics64()
         var count = mach_msg_type_number_t(
-            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
+            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size,
         )
 
         let result = withUnsafeMutablePointer(to: &stat) {

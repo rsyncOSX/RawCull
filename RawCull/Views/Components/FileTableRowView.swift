@@ -43,7 +43,7 @@ struct FileTableRowView: View {
                                 handleToggleSelection(for: file)
                             }
                             viewModel.updateRating(for: file, rating: newRating)
-                        }
+                        },
                     )
                 }
                 .width(90)
@@ -85,7 +85,7 @@ struct FileTableRowView: View {
                         viewModel.selectedFileID = file.id
                         viewModel.selectedFile = file
                         viewModel.isInspectorPresented = true
-                    }
+                    },
                 )
             }
         }
@@ -106,7 +106,7 @@ struct FileTableRowView: View {
                         useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                         setNSImage: { nsImage = $0 },
                         setCGImage: { cgImage = $0 },
-                        openWindow: { _ in }
+                        openWindow: { _ in },
                     )
                 }
             } else {
@@ -123,7 +123,7 @@ struct FileTableRowView: View {
                 useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                 setNSImage: { nsImage = $0 },
                 setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id) }
+                openWindow: { id in openWindow(id) },
             )
         }
         .onKeyPress(.space) {
@@ -135,7 +135,7 @@ struct FileTableRowView: View {
                 useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                 setNSImage: { nsImage = $0 },
                 setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id) }
+                openWindow: { id in openWindow(id) },
             )
             return .handled
         }
@@ -167,7 +167,7 @@ struct FileTableRowView: View {
         Task {
             await viewModel.cullingModel.toggleSelectionSavedFiles(
                 in: file.url,
-                toggledfilename: file.name
+                toggledfilename: file.name,
             )
         }
     }

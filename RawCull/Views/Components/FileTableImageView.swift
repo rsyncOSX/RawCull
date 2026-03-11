@@ -38,10 +38,10 @@ struct FileTableImageView: View {
                                         Task {
                                             await cullingModel.toggleSelectionSavedFiles(
                                                 in: file.url,
-                                                toggledfilename: file.name
+                                                toggledfilename: file.name,
                                             )
                                         }
-                                    }
+                                    },
                                 )
                                 .id(file.id)
                                 .onHover { isHovered in

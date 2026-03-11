@@ -76,7 +76,7 @@ actor ExtractAndSaveJPGs {
         if Task.isCancelled { return } // ← NEW
 
         if let cgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
-            from: url
+            from: url,
         ) {
             if Task.isCancelled { return } // ← NEW: critical one
 

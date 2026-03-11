@@ -31,7 +31,7 @@ struct RawCullView: View {
                 nsImage: $nsImage,
                 scale: $viewModel.scale,
                 lastScale: $viewModel.lastScale,
-                offset: $viewModel.offset
+                offset: $viewModel.offset,
             )
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -39,7 +39,7 @@ struct RawCullView: View {
                     sources: $viewModel.sources,
                     selectedSource: $viewModel.selectedSource,
                     isShowingPicker: $viewModel.isShowingPicker,
-                    cullingModel: viewModel.cullingModel
+                    cullingModel: viewModel.cullingModel,
                 )
             } content: {
                 SidebarARWCatalogFileView(
@@ -56,14 +56,14 @@ struct RawCullView: View {
                     zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
 
                     issorting: viewModel.issorting,
-                    max: viewModel.max
+                    max: viewModel.max,
                 )
                 .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                     " (\(viewModel.filteredFiles.count) ARW files)")
                 .searchable(
                     text: $viewModel.searchText,
                     placement: .toolbar,
-                    prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")..."
+                    prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")...",
                 )
                 .toolbar { toolbarContent }
                 .sheet(isPresented: $viewModel.showcopyARWFilesView) {
@@ -72,7 +72,7 @@ struct RawCullView: View {
                         sheetType: $viewModel.sheetType,
                         selectedSource: $viewModel.selectedSource,
                         remotedatanumbers: $viewModel.remotedatanumbers,
-                        showcopytask: $viewModel.showcopyARWFilesView
+                        showcopytask: $viewModel.showcopyARWFilesView,
                     )
                 }
                 .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
@@ -116,7 +116,7 @@ struct RawCullView: View {
                     scale: $viewModel.scale,
                     lastScale: $viewModel.lastScale,
                     offset: $viewModel.offset,
-                    file: viewModel.selectedFile
+                    file: viewModel.selectedFile,
                 )
 
                 // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
@@ -143,7 +143,7 @@ struct RawCullView: View {
                     fileHandler: { _ in },
                     maxfilesHandler: { _ in },
                     estimatedTimeHandler: { _ in },
-                    memorypressurewarning: viewModel.memorypressurewarning
+                    memorypressurewarning: viewModel.memorypressurewarning,
                 )
                 // Set the handler for reporting memorypressurewarning
                 await SharedMemoryCache.shared.setFileHandlers(handlers)
@@ -273,7 +273,7 @@ struct RawCullView: View {
 
 extension View {
     @ViewBuilder
-    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+    func `if`(_ condition: Bool, transform: (Self) -> some View) -> some View {
         if condition { transform(self) } else { self }
     }
 }

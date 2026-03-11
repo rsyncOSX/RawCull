@@ -16,13 +16,13 @@ enum ZoomPreviewHandler {
         thumbnailSizePreview: Int = 2048,
         setNSImage: @escaping (NSImage?) -> Void,
         setCGImage: @escaping (CGImage?) -> Void,
-        openWindow: @escaping (String) -> Void
+        openWindow: @escaping (String) -> Void,
     ) {
         if useThumbnailAsZoomPreview {
             Task {
                 let cgThumb = await RequestThumbnail().requestThumbnail(
                     for: file.url,
-                    targetSize: thumbnailSizePreview
+                    targetSize: thumbnailSizePreview,
                 )
 
                 if let cgThumb {
@@ -44,7 +44,7 @@ enum ZoomPreviewHandler {
                     // let extractor = ExtractEmbeddedPreview()
                     if file.url.pathExtension.lowercased() == SupportedFileType.arw.rawValue {
                         if let mycgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
-                            from: file.url
+                            from: file.url,
                         ) {
                             setCGImage(mycgImage)
                         }

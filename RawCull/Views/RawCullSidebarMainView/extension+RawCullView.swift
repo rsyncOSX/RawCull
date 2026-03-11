@@ -90,7 +90,7 @@ extension RawCullView {
         gridthumbnailviewmodel.open(
             cullingModel: viewModel.cullingModel,
             selectedSource: viewModel.selectedSource,
-            filteredFiles: viewModel.filteredFiles
+            filteredFiles: viewModel.filteredFiles,
         )
         openWindow(id: WindowIdentifier.gridThumbnails.rawValue)
     }
@@ -99,7 +99,7 @@ extension RawCullView {
         Task {
             await viewModel.cullingModel.toggleSelectionSavedFiles(
                 in: file.url,
-                toggledfilename: file.name
+                toggledfilename: file.name,
             )
         }
     }
@@ -123,7 +123,7 @@ extension RawCullView {
                 fileHandler: viewModel.fileHandler,
                 maxfilesHandler: viewModel.maxfilesHandler,
                 estimatedTimeHandler: viewModel.estimatedTimeHandler,
-                memorypressurewarning: { _ in }
+                memorypressurewarning: { _ in },
             )
 
             let extract = ExtractAndSaveJPGs()

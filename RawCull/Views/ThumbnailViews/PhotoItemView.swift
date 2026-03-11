@@ -29,7 +29,7 @@ struct PhotoItemView: View {
                             .aspectRatio(contentMode: .fill)
                             .frame(
                                 width: CGFloat(savedSettings.thumbnailSizeGrid),
-                                height: CGFloat(savedSettings.thumbnailSizeGrid)
+                                height: CGFloat(savedSettings.thumbnailSizeGrid),
                             )
                             .clipped()
                     } else if isLoading, let savedSettings {
@@ -77,7 +77,7 @@ struct PhotoItemView: View {
                 let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
                 let cgThumb = await RequestThumbnail().requestThumbnail(
                     for: url,
-                    targetSize: thumbnailSizePreview
+                    targetSize: thumbnailSizePreview,
                 )
                 if let cgThumb {
                     // Create an NSImage from the CGImage. Use scale 1.0 and .up orientation by default.

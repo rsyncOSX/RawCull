@@ -55,7 +55,7 @@ actor ThumbnailLoader {
         let settings = await getSettings()
         let cgThumb = await RequestThumbnail().requestThumbnail(
             for: file.url,
-            targetSize: settings.thumbnailSizePreview
+            targetSize: settings.thumbnailSizePreview,
         )
 
         guard !Task.isCancelled else { return nil }

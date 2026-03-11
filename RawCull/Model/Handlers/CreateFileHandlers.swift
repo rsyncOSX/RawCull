@@ -12,13 +12,13 @@ struct CreateFileHandlers {
         fileHandler: @escaping @MainActor @Sendable (Int) -> Void,
         maxfilesHandler: @escaping @MainActor @Sendable (Int) -> Void,
         estimatedTimeHandler: @escaping @MainActor @Sendable (Int) -> Void,
-        memorypressurewarning: @escaping @MainActor @Sendable (Bool) -> Void
+        memorypressurewarning: @escaping @MainActor @Sendable (Bool) -> Void,
     ) -> FileHandlers {
         FileHandlers(
             fileHandler: fileHandler,
             maxfilesHandler: maxfilesHandler,
             estimatedTimeHandler: estimatedTimeHandler,
-            memorypressurewarning: memorypressurewarning
+            memorypressurewarning: memorypressurewarning,
         )
     }
 }

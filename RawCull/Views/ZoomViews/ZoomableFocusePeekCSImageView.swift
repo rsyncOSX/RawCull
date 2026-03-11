@@ -26,6 +26,7 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var markerSize: CGFloat = 64
     @State private var overlayOpacity: Double = 0.85
     @State private var maskTask: Task<Void, Never>?
+    @State private var controlsCollapsed: Bool = false // ← new
 
     private let zoomLevel: CGFloat = 2.0
 
@@ -104,50 +105,73 @@ struct ZoomableFocusePeekCSImageView: View {
 
     private var focusMaskControls: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Header — always visible
             HStack {
                 Text("Focus Mask")
                     .font(.headline)
                 Spacer()
-                Button("Reset") {
-                    focusDetectorModel.config = FocusDetectorConfig()
-                    overlayOpacity = 0.85
+                // Collapse / expand button
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        controlsCollapsed.toggle()
+                    }
+                } label: {
+                    Label(
+                        controlsCollapsed ? "Show" : "Hide",
+                        systemImage: controlsCollapsed ? "chevron.up" : "chevron.down",
+                    )
+                    .font(.caption)
+                    .labelStyle(.titleAndIcon)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.borderless)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+
+                if !controlsCollapsed {
+                    Button("Reset") {
+                        focusDetectorModel.config = FocusDetectorConfig()
+                        overlayOpacity = 0.85
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
             }
 
-            LabeledSlider(
-                label: "Threshold",
-                value: $focusDetectorModel.config.threshold,
-                range: 0.10 ... 0.50,
-                hint: "Lower = more highlighted, Higher = only sharpest edges"
-            )
+            // Sliders — hidden when collapsed
+            if !controlsCollapsed {
+                LabeledSlider(
+                    label: "Threshold",
+                    value: $focusDetectorModel.config.threshold,
+                    range: 0.10 ... 0.50,
+                    hint: "Lower = more highlighted, Higher = only sharpest edges",
+                )
 
-            LabeledSlider(
-                label: "Pre-blur",
-                value: $focusDetectorModel.config.preBlurRadius,
-                range: 0.5 ... 2.5,
-                hint: "Higher = ignore more background texture"
-            )
+                LabeledSlider(
+                    label: "Pre-blur",
+                    value: $focusDetectorModel.config.preBlurRadius,
+                    range: 0.5 ... 2.5,
+                    hint: "Higher = ignore more background texture",
+                )
 
-            LabeledSlider(
-                label: "Amplify",
-                value: $focusDetectorModel.config.energyMultiplier,
-                range: 4.0 ... 20.0,
-                hint: "Amplification of sharpness signal"
-            )
+                LabeledSlider(
+                    label: "Amplify",
+                    value: $focusDetectorModel.config.energyMultiplier,
+                    range: 4.0 ... 20.0,
+                    hint: "Amplification of sharpness signal",
+                )
 
-            // Overlay opacity — instant, no recompute
-            LabeledSlider(
-                label: "Overlay",
-                value: Binding(
-                    get: { Float(overlayOpacity) },
-                    set: { overlayOpacity = Double($0) }
-                ),
-                range: 0.3 ... 1.0,
-                hint: "Overlay strength"
-            )
+                LabeledSlider(
+                    label: "Overlay",
+                    value: Binding(
+                        get: { Float(overlayOpacity) },
+                        set: { overlayOpacity = Double($0) },
+                    ),
+                    range: 0.3 ... 1.0,
+                    hint: "Overlay strength",
+                )
+            }
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -161,7 +185,7 @@ struct ZoomableFocusePeekCSImageView: View {
         let downscaled = cgImage.downscaled(toWidth: 1024)
         let mask = await focusDetectorModel.generateFocusMask(
             from: downscaled ?? cgImage,
-            scale: 1.0
+            scale: 1.0,
         )
         await MainActor.run { self.focusMask = mask }
     }
@@ -199,11 +223,11 @@ struct ZoomableFocusePeekCSImageView: View {
                     if currentScale > 1.0 {
                         offset = CGSize(
                             width: lastOffset.width + value.translation.width,
-                            height: lastOffset.height + value.translation.height
+                            height: lastOffset.height + value.translation.height,
                         )
                     }
                 }
-                .onEnded { _ in lastOffset = offset }
+                .onEnded { _ in lastOffset = offset },
         ))
         .onTapGesture(count: 2) {
             withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
@@ -306,7 +330,7 @@ extension CGImage {
             data: nil, width: newWidth, height: newHeight,
             bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
         ) else { return nil }
         context.interpolationQuality = .medium
         context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
