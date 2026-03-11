@@ -9,7 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
-enum JPGPreviewHandler {
+enum ZoomPreviewHandler {
     static func handle(
         file: FileItem,
         useThumbnailAsZoomPreview: Bool = false,

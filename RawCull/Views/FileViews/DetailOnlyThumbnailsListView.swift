@@ -52,8 +52,9 @@ struct DetailOnlyThumbnailsListView: View {
                 guard let selectedID = viewModel.selectedFile?.id,
                       let file = files.first(where: { $0.id == selectedID }) else { return }
 
-                JPGPreviewHandler.handle(
+                ZoomPreviewHandler.handle(
                     file: file,
+                    useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                     setNSImage: { nsImage = $0 },
                     setCGImage: { cgImage = $0 },
                     openWindow: { id in openWindow(id: id) }
