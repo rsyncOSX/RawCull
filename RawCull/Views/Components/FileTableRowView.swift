@@ -73,6 +73,7 @@ struct FileTableRowView: View {
                 }
             }
 
+            // Bottom row tagged Images.
             if showPhotoGridView() {
                 Divider()
 
