@@ -76,16 +76,15 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         preBlur.radius = 1.8
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        // 3. Apply custom LoG Kernel
+        // 3. Custom LoG Kernel
         guard let laplacianKernel = Self.magnitudeKernel else { return nil }
 
         let laplacianImage = laplacianKernel.apply(
-            extent: smoothedImage.extent,
-            roiCallback: { _, rect in
-                rect.insetBy(dx: -2, dy: -2) // wider neighbourhood for 3x3 kernel
-            },
+            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1), // <-- change this line
+            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
             arguments: [smoothedImage]
         )
+
         guard let laplacianOutput = laplacianImage else { return nil }
 
         // 4. Threshold — raised to filter out soft-textured out-of-focus regions
@@ -157,13 +156,15 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         preBlur.radius = 1.8
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
+        // 3. Custom LoG Kernel
         guard let laplacianKernel = Self.magnitudeKernel else { return nil }
 
         let laplacianImage = laplacianKernel.apply(
-            extent: smoothedImage.extent,
-            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) }, // wider for 3x3
+            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1), // <-- change this line
+            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
             arguments: [smoothedImage]
         )
+
         guard let laplacianOutput = laplacianImage else { return nil }
 
         // Raise threshold significantly — water ripples shouldn't survive this

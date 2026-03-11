@@ -28,10 +28,12 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
 
+    @State private var maskTask: Task<Void, Never>?
+
     private let zoomLevel: CGFloat = 2.0
 
     private var displayedImage: CGImage? {
-        showFocusMask ? focusMask : cgImage
+        cgImage
     }
 
     var body: some View {
@@ -100,8 +102,9 @@ struct ZoomableFocusePeekCSImageView: View {
                 .padding(.bottom, 20)
             }
         }
-        .task(id: focusDetectorModel.config) {
-            // await MainActor.run { self.focusMask = nil }
+        .task(id: cgImage?.hashValue) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
             if let cgImage {
                 let downscaled = cgImage.downscaled(toWidth: 1024)
                 let mask = await focusDetectorModel.generateFocusMask(
@@ -111,48 +114,68 @@ struct ZoomableFocusePeekCSImageView: View {
                 await MainActor.run { self.focusMask = mask }
             }
         }
-        .task(id: cgImage?.hashValue) { // <-- triggers when image first arrives
-            if let cgImage {
-                let downscaled = cgImage.downscaled(toWidth: 1024)
-                let mask = await focusDetectorModel.generateFocusMask(
-                    from: downscaled ?? cgImage,
-                    scale: 1.0
-                )
-                await MainActor.run { self.focusMask = mask }
+        .onChange(of: focusDetectorModel.config) {
+            maskTask?.cancel()
+            maskTask = Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled else { return }
+                await regenerateMask()
             }
         }
+    }
+
+    private func regenerateMask() async {
+        guard let cgImage else { return }
+        let downscaled = cgImage.downscaled(toWidth: 1024)
+        let mask = await focusDetectorModel.generateFocusMask(
+            from: downscaled ?? cgImage,
+            scale: 1.0
+        )
+        await MainActor.run { self.focusMask = mask }
     }
 
     // MARK: - Zoomable Image
 
     private func zoomableImage(_ image: CGImage, in size: CGSize) -> some View {
-        Image(decorative: image, scale: 1.0, orientation: .up)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size.width, height: size.height)
-            .scaleEffect(currentScale)
-            .offset(offset)
-            .gesture(SimultaneousGesture(
-                MagnificationGesture()
-                    .onChanged { currentScale = lastScale * $0 }
-                    .onEnded { _ in
-                        lastScale = currentScale
-                        if currentScale < 1.0 { withAnimation(.spring()) { resetToFit() } }
-                    },
-                DragGesture()
-                    .onChanged { value in
-                        if currentScale > 1.0 {
-                            offset = CGSize(
-                                width: lastOffset.width + value.translation.width,
-                                height: lastOffset.height + value.translation.height
-                            )
-                        }
-                    }
-                    .onEnded { _ in lastOffset = offset }
-            ))
-            .onTapGesture(count: 2) {
-                withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
+        ZStack {
+            Image(decorative: image, scale: 1.0, orientation: .up)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width, height: size.height)
+
+            if showFocusMask, let mask = focusMask {
+                Image(decorative: mask, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+                    .blendMode(.screen) // red on black blends cleanly over the photo
+                    .opacity(0.85)
+                    .transition(.opacity)
             }
+        }
+        .scaleEffect(currentScale)
+        .offset(offset)
+        .gesture(SimultaneousGesture(
+            MagnificationGesture()
+                .onChanged { currentScale = lastScale * $0 }
+                .onEnded { _ in
+                    lastScale = currentScale
+                    if currentScale < 1.0 { withAnimation(.spring()) { resetToFit() } }
+                },
+            DragGesture()
+                .onChanged { value in
+                    if currentScale > 1.0 {
+                        offset = CGSize(
+                            width: lastOffset.width + value.translation.width,
+                            height: lastOffset.height + value.translation.height
+                        )
+                    }
+                }
+                .onEnded { _ in lastOffset = offset }
+        ))
+        .onTapGesture(count: 2) {
+            withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
+        }
     }
 
     // MARK: - Focus Point Overlay
