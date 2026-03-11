@@ -38,6 +38,8 @@ struct ZoomableFocusePeekNSImageView: View {
                     if let image = nsImage {
                         zoomableImage(image, in: geo.size)
                     }
+
+                    focusPoint()
                 }
             } else {
                 HStack {
@@ -95,6 +97,19 @@ struct ZoomableFocusePeekNSImageView: View {
                 guard !Task.isCancelled else { return }
                 await regenerateMask()
             }
+        }
+    }
+
+    // MARK: - Focus Point Overlay
+
+    @ViewBuilder
+    private func focusPoint() -> some View {
+        if showFocusPoints, let focusPoints {
+            FocusOverlayView(focusPoints: focusPoints, markerSize: markerSize)
+                .scaleEffect(currentScale)
+                .offset(offset)
+                .allowsHitTesting(false)
+                .transition(.opacity.combined(with: .blurReplace))
         }
     }
 
