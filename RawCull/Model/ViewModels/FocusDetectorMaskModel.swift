@@ -4,8 +4,17 @@ import CoreImage.CIFilterBuiltins
 import Observation
 import OSLog
 
+struct FocusDetectorConfig: Equatable {
+    var preBlurRadius: Float = 1.0
+    var threshold: Float = 0.18
+    var dilationRadius: Float = 1.5
+    var energyMultiplier: Float = 12.0
+}
+
 @Observable
 final class FocusDetectorMaskModel: @unchecked Sendable {
+    var config = FocusDetectorConfig()
+
     /// CIContext is thread-safe for rendering; created once for performance.
     /// @unchecked Sendable is safe here since context is read-only after init.
     private let context = CIContext(options: [.workingColorSpace: NSNull()])
@@ -61,46 +70,51 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         // 1. Scale down for performance
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
-        // 2. Pre-Blur (Crucial for the puffin's feet)
-        // This smooths out soft high-contrast edges so they don't trigger the sharpness math.
+        // 2. Pre-Blur — increased to suppress water/texture noise before kernel
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = scaledImage
-        preBlur.radius = 1.0
+        preBlur.radius = 1.8
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        // 3. Apply custom Laplacian Kernel
-        guard let laplacianKernel = self.magnitudeKernel else { return nil }
+        // 3. Apply custom LoG Kernel
+        guard let laplacianKernel = Self.magnitudeKernel else { return nil }
 
         let laplacianImage = laplacianKernel.apply(
             extent: smoothedImage.extent,
             roiCallback: { _, rect in
-                // We need 1 pixel of context around each pixel to calculate sharpness
-                rect.insetBy(dx: -1, dy: -1)
+                rect.insetBy(dx: -2, dy: -2) // wider neighbourhood for 3x3 kernel
             },
             arguments: [smoothedImage]
         )
-
         guard let laplacianOutput = laplacianImage else { return nil }
 
-        // 4. Threshold (This defines what counts as "in focus")
-        // Use a higher value (0.6 - 0.75) to ensure the blurred feet disappear.
+        // 4. Threshold — raised to filter out soft-textured out-of-focus regions
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = laplacianOutput
-        thresholdFilter.threshold = 0.7
+        thresholdFilter.threshold = 0.35
 
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // 5. Colorize as red overlay.
+        // 5. Dilation — fills sparse dots on subject into solid regions
+        let dilated: CIImage
+        if let dilate = CIFilter(name: "CIMorphologyMaximum") {
+            dilate.setValue(thresholdedEdges, forKey: kCIInputImageKey)
+            dilate.setValue(2.0, forKey: kCIInputRadiusKey)
+            dilated = dilate.outputImage ?? thresholdedEdges
+        } else {
+            dilated = thresholdedEdges
+        }
+
+        // 6. Colorize as red overlay
         let redMatrix = CIFilter.colorMatrix()
-        redMatrix.inputImage = thresholdedEdges
+        redMatrix.inputImage = dilated
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // 6. Render
+        // 7. Render
         guard let outputCGImage = context.createCGImage(redMask, from: redMask.extent) else {
             return nil
         }
@@ -116,66 +130,64 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
 
         return await Task.detached(priority: .userInitiated) {
             let inputImage = CIImage(cgImage: cgImage)
-
             return await Self.processImage(
                 inputImage,
                 scale: scale,
-                context: context
+                context: context,
+                config: self.config // capture config value before entering task
             )
         }.value
     }
 
+    /// CGImage version (used for overlay rendering)
     private static func processImage(
         _ inputImage: CIImage,
         scale: CGFloat,
-        context: CIContext
+        context: CIContext,
+        config _: FocusDetectorConfig
     ) -> CGImage? {
-        // 1. Scale down for performance
         let scaledImage = inputImage.transformed(
             by: CGAffineTransform(scaleX: scale, y: scale)
         )
 
-        // 2. Pre-Blur (Crucial to ignore blurred high-contrast areas like feet)
+        // Increase pre-blur — this is your #1 lever against water texture noise
+        // A radius of 1.5–2.0 kills soft ripple texture before the kernel sees it
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = scaledImage
-        preBlur.radius = 0.6 // Consistent with the NSImage version
+        preBlur.radius = 1.8
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        // 3. Custom Laplacian Kernel (Sharpness Detection)
-        // We replace SobelGradients with the custom Metal Kernel
         guard let laplacianKernel = Self.magnitudeKernel else { return nil }
 
         let laplacianImage = laplacianKernel.apply(
             extent: smoothedImage.extent,
-            roiCallback: { _, rect in
-                // Neighborhood sampling requires 1 pixel of context
-                rect.insetBy(dx: -1, dy: -1)
-            },
+            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) }, // wider for 3x3
             arguments: [smoothedImage]
         )
-
         guard let laplacianOutput = laplacianImage else { return nil }
 
-        // 4. Threshold
-        // Lowered to 0.15 to let the eyes/fish scales through while the blur stays hidden
+        // Raise threshold significantly — water ripples shouldn't survive this
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = laplacianOutput
-        thresholdFilter.threshold = 0.15
+        thresholdFilter.threshold = 0.35 // was 0.15 — raise until water disappears
 
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // 5. Colorize as Red
+        // Optional: morphological dilation to fill in gaps on the subject
+        // This helps the bird's body show as a solid region, not scattered dots
+        let dilate = CIFilter(name: "CIMorphologyMaximum")
+        dilate?.setValue(thresholdedEdges, forKey: kCIInputImageKey)
+        dilate?.setValue(2.0, forKey: kCIInputRadiusKey)
+        let dilated = dilate?.outputImage ?? thresholdedEdges
+
         let redMatrix = CIFilter.colorMatrix()
-        redMatrix.inputImage = thresholdedEdges
+        redMatrix.inputImage = dilated
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // 6. Render directly to CGImage
-        // Using redMask.extent ensures we don't get artifacts from filter padding
         return context.createCGImage(redMask, from: redMask.extent)
     }
 }

@@ -23,7 +23,7 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var focusDetectorModel: FocusDetectorMaskModel = .init()
+    @State private var focusDetectorModel = FocusDetectorMaskModel()
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
@@ -70,8 +70,12 @@ struct ZoomableFocusePeekCSImageView: View {
                 Spacer()
 
                 HStack {
-                    toolbarButton("viewfinder.circle.fill") { showFocusMask.toggle() }
-                        .disabled(focusMask == nil)
+                    toolbarButton("viewfinder.circle.fill") {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showFocusMask.toggle()
+                        }
+                    }
+                    .disabled(focusMask == nil)
 
                     focuspointcontroller
                 }
@@ -84,15 +88,36 @@ struct ZoomableFocusePeekCSImageView: View {
                         Text("\(cgImage.width) × \(cgImage.height) px")
                             .font(.caption2).foregroundStyle(.white.opacity(0.4))
                     }
+
+                    if showFocusMask {
+                        FocusDetectorControlsView(model: focusDetectorModel)
+                            .padding(.horizontal)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
                 .padding(.bottom, 20)
             }
         }
-        .task(id: cgImage) {
-            await MainActor.run { self.focusMask = nil }
+        .task(id: focusDetectorModel.config) {
+            // await MainActor.run { self.focusMask = nil }
             if let cgImage {
                 let downscaled = cgImage.downscaled(toWidth: 1024)
-                let mask = await focusDetectorModel.generateFocusMask(from: downscaled ?? cgImage, scale: currentScale)
+                let mask = await focusDetectorModel.generateFocusMask(
+                    from: downscaled ?? cgImage,
+                    scale: 1.0
+                )
+                await MainActor.run { self.focusMask = mask }
+            }
+        }
+        .task(id: cgImage?.hashValue) { // <-- triggers when image first arrives
+            if let cgImage {
+                let downscaled = cgImage.downscaled(toWidth: 1024)
+                let mask = await focusDetectorModel.generateFocusMask(
+                    from: downscaled ?? cgImage,
+                    scale: 1.0
+                )
                 await MainActor.run { self.focusMask = mask }
             }
         }
@@ -241,12 +266,12 @@ extension CGImage {
         let scale = CGFloat(maxWidth) / CGFloat(width)
         let newWidth = maxWidth
         let newHeight = Int(CGFloat(height) * scale)
-        guard let context = CGContext(
+        guard let context = CGContext( // <-- replace from here
             data: nil, width: newWidth, height: newHeight,
-            bitsPerComponent: bitsPerComponent, bytesPerRow: 0,
-            space: colorSpace ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: bitmapInfo.rawValue
-        ) else { return nil }
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil } // <-- to here
         context.interpolationQuality = .medium
         context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
         return context.makeImage()

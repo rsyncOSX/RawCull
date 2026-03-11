@@ -6,7 +6,7 @@ struct PhotoGridView: View {
     var files: [FileItem]
     let photoURL: URL?
     var onPhotoSelected: (FileItem) -> Void = { _ in }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Pinned header
@@ -16,7 +16,7 @@ struct PhotoGridView: View {
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.ultraThinMaterial)
-            
+
             ScrollView(.horizontal) {
                 if savedSettings != nil {
                     LazyHStack(alignment: .top, spacing: 10) {
