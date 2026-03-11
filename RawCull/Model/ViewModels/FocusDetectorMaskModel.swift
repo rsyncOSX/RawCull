@@ -35,20 +35,11 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         }
     }()
 
-    func generateFocusMask(
-        from nsImage: NSImage,
-        scale: CGFloat
-    ) async -> NSImage? {
-        // Extract what we need from NSImage before entering the detached task,
-        // avoiding implicit capture of 'self' or non-Sendable NSImage across actor boundaries.
-        guard let cgImage = nsImage.cgImage(
-            forProposedRect: nil,
-            context: nil,
-            hints: nil
-        ) else { return nil }
-
+    func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
+        guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let originalSize = nsImage.size
         let context = self.context
+        let config = self.config // <-- capture before detached task
 
         return await Task.detached(priority: .userInitiated) {
             let inputImage = CIImage(cgImage: cgImage)
@@ -56,7 +47,8 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
                 inputImage,
                 originalSize: originalSize,
                 scale: scale,
-                context: context
+                context: context,
+                config: config // <-- pass it in
             )
         }.value
     }
@@ -65,60 +57,50 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         _ inputImage: CIImage,
         originalSize: NSSize,
         scale: CGFloat,
-        context: CIContext
+        context: CIContext,
+        config: FocusDetectorConfig // <-- add this
     ) -> NSImage? {
-        // 1. Scale down for performance
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
-        // 2. Pre-Blur — increased to suppress water/texture noise before kernel
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = scaledImage
-        preBlur.radius = 1.8
+        preBlur.radius = config.preBlurRadius // <-- use config
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        // 3. Custom LoG Kernel
         guard let laplacianKernel = Self.magnitudeKernel else { return nil }
-
         let laplacianImage = laplacianKernel.apply(
-            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1), // <-- change this line
+            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
             arguments: [smoothedImage]
         )
-
         guard let laplacianOutput = laplacianImage else { return nil }
 
-        // 4. Threshold — raised to filter out soft-textured out-of-focus regions
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = laplacianOutput
-        thresholdFilter.threshold = 0.35
-
+        thresholdFilter.threshold = config.threshold // <-- use config
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // 5. Dilation — fills sparse dots on subject into solid regions
         let dilated: CIImage
         if let dilate = CIFilter(name: "CIMorphologyMaximum") {
             dilate.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-            dilate.setValue(2.0, forKey: kCIInputRadiusKey)
+            dilate.setValue(CGFloat(config.dilationRadius), forKey: kCIInputRadiusKey) // <-- use config
             dilated = dilate.outputImage ?? thresholdedEdges
         } else {
             dilated = thresholdedEdges
         }
 
-        // 6. Colorize as red overlay
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = dilated
-        redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        redMatrix.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0) // <-- use config
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
         let croppedMask = redMask.cropped(to: scaledImage.extent)
-
         guard let outputCGImage = context.createCGImage(croppedMask, from: croppedMask.extent) else {
             return nil
         }
-
         return NSImage(cgImage: outputCGImage, size: originalSize)
     }
 
@@ -127,6 +109,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         scale: CGFloat
     ) async -> CGImage? {
         let context = self.context
+        let config = self.config // <-- capture before detached task
 
         return await Task.detached(priority: .userInitiated) {
             let inputImage = CIImage(cgImage: cgImage)
@@ -134,7 +117,7 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
                 inputImage,
                 scale: scale,
                 context: context,
-                config: self.config // capture config value before entering task
+                config: config // <-- pass captured value
             )
         }.value
     }
@@ -144,58 +127,49 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         _ inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config _: FocusDetectorConfig
+        config: FocusDetectorConfig // <-- remove the underscore
     ) -> CGImage? {
         let scaledImage = inputImage.transformed(
             by: CGAffineTransform(scaleX: scale, y: scale)
         )
 
-        // Increase pre-blur — this is your #1 lever against water texture noise
-        // A radius of 1.5–2.0 kills soft ripple texture before the kernel sees it
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = scaledImage
-        preBlur.radius = 1.8
-        guard let smoothedImage = preBlur.outputImage else { return nil }
+        preBlur.radius = config.preBlurRadius // <-- use config
 
-        // 3. Custom LoG Kernel
+        guard let smoothedImage = preBlur.outputImage else { return nil }
         guard let laplacianKernel = Self.magnitudeKernel else { return nil }
 
         let laplacianImage = laplacianKernel.apply(
-            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1), // <-- change this line
+            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
             arguments: [smoothedImage]
         )
-
         guard let laplacianOutput = laplacianImage else { return nil }
 
-        // Raise threshold significantly — water ripples shouldn't survive this
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = laplacianOutput
-        thresholdFilter.threshold = 0.35 // was 0.15 — raise until water disappears
+        thresholdFilter.threshold = config.threshold // <-- use config
 
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // Optional: morphological dilation to fill in gaps on the subject
-        // This helps the bird's body show as a solid region, not scattered dots
         let dilate = CIFilter(name: "CIMorphologyMaximum")
         dilate?.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-        dilate?.setValue(2.0, forKey: kCIInputRadiusKey)
+        dilate?.setValue(CGFloat(config.dilationRadius), forKey: kCIInputRadiusKey) // needs CGFloat
         let dilated = dilate?.outputImage ?? thresholdedEdges
 
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = dilated
-        redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        redMatrix.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
         let croppedMask = redMask.cropped(to: scaledImage.extent)
-
         guard let outputCGImage = context.createCGImage(croppedMask, from: croppedMask.extent) else {
             return nil
         }
-
         return outputCGImage
     }
 }
