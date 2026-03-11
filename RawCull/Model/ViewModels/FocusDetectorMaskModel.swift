@@ -113,8 +113,9 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // 7. Render
-        guard let outputCGImage = context.createCGImage(redMask, from: redMask.extent) else {
+        let croppedMask = redMask.cropped(to: scaledImage.extent)
+
+        guard let outputCGImage = context.createCGImage(croppedMask, from: croppedMask.extent) else {
             return nil
         }
 
@@ -189,6 +190,12 @@ final class FocusDetectorMaskModel: @unchecked Sendable {
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        return context.createCGImage(redMask, from: redMask.extent)
+        let croppedMask = redMask.cropped(to: scaledImage.extent)
+
+        guard let outputCGImage = context.createCGImage(croppedMask, from: croppedMask.extent) else {
+            return nil
+        }
+
+        return outputCGImage
     }
 }

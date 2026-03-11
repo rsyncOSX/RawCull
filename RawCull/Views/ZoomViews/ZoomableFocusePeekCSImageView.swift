@@ -114,7 +114,8 @@ struct ZoomableFocusePeekCSImageView: View {
                 await MainActor.run { self.focusMask = mask }
             }
         }
-        .onChange(of: focusDetectorModel.config) {
+        .onChange(of: focusDetectorModel.config) { _, _ in
+            print("discover change")
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
