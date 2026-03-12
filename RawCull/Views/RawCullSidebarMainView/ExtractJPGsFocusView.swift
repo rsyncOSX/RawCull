@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ExtractJPGsFocusView: View {
     let selectedSource: ARWSourceCatalog?
-    @Binding var alertType: AlertType
+    @Binding var alertType: AlertType?
     @Binding var showingAlert: Bool
 
     var body: some View {

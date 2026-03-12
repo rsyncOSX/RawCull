@@ -108,7 +108,7 @@ struct RawCullView: View {
                     Text(viewModel.alertMessage)
                 }
             } detail: {
-                FileDetailView(
+                RawCullDetailContainerView(
                     viewModel: viewModel,
                     cgImage: $cgImage,
                     nsImage: $nsImage,
@@ -116,37 +116,9 @@ struct RawCullView: View {
                     scale: $viewModel.scale,
                     lastScale: $viewModel.lastScale,
                     offset: $viewModel.offset,
-                    file: viewModel.selectedFile,
+                    handleToggleSelection: handleToggleSelection,
+                    abort: abort
                 )
-
-                // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
-                if viewModel.focustagimage == true {
-                    TagImageFocusView(
-                        focustagimage: $viewModel.focustagimage,
-                        files: viewModel.files,
-                        selectedFileID: viewModel.selectedFileID,
-                        handleToggleSelection: handleToggleSelection
-                    )
-                }
-                if viewModel.focusaborttask {
-                    AbortTaskFocusView(
-                        focusaborttask: $viewModel.focusaborttask,
-                        abort: abort
-                    )
-                }
-                if viewModel.focushideInspector == true {
-                    HideInspectorFocusView(
-                        focushideInspector: $viewModel.focushideInspector,
-                        hideInspector: $viewModel.hideInspector
-                    )
-                }
-                if viewModel.focusExtractJPGs {
-                    ExtractJPGsFocusView(
-                        selectedSource: viewModel.selectedSource,
-                        alertType: $viewModel.alertType,
-                        showingAlert: $viewModel.showingAlert
-                    )
-                }
             }
 
             .sheet(isPresented: $showSavedFiles) {
