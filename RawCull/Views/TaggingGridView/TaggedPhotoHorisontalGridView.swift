@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PhotoGridView: View {
+struct TaggedPhotoHorisontalGridView: View {
     @Bindable var cullingModel: CullingModel
     @State private var savedSettings: SavedSettings?
     var files: [FileItem]
@@ -26,7 +26,7 @@ struct PhotoGridView: View {
                                 ForEach(localfiles.sorted(), id: \.self) { photo in
                                     let photoURL = files.first(where: { $0.name == photo })?.url
                                     let photoFile = files.first(where: { $0.name == photo })
-                                    PhotoItemView(
+                                    TaggedPhotoItemView(
                                         photo: photo,
                                         photoURL: photoURL,
                                         onSelected: {

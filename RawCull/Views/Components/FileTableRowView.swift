@@ -81,7 +81,7 @@ struct FileTableRowView: View {
             if showPhotoGridView() {
                 Divider()
 
-                PhotoGridView(
+                TaggedPhotoHorisontalGridView(
                     cullingModel: viewModel.cullingModel,
                     files: viewModel.filteredFiles,
                     photoURL: viewModel.selectedSource?.url,

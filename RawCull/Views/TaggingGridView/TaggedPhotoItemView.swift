@@ -8,7 +8,7 @@
 import OSLog
 import SwiftUI
 
-struct PhotoItemView: View {
+struct TaggedPhotoItemView: View {
     let photo: String
     let photoURL: URL?
     var onSelected: () -> Void = {}
