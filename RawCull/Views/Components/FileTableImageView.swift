@@ -68,6 +68,7 @@ struct FileTableImageView: View {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
         .focusable()
+        .focusEffectDisabled(true)
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
     }

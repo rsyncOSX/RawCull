@@ -147,6 +147,7 @@ struct ImageTableVerticalView: View {
             return .handled
         }
         .focusable()
+        .focusEffectDisabled(true)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
     }
