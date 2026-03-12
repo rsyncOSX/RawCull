@@ -40,13 +40,16 @@ actor ThumbnailLoader {
             activeTasks += 1
         } onCancel: {
             Task {
-                await self.removePendingContinuation(id: id)
+                await self.removeAndResumePendingContinuation(id: id)
             }
         }
     }
 
-    private func removePendingContinuation(id: UUID) {
-        pendingContinuations.removeAll { $0.id == id }
+    private func removeAndResumePendingContinuation(id: UUID) {
+        if let index = pendingContinuations.firstIndex(where: { $0.id == id }) {
+            let entry = pendingContinuations.remove(at: index)
+            entry.continuation.resume()
+        }
     }
 
     private func releaseSlot() {
