@@ -112,7 +112,6 @@ struct SidebarARWCatalogFileView: View {
                         .padding()
                         
                         if verticalimages {
-                            
                             ImageTableVerticalView(viewModel: viewModel,
                                              nsImage: $nsImage,
                                              cgImage: $cgImage,
