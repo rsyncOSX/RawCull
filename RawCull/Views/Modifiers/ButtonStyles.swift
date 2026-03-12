@@ -182,7 +182,7 @@ struct ConditionalGlassButton: View {
         role: ButtonRole? = nil,
         textcolor: Bool = false,
         style: ConditionalGlassButtonStyleOption = .refinedGlass,
-        action: @escaping () -> Void
+        action: @escaping () -> Void,
     ) {
         self.systemImage = systemImage
         self.text = text

@@ -1,5 +1,5 @@
 //
-//  PhotoItemView.swift
+//  TaggedPhotoItemView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 21/01/2026.

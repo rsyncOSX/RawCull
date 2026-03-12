@@ -56,7 +56,7 @@ struct SidebarARWCatalogFileView: View {
                             ) {
                                 verticalimages.toggle()
                             }
-                            
+
                             if viewModel.focusPoints?.isEmpty == false {
                                 Image(systemName: "viewfinder.circle.fill")
                                     .font(.caption)
