@@ -15,7 +15,7 @@ actor ThumbnailLoader {
 
     private let maxConcurrent = 6
     private var activeTasks = 0
-    private var pendingContinuations: [CheckedContinuation<Void, Never>] = []
+    private var pendingContinuations: [(id: UUID, continuation: CheckedContinuation<Void, Never>)] = []
     private var cachedSettings: SavedSettings?
 
     /// Cached settings so we don't hammer the settings actor
@@ -31,17 +31,29 @@ actor ThumbnailLoader {
             activeTasks += 1
             return
         }
-        await withCheckedContinuation { continuation in
-            pendingContinuations.append(continuation)
+
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                pendingContinuations.append((id: id, continuation: continuation))
+            }
+            activeTasks += 1
+        } onCancel: {
+            Task {
+                await self.removePendingContinuation(id: id)
+            }
         }
-        activeTasks += 1
+    }
+
+    private func removePendingContinuation(id: UUID) {
+        pendingContinuations.removeAll { $0.id == id }
     }
 
     private func releaseSlot() {
         activeTasks -= 1
         if let next = pendingContinuations.first {
             pendingContinuations.removeFirst()
-            next.resume()
+            next.continuation.resume()
         }
     }
 
@@ -69,10 +81,9 @@ actor ThumbnailLoader {
     func cancelAll() {
         // Resume all pending continuations so they unfreeze
         // They will then hit the Task.isCancelled check and bail out
-        for continuation in pendingContinuations {
-            continuation.resume()
+        for entry in pendingContinuations {
+            entry.continuation.resume()
         }
         pendingContinuations.removeAll()
-        activeTasks = 0 // Reset the counter cleanly
     }
 }

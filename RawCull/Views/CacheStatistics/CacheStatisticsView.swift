@@ -87,14 +87,18 @@ struct CacheStatisticsView: View {
             }
         }
         .task {
-            let timerStream = AsyncStream<Void> { continuation in
-                Task {
-                    while !Task.isCancelled {
-                        continuation.yield()
-                        try? await Task.sleep(nanoseconds: 5_000_000_000)
-                    }
-                    continuation.finish()
+            let (timerStream, continuation) = AsyncStream.makeStream(of: Void.self)
+
+            let producer = Task {
+                while !Task.isCancelled {
+                    continuation.yield()
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
                 }
+                continuation.finish()
+            }
+
+            continuation.onTermination = { _ in
+                producer.cancel()
             }
 
             // Consume the stream
