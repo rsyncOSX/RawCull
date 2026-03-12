@@ -52,6 +52,7 @@ struct SidebarARWCatalogFileView: View {
                                 systemImage: "photo.stack",
                                 text: verticalimages ? "Table" : "Images",
                                 helpText: "View table or images",
+                                style: .softCapsule,
                             ) {
                                 verticalimages.toggle()
                             }
@@ -71,6 +72,7 @@ struct SidebarARWCatalogFileView: View {
                                     systemImage: "document.on.document",
                                     text: "Copy",
                                     helpText: "Copy tagged images to destination...",
+                                    style: .softCapsule,
                                 ) {
                                     viewModel.sheetType = .copytasksview
                                     viewModel.showcopyARWFilesView = true
@@ -81,6 +83,7 @@ struct SidebarARWCatalogFileView: View {
                                     systemImage: "trash.fill",
                                     text: "Clear",
                                     helpText: "Clear tagged files",
+                                    style: .softCapsule,
                                 ) {
                                     viewModel.alertType = .clearToggledFiles
                                     viewModel.showingAlert = true
@@ -91,6 +94,7 @@ struct SidebarARWCatalogFileView: View {
                                     systemImage: "trash",
                                     text: "Reset",
                                     helpText: "Clean up data from previous saves",
+                                    style: .softCapsule,
                                 ) {
                                     viewModel.alertType = .resetSavedFiles
                                     viewModel.showingAlert = true

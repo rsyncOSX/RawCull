@@ -159,6 +159,11 @@ private struct PressureAnimatedButton: View {
     }
 }
 
+enum ConditionalGlassButtonStyleOption {
+    case refinedGlass
+    case softCapsule
+}
+
 struct ConditionalGlassButton: View {
     @Environment(\.colorScheme) var colorScheme
 
@@ -167,73 +172,47 @@ struct ConditionalGlassButton: View {
     let helpText: String
     let role: ButtonRole?
     var textcolor: Bool = false
+    let style: ConditionalGlassButtonStyleOption
     let action: () -> Void
 
-    init(systemImage: String, text: String? = nil, helpText: String, role: ButtonRole? = nil, action: @escaping () -> Void) {
+    init(
+        systemImage: String,
+        text: String? = nil,
+        helpText: String,
+        role: ButtonRole? = nil,
+        textcolor: Bool = false,
+        style: ConditionalGlassButtonStyleOption = .refinedGlass,
+        action: @escaping () -> Void
+    ) {
         self.systemImage = systemImage
         self.text = text
         self.helpText = helpText
         self.role = role
+        self.textcolor = textcolor
+        self.style = style
         self.action = action
     }
 
     var body: some View {
-        if #available(macOS 26.0, *) {
-            if systemImage.isEmpty {
-                Button(role: role, action: action) {
+        if style == .softCapsule {
+            Button(role: role, action: action) {
+                Label {
                     if let text {
                         Text(text)
                             .foregroundColor(textcolor ? .green : (colorScheme == .dark ? .white : .black))
                     }
-                }
-                .buttonStyle(RefinedGlassButtonStyle())
-                .help(helpText)
-            } else {
-                Button(role: role, action: action) {
-                    Label {
-                        if let text {
-                            Text(text)
-                                .foregroundColor(textcolor ? .green : (colorScheme == .dark ? .white : .black))
-                        }
-                    } icon: {
+                } icon: {
+                    if !systemImage.isEmpty {
                         Image(systemName: systemImage)
                     }
                 }
-                .buttonStyle(RefinedGlassButtonStyle())
-                .help(helpText)
             }
-        } else {
-            // For older macOS versions, use .cancel for close buttons, or nil for others
-            let fallbackRole: ButtonRole? = {
-                if #available(macOS 26.0, *) {
-                    return role == .close ? .cancel : role
-                }
-                return role
-            }()
-
-            if systemImage.isEmpty {
-                Button(role: role, action: action) {
-                    if let text {
-                        Text(text)
-                            .foregroundColor(textcolor ? .green : (colorScheme == .dark ? .white : .black))
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .help(helpText)
-            } else {
-                Button(role: fallbackRole, action: action) {
-                    Label {
-                        if let text {
-                            Text(text)
-                                .foregroundColor(textcolor ? .green : (colorScheme == .dark ? .white : .black))
-                        }
-                    } icon: {
-                        Image(systemName: systemImage)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .help(helpText)
-            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.thinMaterial, in: Capsule())
+            .overlay { Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5) }
+            .help(helpText)
         }
     }
 }
