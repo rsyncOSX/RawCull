@@ -7,28 +7,48 @@ struct FocusMaskControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Focus Mask")
-                    .font(.headline)
-                Spacer()
+            if controlsCollapsed {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        controlsCollapsed.toggle()
+                        controlsCollapsed = false
                     }
                 } label: {
-                    Label(
-                        controlsCollapsed ? "Show" : "Hide",
-                        systemImage: controlsCollapsed ? "chevron.up" : "chevron.down",
-                    )
-                    .font(.caption)
-                    .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                    HStack(spacing: 8) {
+                        Image(systemName: "viewfinder")
+                            .font(.caption)
+                        Text("Focus Mask Controls")
+                            .font(.caption)
+                        Image(systemName: "chevron.up")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.quaternary, in: Capsule())
                 }
                 .buttonStyle(.plain)
+            } else {
+                HStack {
+                    Text("Focus Mask")
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            controlsCollapsed.toggle()
+                        }
+                    } label: {
+                        Label(
+                            "Hide",
+                            systemImage: "chevron.down",
+                        )
+                        .font(.caption)
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
 
-                if !controlsCollapsed {
                     Button("Reset") {
                         config = FocusDetectorConfig()
                         overlayOpacity = 0.85
@@ -37,9 +57,7 @@ struct FocusMaskControlsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-            }
 
-            if !controlsCollapsed {
                 LabeledSlider(
                     label: "Threshold",
                     value: $config.threshold,
