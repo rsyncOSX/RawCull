@@ -47,7 +47,7 @@ struct MainCachedThumbnailView: View {
                                         }
                                         .onEnded { _ in
                                             lastScale = scale
-                                        }
+                                        },
                                 )
                                 .simultaneousGesture(
                                     DragGesture()
@@ -55,11 +55,11 @@ struct MainCachedThumbnailView: View {
                                             if scale > 1.0 {
                                                 offset = CGSize(
                                                     width: value.translation.width,
-                                                    height: value.translation.height
+                                                    height: value.translation.height,
                                                 )
                                             }
                                         }
-                                        .onEnded { _ in }
+                                        .onEnded { _ in },
                                 )
 
                             // 2️⃣ Focus mask overlay
@@ -80,7 +80,7 @@ struct MainCachedThumbnailView: View {
                             if showFocusPoints, let focusPoints {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
-                                    markerSize: markerSize
+                                    markerSize: markerSize,
                                 )
                                 .scaleEffect(scale)
                                 .offset(offset)
@@ -117,7 +117,7 @@ struct MainCachedThumbnailView: View {
             let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
             let cgImage = await RequestThumbnail().requestThumbnail(
                 for: url,
-                targetSize: thumbnailSizePreview
+                targetSize: thumbnailSizePreview,
             )
             if let cgImage {
                 image = NSImage(cgImage: cgImage, size: .zero)
@@ -216,7 +216,7 @@ struct MainCachedThumbnailView: View {
                 } label: {
                     Label(
                         controlsCollapsed ? "Show" : "Hide",
-                        systemImage: controlsCollapsed ? "chevron.up" : "chevron.down"
+                        systemImage: controlsCollapsed ? "chevron.up" : "chevron.down",
                     )
                     .font(.caption)
                     .labelStyle(.titleAndIcon)
@@ -242,31 +242,31 @@ struct MainCachedThumbnailView: View {
                     label: "Threshold",
                     value: $focusDetectorModel.config.threshold,
                     range: 0.10 ... 0.50,
-                    hint: "Lower = more highlighted, Higher = only sharpest edges"
+                    hint: "Lower = more highlighted, Higher = only sharpest edges",
                 )
 
                 LabeledSlider(
                     label: "Pre-blur",
                     value: $focusDetectorModel.config.preBlurRadius,
                     range: 0.5 ... 2.5,
-                    hint: "Higher = ignore more background texture"
+                    hint: "Higher = ignore more background texture",
                 )
 
                 LabeledSlider(
                     label: "Amplify",
                     value: $focusDetectorModel.config.energyMultiplier,
                     range: 4.0 ... 20.0,
-                    hint: "Amplification of sharpness signal"
+                    hint: "Amplification of sharpness signal",
                 )
 
                 LabeledSlider(
                     label: "Overlay",
                     value: Binding(
                         get: { Float(overlayOpacity) },
-                        set: { overlayOpacity = Double($0) }
+                        set: { overlayOpacity = Double($0) },
                     ),
                     range: 0.3 ... 1.0,
-                    hint: "Overlay strength"
+                    hint: "Overlay strength",
                 )
             }
         }

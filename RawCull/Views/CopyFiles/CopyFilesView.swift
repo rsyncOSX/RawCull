@@ -65,7 +65,7 @@ struct CopyFilesView: View {
                 destinationcatalog: $destinationcatalog,
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
-                max: $max
+                max: $max,
             )
 
             Spacer()

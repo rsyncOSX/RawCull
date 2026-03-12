@@ -20,13 +20,13 @@ struct SourceAndDestinationSection: View {
                     .padding()
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                     )
 
                     OpencatalogView(
                         selecteditem: $sourcecatalog,
                         catalogs: true,
-                        bookmarkKey: "sourceBookmark"
+                        bookmarkKey: "sourceBookmark",
                     )
                 }
 
@@ -40,7 +40,7 @@ struct SourceAndDestinationSection: View {
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                         )
                     } else {
                         HStack {
@@ -50,14 +50,14 @@ struct SourceAndDestinationSection: View {
                         .padding()
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
                         )
                     }
 
                     OpencatalogView(
                         selecteditem: $destinationcatalog,
                         catalogs: true,
-                        bookmarkKey: "destBookmark"
+                        bookmarkKey: "destBookmark",
                     )
                     .onChange(of: destinationcatalog) { _, _ in
                         updateMax(resetRatingWhenNotTagged: true)

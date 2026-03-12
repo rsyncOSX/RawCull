@@ -117,7 +117,7 @@ struct RawCullView: View {
                     lastScale: $viewModel.lastScale,
                     offset: $viewModel.offset,
                     handleToggleSelection: handleToggleSelection,
-                    abort: abort
+                    abort: abort,
                 )
             }
 
@@ -178,9 +178,9 @@ struct RawCullView: View {
                 if viewModel.memorypressurewarning {
                     MemoryWarningLabelView(
                         memoryWarningOpacity: $memoryWarningOpacity,
-                        onAppearAction: startMemoryWarningFlash
+                        onAppearAction: startMemoryWarningFlash,
                     )
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .onChange(of: viewModel.memorypressurewarning) { _, newValue in

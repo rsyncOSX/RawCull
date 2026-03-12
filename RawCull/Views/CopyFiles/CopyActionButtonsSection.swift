@@ -9,7 +9,7 @@ struct CopyActionButtonsSection: View {
             ConditionalGlassButton(
                 systemImage: "arrowshape.right.fill",
                 text: "Start Copy",
-                helpText: "Start copying files"
+                helpText: "Start copying files",
             ) {
                 onCopyTapped()
             }

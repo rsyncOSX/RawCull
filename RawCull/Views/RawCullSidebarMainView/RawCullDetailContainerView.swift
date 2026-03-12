@@ -20,7 +20,7 @@ struct RawCullDetailContainerView: View {
             scale: $scale,
             lastScale: $lastScale,
             offset: $offset,
-            file: viewModel.selectedFile
+            file: viewModel.selectedFile,
         )
 
         // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
@@ -29,26 +29,26 @@ struct RawCullDetailContainerView: View {
                 focustagimage: $viewModel.focustagimage,
                 files: viewModel.files,
                 selectedFileID: selectedFileID,
-                handleToggleSelection: handleToggleSelection
+                handleToggleSelection: handleToggleSelection,
             )
         }
         if viewModel.focusaborttask {
             AbortTaskFocusView(
                 focusaborttask: $viewModel.focusaborttask,
-                abort: abort
+                abort: abort,
             )
         }
         if viewModel.focushideInspector == true {
             HideInspectorFocusView(
                 focushideInspector: $viewModel.focushideInspector,
-                hideInspector: $viewModel.hideInspector
+                hideInspector: $viewModel.hideInspector,
             )
         }
         if viewModel.focusExtractJPGs {
             ExtractJPGsFocusView(
                 selectedSource: viewModel.selectedSource,
                 alertType: $viewModel.alertType,
-                showingAlert: $viewModel.showingAlert
+                showingAlert: $viewModel.showingAlert,
             )
         }
     }

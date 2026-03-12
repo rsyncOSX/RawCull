@@ -26,7 +26,7 @@ struct FileTableRowView: View {
             Table(
                 filteredFiles,
                 selection: $viewModel.selectedFileID,
-                sortOrder: $viewModel.sortOrder
+                sortOrder: $viewModel.sortOrder,
             ) {
                 TableColumn("", value: \.id) { file in
                     Button(action: {
