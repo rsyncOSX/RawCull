@@ -4,14 +4,6 @@ struct FocusPointControllerView: View {
     @Binding var showFocusPoints: Bool
     @Binding var markerSize: CGFloat
 
-    init(
-        showFocusPoints: Binding<Bool>,
-        markerSize: Binding<CGFloat>,
-    ) {
-        _showFocusPoints = showFocusPoints
-        _markerSize = markerSize
-    }
-
     var body: some View {
         HStack(spacing: 12) {
             if showFocusPoints {
