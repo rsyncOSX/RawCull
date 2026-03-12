@@ -32,10 +32,17 @@ struct ImageTableVerticalView: View {
                                         photo: file.name,
                                         photoURL: file.url,
                                         onSelected: {
-                                            // handleToggleSelection(for: file)
-                                            scrollTo(file, proxy: proxy)
+                                            selectAndScroll(file: file, proxy: proxy)
                                         },
                                         cullingModel: viewModel.cullingModel,
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color.accentColor, lineWidth: isSelected(file) ? 2 : 0),
+                                    )
+                                    .shadow(
+                                        color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
+                                        radius: isSelected(file) ? 4 : 0,
                                     )
                                     .id(file.id)
                                 }
@@ -160,6 +167,21 @@ struct ImageTableVerticalView: View {
         }
     }
 
+    private func selectAndScroll(file: FileItem, proxy: ScrollViewProxy) {
+        selectFile(file)
+        scrollTo(file, proxy: proxy)
+    }
+
+    private func selectFile(_ file: FileItem) {
+        viewModel.selectedFileID = file.id
+        viewModel.selectedFile = file
+        viewModel.isInspectorPresented = true
+    }
+
+    private func isSelected(_ file: FileItem) -> Bool {
+        viewModel.selectedFileID == file.id
+    }
+
     private func moveSelectionUp(proxy: ScrollViewProxy) {
         guard !sortedFiles.isEmpty else { return }
         let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
@@ -177,17 +199,8 @@ struct ImageTableVerticalView: View {
     private func selectAndScroll(to index: Int, proxy: ScrollViewProxy) {
         guard sortedFiles.indices.contains(index) else { return }
         let file = sortedFiles[index]
-        viewModel.selectedFileID = file.id
-        viewModel.selectedFile = file
+        selectFile(file)
         scrollTo(file, proxy: proxy)
-    }
-
-    private func marktoggle(for file: FileItem) -> Bool {
-        if let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == viewModel.selectedSource?.url }),
-           let filerecords = viewModel.cullingModel.savedFiles[index].filerecords {
-            return filerecords.contains { $0.fileName == file.name }
-        }
-        return false
     }
 
     private func showPhotoGridView() -> Bool {
@@ -202,12 +215,4 @@ struct ImageTableVerticalView: View {
         return false
     }
 
-    private func handleToggleSelection(for file: FileItem) {
-        Task {
-            await viewModel.cullingModel.toggleSelectionSavedFiles(
-                in: file.url,
-                toggledfilename: file.name,
-            )
-        }
-    }
 }
