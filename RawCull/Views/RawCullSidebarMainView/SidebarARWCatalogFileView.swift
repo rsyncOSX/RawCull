@@ -48,46 +48,57 @@ struct SidebarARWCatalogFileView: View {
                 ZStack {
                     VStack(alignment: .leading) {
                         HStack {
+                            
                             ConditionalGlassButton(
-                                systemImage: "document.on.document",
-                                text: "Copy",
-                                helpText: "Copy tagged images to destination...",
+                                systemImage: "photo.stack",
+                                text: verticalimages ? "Table" : "Images",
+                                helpText: "View table or images",
                             ) {
-                                viewModel.sheetType = .copytasksview
-                                viewModel.showcopyARWFilesView = true
+                                verticalimages.toggle()
                             }
-                            .disabled(viewModel.creatingthumbnails)
-
-                            ConditionalGlassButton(
-                                systemImage: "trash.fill",
-                                text: "Clear",
-                                helpText: "Clear tagged files",
-                            ) {
-                                viewModel.alertType = .clearToggledFiles
-                                viewModel.showingAlert = true
-                            }
-                            .disabled(viewModel.creatingthumbnails)
-
-                            ConditionalGlassButton(
-                                systemImage: "trash",
-                                text: "Reset",
-                                helpText: "Clean up data from previous saves",
-                            ) {
-                                viewModel.alertType = .resetSavedFiles
-                                viewModel.showingAlert = true
-                            }
-                            .disabled(viewModel.creatingthumbnails)
-
-                            if !viewModel.files.isEmpty {
-                                Picker("Rating", selection: $viewModel.rating) {
-                                    // Iterate over the range 0 to 5
-                                    ForEach(0 ... 5, id: \.self) { number in
-                                        Text("\(number)").tag(number)
-                                    }
+                            
+                            if verticalimages == false {
+                                ConditionalGlassButton(
+                                    systemImage: "document.on.document",
+                                    text: "Copy",
+                                    helpText: "Copy tagged images to destination...",
+                                ) {
+                                    viewModel.sheetType = .copytasksview
+                                    viewModel.showcopyARWFilesView = true
                                 }
-                                .pickerStyle(DefaultPickerStyle())
-                            }
+                                .disabled(viewModel.creatingthumbnails)
 
+                                ConditionalGlassButton(
+                                    systemImage: "trash.fill",
+                                    text: "Clear",
+                                    helpText: "Clear tagged files",
+                                ) {
+                                    viewModel.alertType = .clearToggledFiles
+                                    viewModel.showingAlert = true
+                                }
+                                .disabled(viewModel.creatingthumbnails)
+
+                                ConditionalGlassButton(
+                                    systemImage: "trash",
+                                    text: "Reset",
+                                    helpText: "Clean up data from previous saves",
+                                ) {
+                                    viewModel.alertType = .resetSavedFiles
+                                    viewModel.showingAlert = true
+                                }
+                                .disabled(viewModel.creatingthumbnails)
+
+                                if !viewModel.files.isEmpty {
+                                    Picker("Rating", selection: $viewModel.rating) {
+                                        // Iterate over the range 0 to 5
+                                        ForEach(0 ... 5, id: \.self) { number in
+                                            Text("\(number)").tag(number)
+                                        }
+                                    }
+                                    .pickerStyle(DefaultPickerStyle())
+                                }
+                            }
+                            
                             if viewModel.focusPoints?.isEmpty == false {
                                 Image(systemName: "viewfinder.circle.fill")
                                     .font(.caption)
