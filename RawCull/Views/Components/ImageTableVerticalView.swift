@@ -21,7 +21,7 @@ struct ImageTableVerticalView: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            ScrollViewReader { proxy in
+            ScrollViewReader {_ in 
                 GeometryReader { geo in
                     ScrollView(.vertical) {
                         VStack {
@@ -32,7 +32,8 @@ struct ImageTableVerticalView: View {
                                         photo: file.name,
                                         photoURL: file.url,
                                         onSelected: {
-                                            selectAndScroll(file: file, proxy: proxy)
+                                            selectFile(file)
+                                            // selectAndScroll(file: file, proxy: proxy)
                                         },
                                         cullingModel: viewModel.cullingModel,
                                     )
@@ -52,6 +53,7 @@ struct ImageTableVerticalView: View {
                         }
                         .frame(minHeight: geo.size.height)
                     }
+                    /*
                     .overlay(alignment: .trailing) {
                         VStack(spacing: 8) {
                             Button {
@@ -77,6 +79,7 @@ struct ImageTableVerticalView: View {
                         .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
                         .padding(.trailing, 6)
                     }
+                     */
                 }
             }
 
