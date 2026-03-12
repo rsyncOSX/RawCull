@@ -147,32 +147,28 @@ struct ImageTableVerticalView: View {
             return .handled
         }
         .focusable()
-        .onKeyPress(.upArrow) { navigateToPrevious(); return .handled }
-        .onKeyPress(.downArrow) { navigateToNext(); return .handled }
+        .onKeyPress(.upArrow) { navigateToUp(); return .handled }
+        .onKeyPress(.downArrow) { navigateDown(); return .handled }
     }
 
     // MARK: - Private Helpers
     
-    var files: [FileItem] {
-        viewModel.files
+    private func navigateToUp() {
+        guard let current = viewModel.selectedFile,
+              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
+              index - 1 >= 0 else { return }
+        viewModel.selectedFile = sortedFiles[index - 1]
+        viewModel.selectedFileID = sortedFiles[index - 1].id
     }
     
-    private func navigateToNext() {
+    private func navigateDown() {
         guard let current = viewModel.selectedFile,
-              let index = files.firstIndex(where: { $0.id == current.id }),
-              index + 1 < files.count else { return }
-        viewModel.selectedFile = files[index + 1]
-        viewModel.selectedFileID = files[index + 1].id
+              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
+              index + 1 < sortedFiles.count else { return }
+        viewModel.selectedFile = sortedFiles[index + 1]
+        viewModel.selectedFileID = sortedFiles[index + 1].id
     }
 
-    private func navigateToPrevious() {
-        guard let current = viewModel.selectedFile,
-              let index = files.firstIndex(where: { $0.id == current.id }),
-              index - 1 >= 0 else { return }
-        viewModel.selectedFile = files[index - 1]
-        viewModel.selectedFileID = files[index - 1].id
-    }
-    
     private var filteredFiles: [FileItem] {
         viewModel.filteredFiles.filter { file in
             viewModel.getRating(for: file) >= viewModel.rating
