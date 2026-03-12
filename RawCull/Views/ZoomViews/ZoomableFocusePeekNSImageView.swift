@@ -78,8 +78,12 @@ struct ZoomableFocusePeekNSImageView: View {
                     }
 
                     if showFocusMask {
-                        focusMaskControls
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        FocusMaskControlsView(
+                            config: $focusDetectorModel.config,
+                            overlayOpacity: $overlayOpacity,
+                            controlsCollapsed: $controlsCollapsed,
+                        )
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 .padding(.bottom, 20)
@@ -150,83 +154,6 @@ struct ZoomableFocusePeekNSImageView: View {
         .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
         .padding(10)
         .animation(.spring(duration: 0.3), value: showFocusPoints)
-    }
-
-    // MARK: - Focus Mask Controls
-
-    private var focusMaskControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Header — always visible
-            HStack {
-                Text("Focus Mask")
-                    .font(.headline)
-                Spacer()
-                // Collapse / expand button
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        controlsCollapsed.toggle()
-                    }
-                } label: {
-                    Label(
-                        controlsCollapsed ? "Show" : "Hide",
-                        systemImage: controlsCollapsed ? "chevron.up" : "chevron.down",
-                    )
-                    .font(.caption)
-                    .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-
-                if !controlsCollapsed {
-                    Button("Reset") {
-                        focusDetectorModel.config = FocusDetectorConfig()
-                        overlayOpacity = 0.85
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-            }
-
-            // Sliders — hidden when collapsed
-            if !controlsCollapsed {
-                LabeledSlider(
-                    label: "Threshold",
-                    value: $focusDetectorModel.config.threshold,
-                    range: 0.10 ... 0.50,
-                    hint: "Lower = more highlighted, Higher = only sharpest edges",
-                )
-
-                LabeledSlider(
-                    label: "Pre-blur",
-                    value: $focusDetectorModel.config.preBlurRadius,
-                    range: 0.5 ... 2.5,
-                    hint: "Higher = ignore more background texture",
-                )
-
-                LabeledSlider(
-                    label: "Amplify",
-                    value: $focusDetectorModel.config.energyMultiplier,
-                    range: 4.0 ... 20.0,
-                    hint: "Amplification of sharpness signal",
-                )
-
-                LabeledSlider(
-                    label: "Overlay",
-                    value: Binding(
-                        get: { Float(overlayOpacity) },
-                        set: { overlayOpacity = Double($0) },
-                    ),
-                    range: 0.3 ... 1.0,
-                    hint: "Overlay strength",
-                )
-            }
-        }
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
     }
 
     // MARK: - Regenerate Mask
