@@ -6,28 +6,29 @@ struct FocusMaskControlsView: View {
     @Binding var controlsCollapsed: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if controlsCollapsed {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        controlsCollapsed = false
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "viewfinder")
-                            .font(.caption)
-                        Text("Focus Mask Controls")
-                            .font(.caption)
-                        Image(systemName: "chevron.up")
-                            .font(.caption)
-                    }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.quaternary, in: Capsule())
+        if controlsCollapsed {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    controlsCollapsed = false
                 }
-                .buttonStyle(.plain)
-            } else {
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "viewfinder")
+                        .font(.caption)
+                    Text("Focus Mask Controls")
+                        .font(.caption)
+                    Image(systemName: "chevron.up")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.quaternary, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Focus Mask")
                         .font(.headline)
@@ -89,9 +90,9 @@ struct FocusMaskControlsView: View {
                     hint: "Overlay strength",
                 )
             }
+            .padding()
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal)
         }
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
     }
 }
