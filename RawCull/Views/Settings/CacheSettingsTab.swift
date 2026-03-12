@@ -236,10 +236,7 @@ struct CacheSettingsTab: View {
 
     private func formatBytes(_ bytes: Int) -> String {
         if bytes == 0 { return "0 B" }
-        let units = ["B", "KB", "MB", "GB"]
-        let unitIndex = Int(log2(Double(bytes)) / 10)
-        let size = Double(bytes) / pow(1024, Double(unitIndex))
-        return String(format: "%.1f %@", size, units[min(unitIndex, units.count - 1)])
+        return ByteCountFormatStyle(style: .memory).format(Int64(bytes))
     }
 
     func formatted_memory_GiB() -> String {

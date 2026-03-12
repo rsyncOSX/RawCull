@@ -33,7 +33,7 @@ extension RawCullView {
                         viewModel.resetZoom()
                     }
                 }, label: {
-                    Text("Reset \(String(format: "%.0f%%", viewModel.scale * 100))")
+                    Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
                         .font(.caption)
                 })
                 .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)

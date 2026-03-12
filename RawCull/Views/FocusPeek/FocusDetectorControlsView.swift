@@ -55,14 +55,14 @@ struct LabeledSlider: View {
                 Text(label)
                     .font(.caption)
                 Spacer()
-                Text(String(format: "%.2f", value))
+                Text(value, format: .number.precision(.fractionLength(2)))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             Slider(value: $value, in: range)
                 .controlSize(.small)
             Text(hint)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
