@@ -20,21 +20,22 @@ struct ImageTableVerticalView: View {
     var openWindow: (String) -> Void
 
     var body: some View {
-        let filteredFiles = viewModel.filteredFiles.compactMap { file in
-            (viewModel.getRating(for: file) >= viewModel.rating) ? file : nil
+        let filteredFiles = viewModel.filteredFiles.filter { file in
+            viewModel.getRating(for: file) >= viewModel.rating
+        }
+        let sortedFiles = filteredFiles.sorted { lhs, rhs in
+            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
 
         VStack(alignment: .leading) {
             ScrollView(.vertical) {
                 LazyHStack(alignment: .top, spacing: 10) {
-                    ForEach(filteredFiles.sorted(), id: \.self) { photo in
-                        let photoURL = filteredFiles.first(where: { $0.name == photo })?.url
-                        let photoFile = filteredFiles.first(where: { $0.name == photo })
+                    ForEach(sortedFiles, id: \.id) { file in
                         PhotoItemView(
-                            photo: photo,
-                            photoURL: photoURL,
+                            photo: file.name,
+                            photoURL: file.url,
                             onSelected: {
-                                handleToggleSelection(for: viewModel.selectedFile)
+                                handleToggleSelection(for: file)
                             },
                             cullingModel: viewModel.cullingModel,
                         )
