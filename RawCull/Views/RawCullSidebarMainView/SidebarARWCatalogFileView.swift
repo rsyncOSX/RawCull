@@ -17,7 +17,7 @@ struct SidebarARWCatalogFileView: View {
     @Binding var zoomNSImageWindowFocused: Bool
 
     @State var counterScannedFiles: Int = 0
-    
+
     @State private var verticalimages: Bool = true
 
     let issorting: Bool
@@ -48,7 +48,6 @@ struct SidebarARWCatalogFileView: View {
                 ZStack {
                     VStack(alignment: .leading) {
                         HStack {
-                            
                             ConditionalGlassButton(
                                 systemImage: "photo.stack",
                                 text: verticalimages ? "Table" : "Images",
@@ -56,7 +55,7 @@ struct SidebarARWCatalogFileView: View {
                             ) {
                                 verticalimages.toggle()
                             }
-                            
+
                             if verticalimages == false {
                                 ConditionalGlassButton(
                                     systemImage: "document.on.document",
@@ -98,7 +97,7 @@ struct SidebarARWCatalogFileView: View {
                                     .pickerStyle(DefaultPickerStyle())
                                 }
                             }
-                            
+
                             if viewModel.focusPoints?.isEmpty == false {
                                 Image(systemName: "viewfinder.circle.fill")
                                     .font(.caption)
@@ -110,15 +109,14 @@ struct SidebarARWCatalogFileView: View {
                             }
                         }
                         .padding()
-                        
+
                         if verticalimages {
                             ImageTableVerticalView(viewModel: viewModel,
-                                             nsImage: $nsImage,
-                                             cgImage: $cgImage,
-                                             zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                             zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                             openWindow: { id in openWindow(id: id) })
-                            
+                                                   nsImage: $nsImage,
+                                                   cgImage: $cgImage,
+                                                   zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                                   zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                                   openWindow: { id in openWindow(id: id) })
                         } else {
                             FileTableRowView(viewModel: viewModel,
                                              nsImage: $nsImage,
@@ -127,8 +125,6 @@ struct SidebarARWCatalogFileView: View {
                                              zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
                                              openWindow: { id in openWindow(id: id) })
                         }
-
-                        
 
                         if creatingThumbnails {
                             ProgressCount(progress: $progress,

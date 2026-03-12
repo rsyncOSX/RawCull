@@ -32,6 +32,9 @@ struct PhotoItemView: View {
                                 height: CGFloat(savedSettings.thumbnailSizeGrid),
                             )
                             .clipped()
+                            .overlay(alignment: .topTrailing) {
+                                tagButton
+                            }
                     } else if isLoading, let savedSettings {
                         Rectangle()
                             .fill(Color.gray.opacity(0.1))
@@ -100,6 +103,24 @@ struct PhotoItemView: View {
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
+    }
+
+    private var tagButton: some View {
+        Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
+            .foregroundStyle(isTagged ? Color.green : Color.white.opacity(0.8))
+            .shadow(color: .black.opacity(0.5), radius: 2)
+            .buttonStyle(.plain)
+            .padding(5)
+            .background(.ultraThinMaterial)
+            .clipShape(Circle())
+            .padding(5)
+    }
+
+    private var isTagged: Bool {
+        guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
+            return false
+        }
+        return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == photo } ?? false
     }
 
     func setbackground() -> Bool {

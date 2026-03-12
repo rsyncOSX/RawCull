@@ -17,90 +17,107 @@ struct ImageTableVerticalView: View {
     @Binding var zoomCGImageWindowFocused: Bool
     @Binding var zoomNSImageWindowFocused: Bool
 
+    @State private var hoveredFileID: FileItem.ID?
+    @State private var savedSettings: SavedSettings?
+
     var openWindow: (String) -> Void
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
+    }
 
     var body: some View {
         VStack(alignment: .leading) {
             ScrollViewReader { proxy in
                 GeometryReader { geo in
                     ScrollView(.vertical) {
-                        VStack {
-                            Spacer(minLength: 0)
-                            LazyVStack(alignment: .center, spacing: 10) {
-                                ForEach(sortedFiles, id: \.id) { file in
-                                    PhotoItemView(
-                                        photo: file.name,
-                                        photoURL: file.url,
-                                        onSelected: {
-                                            selectAndScroll(file: file, proxy: proxy)
-                                        },
-                                        cullingModel: viewModel.cullingModel,
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(Color.accentColor, lineWidth: isSelected(file) ? 2 : 0),
-                                    )
-                                    .shadow(
-                                        color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
-                                        radius: isSelected(file) ? 4 : 0,
-                                    )
-                                    .id(file.id)
+                        if let savedSettings {
+                            VStack {
+                                Spacer(minLength: 0)
+                                LazyVStack(alignment: .center, spacing: 10) {
+                                    ForEach(sortedFiles, id: \.id) { file in
+                                        ImageItemView(
+                                            viewModel: viewModel,
+                                            cullingModel: cullingModel,
+                                            file: file,
+                                            selectedSource: viewModel.selectedSource,
+                                            isHovered: hoveredFileID == file.id,
+                                            thumbnailSize: savedSettings.thumbnailSizeGrid,
+
+                                            // One click for select only
+                                            onToggle: {
+                                                selectFile(file)
+                                            },
+                                            // Double clik for tag Image
+                                            onSelected: {
+                                                selectFile(file)
+                                                Task {
+                                                    await cullingModel.toggleSelectionSavedFiles(
+                                                        in: file.url,
+                                                        toggledfilename: file.name,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                        .id(file.id)
+                                        .onHover { isHovered in
+                                            hoveredFileID = isHovered ? file.id : nil
+                                        }
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.accentColor, lineWidth: isSelected(file) ? 2 : 0),
+                                        )
+                                        .shadow(
+                                            color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
+                                            radius: isSelected(file) ? 4 : 0,
+                                        )
+                                        .id(file.id)
+                                    }
+                                }
+                                .padding(.vertical)
+
+                                Spacer(minLength: 0)
+                            }
+                            .frame(minHeight: geo.size.height)
+                            .onChange(of: viewModel.selectedFileID) { _, newID in
+                                if let newID {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        proxy.scrollTo(newID, anchor: .center)
+                                    }
                                 }
                             }
-                            .padding(.vertical)
-                            Spacer(minLength: 0)
-                        }
-                        .frame(minHeight: geo.size.height)
-                    }
-                    .onChange(of: viewModel.selectedFileID) { _, newID in
-                        if let newID {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                proxy.scrollTo(newID, anchor: .center)
-                            }
-                        }
-                    }
-                    .overlay(alignment: .trailing) {
-                        VStack(spacing: 8) {
-                            Button {
-                                moveSelectionUp(proxy: proxy)
-                            } label: {
-                                Image(systemName: "chevron.up")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Scroll up")
 
-                            Button {
-                                moveSelectionDown(proxy: proxy)
-                            } label: {
-                                Image(systemName: "chevron.down")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Scroll down")
+                            .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
                         }
-                        .padding(8)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
-                        .padding(.trailing, 6)
                     }
+
+                    if viewModel.focustagimage == true { labeltagimage }
                 }
-            }
+                .overlay(alignment: .trailing) {
+                    VStack(spacing: 8) {
+                        Button {
+                            moveSelectionUp(proxy: proxy)
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Scroll up")
 
-            // Bottom row tagged Images.
-            if showPhotoGridView() {
-                Divider()
-
-                PhotoGridView(
-                    cullingModel: viewModel.cullingModel,
-                    files: viewModel.filteredFiles,
-                    photoURL: viewModel.selectedSource?.url,
-                    onPhotoSelected: { file in
-                        viewModel.selectedFileID = file.id
-                        viewModel.selectedFile = file
-                        viewModel.isInspectorPresented = true
-                    },
-                )
+                        Button {
+                            moveSelectionDown(proxy: proxy)
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Scroll down")
+                    }
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+                    .padding(.trailing, 6)
+                }
             }
         }
         .onChange(of: viewModel.selectedFileID) { _, _ in
@@ -157,10 +174,33 @@ struct ImageTableVerticalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
+        .task {
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
+        }
+    }
+
+    var labeltagimage: some View {
+        Label("", systemImage: "play.fill")
+            .onAppear {
+                viewModel.focustagimage = false
+                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
+                    let fileitem = viewModel.files[index]
+                    handleToggleSelection(for: fileitem)
+                }
+            }
+    }
+
+    private func handleToggleSelection(for file: FileItem) {
+        Task {
+            await cullingModel.toggleSelectionSavedFiles(
+                in: file.url,
+                toggledfilename: file.name,
+            )
+        }
     }
 
     // MARK: - Private Helpers
-    
+
     private func navigateToUp() {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
@@ -168,7 +208,7 @@ struct ImageTableVerticalView: View {
         viewModel.selectedFile = sortedFiles[index - 1]
         viewModel.selectedFileID = sortedFiles[index - 1].id
     }
-    
+
     private func navigateDown() {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
@@ -225,17 +265,4 @@ struct ImageTableVerticalView: View {
     private func isSelected(_ file: FileItem) -> Bool {
         viewModel.selectedFileID == file.id
     }
-
-    private func showPhotoGridView() -> Bool {
-        guard let catalogURL = viewModel.selectedSource?.url,
-              let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
-        else {
-            return false
-        }
-        if let records = viewModel.cullingModel.savedFiles[index].filerecords {
-            return !records.isEmpty
-        }
-        return false
-    }
-
 }
