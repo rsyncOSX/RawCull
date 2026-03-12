@@ -17,6 +17,8 @@ struct SidebarARWCatalogFileView: View {
     @Binding var zoomNSImageWindowFocused: Bool
 
     @State var counterScannedFiles: Int = 0
+    
+    @State private var verticalimages: Bool = true
 
     let issorting: Bool
     let max: Double
@@ -97,13 +99,26 @@ struct SidebarARWCatalogFileView: View {
                             }
                         }
                         .padding()
+                        
+                        if verticalimages {
+                            
+                            ImageTableVerticalView(viewModel: viewModel,
+                                             nsImage: $nsImage,
+                                             cgImage: $cgImage,
+                                             zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                             zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                             openWindow: { id in openWindow(id: id) })
+                            
+                        } else {
+                            FileTableRowView(viewModel: viewModel,
+                                             nsImage: $nsImage,
+                                             cgImage: $cgImage,
+                                             zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                             zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                             openWindow: { id in openWindow(id: id) })
+                        }
 
-                        FileTableRowView(viewModel: viewModel,
-                                         nsImage: $nsImage,
-                                         cgImage: $cgImage,
-                                         zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                         zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                         openWindow: { id in openWindow(id: id) })
+                        
 
                         if creatingThumbnails {
                             ProgressCount(progress: $progress,

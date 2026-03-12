@@ -29,7 +29,7 @@ struct ImageTableVerticalView: View {
 
         VStack(alignment: .leading) {
             ScrollView(.vertical) {
-                LazyHStack(alignment: .top, spacing: 10) {
+                LazyVStack(spacing: 2) {
                     ForEach(sortedFiles, id: \.id) { file in
                         PhotoItemView(
                             photo: file.name,
@@ -40,10 +40,10 @@ struct ImageTableVerticalView: View {
                             cullingModel: viewModel.cullingModel,
                         )
                     }
-                    .padding()
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
+            .padding()
 
             // Bottom row tagged Images.
             if showPhotoGridView() {
@@ -135,14 +135,12 @@ struct ImageTableVerticalView: View {
         return false
     }
 
-    private func handleToggleSelection(for file: FileItem?) {
+    private func handleToggleSelection(for file: FileItem) {
         Task {
-            if let file {
-                await viewModel.cullingModel.toggleSelectionSavedFiles(
-                    in: file.url,
-                    toggledfilename: file.name,
-                )
-            }
+            await viewModel.cullingModel.toggleSelectionSavedFiles(
+                in: file.url,
+                toggledfilename: file.name,
+            )
         }
     }
 }
