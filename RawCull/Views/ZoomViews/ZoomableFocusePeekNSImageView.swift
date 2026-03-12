@@ -55,7 +55,9 @@ struct ZoomableFocusePeekNSImageView: View {
                 HStack {
                     Spacer()
 
-                    focuspointcontroller
+                    if focusPoints != nil {
+                        focuspointcontroller
+                    }
 
                     toolbarButton("viewfinder.circle.fill") {
                         withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
