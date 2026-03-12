@@ -22,7 +22,7 @@ struct FileTableImageView: View {
                 if let savedSettings {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 4) {
-                            ForEach(files, id: \.id) { file in
+                            ForEach(sortedFiles, id: \.id) { file in
                                 ImageItemView(
                                     viewModel: viewModel,
                                     cullingModel: cullingModel,
@@ -80,21 +80,29 @@ struct FileTableImageView: View {
 
     private func navigateToNext() {
         guard let current = viewModel.selectedFile,
-              let index = files.firstIndex(where: { $0.id == current.id }),
-              index + 1 < files.count else { return }
-        viewModel.selectedFile = files[index + 1]
-        viewModel.selectedFileID = files[index + 1].id
+              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
+              index + 1 < sortedFiles.count else { return }
+        viewModel.selectedFile = sortedFiles[index + 1]
+        viewModel.selectedFileID = sortedFiles[index + 1].id
     }
 
     private func navigateToPrevious() {
         guard let current = viewModel.selectedFile,
-              let index = files.firstIndex(where: { $0.id == current.id }),
+              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
-        viewModel.selectedFile = files[index - 1]
-        viewModel.selectedFileID = files[index - 1].id
+        viewModel.selectedFile = sortedFiles[index - 1]
+        viewModel.selectedFileID = sortedFiles[index - 1].id
     }
 
-    var files: [FileItem] {
-        viewModel.files
+    private var filteredFiles: [FileItem] {
+        viewModel.filteredFiles.filter { file in
+            viewModel.getRating(for: file) >= viewModel.rating
+        }
+    }
+
+    private var sortedFiles: [FileItem] {
+        filteredFiles.sorted { lhs, rhs in
+            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
     }
 }
