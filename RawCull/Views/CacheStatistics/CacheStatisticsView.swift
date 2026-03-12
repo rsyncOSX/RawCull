@@ -42,7 +42,7 @@ struct CacheStatisticsView: View {
                         .rotationEffect(.degrees(-90))
 
                     VStack(spacing: 0) {
-                        Text(String(format: "%.0f", stats.hitRate))
+                        Text(stats.hitRate, format: .number.precision(.fractionLength(0)))
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                         Text("%")
                             .font(.system(size: 10, weight: .semibold))
@@ -73,7 +73,7 @@ struct CacheStatisticsView: View {
                 }
                 .padding(8)
                 .background(Color(.controlBackgroundColor))
-                .cornerRadius(6)
+                .clipShape(.rect(cornerRadius: 6))
             } else {
                 HStack(spacing: 6) {
                     ProgressView()
@@ -92,7 +92,7 @@ struct CacheStatisticsView: View {
             let producer = Task {
                 while !Task.isCancelled {
                     continuation.yield()
-                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    try? await Task.sleep(for: .seconds(5))
                 }
                 continuation.finish()
             }
@@ -108,7 +108,7 @@ struct CacheStatisticsView: View {
         }
         .padding(10)
         .background(Color(.controlBackgroundColor).opacity(0.5))
-        .cornerRadius(8)
+        .clipShape(.rect(cornerRadius: 8))
     }
 
     private func refreshStatistics() {
@@ -118,27 +118,5 @@ struct CacheStatisticsView: View {
                 self.statistics = stats
             }
         }
-    }
-}
-
-// MARK: - Statistic Item
-
-struct StatisticItemView: View {
-    let imagelabel: String
-    let value: Int
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: imagelabel)
-                .font(.system(size: 12, weight: .semibold))
-
-            Text("\(value)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(6)
-        .background(color.opacity(0.1))
-        .cornerRadius(6)
     }
 }

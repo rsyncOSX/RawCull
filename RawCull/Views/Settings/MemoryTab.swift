@@ -71,7 +71,7 @@ struct MemoryTab: View {
                                 Circle()
                                     .fill(Color.blue)
                                     .frame(width: 8, height: 8)
-                                Text("Used: \(String(format: "%.1f", memoryModel.usedMemoryPercentage))%")
+                                Text("Used: \(memoryModel.usedMemoryPercentage, format: .number.precision(.fractionLength(1)))%")
                                     .font(.system(size: 10, weight: .regular))
                             }
 
@@ -79,7 +79,7 @@ struct MemoryTab: View {
                                 Rectangle()
                                     .fill(Color.red)
                                     .frame(width: 8, height: 8)
-                                Text("Pressure: \(String(format: "%.1f", memoryModel.memoryPressurePercentage))%")
+                                Text("Pressure: \(memoryModel.memoryPressurePercentage, format: .number.precision(.fractionLength(1)))%")
                                     .font(.system(size: 10, weight: .regular))
                             }
 
@@ -105,7 +105,7 @@ struct MemoryTab: View {
                             Text("Of total used memory:")
                                 .font(.system(size: 10, weight: .regular))
                             Spacer()
-                            Text(String(format: "%.1f%%", memoryModel.appMemoryPercentage))
+                            Text("\(memoryModel.appMemoryPercentage, format: .number.precision(.fractionLength(1)))%")
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                         }
                         .foregroundStyle(.secondary)
@@ -144,20 +144,22 @@ struct MemoryTab: View {
                     }
                     .padding(12)
                     .background(Color(.controlBackgroundColor))
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                 }
                 .padding(16)
             }
         }
         .task {
-            let timerStream = AsyncStream<Void> { continuation in
-                Task {
-                    while !Task.isCancelled {
-                        continuation.yield()
-                        try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    }
-                    continuation.finish()
+            let (timerStream, continuation) = AsyncStream.makeStream(of: Void.self)
+            let producer = Task {
+                while !Task.isCancelled {
+                    continuation.yield()
+                    try? await Task.sleep(for: .seconds(1))
                 }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in
+                producer.cancel()
             }
 
             // Consume the stream

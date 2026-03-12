@@ -59,7 +59,14 @@ struct CopyFilesView: View {
             }
 
             // Source and destination catalogs
-            sourceanddestination
+            SourceAndDestinationSection(
+                viewModel: viewModel,
+                sourcecatalog: $sourcecatalog,
+                destinationcatalog: $destinationcatalog,
+                copytaggedfiles: $copytaggedfiles,
+                copyratedfiles: $copyratedfiles,
+                max: $max
+            )
 
             Spacer()
 
@@ -79,7 +86,7 @@ struct CopyFilesView: View {
             guard copyFilesinProgress, let stream = executionManager?.progressStream else { return }
             for await count in stream {
                 progress = Double(count)
-                try? await Task.sleep(nanoseconds: 50_000_000) // throttle to ~20fps
+                try? await Task.sleep(for: .milliseconds(50)) // throttle to ~20fps
             }
         }
         .padding()

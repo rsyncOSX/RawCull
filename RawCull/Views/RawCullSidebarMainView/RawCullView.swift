@@ -120,10 +120,33 @@ struct RawCullView: View {
                 )
 
                 // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
-                if viewModel.focustagimage == true { labeltageimage }
-                if viewModel.focusaborttask { labelaborttask }
-                if viewModel.focushideInspector == true { labelhideinspector }
-                if viewModel.focusExtractJPGs { labelextractjpgs }
+                if viewModel.focustagimage == true {
+                    TagImageFocusView(
+                        focustagimage: $viewModel.focustagimage,
+                        files: viewModel.files,
+                        selectedFileID: viewModel.selectedFileID,
+                        handleToggleSelection: handleToggleSelection
+                    )
+                }
+                if viewModel.focusaborttask {
+                    AbortTaskFocusView(
+                        focusaborttask: $viewModel.focusaborttask,
+                        abort: abort
+                    )
+                }
+                if viewModel.focushideInspector == true {
+                    HideInspectorFocusView(
+                        focushideInspector: $viewModel.focushideInspector,
+                        hideInspector: $viewModel.hideInspector
+                    )
+                }
+                if viewModel.focusExtractJPGs {
+                    ExtractJPGsFocusView(
+                        selectedSource: viewModel.selectedSource,
+                        alertType: $viewModel.alertType,
+                        showingAlert: $viewModel.showingAlert
+                    )
+                }
             }
 
             .sheet(isPresented: $showSavedFiles) {
@@ -169,93 +192,30 @@ struct RawCullView: View {
                     }
                 }
             }
-            .onChange(of: viewModel.sortOrder) {
+            .onChange(of: viewModel.sortOrder) { _, _ in
                 Task(priority: .background) {
                     await viewModel.handleSortOrderChange()
                 }
             }
-            .onChange(of: viewModel.searchText) {
+            .onChange(of: viewModel.searchText) { _, _ in
                 Task(priority: .background) {
                     await viewModel.handleSearchTextChange()
                 }
             }
             .overlay(alignment: .bottom) {
                 if viewModel.memorypressurewarning {
-                    memoryWarningLabel
+                    MemoryWarningLabelView(
+                        memoryWarningOpacity: $memoryWarningOpacity,
+                        onAppearAction: startMemoryWarningFlash
+                    )
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .onChange(of: viewModel.memorypressurewarning) {
-                if viewModel.memorypressurewarning {
+            .onChange(of: viewModel.memorypressurewarning) { _, newValue in
+                if newValue {
                     startMemoryWarningFlash()
                 }
             }
-        }
-    }
-
-    var labelhideinspector: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                viewModel.focushideInspector = false
-                if viewModel.hideInspector == true {
-                    viewModel.hideInspector = false
-                } else {
-                    viewModel.hideInspector = true
-                }
-            }
-    }
-
-    var labeltageimage: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                viewModel.focustagimage = false
-                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                    let fileitem = viewModel.files[index]
-                    handleToggleSelection(for: fileitem)
-                }
-            }
-    }
-
-    var labelaborttask: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                viewModel.focusaborttask = false
-                abort()
-            }
-    }
-
-    var labelextractjpgs: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                guard viewModel.selectedSource != nil else { return }
-                viewModel.alertType = .extractJPGs
-                viewModel.showingAlert = true
-            }
-    }
-
-    var memoryWarningLabel: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 16, weight: .semibold))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("⚠️ Memory Warning")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("System memory pressure detected. Cache has been reduced.")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.red.opacity(memoryWarningOpacity))
-        .foregroundStyle(.white)
-        .cornerRadius(8)
-        .padding(12)
-        .onAppear {
-            startMemoryWarningFlash()
         }
     }
 
@@ -268,12 +228,5 @@ struct RawCullView: View {
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             memoryWarningOpacity = 0.8
         }
-    }
-}
-
-extension View {
-    @ViewBuilder
-    func `if`(_ condition: Bool, transform: (Self) -> some View) -> some View {
-        if condition { transform(self) } else { self }
     }
 }

@@ -18,12 +18,16 @@ struct FileTableRowView: View {
     var openWindow: (String) -> Void
 
     var body: some View {
+        let filteredFiles = viewModel.filteredFiles.compactMap { file in
+            (viewModel.getRating(for: file) >= viewModel.rating) ? file : nil
+        }
+
         VStack(alignment: .leading) {
-            Table(viewModel.filteredFiles.compactMap { file in
-                (viewModel.getRating(for: file) >= viewModel.rating) ? file : nil
-            },
-            selection: $viewModel.selectedFileID,
-            sortOrder: $viewModel.sortOrder) {
+            Table(
+                filteredFiles,
+                selection: $viewModel.selectedFileID,
+                sortOrder: $viewModel.sortOrder
+            ) {
                 TableColumn("", value: \.id) { file in
                     Button(action: {
                         handleToggleSelection(for: file)
@@ -89,7 +93,7 @@ struct FileTableRowView: View {
                 )
             }
         }
-        .onChange(of: viewModel.selectedFileID) {
+        .onChange(of: viewModel.selectedFileID) { _, _ in
             if viewModel.selectedFileID != nil {
                 viewModel.previouslySelectedFileID = viewModel.selectedFileID
             }
