@@ -21,7 +21,7 @@ struct ImageTableVerticalView: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            ScrollViewReader {_ in 
+            ScrollViewReader { proxy in
                 GeometryReader { geo in
                     ScrollView(.vertical) {
                         VStack {
@@ -32,7 +32,7 @@ struct ImageTableVerticalView: View {
                                         photo: file.name,
                                         photoURL: file.url,
                                         onSelected: {
-                                            selectFile(file)
+                                            selectAndScroll(file: file, proxy: proxy)
                                         },
                                         cullingModel: viewModel.cullingModel,
                                     )
@@ -51,6 +51,38 @@ struct ImageTableVerticalView: View {
                             Spacer(minLength: 0)
                         }
                         .frame(minHeight: geo.size.height)
+                    }
+                    .onChange(of: viewModel.selectedFileID) { _, newID in
+                        if let newID {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(newID, anchor: .center)
+                            }
+                        }
+                    }
+                    .overlay(alignment: .trailing) {
+                        VStack(spacing: 8) {
+                            Button {
+                                moveSelectionUp(proxy: proxy)
+                            } label: {
+                                Image(systemName: "chevron.up")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Scroll up")
+
+                            Button {
+                                moveSelectionDown(proxy: proxy)
+                            } label: {
+                                Image(systemName: "chevron.down")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Scroll down")
+                        }
+                        .padding(8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+                        .padding(.trailing, 6)
                     }
                 }
             }
@@ -155,6 +187,33 @@ struct ImageTableVerticalView: View {
         filteredFiles.sorted { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
+    }
+
+    private func scrollTo(_ file: FileItem, proxy: ScrollViewProxy) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            proxy.scrollTo(file.id, anchor: .center)
+        }
+    }
+
+    private func selectAndScroll(file: FileItem, proxy: ScrollViewProxy) {
+        selectFile(file)
+        scrollTo(file, proxy: proxy)
+    }
+
+    private func moveSelectionUp(proxy: ScrollViewProxy) {
+        guard !sortedFiles.isEmpty else { return }
+        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
+        let nextIndex = max(0, currentIndex - 1)
+        let file = sortedFiles[nextIndex]
+        selectAndScroll(file: file, proxy: proxy)
+    }
+
+    private func moveSelectionDown(proxy: ScrollViewProxy) {
+        guard !sortedFiles.isEmpty else { return }
+        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
+        let nextIndex = min(sortedFiles.count - 1, currentIndex + 1)
+        let file = sortedFiles[nextIndex]
+        selectAndScroll(file: file, proxy: proxy)
     }
 
     private func selectFile(_ file: FileItem) {
