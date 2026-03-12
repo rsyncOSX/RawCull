@@ -20,30 +20,58 @@ struct ImageTableVerticalView: View {
     var openWindow: (String) -> Void
 
     var body: some View {
-        let filteredFiles = viewModel.filteredFiles.filter { file in
-            viewModel.getRating(for: file) >= viewModel.rating
-        }
-        let sortedFiles = filteredFiles.sorted { lhs, rhs in
-            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-        }
-
         VStack(alignment: .leading) {
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 2) {
-                    ForEach(sortedFiles, id: \.id) { file in
-                        PhotoItemView(
-                            photo: file.name,
-                            photoURL: file.url,
-                            onSelected: {
-                                handleToggleSelection(for: file)
-                            },
-                            cullingModel: viewModel.cullingModel,
-                        )
+            ScrollViewReader { proxy in
+                GeometryReader { geo in
+                    ScrollView(.vertical) {
+                        VStack {
+                            Spacer(minLength: 0)
+                            LazyVStack(alignment: .center, spacing: 10) {
+                                ForEach(sortedFiles, id: \.id) { file in
+                                    PhotoItemView(
+                                        photo: file.name,
+                                        photoURL: file.url,
+                                        onSelected: {
+                                            // handleToggleSelection(for: file)
+                                            scrollTo(file, proxy: proxy)
+                                        },
+                                        cullingModel: viewModel.cullingModel,
+                                    )
+                                    .id(file.id)
+                                }
+                            }
+                            .padding(.vertical)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: geo.size.height)
+                    }
+                    .overlay(alignment: .trailing) {
+                        VStack(spacing: 8) {
+                            Button {
+                                moveSelectionUp(proxy: proxy)
+                            } label: {
+                                Image(systemName: "chevron.up")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Scroll up")
+
+                            Button {
+                                moveSelectionDown(proxy: proxy)
+                            } label: {
+                                Image(systemName: "chevron.down")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Scroll down")
+                        }
+                        .padding(8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+                        .padding(.trailing, 6)
                     }
                 }
             }
-            .fixedSize(horizontal: true, vertical: false)
-            .padding()
 
             // Bottom row tagged Images.
             if showPhotoGridView() {
@@ -114,6 +142,45 @@ struct ImageTableVerticalView: View {
     }
 
     // MARK: - Private Helpers
+    private var filteredFiles: [FileItem] {
+        viewModel.filteredFiles.filter { file in
+            viewModel.getRating(for: file) >= viewModel.rating
+        }
+    }
+
+    private var sortedFiles: [FileItem] {
+        filteredFiles.sorted { lhs, rhs in
+            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private func scrollTo(_ file: FileItem, proxy: ScrollViewProxy) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            proxy.scrollTo(file.id, anchor: .center)
+        }
+    }
+
+    private func moveSelectionUp(proxy: ScrollViewProxy) {
+        guard !sortedFiles.isEmpty else { return }
+        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
+        let nextIndex = max(0, currentIndex - 1)
+        selectAndScroll(to: nextIndex, proxy: proxy)
+    }
+
+    private func moveSelectionDown(proxy: ScrollViewProxy) {
+        guard !sortedFiles.isEmpty else { return }
+        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
+        let nextIndex = min(sortedFiles.count - 1, currentIndex + 1)
+        selectAndScroll(to: nextIndex, proxy: proxy)
+    }
+
+    private func selectAndScroll(to index: Int, proxy: ScrollViewProxy) {
+        guard sortedFiles.indices.contains(index) else { return }
+        let file = sortedFiles[index]
+        viewModel.selectedFileID = file.id
+        viewModel.selectedFile = file
+        scrollTo(file, proxy: proxy)
+    }
 
     private func marktoggle(for file: FileItem) -> Bool {
         if let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == viewModel.selectedSource?.url }),
