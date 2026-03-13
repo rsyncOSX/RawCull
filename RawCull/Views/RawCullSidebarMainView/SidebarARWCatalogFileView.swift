@@ -131,7 +131,7 @@ struct SidebarARWCatalogFileView: View {
                                                  openWindow: { id in openWindow(id: id) })
                             }
                         }
-                        .frame(minWidth: verticalimages ? 240 : 500)
+                        .frame(minWidth: verticalimages ? 240 : 510)
 
                         if creatingThumbnails {
                             ProgressCount(progress: $progress,
