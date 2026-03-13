@@ -107,10 +107,6 @@ struct DetailOnlyThumbnailsListView: View {
         viewModel.files
     }
 
-    var focusPoints: [FocusPoint]? {
-        viewModel.getFocusPoints()
-    }
-
     var cullingModel: CullingModel {
         viewModel.cullingModel
     }

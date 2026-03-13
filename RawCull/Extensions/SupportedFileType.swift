@@ -5,20 +5,19 @@
 //  Created by Thomas Evensen on 23/02/2026.
 //
 
+// During search in catalog, the fileextension on
+// files retrieved in search is lowercased.
+// guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
+
 enum SupportedFileType: String, CaseIterable {
     case arw
     case jpeg, jpg
-    // case tiff, tif
 
     var extensions: [String] {
         switch self {
         case .arw: ["arw"]
         case .jpg: ["jpg"]
         case .jpeg: ["jpeg"]
-            // case .tiff: return ["tiff"]
-            // case .jpeg: return ["jpeg"]
-            // case .tif: return ["tif"]
-            //
         }
     }
 }

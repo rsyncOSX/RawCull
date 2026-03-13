@@ -183,14 +183,6 @@ final class RawCullViewModel {
         issorting = false
     }
 
-    func clearMemoryCachesandTagging() async {
-        sources.removeAll()
-        selectedSource = nil
-        filteredFiles.removeAll()
-        files.removeAll()
-        selectedFile = nil
-    }
-
     func fileHandler(_ update: Int) {
         progress = Double(update)
     }

@@ -20,7 +20,6 @@ actor SharedMemoryCache {
     /// For Cache monitor
     // 1. Isolated State
     // Removed private memory cache - now using SharedMemoryCache.shared
-    private var successCount = 0
     private let diskCache: DiskCacheManager
     // Cache statistics for monitoring (Actor specific, not shared)
     private var cacheMemory = 0
@@ -38,7 +37,6 @@ actor SharedMemoryCache {
 
     private var _costPerPixel: Int = 4
     private var memoryPressureSource: DispatchSourceMemoryPressure?
-    private var currentMemoryPressure: DispatchSource.MemoryPressureEvent = .normal
 
     // MARK: - Get settings
 
@@ -208,7 +206,6 @@ actor SharedMemoryCache {
         guard let source = memoryPressureSource else { return }
 
         let pressureLevel = source.data
-        currentMemoryPressure = pressureLevel
 
         switch pressureLevel {
         case .normal:
@@ -245,20 +242,6 @@ actor SharedMemoryCache {
 
     private func logMemoryPressure(_ message: String) {
         Logger.process.debugMessageOnly("SharedMemoryCache: \(message)")
-    }
-
-    /// Stops memory pressure monitoring and cleans up the dispatch source.
-    func stopMemoryPressureMonitoring() {
-        if let source = memoryPressureSource {
-            source.cancel()
-            memoryPressureSource = nil
-            Logger.process.debugMessageOnly("SharedMemoryCache: Memory pressure monitoring stopped")
-        }
-    }
-
-    /// Returns the current memory pressure level.
-    var memoryPressure: DispatchSource.MemoryPressureEvent {
-        currentMemoryPressure
     }
 
     // MARK: - Synchronous Accessors (Non-isolated)

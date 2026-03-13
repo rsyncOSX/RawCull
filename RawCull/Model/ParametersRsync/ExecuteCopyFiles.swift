@@ -178,8 +178,6 @@ final class ExecuteCopyFiles {
     }
 
     private func handleProcessTermination(stringoutputfromrsync: [String]?, hiddenID _: Int?) async {
-        let linesCount = stringoutputfromrsync?.count ?? 0
-
         // Create view output asynchronously
         let viewOutput = await ActorCreateOutputforView().createOutputForView(stringoutputfromrsync)
 
@@ -187,7 +185,7 @@ final class ExecuteCopyFiles {
         let result = CopyDataResult(
             output: stringoutputfromrsync,
             viewOutput: viewOutput,
-            linesCount: linesCount,
+            linesCount: stringoutputfromrsync?.count ?? 0,
         )
 
         // Call completion handler

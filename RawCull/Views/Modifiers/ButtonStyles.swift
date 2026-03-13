@@ -7,17 +7,6 @@
 
 import SwiftUI
 
-struct HelpButtonStyle: ButtonStyle {
-    let redorwhitebutton: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundColor(redorwhitebutton ? .red : .blue)
-            .contentShape(Capsule())
-    }
-}
-
-@available(macOS 26.0, *)
 private extension Color {
     @MainActor static var glassBorderLight = Color.white.opacity(0.35)
     @MainActor static var glassBorderDark = Color.white.opacity(0.12)
@@ -26,24 +15,23 @@ private extension Color {
 }
 
 /// A refined glass-like ButtonStyle with sustained pressure animation
-@available(macOS 26.0, *)
-public struct RefinedGlassButtonStyle: ButtonStyle {
-    public var cornerRadius: CGFloat = 10
-    public var horizontalPadding: CGFloat = 16
-    public var verticalPadding: CGFloat = 10
-    public var font: Font = .headline
+ struct RefinedGlassButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = 10
+    var horizontalPadding: CGFloat = 16
+    var verticalPadding: CGFloat = 10
+    var font: Font = .headline
 
-    public var disabledOpacity: Double = 0.6
-    public var disabledBrightness: Double = -0.02
+    var disabledOpacity: Double = 0.6
+    var disabledBrightness: Double = -0.02
 
     /// Duration to hold the pressed animation after release (in seconds)
-    public var pressureHoldDuration: Double = 0.3
+    var pressureHoldDuration: Double = 0.3
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
 
-    public init(
+    init(
         cornerRadius: CGFloat = 10,
         horizontalPadding: CGFloat = 16,
         verticalPadding: CGFloat = 10,
@@ -61,7 +49,7 @@ public struct RefinedGlassButtonStyle: ButtonStyle {
         self.pressureHoldDuration = pressureHoldDuration
     }
 
-    public func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: Configuration) -> some View {
         PressureAnimatedButton(
             configuration: configuration,
             cornerRadius: cornerRadius,
@@ -78,7 +66,6 @@ public struct RefinedGlassButtonStyle: ButtonStyle {
     }
 }
 
-@available(macOS 26.0, *)
 private struct PressureAnimatedButton: View {
     let configuration: ButtonStyle.Configuration
     let cornerRadius: CGFloat

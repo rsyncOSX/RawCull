@@ -26,8 +26,6 @@ struct CopyFilesView: View {
     @State var progress: Double = 0
 
     @State private var executionManager: ExecuteCopyFiles?
-    @State private var showprogressview = false
-
     @State var dryrun: Bool = true
     @State var copytaggedfiles: Bool = true
     @State var copyratedfiles: Int = 0
