@@ -46,6 +46,7 @@ struct CopyFilesView: View {
             if copyFilesinProgress {
                 HStack {
                     ProgressView()
+                        .padding()
 
                     Text(": \(progress, format: .number)")
                 }

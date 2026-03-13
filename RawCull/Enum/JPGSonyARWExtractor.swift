@@ -1,5 +1,5 @@
 //
-//  EmbeddedPreviewExtractor.swift
+//  JPGSonyARWExtractor.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 20/02/2026.
@@ -10,8 +10,8 @@ import Foundation
 import ImageIO
 import OSLog
 
-enum EmbeddedPreviewExtractor {
-    static func extractEmbeddedPreview(
+enum JPGSonyARWExtractor {
+    static func jpgSonyARWExtractor(
         from arwURL: URL,
         fullSize: Bool = false,
     ) async -> CGImage? {

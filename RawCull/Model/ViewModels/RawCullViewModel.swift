@@ -93,8 +93,8 @@ final class RawCullViewModel {
     var countingScannedFiles: (@Sendable (Int) -> Void)?
 
     // Add a property to hold the current preload actor
-    var currentPreloadActor: ScanAndCreateThumbnails?
-    var currentExtractActor: ExtractAndSaveJPGs?
+    var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
+    var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
     var preloadTask: Task<Void, Never>?
 
     func handleSourceChange(url: URL) async {
@@ -146,12 +146,12 @@ final class RawCullViewModel {
                 memorypressurewarning: memorypressurewarning,
             )
 
-            let actor = ScanAndCreateThumbnails()
-            await actor.setFileHandlers(handlers)
-            currentPreloadActor = actor
+            let scanAndCreateThumbnails = ScanAndCreateThumbnails()
+            await scanAndCreateThumbnails.setFileHandlers(handlers)
+            currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
 
             preloadTask = Task {
-                await actor.preloadCatalog(
+                await scanAndCreateThumbnails.preloadCatalog(
                     at: url,
                     targetSize: thumbnailSizePreview,
                 )
@@ -159,6 +159,7 @@ final class RawCullViewModel {
 
             await preloadTask?.value // wait for completion (or cancellation)
             creatingthumbnails = false
+            currentScanAndCreateThumbnailsActor = nil
         }
     }
 
@@ -208,16 +209,16 @@ final class RawCullViewModel {
         // Cancel thumbnail preload
         preloadTask?.cancel()
         preloadTask = nil
-        if let actor = currentPreloadActor {
+        if let actor = currentScanAndCreateThumbnailsActor {
             Task { await actor.cancelPreload() }
         }
-        currentPreloadActor = nil
+        currentScanAndCreateThumbnailsActor = nil
 
         // Cancel JPG extraction — same pattern
-        if let actor = currentExtractActor {
+        if let actor = currentExtractAndSaveJPGsActor {
             Task { await actor.cancelExtractJPGSTask() }
         }
-        currentExtractActor = nil
+        currentExtractAndSaveJPGsActor = nil
 
         creatingthumbnails = false
     }

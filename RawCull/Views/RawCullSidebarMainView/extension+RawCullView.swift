@@ -117,6 +117,9 @@ extension RawCullView {
 
     func extractAllJPGS() {
         Task {
+            // Using the same property to start the progressview.
+            // The text in the Progress is computed to check which
+            // of the current..Actor is != nil
             viewModel.creatingthumbnails = true
 
             let handlers = CreateFileHandlers().createFileHandlers(
@@ -128,12 +131,12 @@ extension RawCullView {
 
             let extract = ExtractAndSaveJPGs()
             await extract.setFileHandlers(handlers)
-            viewModel.currentExtractActor = extract // ← NEW: store it
+            viewModel.currentExtractAndSaveJPGsActor = extract 
 
             guard let url = viewModel.selectedSource?.url else { return }
             await extract.extractAndSaveAlljpgs(from: url)
 
-            viewModel.currentExtractActor = nil // ← NEW: clean up
+            viewModel.currentExtractAndSaveJPGsActor = nil // ← NEW: clean up
             viewModel.creatingthumbnails = false
         }
     }

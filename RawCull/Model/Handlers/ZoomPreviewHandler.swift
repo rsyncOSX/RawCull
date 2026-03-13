@@ -43,7 +43,7 @@ enum ZoomPreviewHandler {
                     openWindow(WindowIdentifier.zoomcgImage.rawValue)
                     // let extractor = ExtractEmbeddedPreview()
                     if file.url.pathExtension.lowercased() == SupportedFileType.arw.rawValue {
-                        if let mycgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
+                        if let mycgImage = await JPGSonyARWExtractor.jpgSonyARWExtractor(
                             from: file.url,
                         ) {
                             setCGImage(mycgImage)

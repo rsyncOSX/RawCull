@@ -134,7 +134,7 @@ struct SidebarARWCatalogFileView: View {
                             ProgressCount(progress: $progress,
                                           estimatedSeconds: $viewModel.estimatedSeconds,
                                           max: Double(max),
-                                          statusText: "Creating Thumbnails or extracting JPGs")
+                                          statusText: "Creating Thumbnails")
                         }
                     }
 

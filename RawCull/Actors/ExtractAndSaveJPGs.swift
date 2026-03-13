@@ -75,7 +75,7 @@ actor ExtractAndSaveJPGs {
 
         if Task.isCancelled { return } // ← NEW
 
-        if let cgImage = await EmbeddedPreviewExtractor.extractEmbeddedPreview(
+        if let cgImage = await JPGSonyARWExtractor.jpgSonyARWExtractor(
             from: url,
         ) {
             if Task.isCancelled { return } // ← NEW: critical one
