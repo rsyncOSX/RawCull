@@ -17,8 +17,8 @@ struct SidebarARWCatalogFileView: View {
     @Binding var zoomNSImageWindowFocused: Bool
 
     @State var counterScannedFiles: Int = 0
-
-    @State private var verticalimages: Bool = true
+    @State var verticalimages: Bool = true
+    @State var savedSettings: SavedSettings?
 
     let issorting: Bool
     let max: Double
@@ -131,7 +131,8 @@ struct SidebarARWCatalogFileView: View {
                                                  openWindow: { id in openWindow(id: id) })
                             }
                         }
-                        .frame(minWidth: verticalimages ? 240 : 510)
+                        .frame(width: verticalimages ? (thumbnailSizeGrid + 20) : 510)
+                        .fixedSize(horizontal: true, vertical: false)
 
                         if creatingThumbnails {
                             ProgressCount(progress: $progress,
@@ -159,6 +160,9 @@ struct SidebarARWCatalogFileView: View {
                 }
             }
         }
+        .task {
+            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
+        }
         .task(id: scanning) {
             viewModel.countingScannedFiles = { count in
                 // Ensure UI state changes happen on the main actor
@@ -172,5 +176,14 @@ struct SidebarARWCatalogFileView: View {
 
     var files: [FileItem] {
         viewModel.files
+    }
+    
+    var thumbnailSizeGrid: CGFloat {
+        if let savedSettings {
+            return CGFloat(savedSettings.thumbnailSizeGrid)
+        } else {
+            return 100
+        }
+       
     }
 }
