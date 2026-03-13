@@ -12,7 +12,7 @@ struct FocusDetectorConfig: Equatable {
 }
 
 @Observable
-final class FocusDetectorMaskModel: @unchecked Sendable {
+final class FocusMaskModel: @unchecked Sendable {
     var config = FocusDetectorConfig()
 
     /// CIContext is thread-safe for rendering; created once for performance.

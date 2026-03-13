@@ -20,7 +20,7 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var focusDetectorModel = FocusDetectorMaskModel()
+    @State private var focusDetectorModel = FocusMaskModel()
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
