@@ -81,7 +81,6 @@ struct CacheSettingsTab: View {
                             }
 
                             Spacer()
-
                         }
                         .padding(12)
                         .background(Color(.controlBackgroundColor))
@@ -141,7 +140,6 @@ struct CacheSettingsTab: View {
             Spacer()
 
             HStack {
-                
                 // Reset Button
                 Button(
                     action: { showResetConfirmation = true },
@@ -166,7 +164,7 @@ struct CacheSettingsTab: View {
                         Text("Are you sure you want to reset all settings to their default values?")
                     },
                 )
-                
+
                 // Prune Disk Cache Button
                 Button(
                     action: { showPruneConfirmation = true },
@@ -189,7 +187,7 @@ struct CacheSettingsTab: View {
                         Text("Are you sure you want prune the disk cache?")
                     },
                 )
-                
+
                 // Save Settings
                 Button(
                     action: { showSaveSettingsConfirmation = true },

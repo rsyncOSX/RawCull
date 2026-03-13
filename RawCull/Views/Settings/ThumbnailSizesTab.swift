@@ -180,7 +180,6 @@ struct ThumbnailSizesTab: View {
             Spacer()
 
             HStack {
-               
                 // Reset Button
                 Button(
                     action: { showResetConfirmation = true },
@@ -205,7 +204,7 @@ struct ThumbnailSizesTab: View {
                         Text("Are you sure you want to reset all settings to their default values?")
                     },
                 )
-                
+
                 // Save Settings
                 Button(
                     action: { showSaveSettingsConfirmation = true },

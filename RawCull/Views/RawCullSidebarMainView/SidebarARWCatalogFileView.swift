@@ -114,24 +114,26 @@ struct SidebarARWCatalogFileView: View {
                         }
                         .padding()
 
-                        if verticalimages {
-                            ImageTableVerticalView(viewModel: viewModel,
-                                                   nsImage: $nsImage,
-                                                   cgImage: $cgImage,
-                                                   zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                                   zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                                   openWindow: { id in openWindow(id: id) })
-                        } else {
-                            FileTableRowView(viewModel: viewModel,
-                                             nsImage: $nsImage,
-                                             cgImage: $cgImage,
-                                             zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                             zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                             openWindow: { id in openWindow(id: id) })
+                        Group {
+                            if verticalimages {
+                                ImageTableVerticalView(viewModel: viewModel,
+                                                       nsImage: $nsImage,
+                                                       cgImage: $cgImage,
+                                                       zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                                       zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                                       openWindow: { id in openWindow(id: id) })
+                            } else {
+                                FileTableRowView(viewModel: viewModel,
+                                                 nsImage: $nsImage,
+                                                 cgImage: $cgImage,
+                                                 zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
+                                                 zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
+                                                 openWindow: { id in openWindow(id: id) })
+                            }
                         }
+                        .frame(minWidth: verticalimages ? 240 : 500)
 
                         if creatingThumbnails {
-                            
                             ProgressCount(progress: $progress,
                                           estimatedSeconds: $viewModel.estimatedSeconds,
                                           max: Double(max),
