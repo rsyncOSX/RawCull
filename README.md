@@ -15,7 +15,7 @@ macOS photo review and selection application for Sony A1 mkI and mkII ARW raw fi
 
 ## Installation
 
-Download from  [GitHub Repository](https://github.com/rsyncOSX/RawCull/releases) .
+RawCull is available for download on the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) or from the [GitHub Repository](https://github.com/rsyncOSX/RawCull/releases). It is possible that the GitHub version is released a day or two before the Apple App Store release due to the different release processes employed by each platform.
 
 ## Version
 
