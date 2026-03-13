@@ -71,7 +71,6 @@ struct ImageTableVerticalView: View {
                                             color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
                                             radius: isSelected(file) ? 4 : 0,
                                         )
-                                        .id(file.id)
                                     }
                                 }
                                 .padding(.vertical)
