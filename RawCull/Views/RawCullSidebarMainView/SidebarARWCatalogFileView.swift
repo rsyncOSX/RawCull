@@ -131,10 +131,11 @@ struct SidebarARWCatalogFileView: View {
                         }
 
                         if creatingThumbnails {
+                            
                             ProgressCount(progress: $progress,
                                           estimatedSeconds: $viewModel.estimatedSeconds,
                                           max: Double(max),
-                                          statusText: "Creating Thumbnails")
+                                          statusText: viewModel.currentScanAndCreateThumbnailsActor != nil ? "Creating Thumbnails" : "Extracting JPGs")
                         }
                     }
 

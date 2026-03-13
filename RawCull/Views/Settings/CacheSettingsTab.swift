@@ -12,6 +12,8 @@ struct CacheSettingsTab: View {
     @Environment(SettingsViewModel.self) var settingsManager
 
     @State private var showResetConfirmation = false
+    @State private var showPruneConfirmation = false
+    @State private var showSaveSettingsConfirmation = false
     @State private var currentDiskCacheSize: Int = 0
     @State private var isLoadingDiskCacheSize = false
     @State private var isPruningDiskCache = false
@@ -80,14 +82,6 @@ struct CacheSettingsTab: View {
 
                             Spacer()
 
-                            ConditionalGlassButton(
-                                systemImage: "trash",
-                                text: "Prune Disk Cache",
-                                helpText: "Prune disk cache to free up space.",
-                            ) {
-                                pruneDiskCache()
-                            }
-                            .disabled(isPruningDiskCache)
                         }
                         .padding(12)
                         .background(Color(.controlBackgroundColor))
@@ -147,16 +141,7 @@ struct CacheSettingsTab: View {
             Spacer()
 
             HStack {
-                ConditionalGlassButton(
-                    systemImage: "square.and.arrow.down.fill",
-                    text: "Save Settings",
-                    helpText: "Save settings",
-                ) {
-                    Task {
-                        await settingsManager.saveSettings()
-                    }
-                }
-
+                
                 // Reset Button
                 Button(
                     action: { showResetConfirmation = true },
@@ -179,6 +164,54 @@ struct CacheSettingsTab: View {
                     },
                     message: {
                         Text("Are you sure you want to reset all settings to their default values?")
+                    },
+                )
+                
+                // Prune Disk Cache Button
+                Button(
+                    action: { showPruneConfirmation = true },
+                    label: {
+                        Label("Prune Disk Cache", systemImage: "trash")
+                            .font(.system(size: 12, weight: .medium))
+                    },
+                )
+                .buttonStyle(RefinedGlassButtonStyle())
+                .confirmationDialog(
+                    "Prune Disk Cache",
+                    isPresented: $showPruneConfirmation,
+                    actions: {
+                        Button("Prune", role: .destructive) {
+                            pruneDiskCache()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    },
+                    message: {
+                        Text("Are you sure you want prune the disk cache?")
+                    },
+                )
+                
+                // Save Settings
+                Button(
+                    action: { showSaveSettingsConfirmation = true },
+                    label: {
+                        Label("Save Settings", systemImage: "square.and.arrow.down.fill")
+                            .font(.system(size: 12, weight: .medium))
+                    },
+                )
+                .buttonStyle(RefinedGlassButtonStyle())
+                .confirmationDialog(
+                    "Save Settings",
+                    isPresented: $showSaveSettingsConfirmation,
+                    actions: {
+                        Button("Save", role: .destructive) {
+                            Task {
+                                await settingsManager.saveSettings()
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    },
+                    message: {
+                        Text("Save Settings to disk?")
                     },
                 )
             }

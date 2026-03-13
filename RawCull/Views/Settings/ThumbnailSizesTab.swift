@@ -10,6 +10,7 @@ import SwiftUI
 struct ThumbnailSizesTab: View {
     @Environment(SettingsViewModel.self) var settingsManager
     @State private var showResetConfirmation = false
+    @State private var showSaveSettingsConfirmation = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -179,17 +180,7 @@ struct ThumbnailSizesTab: View {
             Spacer()
 
             HStack {
-                ConditionalGlassButton(
-                    systemImage: "square.and.arrow.down.fill",
-                    text: "Save Settings",
-                    helpText: "Save settings",
-                ) {
-                    Task {
-                        await settingsManager.saveSettings()
-                        await SharedMemoryCache.shared.refreshConfig()
-                    }
-                }
-
+               
                 // Reset Button
                 Button(
                     action: { showResetConfirmation = true },
@@ -212,6 +203,31 @@ struct ThumbnailSizesTab: View {
                     },
                     message: {
                         Text("Are you sure you want to reset all settings to their default values?")
+                    },
+                )
+                
+                // Save Settings
+                Button(
+                    action: { showSaveSettingsConfirmation = true },
+                    label: {
+                        Label("Save Settings", systemImage: "square.and.arrow.down.fill")
+                            .font(.system(size: 12, weight: .medium))
+                    },
+                )
+                .buttonStyle(RefinedGlassButtonStyle())
+                .confirmationDialog(
+                    "Save Settings",
+                    isPresented: $showSaveSettingsConfirmation,
+                    actions: {
+                        Button("Save", role: .destructive) {
+                            Task {
+                                await settingsManager.saveSettings()
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    },
+                    message: {
+                        Text("Save Settings to disk?")
                     },
                 )
             }
