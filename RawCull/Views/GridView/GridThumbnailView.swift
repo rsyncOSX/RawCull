@@ -15,10 +15,9 @@ struct GridThumbnailView: View {
     var body: some View {
         // let _ = Self._printChanges()
         Group {
-            if let cullingModel = gridthumbnailviewmodel.cullingModel {
+            if gridthumbnailviewmodel.cullingModel != nil {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
-                    cullingModel: cullingModel,
                     selectedSource: gridthumbnailviewmodel.selectedSource,
                 )
             } else {

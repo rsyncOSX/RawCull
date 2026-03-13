@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaggedPhotoHorisontalGridView: View {
-    @Bindable var cullingModel: CullingModel
+    @Bindable var viewModel: RawCullViewModel
     @State private var savedSettings: SavedSettings?
     var files: [FileItem]
     let photoURL: URL?
@@ -27,6 +27,7 @@ struct TaggedPhotoHorisontalGridView: View {
                                     let photoURL = files.first(where: { $0.name == photo })?.url
                                     let photoFile = files.first(where: { $0.name == photo })
                                     TaggedPhotoItemView(
+                                        viewModel: viewModel,
                                         photo: photo,
                                         photoURL: photoURL,
                                         onSelected: {
@@ -34,7 +35,6 @@ struct TaggedPhotoHorisontalGridView: View {
                                                 onPhotoSelected(file)
                                             }
                                         },
-                                        cullingModel: cullingModel,
                                     )
                                 }
                             }
@@ -48,5 +48,9 @@ struct TaggedPhotoHorisontalGridView: View {
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
+    }
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
     }
 }

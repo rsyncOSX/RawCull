@@ -9,7 +9,6 @@ import SwiftUI
 
 struct FileTableImageView: View {
     @Bindable var viewModel: RawCullViewModel
-    @Bindable var cullingModel: CullingModel
 
     let selectedSource: ARWSourceCatalog?
 
@@ -25,7 +24,6 @@ struct FileTableImageView: View {
                             ForEach(sortedFiles, id: \.id) { file in
                                 ImageItemView(
                                     viewModel: viewModel,
-                                    cullingModel: cullingModel,
                                     file: file,
                                     selectedSource: selectedSource,
                                     isHovered: hoveredFileID == file.id,
@@ -76,6 +74,10 @@ struct FileTableImageView: View {
     private func handleToggleSelection(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
+    }
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
     }
 
     private func navigateToNext() {

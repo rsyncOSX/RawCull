@@ -72,7 +72,6 @@ struct DetailOnlyThumbnailsListView: View {
 
         FileTableImageView(
             viewModel: viewModel,
-            cullingModel: viewModel.cullingModel,
             selectedSource: viewModel.selectedSource,
         )
         .padding()

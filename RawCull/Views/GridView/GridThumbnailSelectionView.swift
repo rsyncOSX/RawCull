@@ -10,7 +10,6 @@ import SwiftUI
 
 struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
-    @Bindable var cullingModel: CullingModel
 
     @State private var savedSettings: SavedSettings?
     @State private var hoveredFileID: FileItem.ID?
@@ -43,7 +42,6 @@ struct GridThumbnailSelectionView: View {
                         ForEach(files, id: \.id) { file in
                             ImageItemView(
                                 viewModel: viewModel,
-                                cullingModel: cullingModel,
                                 file: file,
                                 selectedSource: selectedSource,
                                 isHovered: hoveredFileID == file.id,
@@ -82,6 +80,10 @@ struct GridThumbnailSelectionView: View {
     private func handleToggleSelection(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
+    }
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
     }
 
     var files: [FileItem] {

@@ -38,7 +38,6 @@ struct ImageTableVerticalView: View {
                                     ForEach(sortedFiles, id: \.id) { file in
                                         ImageItemView(
                                             viewModel: viewModel,
-                                            cullingModel: cullingModel,
                                             file: file,
                                             selectedSource: viewModel.selectedSource,
                                             isHovered: hoveredFileID == file.id,

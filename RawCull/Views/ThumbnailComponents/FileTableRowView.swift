@@ -82,7 +82,7 @@ struct FileTableRowView: View {
                 Divider()
 
                 TaggedPhotoHorisontalGridView(
-                    cullingModel: viewModel.cullingModel,
+                    viewModel: viewModel,
                     files: viewModel.filteredFiles,
                     photoURL: viewModel.selectedSource?.url,
                     onPhotoSelected: { file in

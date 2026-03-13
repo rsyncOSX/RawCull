@@ -9,11 +9,11 @@ import OSLog
 import SwiftUI
 
 struct TaggedPhotoItemView: View {
+    @Bindable var viewModel: RawCullViewModel
+
     let photo: String
     let photoURL: URL?
     var onSelected: () -> Void = {}
-
-    @Bindable var cullingModel: CullingModel
 
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
@@ -121,6 +121,10 @@ struct TaggedPhotoItemView: View {
             return false
         }
         return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == photo } ?? false
+    }
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
     }
 
     func setbackground() -> Bool {

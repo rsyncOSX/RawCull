@@ -10,7 +10,6 @@ import SwiftUI
 
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
-    @Bindable var cullingModel: CullingModel
 
     let file: FileItem
     let selectedSource: ARWSourceCatalog?
@@ -157,6 +156,10 @@ struct ImageItemView: View {
     }
 
     // MARK: - Helpers
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
+    }
 
     private var isTagged: Bool {
         guard let photoURL = selectedSource?.url else { return false }
