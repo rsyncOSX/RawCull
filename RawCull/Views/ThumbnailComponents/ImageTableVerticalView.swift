@@ -75,7 +75,7 @@ struct ImageTableVerticalView: View {
                                     }
                                 }
                                 .padding(.vertical)
-                                .padding(.horizontal, 12)
+                                .padding(.horizontal, 20)
                                 .frame(maxWidth: .infinity, alignment: .center)
 
                                 Spacer(minLength: 0)
@@ -88,7 +88,6 @@ struct ImageTableVerticalView: View {
                                     }
                                 }
                             }
-
                             .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
                         }
                     }
@@ -187,12 +186,12 @@ struct ImageTableVerticalView: View {
                 viewModel.focustagimage = false
                 if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
                     let fileitem = viewModel.files[index]
-                    handleToggleSelection(for: fileitem)
+                    handleTagImage(for: fileitem)
                 }
             }
     }
 
-    private func handleToggleSelection(for file: FileItem) {
+    private func handleTagImage(for file: FileItem) {
         Task {
             await cullingModel.toggleSelectionSavedFiles(
                 in: file.url,

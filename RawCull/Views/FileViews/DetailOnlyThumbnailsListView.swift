@@ -92,6 +92,15 @@ struct DetailOnlyThumbnailsListView: View {
                 }
             }
     }
+    
+    private func handleTagImage(for file: FileItem) {
+        Task {
+            await cullingModel.toggleSelectionSavedFiles(
+                in: file.url,
+                toggledfilename: file.name,
+            )
+        }
+    }
 
     var files: [FileItem] {
         viewModel.files
@@ -105,14 +114,7 @@ struct DetailOnlyThumbnailsListView: View {
         viewModel.cullingModel
     }
 
-    private func handleTagImage(for file: FileItem) {
-        Task {
-            await cullingModel.toggleSelectionSavedFiles(
-                in: file.url,
-                toggledfilename: file.name,
-            )
-        }
-    }
+   
 }
 
 extension DetailOnlyThumbnailsListView {
