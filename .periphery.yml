@@ -3,3 +3,8 @@ retain_objc_accessible: true
 retain_public: false
 schemes:
 - RawCull
+index_exclude:
+- RawCull/RawCull/Model/ParametersRsync/SynchronizeConfiguration.swift 
+- RawCull/RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
+- RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
+- RawCull/RawCull/Extensions/extension+String+Date.swift
