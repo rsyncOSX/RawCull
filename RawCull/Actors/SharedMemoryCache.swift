@@ -53,7 +53,7 @@ actor SharedMemoryCache {
 
     init(diskCache: DiskCacheManager? = nil) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        Logger.process.debugMessageOnly("SharedMemoryCache: init() complete (pending setup)")
+        Logger.process.debugMessageOnly("SharedMemoryCache: init() complete")
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {

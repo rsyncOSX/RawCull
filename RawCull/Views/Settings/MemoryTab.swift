@@ -120,12 +120,34 @@ struct MemoryTab: View {
                                         .frame(
                                             width: geometry.size.width *
                                                 memoryModel.appMemoryPercentage / 100,
-                                            alignment: .leading,
+                                            alignment: .leading
                                         ),
-                                    alignment: .leading,
+                                    alignment: .leading
                                 )
                         }
                         .frame(height: 20)
+                    }
+
+                    Divider()
+
+                    // macOS System Memory Pressure
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("System Memory Pressure", systemImage: "gauge.with.dots.needle.67percent")
+                                .font(.system(size: 12, weight: .semibold))
+                            Spacer()
+                            Label(
+                                memoryModel.systemPressureLevel.label,
+                                systemImage: memoryModel.systemPressureLevel.systemImage
+                            )
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(pressureLevelColor(memoryModel.systemPressureLevel))
+                        }
+                        .foregroundStyle(.primary)
+
+                        Text("As reported by macOS kernel via DispatchSource")
+                            .font(.system(size: 10, weight: .regular))
+                            .foregroundStyle(.secondary)
                     }
 
                     Divider()
@@ -137,7 +159,8 @@ struct MemoryTab: View {
                         Text("• Total Unified Memory: Total physical memory available\n" +
                             "• Total Used Memory: All processes combined\n" +
                             "• App Memory: RawCull process only\n" +
-                            "• Pressure: macOS threshold where memory warnings occur")
+                            "• Pressure: macOS threshold where memory warnings occur\n" +
+                            "• System Memory Pressure: Kernel-reported level (Normal / Warning / Critical)")
                             .font(.system(size: 10, weight: .regular))
                             .foregroundStyle(.secondary)
                             .lineSpacing(2)
@@ -166,6 +189,14 @@ struct MemoryTab: View {
             for await _ in timerStream {
                 memoryModel.updateMemoryStats()
             }
+        }
+    }
+
+    private func pressureLevelColor(_ level: MemoryViewModel.MemoryPressureLevel) -> Color {
+        switch level {
+        case .normal:   return .green
+        case .warning:  return .orange
+        case .critical: return .red
         }
     }
 }

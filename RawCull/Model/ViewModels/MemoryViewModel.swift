@@ -16,20 +16,73 @@ final class MemoryViewModel {
     var appMemory: UInt64 = 0
     var memoryPressureThreshold: UInt64 = 0
 
+    // macOS-reported memory pressure level
+    var systemPressureLevel: MemoryPressureLevel = .normal
+
     private let pressureThresholdFactor: Double
+    // nonisolated let — deinit can cancel without hopping to the main actor
+    private nonisolated let pressureSource: DispatchSourceMemoryPressure
+
+    enum MemoryPressureLevel {
+        case normal, warning, critical
+
+        var label: String {
+            switch self {
+            case .normal:   return "Normal"
+            case .warning:  return "Warning"
+            case .critical: return "Critical"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .normal:   return "checkmark.circle.fill"
+            case .warning:  return "exclamationmark.triangle.fill"
+            case .critical: return "xmark.octagon.fill"
+            }
+        }
+    }
 
     init(
         updateInterval _: TimeInterval = 1.5,
-        pressureThresholdFactor: Double = 0.80,
+        pressureThresholdFactor: Double = 0.80
     ) {
         self.pressureThresholdFactor = pressureThresholdFactor
+
+        // Build the source before self is fully initialised so it can be
+        // assigned to the nonisolated let in one phase.
+        let source = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.normal, .warning, .critical],
+            queue: .main
+        )
+        self.pressureSource = source
+
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            let event = source.data
+            if event.contains(.critical) {
+                self.systemPressureLevel = .critical
+            } else if event.contains(.warning) {
+                self.systemPressureLevel = .warning
+            } else {
+                self.systemPressureLevel = .normal
+            }
+            Logger.process.debugMessageOnly(
+                "MemoryViewModel: system pressure → \(self.systemPressureLevel.label)"
+            )
+        }
+
+        source.resume()
     }
 
     deinit {
-        // Perform synchronous cleanup; avoid spawning tasks that capture self
-        // stopMonitoring()
+        // DispatchSource.cancel() is safe to call from any context,
+        // so no main-actor hop is needed here.
+        pressureSource.cancel()
         Logger.process.debugMessageOnly("MemoryViewModel: deinitialized")
     }
+
+    // MARK: - Computed percentages
 
     var memoryPressurePercentage: Double {
         guard totalMemory > 0 else { return 0 }
@@ -46,6 +99,8 @@ final class MemoryViewModel {
         return Double(appMemory) / Double(usedMemory) * 100
     }
 
+    // MARK: - Update
+
     func updateMemoryStats() {
         totalMemory = ProcessInfo.processInfo.physicalMemory
         usedMemory = getUsedSystemMemory()
@@ -57,12 +112,14 @@ final class MemoryViewModel {
         Logger.process.debugMessageOnly(message)
     }
 
+    // MARK: - Private helpers
+
     private func getUsedSystemMemory() -> UInt64 {
         let total = ProcessInfo.processInfo.physicalMemory
 
         var stat = vm_statistics64()
         var count = mach_msg_type_number_t(
-            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size,
+            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
         )
 
         let result = withUnsafeMutablePointer(to: &stat) {
@@ -73,24 +130,16 @@ final class MemoryViewModel {
 
         guard result == KERN_SUCCESS else { return 0 }
 
-        let pageSize = UInt64(getpagesize())
-
-        // Accurate calculation: wired + active + compressed memory
-        // - wired: kernel memory, cannot be paged out
-        // - active: recently used, likely still needed
-        // - compressed: pages that have been compressed
-        let wired = UInt64(stat.wire_count)
-        let active = UInt64(stat.active_count)
+        let pageSize   = UInt64(getpagesize())
+        let wired      = UInt64(stat.wire_count)
+        let active     = UInt64(stat.active_count)
         let compressed = UInt64(stat.compressor_page_count)
 
-        let usedMemory = (wired + active + compressed) * pageSize
-
-        // Cap at total to prevent over-reporting
-        return min(usedMemory, total)
+        return min((wired + active + compressed) * pageSize, total)
     }
 
     private func getAppMemory() -> UInt64 {
-        var info = task_vm_info_data_t()
+        var info  = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info>.size / 4)
 
         let result = withUnsafeMutablePointer(to: &info) {
@@ -100,15 +149,14 @@ final class MemoryViewModel {
         }
 
         guard result == KERN_SUCCESS else { return 0 }
-
-        // phys_footprint is the most accurate measure of app memory
-        // It matches what Xcode's Memory Debugger shows
         return info.phys_footprint
     }
 
     private func calculateMemoryPressureThreshold() -> UInt64 {
         UInt64(Double(totalMemory) * pressureThresholdFactor)
     }
+
+    // MARK: - Formatting
 
     func formatBytes(_ bytes: UInt64) -> String {
         let formatter = ByteCountFormatter()
