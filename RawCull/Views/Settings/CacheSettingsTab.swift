@@ -24,194 +24,150 @@ struct CacheSettingsTab: View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 20) {
                 // Memory Cache Section
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Memory & Disk Cache")
-                        .font(.system(size: 14, weight: .semibold))
-                    Divider()
-                    // Cache Size
-                    VStack(alignment: .leading, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Adjust memory cache")
-                                .font(.system(size: 10, weight: .regular))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack(spacing: 16) {
-                            // Cache Size
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "memorychip")
-                                        .font(.system(size: 10, weight: .medium))
-                                    Text("Memory")
-                                        .font(.system(size: 10, weight: .medium))
-                                    Spacer()
-                                    // Only the label uses the converted display value
-                                    Text("Approx images in memory cache: " +
-                                        displayValue(for: settingsManager.memoryCacheSizeMB))
-                                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                }
-                                // slider still uses the real internal values (3000–20000)
-                                Slider(
-                                    value: Binding<Double>(
-                                        get: { Double(settingsManager.memoryCacheSizeMB) },
-                                        set: { settingsManager.memoryCacheSizeMB = Int($0) },
-                                    ),
-                                    in: 3000 ... 20000,
-                                    step: 250,
-                                )
-                                .frame(height: 18)
-                            }
-                        }
-
-                        // Current Disk Cache Size with Prune Button
-                        HStack(spacing: 8) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "internaldrive")
-                                    .font(.system(size: 12, weight: .medium))
-                                Text("Current use: ")
-                                    .font(.system(size: 12, weight: .medium))
-
-                                if isLoadingDiskCacheSize {
-                                    ProgressView()
-                                        .fixedSize()
-                                } else {
-                                    Text(formatBytes(currentDiskCacheSize))
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                }
-                            }
-
-                            Spacer()
-                        }
-                        .padding(12)
-                        .background(Color(.controlBackgroundColor))
-                        .cornerRadius(8)
-
-                        // Cache Limits Summary
+                SettingsCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Memory & Disk Cache")
+                            .font(.system(size: 14, weight: .semibold))
+                        Divider()
+                        // Cache Size
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Cache Limits")
-                                .font(.system(size: 12, weight: .semibold))
-
-                            Divider()
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Adjust memory cache")
+                                    .font(.system(size: 10, weight: .regular))
+                                    .foregroundStyle(.secondary)
+                            }
 
                             HStack(spacing: 16) {
+                                // Cache Size
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Total Cost Limit")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                    Text(formatBytes(cacheConfig?.totalCostLimit ?? 0))
-                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                }
-
-                                Divider()
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Count Limit")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                    if let countLimit = cacheConfig?.countLimit {
-                                        Text("\(String(countLimit))")
-                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "memorychip")
+                                            .font(.system(size: 10, weight: .medium))
+                                        Text("Memory")
+                                            .font(.system(size: 10, weight: .medium))
+                                        Spacer()
+                                        // Only the label uses the converted display value
+                                        Text("Approx images in memory cache: " +
+                                            displayValue(for: settingsManager.memoryCacheSizeMB))
+                                            .font(.system(size: 10, weight: .semibold, design: .rounded))
                                     }
+                                    // slider still uses the real internal values (3000–20000)
+                                    Slider(
+                                        value: Binding<Double>(
+                                            get: { Double(settingsManager.memoryCacheSizeMB) },
+                                            set: { settingsManager.memoryCacheSizeMB = Int($0) }
+                                        ),
+                                        in: 3000 ... 20000,
+                                        step: 250
+                                    )
+                                    .frame(height: 18)
                                 }
+                            }
 
-                                Divider()
+                            // Current Disk Cache Size
+                            SettingsCard {
+                                HStack(spacing: 8) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "internaldrive")
+                                            .font(.system(size: 12, weight: .medium))
+                                        Text("Current use: ")
+                                            .font(.system(size: 12, weight: .medium))
 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Cost Per Pixel")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                    if let costPerPixel = cacheConfig?.costPerPixel {
-                                        Text("\(String(costPerPixel)) bytes")
-                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                        if isLoadingDiskCacheSize {
+                                            ProgressView()
+                                                .fixedSize()
+                                        } else {
+                                            Text(formatBytes(currentDiskCacheSize))
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        }
+                                    }
+
+                                    Spacer()
+                                }
+                            }
+
+                            // Cache Limits Summary
+                            SettingsCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Cache Limits")
+                                        .font(.system(size: 12, weight: .semibold))
+
+                                    Divider()
+
+                                    HStack(spacing: 16) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Total Cost Limit")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundStyle(.secondary)
+                                            Text(formatBytes(cacheConfig?.totalCostLimit ?? 0))
+                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                        }
+
+                                        Divider()
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Count Limit")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundStyle(.secondary)
+                                            if let countLimit = cacheConfig?.countLimit {
+                                                Text("\(String(countLimit))")
+                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                            }
+                                        }
+
+                                        Divider()
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Cost Per Pixel")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundStyle(.secondary)
+                                            if let costPerPixel = cacheConfig?.costPerPixel {
+                                                Text("\(String(costPerPixel)) bytes")
+                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                        .padding(12)
-                        .background(Color(.controlBackgroundColor))
-                        .cornerRadius(8)
                     }
                 }
-                .padding(12)
-                .background(Color(.controlBackgroundColor))
-                .cornerRadius(8)
             }
 
             Spacer()
 
             HStack {
-                // Reset Button
-                Button(
-                    action: { showResetConfirmation = true },
-                    label: {
-                        Label("Reset to Defaults", systemImage: "arrow.uturn.backward")
-                            .font(.system(size: 12, weight: .medium))
-                    },
-                )
-                .buttonStyle(RefinedGlassButtonStyle())
-                .confirmationDialog(
-                    "Reset Settings",
-                    isPresented: $showResetConfirmation,
-                    actions: {
-                        Button("Reset", role: .destructive) {
-                            Task {
-                                await settingsManager.resetToDefaultsMemoryCache()
+                SettingsResetSaveButtons(
+                    showResetConfirmation: $showResetConfirmation,
+                    showSaveConfirmation: $showSaveSettingsConfirmation,
+                    resetMessage: "Are you sure you want to reset all settings to their default values?",
+                    saveMessage: "Save Settings to disk?",
+                    onReset: { Task { await settingsManager.resetToDefaultsMemoryCache() } },
+                    onSave: { Task { await settingsManager.saveSettings() } }
+                ) {
+                    // Prune Disk Cache Button
+                    Button(
+                        action: { showPruneConfirmation = true },
+                        label: {
+                            Label("Prune Disk Cache", systemImage: "trash")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                    )
+                    .buttonStyle(RefinedGlassButtonStyle())
+                    .confirmationDialog(
+                        "Prune Disk Cache",
+                        isPresented: $showPruneConfirmation,
+                        actions: {
+                            Button("Prune", role: .destructive) {
+                                pruneDiskCache()
                             }
+                            Button("Cancel", role: .cancel) {}
+                        },
+                        message: {
+                            Text("Are you sure you want prune the disk cache?")
                         }
-                        Button("Cancel", role: .cancel) {}
-                    },
-                    message: {
-                        Text("Are you sure you want to reset all settings to their default values?")
-                    },
-                )
-
-                // Prune Disk Cache Button
-                Button(
-                    action: { showPruneConfirmation = true },
-                    label: {
-                        Label("Prune Disk Cache", systemImage: "trash")
-                            .font(.system(size: 12, weight: .medium))
-                    },
-                )
-                .buttonStyle(RefinedGlassButtonStyle())
-                .confirmationDialog(
-                    "Prune Disk Cache",
-                    isPresented: $showPruneConfirmation,
-                    actions: {
-                        Button("Prune", role: .destructive) {
-                            pruneDiskCache()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    },
-                    message: {
-                        Text("Are you sure you want prune the disk cache?")
-                    },
-                )
-
-                // Save Settings
-                Button(
-                    action: { showSaveSettingsConfirmation = true },
-                    label: {
-                        Label("Save Settings", systemImage: "square.and.arrow.down.fill")
-                            .font(.system(size: 12, weight: .medium))
-                    },
-                )
-                .buttonStyle(RefinedGlassButtonStyle())
-                .confirmationDialog(
-                    "Save Settings",
-                    isPresented: $showSaveSettingsConfirmation,
-                    actions: {
-                        Button("Save", role: .destructive) {
-                            Task {
-                                await settingsManager.saveSettings()
-                            }
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    },
-                    message: {
-                        Text("Save Settings to disk?")
-                    },
-                )
+                    )
+                }
             }
             .onAppear(perform: refreshDiskCacheSize)
             .task {
