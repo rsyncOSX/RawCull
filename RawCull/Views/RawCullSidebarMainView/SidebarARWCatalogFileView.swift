@@ -49,7 +49,7 @@ struct SidebarARWCatalogFileView: View {
                     VStack(alignment: .leading) {
                         HStack {
                             ConditionalGlassButton(
-                                systemImage: "photo.stack",
+                                systemImage: (verticalimages == true ? "text.justify" : "photo.stack"),
                                 text: verticalimages ? "Table" : "Images",
                                 helpText: "View table or images",
                                 style: .softCapsule,
