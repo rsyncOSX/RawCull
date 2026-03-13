@@ -16,69 +16,16 @@ final class MemoryViewModel {
     var appMemory: UInt64 = 0
     var memoryPressureThreshold: UInt64 = 0
 
-    // macOS-reported memory pressure level
-    var systemPressureLevel: MemoryPressureLevel = .normal
-
     private let pressureThresholdFactor: Double
-    // nonisolated let — deinit can cancel without hopping to the main actor
-    private nonisolated let pressureSource: DispatchSourceMemoryPressure
-
-    enum MemoryPressureLevel {
-        case normal, warning, critical
-
-        var label: String {
-            switch self {
-            case .normal:   return "Normal"
-            case .warning:  return "Warning"
-            case .critical: return "Critical"
-            }
-        }
-
-        var systemImage: String {
-            switch self {
-            case .normal:   return "checkmark.circle.fill"
-            case .warning:  return "exclamationmark.triangle.fill"
-            case .critical: return "xmark.octagon.fill"
-            }
-        }
-    }
 
     init(
         updateInterval _: TimeInterval = 1.5,
         pressureThresholdFactor: Double = 0.80
     ) {
         self.pressureThresholdFactor = pressureThresholdFactor
-
-        // Build the source before self is fully initialised so it can be
-        // assigned to the nonisolated let in one phase.
-        let source = DispatchSource.makeMemoryPressureSource(
-            eventMask: [.normal, .warning, .critical],
-            queue: .main
-        )
-        self.pressureSource = source
-
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            let event = source.data
-            if event.contains(.critical) {
-                self.systemPressureLevel = .critical
-            } else if event.contains(.warning) {
-                self.systemPressureLevel = .warning
-            } else {
-                self.systemPressureLevel = .normal
-            }
-            Logger.process.debugMessageOnly(
-                "MemoryViewModel: system pressure → \(self.systemPressureLevel.label)"
-            )
-        }
-
-        source.resume()
     }
 
     deinit {
-        // DispatchSource.cancel() is safe to call from any context,
-        // so no main-actor hop is needed here.
-        pressureSource.cancel()
         Logger.process.debugMessageOnly("MemoryViewModel: deinitialized")
     }
 
@@ -97,6 +44,11 @@ final class MemoryViewModel {
     var appMemoryPercentage: Double {
         guard usedMemory > 0 else { return 0 }
         return Double(appMemory) / Double(usedMemory) * 100
+    }
+
+    /// Reads directly from SharedMemoryCache — no second DispatchSource needed.
+    var systemPressureLevel: SharedMemoryCache.MemoryPressureLevel {
+        SharedMemoryCache.shared.currentPressureLevel
     }
 
     // MARK: - Update

@@ -27,6 +27,33 @@ actor SharedMemoryCache {
     // Note: cacheEvictions is now tracked by CacheDelegate and read from there
     // For Cache monitor
 
+    // MARK: - Memory pressure level
+
+    /// The kernel-reported memory pressure level.
+    /// nonisolated(unsafe) so MemoryViewModel can read it synchronously on the main actor
+    /// without an await. Only ever written from the DispatchSource event handler.
+    enum MemoryPressureLevel {
+        case normal, warning, critical
+
+        var label: String {
+            switch self {
+            case .normal:   return "Normal"
+            case .warning:  return "Warning"
+            case .critical: return "Critical"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .normal:   return "checkmark.circle.fill"
+            case .warning:  return "exclamationmark.triangle.fill"
+            case .critical: return "xmark.octagon.fill"
+            }
+        }
+    }
+
+    nonisolated(unsafe) private(set) var currentPressureLevel: MemoryPressureLevel = .normal
+
     // MARK: - Non-Isolated State (Thread-Safe by design)
 
     /// NSCache is thread-safe, so we bypass the actor's serialization for direct access.
@@ -114,7 +141,7 @@ actor SharedMemoryCache {
     }
 
     /// This function is executed as part of init, calculates new Cache Costs from
-    /// saved settingd.
+    /// saved settings.
     func setCacheCostsFromSavedSettings() async {
         savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         if let settings = savedSettings {
@@ -209,14 +236,14 @@ actor SharedMemoryCache {
 
         switch pressureLevel {
         case .normal:
+            currentPressureLevel = .normal
             logMemoryPressure("Normal memory pressure")
             Task {
                 await fileHandlers?.memorypressurewarning(false)
             }
 
-            // Cache can operate at full capacity
-
         case .warning:
+            currentPressureLevel = .warning
             logMemoryPressure("Warning: Memory pressure detected, reducing cache to 60%")
             // Reduce cache size to 60% of limit
             let reducedCost = Int(Double(memoryCache.totalCostLimit) * 0.6)
@@ -226,6 +253,7 @@ actor SharedMemoryCache {
             }
 
         case .critical:
+            currentPressureLevel = .critical
             logMemoryPressure("CRITICAL: Memory pressure critical, clearing cache")
             // Clear cache immediately
             memoryCache.removeAllObjects()
