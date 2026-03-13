@@ -61,10 +61,12 @@ struct DetailOnlyThumbnailsListView: View {
                 )
             }
         } else {
+            Spacer()
+
             ContentUnavailableView(
                 "No Selection",
                 systemImage: "doc.text",
-                description: Text("Select a file to view its properties."),
+                description: Text("Select a Image to view its properties."),
             )
         }
 
@@ -91,7 +93,7 @@ struct DetailOnlyThumbnailsListView: View {
                 }
             }
     }
-    
+
     private func handleTagImage(for file: FileItem) {
         Task {
             await cullingModel.toggleSelectionSavedFiles(
@@ -112,8 +114,6 @@ struct DetailOnlyThumbnailsListView: View {
     var cullingModel: CullingModel {
         viewModel.cullingModel
     }
-
-   
 }
 
 extension DetailOnlyThumbnailsListView {

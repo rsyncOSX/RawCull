@@ -69,7 +69,7 @@ struct FileDetailView: View {
                 ContentUnavailableView(
                     "No Selection",
                     systemImage: "doc.text",
-                    description: Text("Select a file to view its properties."),
+                    description: Text("Select a File or Image to view its properties."),
                 )
             }
         }

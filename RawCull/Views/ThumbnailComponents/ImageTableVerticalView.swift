@@ -22,10 +22,6 @@ struct ImageTableVerticalView: View {
 
     var openWindow: (String) -> Void
 
-    var cullingModel: CullingModel {
-        viewModel.cullingModel
-    }
-
     var body: some View {
         VStack(alignment: .center) {
             ScrollViewReader { proxy in
@@ -176,6 +172,10 @@ struct ImageTableVerticalView: View {
     }
 
     // MARK: - Private Helpers
+
+    var cullingModel: CullingModel {
+        viewModel.cullingModel
+    }
 
     private func navigateToUp() {
         guard let current = viewModel.selectedFile,
