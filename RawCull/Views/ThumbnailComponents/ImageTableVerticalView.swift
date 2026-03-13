@@ -87,11 +87,8 @@ struct ImageTableVerticalView: View {
                                     }
                                 }
                             }
-                            .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
                         }
                     }
-
-                    if viewModel.focustagimage == true { labeltagimage }
                 }
                 .overlay(alignment: .trailing) {
                     VStack(spacing: 8) {
@@ -176,26 +173,6 @@ struct ImageTableVerticalView: View {
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
         .task {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
-        }
-    }
-
-    var labeltagimage: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                viewModel.focustagimage = false
-                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                    let fileitem = viewModel.files[index]
-                    handleTagImage(for: fileitem)
-                }
-            }
-    }
-
-    private func handleTagImage(for file: FileItem) {
-        Task {
-            await cullingModel.toggleSelectionSavedFiles(
-                in: file.url,
-                toggledfilename: file.name,
-            )
         }
     }
 
