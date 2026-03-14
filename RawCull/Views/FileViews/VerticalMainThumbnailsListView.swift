@@ -150,7 +150,7 @@ extension VerticalMainThumbnailsListView {
             }
             .help("Show SavedFiles")
         }
-        
+
         ToolbarItem(placement: .status) {
             Button(action: toggleshowinspector) {
                 Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
