@@ -30,7 +30,6 @@ struct GridThumbnailSelectionView: View {
             .background(Color.gray.opacity(0.1))
 
             // Grid view
-            // ScrollView(.horizontal)
             ScrollView {
                 if let savedSettings {
                     LazyVGrid(
