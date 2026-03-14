@@ -150,7 +150,6 @@ struct RawCullMainView: View {
                     showDetailsTagView: $viewModel.showDetailsTagView,
                 )
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.isInspectorPresented)
             .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
                 handlePickerResult(result)
             }

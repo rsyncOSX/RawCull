@@ -120,7 +120,6 @@ struct ImageTableVerticalView: View {
             if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
                 viewModel.selectedFileID = viewModel.files[index].id
                 viewModel.selectedFile = viewModel.files[index]
-                viewModel.isInspectorPresented = true
 
                 let file = viewModel.files[index]
                 if zoomCGImageWindowFocused || zoomNSImageWindowFocused {
@@ -132,8 +131,6 @@ struct ImageTableVerticalView: View {
                         openWindow: { _ in },
                     )
                 }
-            } else {
-                viewModel.isInspectorPresented = false
             }
         }
         .contextMenu(forSelectionType: FileItem.ID.self) { _ in
@@ -235,7 +232,6 @@ struct ImageTableVerticalView: View {
     private func selectFile(_ file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
-        viewModel.isInspectorPresented = true
     }
 
     private func isSelected(_ file: FileItem) -> Bool {

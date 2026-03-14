@@ -85,7 +85,6 @@ struct FileTableRowView: View {
             if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
                 viewModel.selectedFileID = viewModel.files[index].id
                 viewModel.selectedFile = viewModel.files[index]
-                viewModel.isInspectorPresented = true
 
                 let file = viewModel.files[index]
                 if zoomCGImageWindowFocused || zoomNSImageWindowFocused {
@@ -97,8 +96,6 @@ struct FileTableRowView: View {
                         openWindow: { _ in },
                     )
                 }
-            } else {
-                viewModel.isInspectorPresented = false
             }
         }
         .contextMenu(forSelectionType: FileItem.ID.self) { _ in

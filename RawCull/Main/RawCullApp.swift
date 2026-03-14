@@ -115,7 +115,6 @@ struct RawCullApp: App {
                 onPhotoSelected: { file in
                     viewModel.selectedFileID = file.id
                     viewModel.selectedFile = file
-                    viewModel.isInspectorPresented = true
                 },
             )
         }
