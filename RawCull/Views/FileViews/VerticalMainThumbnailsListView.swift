@@ -135,15 +135,6 @@ extension VerticalMainThumbnailsListView {
             .help("Open tagged thumbnail grid view")
         }
 
-        ToolbarItem(placement: .primaryAction) {
-            Button(action: toggleshowinspector) {
-                Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
-            }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Toggle Inspector")
-            .labelStyle(.iconOnly)
-        }
-
         ToolbarItem(placement: .status) {
             Button(action: toggleshowhorizontal) {
                 Label("Horizontal", systemImage: "arrow.up.and.down.text.horizontal")
@@ -158,6 +149,15 @@ extension VerticalMainThumbnailsListView {
                 Label("Details", systemImage: "square.and.arrow.down")
             }
             .help("Show SavedFiles")
+        }
+        
+        ToolbarItem(placement: .status) {
+            Button(action: toggleshowinspector) {
+                Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Toggle Inspector")
+            .labelStyle(.iconOnly)
         }
     }
 

@@ -42,6 +42,17 @@ extension RawCullMainView {
             }
             .help("Show SavedFiles")
         }
+        
+        ToolbarItem(placement: .status) {
+            Button(action: toggleShowInspector) {
+                Label("Details", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+            .help("Toggle Inspector")
+        }
+    }
+    
+    func toggleShowInspector() {
+        viewModel.hideInspector.toggle()
     }
 
     func toggleshowsavedfiles() {

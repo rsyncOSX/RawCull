@@ -63,14 +63,6 @@ struct FileDetailView: View {
                                 })
                                 .disabled(viewModel.scale >= 4.0)
                                 .help("Zoom in")
-
-                                Button(action: {
-                                    viewModel.hideInspector.toggle()
-                                }, label: {
-                                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                                        .font(.system(size: 12))
-                                })
-                                .help("Toggle Inspector")
                             }
 
                             Text(file.name)
