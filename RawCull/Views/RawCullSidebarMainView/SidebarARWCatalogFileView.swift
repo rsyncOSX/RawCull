@@ -56,6 +56,16 @@ struct SidebarARWCatalogFileView: View {
                             ) {
                                 verticalimages.toggle()
                             }
+                            
+                            if !viewModel.files.isEmpty && verticalimages == false {
+                                Picker("Rating", selection: $viewModel.rating) {
+                                    // Iterate over the range 0 to 5
+                                    ForEach(0 ... 5, id: \.self) { number in
+                                        Text("\(number)").tag(number)
+                                    }
+                                }
+                                .pickerStyle(DefaultPickerStyle())
+                            }
 
                             if viewModel.focusPoints?.isEmpty == false {
                                 Image(systemName: "viewfinder.circle.fill")
@@ -67,7 +77,7 @@ struct SidebarARWCatalogFileView: View {
                                     .help("Focus Points available")
                             }
 
-                            if verticalimages == false {
+                            if verticalimages  {
                                 ConditionalGlassButton(
                                     systemImage: "document.on.document",
                                     text: "Copy",
@@ -100,16 +110,6 @@ struct SidebarARWCatalogFileView: View {
                                     viewModel.showingAlert = true
                                 }
                                 .disabled(viewModel.creatingthumbnails)
-
-                                if !viewModel.files.isEmpty {
-                                    Picker("Rating", selection: $viewModel.rating) {
-                                        // Iterate over the range 0 to 5
-                                        ForEach(0 ... 5, id: \.self) { number in
-                                            Text("\(number)").tag(number)
-                                        }
-                                    }
-                                    .pickerStyle(DefaultPickerStyle())
-                                }
                             }
                         }
                         .padding()

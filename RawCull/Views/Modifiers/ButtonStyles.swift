@@ -200,6 +200,7 @@ struct ConditionalGlassButton: View {
             .background(.thinMaterial, in: Capsule())
             .overlay { Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5) }
             .help(helpText)
+            .labelStyle(.iconOnly)
         }
     }
 }

@@ -9,7 +9,7 @@ import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension RawCullView {
+extension RawCullMainView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
         // Zoom controls - only visible when a file is selected
@@ -54,7 +54,7 @@ extension RawCullView {
             }
         }
 
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .status) {
             Button(action: openGridThumbnailWindow) {
                 Label("Grid View", systemImage: "square.grid.2x2")
             }
@@ -62,7 +62,7 @@ extension RawCullView {
             .help("Open thumbnail grid view")
         }
 
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .status) {
             Button(action: toggleshowdetailonly) {
                 Label("Details", systemImage: "photo.stack")
             }
@@ -70,7 +70,7 @@ extension RawCullView {
             .help("Show details")
         }
 
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .status) {
             Button(action: toggleshowsavedfiles) {
                 Label("Details", systemImage: "square.and.arrow.down")
             }

@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 extension KeyPath<FileItem, String>: @unchecked @retroactive Sendable {}
 
-struct RawCullView: View {
+struct RawCullMainView: View {
     @Environment(\.openWindow) var openWindow
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
     @Bindable var viewModel: RawCullViewModel

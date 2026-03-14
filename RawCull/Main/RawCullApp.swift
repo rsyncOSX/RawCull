@@ -31,7 +31,7 @@ struct RawCullApp: App {
 
     var body: some Scene {
         Window("Photo Culling", id: "main-window") {
-            RawCullView(
+            RawCullMainView(
                 viewModel: viewModel,
                 nsImage: $nsImage,
                 cgImage: $cgImage,

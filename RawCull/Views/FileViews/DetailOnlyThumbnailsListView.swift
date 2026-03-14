@@ -115,20 +115,22 @@ struct DetailOnlyThumbnailsListView: View {
 extension DetailOnlyThumbnailsListView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .primaryAction) {
             Button(action: toggleshowinspector) {
                 Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
             .help("Toggle Inspector")
+            .labelStyle(.iconOnly)
         }
 
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .status) {
             Button(action: toggleshowdetailonly) {
                 Label("Details", systemImage: "return")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
             .help("Close Details")
+            .labelStyle(.iconOnly)
         }
     }
 
@@ -137,6 +139,8 @@ extension DetailOnlyThumbnailsListView {
     }
 
     func toggleshowdetailonly() {
+        viewModel.selectedFile = nil
+        viewModel.selectedFileID = nil
         showDetailOnly.toggle()
     }
 }
