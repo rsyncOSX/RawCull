@@ -9,6 +9,7 @@ import SwiftUI
 
 struct VerticalMainThumbnailsListView: View {
     @Environment(\.openWindow) var openWindow
+    @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Bindable var viewModel: RawCullViewModel
     @Binding var showhorizontalvertical: Bool
@@ -118,6 +119,23 @@ struct VerticalMainThumbnailsListView: View {
 extension VerticalMainThumbnailsListView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
+        
+        ToolbarItem(placement: .status) {
+            Button(action: openGridThumbnailWindow) {
+                Label("Grid View", systemImage: "square.grid.2x2")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Open thumbnail grid view")
+        }
+
+        ToolbarItem(placement: .status) {
+            Button(action: opentaggedGridThumbnailWindow) {
+                Label("Grid Tagged Images", systemImage: "square.grid.2x2.fill")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || showGridtaggedThumbnailWindow() == false)
+            .help("Open tagged thumbnail grid view")
+        }
+        
         ToolbarItem(placement: .primaryAction) {
             Button(action: toggleshowinspector) {
                 Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
@@ -135,6 +153,13 @@ extension VerticalMainThumbnailsListView {
             .help("Show Vertical thumbnails")
             .labelStyle(.iconOnly)
         }
+        
+        ToolbarItem(placement: .status) {
+            Button(action: toggleshowsavedfiles) {
+                Label("Details", systemImage: "square.and.arrow.down")
+            }
+            .help("Show SavedFiles")
+        }
     }
 
     func toggleshowinspector() {
@@ -144,4 +169,34 @@ extension VerticalMainThumbnailsListView {
     func toggleshowhorizontal() {
         showhorizontalvertical.toggle()
     }
+    
+    func openGridThumbnailWindow() {
+        gridthumbnailviewmodel.open(
+            cullingModel: viewModel.cullingModel,
+            selectedSource: viewModel.selectedSource,
+            filteredFiles: viewModel.filteredFiles,
+        )
+        openWindow(id: WindowIdentifier.gridThumbnails.rawValue)
+    }
+
+    func opentaggedGridThumbnailWindow() {
+        openWindow(id: WindowIdentifier.gridTaggedThumbnails.rawValue)
+    }
+
+    private func showGridtaggedThumbnailWindow() -> Bool {
+        guard let catalogURL = viewModel.selectedSource?.url,
+              let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
+        else {
+            return false
+        }
+        if let records = viewModel.cullingModel.savedFiles[index].filerecords {
+            return !records.isEmpty
+        }
+        return false
+    }
+    
+    func toggleshowsavedfiles() {
+        viewModel.showSavedFiles.toggle()
+    }
 }
+

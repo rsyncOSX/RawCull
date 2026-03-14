@@ -19,8 +19,6 @@ struct RawCullMainView: View {
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State var showhorizontalvertical: Bool = false
 
-    @State var showSavedFiles: Bool = false
-
     var body: some View {
         // let _ = Self._printChanges()
         if showhorizontalvertical {
@@ -120,8 +118,7 @@ struct RawCullMainView: View {
                     abort: abort,
                 )
             }
-
-            .sheet(isPresented: $showSavedFiles) {
+            .sheet(isPresented: $viewModel.showSavedFiles) {
                 SavedFilesView()
             }
             .focusedSceneValue(\.tagimage, $viewModel.focustagimage)

@@ -45,7 +45,7 @@ extension RawCullMainView {
     }
 
     func toggleshowsavedfiles() {
-        showSavedFiles.toggle()
+        viewModel.showSavedFiles.toggle()
     }
 
     func toggleshowvertical() {
