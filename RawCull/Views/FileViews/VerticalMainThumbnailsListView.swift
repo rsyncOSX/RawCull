@@ -1,5 +1,5 @@
 //
-//  DetailOnlyThumbnailsListView.swift
+//  VerticalMainThumbnailsListView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 07/03/2026.
@@ -119,7 +119,6 @@ struct VerticalMainThumbnailsListView: View {
 extension VerticalMainThumbnailsListView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
-        
         ToolbarItem(placement: .status) {
             Button(action: openGridThumbnailWindow) {
                 Label("Grid View", systemImage: "square.grid.2x2")
@@ -135,7 +134,7 @@ extension VerticalMainThumbnailsListView {
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || showGridtaggedThumbnailWindow() == false)
             .help("Open tagged thumbnail grid view")
         }
-        
+
         ToolbarItem(placement: .primaryAction) {
             Button(action: toggleshowinspector) {
                 Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
@@ -153,7 +152,7 @@ extension VerticalMainThumbnailsListView {
             .help("Show Vertical thumbnails")
             .labelStyle(.iconOnly)
         }
-        
+
         ToolbarItem(placement: .status) {
             Button(action: toggleshowsavedfiles) {
                 Label("Details", systemImage: "square.and.arrow.down")
@@ -169,7 +168,7 @@ extension VerticalMainThumbnailsListView {
     func toggleshowhorizontal() {
         showhorizontalvertical.toggle()
     }
-    
+
     func openGridThumbnailWindow() {
         gridthumbnailviewmodel.open(
             cullingModel: viewModel.cullingModel,
@@ -194,9 +193,8 @@ extension VerticalMainThumbnailsListView {
         }
         return false
     }
-    
+
     func toggleshowsavedfiles() {
         viewModel.showSavedFiles.toggle()
     }
 }
-

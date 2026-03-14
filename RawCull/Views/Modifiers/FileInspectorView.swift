@@ -61,7 +61,7 @@ struct FileInspectorView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Details")
+            // .navigationTitle("XXXX")
             .task(id: file) {
                 let cgImage = await RequestThumbnail().requestThumbnail(for: file.url, targetSize: 1024)
                 if let cgImage {
