@@ -20,7 +20,7 @@ final class MemoryViewModel {
 
     init(
         updateInterval _: TimeInterval = 1.5,
-        pressureThresholdFactor: Double = 0.80
+        pressureThresholdFactor: Double = 0.80,
     ) {
         self.pressureThresholdFactor = pressureThresholdFactor
     }
@@ -71,7 +71,7 @@ final class MemoryViewModel {
 
         var stat = vm_statistics64()
         var count = mach_msg_type_number_t(
-            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
+            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size,
         )
 
         let result = withUnsafeMutablePointer(to: &stat) {
@@ -82,16 +82,16 @@ final class MemoryViewModel {
 
         guard result == KERN_SUCCESS else { return 0 }
 
-        let pageSize   = UInt64(getpagesize())
-        let wired      = UInt64(stat.wire_count)
-        let active     = UInt64(stat.active_count)
+        let pageSize = UInt64(getpagesize())
+        let wired = UInt64(stat.wire_count)
+        let active = UInt64(stat.active_count)
         let compressed = UInt64(stat.compressor_page_count)
 
         return min((wired + active + compressed) * pageSize, total)
     }
 
     private func getAppMemory() -> UInt64 {
-        var info  = task_vm_info_data_t()
+        var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info>.size / 4)
 
         let result = withUnsafeMutablePointer(to: &info) {

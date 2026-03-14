@@ -12,82 +12,27 @@ import UniformTypeIdentifiers
 extension RawCullMainView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
-        // Zoom controls - only visible when a file is selected
-        if viewModel.selectedFile != nil {
-            ToolbarItem(placement: .secondaryAction) {
-                Button(action: {
-                    withAnimation(.spring()) {
-                        viewModel.scale = max(0.5, viewModel.scale - 0.2)
-                    }
-                }, label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 12))
-                })
-                .disabled(viewModel.scale <= 0.5)
-                .help("Zoom out")
+        ToolbarItem(placement: .status) {
+            Button(action: openGridThumbnailWindow) {
+                Label("Grid View", systemImage: "square.grid.2x2")
             }
-
-            ToolbarItem(placement: .secondaryAction) {
-                Button(action: {
-                    withAnimation(.spring()) {
-                        viewModel.resetZoom()
-                    }
-                }, label: {
-                    Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
-                        .font(.caption)
-                })
-                .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
-                .help("Reset zoom")
-            }
-
-            ToolbarItem(placement: .secondaryAction) {
-                Button(action: {
-                    withAnimation(.spring()) {
-                        viewModel.scale = min(4.0, viewModel.scale + 0.2)
-                    }
-                }, label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12))
-                })
-                .disabled(viewModel.scale >= 4.0)
-                .help("Zoom in")
-            }
-            
-            ToolbarItem(placement: .secondaryAction) {
-                Button(action: {
-                    
-                }, label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 12))
-                })
-                .disabled(viewModel.scale >= 4.0)
-                .help("Toggle Inspector")
-            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Open thumbnail grid view")
         }
-        
-        Group {
-            ToolbarItem(placement: .status) {
-                Button(action: openGridThumbnailWindow) {
-                    Label("Grid View", systemImage: "square.grid.2x2")
-                }
-                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-                .help("Open thumbnail grid view")
-            }
 
-            ToolbarItem(placement: .status) {
-                Button(action: toggleshowdetailonly) {
-                    Label("Details", systemImage: "photo.stack")
-                }
-                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-                .help("Show details")
+        ToolbarItem(placement: .status) {
+            Button(action: toggleshowdetailonly) {
+                Label("Details", systemImage: "photo.stack")
             }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+            .help("Show details")
+        }
 
-            ToolbarItem(placement: .status) {
-                Button(action: toggleshowsavedfiles) {
-                    Label("Details", systemImage: "square.and.arrow.down")
-                }
-                .help("Show SavedFiles")
+        ToolbarItem(placement: .status) {
+            Button(action: toggleshowsavedfiles) {
+                Label("Details", systemImage: "square.and.arrow.down")
             }
+            .help("Show SavedFiles")
         }
     }
 

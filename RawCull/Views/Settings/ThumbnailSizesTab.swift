@@ -31,10 +31,10 @@ struct ThumbnailSizesTab: View {
                             description: "Size for grid view thumbnails in Main View",
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGrid) },
-                                set: { settingsManager.thumbnailSizeGrid = Int($0) }
+                                set: { settingsManager.thumbnailSizeGrid = Int($0) },
                             ),
                             range: 50 ... 200,
-                            step: 10
+                            step: 10,
                         )
 
                         SettingsSliderRow(
@@ -44,10 +44,10 @@ struct ThumbnailSizesTab: View {
                             description: "Size for view thumbnails in Grid View",
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGridView) },
-                                set: { settingsManager.thumbnailSizeGridView = Int($0) }
+                                set: { settingsManager.thumbnailSizeGridView = Int($0) },
                             ),
                             range: 200 ... 500,
-                            step: 50
+                            step: 50,
                         )
 
                         // Preview Size
@@ -58,10 +58,10 @@ struct ThumbnailSizesTab: View {
                             description: "Size for preview view thumbnails",
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizePreview) },
-                                set: { settingsManager.thumbnailSizePreview = Int($0) }
+                                set: { settingsManager.thumbnailSizePreview = Int($0) },
                             ),
                             range: 256 ... 2048,
-                            step: 128
+                            step: 128,
                         )
 
                         // Cost Per Pixel
@@ -82,10 +82,10 @@ struct ThumbnailSizesTab: View {
                                         Task {
                                             await SharedMemoryCache.shared.setCostPerPixel(intValue)
                                         }
-                                    }
+                                    },
                                 ),
                                 in: 1 ... 8,
-                                step: 1
+                                step: 1,
                             )
                             HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -135,8 +135,8 @@ struct ThumbnailSizesTab: View {
                                         set: { newValue in
                                             settingsManager.useThumbnailAsZoomPreview = newValue
                                             Task { await settingsManager.saveSettings() }
-                                        }
-                                    )
+                                        },
+                                    ),
                                 )
 
                                 Text("When disabled, extracts the JPG from ARW file for zoom.")
@@ -161,7 +161,7 @@ struct ThumbnailSizesTab: View {
                     resetMessage: "Are you sure you want to reset all settings to their default values?",
                     saveMessage: "Save Settings to disk?",
                     onReset: { Task { await settingsManager.resetToDefaultsThumbnails() } },
-                    onSave: { Task { await settingsManager.saveSettings() } }
+                    onSave: { Task { await settingsManager.saveSettings() } },
                 )
             }
         }

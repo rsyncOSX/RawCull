@@ -15,7 +15,7 @@ private extension Color {
 }
 
 /// A refined glass-like ButtonStyle with sustained pressure animation
- struct RefinedGlassButtonStyle: ButtonStyle {
+struct RefinedGlassButtonStyle: ButtonStyle {
     var cornerRadius: CGFloat = 10
     var horizontalPadding: CGFloat = 16
     var verticalPadding: CGFloat = 10

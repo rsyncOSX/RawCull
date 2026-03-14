@@ -49,15 +49,15 @@ struct SidebarARWCatalogFileView: View {
                     VStack(alignment: .leading) {
                         HStack {
                             ConditionalGlassButton(
-                                systemImage: (verticalimages == true ? "text.justify" : "photo.stack"),
+                                systemImage: verticalimages == true ? "text.justify" : "photo.stack",
                                 text: verticalimages ? "Table" : "Images",
                                 helpText: "View table or images",
                                 style: .softCapsule,
                             ) {
                                 verticalimages.toggle()
                             }
-                            
-                            if !viewModel.files.isEmpty && verticalimages == false {
+
+                            if !viewModel.files.isEmpty, verticalimages == false {
                                 Picker("Rating", selection: $viewModel.rating) {
                                     // Iterate over the range 0 to 5
                                     ForEach(0 ... 5, id: \.self) { number in
@@ -77,7 +77,7 @@ struct SidebarARWCatalogFileView: View {
                                     .help("Focus Points available")
                             }
 
-                            if verticalimages  {
+                            if verticalimages {
                                 ConditionalGlassButton(
                                     systemImage: "document.on.document",
                                     text: "Copy",
@@ -177,13 +177,12 @@ struct SidebarARWCatalogFileView: View {
     var files: [FileItem] {
         viewModel.files
     }
-    
+
     var thumbnailSizeGrid: CGFloat {
         if let savedSettings {
-            return CGFloat(savedSettings.thumbnailSizeGrid)
+            CGFloat(savedSettings.thumbnailSizeGrid)
         } else {
-            return 100
+            100
         }
-       
     }
 }

@@ -55,10 +55,10 @@ struct CacheSettingsTab: View {
                                     Slider(
                                         value: Binding<Double>(
                                             get: { Double(settingsManager.memoryCacheSizeMB) },
-                                            set: { settingsManager.memoryCacheSizeMB = Int($0) }
+                                            set: { settingsManager.memoryCacheSizeMB = Int($0) },
                                         ),
                                         in: 3000 ... 20000,
-                                        step: 250
+                                        step: 250,
                                     )
                                     .frame(height: 18)
                                 }
@@ -143,7 +143,7 @@ struct CacheSettingsTab: View {
                     resetMessage: "Are you sure you want to reset all settings to their default values?",
                     saveMessage: "Save Settings to disk?",
                     onReset: { Task { await settingsManager.resetToDefaultsMemoryCache() } },
-                    onSave: { Task { await settingsManager.saveSettings() } }
+                    onSave: { Task { await settingsManager.saveSettings() } },
                 ) {
                     // Prune Disk Cache Button
                     Button(
@@ -151,7 +151,7 @@ struct CacheSettingsTab: View {
                         label: {
                             Label("Prune Disk Cache", systemImage: "trash")
                                 .font(.system(size: 12, weight: .medium))
-                        }
+                        },
                     )
                     .buttonStyle(RefinedGlassButtonStyle())
                     .confirmationDialog(
@@ -165,7 +165,7 @@ struct CacheSettingsTab: View {
                         },
                         message: {
                             Text("Are you sure you want prune the disk cache?")
-                        }
+                        },
                     )
                 }
             }

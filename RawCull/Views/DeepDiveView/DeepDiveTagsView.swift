@@ -9,7 +9,6 @@
 import SwiftUI
 
 struct DeepDiveTagsView: View {
-    @Binding var showDetailsTagView: Bool
     @State private var viewModel = DeepDiveTagsViewModel()
     @State private var selectedTab: Tab = .properties
     @State private var searchText = ""
@@ -70,14 +69,6 @@ struct DeepDiveTagsView: View {
 
                 TextField("Filter tags…", text: $searchText)
                     .textFieldStyle(.plain)
-
-                Button("Close details", systemImage: "return") {
-                    showDetailsTagView.toggle()
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tertiary)
-                // .labelStyle(.iconOnly)
-                .foregroundColor(.blue)
 
                 if !searchText.isEmpty {
                     Button("Clear search", systemImage: "xmark.circle.fill") {

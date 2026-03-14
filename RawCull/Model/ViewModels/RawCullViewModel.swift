@@ -71,6 +71,9 @@ final class RawCullViewModel {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
     }
 
+    /// Show all extracted details from Image
+    var showDetailsTagView: Bool = false
+
     var alertTitle: String {
         switch alertType {
         case .extractJPGs: "Extract JPGs"

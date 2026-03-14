@@ -45,7 +45,10 @@ struct DetailOnlyThumbnailsListView: View {
             }
 
             .inspector(isPresented: $showInspector) {
-                FileInspectorView(file: $viewModel.selectedFile)
+                FileInspectorView(
+                    file: $viewModel.selectedFile,
+                    showDetailsTagView: $viewModel.showDetailsTagView,
+                )
             }
             .padding()
             .onTapGesture(count: 2) {

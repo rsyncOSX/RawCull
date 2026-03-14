@@ -18,8 +18,8 @@ actor SharedMemoryCache {
     nonisolated static let shared = SharedMemoryCache()
 
     /// For Cache monitor
-    // 1. Isolated State
-    // Removed private memory cache - now using SharedMemoryCache.shared
+    /// 1. Isolated State
+    /// Removed private memory cache - now using SharedMemoryCache.shared
     private let diskCache: DiskCacheManager
     // Cache statistics for monitoring (Actor specific, not shared)
     private var cacheMemory = 0
@@ -37,22 +37,22 @@ actor SharedMemoryCache {
 
         var label: String {
             switch self {
-            case .normal:   return "Normal"
-            case .warning:  return "Warning"
-            case .critical: return "Critical"
+            case .normal: "Normal"
+            case .warning: "Warning"
+            case .critical: "Critical"
             }
         }
 
         var systemImage: String {
             switch self {
-            case .normal:   return "checkmark.circle.fill"
-            case .warning:  return "exclamationmark.triangle.fill"
-            case .critical: return "xmark.octagon.fill"
+            case .normal: "checkmark.circle.fill"
+            case .warning: "exclamationmark.triangle.fill"
+            case .critical: "xmark.octagon.fill"
             }
         }
     }
 
-    nonisolated(unsafe) private(set) var currentPressureLevel: MemoryPressureLevel = .normal
+    private(set) nonisolated(unsafe) var currentPressureLevel: MemoryPressureLevel = .normal
 
     // MARK: - Non-Isolated State (Thread-Safe by design)
 

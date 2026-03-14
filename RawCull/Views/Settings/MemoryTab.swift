@@ -120,9 +120,9 @@ struct MemoryTab: View {
                                         .frame(
                                             width: geometry.size.width *
                                                 memoryModel.appMemoryPercentage / 100,
-                                            alignment: .leading
+                                            alignment: .leading,
                                         ),
-                                    alignment: .leading
+                                    alignment: .leading,
                                 )
                         }
                         .frame(height: 20)
@@ -138,7 +138,7 @@ struct MemoryTab: View {
                             Spacer()
                             Label(
                                 memoryModel.systemPressureLevel.label,
-                                systemImage: memoryModel.systemPressureLevel.systemImage
+                                systemImage: memoryModel.systemPressureLevel.systemImage,
                             )
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundStyle(pressureLevelColor(memoryModel.systemPressureLevel))
@@ -194,9 +194,9 @@ struct MemoryTab: View {
 
     private func pressureLevelColor(_ level: SharedMemoryCache.MemoryPressureLevel) -> Color {
         switch level {
-        case .normal:   return .green
-        case .warning:  return .orange
-        case .critical: return .red
+        case .normal: .green
+        case .warning: .orange
+        case .critical: .red
         }
     }
 }

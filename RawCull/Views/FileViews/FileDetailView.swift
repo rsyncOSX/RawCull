@@ -11,14 +11,11 @@ struct FileDetailView: View {
     @Binding var lastScale: CGFloat
     @Binding var offset: CGSize
 
-    @State var showDetailsTagView: Bool = false
-
     let file: FileItem?
 
     var body: some View {
-        if showDetailsTagView, let url = file?.url {
+        if viewModel.showDetailsTagView, let url = file?.url {
             DeepDiveTagsView(
-                showDetailsTagView: $showDetailsTagView,
                 url: url,
             )
         } else {
@@ -33,21 +30,55 @@ struct FileDetailView: View {
 
                     HStack {
                         VStack {
+                            HStack {
+                                Button(action: {
+                                    withAnimation(.spring()) {
+                                        viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                    }
+                                }, label: {
+                                    Image(systemName: "minus")
+                                        .font(.system(size: 12))
+                                })
+                                .disabled(viewModel.scale <= 0.5)
+                                .help("Zoom out")
+
+                                Button(action: {
+                                    withAnimation(.spring()) {
+                                        viewModel.resetZoom()
+                                    }
+                                }, label: {
+                                    Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
+                                        .font(.caption)
+                                })
+                                .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
+                                .help("Reset zoom")
+
+                                Button(action: {
+                                    withAnimation(.spring()) {
+                                        viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                    }
+                                }, label: {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 12))
+                                })
+                                .disabled(viewModel.scale >= 4.0)
+                                .help("Zoom in")
+
+                                Button(action: {
+                                    viewModel.hideInspector.toggle()
+                                }, label: {
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                        .font(.system(size: 12))
+                                })
+                                .help("Toggle Inspector")
+                            }
+
                             Text(file.name)
                                 .font(.headline)
                             Text(file.url.deletingLastPathComponent().path())
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        ToggleViewDefault(
-                            text: "Show Details",
-                            binding: Binding<Bool>(
-                                get: { showDetailsTagView },
-                                set: { newValue in
-                                    showDetailsTagView = newValue
-                                },
-                            ),
-                        )
                     }
                     .padding()
                 }

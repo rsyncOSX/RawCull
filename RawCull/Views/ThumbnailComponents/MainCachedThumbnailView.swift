@@ -63,6 +63,7 @@ struct MainCachedThumbnailView: View {
                                 )
 
                             // 2️⃣ Focus mask overlay
+
                             if showFocusMask, let mask = focusMask {
                                 Image(nsImage: mask)
                                     .resizable()
