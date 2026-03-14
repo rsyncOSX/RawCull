@@ -142,8 +142,6 @@ extension DetailOnlyThumbnailsListView {
     }
 
     func toggleshowdetailonly() {
-        viewModel.selectedFile = nil
-        viewModel.selectedFileID = nil
         showDetailOnly.toggle()
     }
 }

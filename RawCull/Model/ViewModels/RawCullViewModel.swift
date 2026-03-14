@@ -24,7 +24,7 @@ final class RawCullViewModel {
     var previouslySelectedFileID: FileItem.ID?
     var sortOrder = [KeyPathComparator(\FileItem.name)]
     var isShowingPicker = false
-    var hideInspector = false
+    var hideInspector = true
     var selectedFile: FileItem?
     var issorting: Bool = false
     var progress: Double = 0
@@ -36,7 +36,6 @@ final class RawCullViewModel {
 
     var focustagimage: Bool = false
     var focusaborttask: Bool = false
-    var focushideInspector: Bool = false
     var focusExtractJPGs: Bool = false
 
     var showcopyARWFilesView: Bool = false

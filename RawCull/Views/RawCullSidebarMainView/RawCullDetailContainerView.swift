@@ -38,12 +38,7 @@ struct RawCullDetailContainerView: View {
                 abort: abort,
             )
         }
-        if viewModel.focushideInspector == true {
-            HideInspectorFocusView(
-                focushideInspector: $viewModel.focushideInspector,
-                hideInspector: $viewModel.hideInspector,
-            )
-        }
+
         if viewModel.focusExtractJPGs {
             ExtractJPGsFocusView(
                 selectedSource: viewModel.selectedSource,

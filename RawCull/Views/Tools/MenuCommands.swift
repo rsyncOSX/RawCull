@@ -11,7 +11,6 @@ import SwiftUI
 struct MenuCommands: Commands {
     @FocusedBinding(\.tagimage) private var tagimage
     @FocusedBinding(\.aborttask) private var aborttask
-    @FocusedBinding(\.hideInspector) private var hideInspector
     @FocusedBinding(\.extractJPGs) private var extractJPGs
 
     var body: some Commands {
@@ -21,7 +20,6 @@ struct MenuCommands: Commands {
 
             Divider()
 
-            CommandButton("Toggle Hide Inspector", action: { hideInspector = true }, shortcut: "i")
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
         }
     }
@@ -63,10 +61,6 @@ struct FocusedAborttask: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
-struct FocusedHideInspector: FocusedValueKey {
-    typealias Value = Binding<Bool>
-}
-
 struct FocusedExtractJPGs: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
@@ -80,11 +74,6 @@ extension FocusedValues {
     var aborttask: FocusedAborttask.Value? {
         get { self[FocusedAborttask.self] }
         set { self[FocusedAborttask.self] = newValue }
-    }
-
-    var hideInspector: FocusedHideInspector.Value? {
-        get { self[FocusedHideInspector.self] }
-        set { self[FocusedHideInspector.self] = newValue }
     }
 
     var extractJPGs: FocusedExtractJPGs.Value? {
