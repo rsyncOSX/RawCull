@@ -17,16 +17,16 @@ struct RawCullMainView: View {
     @State var savedSettings: SavedSettings?
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
-    @State var showDetailOnly: Bool = false
+    @State var showhorizontalvertical: Bool = false
 
     @State var showSavedFiles: Bool = false
 
     var body: some View {
         // let _ = Self._printChanges()
-        if showDetailOnly {
-            DetailOnlyThumbnailsListView(
+        if showhorizontalvertical {
+            VerticalMainThumbnailsListView(
                 viewModel: viewModel,
-                showDetailOnly: $showDetailOnly,
+                showhorizontalvertical: $showhorizontalvertical,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 scale: $viewModel.scale,

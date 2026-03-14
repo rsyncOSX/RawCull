@@ -7,11 +7,11 @@
 
 import SwiftUI
 
-struct DetailOnlyThumbnailsListView: View {
+struct VerticalMainThumbnailsListView: View {
     @Environment(\.openWindow) var openWindow
 
     @Bindable var viewModel: RawCullViewModel
-    @Binding var showDetailOnly: Bool
+    @Binding var showhorizontalvertical: Bool
 
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
@@ -115,7 +115,7 @@ struct DetailOnlyThumbnailsListView: View {
     }
 }
 
-extension DetailOnlyThumbnailsListView {
+extension VerticalMainThumbnailsListView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
@@ -128,11 +128,11 @@ extension DetailOnlyThumbnailsListView {
         }
 
         ToolbarItem(placement: .status) {
-            Button(action: toggleshowdetailonly) {
-                Label("Details", systemImage: "return")
+            Button(action: toggleshowhorizontal) {
+                Label("Horizontal", systemImage: "arrow.up.and.down.text.horizontal")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Close Details")
+            .help("Show Vertical thumbnails")
             .labelStyle(.iconOnly)
         }
     }
@@ -141,7 +141,7 @@ extension DetailOnlyThumbnailsListView {
         showInspector.toggle()
     }
 
-    func toggleshowdetailonly() {
-        showDetailOnly.toggle()
+    func toggleshowhorizontal() {
+        showhorizontalvertical.toggle()
     }
 }

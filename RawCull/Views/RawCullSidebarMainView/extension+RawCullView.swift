@@ -29,11 +29,11 @@ extension RawCullMainView {
         }
 
         ToolbarItem(placement: .status) {
-            Button(action: toggleshowdetailonly) {
-                Label("Details", systemImage: "photo.stack")
+            Button(action: toggleshowvertical) {
+                Label("Vertical", systemImage: "arrow.left.and.right.text.vertical")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Show details")
+            .help("Show Horizontal thumbnails")
         }
 
         ToolbarItem(placement: .status) {
@@ -48,8 +48,8 @@ extension RawCullMainView {
         showSavedFiles.toggle()
     }
 
-    func toggleshowdetailonly() {
-        showDetailOnly.toggle()
+    func toggleshowvertical() {
+        showhorizontalvertical.toggle()
     }
 
     func openGridThumbnailWindow() {
