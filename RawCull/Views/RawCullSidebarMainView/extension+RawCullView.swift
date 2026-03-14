@@ -21,6 +21,14 @@ extension RawCullMainView {
         }
 
         ToolbarItem(placement: .status) {
+            Button(action: opentaggedGridThumbnailWindow) {
+                Label("Grid Tagged Images", systemImage: "square.grid.2x2.fill")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || showGridtaggedThumbnailWindow() == false)
+            .help("Open tagged thumbnail grid view")
+        }
+
+        ToolbarItem(placement: .status) {
             Button(action: toggleshowdetailonly) {
                 Label("Details", systemImage: "photo.stack")
             }
@@ -51,6 +59,22 @@ extension RawCullMainView {
             filteredFiles: viewModel.filteredFiles,
         )
         openWindow(id: WindowIdentifier.gridThumbnails.rawValue)
+    }
+
+    func opentaggedGridThumbnailWindow() {
+        openWindow(id: WindowIdentifier.gridTaggedThumbnails.rawValue)
+    }
+
+    private func showGridtaggedThumbnailWindow() -> Bool {
+        guard let catalogURL = viewModel.selectedSource?.url,
+              let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
+        else {
+            return false
+        }
+        if let records = viewModel.cullingModel.savedFiles[index].filerecords {
+            return !records.isEmpty
+        }
+        return false
     }
 
     func handleToggleSelection(for file: FileItem) {

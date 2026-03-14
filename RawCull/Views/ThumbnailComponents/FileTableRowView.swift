@@ -76,22 +76,23 @@ struct FileTableRowView: View {
                     Text(file.dateModified, style: .date)
                 }
             }
+            /*
+                        // Bottom row tagged Images.
+                        if showPhotoGridView() {
+                            Divider()
 
-            // Bottom row tagged Images.
-            if showPhotoGridView() {
-                Divider()
-
-                TaggedPhotoHorisontalGridView(
-                    viewModel: viewModel,
-                    files: viewModel.filteredFiles,
-                    photoURL: viewModel.selectedSource?.url,
-                    onPhotoSelected: { file in
-                        viewModel.selectedFileID = file.id
-                        viewModel.selectedFile = file
-                        viewModel.isInspectorPresented = true
-                    },
-                )
-            }
+                            TaggedPhotoHorisontalGridView(
+                                viewModel: viewModel,
+                                files: viewModel.filteredFiles,
+                                photoURL: viewModel.selectedSource?.url,
+                                onPhotoSelected: { file in
+                                    viewModel.selectedFileID = file.id
+                                    viewModel.selectedFile = file
+                                    viewModel.isInspectorPresented = true
+                                },
+                            )
+                        }
+             */
         }
         .onChange(of: viewModel.selectedFileID) { _, _ in
             if viewModel.selectedFileID != nil {
@@ -151,18 +152,6 @@ struct FileTableRowView: View {
         if let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == viewModel.selectedSource?.url }),
            let filerecords = viewModel.cullingModel.savedFiles[index].filerecords {
             return filerecords.contains { $0.fileName == file.name }
-        }
-        return false
-    }
-
-    private func showPhotoGridView() -> Bool {
-        guard let catalogURL = viewModel.selectedSource?.url,
-              let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalogURL })
-        else {
-            return false
-        }
-        if let records = viewModel.cullingModel.savedFiles[index].filerecords {
-            return !records.isEmpty
         }
         return false
     }

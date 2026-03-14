@@ -106,6 +106,21 @@ struct RawCullApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 900, height: 700)
+
+        Window("Grid Tagged Images", id: "grid-tagged-thumbnails-window") {
+            TaggedPhotoHorisontalGridView(
+                viewModel: viewModel,
+                files: viewModel.filteredFiles,
+                photoURL: viewModel.selectedSource?.url,
+                onPhotoSelected: { file in
+                    viewModel.selectedFileID = file.id
+                    viewModel.selectedFile = file
+                    viewModel.isInspectorPresented = true
+                },
+            )
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 900, height: 700)
     }
 
     private func performCleanupTask() {

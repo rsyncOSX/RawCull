@@ -10,4 +10,5 @@ enum WindowIdentifier: String {
     case zoomcgImage = "zoom-window-cgImage"
     case zoomnsImage = "zoom-window-nsImage"
     case gridThumbnails = "grid-thumbnails-window"
+    case gridTaggedThumbnails = "grid-tagged-thumbnails-window"
 }
