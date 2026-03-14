@@ -52,29 +52,42 @@ extension RawCullMainView {
                 .disabled(viewModel.scale >= 4.0)
                 .help("Zoom in")
             }
-        }
-
-        ToolbarItem(placement: .status) {
-            Button(action: openGridThumbnailWindow) {
-                Label("Grid View", systemImage: "square.grid.2x2")
+            
+            ToolbarItem(placement: .secondaryAction) {
+                Button(action: {
+                    
+                }, label: {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 12))
+                })
+                .disabled(viewModel.scale >= 4.0)
+                .help("Toggle Inspector")
             }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Open thumbnail grid view")
         }
-
-        ToolbarItem(placement: .status) {
-            Button(action: toggleshowdetailonly) {
-                Label("Details", systemImage: "photo.stack")
+        
+        Group {
+            ToolbarItem(placement: .status) {
+                Button(action: openGridThumbnailWindow) {
+                    Label("Grid View", systemImage: "square.grid.2x2")
+                }
+                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+                .help("Open thumbnail grid view")
             }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Show details")
-        }
 
-        ToolbarItem(placement: .status) {
-            Button(action: toggleshowsavedfiles) {
-                Label("Details", systemImage: "square.and.arrow.down")
+            ToolbarItem(placement: .status) {
+                Button(action: toggleshowdetailonly) {
+                    Label("Details", systemImage: "photo.stack")
+                }
+                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
+                .help("Show details")
             }
-            .help("Show SavedFiles")
+
+            ToolbarItem(placement: .status) {
+                Button(action: toggleshowsavedfiles) {
+                    Label("Details", systemImage: "square.and.arrow.down")
+                }
+                .help("Show SavedFiles")
+            }
         }
     }
 
