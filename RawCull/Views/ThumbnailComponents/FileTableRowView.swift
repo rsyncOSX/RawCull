@@ -76,23 +76,6 @@ struct FileTableRowView: View {
                     Text(file.dateModified, style: .date)
                 }
             }
-            /*
-                        // Bottom row tagged Images.
-                        if showPhotoGridView() {
-                            Divider()
-
-                            TaggedPhotoHorisontalGridView(
-                                viewModel: viewModel,
-                                files: viewModel.filteredFiles,
-                                photoURL: viewModel.selectedSource?.url,
-                                onPhotoSelected: { file in
-                                    viewModel.selectedFileID = file.id
-                                    viewModel.selectedFile = file
-                                    viewModel.isInspectorPresented = true
-                                },
-                            )
-                        }
-             */
         }
         .onChange(of: viewModel.selectedFileID) { _, _ in
             if viewModel.selectedFileID != nil {

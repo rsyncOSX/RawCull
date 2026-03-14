@@ -144,15 +144,13 @@ struct RawCullMainView: View {
                 await SharedMemoryCache.shared.setFileHandlers(handlers)
             }
             // --- RIGHT INSPECTOR ---
-            // Inside your body, replace the old .inspector with:
-            .if(viewModel.hideInspector == false) { view in
-                view.inspector(isPresented: $viewModel.isInspectorPresented) {
-                    FileInspectorView(
-                        file: $viewModel.selectedFile,
-                        showDetailsTagView: $viewModel.showDetailsTagView,
-                    )
-                }
+            .inspector(isPresented: $viewModel.hideInspector) {
+                FileInspectorView(
+                    file: $viewModel.selectedFile,
+                    showDetailsTagView: $viewModel.showDetailsTagView,
+                )
             }
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.isInspectorPresented)
             .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
                 handlePickerResult(result)
             }
