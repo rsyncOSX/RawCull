@@ -87,7 +87,6 @@ extension RawCullMainView {
         }
         return false
     }
-    
 
     func handleToggleSelection(for file: FileItem) {
         Task {

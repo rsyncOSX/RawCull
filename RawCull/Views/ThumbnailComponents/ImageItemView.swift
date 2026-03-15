@@ -109,6 +109,7 @@ struct ImageItemView: View {
     }
 
     // MARK: - Subviews
+
     private var shimmerPlaceholder: some View {
         Rectangle()
             .fill(Color(white: 0.15))
@@ -162,7 +163,7 @@ struct TagButtonView: View {
     let isTagged: Bool
     let isHovered: Bool
     var onToggle: () -> Void
-    
+
     var body: some View {
         Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
             .font(.system(size: isHovered ? 14 : 10))

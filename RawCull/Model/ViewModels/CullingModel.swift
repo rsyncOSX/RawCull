@@ -94,4 +94,11 @@ final class CullingModel {
         }
         return 0
     }
+
+    func isTagged(photo: String, in catalog: URL) -> Bool {
+        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else {
+            return false
+        }
+        return savedFiles[index].filerecords?.contains { $0.fileName == photo } ?? false
+    }
 }

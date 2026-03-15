@@ -33,7 +33,7 @@ struct TaggedPhotoItemView: View {
                             )
                             .clipped()
                             .overlay(alignment: .topTrailing) {
-                                TagButtonView(isTagged: isTagged, isHovered: false, onToggle: { })
+                                TagButtonView(isTagged: isTagged, isHovered: false, onToggle: {})
                             }
                     } else if isLoading, let savedSettings {
                         Rectangle()
@@ -106,10 +106,11 @@ struct TaggedPhotoItemView: View {
     }
 
     private var isTagged: Bool {
-        guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
-            return false
+        if let photoURL {
+            cullingModel.isTagged(photo: photo, in: photoURL)
+        } else {
+            false
         }
-        return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == photo } ?? false
     }
 
     var cullingModel: CullingModel {
@@ -129,4 +130,3 @@ struct TaggedPhotoItemView: View {
         return false
     }
 }
-
