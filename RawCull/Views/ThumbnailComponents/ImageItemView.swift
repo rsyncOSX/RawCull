@@ -19,48 +19,29 @@ struct ImageItemView: View {
     var onToggle: () -> Void = {}
     var onSelected: () -> Void = {}
 
-    @State private var thumbnailImage: NSImage?
-    @State private var isLoading = false
-    @State private var shimmerOffset: CGFloat = -1.0
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Thumbnail area
             ZStack {
-                if let thumbnailImage {
-                    Image(nsImage: thumbnailImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-                        .clipped()
-                        .overlay(alignment: .topTrailing) {
-                            TagButtonView(isTagged: isTagged, isHovered: isHovered, onToggle: onToggle)
-                        }
-                        // Green tint ribbon at bottom when tagged
-                        .overlay(alignment: .bottom) {
-                            if isTagged {
-                                Rectangle()
-                                    .fill(Color.green.opacity(0.55))
-                                    .frame(height: 3)
-                            }
-                        }
-                } else if isLoading {
-                    shimmerPlaceholder
-                } else {
-                    ZStack {
-                        Rectangle()
-                            .fill(Color(white: 0.15))
-                            .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-                        VStack(spacing: 4) {
-                            Image(systemName: "photo")
-                                .font(.system(size: 20, weight: .thin))
-                                .foregroundStyle(Color(white: 0.4))
-                            Text("No image")
-                                .font(.system(size: 9, weight: .light))
-                                .foregroundStyle(Color(white: 0.35))
+                ThumbnailImageView(
+                    file: file,
+                    targetSize: thumbnailSize,
+                    style: .grid,
+                    showsShimmer: true
+                )
+                    .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
+                    .clipped()
+                    .overlay(alignment: .topTrailing) {
+                        TagButtonView(isTagged: isTagged, isHovered: isHovered, onToggle: onToggle)
+                    }
+                    // Green tint ribbon at bottom when tagged
+                    .overlay(alignment: .bottom) {
+                        if isTagged {
+                            Rectangle()
+                                .fill(Color.green.opacity(0.55))
+                                .frame(height: 3)
                         }
                     }
-                }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
             // Selected: accent glow border
@@ -96,49 +77,9 @@ struct ImageItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onSelected() }
         .onTapGesture(count: 1) { onToggle() }
-        .task(id: file.url) {
-            guard thumbnailImage == nil else { return }
-            isLoading = true
-            thumbnailImage = await ThumbnailLoader.shared.thumbnailLoader(file: file)
-            isLoading = false
-        }
-        .onDisappear {
-            thumbnailImage = nil
-            isLoading = false
-        }
     }
 
     // MARK: - Subviews
-
-    private var shimmerPlaceholder: some View {
-        Rectangle()
-            .fill(Color(white: 0.15))
-            .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-            .overlay(
-                GeometryReader { geo in
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    .clear,
-                                    Color(white: 0.3).opacity(0.4),
-                                    .clear
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing,
-                            ),
-                        )
-                        .frame(width: geo.size.width * 0.5)
-                        .offset(x: shimmerOffset * geo.size.width)
-                }
-                .clipped(),
-            )
-            .onAppear {
-                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
-                    shimmerOffset = 1.5
-                }
-            }
-    }
 
     // MARK: - Helpers
 

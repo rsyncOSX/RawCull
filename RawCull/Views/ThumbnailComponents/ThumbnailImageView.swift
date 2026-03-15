@@ -17,9 +17,11 @@ struct ThumbnailImageView: View {
     private let url: URL?
     let targetSize: Int
     let style: ThumbnailStyle
+    let showsShimmer: Bool
 
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
+    @State private var shimmerOffset: CGFloat = -1.0
     
    
     var body: some View {
@@ -29,7 +31,11 @@ struct ThumbnailImageView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else if isLoading {
-                ProgressView()
+                if showsShimmer {
+                    shimmerPlaceholder
+                } else {
+                    ProgressView()
+                }
             } else {
                 Rectangle().fill(Color(white: 0.15))
             }
@@ -42,18 +48,20 @@ struct ThumbnailImageView: View {
         }
     }
 
-    init(file: FileItem, targetSize: Int, style: ThumbnailStyle) {
+    init(file: FileItem, targetSize: Int, style: ThumbnailStyle, showsShimmer: Bool = false) {
         self.file = file
         self.url = nil
         self.targetSize = targetSize
         self.style = style
+        self.showsShimmer = showsShimmer
     }
 
-    init(url: URL, targetSize: Int, style: ThumbnailStyle) {
+    init(url: URL, targetSize: Int, style: ThumbnailStyle, showsShimmer: Bool = false) {
         self.file = nil
         self.url = url
         self.targetSize = targetSize
         self.style = style
+        self.showsShimmer = showsShimmer
     }
 
     private func loadThumbnail() async -> NSImage? {
@@ -67,5 +75,33 @@ struct ThumbnailImageView: View {
             return cgThumb.map { NSImage(cgImage: $0, size: .zero) }
         }
     }
-}
 
+    private var shimmerPlaceholder: some View {
+        Rectangle()
+            .fill(Color(white: 0.15))
+            .overlay(
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .clear,
+                                    Color(white: 0.3).opacity(0.4),
+                                    .clear
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing,
+                            ),
+                        )
+                        .frame(width: geo.size.width * 0.5)
+                        .offset(x: shimmerOffset * geo.size.width)
+                }
+                .clipped(),
+            )
+            .onAppear {
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                    shimmerOffset = 1.5
+                }
+            }
+    }
+}
