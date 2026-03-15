@@ -7,6 +7,8 @@ extension KeyPath<FileItem, String>: @unchecked @retroactive Sendable {}
 struct RawCullMainView: View {
     @Environment(\.openWindow) var openWindow
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
+    @Environment(SettingsViewModel.self) private var settings
+
     @Bindable var viewModel: RawCullViewModel
 
     @Binding var nsImage: NSImage?
@@ -14,7 +16,7 @@ struct RawCullMainView: View {
     @Binding var zoomCGImageWindowFocused: Bool
     @Binding var zoomNSImageWindowFocused: Bool
 
-    @State var savedSettings: SavedSettings?
+    // @State var settings: settings?
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State var showhorizontalvertical: Bool = false
@@ -128,8 +130,6 @@ struct RawCullMainView: View {
                 // Only scan new files if there is a change of source
                 // guard viewModel.sourcechange == false else { return}
 
-                savedSettings = await SettingsViewModel.shared.asyncgetsettings()
-
                 let handlers = CreateFileHandlers().createFileHandlers(
                     fileHandler: { _ in },
                     maxfilesHandler: { _ in },
@@ -210,9 +210,9 @@ struct RawCullMainView: View {
          await viewModel.handleSourceChange(url: url)
      }
  }
- 
+
  to replace
- 
+
  .task(id: viewModel.selectedSource) {
      guard viewModel.currentselectedSource != viewModel.selectedSource else { return }
      viewModel.currentselectedSource = viewModel.selectedSource
@@ -224,5 +224,5 @@ struct RawCullMainView: View {
          }
      }
  }
- 
+
  */

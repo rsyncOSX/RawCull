@@ -22,4 +22,3 @@ struct TagButtonView: View {
             .clipShape(Circle())
     }
 }
-

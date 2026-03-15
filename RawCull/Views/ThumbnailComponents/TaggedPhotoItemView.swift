@@ -9,37 +9,36 @@ import OSLog
 import SwiftUI
 
 struct TaggedPhotoItemView: View {
+    @Environment(SettingsViewModel.self) private var settings
     @Bindable var viewModel: RawCullViewModel
 
     let photo: String
     let photoURL: URL?
     var onSelected: () -> Void = {}
 
-    @State private var savedSettings: SavedSettings?
-
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading) {
                 ZStack {
-                    if let savedSettings, let photoURL {
+                    if let photoURL {
                         ThumbnailImageView(
                             url: photoURL,
-                            targetSize: savedSettings.thumbnailSizeGrid,
-                            style: .list
+                            targetSize: settings.thumbnailSizeGrid,
+                            style: .list,
                         )
-                            .frame(
-                                width: CGFloat(savedSettings.thumbnailSizeGrid),
-                                height: CGFloat(savedSettings.thumbnailSizeGrid),
-                            )
-                            .clipped()
-                            .overlay(alignment: .topTrailing) {
-                                TagButtonView(isTagged: isTagged, isHovered: false, onToggle: {})
-                            }
-                    } else if let savedSettings {
+                        .frame(
+                            width: CGFloat(settings.thumbnailSizeGrid),
+                            height: CGFloat(settings.thumbnailSizeGrid),
+                        )
+                        .clipped()
+                        .overlay(alignment: .topTrailing) {
+                            TagButtonView(isTagged: isTagged, isHovered: false, onToggle: {})
+                        }
+                    } else {
                         ZStack {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.1))
-                                .frame(height: CGFloat(savedSettings.thumbnailSizeGrid))
+                                .frame(height: CGFloat(settings.thumbnailSizeGrid))
 
                             Label("No image available", systemImage: "xmark")
                         }
@@ -66,9 +65,6 @@ struct TaggedPhotoItemView: View {
             if let url = photoURL {
                 Logger.process.debugMessageOnly("PhotoItemView (in GRID) onAppear - RELEASE thumbnail for \(url)")
             }
-        }
-        .task {
-            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
     }
 

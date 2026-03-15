@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 
 struct ImageTableVerticalView: View {
     @Bindable var viewModel: RawCullViewModel
+    @Environment(SettingsViewModel.self) private var settings
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
@@ -18,7 +19,6 @@ struct ImageTableVerticalView: View {
     @Binding var zoomNSImageWindowFocused: Bool
 
     @State private var hoveredFileID: FileItem.ID?
-    @State private var savedSettings: SavedSettings?
 
     var openWindow: (String) -> Void
 
@@ -27,56 +27,54 @@ struct ImageTableVerticalView: View {
             ScrollViewReader { proxy in
                 GeometryReader { geo in
                     ScrollView(.vertical) {
-                        if let savedSettings {
-                            VStack {
-                                Spacer(minLength: 0)
-                                LazyVStack(alignment: .center, spacing: 10) {
-                                    ForEach(sortedFiles, id: \.id) { file in
-                                        ImageItemView(
-                                            viewModel: viewModel,
-                                            file: file,
-                                            selectedSource: viewModel.selectedSource,
-                                            isHovered: hoveredFileID == file.id,
-                                            thumbnailSize: savedSettings.thumbnailSizeGrid,
+                        VStack {
+                            Spacer(minLength: 0)
+                            LazyVStack(alignment: .center, spacing: 10) {
+                                ForEach(sortedFiles, id: \.id) { file in
+                                    ImageItemView(
+                                        viewModel: viewModel,
+                                        file: file,
+                                        selectedSource: viewModel.selectedSource,
+                                        isHovered: hoveredFileID == file.id,
+                                        thumbnailSize: settings.thumbnailSizeGrid,
 
-                                            // One click for select only
-                                            onToggle: {
+                                        // One click for select only
+                                        onToggle: {
+                                            viewModel.selectFile(file)
+                                        },
+                                        // Double clik for tag Image
+                                        onSelected: {
+                                            Task {
                                                 viewModel.selectFile(file)
-                                            },
-                                            // Double clik for tag Image
-                                            onSelected: {
-                                                Task {
-                                                    viewModel.selectFile(file)
-                                                    await viewModel.toggleTag(for: file)
-                                                }
-                                            },
-                                        )
-                                        .id(file.id)
-                                        .onHover { isHovered in
-                                            hoveredFileID = isHovered ? file.id : nil
-                                        }
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .stroke(Color.accentColor, lineWidth: isSelected(file) ? 2 : 0),
-                                        )
-                                        .shadow(
-                                            color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
-                                            radius: isSelected(file) ? 4 : 0,
-                                        )
+                                                await viewModel.toggleTag(for: file)
+                                            }
+                                        },
+                                    )
+                                    .id(file.id)
+                                    .onHover { isHovered in
+                                        hoveredFileID = isHovered ? file.id : nil
                                     }
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color.accentColor, lineWidth: isSelected(file) ? 2 : 0),
+                                    )
+                                    .shadow(
+                                        color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
+                                        radius: isSelected(file) ? 4 : 0,
+                                    )
                                 }
-                                .padding(.vertical)
-                                .padding(.horizontal, 20)
-                                .frame(maxWidth: .infinity, alignment: .center)
-
-                                Spacer(minLength: 0)
                             }
-                            .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
-                            .onChange(of: viewModel.selectedFileID) { _, newID in
-                                if let newID {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        proxy.scrollTo(newID, anchor: .center)
-                                    }
+                            .padding(.vertical)
+                            .padding(.horizontal, 20)
+                            .frame(maxWidth: .infinity, alignment: .center)
+
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
+                        .onChange(of: viewModel.selectedFileID) { _, newID in
+                            if let newID {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo(newID, anchor: .center)
                                 }
                             }
                         }
@@ -160,9 +158,6 @@ struct ImageTableVerticalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
-        .task {
-            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
-        }
     }
 
     // MARK: - Private Helpers

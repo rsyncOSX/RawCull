@@ -24,8 +24,7 @@ struct ThumbnailImageView: View {
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
     @State private var shimmerOffset: CGFloat = -1.0
-    
-   
+
     var body: some View {
         ZStack {
             if let thumbnailImage {
@@ -60,7 +59,7 @@ struct ThumbnailImageView: View {
         style: ThumbnailStyle,
         showsShimmer: Bool = false,
         contentMode: ContentMode = .fill,
-        image: Binding<NSImage?>? = nil
+        image: Binding<NSImage?>? = nil,
     ) {
         self.file = file
         self.url = nil
@@ -77,7 +76,7 @@ struct ThumbnailImageView: View {
         style: ThumbnailStyle,
         showsShimmer: Bool = false,
         contentMode: ContentMode = .fill,
-        image: Binding<NSImage?>? = nil
+        image: Binding<NSImage?>? = nil,
     ) {
         self.file = nil
         self.url = url
@@ -93,6 +92,7 @@ struct ThumbnailImageView: View {
         case .grid:
             if let file { return await ThumbnailLoader.shared.thumbnailLoader(file: file) }
             return nil
+
         case .list:
             guard let url else { return nil }
             let cgThumb = await RequestThumbnail().requestThumbnail(for: url, targetSize: targetSize)

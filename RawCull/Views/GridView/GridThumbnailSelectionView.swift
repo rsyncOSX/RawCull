@@ -9,9 +9,11 @@ import OSLog
 import SwiftUI
 
 struct GridThumbnailSelectionView: View {
+    @Environment(SettingsViewModel.self) private var settings
+
     @Bindable var viewModel: RawCullViewModel
 
-    @State private var savedSettings: SavedSettings?
+    /// @State private var savedSettings: SavedSettings?
     @State private var hoveredFileID: FileItem.ID?
 
     let selectedSource: ARWSourceCatalog?
@@ -31,46 +33,41 @@ struct GridThumbnailSelectionView: View {
 
             // Grid view
             ScrollView {
-                if let savedSettings {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.adaptive(minimum: CGFloat(savedSettings.thumbnailSizeGridView)), spacing: 12)
-                        ],
-                        spacing: 12,
-                    ) {
-                        ForEach(files, id: \.id) { file in
-                            ImageItemView(
-                                viewModel: viewModel,
-                                file: file,
-                                selectedSource: selectedSource,
-                                isHovered: hoveredFileID == file.id,
-                                thumbnailSize: savedSettings.thumbnailSizeGridView,
-                                // One click for select only
-                                onToggle: { handleToggleSelection(for: file) },
-                                // Double clik for tag Image
-                                onSelected: {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.adaptive(minimum: CGFloat(settings.thumbnailSizeGridView)), spacing: 12)
+                    ],
+                    spacing: 12,
+                ) {
+                    ForEach(files, id: \.id) { file in
+                        ImageItemView(
+                            viewModel: viewModel,
+                            file: file,
+                            selectedSource: selectedSource,
+                            isHovered: hoveredFileID == file.id,
+                            thumbnailSize: settings.thumbnailSizeGridView,
+                            // One click for select only
+                            onToggle: { handleToggleSelection(for: file) },
+                            // Double clik for tag Image
+                            onSelected: {
+                                Task {
+                                    viewModel.selectFile(file)
                                     Task {
-                                        viewModel.selectFile(file)
-                                        Task {
-                                            await viewModel.toggleTag(for: file)
-                                        }
+                                        await viewModel.toggleTag(for: file)
                                     }
-                                },
-                            )
-                            .id(file.id)
-                            .onHover { isHovered in
-                                hoveredFileID = isHovered ? file.id : nil
-                            }
+                                }
+                            },
+                        )
+                        .id(file.id)
+                        .onHover { isHovered in
+                            hoveredFileID = isHovered ? file.id : nil
                         }
                     }
-                    .padding()
                 }
+                .padding()
             }
         }
         .frame(minWidth: 400, minHeight: 400)
-        .task {
-            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
-        }
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }

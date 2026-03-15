@@ -63,6 +63,7 @@ struct RawCullApp: App {
                 cgImage: cgImage, // ← pass viewModel instead
             )
             .environment(viewModel)
+            .environment(settingsviewmodel)
             .onAppear {
                 zoomCGImageWindowFocused = true
             }
@@ -80,7 +81,7 @@ struct RawCullApp: App {
                 nsImage: nsImage,
             )
             .environment(viewModel)
-            // ZoomableNSImageView(nsImage: nsImage)
+            .environment(settingsviewmodel)
             .onAppear {
                 zoomNSImageWindowFocused = true
             }
@@ -117,6 +118,7 @@ struct RawCullApp: App {
                     viewModel.selectedFile = file
                 },
             )
+            .environment(settingsviewmodel)
         }
         .defaultPosition(.center)
         .defaultSize(width: 900, height: 700)

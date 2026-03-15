@@ -27,21 +27,21 @@ struct ImageItemView: View {
                     file: file,
                     targetSize: thumbnailSize,
                     style: .grid,
-                    showsShimmer: true
+                    showsShimmer: true,
                 )
-                    .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-                    .clipped()
-                    .overlay(alignment: .topTrailing) {
-                        TagButtonView(isTagged: isTagged, isHovered: isHovered, onToggle: onToggle)
+                .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
+                .clipped()
+                .overlay(alignment: .topTrailing) {
+                    TagButtonView(isTagged: isTagged, isHovered: isHovered, onToggle: onToggle)
+                }
+                // Green tint ribbon at bottom when tagged
+                .overlay(alignment: .bottom) {
+                    if isTagged {
+                        Rectangle()
+                            .fill(Color.green.opacity(0.55))
+                            .frame(height: 3)
                     }
-                    // Green tint ribbon at bottom when tagged
-                    .overlay(alignment: .bottom) {
-                        if isTagged {
-                            Rectangle()
-                                .fill(Color.green.opacity(0.55))
-                                .frame(height: 3)
-                        }
-                    }
+                }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
             // Selected: accent glow border
@@ -90,7 +90,7 @@ struct ImageItemView: View {
             false
         }
     }
-    
+
     private var isSelected: Bool {
         viewModel.selectedFile?.id == file.id
     }

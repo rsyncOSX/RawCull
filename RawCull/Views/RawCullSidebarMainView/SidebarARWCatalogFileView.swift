@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarARWCatalogFileView: View {
     @Environment(\.openWindow) var openWindow
+    @Environment(SettingsViewModel.self) private var settings
 
     @Bindable var viewModel: RawCullViewModel
     @Binding var isShowingPicker: Bool
@@ -18,7 +19,6 @@ struct SidebarARWCatalogFileView: View {
 
     @State var counterScannedFiles: Int = 0
     @State var verticalimages: Bool = true
-    @State var savedSettings: SavedSettings?
 
     let issorting: Bool
     let max: Double
@@ -160,9 +160,6 @@ struct SidebarARWCatalogFileView: View {
                 }
             }
         }
-        .task {
-            savedSettings = await SettingsViewModel.shared.asyncgetsettings()
-        }
         .task(id: scanning) {
             viewModel.countingScannedFiles = { count in
                 // Ensure UI state changes happen on the main actor
@@ -179,10 +176,6 @@ struct SidebarARWCatalogFileView: View {
     }
 
     var thumbnailSizeGrid: CGFloat {
-        if let savedSettings {
-            CGFloat(savedSettings.thumbnailSizeGrid)
-        } else {
-            100
-        }
+        CGFloat(settings.thumbnailSizeGrid)
     }
 }
