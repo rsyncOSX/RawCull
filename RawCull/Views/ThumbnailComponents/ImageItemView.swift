@@ -34,7 +34,7 @@ struct ImageItemView: View {
                         .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                         .clipped()
                         .overlay(alignment: .topTrailing) {
-                            tagButton
+                            TagButtonView(isTagged: isTagged, isHovered: isHovered, onToggle: onToggle)
                         }
                         // Green tint ribbon at bottom when tagged
                         .overlay(alignment: .bottom) {
@@ -109,22 +109,6 @@ struct ImageItemView: View {
     }
 
     // MARK: - Subviews
-
-    private var tagButton: some View {
-        Button(action: onToggle) {
-            Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: isHovered ? 14 : 10))
-                .foregroundStyle(isTagged ? Color.green : Color.white.opacity(0.8))
-                .shadow(color: .black.opacity(0.5), radius: 2)
-        }
-        .buttonStyle(.plain)
-        .padding(5)
-        .background(.ultraThinMaterial)
-        .clipShape(Circle())
-        .padding(5)
-        .animation(.easeOut(duration: 0.15), value: isHovered)
-    }
-
     private var shimmerPlaceholder: some View {
         Rectangle()
             .fill(Color(white: 0.15))
@@ -171,5 +155,21 @@ struct ImageItemView: View {
 
     private var isSelected: Bool {
         viewModel.selectedFile?.id == file.id
+    }
+}
+
+struct TagButtonView: View {
+    let isTagged: Bool
+    let isHovered: Bool
+    var onToggle: () -> Void
+    
+    var body: some View {
+        Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
+            .font(.system(size: isHovered ? 14 : 10))
+            .foregroundStyle(isTagged ? Color.green : Color.white.opacity(0.8))
+            .shadow(color: .black.opacity(0.5), radius: 2)
+            .padding(5)
+            .background(.ultraThinMaterial)
+            .clipShape(Circle())
     }
 }

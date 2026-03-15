@@ -33,7 +33,7 @@ struct TaggedPhotoItemView: View {
                             )
                             .clipped()
                             .overlay(alignment: .topTrailing) {
-                                tagButton
+                                TagButtonView(isTagged: isTagged, isHovered: false, onToggle: { })
                             }
                     } else if isLoading, let savedSettings {
                         Rectangle()
@@ -69,7 +69,7 @@ struct TaggedPhotoItemView: View {
         .onTapGesture {
             onSelected()
         }
-        .onAppear {
+        .task(id: photoURL) {
             guard let url = photoURL else { return }
             Logger.process.debugMessageOnly("PhotoItemView (in GRID) onAppear - LOAD thumbnail for \(url)")
             isLoading = true
@@ -105,17 +105,6 @@ struct TaggedPhotoItemView: View {
         }
     }
 
-    private var tagButton: some View {
-        Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
-            .foregroundStyle(isTagged ? Color.green : Color.white.opacity(0.8))
-            .shadow(color: .black.opacity(0.5), radius: 2)
-            .buttonStyle(.plain)
-            .padding(5)
-            .background(.ultraThinMaterial)
-            .clipShape(Circle())
-            .padding(5)
-    }
-
     private var isTagged: Bool {
         guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
             return false
@@ -140,3 +129,4 @@ struct TaggedPhotoItemView: View {
         return false
     }
 }
+
