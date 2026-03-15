@@ -14,7 +14,7 @@ struct MainCachedThumbnailView: View {
     let url: URL
 
     @State private var image: NSImage?
-    @State private var isLoading = false
+    @State private var thumbnailSizePreview: Int?
 
     @State private var showFocusPoints = false
     @State private var markerSize: CGFloat = 40
@@ -29,38 +29,43 @@ struct MainCachedThumbnailView: View {
 
     var body: some View {
         ZStack {
-            if let image {
+            if let thumbnailSizePreview {
                 VStack {
                     GeometryReader { geo in
                         ZStack {
                             // 1️⃣ Image FIRST (background)
-                            Image(nsImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .scaleEffect(scale)
-                                .offset(offset)
-                                .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
-                                .gesture(
-                                    MagnificationGesture()
-                                        .onChanged { value in
-                                            scale = lastScale * value
+                            ThumbnailImageView(
+                                url: url,
+                                targetSize: thumbnailSizePreview,
+                                style: .list,
+                                showsShimmer: false,
+                                contentMode: .fit,
+                                image: $image,
+                            )
+                            .scaleEffect(scale)
+                            .offset(offset)
+                            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+                            .gesture(
+                                MagnificationGesture()
+                                    .onChanged { value in
+                                        scale = lastScale * value
+                                    }
+                                    .onEnded { _ in
+                                        lastScale = scale
+                                    },
+                            )
+                            .simultaneousGesture(
+                                DragGesture()
+                                    .onChanged { value in
+                                        if scale > 1.0 {
+                                            offset = CGSize(
+                                                width: value.translation.width,
+                                                height: value.translation.height,
+                                            )
                                         }
-                                        .onEnded { _ in
-                                            lastScale = scale
-                                        },
-                                )
-                                .simultaneousGesture(
-                                    DragGesture()
-                                        .onChanged { value in
-                                            if scale > 1.0 {
-                                                offset = CGSize(
-                                                    width: value.translation.width,
-                                                    height: value.translation.height,
-                                                )
-                                            }
-                                        }
-                                        .onEnded { _ in },
-                                )
+                                    }
+                                    .onEnded { _ in },
+                            )
 
                             // 2️⃣ Focus mask overlay
 
@@ -132,27 +137,14 @@ struct MainCachedThumbnailView: View {
                 .shadow(radius: 4)
                 .background(Color(nsColor: .textBackgroundColor))
                 .cornerRadius(8)
-            } else if isLoading {
+            } else {
                 ProgressView()
                     .fixedSize()
-            } else {
-                ContentUnavailableView("Select an Image", systemImage: "photo")
             }
         }
-        .task(id: url) {
-            isLoading = true
+        .task {
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
-            let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
-            let cgImage = await RequestThumbnail().requestThumbnail(
-                for: url,
-                targetSize: thumbnailSizePreview,
-            )
-            if let cgImage {
-                image = NSImage(cgImage: cgImage, size: .zero)
-            } else {
-                image = nil
-            }
-            isLoading = false
+            thumbnailSizePreview = settingsmanager.thumbnailSizePreview
         }
         .task(id: image) {
             if let image {

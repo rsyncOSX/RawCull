@@ -18,6 +18,8 @@ struct ThumbnailImageView: View {
     let targetSize: Int
     let style: ThumbnailStyle
     let showsShimmer: Bool
+    let contentMode: ContentMode
+    private let imageBinding: Binding<NSImage?>?
 
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
@@ -29,7 +31,7 @@ struct ThumbnailImageView: View {
             if let thumbnailImage {
                 Image(nsImage: thumbnailImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .aspectRatio(contentMode: contentMode)
             } else if isLoading {
                 if showsShimmer {
                     shimmerPlaceholder
@@ -43,25 +45,47 @@ struct ThumbnailImageView: View {
         .task(id: url ?? file?.url) {
             guard url != nil || file != nil else { return }
             isLoading = true
-            thumbnailImage = await loadThumbnail()
+            let loadedImage = await loadThumbnail()
+            await MainActor.run {
+                thumbnailImage = loadedImage
+                imageBinding?.wrappedValue = loadedImage
+            }
             isLoading = false
         }
     }
 
-    init(file: FileItem, targetSize: Int, style: ThumbnailStyle, showsShimmer: Bool = false) {
+    init(
+        file: FileItem,
+        targetSize: Int,
+        style: ThumbnailStyle,
+        showsShimmer: Bool = false,
+        contentMode: ContentMode = .fill,
+        image: Binding<NSImage?>? = nil
+    ) {
         self.file = file
         self.url = nil
         self.targetSize = targetSize
         self.style = style
         self.showsShimmer = showsShimmer
+        self.contentMode = contentMode
+        self.imageBinding = image
     }
 
-    init(url: URL, targetSize: Int, style: ThumbnailStyle, showsShimmer: Bool = false) {
+    init(
+        url: URL,
+        targetSize: Int,
+        style: ThumbnailStyle,
+        showsShimmer: Bool = false,
+        contentMode: ContentMode = .fill,
+        image: Binding<NSImage?>? = nil
+    ) {
         self.file = nil
         self.url = url
         self.targetSize = targetSize
         self.style = style
         self.showsShimmer = showsShimmer
+        self.contentMode = contentMode
+        self.imageBinding = image
     }
 
     private func loadThumbnail() async -> NSImage? {
