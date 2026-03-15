@@ -4,7 +4,4 @@
    <FileRef
       location = "self:">
    </FileRef>
-   <FileRef
-      location = "group:QUALITY_REVIEW.md">
-   </FileRef>
 </Workspace>
