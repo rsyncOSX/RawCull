@@ -198,3 +198,31 @@ struct RawCullMainView: View {
         }
     }
 }
+
+/*
+ In macOS 26.4 - still Beta
+ .task(priority: .background, id: viewModel.selectedSource) {
+     guard viewModel.currentselectedSource != viewModel.selectedSource else { return }
+     viewModel.currentselectedSource = viewModel.selectedSource
+
+     if let url = viewModel.selectedSource?.url {
+         viewModel.scanning.toggle()
+         await viewModel.handleSourceChange(url: url)
+     }
+ }
+ 
+ to replace
+ 
+ .task(id: viewModel.selectedSource) {
+     guard viewModel.currentselectedSource != viewModel.selectedSource else { return }
+     viewModel.currentselectedSource = viewModel.selectedSource
+
+     Task(priority: .background) {
+         if let url = viewModel.selectedSource?.url {
+             viewModel.scanning.toggle()
+             await viewModel.handleSourceChange(url: url)
+         }
+     }
+ }
+ 
+ */
