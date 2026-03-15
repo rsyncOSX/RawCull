@@ -34,10 +34,8 @@ struct FileTableImageView: View {
                                     // Double clik for tag Image
                                     onSelected: {
                                         Task {
-                                            await cullingModel.toggleSelectionSavedFiles(
-                                                in: file.url,
-                                                toggledfilename: file.name,
-                                            )
+                                            viewModel.selectFile(file)
+                                            await viewModel.toggleTag(for: file)
                                         }
                                     },
                                 )
@@ -74,10 +72,6 @@ struct FileTableImageView: View {
     private func handleToggleSelection(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
-    }
-
-    var cullingModel: CullingModel {
-        viewModel.cullingModel
     }
 
     private func navigateToNext() {

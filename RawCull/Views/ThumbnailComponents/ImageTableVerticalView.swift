@@ -41,16 +41,13 @@ struct ImageTableVerticalView: View {
 
                                             // One click for select only
                                             onToggle: {
-                                                selectFile(file)
+                                                viewModel.selectFile(file)
                                             },
                                             // Double clik for tag Image
                                             onSelected: {
-                                                selectFile(file)
                                                 Task {
-                                                    await cullingModel.toggleSelectionSavedFiles(
-                                                        in: file.url,
-                                                        toggledfilename: file.name,
-                                                    )
+                                                    viewModel.selectFile(file)
+                                                    await viewModel.toggleTag(for: file)
                                                 }
                                             },
                                         )
@@ -209,7 +206,7 @@ struct ImageTableVerticalView: View {
     }
 
     private func selectAndScroll(file: FileItem, proxy: ScrollViewProxy) {
-        selectFile(file)
+        viewModel.selectFile(file)
         scrollTo(file, proxy: proxy)
     }
 
@@ -227,11 +224,6 @@ struct ImageTableVerticalView: View {
         let nextIndex = min(sortedFiles.count - 1, currentIndex + 1)
         let file = sortedFiles[nextIndex]
         selectAndScroll(file: file, proxy: proxy)
-    }
-
-    private func selectFile(_ file: FileItem) {
-        viewModel.selectedFileID = file.id
-        viewModel.selectedFile = file
     }
 
     private func isSelected(_ file: FileItem) -> Bool {

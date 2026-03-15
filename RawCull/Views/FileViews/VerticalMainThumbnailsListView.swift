@@ -93,18 +93,12 @@ struct VerticalMainThumbnailsListView: View {
                 viewModel.focustagimage = false
                 if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
                     let fileitem = viewModel.files[index]
-                    handleTagImage(for: fileitem)
+                    viewModel.selectFile(fileitem)
+                    Task {
+                        await viewModel.toggleTag(for: fileitem)
+                    }
                 }
             }
-    }
-
-    private func handleTagImage(for file: FileItem) {
-        Task {
-            await cullingModel.toggleSelectionSavedFiles(
-                in: file.url,
-                toggledfilename: file.name,
-            )
-        }
     }
 
     var files: [FileItem] {

@@ -278,4 +278,13 @@ final class RawCullViewModel {
         }
         return nil
     }
+    
+    func selectFile(_ file: FileItem) {
+        selectedFile = file
+        selectedFileID = file.id
+    }
+    
+    func toggleTag(for file: FileItem) async {
+        await cullingModel.toggleSelectionSavedFiles(in: file.url, toggledfilename: file.name)
+    }
 }
