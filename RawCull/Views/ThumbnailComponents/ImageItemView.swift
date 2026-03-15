@@ -79,39 +79,19 @@ struct ImageItemView: View {
         .onTapGesture(count: 1) { onToggle() }
     }
 
-    // MARK: - Subviews
-
-    // MARK: - Helpers
-
     var cullingModel: CullingModel {
         viewModel.cullingModel
     }
 
     private var isTagged: Bool {
-        guard let photoURL = selectedSource?.url else { return false }
-        guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == photoURL }) else {
-            return false
+        if let photoURL = selectedSource?.url {
+            cullingModel.isTagged(photo: file.name, in: photoURL)
+        } else {
+            false
         }
-        return cullingModel.savedFiles[index].filerecords?.contains { $0.fileName == file.name } ?? false
     }
-
+    
     private var isSelected: Bool {
         viewModel.selectedFile?.id == file.id
-    }
-}
-
-struct TagButtonView: View {
-    let isTagged: Bool
-    let isHovered: Bool
-    var onToggle: () -> Void
-
-    var body: some View {
-        Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: isHovered ? 14 : 10))
-            .foregroundStyle(isTagged ? Color.green : Color.white.opacity(0.8))
-            .shadow(color: .black.opacity(0.5), radius: 2)
-            .padding(5)
-            .background(.ultraThinMaterial)
-            .clipShape(Circle())
     }
 }
