@@ -10,28 +10,26 @@ import Foundation
 import OSLog
 
 actor RequestThumbnail {
-    /// Ensures settings are loaded before any work starts
     private var setupTask: Task<Void, Never>?
     private let diskCache: DiskCacheManager
 
     init(
         config _: CacheConfig? = nil,
-        diskCache: DiskCacheManager? = nil,
+        diskCache: DiskCacheManager? = nil
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
     }
 
-    /// 3. The magic helper: Creates the task if it doesn't exist, then awaits it.
     private func ensureReady() async {
         if let task = setupTask {
-            return await task.value // ✅ Second caller just waits for the first
+            return await task.value
         }
 
         let newTask = Task {
             await SharedMemoryCache.shared.ensureReady()
         }
 
-        self.setupTask = newTask // ✅ Stored BEFORE the await
+        setupTask = newTask
         await newTask.value
     }
 
@@ -48,7 +46,7 @@ actor RequestThumbnail {
     private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
         let nsUrl = url as NSURL
 
-        // A. Check RAM (Using Shared Cache)
+        // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
             await SharedMemoryCache.shared.updateCacheMemory()
@@ -66,36 +64,42 @@ actor RequestThumbnail {
         // C. Extract
         Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        // New (Actor safe access):
-        // We need 'await' here because we are reading the protected '_costPerPixel' property.
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
         let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
             from: url,
             maxDimension: CGFloat(targetSize),
-            qualityCost: costPerPixel,
+            qualityCost: costPerPixel
         )
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
         await storeInMemory(image, for: url)
 
-        // 3. Background save
-        Task.detached(priority: .background) { [cgImage] in
-            await self.diskCache.save(cgImage, for: url)
+        // Encode to Data here, inside the actor, before crossing the task boundary.
+        // `Data` is Sendable; `CGImage` is not.
+        if let jpegData = DiskCacheManager.jpegData(from: cgImage) {
+            // Capture only `diskCache` (actor-isolated let) and the two value types.
+            // No implicit `self` capture, no non-Sendable types crossing the boundary.
+            let dcache = diskCache
+            Task.detached(priority: .background) {
+                await dcache.save(jpegData, for: url)
+            }
+        } else {
+            Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
         }
 
         return cgImage
     }
 
-    /// Convert NSImage to CGImage on a lower QoS to avoid priority inversions
+    /// Convert NSImage to CGImage.
+    /// Prefers extracting an existing CGImage directly; falls back to a TIFF round-trip
+    /// on a utility-priority detached task to avoid blocking the actor.
     private func nsImageToCGImage(_ nsImage: NSImage) async throws -> CGImage {
-        // If the NSImage already contains a CGImage, prefer that path to avoid re-encoding
         if let cgRef = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             return cgRef
         }
 
-        // Fallback: perform TIFF roundtrip on a utility-priority detached task
         return try await Task.detached(priority: .utility) { () throws -> CGImage in
             guard let tiffData = nsImage.tiffRepresentation,
                   let bitmapRep = NSBitmapImageRep(data: tiffData),

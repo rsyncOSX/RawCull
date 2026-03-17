@@ -43,7 +43,7 @@ actor ScanAndCreateThumbnails {
 
     init(
         config _: CacheConfig? = nil,
-        diskCache: DiskCacheManager? = nil,
+        diskCache: DiskCacheManager? = nil
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
         Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
@@ -110,11 +110,6 @@ actor ScanAndCreateThumbnails {
 
             await fileHandlers?.maxfilesHandler(urls.count)
 
-            // withThrowingTaskGroup child tasks all hop back to this actor via
-            // `await self.processSingleFile(...)`, so mutations to actor-isolated state
-            // (successCount, processingTimes, etc.) are serialised correctly.
-            // Reading `successCount` after `waitForAll()` is safe because all child tasks
-            // have completed and re-joined the actor before this line executes.
             return await withTaskGroup(of: Void.self) { group in
                 let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
 
@@ -149,8 +144,7 @@ actor ScanAndCreateThumbnails {
 
         if Task.isCancelled { return }
 
-        // A. Check RAM (Shared)
-        // SharedMemoryCache uses internal locking — synchronous access is intentional and safe.
+        // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
             cacheMemory += 1
@@ -183,15 +177,11 @@ actor ScanAndCreateThumbnails {
             let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
                 from: url,
                 maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel,
+                qualityCost: costPerPixel
             )
 
-            // ⬇️ NEW: check AFTER the expensive extraction — this is the critical one
             if Task.isCancelled { return }
 
-            // Normalise to a single JPEG-backed NSImage representation to match disk-loaded images.
-            // Note: JPEG at 0.7 quality introduces mild compression artefacts. Acceptable for
-            // culling/preview use; change to PNG if lossless fidelity is required.
             let image = try cgImageToNormalizedNSImage(cgImage)
 
             storeInMemoryCache(image, for: url)
@@ -202,10 +192,16 @@ actor ScanAndCreateThumbnails {
 
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
-            // Capture diskCache directly to avoid retaining the whole actor in the detached task.
+            // Encode to Data here, inside the actor, before crossing the task boundary.
+            // `Data` is Sendable; `CGImage` is not.
+            guard let jpegData = DiskCacheManager.jpegData(from: cgImage) else {
+                Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
+                return
+            }
+
             let dcache = diskCache
-            Task.detached(priority: .background) { [cgImage, dcache] in
-                await dcache.save(cgImage, for: url)
+            Task.detached(priority: .background) {
+                await dcache.save(jpegData, for: url)
             }
         } catch {
             Logger.process.warning("Failed: \(url.lastPathComponent)")
@@ -229,7 +225,6 @@ actor ScanAndCreateThumbnails {
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
 
-            // Only update UI if the new estimate is lower (avoids ETA jumping upward).
             if let current = lastEstimatedSeconds, estimatedSeconds > current {
                 return
             }
@@ -242,8 +237,6 @@ actor ScanAndCreateThumbnails {
     // MARK: - Image Conversion
 
     /// Converts a `CGImage` to an `NSImage` backed by a single JPEG representation.
-    /// This normalises the in-memory format to match images loaded from the disk cache,
-    /// ensuring consistent behaviour throughout the cache lookup chain.
     private func cgImageToNormalizedNSImage(_ cgImage: CGImage) throws -> NSImage {
         let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
 
@@ -259,14 +252,12 @@ actor ScanAndCreateThumbnails {
     }
 
     private func nsImageToCGImage(_ nsImage: NSImage) throws -> CGImage {
-        // Prefer extracting an existing CGImage directly from bitmap representations (cheapest path).
         for rep in nsImage.representations {
             if let bitmapRep = rep as? NSBitmapImageRep, let cgImage = bitmapRep.cgImage {
                 return cgImage
             }
         }
 
-        // Fallback: decode via TIFF only when no bitmap representation is available.
         guard let tiffData = nsImage.tiffRepresentation,
               let bitmapRep = NSBitmapImageRep(data: tiffData),
               let cgImage = bitmapRep.cgImage
@@ -286,7 +277,6 @@ actor ScanAndCreateThumbnails {
     private func storeInMemoryCache(_ image: NSImage, for url: URL) {
         let costPerPixel = getCostPerPixel()
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
-        // SharedMemoryCache uses internal locking — synchronous access is intentional and safe.
         SharedMemoryCache.shared.setObject(wrapper, forKey: url as NSURL, cost: wrapper.cost)
     }
 
@@ -308,7 +298,6 @@ actor ScanAndCreateThumbnails {
         let nsUrl = url as NSURL
 
         // A. Check RAM
-        // SharedMemoryCache uses internal locking — synchronous access is intentional and safe.
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
             cacheMemory += 1
@@ -324,58 +313,49 @@ actor ScanAndCreateThumbnails {
             return try nsImageToCGImage(diskImage)
         }
 
-        // C. Check In-Flight Requests (Request Coalescing)
-        // If the image is currently being fetched/created by another task, wait for that result.
+        // C. Check In-Flight Requests
         if let existingTask = inflightTasks[url] {
             Logger.process.debugThreadOnly("resolveImage: coalescing request for \(url.lastPathComponent)")
             let image = try await existingTask.value
-            // The existing task handles caching, we just return the converted result
             return try nsImageToCGImage(image)
         }
 
         // D. Start New Work
-        // We create a task that produces an NSImage (ready for caching).
-        // Note: We create an unstructured Task here. Because we are inside an Actor,
-        // this Task runs on the actor context, allowing us to mutate `inflightTasks` safely.
         let task = Task { () throws -> NSImage in
-            // 1. Get Settings
             let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
-            // 2. Extract (Calling static method to avoid allocation overhead)
-            // Assumes ExtractSonyThumbnail has been updated to use static methods.
             let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
                 from: url,
                 maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel,
+                qualityCost: costPerPixel
             )
 
-            // 3. Normalize to NSImage for Caching
             let image = try self.cgImageToNormalizedNSImage(cgImage)
 
-            // 4. Store in Memory
             self.storeInMemoryCache(image, for: url)
 
-            // 5. Save to Disk (Fire and forget)
-            let dcache = self.diskCache
-            Task.detached(priority: .background) { [cgImage, dcache] in
-                await dcache.save(cgImage, for: url)
+            // Encode to Data inside this actor-bound Task before handing off to a
+            // detached task.  `Data` is Sendable; `CGImage` is not.
+            if let jpegData = DiskCacheManager.jpegData(from: cgImage) {
+                let dcache = self.diskCache
+                Task.detached(priority: .background) {
+                    await dcache.save(jpegData, for: url)
+                }
+            } else {
+                Logger.process.warning("resolveImage: failed to encode JPEG for \(url.lastPathComponent)")
             }
 
-            // 6. Clean up In-Flight tracker
-            // It is safe to access `self.inflightTasks` here because we are running on the Actor.
             self.inflightTasks[url] = nil
 
             return image
         }
 
-        // Register task
         inflightTasks[url] = task
 
         do {
             let image = try await task.value
             return try nsImageToCGImage(image)
         } catch {
-            // Ensure cleanup if the task fails
             inflightTasks[url] = nil
             throw error
         }

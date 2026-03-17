@@ -14,7 +14,6 @@ actor DiskCacheManager {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         } catch {
-            // Optional: Log error to console
             Logger.process.warning("DiskCacheManager: Failed to create directory \(folder): \(error)")
         }
     }
@@ -28,58 +27,55 @@ actor DiskCacheManager {
     }
 
     func load(for sourceURL: URL) async -> NSImage? {
-        // Calculate URL while on the actor
         let fileURL = cacheURL(for: sourceURL)
 
-        // 1. Read Data off the actor to prevent blocking
         let data = await Task.detached(priority: .userInitiated) {
             try? Data(contentsOf: fileURL)
         }.value
 
         guard let data else { return nil }
-
-        // 2. Create NSImage inside the actor (safe)
         return NSImage(data: data)
     }
 
-    func save(_ cgImage: CGImage, for sourceURL: URL) async {
-        // 1. Calculate the hash path while on the actor.
-        // Avoids sending 'self' (the actor) into the detached task.
+    // MARK: - Save
+
+    /// Accepts pre-encoded JPEG `Data` so callers never need to send a `CGImage`
+    /// across an actor/task boundary.  Encode with `DiskCacheManager.jpegData(from:)`
+    /// inside the actor that owns the image, then pass the resulting `Data` here.
+    func save(_ jpegData: Data, for sourceURL: URL) async {
         let fileURL = cacheURL(for: sourceURL)
 
-        // 2. Perform compression and IO off the actor
+        // `Data` is Sendable — safe to hand off to a detached task.
         await Task.detached(priority: .background) {
-            // cgImage is sent here. Since CGImage is a type-less wrapper and Sendable,
-            // this is generally safe, though the compiler might warn about strict concurrency.
             do {
-                try Self.writeImageToDisk(cgImage, to: fileURL)
+                try jpegData.write(to: fileURL, options: .atomic)
             } catch {
                 Logger.process.warning("DiskCacheManager: Failed to write image to disk \(fileURL.path): \(error)")
             }
         }.value
     }
 
-    /// Helper isolated to the detached task context
-    private nonisolated static func writeImageToDisk(_ cgImage: CGImage, to fileURL: URL) throws {
-        guard let destination = CGImageDestinationCreateWithURL(
-            fileURL as CFURL,
+    // MARK: - Encoding helper
+
+    /// Encodes a `CGImage` to JPEG `Data` at quality 0.7.
+    /// Call this **inside the actor that owns the `CGImage`** before crossing any
+    /// task or actor boundary.  Returns `nil` on encoding failure.
+    nonisolated static func jpegData(from cgImage: CGImage) -> Data? {
+        let mutableData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            mutableData,
             UTType.jpeg.identifier as CFString,
             1,
-            nil,
-        ) else {
-            throw ThumbnailError.generationFailed
-        }
+            nil
+        ) else { return nil }
 
-        let options: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: 0.7
-        ]
-
+        let options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.7]
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
-
-        if !CGImageDestinationFinalize(destination) {
-            throw ThumbnailError.generationFailed
-        }
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return mutableData as Data
     }
+
+    // MARK: - Cache utilities
 
     func getDiskCacheSize() async -> Int {
         let directory = cacheDirectory
@@ -91,7 +87,7 @@ actor DiskCacheManager {
             guard let urls = try? fileManager.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: resourceKeys,
-                options: .skipsHiddenFiles,
+                options: .skipsHiddenFiles
             ) else { return 0 }
 
             var totalSize = 0
@@ -110,7 +106,6 @@ actor DiskCacheManager {
     }
 
     func pruneCache(maxAgeInDays: Int = 30) async {
-        // Capture cacheDirectory to avoid capturing 'self'
         let directory = cacheDirectory
 
         await Task.detached(priority: .utility) {
@@ -120,7 +115,7 @@ actor DiskCacheManager {
             guard let urls = try? fileManager.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: resourceKeys,
-                options: .skipsHiddenFiles,
+                options: .skipsHiddenFiles
             ) else { return }
 
             guard let expirationDate = Calendar.current.date(byAdding: .day, value: -maxAgeInDays, to: Date()) else { return }
@@ -132,7 +127,6 @@ actor DiskCacheManager {
                         try fileManager.removeItem(at: fileURL)
                     }
                 } catch {
-                    // Optional: Log error to console
                     Logger.process.warning("DiskCacheManager: Failed to delete \(fileURL.path): \(error)")
                 }
             }
