@@ -27,3 +27,7 @@ Current version: v1.1.7 - released 16 March 2026
 - [Changelog](https://rawcull.netlify.app/blog/)
 
 ![](images/rawcull.png)
+
+Focus Mask applied.
+
+![](images/focusmask.png)
