@@ -15,7 +15,7 @@ actor RequestThumbnail {
 
     init(
         config _: CacheConfig? = nil,
-        diskCache: DiskCacheManager? = nil
+        diskCache: DiskCacheManager? = nil,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
     }
@@ -69,7 +69,7 @@ actor RequestThumbnail {
         let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
             from: url,
             maxDimension: CGFloat(targetSize),
-            qualityCost: costPerPixel
+            qualityCost: costPerPixel,
         )
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))

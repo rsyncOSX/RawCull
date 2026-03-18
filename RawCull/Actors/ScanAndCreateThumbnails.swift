@@ -43,7 +43,7 @@ actor ScanAndCreateThumbnails {
 
     init(
         config _: CacheConfig? = nil,
-        diskCache: DiskCacheManager? = nil
+        diskCache: DiskCacheManager? = nil,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
         Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
@@ -177,7 +177,7 @@ actor ScanAndCreateThumbnails {
             let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
                 from: url,
                 maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel
+                qualityCost: costPerPixel,
             )
 
             if Task.isCancelled { return }
@@ -327,7 +327,7 @@ actor ScanAndCreateThumbnails {
             let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
                 from: url,
                 maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel
+                qualityCost: costPerPixel,
             )
 
             let image = try self.cgImageToNormalizedNSImage(cgImage)
