@@ -5,6 +5,7 @@
 //  Created by Thomas Evensen on 18/03/2026.
 //
 
+import AppKit
 import Foundation
 import Testing
 
@@ -186,8 +187,13 @@ struct ConcurrencyTests {
                 #expect(results.count == 100)
                 let first = results[0]
                 for result in results {
-                    #expect(result.memoryCacheSizeMB == first.memoryCacheSizeMB)
-                    #expect(result.thumbnailSizeGrid == first.thumbnailSizeGrid)
+                    // Access via MainActor.run: SettingsViewModel is inferred @MainActor
+                    let resultMB = await MainActor.run { result.memoryCacheSizeMB }
+                    let firstMB = await MainActor.run { first.memoryCacheSizeMB }
+                    let resultGrid = await MainActor.run { result.thumbnailSizeGrid }
+                    let firstGrid = await MainActor.run { first.thumbnailSizeGrid }
+                    #expect(resultMB == firstMB)
+                    #expect(resultGrid == firstGrid)
                 }
             }
         }
@@ -214,8 +220,10 @@ struct ConcurrencyTests {
             await viewModel.loadSettings()
             
             let savedSettings = await viewModel.asyncgetsettings()
-            #expect(savedSettings.memoryCacheSizeMB == 1000)
-            #expect(savedSettings.thumbnailSizeGrid == 200)
+            let savedMB = await MainActor.run { savedSettings.memoryCacheSizeMB }
+            let savedGrid = await MainActor.run { savedSettings.thumbnailSizeGrid }
+            #expect(savedMB == 1000)
+            #expect(savedGrid == 200)
         }
     }
     
@@ -391,7 +399,7 @@ struct ConcurrencyTests {
     struct RaceConditionTests {
         
         @Test("No race in cache delegate eviction counting", 
-              .timeLimit(.seconds(5)))
+              .timeLimit(.minutes(1)))
         func noCacheDelegateRace() async throws {
             let delegate = CacheDelegate.shared
             await delegate.resetEvictionCount()
@@ -412,7 +420,7 @@ struct ConcurrencyTests {
         }
         
         @Test("No race in settings read/write", 
-              .timeLimit(.seconds(5)))
+              .timeLimit(.minutes(1)))
         func noSettingsRace() async throws {
             let viewModel = await SettingsViewModel.shared
             

@@ -8,6 +8,7 @@
 //  Run with: Product > Scheme > Edit Scheme > Test > Diagnostics > Thread Sanitizer
 //
 
+import AppKit
 import Foundation
 import Testing
 
@@ -158,7 +159,10 @@ struct DataRaceDetectionTests {
         }
         
         // Old snapshot should be unchanged (value semantics)
-        #expect(snapshot1.memoryCacheSizeMB != 9999,
+        // Access via MainActor.run: SettingsViewModel is inferred @MainActor, so
+        // properties named memoryCacheSizeMB are treated as main-actor-isolated
+        let snapshotMB = await MainActor.run { snapshot1.memoryCacheSizeMB }
+        #expect(snapshotMB != 9999,
                 "Snapshot is isolated from subsequent changes")
     }
     
@@ -222,7 +226,10 @@ struct DataRaceDetectionTests {
                 group.addTask {
                     // If not truly Sendable, TSan would complain here
                     let copy = settings
-                    return copy.memoryCacheSizeMB == 5000
+                    // Access via MainActor.run: SettingsViewModel is inferred @MainActor,
+                    // causing memoryCacheSizeMB to be treated as main-actor-isolated
+                    let mb = await MainActor.run { copy.memoryCacheSizeMB }
+                    return mb == 5000
                 }
             }
             
@@ -351,8 +358,8 @@ struct DataRaceDetectionTests {
     
     // MARK: - Stress Tests for TSan
     
-    @Test("Extreme concurrent load reveals no data races", 
-          .timeLimit(.seconds(10)),
+    @Test("Extreme concurrent load reveals no data races",
+          .timeLimit(.minutes(1)),
           .tags(.performance))
     func extremeConcurrentLoad() async throws {
         let cache = SharedMemoryCache.shared

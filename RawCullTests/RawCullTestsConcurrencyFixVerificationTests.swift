@@ -78,25 +78,24 @@ struct ConcurrencyFixVerificationTests {
         
         @Test("Completion handler finishes before cleanup")
         func cleanupOrderingCorrect() async throws {
-            let executionOrder = await MainActor.run { 
-                await withCheckedContinuation { continuation in
-                    Task { @MainActor in
-                        var order: [String] = []
-                        
-                        // Simulate the fixed implementation
-                        order.append("start")
-                        
-                        // Completion handler
-                        order.append("completion")
-                        
-                        // Small delay (as in the fix)
-                        try? await Task.sleep(for: .milliseconds(10))
-                        
-                        // Cleanup
-                        order.append("cleanup")
-                        
-                        continuation.resume(returning: order)
-                    }
+            // MainActor.run only accepts synchronous closures; use withCheckedContinuation directly
+            let executionOrder: [String] = await withCheckedContinuation { continuation in
+                Task { @MainActor in
+                    var order: [String] = []
+
+                    // Simulate the fixed implementation
+                    order.append("start")
+
+                    // Completion handler
+                    order.append("completion")
+
+                    // Small delay (as in the fix)
+                    try? await Task.sleep(for: .milliseconds(10))
+
+                    // Cleanup
+                    order.append("cleanup")
+
+                    continuation.resume(returning: order)
                 }
             }
             
@@ -211,9 +210,12 @@ struct ConcurrencyFixVerificationTests {
             
             // The fixed implementation wraps property access in MainActor.run
             let settings = await viewModel.asyncgetsettings()
-            
-            #expect(settings.memoryCacheSizeMB == 7500)
-            #expect(settings.thumbnailSizeGrid == 150)
+
+            // SettingsViewModel is inferred @MainActor, so access properties via MainActor.run
+            let mb = await MainActor.run { settings.memoryCacheSizeMB }
+            let grid = await MainActor.run { settings.thumbnailSizeGrid }
+            #expect(mb == 7500)
+            #expect(grid == 150)
         }
         
         @Test("Concurrent reads don't cause data races")
@@ -229,7 +231,7 @@ struct ConcurrencyFixVerificationTests {
                 for _ in 0..<100 {
                     group.addTask {
                         let settings = await viewModel.asyncgetsettings()
-                        return await settings.memoryCacheSizeMB
+                        return await MainActor.run { settings.memoryCacheSizeMB }
                     }
                 }
                 
@@ -415,10 +417,11 @@ struct ConcurrencyFixVerificationTests {
             let evictions = await delegate.getEvictionCount()
             let savedSettings = await settings.asyncgetsettings()
             let totalMemory = await memory.totalMemory
-            
+            let savedMB = await MainActor.run { savedSettings.memoryCacheSizeMB }
+
             #expect(stats.hits >= 0)
             #expect(evictions >= 0)
-            #expect(savedSettings.memoryCacheSizeMB > 0)
+            #expect(savedMB > 0)
             #expect(totalMemory > 0)
         }
         
