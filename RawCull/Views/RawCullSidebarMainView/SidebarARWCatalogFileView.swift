@@ -32,9 +32,9 @@ struct SidebarARWCatalogFileView: View {
                 ContentUnavailableView {
                     Label("No Catalog Selected", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("Select a folder from the sidebar or add a new one to start scanning.")
+                    Text("Add a folder to start culling your shots")
                 } actions: {
-                    Button("Add Catalog") { isShowingPicker = true }
+                    Button("+ Add Catalog") { isShowingPicker = true }
                 }
             } else if scanning {
                 ProgressView("Scanning for ARW images: \(counterScannedFiles)")
