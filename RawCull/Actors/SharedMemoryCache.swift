@@ -116,8 +116,9 @@ actor SharedMemoryCache {
             self.applyConfig(finalConfig)
         }
 
-        // Store BEFORE any suspension — this is the critical line
-        self.setupTask = newTask
+        // Store immediately to prevent duplicate initialization
+        setupTask = newTask
+        
         await newTask.value
     }
 
@@ -213,14 +214,16 @@ actor SharedMemoryCache {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: .all, queue: .global(qos: .utility))
 
         source.setEventHandler { [weak self] in
-            Task.detached(priority: .high) { [weak self] in
-                await self?.handleMemoryPressureEvent()
+            guard let self else { return }
+            Task {
+                await self.handleMemoryPressureEvent()
             }
         }
 
         source.setCancelHandler { [weak self] in
-            Task.detached(priority: .high) { [weak self] in
-                await self?.logMemoryPressure("Memory pressure monitoring cancelled")
+            guard let self else { return }
+            Task {
+                await self.logMemoryPressure("Memory pressure monitoring cancelled")
             }
         }
 
@@ -292,7 +295,7 @@ actor SharedMemoryCache {
         await ensureReady()
         let total = cacheMemory + cacheDisk
         let hitRate = total > 0 ? Double(cacheMemory) / Double(total) * 100 : 0
-        let evictions = CacheDelegate.shared.getEvictionCount()
+        let evictions = await CacheDelegate.shared.getEvictionCount()
         return CacheStatistics(
             hits: cacheMemory,
             misses: cacheDisk,
@@ -322,7 +325,7 @@ actor SharedMemoryCache {
         // Reset statistics
         cacheMemory = 0
         cacheDisk = 0
-        CacheDelegate.shared.resetEvictionCount()
+        await CacheDelegate.shared.resetEvictionCount()
     }
 
     func updateCacheMemory() async {

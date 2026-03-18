@@ -177,17 +177,19 @@ final class SettingsViewModel {
         await saveSettings()
     }
 
-    @concurrent
+    /// Get a snapshot of current settings (safe to call from any context)
     nonisolated func asyncgetsettings() async -> SavedSettings {
-        await SavedSettings(
-            memoryCacheSizeMB: self.memoryCacheSizeMB,
-            thumbnailSizeGrid: self.thumbnailSizeGrid,
-            thumbnailSizePreview: self.thumbnailSizePreview,
-            thumbnailSizeFullSize: self.thumbnailSizeFullSize,
-            thumbnailCostPerPixel: self.thumbnailCostPerPixel,
-            thumbnailSizeGridView: self.thumbnailSizeGridView,
-            useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
-        )
+        await MainActor.run {
+            SavedSettings(
+                memoryCacheSizeMB: self.memoryCacheSizeMB,
+                thumbnailSizeGrid: self.thumbnailSizeGrid,
+                thumbnailSizePreview: self.thumbnailSizePreview,
+                thumbnailSizeFullSize: self.thumbnailSizeFullSize,
+                thumbnailCostPerPixel: self.thumbnailCostPerPixel,
+                thumbnailSizeGridView: self.thumbnailSizeGridView,
+                useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
+            )
+        }
     }
 }
 

@@ -188,10 +188,13 @@ final class ExecuteCopyFiles {
             linesCount: stringoutputfromrsync?.count ?? 0,
         )
 
-        // Call completion handler
+        // Call completion handler - let it finish before cleanup
         onCompletion?(result)
+        
+        // Give a tiny delay to ensure completion handler processes
+        try? await Task.sleep(for: .milliseconds(10))
 
-        // Clean up
+        // Clean up only after completion has been processed
         cleanup()
     }
 

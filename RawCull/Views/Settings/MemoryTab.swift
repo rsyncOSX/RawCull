@@ -187,11 +187,12 @@ struct MemoryTab: View {
 
             // Consume the stream
             for await _ in timerStream {
-                memoryModel.updateMemoryStats()
+                await memoryModel.updateMemoryStats()
             }
         }
     }
 
+    @MainActor
     private func pressureLevelColor(_ level: SharedMemoryCache.MemoryPressureLevel) -> Color {
         switch level {
         case .normal: .green

@@ -53,20 +53,32 @@ final class MemoryViewModel {
 
     // MARK: - Update
 
-    func updateMemoryStats() {
-        totalMemory = ProcessInfo.processInfo.physicalMemory
-        usedMemory = getUsedSystemMemory()
-        appMemory = getAppMemory()
-        memoryPressureThreshold = calculateMemoryPressureThreshold()
+    func updateMemoryStats() async {
+        // Move heavy mach calls off MainActor
+        let (total, used, app, threshold) = await Task.detached {
+            let total = ProcessInfo.processInfo.physicalMemory
+            let used = self.getUsedSystemMemory()
+            let app = self.getAppMemory()
+            let threshold = self.calculateMemoryPressureThreshold(total: total)
+            return (total, used, app, threshold)
+        }.value
+        
+        // Update properties on MainActor
+        await MainActor.run {
+            self.totalMemory = total
+            self.usedMemory = used
+            self.appMemory = app
+            self.memoryPressureThreshold = threshold
+        }
 
-        let message = "MemoryViewModel: updateMemoryStats() Total: \(formatBytes(totalMemory)), " +
-            "Used: \(formatBytes(usedMemory)), App: \(formatBytes(appMemory))"
+        let message = "MemoryViewModel: updateMemoryStats() Total: \(formatBytes(total)), " +
+            "Used: \(formatBytes(used)), App: \(formatBytes(app))"
         Logger.process.debugMessageOnly(message)
     }
 
     // MARK: - Private helpers
 
-    private func getUsedSystemMemory() -> UInt64 {
+    private nonisolated func getUsedSystemMemory() -> UInt64 {
         let total = ProcessInfo.processInfo.physicalMemory
 
         var stat = vm_statistics64()
@@ -90,7 +102,7 @@ final class MemoryViewModel {
         return min((wired + active + compressed) * pageSize, total)
     }
 
-    private func getAppMemory() -> UInt64 {
+    private nonisolated func getAppMemory() -> UInt64 {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info>.size / 4)
 
@@ -104,8 +116,8 @@ final class MemoryViewModel {
         return info.phys_footprint
     }
 
-    private func calculateMemoryPressureThreshold() -> UInt64 {
-        UInt64(Double(totalMemory) * pressureThresholdFactor)
+    private nonisolated func calculateMemoryPressureThreshold(total: UInt64) -> UInt64 {
+        UInt64(Double(total) * pressureThresholdFactor)
     }
 
     // MARK: - Formatting

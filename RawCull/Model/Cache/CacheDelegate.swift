@@ -12,9 +12,9 @@ import OSLog
 /// Delegate to track NSCache evictions for monitoring memory pressure
 final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
     nonisolated static let shared = CacheDelegate()
-
-    private nonisolated(unsafe) var _evictionCount = 0
-    private let evictionLock = NSLock()
+    
+    // Actor to safely manage eviction count
+    private let evictionCounter = EvictionCounter()
 
     override nonisolated init() {
         super.init()
@@ -23,26 +23,40 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
     nonisolated func cache(_: NSCache<AnyObject, AnyObject>, willEvictObject obj: Any) {
         // Check if the evicted object is a DiscardableThumbnail
         if obj is DiscardableThumbnail {
-            evictionLock.lock()
-            _evictionCount += 1
-            evictionLock.unlock()
-            Logger.process.debugMessageOnly(
-                "CacheDelegate: Evicted DiscardableThumbnail, total evictions: \(_evictionCount)",
-            )
+            Task {
+                let count = await evictionCounter.increment()
+                Logger.process.debugMessageOnly(
+                    "CacheDelegate: Evicted DiscardableThumbnail, total evictions: \(count)",
+                )
+            }
         }
     }
 
     /// Get current eviction count (thread-safe)
-    nonisolated func getEvictionCount() -> Int {
-        evictionLock.lock()
-        defer { evictionLock.unlock() }
-        return _evictionCount
+    func getEvictionCount() async -> Int {
+        await evictionCounter.getCount()
     }
 
     /// Reset eviction count (thread-safe)
-    nonisolated func resetEvictionCount() {
-        evictionLock.lock()
-        defer { evictionLock.unlock() }
-        _evictionCount = 0
+    func resetEvictionCount() async {
+        await evictionCounter.reset()
     }
 }
+/// Actor to safely track eviction count
+private actor EvictionCounter {
+    private var count = 0
+    
+    func increment() -> Int {
+        count += 1
+        return count
+    }
+    
+    func getCount() -> Int {
+        count
+    }
+    
+    func reset() {
+        count = 0
+    }
+}
+
