@@ -78,30 +78,25 @@ struct ConcurrencyFixVerificationTests {
         
         @Test("Completion handler finishes before cleanup")
         func cleanupOrderingCorrect() async throws {
-            var executionOrder: [String] = []
-            let orderLock = NSLock()
-            
-            await withCheckedContinuation { continuation in
-                Task { @MainActor in
-                    // Simulate the fixed implementation
-                    orderLock.lock()
-                    executionOrder.append("start")
-                    orderLock.unlock()
-                    
-                    // Completion handler
-                    orderLock.lock()
-                    executionOrder.append("completion")
-                    orderLock.unlock()
-                    
-                    // Small delay (as in the fix)
-                    try? await Task.sleep(for: .milliseconds(10))
-                    
-                    // Cleanup
-                    orderLock.lock()
-                    executionOrder.append("cleanup")
-                    orderLock.unlock()
-                    
-                    continuation.resume()
+            let executionOrder = await MainActor.run { 
+                await withCheckedContinuation { continuation in
+                    Task { @MainActor in
+                        var order: [String] = []
+                        
+                        // Simulate the fixed implementation
+                        order.append("start")
+                        
+                        // Completion handler
+                        order.append("completion")
+                        
+                        // Small delay (as in the fix)
+                        try? await Task.sleep(for: .milliseconds(10))
+                        
+                        // Cleanup
+                        order.append("cleanup")
+                        
+                        continuation.resume(returning: order)
+                    }
                 }
             }
             
@@ -260,21 +255,30 @@ struct ConcurrencyFixVerificationTests {
             // The fix stores setupTask immediately to prevent race
             let cache = SharedMemoryCache.shared
             
-            var initCount = 0
-            let countLock = NSLock()
+            // Use an actor for async-safe counting
+            actor Counter {
+                var count = 0
+                func increment() {
+                    count += 1
+                }
+                func getCount() -> Int {
+                    return count
+                }
+            }
+            
+            let counter = Counter()
             
             // Simulate the initialization by calling ensureReady many times concurrently
             await withTaskGroup(of: Void.self) { group in
                 for _ in 0..<100 {
                     group.addTask {
                         await cache.ensureReady()
-                        countLock.lock()
-                        initCount += 1
-                        countLock.unlock()
+                        await counter.increment()
                     }
                 }
             }
             
+            let initCount = await counter.getCount()
             #expect(initCount == 100, "All 100 calls should complete")
             
             // The internal setupTask should only be created once
