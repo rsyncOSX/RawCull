@@ -190,7 +190,7 @@ final class ExecuteCopyFiles {
 
         // Call completion handler - let it finish before cleanup
         onCompletion?(result)
-        
+
         // Give a tiny delay to ensure completion handler processes
         try? await Task.sleep(for: .milliseconds(10))
 

@@ -1,5 +1,5 @@
 //
-//  SimpleVerificationTest.swift
+//  RawCullTestsSimpleVerificationTest.swift
 //  RawCull Tests
 //
 //  Created by Thomas Evensen on 18/03/2026.
@@ -9,22 +9,20 @@
 
 import Testing
 
-@Suite("Swift Testing Verification")
 struct SimpleVerificationTest {
-    
-    @Test("Swift Testing is available")
-    func swiftTestingWorks() {
+    @Test
+    func `Swift Testing is available`() {
         #expect(true, "If this test runs, Swift Testing is working!")
     }
-    
-    @Test("Basic arithmetic")
-    func basicMath() {
+
+    @Test
+    func `Basic arithmetic`() {
         let result = 2 + 2
         #expect(result == 4)
     }
-    
-    @Test("Async test works")
-    func asyncTest() async {
+
+    @Test
+    func `Async test works`() async {
         try? await Task.sleep(for: .milliseconds(10))
         #expect(true, "Async tests work!")
     }

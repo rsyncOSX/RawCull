@@ -62,7 +62,7 @@ final class MemoryViewModel {
             let threshold = self.calculateMemoryPressureThreshold(total: total)
             return (total, used, app, threshold)
         }.value
-        
+
         // Update properties on MainActor
         await MainActor.run {
             self.totalMemory = total

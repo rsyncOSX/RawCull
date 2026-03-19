@@ -12,8 +12,8 @@ import OSLog
 /// Delegate to track NSCache evictions for monitoring memory pressure
 final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
     nonisolated static let shared = CacheDelegate()
-    
-    // Actor to safely manage eviction count
+
+    /// Actor to safely manage eviction count
     private let evictionCounter = EvictionCounter()
 
     override nonisolated init() {
@@ -42,21 +42,21 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
         await evictionCounter.reset()
     }
 }
+
 /// Actor to safely track eviction count
 private actor EvictionCounter {
     private var count = 0
-    
+
     func increment() -> Int {
         count += 1
         return count
     }
-    
+
     func getCount() -> Int {
         count
     }
-    
+
     func reset() {
         count = 0
     }
 }
-

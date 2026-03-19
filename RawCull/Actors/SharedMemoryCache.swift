@@ -118,7 +118,7 @@ actor SharedMemoryCache {
 
         // Store immediately to prevent duplicate initialization
         setupTask = newTask
-        
+
         await newTask.value
     }
 
