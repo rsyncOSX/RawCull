@@ -32,7 +32,7 @@ struct SidebarARWCatalogFileView: View {
                 ContentUnavailableView {
                     Label("No Catalog Selected", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("Add a folder to start culling your shots")
+                    Text("Add a Catalog to start culling your photos.")
                 } actions: {
                     Button("+ Add Catalog") { isShowingPicker = true }
                 }
