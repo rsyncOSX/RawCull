@@ -76,7 +76,7 @@ struct VerticalMainThumbnailsListView: View {
 
         Spacer()
 
-        FileTableImageView(
+        ImageTableHorizontalView(
             viewModel: viewModel,
             selectedSource: viewModel.selectedSource,
         )

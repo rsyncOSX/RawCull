@@ -1,5 +1,5 @@
 //
-//  FileTableImageView.swift
+//  ImageTableHorizontalView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 06/03/2026.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct FileTableImageView: View {
+struct ImageTableHorizontalView: View {
     @Bindable var viewModel: RawCullViewModel
 
     let selectedSource: ARWSourceCatalog?
@@ -57,6 +57,31 @@ struct FileTableImageView: View {
                     .task(id: viewModel.selectedSource) {
                         await ThumbnailLoader.shared.cancelAll()
                     }
+                    .overlay(alignment: .top) {
+                        HStack(spacing: 8) {
+                            Button {
+                                moveSelectionUp(proxy: proxy)
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Scroll up")
+
+                            Button {
+                                moveSelectionDown(proxy: proxy)
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Scroll down")
+                        }
+                        .padding(8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+                        .padding(.trailing, 6)
+                    }
                 }
             }
         }
@@ -88,6 +113,33 @@ struct FileTableImageView: View {
               index - 1 >= 0 else { return }
         viewModel.selectedFile = sortedFiles[index - 1]
         viewModel.selectedFileID = sortedFiles[index - 1].id
+    }
+
+    private func scrollTo(_ file: FileItem, proxy: ScrollViewProxy) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            proxy.scrollTo(file.id, anchor: .center)
+        }
+    }
+
+    private func selectAndScroll(file: FileItem, proxy: ScrollViewProxy) {
+        viewModel.selectFile(file)
+        scrollTo(file, proxy: proxy)
+    }
+
+    private func moveSelectionUp(proxy: ScrollViewProxy) {
+        guard !sortedFiles.isEmpty else { return }
+        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
+        let nextIndex = max(0, currentIndex - 1)
+        let file = sortedFiles[nextIndex]
+        selectAndScroll(file: file, proxy: proxy)
+    }
+
+    private func moveSelectionDown(proxy: ScrollViewProxy) {
+        guard !sortedFiles.isEmpty else { return }
+        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
+        let nextIndex = min(sortedFiles.count - 1, currentIndex + 1)
+        let file = sortedFiles[nextIndex]
+        selectAndScroll(file: file, proxy: proxy)
     }
 
     private var filteredFiles: [FileItem] {
