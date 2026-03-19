@@ -92,7 +92,7 @@ struct SavedFilesView: View {
             Image(systemName: "folder.badge.questionmark")
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
-            Text("No catalogs")
+            Text("No Catalogs")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -160,7 +160,7 @@ struct SavedFilesView: View {
             Image(systemName: "doc.badge.ellipsis")
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
-            Text("No file records")
+            Text("No Files")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }

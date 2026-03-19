@@ -70,7 +70,7 @@ struct VerticalMainThumbnailsListView: View {
             ContentUnavailableView(
                 "No Selection",
                 systemImage: "doc.text",
-                description: Text("Select a Image to view its properties."),
+                description: Text("Select an image to view its details."),
             )
         }
 
@@ -140,9 +140,9 @@ extension VerticalMainThumbnailsListView {
 
         ToolbarItem(placement: .status) {
             Button(action: toggleshowsavedfiles) {
-                Label("Details", systemImage: "square.and.arrow.down")
+                Label("Saved Files", systemImage: "square.and.arrow.down")
             }
-            .help("Show SavedFiles")
+            .help("Show saved files")
         }
 
         ToolbarItem(placement: .status) {
@@ -150,7 +150,7 @@ extension VerticalMainThumbnailsListView {
                 Label("Toggle Inspector", systemImage: "rectangle.portrait.and.arrow.right")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Toggle Inspector")
+            .help("Show inspector")
             .labelStyle(.iconOnly)
         }
     }

@@ -59,7 +59,7 @@ struct RawCullMainView: View {
                     max: viewModel.max,
                 )
                 .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-                    " (\(viewModel.filteredFiles.count) ARW files)")
+                    " (\(viewModel.filteredFiles.count) files)")
                 .searchable(
                     text: $viewModel.searchText,
                     placement: .toolbar,

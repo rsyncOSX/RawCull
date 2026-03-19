@@ -46,7 +46,7 @@ struct ZoomableFocusePeekCSImageView: View {
             } else {
                 HStack {
                     ProgressView().fixedSize()
-                    Text("Extracting image, please wait...").font(.title)
+                    Text("Extracting image…").font(.title)
                 }
                 .padding()
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
@@ -76,7 +76,7 @@ struct ZoomableFocusePeekCSImageView: View {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    Text(currentScale <= 1.0 ? "Double Tap to Zoom" : "Double Tap to Fit Screen")
+                    Text(currentScale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
                         .font(.caption).foregroundStyle(.white.opacity(0.5))
                     if let cgImage {
                         Text("\(cgImage.width) × \(cgImage.height) px")

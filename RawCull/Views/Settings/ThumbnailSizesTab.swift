@@ -25,10 +25,10 @@ struct ThumbnailSizesTab: View {
 
                         // Grid Size
                         SettingsSliderRow(
-                            title: "Grid Thumbnail Size",
+                            title: "Main View Thumbnail Size",
                             systemImage: "square.grid.2x2",
                             valueText: "\(settingsManager.thumbnailSizeGrid) px",
-                            description: "Size for grid view thumbnails in Main View",
+                            description: "Thumbnail size in the main file list",
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGrid) },
                                 set: { settingsManager.thumbnailSizeGrid = Int($0) },
@@ -38,10 +38,10 @@ struct ThumbnailSizesTab: View {
                         )
 
                         SettingsSliderRow(
-                            title: "Grid View Thumbnail Size",
+                            title: "Grid Window Thumbnail Size",
                             systemImage: "square.grid.2x2",
                             valueText: "\(settingsManager.thumbnailSizeGridView) px",
-                            description: "Size for view thumbnails in Grid View",
+                            description: "Thumbnail size in the grid window",
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGridView) },
                                 set: { settingsManager.thumbnailSizeGridView = Int($0) },
@@ -89,10 +89,10 @@ struct ThumbnailSizesTab: View {
                             )
                             HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Lower values = lower quality/less memory.")
+                                    Text("Lower values use less memory, at the cost of quality.")
                                         .font(.system(size: 11, weight: .regular))
                                         .foregroundStyle(.secondary)
-                                    Text("Higher values = better quality/more memory")
+                                    Text("Higher values improve quality but use more memory.")
                                         .font(.system(size: 11, weight: .regular))
                                         .foregroundStyle(.secondary)
                                 }

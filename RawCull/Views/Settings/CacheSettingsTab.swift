@@ -164,7 +164,7 @@ struct CacheSettingsTab: View {
                             Button("Cancel", role: .cancel) {}
                         },
                         message: {
-                            Text("Are you sure you want prune the disk cache?")
+                            Text("Are you sure you want to prune the disk cache?")
                         },
                     )
                 }

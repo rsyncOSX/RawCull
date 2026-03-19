@@ -75,7 +75,7 @@ struct ZoomableFocusePeekNSImageView: View {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    Text(currentScale <= 1.0 ? "Double Tap to Zoom" : "Double Tap to Fit Screen")
+                    Text(currentScale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
                         .font(.caption).foregroundStyle(.white.opacity(0.5))
                     if let nsImage {
                         Text("\(Int(nsImage.size.width)) × \(Int(nsImage.size.height)) px")

@@ -42,7 +42,7 @@ struct SidebarARWCatalogFileView: View {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("This catalog does not contain ARW images, or the images are empty. Please try scanning another catalog.")
+                    Text("This folder has no ARW images. Try a different folder.")
                 }
             } else {
                 ZStack {
@@ -147,7 +147,7 @@ struct SidebarARWCatalogFileView: View {
                             ProgressView()
                                 .fixedSize()
 
-                            Text("Sorting files, please wait...")
+                            Text("Sorting files…")
                                 .font(.title)
                                 .foregroundColor(Color.green)
                         }

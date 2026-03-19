@@ -38,16 +38,16 @@ extension RawCullMainView {
 
         ToolbarItem(placement: .status) {
             Button(action: toggleshowsavedfiles) {
-                Label("Details", systemImage: "square.and.arrow.down")
+                Label("Saved Files", systemImage: "square.and.arrow.down")
             }
-            .help("Show SavedFiles")
+            .help("Show saved files")
         }
 
         ToolbarItem(placement: .status) {
             Button(action: toggleShowInspector) {
-                Label("Details", systemImage: "rectangle.portrait.and.arrow.right")
+                Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
             }
-            .help("Toggle Inspector")
+            .help("Show inspector")
         }
     }
 
