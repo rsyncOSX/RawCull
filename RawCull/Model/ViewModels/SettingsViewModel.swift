@@ -35,7 +35,7 @@ final class SettingsViewModel {
     /// Grid thumbnail size in pixels (default: 100)
     var thumbnailSizeGrid: Int = 100
     /// Grid View thumbnail size in pixels (default: 400)
-    var thumbnailSizeGridView: Int = 400
+    var thumbnailSizeGridView: Int = 200
     /// Preview thumbnail size in pixels (default: 1024)
     var thumbnailSizePreview: Int = 1024
     /// Full size thumbnail in pixels (default: 8700)
@@ -172,7 +172,7 @@ final class SettingsViewModel {
             self.thumbnailSizePreview = 1024
             self.thumbnailSizeFullSize = 8700
             self.thumbnailCostPerPixel = 4
-            self.thumbnailSizeGridView = 400
+            self.thumbnailSizeGridView = 200
         }
         await saveSettings()
     }

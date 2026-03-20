@@ -20,6 +20,7 @@ struct RawCullMainView: View {
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State var showhorizontalvertical: Bool = false
+    @State var showGridThumbnail: Bool = false
 
     var body: some View {
         // let _ = Self._printChanges()
@@ -32,6 +33,11 @@ struct RawCullMainView: View {
                 scale: $viewModel.scale,
                 lastScale: $viewModel.lastScale,
                 offset: $viewModel.offset,
+            )
+        } else if showGridThumbnail {
+            GridThumbnailView(
+                viewModel: viewModel,
+                isPresented: $showGridThumbnail,
             )
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {

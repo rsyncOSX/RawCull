@@ -23,7 +23,6 @@ struct RawCullApp: App {
     @State private var cgImage: CGImage?
     @State private var zoomCGImageWindowFocused: Bool = false
     @State private var zoomNSImageWindowFocused: Bool = false
-    @State private var gridThumbnailWindowFocused: Bool = false
 
     @State private var settingsviewmodel = SettingsViewModel.shared
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
@@ -91,22 +90,6 @@ struct RawCullApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 800, height: 600)
-
-        Window("Grid Thumbnails", id: "grid-thumbnails-window") {
-            GridThumbnailView(
-                viewModel: viewModel,
-            )
-            .environment(settingsviewmodel)
-            .environment(gridthumbnailviewmodel)
-            .onAppear {
-                gridThumbnailWindowFocused = true
-            }
-            .onDisappear {
-                gridThumbnailWindowFocused = false
-            }
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 900, height: 700)
 
         Window("Grid Tagged Images", id: "grid-tagged-thumbnails-window") {
             TaggedPhotoHorisontalGridView(

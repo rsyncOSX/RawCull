@@ -12,6 +12,8 @@ struct GridThumbnailView: View {
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
     @Environment(SettingsViewModel.self) var settingsviewmodel
 
+    @Binding var isPresented: Bool
+
     var body: some View {
         // let _ = Self._printChanges()
         Group {
@@ -26,6 +28,14 @@ struct GridThumbnailView: View {
                     systemImage: "photo.fill",
                     description: Text("Please select a source from the main window to view thumbnails."),
                 )
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button(action: { isPresented = false }) {
+                    Label("Back", systemImage: "chevron.left")
+                }
+                .help("Return to main view")
             }
         }
         .onDisappear {

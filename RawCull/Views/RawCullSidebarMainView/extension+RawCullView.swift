@@ -69,7 +69,7 @@ extension RawCullMainView {
             selectedSource: viewModel.selectedSource,
             filteredFiles: viewModel.filteredFiles,
         )
-        openWindow(id: WindowIdentifier.gridThumbnails.rawValue)
+        showGridThumbnail = true
     }
 
     func opentaggedGridThumbnailWindow() {
