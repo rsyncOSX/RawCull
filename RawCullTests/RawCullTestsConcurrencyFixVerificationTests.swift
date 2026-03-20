@@ -131,13 +131,25 @@ enum ConcurrencyFixVerificationTests {
             // The fix removes Task.detached in favor of direct Task
             // This test verifies the pattern works correctly
 
-            var handlerCalled = false
+            actor HandlerState {
+                var called = false
+                
+                func markCalled() {
+                    called = true
+                }
+                
+                func wasCalled() -> Bool {
+                    called
+                }
+            }
+            
+            let state = HandlerState()
 
             let simulateHandler: @Sendable () -> Void = {
                 Task {
                     // This is the fixed pattern: direct Task instead of Task.detached
                     try? await Task.sleep(for: .milliseconds(1))
-                    handlerCalled = true
+                    await state.markCalled()
                 }
             }
 
@@ -146,6 +158,7 @@ enum ConcurrencyFixVerificationTests {
             // Give the Task time to execute
             try await Task.sleep(for: .milliseconds(50))
 
+            let handlerCalled = await state.wasCalled()
             #expect(handlerCalled, "Handler should execute via direct Task")
         }
 

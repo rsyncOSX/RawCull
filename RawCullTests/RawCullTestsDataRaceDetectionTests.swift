@@ -172,16 +172,16 @@ struct DataRaceDetectionTests {
     func `Weak references don't cause use-after-free`() async throws {
         // Test the weak capture pattern in DispatchSource handlers
 
-        class TestActor {
+        actor TestActor {
             var value = 0
 
-            func increment() async {
+            func increment() {
                 value += 1
             }
         }
 
         var actor: TestActor? = TestActor()
-        weak var weakActor = actor
+        weak let weakActor = actor
 
         let handler: @Sendable () -> Void = {
             guard let strongActor = weakActor else { return }
