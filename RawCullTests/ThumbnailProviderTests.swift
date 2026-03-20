@@ -75,7 +75,6 @@ struct RequestThumbnailTests {
         #expect(stats.misses == 0)
     }
 
-
     @Test
     func `Cache respects cost limit`() {
         let testConfig = CacheConfig(totalCostLimit: 100_000, countLimit: 100)

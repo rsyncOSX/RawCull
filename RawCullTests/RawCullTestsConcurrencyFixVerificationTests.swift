@@ -133,16 +133,16 @@ enum ConcurrencyFixVerificationTests {
 
             actor HandlerState {
                 var called = false
-                
+
                 func markCalled() {
                     called = true
                 }
-                
+
                 func wasCalled() -> Bool {
                     called
                 }
             }
-            
+
             let state = HandlerState()
 
             let simulateHandler: @Sendable () -> Void = {
