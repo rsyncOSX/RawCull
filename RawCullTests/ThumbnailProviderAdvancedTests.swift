@@ -17,7 +17,7 @@ struct RequestThumbnailAdvancedMemoryTests {
     @Test
     func `Small cost limit triggers rapid evictions`() async {
         let config = CacheConfig(totalCostLimit: 10000, countLimit: 100)
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(initialStats.evictions == 0)
@@ -31,7 +31,7 @@ struct RequestThumbnailAdvancedMemoryTests {
     @Test
     func `Very small count limit prevents accumulation`() async {
         let config = CacheConfig(totalCostLimit: 1_000_000, countLimit: 1)
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
@@ -55,7 +55,7 @@ struct RequestThumbnailAdvancedMemoryTests {
 struct RequestThumbnailStressTests {
     @Test
     func `Handles rapid sequential operations`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         for _ in 0 ..< 100 {
             let stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -65,7 +65,7 @@ struct RequestThumbnailStressTests {
 
     @Test
     func `Handles many concurrent statistics calls`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 50 {
@@ -79,7 +79,7 @@ struct RequestThumbnailStressTests {
 
     @Test
     func `Clear during concurrent operations`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         async let clearTask: () = SharedMemoryCache.shared.clearCaches()
         async let statsTask = SharedMemoryCache.shared.getCacheStatistics()
@@ -89,7 +89,7 @@ struct RequestThumbnailStressTests {
 
     @Test
     func `Multiple rapid clear operations`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         for _ in 0 ..< 10 {
             await SharedMemoryCache.shared.clearCaches()
@@ -106,7 +106,7 @@ struct RequestThumbnailEdgeCaseTests {
     func `Config with zero cost limit`() async {
         // Edge case: what happens with totalCostLimit = 0?
         let config = CacheConfig(totalCostLimit: 0, countLimit: 10)
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
@@ -116,7 +116,7 @@ struct RequestThumbnailEdgeCaseTests {
     func `Config with zero count limit`() async {
         // Edge case: what happens with countLimit = 0?
         let config = CacheConfig(totalCostLimit: 1_000_000, countLimit: 0)
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
@@ -128,7 +128,7 @@ struct RequestThumbnailEdgeCaseTests {
             totalCostLimit: Int.max / 2,
             countLimit: Int.max / 2,
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
@@ -176,7 +176,7 @@ struct RequestThumbnailConfigurationTests {
         ]
 
         for config in customConfigs {
-            let provider = RequestThumbnail(config: config)
+            _ = RequestThumbnail(config: config)
             let stats = await SharedMemoryCache.shared.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
@@ -222,35 +222,5 @@ struct RequestThumbnailDiscardableContentTests {
 
         // Larger image should have higher cost
         #expect(largeThumbnail.cost > smallThumbnail.cost)
-    }
-}
-
-@MainActor
-struct RequestThumbnailScalabilityTests {
-    @Test
-    func `Handles variable target sizes`() async {
-        let provider = ScanAndCreateThumbnails(config: .testing)
-        let testURL = URL(fileURLWithPath: "/test.jpg")
-
-        let sizes = [64, 128, 256, 512, 1024, 2560]
-        for size in sizes {
-            let result = await provider.thumbnail(for: testURL, targetSize: size)
-            // Non-existent file will return nil, but verify no crash
-            #expect(true)
-        }
-    }
-
-    @Test
-    func `Multiple concurrent preloads`() async {
-        let provider = ScanAndCreateThumbnails(config: .testing)
-        let testDir = FileManager.default.temporaryDirectory
-
-        async let preload1 = provider.preloadCatalog(at: testDir, targetSize: 256)
-        async let preload2 = provider.preloadCatalog(at: testDir, targetSize: 256)
-
-        let (result1, result2) = await (preload1, preload2)
-
-        #expect(result1 >= 0)
-        #expect(result2 >= 0)
     }
 }

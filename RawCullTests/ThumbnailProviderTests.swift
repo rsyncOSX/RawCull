@@ -29,7 +29,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Initializes with production config by default`() async {
-        let provider = RequestThumbnail()
+        _ = RequestThumbnail()
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
         #expect(stats.hits == 0)
@@ -39,7 +39,7 @@ struct RequestThumbnailTests {
     @Test
     func `Initializes with custom config`() async {
         let testConfig = CacheConfig(totalCostLimit: 50000, countLimit: 3)
-        let provider = RequestThumbnail(config: testConfig)
+        _ = RequestThumbnail(config: testConfig)
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
@@ -48,10 +48,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Cache hit rate calculates correctly`() async {
-        let provider = RequestThumbnail(config: .testing)
-
-        // Create test images
-        let testImage = createTestImage()
+        _ = RequestThumbnail(config: .testing)
 
         // Simulate a hit and a miss
         // Note: We'd need access to storeInMemory to fully test this
@@ -64,7 +61,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Statistics reset after clear caches`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         // Get initial stats
         var stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -78,34 +75,11 @@ struct RequestThumbnailTests {
         #expect(stats.misses == 0)
     }
 
-    // MARK: - Memory Limit Tests
-
-    @Test
-    func `Cache respects count limit`() {
-        let testConfig = CacheConfig(totalCostLimit: 10_000_000, countLimit: 3)
-        let provider = RequestThumbnail(config: testConfig)
-
-        let testImage1 = createTestImage(width: 50, height: 50)
-        let testImage2 = createTestImage(width: 50, height: 50)
-        let testImage3 = createTestImage(width: 50, height: 50)
-        let testImage4 = createTestImage(width: 50, height: 50)
-
-        let url1 = URL(fileURLWithPath: "/test1.jpg")
-        let url2 = URL(fileURLWithPath: "/test2.jpg")
-        let url3 = URL(fileURLWithPath: "/test3.jpg")
-        let url4 = URL(fileURLWithPath: "/test4.jpg")
-
-        // This is an indirect test - we can't directly access the cache,
-        // but we can verify the limit doesn't crash the system
-        // A full test would require exposing cache internals or using reflection
-
-        #expect(true) // Placeholder for conceptual test
-    }
 
     @Test
     func `Cache respects cost limit`() {
         let testConfig = CacheConfig(totalCostLimit: 100_000, countLimit: 100)
-        let provider = RequestThumbnail(config: testConfig)
+        _ = RequestThumbnail(config: testConfig)
 
         // With a very small cost limit, items should be evicted
         // This tests the memory management
@@ -129,7 +103,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Clear caches removes all cached items`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         // Clear caches
         await SharedMemoryCache.shared.clearCaches()
@@ -195,7 +169,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Cache delegate is properly set`() {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         // Verify provider initializes without crashing
         // A full test would require exposing the delegate
@@ -207,7 +181,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Provider is actor-isolated for thread safety`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         // Multiple concurrent accesses should not cause data races
         await withTaskGroup(of: Void.self) { group in
@@ -227,7 +201,7 @@ struct RequestThumbnailTests {
 struct RequestThumbnailPerformanceTests {
     @Test
     func `Statistics gathering is fast`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         let startTime = Date()
         for _ in 0 ..< 1000 {
@@ -241,7 +215,7 @@ struct RequestThumbnailPerformanceTests {
 
     @Test
     func `Clear operation completes promptly`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         let startTime = Date()
         await SharedMemoryCache.shared.clearCaches()

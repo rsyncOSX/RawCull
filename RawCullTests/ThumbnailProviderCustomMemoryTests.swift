@@ -24,7 +24,7 @@ struct CustomMemoryLimitTests {
             totalCostLimit: 5_000_000, // 5 MB
             countLimit: 50,
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         // Test operations with this specific limit
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -42,7 +42,7 @@ struct CustomMemoryLimitTests {
             totalCostLimit: 10_000_000, // 10 MB
             countLimit: 100,
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hits == 0)
@@ -56,7 +56,7 @@ struct CustomMemoryLimitTests {
             totalCostLimit: 100_000, // 100 KB
             countLimit: 3,
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         // Clear and verify operation
         await SharedMemoryCache.shared.clearCaches()
@@ -73,7 +73,7 @@ struct CustomMemoryLimitTests {
             totalCostLimit: 20_000_000, // 20 MB for large images
             countLimit: 10,
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         #expect(true) // Placeholder - add your assertions here
     }
@@ -90,7 +90,7 @@ struct MemoryPressureScenarios {
             totalCostLimit: 500_000, // 500 KB - relatively small
             countLimit: 20,
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         // Simulate rapid access
         for _ in 0 ..< 5 {
@@ -106,7 +106,7 @@ struct MemoryPressureScenarios {
             totalCostLimit: 50_000_000, // Large cost limit
             countLimit: 2, // Very low count limit
         )
-        let provider = RequestThumbnail(config: config)
+        _ = RequestThumbnail(config: config)
 
         // With count limit of 2, any more items trigger eviction
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -127,7 +127,7 @@ struct ConfigComparisonTests {
         ]
 
         for (name, config) in configs {
-            let provider = RequestThumbnail(config: config)
+            _ = RequestThumbnail(config: config)
             let stats = await SharedMemoryCache.shared.getCacheStatistics()
             let hitRate = stats.hitRate
 
@@ -143,7 +143,7 @@ struct EvictionMonitoringTests {
     /// Monitor eviction statistics
     @Test
     func `Eviction statistics collection`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         // Initial state
         let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -163,7 +163,7 @@ struct EvictionMonitoringTests {
     /// Track hit/miss ratio
     @Test
     func `Hit and miss ratio tracking`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
 
@@ -233,7 +233,7 @@ struct MemoryPerformanceTests {
     /// Measure cache operations with different configs
     @Test
     func `Operations speed with testing config`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         let start = Date()
         for _ in 0 ..< 100 {
@@ -248,7 +248,7 @@ struct MemoryPerformanceTests {
     /// Measure cache operations with production config
     @Test
     func `Operations speed with production config`() async {
-        let provider = RequestThumbnail(config: .production)
+        _ = RequestThumbnail(config: .production)
 
         let start = Date()
         for _ in 0 ..< 100 {
@@ -267,7 +267,7 @@ struct IntegrationTestExamples {
     /// Template for testing multiple operations together
     @Test
     func `Multi-operation workflow`() async {
-        let provider = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail(config: .testing)
 
         // Step 1: Get initial stats
         let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
