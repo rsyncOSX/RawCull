@@ -9,3 +9,4 @@ index_exclude:
 - RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
 - RawCull/Extensions/extension+String+Date.swift
 - RawCull/Extensions/extension+Thread+Logger.swift
+- RawCull/RawCullTests/RawCullTestsDataRaceDetectionTests.swift
