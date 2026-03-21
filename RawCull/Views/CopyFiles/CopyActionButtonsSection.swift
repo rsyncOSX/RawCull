@@ -14,8 +14,7 @@ struct CopyActionButtonsSection: View {
             ) {
                 onCopyTapped()
             }
-            
-           
+
             Spacer()
 
             Button("Close", role: .close) {
