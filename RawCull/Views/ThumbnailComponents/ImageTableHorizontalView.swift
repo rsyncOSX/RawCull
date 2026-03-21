@@ -121,25 +121,25 @@ struct ImageTableHorizontalView: View {
         }
     }
 
-    private func selectAndScroll(file: FileItem, proxy: ScrollViewProxy) {
+    private func selectAndScroll(file: FileItem, proxy _: ScrollViewProxy) {
         viewModel.selectFile(file)
-        scrollTo(file, proxy: proxy)
+        // Scrolling is handled by onChange(of: viewModel.selectedFile?.id) to avoid double animation
     }
 
     private func moveSelectionUp(proxy: ScrollViewProxy) {
-        guard !sortedFiles.isEmpty else { return }
-        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
+        let files = sortedFiles
+        guard !files.isEmpty else { return }
+        let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
         let nextIndex = max(0, currentIndex - 1)
-        let file = sortedFiles[nextIndex]
-        selectAndScroll(file: file, proxy: proxy)
+        selectAndScroll(file: files[nextIndex], proxy: proxy)
     }
 
     private func moveSelectionDown(proxy: ScrollViewProxy) {
-        guard !sortedFiles.isEmpty else { return }
-        let currentIndex = sortedFiles.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
-        let nextIndex = min(sortedFiles.count - 1, currentIndex + 1)
-        let file = sortedFiles[nextIndex]
-        selectAndScroll(file: file, proxy: proxy)
+        let files = sortedFiles
+        guard !files.isEmpty else { return }
+        let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
+        let nextIndex = min(files.count - 1, currentIndex + 1)
+        selectAndScroll(file: files[nextIndex], proxy: proxy)
     }
 
     private var filteredFiles: [FileItem] {
