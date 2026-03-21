@@ -29,7 +29,7 @@ struct CopyFilesView: View {
     @State private var showResult: Bool = false
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             CopyOptionsSection(
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
@@ -56,21 +56,24 @@ struct CopyFilesView: View {
             }
 
             Spacer()
-
-            CopyActionButtonsSection(
-                dismiss: dismiss,
-                onCopyTapped: {
+        }
+        .padding()
+        .frame(width: 560, height: 400)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Copy") {
                     guard !sourcecatalog.isEmpty,
                           !destinationcatalog.isEmpty else { return }
                     showResult = false
                     copyFilesinProgress = true
                     executeCopyFiles()
-                },
-            )
-            .disabled(copyFilesinProgress)
+                }
+                .disabled(copyFilesinProgress || sourcecatalog.isEmpty || destinationcatalog.isEmpty)
+            }
         }
-        .padding()
-        .frame(width: 650, height: 500, alignment: .init(horizontal: .center, vertical: .center))
         .task(id: selectedSource) {
             guard let selectedSource else { return }
             sourcecatalog = selectedSource.url.path
