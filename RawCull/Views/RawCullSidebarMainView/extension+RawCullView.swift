@@ -13,6 +13,14 @@ extension RawCullMainView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .status) {
+            Button(action: openCopyView) {
+                Label("Copy", systemImage: "document.on.document")
+            }
+            .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
+            .help("Copy tagged images to destination...")
+        }
+
+        ToolbarItem(placement: .status) {
             Button(action: openGridThumbnailWindow) {
                 Label("Grid View", systemImage: "square.grid.2x2")
             }
@@ -49,6 +57,11 @@ extension RawCullMainView {
             }
             .help("Show inspector")
         }
+    }
+
+    func openCopyView() {
+        viewModel.sheetType = .copytasksview
+        viewModel.showcopyARWFilesView = true
     }
 
     func toggleShowInspector() {

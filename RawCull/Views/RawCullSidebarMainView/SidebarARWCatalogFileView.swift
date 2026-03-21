@@ -79,17 +79,6 @@ struct SidebarARWCatalogFileView: View {
 
                             if verticalimages {
                                 ConditionalGlassButton(
-                                    systemImage: "document.on.document",
-                                    text: "Copy",
-                                    helpText: "Copy tagged images to destination...",
-                                    style: .softCapsule,
-                                ) {
-                                    viewModel.sheetType = .copytasksview
-                                    viewModel.showcopyARWFilesView = true
-                                }
-                                .disabled(viewModel.creatingthumbnails)
-
-                                ConditionalGlassButton(
                                     systemImage: "trash.fill",
                                     text: "Clear",
                                     helpText: "Clear tagged files",
