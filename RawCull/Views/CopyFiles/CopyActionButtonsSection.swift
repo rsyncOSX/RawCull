@@ -7,13 +7,15 @@ struct CopyActionButtonsSection: View {
     var body: some View {
         HStack(spacing: 12) {
             ConditionalGlassButton(
-                systemImage: "arrowshape.right.fill",
+                systemImage: "document.on.document",
                 text: "Start Copy",
                 helpText: "Start copying files",
+                style: .softCapsule,
             ) {
                 onCopyTapped()
             }
-
+            
+           
             Spacer()
 
             Button("Close", role: .close) {

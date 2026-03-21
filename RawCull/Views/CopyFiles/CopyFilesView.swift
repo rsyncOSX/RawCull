@@ -22,9 +22,7 @@ struct CopyFilesView: View {
 
     @State var showingAlert: Bool = false
     @State var copyFilesinProgress: Bool = false
-    @State var max: Double = 0
-    @State var progress: Double = 0
-
+    
     @State private var executionManager: ExecuteCopyFiles?
     @State var dryrun: Bool = true
     @State var copytaggedfiles: Bool = true
@@ -42,19 +40,9 @@ struct CopyFilesView: View {
             Divider()
 
             if copyFilesinProgress {
-                HStack {
-                    ProgressView()
-                        .padding()
+                ProgressView()
+                    .padding()
 
-                    Text(": \(progress, format: .number)")
-                }
-
-                /*
-                 ProgressCount(progress: $progress,
-                               estimatedSeconds: $viewModel.estimatedSeconds,
-                               max: max,
-                               statusText: "Copy files in progress, please wait..")
-                  */
             }
 
             // Source and destination catalogs
@@ -64,29 +52,21 @@ struct CopyFilesView: View {
                 destinationcatalog: $destinationcatalog,
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
-                max: $max,
+                
             )
 
             Spacer()
 
-            if copyFilesinProgress == false {
-                // Action buttons
-                CopyActionButtonsSection(
-                    dismiss: dismiss,
-                    onCopyTapped: {
-                        guard sourcecatalog.isEmpty == false,
-                              destinationcatalog.isEmpty == false else { return }
-                        showingAlert = true
-                    },
-                )
-            }
-        }
-        .task(id: copyFilesinProgress) {
-            guard copyFilesinProgress, let stream = executionManager?.progressStream else { return }
-            for await count in stream {
-                progress = Double(count)
-                try? await Task.sleep(for: .milliseconds(50)) // throttle to ~20fps
-            }
+            // Action buttons
+            CopyActionButtonsSection(
+                dismiss: dismiss,
+                onCopyTapped: {
+                    guard sourcecatalog.isEmpty == false,
+                          destinationcatalog.isEmpty == false else { return }
+                    showingAlert = true
+                },
+            )
+            .disabled(copyFilesinProgress)
         }
         .padding()
         .frame(width: 650, height: 500, alignment: .init(horizontal: .center, vertical: .center))

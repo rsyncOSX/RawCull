@@ -7,7 +7,6 @@ struct SourceAndDestinationSection: View {
     @Binding var destinationcatalog: String
     @Binding var copytaggedfiles: Bool
     @Binding var copyratedfiles: Int
-    @Binding var max: Double
 
     var body: some View {
         Section("Source and Destination") {
@@ -59,31 +58,8 @@ struct SourceAndDestinationSection: View {
                         catalogs: true,
                         bookmarkKey: "destBookmark",
                     )
-                    .onChange(of: destinationcatalog) { _, _ in
-                        updateMax(resetRatingWhenNotTagged: true)
-                        Logger.process.debugMessageOnly("CopyfilesView: max is \(max)")
-                    }
-                    .onChange(of: copytaggedfiles) { _, _ in
-                        updateMax(resetRatingWhenNotTagged: true)
-                        Logger.process.debugMessageOnly("CopyfilesView: max is \(max)")
-                    }
-                    .onChange(of: copyratedfiles) { _, _ in
-                        max = Double(viewModel.extractRatedfilenames(copyratedfiles).count)
-                        Logger.process.debugMessageOnly("CopyfilesView: max is \(max)")
-                    }
                 }
             }
-        }
-    }
-
-    private func updateMax(resetRatingWhenNotTagged: Bool) {
-        if copytaggedfiles {
-            max = Double(viewModel.extractTaggedfilenames().count)
-        } else {
-            if resetRatingWhenNotTagged {
-                copyratedfiles = 3 // default
-            }
-            max = Double(viewModel.extractRatedfilenames(copyratedfiles).count)
         }
     }
 }
