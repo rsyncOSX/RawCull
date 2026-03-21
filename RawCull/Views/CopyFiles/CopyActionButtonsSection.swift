@@ -8,8 +8,8 @@ struct CopyActionButtonsSection: View {
         HStack(spacing: 12) {
             ConditionalGlassButton(
                 systemImage: "document.on.document",
-                text: "Start Copy",
-                helpText: "Start copying files",
+                text: "Copy",
+                helpText: "Copy files to destination",
                 style: .softCapsule,
             ) {
                 onCopyTapped()

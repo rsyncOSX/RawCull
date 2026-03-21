@@ -20,17 +20,16 @@ struct CopyFilesView: View {
     @State var sourcecatalog: String = ""
     @State var destinationcatalog: String = ""
 
-    @State var showingAlert: Bool = false
-    @State var copyFilesinProgress: Bool = false
-    
     @State private var executionManager: ExecuteCopyFiles?
     @State var dryrun: Bool = true
     @State var copytaggedfiles: Bool = true
-    @State var copyratedfiles: Int = 0
+    @State var copyratedfiles: Int = 1
+
+    @State private var copyFilesinProgress: Bool = false
+    @State private var showResult: Bool = false
 
     var body: some View {
         VStack(spacing: 16) {
-            // Header with options
             CopyOptionsSection(
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
@@ -39,31 +38,33 @@ struct CopyFilesView: View {
 
             Divider()
 
-            if copyFilesinProgress {
-                ProgressView()
-                    .padding()
-
-            }
-
-            // Source and destination catalogs
             SourceAndDestinationSection(
                 viewModel: viewModel,
                 sourcecatalog: $sourcecatalog,
                 destinationcatalog: $destinationcatalog,
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
-                
             )
+
+            if copyFilesinProgress {
+                ProgressView("Copying files…")
+                    .padding(.vertical, 4)
+            }
+
+            if showResult, let numbers = remotedatanumbers {
+                copyResultView(numbers)
+            }
 
             Spacer()
 
-            // Action buttons
             CopyActionButtonsSection(
                 dismiss: dismiss,
                 onCopyTapped: {
-                    guard sourcecatalog.isEmpty == false,
-                          destinationcatalog.isEmpty == false else { return }
-                    showingAlert = true
+                    guard !sourcecatalog.isEmpty,
+                          !destinationcatalog.isEmpty else { return }
+                    showResult = false
+                    copyFilesinProgress = true
+                    executeCopyFiles()
                 },
             )
             .disabled(copyFilesinProgress)
@@ -74,15 +75,38 @@ struct CopyFilesView: View {
             guard let selectedSource else { return }
             sourcecatalog = selectedSource.url.path
         }
-        .alert("Copy ARW files", isPresented: $showingAlert) {
-            Button("Copy", role: .destructive) {
-                copyFilesinProgress = true
-                executeCopyFiles()
+    }
+
+    private func copyResultView(_ numbers: RemoteDataNumbers) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.title2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(dryrun ? "Dry run complete" : "Copy complete")
+                    .fontWeight(.medium)
+                if numbers.datatosynchronize {
+                    Text("\(numbers.filestransferredInt) files · \(numbers.totaltransferredfilessize)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Nothing to copy")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Are you sure you want to copy all tagged ARW files?")
+
+            Spacer()
+
+            Button("View rsync output") {
+                sheetType = .detailsview
+                showcopytask = true
+            }
+            .font(.caption)
         }
+        .padding()
+        .background(.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func executeCopyFiles() {
@@ -107,7 +131,6 @@ struct CopyFilesView: View {
     }
 
     private func handleCompletion(result: CopyDataResult) {
-        // This is for display and information only
         var configuration = SynchronizeConfiguration()
         configuration.localCatalog = sourcecatalog
         configuration.offsiteCatalog = destinationcatalog
@@ -119,15 +142,11 @@ struct CopyFilesView: View {
             config: configuration,
         )
 
-        // Set the output for view if available
         if let viewOutput = result.viewOutput {
             remotedatanumbers?.outputfromrsync = viewOutput
         }
 
-        // Clean up
         executionManager = nil
-
-        sheetType = .detailsview
-        showcopytask = true
+        showResult = true
     }
 }

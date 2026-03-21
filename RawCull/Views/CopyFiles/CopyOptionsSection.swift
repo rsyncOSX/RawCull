@@ -11,18 +11,24 @@ struct CopyOptionsSection: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 12) {
-                // Copy tagged files toggle
-                ToggleViewDefault(text: "Copy tagged files?",
-                                  binding: $copytaggedfiles)
+            Picker("Copy", selection: $copytaggedfiles) {
+                Text("Tagged files").tag(true)
+                Text("By minimum rating").tag(false)
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
 
-                // Dry run toggle
-                ToggleViewDefault(text: "Dry run?",
-                                  binding: $dryrun)
-
-                // Rating picker (only shown when not copying tagged files)
+            if !copytaggedfiles {
                 RatingPickerSection(rating: $copyratedfiles)
-                    .disabled(copytaggedfiles)
+            }
+
+            HStack(spacing: 8) {
+                ToggleViewDefault(text: "Dry run", binding: $dryrun)
+                if dryrun {
+                    Label("No files will be copied", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
         }
     }
