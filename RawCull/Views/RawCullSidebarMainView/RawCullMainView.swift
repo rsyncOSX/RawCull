@@ -34,6 +34,15 @@ struct RawCullMainView: View {
                 lastScale: $viewModel.lastScale,
                 offset: $viewModel.offset,
             )
+            .sheet(isPresented: $viewModel.showcopyARWFilesView) {
+                CopyARWFilesView(
+                    viewModel: viewModel,
+                    sheetType: $viewModel.sheetType,
+                    selectedSource: $viewModel.selectedSource,
+                    remotedatanumbers: $viewModel.remotedatanumbers,
+                    showcopytask: $viewModel.showcopyARWFilesView,
+                )
+            }
         } else if showGridThumbnail {
             GridThumbnailView(
                 viewModel: viewModel,
