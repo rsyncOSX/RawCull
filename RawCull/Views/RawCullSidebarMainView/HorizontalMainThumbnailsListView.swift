@@ -98,7 +98,7 @@ struct HorizontalMainThumbnailsListView: View {
             await viewModel.toggleTag(for: file)
         }
     }
-    
+
     var files: [FileItem] {
         viewModel.files
     }
@@ -106,7 +106,6 @@ struct HorizontalMainThumbnailsListView: View {
     var cullingModel: CullingModel {
         viewModel.cullingModel
     }
-    
 }
 
 extension HorizontalMainThumbnailsListView {

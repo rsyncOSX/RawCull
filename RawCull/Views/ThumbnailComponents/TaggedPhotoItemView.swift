@@ -13,8 +13,8 @@ struct TaggedPhotoItemView: View {
     @Bindable var viewModel: RawCullViewModel
 
     let photo: String
-    let photoURL: URL?       // file URL — used only for thumbnail display
-    let catalogURL: URL?     // catalog (directory) URL — used for model lookups
+    let photoURL: URL? // file URL — used only for thumbnail display
+    let catalogURL: URL? // catalog (directory) URL — used for model lookups
     var onSelected: () -> Void = {}
 
     var body: some View {
@@ -33,7 +33,10 @@ struct TaggedPhotoItemView: View {
                         )
                         .clipped()
                         .overlay(alignment: .topTrailing) {
-                            TagButtonView(isTagged: isTagged, isHovered: false, onToggle: {})
+                            TagButtonView(
+                                isTagged: isTagged,
+                                isHovered: false,
+                            )
                         }
                     } else {
                         ZStack {

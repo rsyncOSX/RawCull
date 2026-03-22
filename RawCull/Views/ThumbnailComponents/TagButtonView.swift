@@ -10,7 +10,6 @@ import SwiftUI
 struct TagButtonView: View {
     let isTagged: Bool
     let isHovered: Bool
-    var onToggle: () -> Void
 
     var body: some View {
         Image(systemName: isTagged ? "checkmark.circle.fill" : "circle")
