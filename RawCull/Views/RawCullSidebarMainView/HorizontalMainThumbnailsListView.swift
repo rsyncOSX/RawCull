@@ -21,60 +21,69 @@ struct HorizontalMainThumbnailsListView: View {
     @Binding var offset: CGSize
 
     @State var showInspector: Bool = true
+    @State var showGridThumbnail: Bool = false
 
     var body: some View {
         // let _ = Self._printChanges()
-        if let file = viewModel.selectedFile {
-            VStack(spacing: 20) {
-                MainThumbnailImageView(
-                    scale: $scale,
-                    lastScale: $lastScale,
-                    offset: $offset,
-                    url: file.url,
-                    file: file,
-                )
-                .padding()
-            }
-            .inspector(isPresented: $showInspector) {
-                FileInspectorView(
-                    file: $viewModel.selectedFile,
-                    showDetailsTagView: $viewModel.showDetailsTagView,
-                )
-            }
-            .padding()
-            .onTapGesture(count: 2) {
-                guard let selectedID = viewModel.selectedFile?.id,
-                      let file = files.first(where: { $0.id == selectedID }) else { return }
 
-                ZoomPreviewHandler.handle(
-                    file: file,
-                    useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                    setNSImage: { nsImage = $0 },
-                    setCGImage: { cgImage = $0 },
-                    openWindow: { id in openWindow(id: id) },
+        if showGridThumbnail {
+            GridThumbnailView(
+                viewModel: viewModel,
+                isPresented: $showGridThumbnail,
+            )
+        } else {
+            if let file = viewModel.selectedFile {
+                VStack(spacing: 20) {
+                    MainThumbnailImageView(
+                        scale: $scale,
+                        lastScale: $lastScale,
+                        offset: $offset,
+                        url: file.url,
+                        file: file,
+                    )
+                    .padding()
+                }
+                .inspector(isPresented: $showInspector) {
+                    FileInspectorView(
+                        file: $viewModel.selectedFile,
+                        showDetailsTagView: $viewModel.showDetailsTagView,
+                    )
+                }
+                .padding()
+                .onTapGesture(count: 2) {
+                    guard let selectedID = viewModel.selectedFile?.id,
+                          let file = files.first(where: { $0.id == selectedID }) else { return }
+
+                    ZoomPreviewHandler.handle(
+                        file: file,
+                        useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
+                        setNSImage: { nsImage = $0 },
+                        setCGImage: { cgImage = $0 },
+                        openWindow: { id in openWindow(id: id) },
+                    )
+                }
+            } else {
+                Spacer()
+
+                ContentUnavailableView(
+                    "No Selection",
+                    systemImage: "doc.text",
+                    description: Text("Select an image to view its details."),
                 )
             }
-        } else {
+
             Spacer()
 
-            ContentUnavailableView(
-                "No Selection",
-                systemImage: "doc.text",
-                description: Text("Select an image to view its details."),
+            ImageTableHorizontalView(
+                viewModel: viewModel,
+                selectedSource: viewModel.selectedSource,
             )
+            .padding()
+            .toolbar { toolbarContent }
+            .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+
+            if viewModel.focustagimage == true { labeltagimage }
         }
-
-        Spacer()
-
-        ImageTableHorizontalView(
-            viewModel: viewModel,
-            selectedSource: viewModel.selectedSource,
-        )
-        .padding()
-        .toolbar { toolbarContent }
-        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
-
-        if viewModel.focustagimage == true { labeltagimage }
     }
 
     var labeltagimage: some View {
@@ -172,7 +181,7 @@ extension HorizontalMainThumbnailsListView {
             selectedSource: viewModel.selectedSource,
             filteredFiles: viewModel.filteredFiles,
         )
-        openWindow(id: WindowIdentifier.gridThumbnails.rawValue)
+        showGridThumbnail = true
     }
 
     func opentaggedGridThumbnailWindow() {
