@@ -1,5 +1,5 @@
 //
-//  VerticalMainThumbnailsListView.swift
+//  HorizontalMainThumbnailsListView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 07/03/2026.

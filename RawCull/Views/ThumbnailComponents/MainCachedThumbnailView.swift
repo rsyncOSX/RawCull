@@ -150,49 +150,49 @@ struct MainCachedThumbnailView: View {
                                             markerSize: $markerSize,
                                         )
                                     }
+
+                                    // Zoom controls centered at the bottom with a pill background
+                                    HStack {
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                            }
+                                        }, label: {
+                                            Image(systemName: "minus")
+                                                .font(.system(size: 12))
+                                        })
+                                        .disabled(viewModel.scale <= 0.5)
+                                        .help("Zoom out")
+
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.resetZoom()
+                                            }
+                                        }, label: {
+                                            Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
+                                                .font(.caption)
+                                        })
+                                        .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
+                                        .help("Reset zoom")
+
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                            }
+                                        }, label: {
+                                            Image(systemName: "plus")
+                                                .font(.system(size: 12))
+                                        })
+                                        .disabled(viewModel.scale >= 4.0)
+                                        .help("Zoom in")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.regularMaterial)
+                                    .clipShape(.rect(cornerRadius: 20))
+                                    .padding(.bottom, 12)
                                 }
-
-                                // Zoom controls centered at the bottom with a pill background
-                                HStack {
-                                    Button(action: {
-                                        withAnimation(.spring()) {
-                                            viewModel.scale = max(0.5, viewModel.scale - 0.2)
-                                        }
-                                    }, label: {
-                                        Image(systemName: "minus")
-                                            .font(.system(size: 12))
-                                    })
-                                    .disabled(viewModel.scale <= 0.5)
-                                    .help("Zoom out")
-
-                                    Button(action: {
-                                        withAnimation(.spring()) {
-                                            viewModel.resetZoom()
-                                        }
-                                    }, label: {
-                                        Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
-                                            .font(.caption)
-                                    })
-                                    .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
-                                    .help("Reset zoom")
-
-                                    Button(action: {
-                                        withAnimation(.spring()) {
-                                            viewModel.scale = min(4.0, viewModel.scale + 0.2)
-                                        }
-                                    }, label: {
-                                        Image(systemName: "plus")
-                                            .font(.system(size: 12))
-                                    })
-                                    .disabled(viewModel.scale >= 4.0)
-                                    .help("Zoom in")
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(.regularMaterial)
-                                .clipShape(.rect(cornerRadius: 20))
-                                .padding(.bottom, 12)
                             }
                         }
                     }

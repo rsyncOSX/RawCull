@@ -107,7 +107,7 @@ struct SidebarARWCatalogFileView: View {
                             // Default start show all thumbnails vertical on the
                             // left side. If verticalimage == false then show ARW
                             // files in a table view
-                            
+
                             if verticalimages {
                                 ImageTableVerticalView(viewModel: viewModel,
                                                        nsImage: $nsImage,
