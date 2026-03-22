@@ -63,6 +63,7 @@ struct GridThumbnailView: View {
                 in: file.url,
                 toggledfilename: file.name,
             )
+            navigateToNext()
         }
     }
 

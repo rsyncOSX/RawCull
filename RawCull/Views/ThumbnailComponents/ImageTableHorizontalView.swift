@@ -30,7 +30,7 @@ struct ImageTableHorizontalView: View {
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
 
                                     // One click for select only
-                                    onToggle: { handleToggleSelection(for: file) },
+                                    onToggle: { handleSelect(for: file) },
                                     // Double clik for tag Image
                                     onSelected: {
                                         Task {
@@ -94,7 +94,7 @@ struct ImageTableHorizontalView: View {
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
     }
 
-    private func handleToggleSelection(for file: FileItem) {
+    private func handleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
     }
