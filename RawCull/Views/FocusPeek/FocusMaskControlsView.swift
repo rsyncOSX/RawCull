@@ -78,46 +78,46 @@ struct FocusMaskControlsView: View {
 
             // Capsule row — hidden while the slider panel is open
             if !showFocusMask || controlsCollapsed {
-            HStack(spacing: 12) {
-                if showFocusMask {
+                HStack(spacing: 12) {
+                    if showFocusMask {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                controlsCollapsed.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "viewfinder")
+                                    .font(.caption)
+                                Text("Focus Mask Controls")
+                                    .font(.caption)
+                                Image(systemName: controlsCollapsed ? "chevron.up" : "chevron.down")
+                                    .font(.caption)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            controlsCollapsed.toggle()
-                        }
+                        withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
                     } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "viewfinder")
-                                .font(.caption)
-                            Text("Focus Mask Controls")
-                                .font(.caption)
-                            Image(systemName: controlsCollapsed ? "chevron.up" : "chevron.down")
-                                .font(.caption)
-                        }
-                        .foregroundStyle(.secondary)
+                        Image(systemName: showFocusMask ? "viewfinder.circle.fill" : "viewfinder.circle")
+                            .font(.title3)
+                            .foregroundStyle(showFocusMask ? .blue : .primary)
+                            .symbolEffect(.bounce, value: showFocusMask)
                     }
                     .buttonStyle(.plain)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .disabled(!focusMaskAvailable)
+                    .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
                 }
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
-                } label: {
-                    Image(systemName: showFocusMask ? "viewfinder.circle.fill" : "viewfinder.circle")
-                        .font(.title3)
-                        .foregroundStyle(showFocusMask ? .blue : .primary)
-                        .symbolEffect(.bounce, value: showFocusMask)
-                }
-                .buttonStyle(.plain)
-                .disabled(!focusMaskAvailable)
-                .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
-            .padding(10)
-            .animation(.spring(duration: 0.3), value: showFocusMask)
-            .transition(.opacity)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+                .padding(10)
+                .animation(.spring(duration: 0.3), value: showFocusMask)
+                .transition(.opacity)
             } // end if !showFocusMask || controlsCollapsed
         }
     }
