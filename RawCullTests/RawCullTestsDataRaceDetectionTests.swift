@@ -238,7 +238,11 @@ struct DataRaceDetectionTests {
                 results.append(result)
             }
 
-            #expect(results.allSatisfy(\.self), "All tasks received correct value")
+            /*
+             #expect(results.allSatisfy(\.self), "All tasks received correct value")
+             must be #expect(results.allSatisfy { $0 }, "All tasks received correct value")
+             */
+            #expect(results.allSatisfy { $0 }, "All tasks received correct value")
         }
     }
 
