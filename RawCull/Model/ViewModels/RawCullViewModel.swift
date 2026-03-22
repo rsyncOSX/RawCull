@@ -69,8 +69,6 @@ final class RawCullViewModel {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
     }
 
-    /// Show all extracted details from Image
-    var showDetailsTagView: Bool = false
     /// Show what is saved of tagged files
     var showSavedFiles: Bool = false
 

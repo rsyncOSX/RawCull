@@ -3,7 +3,6 @@ import SwiftUI
 
 struct FileInspectorView: View {
     @Binding var file: FileItem?
-    @Binding var showDetailsTagView: Bool
 
     @State var nsImage: NSImage?
 
@@ -41,18 +40,6 @@ struct FileInspectorView: View {
                             LabeledContent("ISO", value: iso)
                         }
                     }
-                }
-
-                Section("Show extracted Details") {
-                    ToggleViewDefault(
-                        text: "Details",
-                        binding: Binding<Bool>(
-                            get: { showDetailsTagView },
-                            set: { newValue in
-                                showDetailsTagView = newValue
-                            },
-                        ),
-                    )
                 }
 
                 Section("Quick Actions") {

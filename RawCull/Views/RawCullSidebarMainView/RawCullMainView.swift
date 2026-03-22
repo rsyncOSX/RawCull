@@ -159,7 +159,6 @@ struct RawCullMainView: View {
             .inspector(isPresented: $viewModel.hideInspector) {
                 FileInspectorView(
                     file: $viewModel.selectedFile,
-                    showDetailsTagView: $viewModel.showDetailsTagView,
                 )
             }
             .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in

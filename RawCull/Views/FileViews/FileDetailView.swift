@@ -14,71 +14,65 @@ struct FileDetailView: View {
     let file: FileItem?
 
     var body: some View {
-        if viewModel.showDetailsTagView, let url = file?.url {
-            DeepDiveTagsView(
-                url: url,
-            )
+        if let file {
+            VStack(spacing: 20) {
+                MainThumbnailImageView(
+                    scale: $scale,
+                    lastScale: $lastScale,
+                    offset: $offset,
+                    url: file.url,
+                    file: file,
+                )
+            }
+            .padding()
+            .onTapGesture(count: 2) {
+                guard let selectedID = selectedFileID,
+                      let file = files.first(where: { $0.id == selectedID }) else { return }
+
+                ZoomPreviewHandler.handle(
+                    file: file,
+                    useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
+                    setNSImage: { nsImage = $0 },
+                    setCGImage: { cgImage = $0 },
+                    openWindow: { id in openWindow(id: id) },
+                )
+            }
         } else {
-            if let file {
-                VStack(spacing: 20) {
-                    MainThumbnailImageView(
-                        scale: $scale,
-                        lastScale: $lastScale,
-                        offset: $offset,
-                        url: file.url,
-                        file: file,
-                    )
-                }
-                .padding()
-                .onTapGesture(count: 2) {
-                    guard let selectedID = selectedFileID,
-                          let file = files.first(where: { $0.id == selectedID }) else { return }
-
-                    ZoomPreviewHandler.handle(
-                        file: file,
-                        useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                        setNSImage: { nsImage = $0 },
-                        setCGImage: { cgImage = $0 },
-                        openWindow: { id in openWindow(id: id) },
-                    )
-                }
-            } else {
-                ZStack {
-                    Color(red: 0.118, green: 0.106, blue: 0.094)
-                        .ignoresSafeArea()
-                    RadialGradient(
-                        colors: [Color(red: 0.71, green: 0.55, blue: 0.39).opacity(0.10), .clear],
-                        center: UnitPoint(x: 0.3, y: 0.4),
-                        startRadius: 0,
-                        endRadius: 400,
-                    )
+            ZStack {
+                Color(red: 0.118, green: 0.106, blue: 0.094)
                     .ignoresSafeArea()
-                    RadialGradient(
-                        colors: [Color(red: 0.31, green: 0.39, blue: 0.55).opacity(0.08), .clear],
-                        center: UnitPoint(x: 0.75, y: 0.7),
-                        startRadius: 0,
-                        endRadius: 380,
-                    )
+                RadialGradient(
+                    colors: [Color(red: 0.71, green: 0.55, blue: 0.39).opacity(0.10), .clear],
+                    center: UnitPoint(x: 0.3, y: 0.4),
+                    startRadius: 0,
+                    endRadius: 400,
+                )
+                .ignoresSafeArea()
+                RadialGradient(
+                    colors: [Color(red: 0.31, green: 0.39, blue: 0.55).opacity(0.08), .clear],
+                    center: UnitPoint(x: 0.75, y: 0.7),
+                    startRadius: 0,
+                    endRadius: 380,
+                )
+                .ignoresSafeArea()
+                grainOverlay
                     .ignoresSafeArea()
-                    grainOverlay
-                        .ignoresSafeArea()
 
-                    VStack(spacing: 0) {
-                        Image(nsImage: NSApp.applicationIconImage)
-                            .resizable()
-                            .frame(width: 72, height: 72)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .padding(.bottom, 22)
+                VStack(spacing: 0) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .padding(.bottom, 22)
 
-                        Text("Ready when you are.")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.85))
-                            .padding(.bottom, 7)
+                    Text("Ready when you are.")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.85))
+                        .padding(.bottom, 7)
 
-                        Text("Select a photo to begin culling.")
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(.secondary.opacity(0.7))
-                    }
+                    Text("Select a photo to begin culling.")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(.secondary.opacity(0.7))
                 }
             }
         }

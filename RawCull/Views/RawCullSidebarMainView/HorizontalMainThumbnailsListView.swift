@@ -46,7 +46,6 @@ struct HorizontalMainThumbnailsListView: View {
                 .inspector(isPresented: $showInspector) {
                     FileInspectorView(
                         file: $viewModel.selectedFile,
-                        showDetailsTagView: $viewModel.showDetailsTagView,
                     )
                 }
                 .padding()

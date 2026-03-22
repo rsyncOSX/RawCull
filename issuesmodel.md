@@ -4,37 +4,7 @@ Covers: `Actors/`, `Enum/`, `Extensions/`, `Model/`
 
 ---
 
-## High Severity
-
-### H1 — `MetadataValue.id` returns a new UUID on every call
-**File:** `Model/ViewModels/DeepDiveTagsViewModel.swift`
-
-**Problem:**
-```swift
-enum MetadataValue: Identifiable {
-    var id: UUID { UUID() }  // new UUID on every access
-}
-```
-SwiftUI's `ForEach` accesses `.id` multiple times per render pass. A freshly generated `UUID()` makes every element appear as a new item on every re-render, causing full list redraws and broken animations.
-
-**Fix:** Use a stable identifier derived from the associated value:
-```swift
-enum MetadataValue: Identifiable {
-    case string(String, String)
-    case number(String, Double)
-
-    var id: String {
-        switch self {
-        case .string(let key, let value): return "\(key):\(value)"
-        case .number(let key, let value): return "\(key):\(value)"
-        }
-    }
-}
-```
-
----
-
-### H2 — `nonisolated(unsafe) currentPressureLevel` data race
+### H1 — `nonisolated(unsafe) currentPressureLevel` data race
 **File:** `Actors/SharedMemoryCache.swift`
 
 **Problem:**
