@@ -10,7 +10,7 @@ struct FocusMaskControlsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Expanded slider panel — shown above the capsule row
-            if showFocusMask && !controlsCollapsed {
+            if showFocusMask, !controlsCollapsed {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("Focus Mask")
