@@ -95,7 +95,7 @@ struct RawCullApp: App {
             TaggedPhotoHorisontalGridView(
                 viewModel: viewModel,
                 files: viewModel.filteredFiles,
-                photoURL: viewModel.selectedSource?.url,
+                catalogURL: viewModel.selectedSource?.url,
                 onPhotoSelected: { file in
                     viewModel.selectedFileID = file.id
                     viewModel.selectedFile = file
