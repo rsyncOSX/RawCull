@@ -13,7 +13,8 @@ struct TaggedPhotoItemView: View {
     @Bindable var viewModel: RawCullViewModel
 
     let photo: String
-    let photoURL: URL?
+    let photoURL: URL? // file URL — used only for thumbnail display
+    let catalogURL: URL? // catalog (directory) URL — used for model lookups
     var onSelected: () -> Void = {}
 
     var body: some View {
@@ -32,7 +33,10 @@ struct TaggedPhotoItemView: View {
                         )
                         .clipped()
                         .overlay(alignment: .topTrailing) {
-                            TagButtonView(isTagged: isTagged, isHovered: false, onToggle: {})
+                            TagButtonView(
+                                isTagged: isTagged,
+                                isHovered: false,
+                            )
                         }
                     } else {
                         ZStack {
@@ -69,8 +73,8 @@ struct TaggedPhotoItemView: View {
     }
 
     private var isTagged: Bool {
-        if let photoURL {
-            cullingModel.isTagged(photo: photo, in: photoURL)
+        if let catalogURL {
+            cullingModel.isTagged(photo: photo, in: catalogURL)
         } else {
             false
         }
@@ -81,9 +85,9 @@ struct TaggedPhotoItemView: View {
     }
 
     func setbackground() -> Bool {
-        guard let photoURL else { return false }
-        // Find the saved file entry matching this photoURL
-        guard let entry = cullingModel.savedFiles.first(where: { $0.catalog == photoURL }) else {
+        guard let catalogURL else { return false }
+        // Find the saved file entry matching this catalog directory URL
+        guard let entry = cullingModel.savedFiles.first(where: { $0.catalog == catalogURL }) else {
             return false
         }
         // Check if any filerecord has a matching fileName

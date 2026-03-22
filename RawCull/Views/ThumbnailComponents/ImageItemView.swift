@@ -32,7 +32,10 @@ struct ImageItemView: View {
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
                 .overlay(alignment: .topTrailing) {
-                    TagButtonView(isTagged: isTagged, isHovered: isHovered, onToggle: onToggle)
+                    TagButtonView(
+                        isTagged: isTagged,
+                        isHovered: isHovered,
+                    )
                 }
                 // Green tint ribbon at bottom when tagged
                 .overlay(alignment: .bottom) {

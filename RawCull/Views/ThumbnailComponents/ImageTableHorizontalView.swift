@@ -9,11 +9,10 @@ import SwiftUI
 
 struct ImageTableHorizontalView: View {
     @Bindable var viewModel: RawCullViewModel
-
-    let selectedSource: ARWSourceCatalog?
-
     @State private var hoveredFileID: FileItem.ID?
     @State private var savedSettings: SavedSettings?
+
+    let selectedSource: ARWSourceCatalog?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,9 +27,8 @@ struct ImageTableHorizontalView: View {
                                     selectedSource: selectedSource,
                                     isHovered: hoveredFileID == file.id,
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
-
                                     // One click for select only
-                                    onToggle: { handleToggleSelection(for: file) },
+                                    onToggle: { handleSelect(for: file) },
                                     // Double clik for tag Image
                                     onSelected: {
                                         Task {
@@ -53,6 +51,9 @@ struct ImageTableHorizontalView: View {
                                 proxy.scrollTo(newID, anchor: .center)
                             }
                         }
+                    }
+                    .task(id: viewModel.focustagimage) {
+                        navigateToNext()
                     }
                     .task(id: viewModel.selectedSource) {
                         await ThumbnailLoader.shared.cancelAll()
@@ -94,7 +95,7 @@ struct ImageTableHorizontalView: View {
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
     }
 
-    private func handleToggleSelection(for file: FileItem) {
+    private func handleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
     }
