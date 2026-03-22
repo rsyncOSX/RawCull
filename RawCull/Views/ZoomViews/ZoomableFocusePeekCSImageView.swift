@@ -63,11 +63,6 @@ struct ZoomableFocusePeekCSImageView: View {
                         )
                     }
 
-                    toolbarButton("viewfinder.circle.fill") {
-                        withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
-                    }
-                    .disabled(focusMask == nil)
-
                     toolbarButton("minus.circle.fill") { decreaseZoom() }
                     toolbarButton("xmark.circle") { dismiss() }
                     toolbarButton("plus.circle.fill") { increaseZoom() }
