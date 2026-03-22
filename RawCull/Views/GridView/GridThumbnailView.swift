@@ -47,21 +47,17 @@ struct GridThumbnailView: View {
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
 
-        if viewModel.focustagimage == true { labeltagimage }
+        if viewModel.focustagimage == true {
+            TagImageFocusView(
+                focustagimage: $viewModel.focustagimage,
+                files: viewModel.files,
+                selectedFileID: viewModel.selectedFileID,
+                handleToggleSelection: handleToggleSelection,
+            )
+        }
     }
 
-    var labeltagimage: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                viewModel.focustagimage = false
-                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                    let fileitem = viewModel.files[index]
-                    handleTagImage(for: fileitem)
-                }
-            }
-    }
-
-    private func handleTagImage(for file: FileItem) {
+    private func handleToggleSelection(for file: FileItem) {
         Task {
             await gridthumbnailviewmodel.cullingModel?.toggleSelectionSavedFiles(
                 in: file.url,

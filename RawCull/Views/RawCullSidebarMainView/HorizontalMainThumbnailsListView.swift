@@ -81,24 +81,24 @@ struct HorizontalMainThumbnailsListView: View {
             .toolbar { toolbarContent }
             .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
 
-            if viewModel.focustagimage == true { labeltagimage }
+            if viewModel.focustagimage == true {
+                TagImageFocusView(
+                    focustagimage: $viewModel.focustagimage,
+                    files: viewModel.files,
+                    selectedFileID: viewModel.selectedFileID,
+                    handleToggleSelection: handleToggleSelection,
+                )
+            }
         }
     }
 
-    var labeltagimage: some View {
-        Label("", systemImage: "play.fill")
-            .onAppear {
-                viewModel.focustagimage = false
-                if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                    let fileitem = viewModel.files[index]
-                    viewModel.selectFile(fileitem)
-                    Task {
-                        await viewModel.toggleTag(for: fileitem)
-                    }
-                }
-            }
+    private func handleToggleSelection(for file: FileItem) {
+        Task {
+            viewModel.selectFile(file)
+            await viewModel.toggleTag(for: file)
+        }
     }
-
+    
     var files: [FileItem] {
         viewModel.files
     }
@@ -106,6 +106,7 @@ struct HorizontalMainThumbnailsListView: View {
     var cullingModel: CullingModel {
         viewModel.cullingModel
     }
+    
 }
 
 extension HorizontalMainThumbnailsListView {
