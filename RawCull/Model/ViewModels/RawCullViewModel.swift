@@ -286,7 +286,10 @@ final class RawCullViewModel {
     }
 
     func toggleTag(for file: FileItem) async {
-        await cullingModel.toggleSelectionSavedFiles(in: file.url, toggledfilename: file.name)
+        await cullingModel.toggleSelectionSavedFiles(
+            in: file.url,
+            toggledfilename: file.name,
+        )
     }
 
     // MARK: - Security-scoped resource lifecycle

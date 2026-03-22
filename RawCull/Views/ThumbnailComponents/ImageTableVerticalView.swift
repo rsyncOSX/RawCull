@@ -61,6 +61,9 @@ struct ImageTableVerticalView: View {
 
                             Spacer(minLength: 0)
                         }
+                        .task(id: viewModel.focustagimage) {
+                            navigateDown()
+                        }
                         .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
                         .onChange(of: viewModel.selectedFileID) { _, newID in
                             if let newID {
