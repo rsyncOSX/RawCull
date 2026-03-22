@@ -19,15 +19,15 @@ struct RawCullMainView: View {
     // @State var settings: settings?
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
-    @State var showhorizontalvertical: Bool = false
+    @State var showhorizontalthumbnailview: Bool = false
     @State var showGridThumbnail: Bool = false
 
     var body: some View {
         // let _ = Self._printChanges()
-        if showhorizontalvertical {
+        if showhorizontalthumbnailview {
             HorizontalMainThumbnailsListView(
                 viewModel: viewModel,
-                showhorizontalvertical: $showhorizontalvertical,
+                showhorizontalvertical: $showhorizontalthumbnailview,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 scale: $viewModel.scale,
@@ -49,6 +49,7 @@ struct RawCullMainView: View {
                 isPresented: $showGridThumbnail,
             )
         } else {
+            // Default view starts here
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 ARWCatalogSidebarView(
                     sources: $viewModel.sources,
