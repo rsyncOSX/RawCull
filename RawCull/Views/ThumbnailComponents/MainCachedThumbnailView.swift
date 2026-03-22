@@ -119,28 +119,13 @@ struct MainCachedThumbnailView: View {
                                 Spacer()
 
                                 HStack(alignment: .center) {
-                                    // Focus mask toggle
-                                    Button {
-                                        withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
-                                    } label: {
-                                        Image(systemName: "viewfinder.circle.fill")
-                                            .font(.title3)
-                                            .foregroundStyle(showFocusMask ? .blue : .primary)
-                                            .symbolEffect(.bounce, value: showFocusMask)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(focusMask == nil)
-                                    .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
-                                    .padding(.leading)
-
-                                    if showFocusMask {
-                                        FocusMaskControlsView(
-                                            config: $focusDetectorModel.config,
-                                            overlayOpacity: $overlayOpacity,
-                                            controlsCollapsed: $controlsCollapsed,
-                                        )
-                                        .transition(.move(edge: .leading).combined(with: .opacity))
-                                    }
+                                    FocusMaskControlsView(
+                                        showFocusMask: $showFocusMask,
+                                        config: $focusDetectorModel.config,
+                                        overlayOpacity: $overlayOpacity,
+                                        controlsCollapsed: $controlsCollapsed,
+                                        focusMaskAvailable: focusMask != nil,
+                                    )
 
                                     if focusPoints != nil {
                                         FocusPointControllerView(
