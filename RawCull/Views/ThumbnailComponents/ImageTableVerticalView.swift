@@ -37,7 +37,6 @@ struct ImageTableVerticalView: View {
                                         selectedSource: viewModel.selectedSource,
                                         isHovered: hoveredFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
-
                                         // One click for select only
                                         onToggle: {
                                             viewModel.selectFile(file)
@@ -54,14 +53,6 @@ struct ImageTableVerticalView: View {
                                     .onHover { isHovered in
                                         hoveredFileID = isHovered ? file.id : nil
                                     }
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(Color.accentColor, lineWidth: isSelected(file) ? 2 : 0),
-                                    )
-                                    .shadow(
-                                        color: isSelected(file) ? Color.accentColor.opacity(0.4) : .clear,
-                                        radius: isSelected(file) ? 4 : 0,
-                                    )
                                 }
                             }
                             .padding(.vertical)
@@ -106,53 +97,6 @@ struct ImageTableVerticalView: View {
                     .padding(.trailing, 6)
                 }
             }
-        }
-        .onChange(of: viewModel.selectedFileID) { _, _ in
-            if viewModel.selectedFileID != nil {
-                viewModel.previouslySelectedFileID = viewModel.selectedFileID
-            }
-
-            if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                // Do not re-assign selectedFileID — it's already the value we searched for
-                viewModel.selectedFile = viewModel.files[index]
-
-                let file = viewModel.files[index]
-                if zoomCGImageWindowFocused || zoomNSImageWindowFocused {
-                    ZoomPreviewHandler.handle(
-                        file: file,
-                        useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                        setNSImage: { nsImage = $0 },
-                        setCGImage: { cgImage = $0 },
-                        openWindow: { _ in },
-                    )
-                }
-            }
-        }
-        .contextMenu(forSelectionType: FileItem.ID.self) { _ in
-        } primaryAction: { _ in
-            guard let selectedID = viewModel.selectedFileID,
-                  let file = viewModel.files.first(where: { $0.id == selectedID }) else { return }
-
-            ZoomPreviewHandler.handle(
-                file: file,
-                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                setNSImage: { nsImage = $0 },
-                setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id) },
-            )
-        }
-        .onKeyPress(.space) {
-            guard let selectedID = viewModel.selectedFileID,
-                  let file = viewModel.files.first(where: { $0.id == selectedID }) else { return .handled }
-
-            ZoomPreviewHandler.handle(
-                file: file,
-                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                setNSImage: { nsImage = $0 },
-                setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id) },
-            )
-            return .handled
         }
         .focusable()
         .focusEffectDisabled(true)

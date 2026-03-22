@@ -9,11 +9,10 @@ import SwiftUI
 
 struct ImageTableHorizontalView: View {
     @Bindable var viewModel: RawCullViewModel
-
-    let selectedSource: ARWSourceCatalog?
-
     @State private var hoveredFileID: FileItem.ID?
     @State private var savedSettings: SavedSettings?
+
+    let selectedSource: ARWSourceCatalog?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,7 +27,6 @@ struct ImageTableHorizontalView: View {
                                     selectedSource: selectedSource,
                                     isHovered: hoveredFileID == file.id,
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
-
                                     // One click for select only
                                     onToggle: { handleSelect(for: file) },
                                     // Double clik for tag Image
