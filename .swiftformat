@@ -1,1 +1,1 @@
---disable redundantSelf
+--disable redundantSelf,preferKeyPath
