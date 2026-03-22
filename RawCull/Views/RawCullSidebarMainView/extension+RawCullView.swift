@@ -73,7 +73,7 @@ extension RawCullMainView {
     }
 
     func toggleshowvertical() {
-        showhorizontalvertical.toggle()
+        showhorizontalthumbnailview.toggle()
     }
 
     func openGridThumbnailWindow() {

@@ -13,6 +13,7 @@ struct MainCachedThumbnailView: View {
     @Binding var offset: CGSize
 
     let url: URL
+    let file: FileItem?
 
     @State private var image: NSImage?
     @State private var thumbnailSizePreview: Int?
@@ -47,9 +48,9 @@ struct MainCachedThumbnailView: View {
                             .offset(offset)
                             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
                             .gesture(
-                                MagnificationGesture()
+                                MagnifyGesture()
                                     .onChanged { value in
-                                        scale = lastScale * value
+                                        scale = lastScale * value.magnification
                                     }
                                     .onEnded { _ in
                                         lastScale = scale
@@ -96,33 +97,35 @@ struct MainCachedThumbnailView: View {
                             }
 
                             VStack {
+                                // File metadata at the top where it belongs
+                                if let file {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(file.name)
+                                                .font(.headline)
+                                            Text(file.url.deletingLastPathComponent().path())
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(.regularMaterial)
+                                    .clipShape(.rect(cornerRadius: 8))
+                                    .padding([.top, .horizontal], 8)
+                                }
+
                                 Spacer()
 
-                                HStack {
-                                    VStack(spacing: 8) {
-                                        if showFocusMask {
-                                            FocusMaskControlsView(
-                                                config: $focusDetectorModel.config,
-                                                overlayOpacity: $overlayOpacity,
-                                                controlsCollapsed: $controlsCollapsed,
-                                            )
-                                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                                        }
-
-                                        // Focus mask toggle
-                                        Button {
-                                            withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
-                                        } label: {
-                                            Image(systemName: "viewfinder.circle.fill")
-                                                .font(.title3)
-                                                .foregroundStyle(showFocusMask ? .blue : .primary)
-                                                .symbolEffect(.bounce, value: showFocusMask)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .disabled(focusMask == nil)
-                                        .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
-                                    }
-                                    .padding()
+                                HStack(alignment: .center) {
+                                    FocusMaskControlsView(
+                                        showFocusMask: $showFocusMask,
+                                        config: $focusDetectorModel.config,
+                                        overlayOpacity: $overlayOpacity,
+                                        controlsCollapsed: $controlsCollapsed,
+                                        focusMaskAvailable: focusMask != nil,
+                                    )
 
                                     if focusPoints != nil {
                                         FocusPointControllerView(
@@ -130,14 +133,56 @@ struct MainCachedThumbnailView: View {
                                             markerSize: $markerSize,
                                         )
                                     }
+
+                                    // Zoom controls centered at the bottom with a pill background
+                                    HStack {
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                            }
+                                        }, label: {
+                                            Image(systemName: "minus")
+                                                .font(.system(size: 12))
+                                        })
+                                        .disabled(viewModel.scale <= 0.5)
+                                        .help("Zoom out")
+
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.resetZoom()
+                                            }
+                                        }, label: {
+                                            Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
+                                                .font(.caption)
+                                        })
+                                        .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
+                                        .help("Reset zoom")
+
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                            }
+                                        }, label: {
+                                            Image(systemName: "plus")
+                                                .font(.system(size: 12))
+                                        })
+                                        .disabled(viewModel.scale >= 4.0)
+                                        .help("Zoom in")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.regularMaterial)
+                                    .clipShape(.rect(cornerRadius: 20))
                                 }
+                                .padding(.bottom, 12)
                             }
                         }
                     }
                 }
                 .shadow(radius: 4)
                 .background(Color(nsColor: .textBackgroundColor))
-                .cornerRadius(8)
+                .clipShape(.rect(cornerRadius: 8))
             } else {
                 ProgressView()
                     .fixedSize()

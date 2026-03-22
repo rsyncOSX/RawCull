@@ -82,14 +82,14 @@ struct ZoomableFocusePeekNSImageView: View {
                             .font(.caption2).foregroundStyle(.white.opacity(0.4))
                     }
 
-                    if showFocusMask {
-                        FocusMaskControlsView(
-                            config: $focusDetectorModel.config,
-                            overlayOpacity: $overlayOpacity,
-                            controlsCollapsed: $controlsCollapsed,
-                        )
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+                    FocusMaskControlsView(
+                        showFocusMask: $showFocusMask,
+                        config: $focusDetectorModel.config,
+                        overlayOpacity: $overlayOpacity,
+                        controlsCollapsed: $controlsCollapsed,
+                        focusMaskAvailable: focusMask != nil,
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .padding(.bottom, 20)
             }
