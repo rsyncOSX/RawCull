@@ -118,7 +118,7 @@ struct MainCachedThumbnailView: View {
 
                                 Spacer()
 
-                                HStack {
+                                HStack(alignment: .bottom) {
                                     VStack(spacing: 8) {
                                         if showFocusMask {
                                             FocusMaskControlsView(
@@ -142,7 +142,7 @@ struct MainCachedThumbnailView: View {
                                         .disabled(focusMask == nil)
                                         .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
                                     }
-                                    .padding()
+                                    .padding([.leading, .bottom])
 
                                     if focusPoints != nil {
                                         FocusPointControllerView(
