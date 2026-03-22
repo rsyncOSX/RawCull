@@ -58,6 +58,9 @@ final class RawCullViewModel {
     // This is the oncly place the Culling Model is initialzed.
     var cullingModel = CullingModel()
     private var processedURLs: Set<URL> = []
+    /// URLs for which startAccessingSecurityScopedResource() has been called.
+    /// Stopped in deinit to pair every start with a stop.
+    @ObservationIgnored private var securityScopedURLs: Set<URL> = []
 
     var memorypressurewarning: Bool = false
 
@@ -284,5 +287,26 @@ final class RawCullViewModel {
 
     func toggleTag(for file: FileItem) async {
         await cullingModel.toggleSelectionSavedFiles(in: file.url, toggledfilename: file.name)
+    }
+
+    // MARK: - Security-scoped resource lifecycle
+
+    /// Call after a successful startAccessingSecurityScopedResource() so the
+    /// ViewModel can pair every start with a stop.
+    func trackSecurityScopedAccess(for url: URL) {
+        securityScopedURLs.insert(url)
+    }
+
+    /// Explicitly release access for a URL (e.g., when a catalog source is removed).
+    func stopSecurityScopedAccess(for url: URL) {
+        guard securityScopedURLs.contains(url) else { return }
+        url.stopAccessingSecurityScopedResource()
+        securityScopedURLs.remove(url)
+    }
+
+    deinit {
+        for url in securityScopedURLs {
+            url.stopAccessingSecurityScopedResource()
+        }
     }
 }

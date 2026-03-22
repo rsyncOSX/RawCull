@@ -7,7 +7,7 @@
 
 ## Critical Bugs (wrong runtime behavior)
 
-### 1. `TaggedPhotoItemView` — wrong URL in `isTagged` and `setbackground()`
+### 1. ✅ FIXED — `TaggedPhotoItemView` — wrong URL in `isTagged` and `setbackground()`
 
 **File:** `Views/ThumbnailComponents/TaggedPhotoItemView.swift:71–93`
 
@@ -47,7 +47,7 @@ cullingModel.savedFiles.first(where: { $0.catalog == photoURL }) // ← never ma
 
 ---
 
-### 3. Security-scoped resource is started but never stopped
+### 3. ✅ FIXED — Security-scoped resource is started but never stopped
 
 **File:** `Views/RawCullSidebarMainView/extension+RawCullView.swift:111–119`
 
