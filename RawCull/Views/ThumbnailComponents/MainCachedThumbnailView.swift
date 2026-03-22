@@ -118,31 +118,29 @@ struct MainCachedThumbnailView: View {
 
                                 Spacer()
 
-                                HStack(alignment: .bottom) {
-                                    VStack(spacing: 8) {
-                                        if showFocusMask {
-                                            FocusMaskControlsView(
-                                                config: $focusDetectorModel.config,
-                                                overlayOpacity: $overlayOpacity,
-                                                controlsCollapsed: $controlsCollapsed,
-                                            )
-                                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                                        }
-
-                                        // Focus mask toggle
-                                        Button {
-                                            withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
-                                        } label: {
-                                            Image(systemName: "viewfinder.circle.fill")
-                                                .font(.title3)
-                                                .foregroundStyle(showFocusMask ? .blue : .primary)
-                                                .symbolEffect(.bounce, value: showFocusMask)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .disabled(focusMask == nil)
-                                        .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
+                                HStack(alignment: .center) {
+                                    // Focus mask toggle
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.2)) { showFocusMask.toggle() }
+                                    } label: {
+                                        Image(systemName: "viewfinder.circle.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(showFocusMask ? .blue : .primary)
+                                            .symbolEffect(.bounce, value: showFocusMask)
                                     }
-                                    .padding([.leading, .bottom])
+                                    .buttonStyle(.plain)
+                                    .disabled(focusMask == nil)
+                                    .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
+                                    .padding(.leading)
+
+                                    if showFocusMask {
+                                        FocusMaskControlsView(
+                                            config: $focusDetectorModel.config,
+                                            overlayOpacity: $overlayOpacity,
+                                            controlsCollapsed: $controlsCollapsed,
+                                        )
+                                        .transition(.move(edge: .leading).combined(with: .opacity))
+                                    }
 
                                     if focusPoints != nil {
                                         FocusPointControllerView(
@@ -191,8 +189,8 @@ struct MainCachedThumbnailView: View {
                                     .padding(.vertical, 6)
                                     .background(.regularMaterial)
                                     .clipShape(.rect(cornerRadius: 20))
-                                    .padding(.bottom, 12)
                                 }
+                                .padding(.bottom, 12)
                             }
                         }
                     }
