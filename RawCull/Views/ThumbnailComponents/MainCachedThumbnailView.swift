@@ -13,6 +13,7 @@ struct MainCachedThumbnailView: View {
     @Binding var offset: CGSize
 
     let url: URL
+    let file: FileItem?
 
     @State private var image: NSImage?
     @State private var thumbnailSizePreview: Int?
@@ -131,6 +132,52 @@ struct MainCachedThumbnailView: View {
                                         )
                                     }
                                 }
+
+                                VStack {
+                                    HStack {
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                            }
+                                        }, label: {
+                                            Image(systemName: "minus")
+                                                .font(.system(size: 12))
+                                        })
+                                        .disabled(viewModel.scale <= 0.5)
+                                        .help("Zoom out")
+
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.resetZoom()
+                                            }
+                                        }, label: {
+                                            Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
+                                                .font(.caption)
+                                        })
+                                        .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
+                                        .help("Reset zoom")
+
+                                        Button(action: {
+                                            withAnimation(.spring()) {
+                                                viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                            }
+                                        }, label: {
+                                            Image(systemName: "plus")
+                                                .font(.system(size: 12))
+                                        })
+                                        .disabled(viewModel.scale >= 4.0)
+                                        .help("Zoom in")
+                                    }
+
+                                    if let file {
+                                        Text(file.name)
+                                            .font(.headline)
+                                        Text(file.url.deletingLastPathComponent().path())
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding()
                             }
                         }
                     }

@@ -25,7 +25,7 @@ struct RawCullMainView: View {
     var body: some View {
         // let _ = Self._printChanges()
         if showhorizontalvertical {
-            VerticalMainThumbnailsListView(
+            HorizontalMainThumbnailsListView(
                 viewModel: viewModel,
                 showhorizontalvertical: $showhorizontalvertical,
                 cgImage: $cgImage,

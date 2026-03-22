@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct VerticalMainThumbnailsListView: View {
+struct HorizontalMainThumbnailsListView: View {
     @Environment(\.openWindow) var openWindow
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
@@ -31,20 +31,10 @@ struct VerticalMainThumbnailsListView: View {
                     lastScale: $lastScale,
                     offset: $offset,
                     url: file.url,
+                    file: file,
                 )
                 .padding()
-
-                HStack {
-                    VStack {
-                        Text(file.name)
-                            .font(.headline)
-                        Text(file.url.deletingLastPathComponent().path())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
             }
-
             .inspector(isPresented: $showInspector) {
                 FileInspectorView(
                     file: $viewModel.selectedFile,
@@ -110,7 +100,7 @@ struct VerticalMainThumbnailsListView: View {
     }
 }
 
-extension VerticalMainThumbnailsListView {
+extension HorizontalMainThumbnailsListView {
     @ToolbarContentBuilder
     var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .status) {
