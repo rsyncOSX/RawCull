@@ -29,6 +29,10 @@ struct MainCachedThumbnailView: View {
     @State private var maskTask: Task<Void, Never>?
     @State private var controlsCollapsed: Bool = false
 
+    private var focusMaskSlidersVisible: Bool {
+        showFocusMask && !controlsCollapsed
+    }
+
     var body: some View {
         ZStack {
             if let thumbnailSizePreview {
@@ -85,7 +89,7 @@ struct MainCachedThumbnailView: View {
                             }
 
                             // 3️⃣ Focus points overlay
-                            if showFocusPoints, let focusPoints {
+                            if showFocusPoints, let focusPoints, !focusMaskSlidersVisible {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
                                     markerSize: markerSize,
@@ -98,7 +102,7 @@ struct MainCachedThumbnailView: View {
 
                             VStack {
                                 // File metadata at the top where it belongs
-                                if let file {
+                                if let file, !focusMaskSlidersVisible {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(file.name)
@@ -127,14 +131,16 @@ struct MainCachedThumbnailView: View {
                                         focusMaskAvailable: focusMask != nil,
                                     )
 
-                                    if focusPoints != nil {
+                                    if focusPoints != nil, !focusMaskSlidersVisible {
                                         FocusPointControllerView(
                                             showFocusPoints: $showFocusPoints,
                                             markerSize: $markerSize,
                                         )
+                                        .transition(.opacity)
                                     }
 
                                     // Zoom controls centered at the bottom with a pill background
+                                    if !focusMaskSlidersVisible {
                                     HStack {
                                         Button(action: {
                                             withAnimation(.spring()) {
@@ -174,6 +180,8 @@ struct MainCachedThumbnailView: View {
                                     .padding(.vertical, 6)
                                     .background(.regularMaterial)
                                     .clipShape(.rect(cornerRadius: 20))
+                                    .transition(.opacity)
+                                    } // end if !focusMaskSlidersVisible
                                 }
                                 .padding(.bottom, 12)
                             }

@@ -76,7 +76,8 @@ struct FocusMaskControlsView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            // Capsule row — always visible, mirrors FocusPointControllerView
+            // Capsule row — hidden while the slider panel is open
+            if !showFocusMask || controlsCollapsed {
             HStack(spacing: 12) {
                 if showFocusMask {
                     Button {
@@ -116,6 +117,8 @@ struct FocusMaskControlsView: View {
             .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
             .padding(10)
             .animation(.spring(duration: 0.3), value: showFocusMask)
+            .transition(.opacity)
+            } // end if !showFocusMask || controlsCollapsed
         }
     }
 }
