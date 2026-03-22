@@ -26,7 +26,7 @@ struct HorizontalMainThumbnailsListView: View {
         // let _ = Self._printChanges()
         if let file = viewModel.selectedFile {
             VStack(spacing: 20) {
-                MainCachedThumbnailView(
+                MainThumbnailImageView(
                     scale: $scale,
                     lastScale: $lastScale,
                     offset: $offset,

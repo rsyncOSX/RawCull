@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MainCachedThumbnailView: View {
+struct MainThumbnailImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
     @Environment(SettingsViewModel.self) private var settings
 

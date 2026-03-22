@@ -21,7 +21,7 @@ struct FileDetailView: View {
         } else {
             if let file {
                 VStack(spacing: 20) {
-                    MainCachedThumbnailView(
+                    MainThumbnailImageView(
                         scale: $scale,
                         lastScale: $lastScale,
                         offset: $offset,
