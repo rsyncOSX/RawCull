@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MainCachedThumbnailView: View {
+struct MainThumbnailImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
     @Environment(SettingsViewModel.self) private var settings
 
@@ -28,6 +28,10 @@ struct MainCachedThumbnailView: View {
     @State private var focusDetectorModel = FocusMaskModel()
     @State private var maskTask: Task<Void, Never>?
     @State private var controlsCollapsed: Bool = false
+
+    private var focusMaskSlidersVisible: Bool {
+        showFocusMask && !controlsCollapsed
+    }
 
     var body: some View {
         ZStack {
@@ -85,7 +89,7 @@ struct MainCachedThumbnailView: View {
                             }
 
                             // 3️⃣ Focus points overlay
-                            if showFocusPoints, let focusPoints {
+                            if showFocusPoints, let focusPoints, !focusMaskSlidersVisible {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
                                     markerSize: markerSize,
@@ -98,7 +102,7 @@ struct MainCachedThumbnailView: View {
 
                             VStack {
                                 // File metadata at the top where it belongs
-                                if let file {
+                                if let file, !focusMaskSlidersVisible {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(file.name)
@@ -118,63 +122,23 @@ struct MainCachedThumbnailView: View {
 
                                 Spacer()
 
-                                HStack(alignment: .center) {
-                                    FocusMaskControlsView(
-                                        showFocusMask: $showFocusMask,
-                                        config: $focusDetectorModel.config,
-                                        overlayOpacity: $overlayOpacity,
-                                        controlsCollapsed: $controlsCollapsed,
-                                        focusMaskAvailable: focusMask != nil,
-                                    )
-
-                                    if focusPoints != nil {
-                                        FocusPointControllerView(
-                                            showFocusPoints: $showFocusPoints,
-                                            markerSize: $markerSize,
-                                        )
-                                    }
-
-                                    // Zoom controls centered at the bottom with a pill background
-                                    HStack {
-                                        Button(action: {
-                                            withAnimation(.spring()) {
-                                                viewModel.scale = max(0.5, viewModel.scale - 0.2)
-                                            }
-                                        }, label: {
-                                            Image(systemName: "minus")
-                                                .font(.system(size: 12))
-                                        })
-                                        .disabled(viewModel.scale <= 0.5)
-                                        .help("Zoom out")
-
-                                        Button(action: {
-                                            withAnimation(.spring()) {
-                                                viewModel.resetZoom()
-                                            }
-                                        }, label: {
-                                            Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
-                                                .font(.caption)
-                                        })
-                                        .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
-                                        .help("Reset zoom")
-
-                                        Button(action: {
-                                            withAnimation(.spring()) {
-                                                viewModel.scale = min(4.0, viewModel.scale + 0.2)
-                                            }
-                                        }, label: {
-                                            Image(systemName: "plus")
-                                                .font(.system(size: 12))
-                                        })
-                                        .disabled(viewModel.scale >= 4.0)
-                                        .help("Zoom in")
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(.regularMaterial)
-                                    .clipShape(.rect(cornerRadius: 20))
-                                }
+                                ImageOverlayControlsView(
+                                    showFocusMask: $showFocusMask,
+                                    config: $focusDetectorModel.config,
+                                    overlayOpacity: $overlayOpacity,
+                                    controlsCollapsed: $controlsCollapsed,
+                                    focusMaskAvailable: focusMask != nil,
+                                    hasFocusPoints: focusPoints != nil,
+                                    showFocusPoints: $showFocusPoints,
+                                    markerSize: $markerSize,
+                                    scale: viewModel.scale,
+                                    canZoomOut: viewModel.scale > 0.5,
+                                    canZoomIn: viewModel.scale < 4.0,
+                                    canReset: viewModel.scale != 1.0 || viewModel.offset != .zero,
+                                    onZoomOut: { withAnimation(.spring()) { viewModel.scale = max(0.5, viewModel.scale - 0.2) } },
+                                    onZoomReset: { withAnimation(.spring()) { viewModel.resetZoom() } },
+                                    onZoomIn: { withAnimation(.spring()) { viewModel.scale = min(4.0, viewModel.scale + 0.2) } },
+                                )
                                 .padding(.bottom, 12)
                             }
                         }
