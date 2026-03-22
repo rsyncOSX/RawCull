@@ -6,6 +6,7 @@ import SwiftUI
 /// panel is expanded, so the sliders can be used without visual clutter.
 struct ImageOverlayControlsView: View {
     // MARK: - Focus mask
+
     @Binding var showFocusMask: Bool
     @Binding var config: FocusDetectorConfig
     @Binding var overlayOpacity: Double
@@ -13,11 +14,13 @@ struct ImageOverlayControlsView: View {
     var focusMaskAvailable: Bool
 
     // MARK: - Focus points
+
     var hasFocusPoints: Bool
     @Binding var showFocusPoints: Bool
     @Binding var markerSize: CGFloat
 
     // MARK: - Zoom pill
+
     var scale: CGFloat
     var canZoomOut: Bool
     var canZoomIn: Bool

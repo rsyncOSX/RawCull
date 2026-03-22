@@ -24,7 +24,7 @@ struct FocusPointControllerView: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showFocusPoints.toggle() }
             } label: {
-                Image(systemName: showFocusPoints ? "viewfinder.circle.fill" : "viewfinder.circle")
+                Image(systemName: showFocusPoints ? "dot.circle.viewfinder" : "dot.viewfinder")
                     .font(.title3)
                     .foregroundStyle(showFocusPoints ? .yellow : .primary)
                     .symbolEffect(.bounce, value: showFocusPoints)
