@@ -48,9 +48,9 @@ struct MainCachedThumbnailView: View {
                             .offset(offset)
                             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
                             .gesture(
-                                MagnificationGesture()
+                                MagnifyGesture()
                                     .onChanged { value in
-                                        scale = lastScale * value
+                                        scale = lastScale * value.magnification
                                     }
                                     .onEnded { _ in
                                         lastScale = scale
@@ -97,6 +97,25 @@ struct MainCachedThumbnailView: View {
                             }
 
                             VStack {
+                                // File metadata at the top where it belongs
+                                if let file {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(file.name)
+                                                .font(.headline)
+                                            Text(file.url.deletingLastPathComponent().path())
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(.regularMaterial)
+                                    .clipShape(.rect(cornerRadius: 8))
+                                    .padding([.top, .horizontal], 8)
+                                }
+
                                 Spacer()
 
                                 HStack {
@@ -133,58 +152,54 @@ struct MainCachedThumbnailView: View {
                                     }
                                 }
 
-                                VStack {
-                                    HStack {
-                                        Button(action: {
-                                            withAnimation(.spring()) {
-                                                viewModel.scale = max(0.5, viewModel.scale - 0.2)
-                                            }
-                                        }, label: {
-                                            Image(systemName: "minus")
-                                                .font(.system(size: 12))
-                                        })
-                                        .disabled(viewModel.scale <= 0.5)
-                                        .help("Zoom out")
+                                // Zoom controls centered at the bottom with a pill background
+                                HStack {
+                                    Button(action: {
+                                        withAnimation(.spring()) {
+                                            viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                        }
+                                    }, label: {
+                                        Image(systemName: "minus")
+                                            .font(.system(size: 12))
+                                    })
+                                    .disabled(viewModel.scale <= 0.5)
+                                    .help("Zoom out")
 
-                                        Button(action: {
-                                            withAnimation(.spring()) {
-                                                viewModel.resetZoom()
-                                            }
-                                        }, label: {
-                                            Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
-                                                .font(.caption)
-                                        })
-                                        .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
-                                        .help("Reset zoom")
-
-                                        Button(action: {
-                                            withAnimation(.spring()) {
-                                                viewModel.scale = min(4.0, viewModel.scale + 0.2)
-                                            }
-                                        }, label: {
-                                            Image(systemName: "plus")
-                                                .font(.system(size: 12))
-                                        })
-                                        .disabled(viewModel.scale >= 4.0)
-                                        .help("Zoom in")
-                                    }
-
-                                    if let file {
-                                        Text(file.name)
-                                            .font(.headline)
-                                        Text(file.url.deletingLastPathComponent().path())
+                                    Button(action: {
+                                        withAnimation(.spring()) {
+                                            viewModel.resetZoom()
+                                        }
+                                    }, label: {
+                                        Text("Reset \(viewModel.scale * 100, format: .number.precision(.fractionLength(0)))%")
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                    })
+                                    .disabled(viewModel.scale == 1.0 && viewModel.offset == .zero)
+                                    .help("Reset zoom")
+
+                                    Button(action: {
+                                        withAnimation(.spring()) {
+                                            viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                        }
+                                    }, label: {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 12))
+                                    })
+                                    .disabled(viewModel.scale >= 4.0)
+                                    .help("Zoom in")
                                 }
-                                .padding()
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(.regularMaterial)
+                                .clipShape(.rect(cornerRadius: 20))
+                                .padding(.bottom, 12)
                             }
                         }
                     }
                 }
                 .shadow(radius: 4)
                 .background(Color(nsColor: .textBackgroundColor))
-                .cornerRadius(8)
+                .clipShape(.rect(cornerRadius: 8))
             } else {
                 ProgressView()
                     .fixedSize()
