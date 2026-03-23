@@ -52,9 +52,6 @@ struct ImageTableHorizontalView: View {
                             }
                         }
                     }
-                    .task(id: viewModel.focustagimage) {
-                        navigateToNext()
-                    }
                     .task(id: viewModel.selectedSource) {
                         await ThumbnailLoader.shared.cancelAll()
                     }

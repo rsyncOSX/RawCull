@@ -27,21 +27,21 @@ final class SettingsViewModel {
 
     // MARK: - Memory Cache Settings
 
-    /// Maximum memory cache size in MB (default: 5000)
-    var memoryCacheSizeMB: Int = 5000
+    /// Maximum memory cache size in MB (default: 10000)
+    var memoryCacheSizeMB: Int = 10000
 
     // MARK: - Thumbnail Size Settings
 
     /// Grid thumbnail size in pixels (default: 100)
-    var thumbnailSizeGrid: Int = 100
-    /// Grid View thumbnail size in pixels (default: 400)
+    var thumbnailSizeGrid: Int = 200
+    /// Grid View thumbnail size in pixels (default: 200)
     var thumbnailSizeGridView: Int = 200
     /// Preview thumbnail size in pixels (default: 1024)
     var thumbnailSizePreview: Int = 1024
     /// Full size thumbnail in pixels (default: 8700)
     var thumbnailSizeFullSize: Int = 8700
     /// Estimated cost per pixel for thumbnail (in bytes, default: 4 for RGBA)
-    var thumbnailCostPerPixel: Int = 4
+    var thumbnailCostPerPixel: Int = 6
     /// Use thumbnail as zoom preview (default: true)
     var useThumbnailAsZoomPreview: Bool = false
 
@@ -161,17 +161,17 @@ final class SettingsViewModel {
     /// Reset settings to defaults
     func resetToDefaultsMemoryCache() async {
         await MainActor.run {
-            self.memoryCacheSizeMB = 5000
+            self.memoryCacheSizeMB = 10000
         }
         await saveSettings()
     }
 
     func resetToDefaultsThumbnails() async {
         await MainActor.run {
-            self.thumbnailSizeGrid = 100
+            self.thumbnailSizeGrid = 200
             self.thumbnailSizePreview = 1024
             self.thumbnailSizeFullSize = 8700
-            self.thumbnailCostPerPixel = 4
+            self.thumbnailCostPerPixel = 6
             self.thumbnailSizeGridView = 200
         }
         await saveSettings()
