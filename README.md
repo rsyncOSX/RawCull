@@ -19,7 +19,7 @@ RawCull is available for download on the [Apple App Store](https://apps.apple.co
 
 ## Version
 
-Current version: v1.2.0 - released 22 March 2026
+Current version: v1.2.1 - released 22 March 2026
 
 ## Documentation
 

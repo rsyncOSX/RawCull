@@ -25,20 +25,20 @@ struct ThumbnailSizesTab: View {
 
                         // Grid Size
                         SettingsSliderRow(
-                            title: "Main View Thumbnail Size",
-                            systemImage: "square.grid.2x2",
+                            title: "Thumbnail Size Vertical/Horizontal Table View",
+                            systemImage: "arrow.left.and.right.text.vertical",
                             valueText: "\(settingsManager.thumbnailSizeGrid) px",
                             description: "Thumbnail size in the main file list",
                             value: Binding<Double>(
                                 get: { Double(settingsManager.thumbnailSizeGrid) },
                                 set: { settingsManager.thumbnailSizeGrid = Int($0) },
                             ),
-                            range: 50 ... 200,
+                            range: 100 ... 300,
                             step: 10,
                         )
 
                         SettingsSliderRow(
-                            title: "Grid Window Thumbnail Size",
+                            title: "Thumbnail Size Grid View",
                             systemImage: "square.grid.2x2",
                             valueText: "\(settingsManager.thumbnailSizeGridView) px",
                             description: "Thumbnail size in the grid window",
@@ -60,7 +60,7 @@ struct ThumbnailSizesTab: View {
                                 get: { Double(settingsManager.thumbnailSizePreview) },
                                 set: { settingsManager.thumbnailSizePreview = Int($0) },
                             ),
-                            range: 256 ... 2048,
+                            range: 1024 ... 2048,
                             step: 128,
                         )
 
@@ -84,7 +84,7 @@ struct ThumbnailSizesTab: View {
                                         }
                                     },
                                 ),
-                                in: 1 ... 8,
+                                in: 4 ... 8,
                                 step: 1,
                             )
                             HStack(spacing: 8) {

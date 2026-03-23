@@ -57,7 +57,7 @@ struct CacheSettingsTab: View {
                                             get: { Double(settingsManager.memoryCacheSizeMB) },
                                             set: { settingsManager.memoryCacheSizeMB = Int($0) },
                                         ),
-                                        in: 3000 ... 20000,
+                                        in: 5000 ... 20000,
                                         step: 250,
                                     )
                                     .frame(height: 18)
