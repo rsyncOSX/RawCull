@@ -86,13 +86,28 @@ actor ScanFiles {
             }
 
             // Decode raw JSON — plain Codable struct, no @MainActor involved
-            decodedFocusPoints = decodeFocusPointsJSON(from: url)
+            // Native Sony MakerNote parsing — no exiftool or focuspoints.json needed.
+            // Falls back to focuspoints.json if native extraction yields nothing
+            // (e.g. non-A1 files or files captured before the feature was added).
+            decodedFocusPoints = extractNativeFocusPoints(from: result)
+                ?? decodeFocusPointsJSON(from: url)
 
             return result
         } catch {
             Logger.process.warning("Scan Error: \(error)")
             return []
         }
+    }
+
+    /// Extracts focus location from each ARW file's Sony MakerNote directly.
+    /// Returns `nil` if no files yielded a result so the JSON fallback can take over.
+    private func extractNativeFocusPoints(from items: [FileItem]) -> [DecodeFocusPoints]? {
+        let parsed = items.compactMap { item -> DecodeFocusPoints? in
+            guard let location = SonyMakerNoteParser.focusLocation(from: item.url) else { return nil }
+            // sourceFile must equal file.name — getFocusPoints() matches on filename only
+            return DecodeFocusPoints(sourceFile: item.url.lastPathComponent, focusLocation: location)
+        }
+        return parsed.isEmpty ? nil : parsed
     }
 
     /// Synchronous — plain Data read + JSONDecoder, no actor-isolated types touched
