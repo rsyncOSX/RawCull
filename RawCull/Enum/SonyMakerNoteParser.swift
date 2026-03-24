@@ -24,6 +24,7 @@
 import Foundation
 
 struct SonyMakerNoteParser {
+    /// Returns the focus location as "width height x y" or nil if extraction fails.
     nonisolated static func focusLocation(from url: URL) -> String? {
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let result = TIFFParser(data: data)?.parseSonyFocusLocation()
@@ -48,10 +49,9 @@ private struct TIFFParser {
     nonisolated func parseSonyFocusLocation() -> (width: Int, height: Int, x: Int, y: Int)? {
         guard let ifd0 = readU32(at: 4).map(Int.init) else { return nil }
 
-        // 1. Get ACTUAL Image Dimensions from standard IFD0 tags (0x0100, 0x0101)
-        // This avoids the "W:0 H:0" issue in the MakerNote.
-        let fullW = readIFD0Value(ifdOffset: ifd0, tag: 0x0100) ?? 8640
-        let fullH = readIFD0Value(ifdOffset: ifd0, tag: 0x0101) ?? 5760
+        // 1. Get Actual Image Dimensions from standard IFD0 tags
+        let fullW = readIFDValue(ifdOffset: ifd0, tag: 0x0100) ?? 8640
+        let fullH = readIFDValue(ifdOffset: ifd0, tag: 0x0101) ?? 5760
 
         // 2. Navigate to MakerNote -> AFInfo
         guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769),
@@ -60,31 +60,35 @@ private struct TIFFParser {
         let ifdStart = sonyIFDStart(at: mnOffset)
         guard let (afOffset, _) = tagDataRange(in: ifdStart, tag: 0x9400, baseOffset: mnOffset) else { return nil }
 
-        // 3. Hunt for non-zero coordinates (Your logs showed Offset 4 works)
-        let candidateOffsets = [4, 16, 276]
-        for offset in candidateOffsets {
-            guard afOffset + offset + 8 <= data.count else { continue }
-            
-            // We look at the X/Y positions (indices 2 and 3 in the sequence)
-            let rawX = Int(readU16(at: afOffset + offset + 4))
-            let rawY = Int(readU16(at: afOffset + offset + 6))
-            
-            if rawX > 0 || rawY > 0 {
-                // 4. Map the coordinates.
-                // Sony usually normalizes these to a 0-255 or 0-300 scale.
-                // Based on X:256, Y:219, your camera likely uses 0-300 or 0-512.
-                // We'll return the raw values and the full dimensions.
-                return (fullW, fullH, rawX, rawY)
-            }
-        }
+        // 3. Extract Grid Coordinates
+        // In the Sony A1 456-byte block, X/Y are at offsets 8 and 10
+        let gridX = Int(readU16(at: afOffset + 8))
+        let gridY = Int(readU16(at: afOffset + 10))
+        
+        guard gridX > 0 || gridY > 0 else { return nil }
 
-        return nil
+        // 4. Precision Calibration (Matches ExifTool ILCE-1 Sensor Map)
+        let gridMaxW: Double = 485.4
+        let gridMaxH: Double = 326.6
+
+        // Use slight offsets to center the coordinate within the AF grid square
+        let xRatio = Double(fullW) / gridMaxW
+        let xVal = (Double(gridX) + 0.15) * xRatio
+        let finalX = Int(xVal.rounded())
+
+        let yRatio = Double(fullH) / gridMaxH
+        let yVal = (Double(gridY) - 0.2) * yRatio
+        let finalY = Int(yVal.rounded())
+
+        return (fullW, fullH, finalX, finalY)
     }
 
     // MARK: - Helpers
 
-    nonisolated private func readIFD0Value(ifdOffset: Int, tag: UInt16) -> Int? {
+    nonisolated private func readIFDValue(ifdOffset: Int, tag: UInt16) -> Int? {
         guard let (offset, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
+        // Attempt to read as 32-bit Long, fallback to 16-bit Short
+        if let val32 = readU32(at: offset) { return Int(val32) }
         return Int(readU16(at: offset))
     }
 
@@ -102,7 +106,9 @@ private struct TIFFParser {
             if readU16(at: e) == tag {
                 let type = Int(readU16(at: e + 2))
                 let count = Int(readU32(at: e + 4) ?? 0)
-                let bytes = count * [0,1,1,2,4,8,1,1,2,4,8,4,8,4][type <= 13 ? type : 0]
+                let sizes = [0,1,1,2,4,8,1,1,2,4,8,4,8,4]
+                let bytes = count * (type < sizes.count ? sizes[type] : 1)
+                
                 if bytes <= 4 { return (e + 8, bytes) }
                 guard let ptr = readU32(at: e + 8) else { return nil }
                 var abs = Int(ptr)
