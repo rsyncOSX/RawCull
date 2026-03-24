@@ -9,13 +9,15 @@
 //  ─────────────────────
 //  Sony ARW is TIFF-based (little-endian). Focus location lives in:
 //    TIFF IFD0 → ExifIFD (tag 0x8769) → MakerNote (tag 0x927C)
-//      → Sony MakerNote IFD → AFInfo (tag 0x9400)
+//      → Sony MakerNote IFD → FocusLocation (tag 0x2027)
 //
-//  Within the AFInfo binary block, ExifTool's Sony.pm Tag9400a table
-//  (used for ILCE-1 and ILCE-1M2) defines FORMAT = 'int16u' with:
-//    index 2 → FocusLocation[4]  (four consecutive uint16 values)
-//  meaning byte offset 4 within the block holds:
-//    [imageWidth, imageHeight, afCenterX, afCenterY]
+//  Tag 0x2027 is int16u[4] = [imageWidth, imageHeight, focusX, focusY],
+//  with origin at top-left. Values are already in full sensor pixel space;
+//  no scaling is required.  (Tag 0x204a is a redundant copy, same values
+//  within one pixel.)
+//
+//  NOTE: tag 0x9400 (AFInfo) is an enciphered binary block; its contents
+//  are NOT used for focus location.
 //
 //  Sony MakerNote IFD entries use absolute file offsets (not relative to
 //  the MakerNote start), consistent with ExifTool's ProcessExif behaviour.
@@ -49,49 +51,29 @@ private struct TIFFParser {
     nonisolated func parseSonyFocusLocation() -> (width: Int, height: Int, x: Int, y: Int)? {
         guard let ifd0 = readU32(at: 4).map(Int.init) else { return nil }
 
-        // 1. Get Physical Sensor Dimensions (8640x5760 for A1)
-        let fullW = readIFDValue(ifdOffset: ifd0, tag: 0x0100) ?? 8640
-        let fullH = readIFDValue(ifdOffset: ifd0, tag: 0x0101) ?? 5760
-
-        // 2. Navigate to MakerNote -> AFInfo (Tag 0x9400)
+        // Navigate: IFD0 → ExifIFD → MakerNote IFD
         guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769),
               let (mnOffset, _) = tagDataRange(in: exifIFD, tag: 0x927C) else { return nil }
 
         let ifdStart = sonyIFDStart(at: mnOffset)
-        // Find Tag 0x9400 (AFInfo) relative to the MakerNote start
-        guard let (afOffset, _) = tagDataRange(in: ifdStart, tag: 0x9400, baseOffset: mnOffset) else { return nil }
 
-        // 3. Extract Dynamic Grid Indices
-        // gridX is at offset 8, gridY is at offset 10 within the AF block
-        let gridX = Int(readU16(at: afOffset + 8))
-        let gridY = Int(readU16(at: afOffset + 10))
-        
-        // Skip if indices are zero (often indicates focus not locked)
-        guard gridX > 0 || gridY > 0 else { return nil }
+        // Tag 0x2027: FocusLocation — int16u[4] = [width, height, x, y] in pixel coords.
+        // Try 0x2027 first, fall back to 0x204a (identical values within one pixel).
+        let flTag: UInt16 = tagDataRange(in: ifdStart, tag: 0x2027, baseOffset: mnOffset) != nil ? 0x2027 : 0x204a
+        guard let (flOffset, flSize) = tagDataRange(in: ifdStart, tag: flTag, baseOffset: mnOffset),
+              flSize >= 8 else { return nil }
 
-        // 4. ExifTool-Specific Scaling for Sony ILCE-1
-        // These constants translate Sony's internal 0-indexed grid to pixel space
-        let gridMaxW: Double = 485.4
-        let gridMaxH: Double = 326.6
+        let width  = Int(readU16(at: flOffset + 0))
+        let height = Int(readU16(at: flOffset + 2))
+        let x      = Int(readU16(at: flOffset + 4))
+        let y      = Int(readU16(at: flOffset + 6))
 
-        let xRatio = Double(fullW) / gridMaxW
-        let xVal = (Double(gridX) + 0.15) * xRatio // +0.15 is the A1 horizontal bias
-        let finalX = Int(xVal.rounded())
+        guard width > 0, height > 0, x > 0 || y > 0 else { return nil }
 
-        let yRatio = Double(fullH) / gridMaxH
-        let yVal = (Double(gridY) - 0.2) * yRatio  // -0.2 is the A1 vertical bias
-        let finalY = Int(yVal.rounded())
-
-        return (fullW, fullH, finalX, finalY)
+        return (width, height, x, y)
     }
 
     // MARK: - Binary Parsing Helpers
-
-    nonisolated private func readIFDValue(ifdOffset: Int, tag: UInt16) -> Int? {
-        guard let (offset, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
-        if let val32 = readU32(at: offset) { return Int(val32) }
-        return Int(readU16(at: offset))
-    }
 
     nonisolated private func subIFDOffset(in ifdOffset: Int, tag: UInt16) -> Int? {
         guard let (valLoc, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
