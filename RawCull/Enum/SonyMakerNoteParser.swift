@@ -24,7 +24,7 @@
 import Foundation
 
 struct SonyMakerNoteParser {
-    /// Returns the focus location as "width height x y" or nil if extraction fails.
+    /// Returns "width height x y" calibrated for the Sony A1 sensor.
     nonisolated static func focusLocation(from url: URL) -> String? {
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let result = TIFFParser(data: data)?.parseSonyFocusLocation()
@@ -49,45 +49,46 @@ private struct TIFFParser {
     nonisolated func parseSonyFocusLocation() -> (width: Int, height: Int, x: Int, y: Int)? {
         guard let ifd0 = readU32(at: 4).map(Int.init) else { return nil }
 
-        // 1. Get Actual Image Dimensions from standard IFD0 tags
+        // 1. Get Physical Sensor Dimensions (8640x5760 for A1)
         let fullW = readIFDValue(ifdOffset: ifd0, tag: 0x0100) ?? 8640
         let fullH = readIFDValue(ifdOffset: ifd0, tag: 0x0101) ?? 5760
 
-        // 2. Navigate to MakerNote -> AFInfo
+        // 2. Navigate to MakerNote -> AFInfo (Tag 0x9400)
         guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769),
               let (mnOffset, _) = tagDataRange(in: exifIFD, tag: 0x927C) else { return nil }
 
         let ifdStart = sonyIFDStart(at: mnOffset)
+        // Find Tag 0x9400 (AFInfo) relative to the MakerNote start
         guard let (afOffset, _) = tagDataRange(in: ifdStart, tag: 0x9400, baseOffset: mnOffset) else { return nil }
 
-        // 3. Extract Grid Coordinates
-        // In the Sony A1 456-byte block, X/Y are at offsets 8 and 10
+        // 3. Extract Dynamic Grid Indices
+        // gridX is at offset 8, gridY is at offset 10 within the AF block
         let gridX = Int(readU16(at: afOffset + 8))
         let gridY = Int(readU16(at: afOffset + 10))
         
+        // Skip if indices are zero (often indicates focus not locked)
         guard gridX > 0 || gridY > 0 else { return nil }
 
-        // 4. Precision Calibration (Matches ExifTool ILCE-1 Sensor Map)
+        // 4. ExifTool-Specific Scaling for Sony ILCE-1
+        // These constants translate Sony's internal 0-indexed grid to pixel space
         let gridMaxW: Double = 485.4
         let gridMaxH: Double = 326.6
 
-        // Use slight offsets to center the coordinate within the AF grid square
         let xRatio = Double(fullW) / gridMaxW
-        let xVal = (Double(gridX) + 0.15) * xRatio
+        let xVal = (Double(gridX) + 0.15) * xRatio // +0.15 is the A1 horizontal bias
         let finalX = Int(xVal.rounded())
 
         let yRatio = Double(fullH) / gridMaxH
-        let yVal = (Double(gridY) - 0.2) * yRatio
+        let yVal = (Double(gridY) - 0.2) * yRatio  // -0.2 is the A1 vertical bias
         let finalY = Int(yVal.rounded())
 
         return (fullW, fullH, finalX, finalY)
     }
 
-    // MARK: - Helpers
+    // MARK: - Binary Parsing Helpers
 
     nonisolated private func readIFDValue(ifdOffset: Int, tag: UInt16) -> Int? {
         guard let (offset, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
-        // Attempt to read as 32-bit Long, fallback to 16-bit Short
         if let val32 = readU32(at: offset) { return Int(val32) }
         return Int(readU16(at: offset))
     }
@@ -112,6 +113,7 @@ private struct TIFFParser {
                 if bytes <= 4 { return (e + 8, bytes) }
                 guard let ptr = readU32(at: e + 8) else { return nil }
                 var abs = Int(ptr)
+                // Critical: Sony pointers are often relative to MakerNote start
                 if let base = baseOffset, abs < base { abs += base }
                 return (abs, bytes)
             }
@@ -122,12 +124,14 @@ private struct TIFFParser {
     nonisolated private func sonyIFDStart(at offset: Int) -> Int {
         guard offset + 12 <= data.count else { return offset }
         let magic = readU32(at: offset)
+        // Check for "SONY DSC " header
         return (magic == 0x594E4F53 || magic == 0x534F4E59) ? offset + 12 : offset
     }
 
     nonisolated private func readU16(at offset: Int) -> UInt16 {
         guard offset + 2 <= data.count else { return 0 }
-        return le ? UInt16(data[offset]) | (UInt16(data[offset+1]) << 8) : (UInt16(data[offset]) << 8) | UInt16(data[offset+1])
+        return le ? UInt16(data[offset]) | (UInt16(data[offset+1]) << 8) :
+                    (UInt16(data[offset]) << 8) | UInt16(data[offset+1])
     }
 
     nonisolated private func readU32(at offset: Int) -> UInt32? {
