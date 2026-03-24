@@ -28,7 +28,6 @@ import Foundation
 struct SonyMakerNoteParser {
     /// Returns the focus location as "width height x y" or `nil` if extraction fails.
     nonisolated static func focusLocation(from url: URL) -> String? {
-        // Using mappedIfSafe to keep memory footprint low for large RAW files.
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let result = TIFFParser(data: data)?.parseSonyFocusLocation()
         else { return nil }
@@ -37,9 +36,10 @@ struct SonyMakerNoteParser {
 }
 
 // MARK: - TIFF parser
-struct TIFFParser {
+
+private struct TIFFParser {
     let data: Data
-    let le: Bool // Sony ARW is little-endian (II), but we check for safety.
+    let le: Bool
 
     nonisolated init?(data: Data) {
         guard data.count >= 8 else { return nil }
@@ -61,30 +61,54 @@ struct TIFFParser {
     // MARK: Navigation
 
     nonisolated func parseSonyFocusLocation() -> (width: Int, height: Int, x: Int, y: Int)? {
-        guard let ifd0 = readU32(at: 4).map(Int.init) else { return nil }
+        guard let ifd0 = readU32(at: 4).map(Int.init) else {
+            print("DEBUG: Failed to read IFD0 offset"); return nil
+        }
 
-        // 1. Find ExifIFD
-        guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769) else { return nil }
+        // 1. Find ExifIFD (0x8769)
+        guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769) else {
+            print("DEBUG: Failed to find ExifIFD (0x8769)"); return nil
+        }
 
         // 2. Find MakerNote (0x927C)
-        guard let (mnOffset, _) = tagDataRange(in: exifIFD, tag: 0x927C) else { return nil }
+        guard let (mnOffset, _) = tagDataRange(in: exifIFD, tag: 0x927C) else {
+            print("DEBUG: Failed to find MakerNote (0x927C)"); return nil
+        }
 
-        // 3. Handle Sony MakerNote Header (Variable length/string)
+        // 3. Handle Sony MakerNote Header
         let ifdStart = sonyIFDStart(at: mnOffset)
+        print("DEBUG: MakerNote at \(mnOffset), IFD starts at \(ifdStart)")
 
         // 4. Find AFInfo (0x9400)
-        guard let (afOffset, afBytes) = tagDataRange(in: ifdStart, tag: 0x9400, baseOffset: mnOffset) else { return nil }
+        guard let (afOffset, afBytes) = tagDataRange(in: ifdStart, tag: 0x9400, baseOffset: mnOffset) else {
+            print("DEBUG: Failed to find AFInfo (0x9400)"); return nil
+        }
+        print("DEBUG: Found AFInfo block at \(afOffset) size \(afBytes) bytes")
 
-        // FocusLocation at byte offset 4 within the block (Standard for A1/A1II)
-        guard afBytes >= 12, afOffset + 12 <= data.count else { return nil }
+        // 5. Hunt for valid AF Data across known Sony Layouts
+        // Layout 4: A1 / A7III
+        // Layout 16: Generic / Older
+        // Layout 276: A7 IV / A7R V / A1 New Firmware
+        let candidateOffsets = [4, 16, 276]
+        
+        for offset in candidateOffsets {
+            guard afOffset + offset + 8 <= data.count else { continue }
+            
+            let w = Int(readU16(at: afOffset + offset))
+            let h = Int(readU16(at: afOffset + offset + 2))
+            let x = Int(readU16(at: afOffset + offset + 4))
+            let y = Int(readU16(at: afOffset + offset + 6))
+            
+            print("DEBUG: Testing Offset \(offset) -> W:\(w) H:\(h) X:\(x) Y:\(y)")
+            
+            if w > 0 && h > 0 {
+                print("DEBUG: Success at offset \(offset)!")
+                return (w, h, x, y)
+            }
+        }
 
-        let width  = Int(readU16(at: afOffset + 4))
-        let height = Int(readU16(at: afOffset + 6))
-        let x      = Int(readU16(at: afOffset + 8))
-        let y      = Int(readU16(at: afOffset + 10))
-
-        guard width > 0, height > 0 else { return nil }
-        return (width, height, x, y)
+        print("DEBUG: All known offsets resulted in zero Width/Height")
+        return nil
     }
 
     // MARK: IFD helpers
@@ -94,8 +118,7 @@ struct TIFFParser {
         return readU32(at: valLoc).map(Int.init)
     }
 
-    /// - Parameter baseOffset: If provided, helps resolve relative offsets within MakerNotes.
-    nonisolated func tagDataRange(in ifdOffset: Int, tag: UInt16, baseOffset: Int? = nil) -> (dataOffset: Int, byteCount: Int)? {
+    nonisolated private func tagDataRange(in ifdOffset: Int, tag: UInt16, baseOffset: Int? = nil) -> (dataOffset: Int, byteCount: Int)? {
         guard ifdOffset + 2 <= data.count else { return nil }
         let entryCount = Int(readU16(at: ifdOffset))
         
@@ -115,9 +138,6 @@ struct TIFFParser {
             guard let ptr = readU32(at: e + 8) else { return nil }
             var abs = Int(ptr)
             
-            // HEURISTIC: Sony sometimes uses relative offsets inside MakerNotes.
-            // If the pointer is very small relative to the file size, it's likely
-            // relative to the start of the MakerNote (baseOffset).
             if let base = baseOffset, abs < base {
                 abs += base
             }
@@ -128,14 +148,10 @@ struct TIFFParser {
         return nil
     }
 
-    /// Sony MakerNote IFDs can start with "SONY DSC \0", "SONY CAM \0",
-    /// or nothing at all (A1). This checks for a valid IFD count to decide.
-    nonisolated func sonyIFDStart(at offset: Int) -> Int {
+    nonisolated private func sonyIFDStart(at offset: Int) -> Int {
         guard offset + 12 <= data.count else { return offset }
-        
-        // If the first 4 bytes look like ASCII "SONY", skip the 12-byte header.
         let magic = readU32(at: offset)
-        if magic == 0x594E4F53 || magic == 0x534F4E59 { // "SONY" in LE or BE
+        if magic == 0x594E4F53 || magic == 0x534F4E59 {
             return offset + 12
         }
         return offset
@@ -143,13 +159,12 @@ struct TIFFParser {
 
     // MARK: Low-level readers
 
-    nonisolated func readU16(at offset: Int) -> UInt16 {
+    nonisolated private func readU16(at offset: Int) -> UInt16 {
         TIFFParser.readU16(data, at: offset, le: le)
     }
 
-    nonisolated func readU32(at offset: Int) -> UInt32? {
+    nonisolated private func readU32(at offset: Int) -> UInt32? {
         guard offset + 4 <= data.count else { return nil }
-        // Switched from .reduce to direct bitwise for performance
         let b = data[offset..<(offset+4)]
         if le {
             return UInt32(b[offset]) | (UInt32(b[offset+1]) << 8) | (UInt32(b[offset+2]) << 16) | (UInt32(b[offset+3]) << 24)
@@ -166,10 +181,10 @@ struct TIFFParser {
 
     nonisolated private func ifdTypeBytes(_ type: Int) -> Int {
         switch type {
-        case 1, 2, 6, 7: return 1   // BYTE, ASCII, SBYTE, UNDEFINED
-        case 3, 8:        return 2   // SHORT, SSHORT
-        case 4, 9, 11, 13: return 4  // LONG, SLONG, FLOAT, IFD
-        case 5, 10, 12:   return 8   // RATIONAL, SRATIONAL, DOUBLE
+        case 1, 2, 6, 7: return 1
+        case 3, 8:        return 2
+        case 4, 9, 11, 13: return 4
+        case 5, 10, 12:   return 8
         default:          return 1
         }
     }
