@@ -64,7 +64,9 @@ actor ScanFiles {
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
                     discoveredCount += 1
-                    await onProgress?(discoveredCount)
+                    let progress = onProgress
+                    let count = discoveredCount
+                    Task { @MainActor in progress?(count) }
                     group.addTask {
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
                         let exifData = self.extractExifData(from: fileURL)
