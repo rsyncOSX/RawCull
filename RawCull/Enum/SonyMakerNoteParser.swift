@@ -59,8 +59,8 @@ private struct TIFFParser {
 
         // Tag 0x2027: FocusLocation — int16u[4] = [width, height, x, y] in pixel coords.
         // Try 0x2027 first, fall back to 0x204a (identical values within one pixel).
-        let flTag: UInt16 = tagDataRange(in: ifdStart, tag: 0x2027, baseOffset: mnOffset) != nil ? 0x2027 : 0x204a
-        guard let (flOffset, flSize) = tagDataRange(in: ifdStart, tag: flTag, baseOffset: mnOffset),
+        let flTag: UInt16 = tagDataRange(in: ifdStart, tag: 0x2027) != nil ? 0x2027 : 0x204a
+        guard let (flOffset, flSize) = tagDataRange(in: ifdStart, tag: flTag),
               flSize >= 8 else { return nil }
 
         let width  = Int(readU16(at: flOffset + 0))
@@ -80,7 +80,7 @@ private struct TIFFParser {
         return readU32(at: valLoc).map(Int.init)
     }
 
-    nonisolated private func tagDataRange(in ifdOffset: Int, tag: UInt16, baseOffset: Int? = nil) -> (dataOffset: Int, byteCount: Int)? {
+    nonisolated private func tagDataRange(in ifdOffset: Int, tag: UInt16) -> (dataOffset: Int, byteCount: Int)? {
         guard ifdOffset + 2 <= data.count else { return nil }
         let entryCount = Int(readU16(at: ifdOffset))
         for i in 0 ..< entryCount {
@@ -91,13 +91,12 @@ private struct TIFFParser {
                 let count = Int(readU32(at: e + 4) ?? 0)
                 let sizes = [0,1,1,2,4,8,1,1,2,4,8,4,8,4]
                 let bytes = count * (type < sizes.count ? sizes[type] : 1)
-                
+
                 if bytes <= 4 { return (e + 8, bytes) }
                 guard let ptr = readU32(at: e + 8) else { return nil }
-                var abs = Int(ptr)
-                // Critical: Sony pointers are often relative to MakerNote start
-                if let base = baseOffset, abs < base { abs += base }
-                return (abs, bytes)
+                // A1 / A1 II MakerNote IFD entries use absolute file offsets
+                // (not relative to MakerNote start) per ExifTool ProcessExif behaviour.
+                return (Int(ptr), bytes)
             }
         }
         return nil
@@ -105,9 +104,13 @@ private struct TIFFParser {
 
     nonisolated private func sonyIFDStart(at offset: Int) -> Int {
         guard offset + 12 <= data.count else { return offset }
-        let magic = readU32(at: offset)
-        // Check for "SONY DSC " header
-        return (magic == 0x594E4F53 || magic == 0x534F4E59) ? offset + 12 : offset
+        // Check for "SONY DSC " ASCII prefix (9 bytes + 3 null pad = 12 bytes).
+        // Read raw bytes — do not use endian-aware readU32 for ASCII magic.
+        let isSony = data[offset]   == 0x53 &&  // S
+                     data[offset+1] == 0x4F &&  // O
+                     data[offset+2] == 0x4E &&  // N
+                     data[offset+3] == 0x59     // Y
+        return isSony ? offset + 12 : offset
     }
 
     nonisolated private func readU16(at offset: Int) -> UInt16 {
