@@ -149,8 +149,8 @@ actor ScanAndCreateThumbnails {
             defer { wrapper.endContentAccess() }
             cacheMemory += 1
             let newCount = incrementAndGetCount()
-            await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            notifyFileHandler(newCount)
+            updateEstimatedTime(for: startTime, itemsProcessed: newCount)
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in RAM Cache")
             return
         }
@@ -162,8 +162,8 @@ actor ScanAndCreateThumbnails {
             storeInMemoryCache(diskImage, for: url)
             cacheDisk += 1
             let newCount = incrementAndGetCount()
-            await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            notifyFileHandler(newCount)
+            updateEstimatedTime(for: startTime, itemsProcessed: newCount)
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in DISK Cache")
             return
         }
@@ -187,8 +187,8 @@ actor ScanAndCreateThumbnails {
             storeInMemoryCache(image, for: url)
 
             let newCount = incrementAndGetCount()
-            await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            notifyFileHandler(newCount)
+            updateEstimatedTime(for: startTime, itemsProcessed: newCount)
 
             Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
@@ -208,9 +208,18 @@ actor ScanAndCreateThumbnails {
         }
     }
 
+    // MARK: - UI Notifications (fire-and-forget)
+
+    /// Notifies the UI that one more file is done. Does NOT await the main-actor
+    /// callback — thumbnail generation must not stall waiting for UI rendering.
+    private func notifyFileHandler(_ count: Int) {
+        let handler = fileHandlers?.fileHandler
+        Task { @MainActor in handler?(count) }
+    }
+
     // MARK: - ETA
 
-    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
+    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) {
         let now = Date()
 
         if let lastTime = lastItemTime {
@@ -230,7 +239,8 @@ actor ScanAndCreateThumbnails {
             }
 
             lastEstimatedSeconds = estimatedSeconds
-            await fileHandlers?.estimatedTimeHandler(estimatedSeconds)
+            let handler = fileHandlers?.estimatedTimeHandler
+            Task { @MainActor in handler?(estimatedSeconds) }
         }
     }
 
