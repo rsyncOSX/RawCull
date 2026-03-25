@@ -28,7 +28,12 @@ import Foundation
 struct SonyMakerNoteParser {
     /// Returns "width height x y" calibrated for the Sony A1 sensor.
     nonisolated static func focusLocation(from url: URL) -> String? {
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+        // Read only the first 4 MB. Sony ARW MakerNote metadata sits well within
+        // that range; loading the full ~50 MB RAW file is wasteful on external storage
+        // where mmap is unavailable and Data(contentsOf:) falls back to a full read.
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fh.close() }
+        guard let data = try? fh.read(upToCount: 4 * 1024 * 1024),
               let result = TIFFParser(data: data)?.parseSonyFocusLocation()
         else { return nil }
         return "\(result.width) \(result.height) \(result.x) \(result.y)"
