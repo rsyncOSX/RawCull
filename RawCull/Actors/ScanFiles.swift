@@ -67,7 +67,7 @@ actor ScanFiles {
                     await onProgress?(discoveredCount)
                     group.addTask {
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
-                        let exifData = await self.extractExifData(from: fileURL)
+                        let exifData = self.extractExifData(from: fileURL)
                         return FileItem(
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
@@ -142,7 +142,7 @@ actor ScanFiles {
 
     // MARK: - EXIF Extraction
 
-    private func extractExifData(from url: URL) -> ExifMetadata? {
+    private nonisolated func extractExifData(from url: URL) -> ExifMetadata? {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
               let exifDict = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
@@ -161,7 +161,7 @@ actor ScanFiles {
         )
     }
 
-    private func formatShutterSpeed(_ value: Any?) -> String? {
+    private nonisolated func formatShutterSpeed(_ value: Any?) -> String? {
         guard let speed = value as? NSNumber else { return nil }
         let speedValue = speed.doubleValue
         if speedValue >= 1 {
@@ -171,17 +171,17 @@ actor ScanFiles {
         }
     }
 
-    private func formatFocalLength(_ value: Any?) -> String? {
+    private nonisolated func formatFocalLength(_ value: Any?) -> String? {
         guard let focal = value as? NSNumber else { return nil }
         return String(format: "%.1fmm", focal.doubleValue)
     }
 
-    private func formatAperture(_ value: Any?) -> String? {
+    private nonisolated func formatAperture(_ value: Any?) -> String? {
         guard let aperture = value as? NSNumber else { return nil }
         return String(format: "ƒ/%.1f", aperture.doubleValue)
     }
 
-    func formatISO(_ iso: Int?) -> String? {
+    nonisolated func formatISO(_ iso: Int?) -> String? {
         guard let iso else { return nil }
         return "ISO \(iso)"
     }
