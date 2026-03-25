@@ -64,10 +64,12 @@ actor ScanFiles {
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
                     discoveredCount += 1
-                    await onProgress?(discoveredCount)
+                    let progress = onProgress
+                    let count = discoveredCount
+                    Task { @MainActor in progress?(count) }
                     group.addTask {
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
-                        let exifData = await self.extractExifData(from: fileURL)
+                        let exifData = self.extractExifData(from: fileURL)
                         return FileItem(
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
@@ -86,13 +88,39 @@ actor ScanFiles {
             }
 
             // Decode raw JSON — plain Codable struct, no @MainActor involved
-            decodedFocusPoints = decodeFocusPointsJSON(from: url)
+            // Native Sony MakerNote parsing — no exiftool or focuspoints.json needed.
+            // Falls back to focuspoints.json if native extraction yields nothing
+            // (e.g. non-A1 files or files captured before the feature was added).
+            decodedFocusPoints = await extractNativeFocusPoints(from: result)
+                ?? decodeFocusPointsJSON(from: url)
 
             return result
         } catch {
             Logger.process.warning("Scan Error: \(error)")
             return []
         }
+    }
+
+    /// Extracts focus location from each ARW file's Sony MakerNote directly.
+    /// Returns `nil` if no files yielded a result so the JSON fallback can take over.
+    private func extractNativeFocusPoints(from items: [FileItem]) async -> [DecodeFocusPoints]? {
+        let collected = await withTaskGroup(of: DecodeFocusPoints?.self) { group in
+            for item in items {
+                group.addTask {
+                    guard let location = SonyMakerNoteParser.focusLocation(from: item.url)
+                    else { return nil }
+                    // sourceFile must equal file.name — getFocusPoints() matches on filename only
+                    return DecodeFocusPoints(sourceFile: item.url.lastPathComponent,
+                                            focusLocation: location)
+                }
+            }
+            var results: [DecodeFocusPoints] = []
+            for await result in group {
+                if let r = result { results.append(r) }
+            }
+            return results
+        }
+        return collected.isEmpty ? nil : collected
     }
 
     /// Synchronous — plain Data read + JSONDecoder, no actor-isolated types touched
@@ -127,7 +155,7 @@ actor ScanFiles {
 
     // MARK: - EXIF Extraction
 
-    private func extractExifData(from url: URL) -> ExifMetadata? {
+    private nonisolated func extractExifData(from url: URL) -> ExifMetadata? {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
               let exifDict = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
@@ -146,7 +174,7 @@ actor ScanFiles {
         )
     }
 
-    private func formatShutterSpeed(_ value: Any?) -> String? {
+    private nonisolated func formatShutterSpeed(_ value: Any?) -> String? {
         guard let speed = value as? NSNumber else { return nil }
         let speedValue = speed.doubleValue
         if speedValue >= 1 {
@@ -156,17 +184,17 @@ actor ScanFiles {
         }
     }
 
-    private func formatFocalLength(_ value: Any?) -> String? {
+    private nonisolated func formatFocalLength(_ value: Any?) -> String? {
         guard let focal = value as? NSNumber else { return nil }
         return String(format: "%.1fmm", focal.doubleValue)
     }
 
-    private func formatAperture(_ value: Any?) -> String? {
+    private nonisolated func formatAperture(_ value: Any?) -> String? {
         guard let aperture = value as? NSNumber else { return nil }
         return String(format: "ƒ/%.1f", aperture.doubleValue)
     }
 
-    func formatISO(_ iso: Int?) -> String? {
+    nonisolated func formatISO(_ iso: Int?) -> String? {
         guard let iso else { return nil }
         return "ISO \(iso)"
     }
