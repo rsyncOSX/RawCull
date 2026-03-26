@@ -24,7 +24,7 @@ struct ZoomableFocusePeekNSImageView: View {
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
     @State private var showFocusMask: Bool = false
-    @State private var overlayOpacity: Double = 0.85
+    @State private var overlayOpacity: Double = 0.95
     @State private var maskTask: Task<Void, Never>?
     @State private var controlsCollapsed: Bool = false
     @FocusState private var isImageFocused: Bool
