@@ -8,7 +8,7 @@
 import AppKit
 import Dispatch
 import Foundation
-import OSLog
+// import OSLog
 
 /// A thread-safe singleton wrapper around the shared NSCache.
 /// We use 'actor' to safely manage state (configuration, settings) across async contexts.
@@ -80,7 +80,7 @@ actor SharedMemoryCache {
 
     init(diskCache: DiskCacheManager? = nil) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        Logger.process.debugMessageOnly("SharedMemoryCache: init() complete")
+        // Logger.process.debugMessageOnly("SharedMemoryCache: init() complete")
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
@@ -170,9 +170,7 @@ actor SharedMemoryCache {
 
     func setCostPerPixel(_ cost: Int) {
         _costPerPixel = cost
-        Logger.process.debugMessageOnly(
-            "SharedMemoryCache: setCostPerPixel(\(cost)) called (Local override only)",
-        )
+        // Logger.process.debugMessageOnly("SharedMemoryCache: setCostPerPixel(\(cost)) called (Local override only)",)
     }
 
     /// In SharedMemoryCache
@@ -189,14 +187,15 @@ actor SharedMemoryCache {
         if let costPerPixel = config.costPerPixel {
             _costPerPixel = costPerPixel
         }
+        // let totalCostMB = config.totalCostLimit / (1024 * 1024)
 
-        let totalCostMB = config.totalCostLimit / (1024 * 1024)
-
+/*
         Logger.process.debugMessageOnly(
             "CACHE CONFIG APPLIED: " +
                 "totalCostLimit=\(config.totalCostLimit) bytes (\(totalCostMB) MB), " +
                 "countLimit=\(config.countLimit) items (memory-limited, not item-count limited)",
         )
+ */
     }
 
     // MARK: - Memory Pressure Monitoring
@@ -207,9 +206,7 @@ actor SharedMemoryCache {
             return
         }
 
-        Logger.process.debugMessageOnly(
-            "SharedMemoryCache: startMemoryPressureMonitoring()",
-        )
+        // Logger.process.debugMessageOnly( "SharedMemoryCache: startMemoryPressureMonitoring()",)
 
         let source = DispatchSource.makeMemoryPressureSource(eventMask: .all, queue: .global(qos: .utility))
 
@@ -229,7 +226,7 @@ actor SharedMemoryCache {
 
         source.resume()
         memoryPressureSource = source
-        Logger.process.debugMessageOnly("SharedMemoryCache: Memory pressure monitoring started")
+        // Logger.process.debugMessageOnly("SharedMemoryCache: Memory pressure monitoring started")
     }
 
     private func handleMemoryPressureEvent() {
@@ -272,7 +269,7 @@ actor SharedMemoryCache {
     }
 
     private func logMemoryPressure(_ message: String) {
-        Logger.process.debugMessageOnly("SharedMemoryCache: \(message)")
+        // Logger.process.debugMessageOnly("SharedMemoryCache: \(message)")
     }
 
     // MARK: - Synchronous Accessors (Non-isolated)
@@ -313,9 +310,9 @@ actor SharedMemoryCache {
     }
 
     func clearCaches() async {
-        let hitRate = cacheMemory + cacheDisk > 0 ? Double(cacheMemory) / Double(cacheMemory + cacheDisk) * 100 : 0
-        let hitRateStr = String(format: "%.1f", hitRate)
-        Logger.process.info("Cache Statistics - Hits: \(self.cacheMemory), Misses: \(self.cacheDisk), Hit Rate: \(hitRateStr)%")
+        // let hitRate = cacheMemory + cacheDisk > 0 ? Double(cacheMemory) / Double(cacheMemory + cacheDisk) * 100 : 0
+        // let hitRateStr = String(format: "%.1f", hitRate)
+        // Logger.process.info("Cache Statistics - Hits: \(self.cacheMemory), Misses: \(self.cacheDisk), Hit Rate: \(hitRateStr)%")
 
         // Clear Shared Memory Cache
         SharedMemoryCache.shared.removeAllObjects()
@@ -330,11 +327,11 @@ actor SharedMemoryCache {
 
     func updateCacheMemory() async {
         cacheMemory += 1
-        Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache (hits: \(cacheMemory))")
+        // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache (hits: \(cacheMemory))")
     }
 
     func updateCacheDisk() async {
         cacheDisk += 1
-        Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache (hits: \(cacheDisk))")
+        // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache (hits: \(cacheDisk))")
     }
 }

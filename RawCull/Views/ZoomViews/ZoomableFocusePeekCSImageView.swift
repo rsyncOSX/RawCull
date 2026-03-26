@@ -27,6 +27,7 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var overlayOpacity: Double = 0.85
     @State private var maskTask: Task<Void, Never>?
     @State private var controlsCollapsed: Bool = false
+    @FocusState private var isImageFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
 
@@ -93,6 +94,17 @@ struct ZoomableFocusePeekCSImageView: View {
                 .padding(.bottom, 20)
             }
         }
+        .focusable()
+        .focused($isImageFocused)
+        .focusEffectDisabled()
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
+            switch press.characters {
+            case "+": increaseZoom(); return .handled
+            case "-": decreaseZoom(); return .handled
+            default: return .ignored
+            }
+        }
+        .onAppear { isImageFocused = true }
         .task(id: cgImage?.hashValue) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
