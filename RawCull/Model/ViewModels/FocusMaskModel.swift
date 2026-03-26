@@ -5,10 +5,25 @@ import Observation
 import OSLog
 
 struct FocusDetectorConfig: Equatable {
-    var preBlurRadius: Float = 1.2
-    var threshold: Float = 0.08
-    var dilationRadius: Float = 3.0
+    var preBlurRadius: Float = 0.8
+    var threshold: Float = 0.06
+    var dilationRadius: Float = 2.0
     var energyMultiplier: Float = 10.0
+
+    // Erosion pass (CIMorphologyMinimum) applied before dilation to remove
+    // isolated single-pixel noise hits that survive thresholding.
+    // 0.0 disables the pass entirely.
+    var erosionRadius: Float = 0.5
+
+    // Final Gaussian applied to the finished mask for soft feathered edges.
+    // 0.0 disables the pass entirely.
+    var featherRadius: Float = 2.0
+
+    // When true the pipeline stops after the Laplacian boost and skips
+    // threshold, erosion, dilation and feather — returns the raw kernel
+    // response so you can calibrate preBlurRadius and energyMultiplier
+    // before touching the other controls.
+    var showRawLaplacian: Bool = false
 }
 
 @Observable
@@ -140,24 +155,44 @@ final class FocusMaskModel: @unchecked Sendable {
         preThresholdBoost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         guard let boostedLaplacian = preThresholdBoost.outputImage else { return nil }
 
+        // Debug shortcut: skip threshold/morphology and return the raw
+        // Laplacian response directly so preBlurRadius and energyMultiplier
+        // can be calibrated visually before touching the other controls.
+        if config.showRawLaplacian {
+            let cropped = boostedLaplacian.cropped(to: scaledImage.extent)
+            return context.createCGImage(cropped, from: cropped.extent)
+        }
+
         // Pass 3: Threshold on the boosted signal
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = boostedLaplacian
         thresholdFilter.threshold = config.threshold
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // Pass 4: Morphological dilation to fill small gaps in the mask
-        let dilated: CIImage
-        if let dilate = CIFilter(name: "CIMorphologyMaximum") {
-            dilate.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-            dilate.setValue(CGFloat(config.dilationRadius), forKey: kCIInputRadiusKey)
-            dilated = dilate.outputImage ?? thresholdedEdges
+        // Pass 4a: Optional erosion — removes isolated noise pixels that
+        // survive thresholding before the dilation widens them.
+        let eroded: CIImage
+        if config.erosionRadius > 0,
+           let erode = CIFilter(name: "CIMorphologyMinimum") {
+            erode.setValue(thresholdedEdges, forKey: kCIInputImageKey)
+            erode.setValue(CGFloat(config.erosionRadius), forKey: kCIInputRadiusKey)
+            eroded = erode.outputImage ?? thresholdedEdges
         } else {
-            dilated = thresholdedEdges
+            eroded = thresholdedEdges
+        }
+
+        // Pass 4b: Dilation — fills small gaps and connects nearby blobs.
+        let dilated: CIImage
+        if config.dilationRadius > 0,
+           let dilate = CIFilter(name: "CIMorphologyMaximum") {
+            dilate.setValue(eroded, forKey: kCIInputImageKey)
+            dilate.setValue(CGFloat(config.dilationRadius), forKey: kCIInputRadiusKey)
+            dilated = dilate.outputImage ?? eroded
+        } else {
+            dilated = eroded
         }
 
         // Pass 5: Map to red channel for visual overlay
-        // energyMultiplier here is 1.0 — the boost already happened before threshold
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = dilated
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
@@ -166,7 +201,18 @@ final class FocusMaskModel: @unchecked Sendable {
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        let croppedMask = redMask.cropped(to: scaledImage.extent)
+        // Pass 6: Optional feather — final Gaussian for soft mask edges.
+        let feathered: CIImage
+        if config.featherRadius > 0 {
+            let featherBlur = CIFilter.gaussianBlur()
+            featherBlur.inputImage = redMask
+            featherBlur.radius = config.featherRadius
+            feathered = featherBlur.outputImage ?? redMask
+        } else {
+            feathered = redMask
+        }
+
+        let croppedMask = feathered.cropped(to: scaledImage.extent)
         return context.createCGImage(croppedMask, from: croppedMask.extent)
     }
 }
