@@ -57,7 +57,21 @@ struct FocusMaskControlsView: View {
                         label: "Amplify",
                         value: $config.energyMultiplier,
                         range: 4.0 ... 20.0,
-                        hint: "Amplification of sharpness signal",
+                        hint: "Amplification of sharpness signal before threshold",
+                    )
+
+                    LabeledSlider(
+                        label: "Erosion",
+                        value: $config.erosionRadius,
+                        range: 0.0 ... 4.0,
+                        hint: "Higher = removes more isolated noise pixels",
+                    )
+
+                    LabeledSlider(
+                        label: "Dilation",
+                        value: $config.dilationRadius,
+                        range: 0.0 ... 6.0,
+                        hint: "Higher = expands and connects nearby mask regions",
                     )
 
                     LabeledSlider(
@@ -118,7 +132,7 @@ struct FocusMaskControlsView: View {
                 .padding(10)
                 .animation(.spring(duration: 0.3), value: showFocusMask)
                 .transition(.opacity)
-            } // end if !showFocusMask || controlsCollapsed
+            }
         }
     }
 }
