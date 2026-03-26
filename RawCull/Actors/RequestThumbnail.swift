@@ -7,7 +7,7 @@
 
 import AppKit
 import Foundation
-import OSLog
+// import OSLog
 
 actor RequestThumbnail {
     private var setupTask: Task<Void, Never>?
@@ -38,7 +38,7 @@ actor RequestThumbnail {
         do {
             return try await resolveImage(for: url, targetSize: targetSize)
         } catch {
-            Logger.process.warning("Failed to resolve thumbnail: \(error)")
+            // Logger.process.warning("Failed to resolve thumbnail: \(error)")
             return nil
         }
     }
@@ -62,7 +62,7 @@ actor RequestThumbnail {
         }
 
         // C. Extract
-        Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
+        // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
@@ -86,7 +86,7 @@ actor RequestThumbnail {
                 await dcache.save(jpegData, for: url)
             }
         } else {
-            Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
+            // Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
         }
 
         return cgImage

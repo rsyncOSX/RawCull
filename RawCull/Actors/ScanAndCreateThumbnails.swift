@@ -7,7 +7,7 @@
 
 import AppKit
 import Foundation
-import OSLog
+// import OSLog
 
 actor ScanAndCreateThumbnails {
     // MARK: - Isolated State
@@ -46,7 +46,7 @@ actor ScanAndCreateThumbnails {
         diskCache: DiskCacheManager? = nil,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
+        // Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
     }
 
     // MARK: - Setup
@@ -91,7 +91,7 @@ actor ScanAndCreateThumbnails {
     func cancelPreload() {
         preloadTask?.cancel()
         preloadTask = nil
-        Logger.process.debugMessageOnly("ThumbnailProvider: Preload Cancelled")
+        // Logger.process.debugMessageOnly("ThumbnailProvider: Preload Cancelled")
     }
 
     @discardableResult
@@ -151,7 +151,7 @@ actor ScanAndCreateThumbnails {
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(for: startTime, itemsProcessed: newCount)
-            Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in RAM Cache")
+            // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in RAM Cache")
             return
         }
 
@@ -164,7 +164,7 @@ actor ScanAndCreateThumbnails {
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(for: startTime, itemsProcessed: newCount)
-            Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in DISK Cache")
+            // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in DISK Cache")
             return
         }
 
@@ -190,12 +190,12 @@ actor ScanAndCreateThumbnails {
             notifyFileHandler(newCount)
             updateEstimatedTime(for: startTime, itemsProcessed: newCount)
 
-            Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
+            // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
             // Encode to Data here, inside the actor, before crossing the task boundary.
             // `Data` is Sendable; `CGImage` is not.
             guard let jpegData = DiskCacheManager.jpegData(from: cgImage) else {
-                Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
+                // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
                 return
             }
 
@@ -204,7 +204,7 @@ actor ScanAndCreateThumbnails {
                 await dcache.save(jpegData, for: url)
             }
         } catch {
-            Logger.process.warning("Failed: \(url.lastPathComponent)")
+            // Logger.process.warning("Failed: \(url.lastPathComponent)")
         }
     }
 
@@ -297,7 +297,7 @@ actor ScanAndCreateThumbnails {
         do {
             return try await resolveImage(for: url, targetSize: targetSize)
         } catch {
-            Logger.process.warning("Failed to resolve thumbnail: \(error)")
+            // Logger.process.warning("Failed to resolve thumbnail: \(error)")
             return nil
         }
     }
@@ -311,7 +311,7 @@ actor ScanAndCreateThumbnails {
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
             cacheMemory += 1
-            Logger.process.debugThreadOnly("resolveImage: found in RAM Cache (hits: \(cacheMemory))")
+            // Logger.process.debugThreadOnly("resolveImage: found in RAM Cache (hits: \(cacheMemory))")
             return try nsImageToCGImage(wrapper.image)
         }
 
@@ -319,13 +319,13 @@ actor ScanAndCreateThumbnails {
         if let diskImage = await diskCache.load(for: url) {
             storeInMemoryCache(diskImage, for: url)
             cacheDisk += 1
-            Logger.process.debugThreadOnly("resolveImage: found in Disk Cache (misses: \(cacheDisk))")
+            // Logger.process.debugThreadOnly("resolveImage: found in Disk Cache (misses: \(cacheDisk))")
             return try nsImageToCGImage(diskImage)
         }
 
         // C. Check In-Flight Requests
         if let existingTask = inflightTasks[url] {
-            Logger.process.debugThreadOnly("resolveImage: coalescing request for \(url.lastPathComponent)")
+            // Logger.process.debugThreadOnly("resolveImage: coalescing request for \(url.lastPathComponent)")
             let image = try await existingTask.value
             return try nsImageToCGImage(image)
         }
@@ -352,7 +352,7 @@ actor ScanAndCreateThumbnails {
                     await dcache.save(jpegData, for: url)
                 }
             } else {
-                Logger.process.warning("resolveImage: failed to encode JPEG for \(url.lastPathComponent)")
+                // Logger.process.warning("resolveImage: failed to encode JPEG for \(url.lastPathComponent)")
             }
 
             self.inflightTasks[url] = nil
