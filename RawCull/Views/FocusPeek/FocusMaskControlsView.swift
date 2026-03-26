@@ -32,7 +32,7 @@ struct FocusMaskControlsView: View {
 
                         Button("Reset") {
                             config = FocusDetectorConfig()
-                            overlayOpacity = 0.85
+                            overlayOpacity = 0.95
                         }
                         .buttonStyle(.borderless)
                         .font(.caption)
@@ -42,46 +42,36 @@ struct FocusMaskControlsView: View {
                     LabeledSlider(
                         label: "Threshold",
                         value: $config.threshold,
-                        range: 0.10 ... 0.50,
+                        range: 0.01 ... 0.70,
                         hint: "Lower = more highlighted, Higher = only sharpest edges",
                     )
 
                     LabeledSlider(
                         label: "Pre-blur",
                         value: $config.preBlurRadius,
-                        range: 0.5 ... 2.5,
+                        range: 0.3 ... 4.0,
                         hint: "Higher = ignore more background texture",
                     )
 
                     LabeledSlider(
                         label: "Amplify",
                         value: $config.energyMultiplier,
-                        range: 4.0 ... 20.0,
+                        range: 1.0 ... 20.0,
                         hint: "Amplification of sharpness signal before threshold",
                     )
 
                     LabeledSlider(
                         label: "Erosion",
                         value: $config.erosionRadius,
-                        range: 0.0 ... 4.0,
+                        range: 0.0 ... 2.0,
                         hint: "Higher = removes more isolated noise pixels",
                     )
 
                     LabeledSlider(
                         label: "Dilation",
                         value: $config.dilationRadius,
-                        range: 0.0 ... 6.0,
+                        range: 0.0 ... 3.0,
                         hint: "Higher = expands and connects nearby mask regions",
-                    )
-
-                    LabeledSlider(
-                        label: "Overlay",
-                        value: Binding(
-                            get: { Float(overlayOpacity) },
-                            set: { overlayOpacity = Double($0) },
-                        ),
-                        range: 0.3 ... 1.0,
-                        hint: "Overlay strength",
                     )
                 }
                 .padding()

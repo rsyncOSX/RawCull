@@ -5,25 +5,13 @@ import Observation
 import OSLog
 
 struct FocusDetectorConfig: Equatable {
-    var preBlurRadius: Float = 0.8
-    var threshold: Float = 0.06
-    var dilationRadius: Float = 2.0
-    var energyMultiplier: Float = 10.0
-
-    // Erosion pass (CIMorphologyMinimum) applied before dilation to remove
-    // isolated single-pixel noise hits that survive thresholding.
-    // 0.0 disables the pass entirely.
-    var erosionRadius: Float = 0.5
-
-    // Final Gaussian applied to the finished mask for soft feathered edges.
-    // 0.0 disables the pass entirely.
-    var featherRadius: Float = 2.0
-
-    // When true the pipeline stops after the Laplacian boost and skips
-    // threshold, erosion, dilation and feather — returns the raw kernel
-    // response so you can calibrate preBlurRadius and energyMultiplier
-    // before touching the other controls.
-    var showRawLaplacian: Bool = false
+    var preBlurRadius: Float = 1.92
+        var threshold: Float = 0.46
+        var dilationRadius: Float = 0.43
+        var energyMultiplier: Float = 7.62
+        var erosionRadius: Float = 0.27
+        var featherRadius: Float = 2.0
+        var showRawLaplacian: Bool = false
 }
 
 @Observable
