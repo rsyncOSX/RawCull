@@ -7,7 +7,7 @@
 import AppKit
 import Foundation
 import os
-import OSLog
+// import OSLog
 
 final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sendable {
     let image: NSImage
@@ -39,9 +39,7 @@ final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sen
         // Add overhead buffer (~10%) for NSImage wrapper and caching metadata
         cost = Int(Double(totalCost) * 1.1)
 
-        Logger.process.debugMessageOnly(
-            "DiscardableThumbnail: computed Cost \(cost) for image of \(image.size)",
-        )
+        // Logger.process.debugMessageOnly( "DiscardableThumbnail: computed Cost \(cost) for image of \(image.size)",)
 
         super.init()
     }

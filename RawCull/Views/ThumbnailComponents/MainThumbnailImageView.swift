@@ -28,6 +28,7 @@ struct MainThumbnailImageView: View {
     @State private var focusDetectorModel = FocusMaskModel()
     @State private var maskTask: Task<Void, Never>?
     @State private var controlsCollapsed: Bool = false
+    @FocusState private var isImageFocused: Bool
 
     private var focusMaskSlidersVisible: Bool {
         showFocusMask && !controlsCollapsed
@@ -87,6 +88,7 @@ struct MainThumbnailImageView: View {
                                     .allowsHitTesting(false)
                                     .transition(.opacity)
                             }
+                            
 
                             // 3️⃣ Focus points overlay
                             if showFocusPoints, let focusPoints, !focusMaskSlidersVisible {
@@ -142,6 +144,28 @@ struct MainThumbnailImageView: View {
                                 .padding(.bottom, 12)
                             }
                         }
+                        .focusable()
+                        .focused($isImageFocused)
+                        .focusEffectDisabled()
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
+                            switch press.characters {
+                            case "+":
+                                withAnimation(.spring()) {
+                                    scale = min(4.0, scale + 0.2)
+                                    lastScale = scale
+                                }
+                                return .handled
+                            case "-":
+                                withAnimation(.spring()) {
+                                    scale = max(0.5, scale - 0.2)
+                                    lastScale = scale
+                                }
+                                return .handled
+                            default:
+                                return .ignored
+                            }
+                        }
+                        .onAppear { isImageFocused = true }
                     }
                 }
                 .shadow(radius: 4)
