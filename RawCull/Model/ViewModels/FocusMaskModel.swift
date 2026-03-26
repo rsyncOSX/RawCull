@@ -63,7 +63,8 @@ final class FocusMaskModel: @unchecked Sendable {
         return await Task.detached(priority: .userInitiated) { () -> CGImage? in
             guard let rawFilter = CIRAWFilter(imageURL: url) else {
                 // Not a RAW file or unsupported — fall back to decoded path
-                guard let cgImage = try? CGImage.init(
+                
+                guard let cgImage = CGImage(
                     jpegDataProviderSource: CGDataProvider(url: url as CFURL)!,
                     decode: nil, shouldInterpolate: true, intent: .defaultIntent
                 ) else { return nil }
