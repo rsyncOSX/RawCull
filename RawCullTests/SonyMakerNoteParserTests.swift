@@ -31,9 +31,8 @@ private func makeSyntheticARW(
     width: UInt16 = 9504,
     height: UInt16 = 6336,
     x: UInt16 = 4752,
-    y: UInt16 = 3168
+    y: UInt16 = 3168,
 ) throws -> URL {
-
     // ── offset map ────────────────────────────────────────────────
     // IFD0        starts at 8   (size 18 → next region at 26)
     // ExifIFD     starts at 26  (size 18 → next region at 44)
@@ -43,13 +42,15 @@ private func makeSyntheticARW(
     //   Sony IFD size: 18 bytes
     // FocusLocation starts at SonyIFD + 18
 
-    let makerNoteOffset: Int = 44
-    let sonyIFDOffset:   Int = makerNoteOffset + (sonyHeader ? 12 : 0)
-    let flOffset:        Int = sonyIFDOffset + 18          // 2 + 1×12 + 4
-    let totalSize:       Int = flOffset + 8
-    let makerNoteSize:   Int = totalSize - makerNoteOffset
+    let makerNoteOffset = 44
+    let sonyIFDOffset: Int = makerNoteOffset + (sonyHeader ? 12 : 0)
+    let flOffset: Int = sonyIFDOffset + 18 // 2 + 1×12 + 4
+    let totalSize: Int = flOffset + 8
+    let makerNoteSize: Int = totalSize - makerNoteOffset
 
-    func le16(_ v: UInt16) -> [UInt8] { [UInt8(v & 0xFF), UInt8(v >> 8)] }
+    func le16(_ v: UInt16) -> [UInt8] {
+        [UInt8(v & 0xFF), UInt8(v >> 8)]
+    }
     func le32(_ v: UInt32) -> [UInt8] {
         [UInt8(v & 0xFF), UInt8((v >> 8) & 0xFF), UInt8((v >> 16) & 0xFF), UInt8(v >> 24)]
     }
@@ -60,32 +61,32 @@ private func makeSyntheticARW(
     var bytes: [UInt8] = []
 
     // TIFF header
-    bytes += [0x49, 0x49]             // "II" little-endian
-    bytes += [0x2A, 0x00]             // magic 42
-    bytes += le32(8)                  // IFD0 at offset 8
+    bytes += [0x49, 0x49] // "II" little-endian
+    bytes += [0x2A, 0x00] // magic 42
+    bytes += le32(8) // IFD0 at offset 8
 
     // IFD0 (one entry: ExifIFD tag 0x8769)
     bytes += le16(1)
-    bytes += ifdEntry(tag: 0x8769, type: 4 /*LONG*/, count: 1, value: 26)
-    bytes += le32(0)                  // next IFD
+    bytes += ifdEntry(tag: 0x8769, type: 4 /* LONG */, count: 1, value: 26)
+    bytes += le32(0) // next IFD
 
     // ExifIFD (one entry: MakerNote tag 0x927C)
     bytes += le16(1)
-    bytes += ifdEntry(tag: 0x927C, type: 7 /*UNDEFINED*/,
+    bytes += ifdEntry(tag: 0x927C, type: 7 /* UNDEFINED */,
                       count: UInt32(makerNoteSize),
                       value: UInt32(makerNoteOffset))
     bytes += le32(0)
 
     // Optional "SONY DSC " header (12 bytes: 9 ASCII + 3 null)
     if sonyHeader {
-        bytes += [0x53, 0x4F, 0x4E, 0x59,   // S O N Y
-                  0x20, 0x44, 0x53, 0x43,   //   D S C
-                  0x20, 0x00, 0x00, 0x00]   //   \0\0\0
+        bytes += [0x53, 0x4F, 0x4E, 0x59, // S O N Y
+                  0x20, 0x44, 0x53, 0x43, //   D S C
+                  0x20, 0x00, 0x00, 0x00] //   \0\0\0
     }
 
     // Sony IFD (one entry: FocusLocation)
     bytes += le16(1)
-    bytes += ifdEntry(tag: focusTag, type: 3 /*SHORT*/, count: 4,
+    bytes += ifdEntry(tag: focusTag, type: 3 /* SHORT */, count: 4,
                       value: UInt32(flOffset))
     bytes += le32(0)
 
@@ -103,7 +104,6 @@ private func makeSyntheticARW(
 // MARK: - Tests
 
 struct SonyMakerNoteParserTests {
-
     // MARK: Positive paths
 
     @Test
@@ -128,7 +128,7 @@ struct SonyMakerNoteParserTests {
 
     @Test
     func `Falls back to tag 0x204a when 0x2027 is absent`() throws {
-        let url = try makeSyntheticARW(focusTag: 0x204a)
+        let url = try makeSyntheticARW(focusTag: 0x204A)
         defer { try? FileManager.default.removeItem(at: url) }
 
         let result = SonyMakerNoteParser.focusLocation(from: url)
@@ -161,7 +161,7 @@ struct SonyMakerNoteParserTests {
             .appendingPathComponent(UUID().uuidString + ".arw")
         defer { try? FileManager.default.removeItem(at: url) }
 
-        try Data([0x49, 0x49, 0x2A, 0x00]).write(to: url)  // only 4 bytes
+        try Data([0x49, 0x49, 0x2A, 0x00]).write(to: url) // only 4 bytes
 
         #expect(SonyMakerNoteParser.focusLocation(from: url) == nil)
     }

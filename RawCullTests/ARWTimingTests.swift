@@ -20,9 +20,9 @@ import ImageIO
 @testable import RawCull
 import Testing
 
-// ── Catalog location ──────────────────────────────────────────────────────────
-// Set this to the folder containing your ARW test files.
-// Leave empty to skip all timing tests gracefully.
+/// ── Catalog location ──────────────────────────────────────────────────────────
+/// Set this to the folder containing your ARW test files.
+/// Leave empty to skip all timing tests gracefully.
 private let catalogPath = "/Users/thomas/Pictures/TestARW"
 // Example: private let catalogPath = "/Users/thomas/Pictures/TestARW"
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ private func arwURLs(in path: String) -> [URL] {
     guard !path.isEmpty else { return [] }
     let dir = URL(fileURLWithPath: path, isDirectory: true)
     guard let contents = try? FileManager.default.contentsOfDirectory(
-        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles,
     ) else { return [] }
     return contents
         .filter { $0.pathExtension.lowercased() == "arw" }
@@ -46,7 +46,7 @@ private func arwURLs(in path: String) -> [URL] {
 }
 
 private func durationMs(_ d: Duration) -> Double {
-    Double(d.components.seconds) * 1_000
+    Double(d.components.seconds) * 1000
         + Double(d.components.attoseconds) / 1_000_000_000_000_000
 }
 
@@ -74,7 +74,6 @@ private func printTable(title: String, results: [TimingResult]) {
 // MARK: - Tests
 
 struct ARWTimingTests {
-
     // MARK: 1 — Thumbnail creation
 
     @Test
@@ -92,7 +91,7 @@ struct ARWTimingTests {
             let elapsed = try await clock.measure {
                 // Raw extraction — bypasses cache for an honest cold-read measurement.
                 _ = try await SonyThumbnailExtractor.extractSonyThumbnail(
-                    from: url, maxDimension: 512
+                    from: url, maxDimension: 512,
                 )
             }
             results.append(TimingResult(filename: url.lastPathComponent,

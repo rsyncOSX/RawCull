@@ -111,7 +111,7 @@ actor ScanFiles {
                     else { return nil }
                     // sourceFile must equal file.name — getFocusPoints() matches on filename only
                     return DecodeFocusPoints(sourceFile: item.url.lastPathComponent,
-                                            focusLocation: location)
+                                             focusLocation: location)
                 }
             }
             var results: [DecodeFocusPoints] = []

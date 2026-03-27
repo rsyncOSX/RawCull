@@ -7,6 +7,7 @@
 import AppKit
 import Foundation
 import os
+
 // import OSLog
 
 final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sendable {

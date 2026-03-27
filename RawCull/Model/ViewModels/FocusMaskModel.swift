@@ -6,20 +6,20 @@ import OSLog
 
 struct FocusDetectorConfig: Equatable {
     var preBlurRadius: Float = 1.92
-        var threshold: Float = 0.46
-        var dilationRadius: Float = 0.43
-        var energyMultiplier: Float = 7.62
-        var erosionRadius: Float = 0.27
-        var featherRadius: Float = 2.0
-        var showRawLaplacian: Bool = false
+    var threshold: Float = 0.46
+    var dilationRadius: Float = 0.43
+    var energyMultiplier: Float = 7.62
+    var erosionRadius: Float = 0.27
+    var featherRadius: Float = 2.0
+    var showRawLaplacian: Bool = false
 }
 
 @Observable
 final class FocusMaskModel: @unchecked Sendable {
     var config = FocusDetectorConfig()
 
-    // IMPROVEMENT 1: Force float32 working format so Laplacian
-    // intermediate values are not clipped to 8-bit before thresholding.
+    /// IMPROVEMENT 1: Force float32 working format so Laplacian
+    /// intermediate values are not clipped to 8-bit before thresholding.
     private let context = CIContext(options: [
         .workingColorSpace: NSNull(),
         .workingFormat: CIFormat.RGBAf
@@ -39,11 +39,11 @@ final class FocusMaskModel: @unchecked Sendable {
         }
     }()
 
-    // IMPROVEMENT 4: ARW-aware entry point.
-    // Loads the raw file via CIRAWFilter with NR, sharpening and boost
-    // all disabled so the Laplacian fires on true optical sharpness.
-    // Falls back to the CGImage path if CIRAWFilter is unavailable or
-    // the URL does not point to a supported RAW format.
+    /// IMPROVEMENT 4: ARW-aware entry point.
+    /// Loads the raw file via CIRAWFilter with NR, sharpening and boost
+    /// all disabled so the Laplacian fires on true optical sharpness.
+    /// Falls back to the CGImage path if CIRAWFilter is unavailable or
+    /// the URL does not point to a supported RAW format.
     func generateFocusMask(fromRawURL url: URL, scale: CGFloat) async -> CGImage? {
         let context = self.context
         let config = self.config
@@ -51,34 +51,34 @@ final class FocusMaskModel: @unchecked Sendable {
         return await Task.detached(priority: .userInitiated) { () -> CGImage? in
             guard let rawFilter = CIRAWFilter(imageURL: url) else {
                 // Not a RAW file or unsupported — fall back to decoded path
-                
+
                 guard let cgImage = CGImage(
                     jpegDataProviderSource: CGDataProvider(url: url as CFURL)!,
-                    decode: nil, shouldInterpolate: true, intent: .defaultIntent
+                    decode: nil, shouldInterpolate: true, intent: .defaultIntent,
                 ) else { return nil }
                 return await Self.buildFocusMask(from: CIImage(cgImage: cgImage),
-                                           scale: scale, context: context, config: config)
+                                                 scale: scale, context: context, config: config)
             }
             // Disable all in-camera processing before focus analysis
-            rawFilter.luminanceNoiseReductionAmount = 0   // luma NR
-            rawFilter.colorNoiseReductionAmount = 0       // chroma NR
-            rawFilter.contrastAmount = 0                  // contrast
-            rawFilter.detailAmount = 0                    // detail / micro-contrast
-            rawFilter.moireReductionAmount = 0            // moire
-            rawFilter.boostAmount = 0                     // global tone curve
-            rawFilter.boostShadowAmount = 0               // shadow lift
-            rawFilter.sharpnessAmount = 0                 // critical: no USM
-            rawFilter.localToneMapAmount = 0              // local tone mapping
-            rawFilter.isGamutMappingEnabled = false       // no gamut clip
-            rawFilter.isLensCorrectionEnabled = false       // no lens warp
+            rawFilter.luminanceNoiseReductionAmount = 0 // luma NR
+            rawFilter.colorNoiseReductionAmount = 0 // chroma NR
+            rawFilter.contrastAmount = 0 // contrast
+            rawFilter.detailAmount = 0 // detail / micro-contrast
+            rawFilter.moireReductionAmount = 0 // moire
+            rawFilter.boostAmount = 0 // global tone curve
+            rawFilter.boostShadowAmount = 0 // shadow lift
+            rawFilter.sharpnessAmount = 0 // critical: no USM
+            rawFilter.localToneMapAmount = 0 // local tone mapping
+            rawFilter.isGamutMappingEnabled = false // no gamut clip
+            rawFilter.isLensCorrectionEnabled = false // no lens warp
 
             guard let linearImage = rawFilter.outputImage else { return nil }
             return await Self.buildFocusMask(from: linearImage,
-                                       scale: scale, context: context, config: config)
+                                             scale: scale, context: context, config: config)
         }.value
     }
 
-    // Existing NSImage entry point — unchanged public API
+    /// Existing NSImage entry point — unchanged public API
     func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let originalSize = nsImage.size
@@ -88,35 +88,35 @@ final class FocusMaskModel: @unchecked Sendable {
         return await Task.detached(priority: .userInitiated) {
             guard let result = await Self.buildFocusMask(
                 from: CIImage(cgImage: cgImage),
-                scale: scale, context: context, config: config
+                scale: scale, context: context, config: config,
             ) else { return nil }
             return NSImage(cgImage: result, size: originalSize)
         }.value
     }
 
-    // Existing CGImage entry point — unchanged public API
+    /// Existing CGImage entry point — unchanged public API
     func generateFocusMask(from cgImage: CGImage, scale: CGFloat) async -> CGImage? {
         let context = self.context
         let config = self.config
 
         return await Task.detached(priority: .userInitiated) {
-            return await Self.buildFocusMask(
+            await Self.buildFocusMask(
                 from: CIImage(cgImage: cgImage),
-                scale: scale, context: context, config: config
+                scale: scale, context: context, config: config,
             )
         }.value
     }
 
-    // IMPROVEMENT 5: Single unified implementation — both public overloads
-    // delegate here, eliminating the previous code duplication.
+    /// IMPROVEMENT 5: Single unified implementation — both public overloads
+    /// delegate here, eliminating the previous code duplication.
     private static func buildFocusMask(
         from inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig
+        config: FocusDetectorConfig,
     ) -> CGImage? {
         let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale)
+            by: CGAffineTransform(scaleX: scale, y: scale),
         )
 
         // Pass 1: Gaussian pre-blur (noise suppression)
@@ -130,7 +130,7 @@ final class FocusMaskModel: @unchecked Sendable {
         guard let laplacianOutput = laplacianKernel.apply(
             extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage]
+            arguments: [smoothedImage],
         ) else { return nil }
 
         // IMPROVEMENT 3: Amplify BEFORE threshold so the threshold operates
