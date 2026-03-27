@@ -753,7 +753,208 @@ Value types (structs, enums) with only `Sendable` stored properties are automati
 
 ---
 
-## 16  Quick Reference
+## 16  Bridging GCD and Swift Concurrency — Preventing Thread Pool Starvation
+
+Both `JPGSonyARWExtractor` and `SonyThumbnailExtractor` are caseless enums — pure namespaces with no instance state — that perform CPU-intensive ImageIO work. They use a pattern that looks surprising at first: they explicitly dispatch to `DispatchQueue.global` inside a `withCheckedContinuation`. Understanding why reveals an important pitfall of Swift's cooperative thread pool.
+
+### The problem: thread pool starvation
+
+Swift's cooperative thread pool has a limited number of threads — typically one per CPU core. When an `async` function calls a **synchronous, blocking** API (like `CGImageSourceCreateWithURL` or `CGImageSourceCreateThumbnailAtIndex`), that call does not suspend — it **blocks** the thread it is running on. If many tasks do this simultaneously, every thread in the pool can become occupied with blocked I/O, leaving no threads free to run other `await` continuations. The app effectively freezes. This is called **thread pool starvation**.
+
+The fix is to deliberately hop off the cooperative thread pool and onto a GCD global queue — which has its own, much larger pool of threads — for the duration of the blocking call. When the GCD block finishes, it calls `continuation.resume()`, which re-queues the Swift task on the cooperative pool for the lightweight work that follows.
+
+### JPGSonyARWExtractor — withCheckedContinuation + GCD
+
+```swift
+// From Enum/JPGSonyARWExtractor.swift
+
+// @preconcurrency suppresses Sendable errors for AppKit types (like NSImage)
+// that predate Swift concurrency and are not formally Sendable.
+@preconcurrency import AppKit
+
+enum JPGSonyARWExtractor {
+    static func jpgSonyARWExtractor(
+        from arwURL: URL,
+        fullSize: Bool = false,
+    ) async -> CGImage? {
+
+        return await withCheckedContinuation { continuation in
+            // Dispatch to GCD to prevent Thread Pool Starvation.
+            // CGImageSourceCreateWithURL and friends are synchronous and can
+            // block for tens of milliseconds on a large ARW file.
+            // Running them directly on the cooperative pool ties up a thread.
+            DispatchQueue.global(qos: .utility).async {
+
+                guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Scan all sub-images in the ARW container and find the largest JPEG preview
+                let imageCount = CGImageSourceGetCount(imageSource)
+                var targetIndex = -1
+                var targetWidth  = 0
+
+                for index in 0 ..< imageCount {
+                    guard let props = CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil)
+                            as? [CFString: Any] else { continue }
+
+                    let hasJFIF     = (props[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
+                    let tiffDict    = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+                    let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
+                    let isJPEG      = hasJFIF || (compression == 6)  // TIFF compression 6 = JPEG
+
+                    if let width = getWidth(from: props), isJPEG, width > targetWidth {
+                        targetWidth = width
+                        targetIndex = index
+                    }
+                }
+
+                guard targetIndex != -1 else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Downsample in-place with ImageIO if the preview is larger than needed
+                let maxSize = CGFloat(fullSize ? 8640 : 4320)
+                let result: CGImage?
+
+                if CGFloat(targetWidth) > maxSize {
+                    let options: [CFString: Any] = [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform:   true,
+                        kCGImageSourceThumbnailMaxPixelSize:           Int(maxSize),
+                    ]
+                    result = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex,
+                                                                 options as CFDictionary)
+                } else {
+                    let options: [CFString: Any] = [
+                        kCGImageSourceShouldCache:            true,
+                        kCGImageSourceShouldCacheImmediately: true,
+                    ]
+                    result = CGImageSourceCreateImageAtIndex(imageSource, targetIndex,
+                                                            options as CFDictionary)
+                }
+
+                // Hand the result back to the Swift async world
+                continuation.resume(returning: result)
+            }
+        }
+    }
+}
+```
+
+The `withCheckedContinuation` call suspends the Swift task and stores its continuation. The GCD block then runs on a GCD worker thread — entirely outside the cooperative pool. When it calls `continuation.resume(returning:)`, Swift schedules the task to resume, but only the lightweight resumption, not the expensive ImageIO work that has already completed on GCD.
+
+### SonyThumbnailExtractor — withCheckedThrowingContinuation + GCD
+
+`SonyThumbnailExtractor` follows the same pattern but uses the **throwing** variant because the ImageIO operations can fail. The comment in the source file spells out a second important motivation beyond starvation:
+
+```swift
+// From Enum/SonyThumbnailExtractor.swift
+
+enum SonyThumbnailExtractor {
+    static func extractSonyThumbnail(
+        from url: URL,
+        maxDimension: CGFloat,
+        qualityCost: Int = 4,
+    ) async throws -> CGImage {
+
+        // We MUST explicitly hop off the current thread.
+        // Since we are an enum and static, we have no isolation of our own.
+        // If we don't do this, we run on the caller's thread (the Actor),
+        // causing serialization — only one extraction at a time.
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let image = try Self.extractSync(from: url,
+                                                    maxDimension: maxDimension,
+                                                    qualityCost: qualityCost)
+                    continuation.resume(returning: image)
+                } catch {
+                    continuation.resume(throwing: error)  // Propagates to the call site
+                }
+            }
+        }
+    }
+
+    // All heavy ImageIO work lives in a private synchronous function,
+    // only ever called from the GCD block above
+    private nonisolated static func extractSync(
+        from url: URL,
+        maxDimension: CGFloat,
+        qualityCost: Int,
+    ) throws -> CGImage {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions)
+        else { throw ThumbnailError.invalidSource }
+
+        let thumbOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform:   true,
+            kCGImageSourceThumbnailMaxPixelSize:           maxDimension,
+            kCGImageSourceShouldCacheImmediately:          true,
+        ]
+        guard let raw = CGImageSourceCreateThumbnailAtIndex(source, 0,
+                                                            thumbOptions as CFDictionary)
+        else { throw ThumbnailError.generationFailed }
+
+        return try rerender(raw, qualityCost: qualityCost)
+    }
+
+    // Re-renders into an sRGB CGContext to normalise colour space and apply
+    // the chosen interpolation quality
+    private nonisolated static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
+        let quality: CGInterpolationQuality = switch qualityCost {
+            case 1...2: .low
+            case 3...4: .medium
+            default:    .high
+        }
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
+        else { throw ThumbnailError.contextCreationFailed }
+
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+        guard let ctx = CGContext(data: nil, width: image.width, height: image.height,
+                                  bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: colorSpace, bitmapInfo: bitmapInfo.rawValue)
+        else { throw ThumbnailError.contextCreationFailed }
+
+        ctx.interpolationQuality = quality
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let result = ctx.makeImage() else { throw ThumbnailError.generationFailed }
+        return result
+    }
+}
+```
+
+The comment makes an important second point: *"If we don't do this, we run on the caller's thread (the Actor), causing serialization."* Even without starvation, running the blocking work directly on the calling actor would mean the actor can only process **one extraction at a time** — because actors are serial. By dispatching to GCD immediately, the actor is freed to start the next request while GCD runs many extractions concurrently on its own thread pool.
+
+### Why enums, not classes or actors?
+
+Using a caseless `enum` signals that the type is a pure namespace — it has no instance state and cannot be instantiated. This means there is no actor isolation to reason about, every method is inherently `static`, and `self` does not exist. The Swift compiler never has to consider whether the type crosses an isolation boundary. It is the right choice for stateless utility code that performs only I/O and pure computation.
+
+### @preconcurrency import — suppressing legacy Sendable warnings
+
+`JPGSonyARWExtractor` annotates its AppKit import with `@preconcurrency`:
+
+```swift
+@preconcurrency import AppKit
+```
+
+`AppKit` was written before Swift concurrency existed, so many of its types are not formally declared `Sendable`. In Swift 6, using them across concurrency boundaries would normally produce hard errors. `@preconcurrency import` tells the compiler to treat missing `Sendable` conformances from that module as warnings rather than errors — the sanctioned way to integrate legacy frameworks without turning off strict concurrency checking globally.
+
+### QoS choices — utility vs userInitiated
+
+The two enums deliberately pick different GCD quality-of-service levels:
+
+- `JPGSonyARWExtractor` uses `.utility` — extracting full-resolution previews for JPG export is a background batch job that can yield to foreground work without affecting perceived responsiveness.
+- `SonyThumbnailExtractor` uses `.userInitiated` — thumbnail extraction is driven directly by the user scrolling the grid, so results need to appear quickly to keep the UI feeling snappy.
+
+This mirrors the task priority system used within Swift concurrency itself (`Task(priority: .background)` vs `.userInitiated`), applied at the GCD layer where the blocking work actually lives.
+
+---
+
+## 17  Quick Reference
 
 | Keyword / Pattern | What it does | Where in RawCull |
 |---|---|---|
@@ -767,7 +968,10 @@ Value types (structs, enums) with only `Sendable` stored properties are automati
 | `Task.isCancelled` | Cooperative cancellation check | `processSingleFile` — multiple guard points |
 | `task.cancel()` | Request cooperative cancellation | `RawCullViewModel.abort()` |
 | `AsyncStream` | Push-based sequence of values over time | `ExecuteCopyFiles` progress stream |
-| `CheckedContinuation` | Suspend a task; resume it from another context | `ThumbnailLoader.acquireSlot()` |
+| `CheckedContinuation` (rate-limiter) | Suspend a task; resume it from another context | `ThumbnailLoader.acquireSlot()` |
+| `withCheckedContinuation` + `DispatchQueue.global` | Escape the cooperative pool; prevent thread pool starvation | `JPGSonyARWExtractor`, `SonyThumbnailExtractor` |
+| `withCheckedThrowingContinuation` | Throwing variant of continuation bridging | `SonyThumbnailExtractor.extractSonyThumbnail` |
+| `@preconcurrency import` | Suppress Sendable errors for pre-concurrency frameworks | `JPGSonyARWExtractor` (AppKit) |
 | `nonisolated` | Escape actor isolation for pure functions | `ScanFiles.sortFiles`, `SettingsViewModel.asyncgetsettings` |
 | `@concurrent` | Run on thread pool, not actor queue | `ScanFiles.sortFiles`, `ActorCreateOutputforView` |
 | `nonisolated(unsafe)` | Bypass isolation for externally thread-safe objects | `SharedMemoryCache.memoryCache` (NSCache) |
