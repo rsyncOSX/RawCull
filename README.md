@@ -3,8 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
 > [!WARNING]
-> RawCull is currently in development, with frequent code updates. Both the user interface and internal technical aspects are undergoing changes. 
-> Despite these updates, RawCull remains usable and quite robust. 
+RawCull is currently in development, with frequent code updates. Both the user interface and internal technical aspects are undergoing changes.  Despite these updates, RawCull remains usable and quite robust. 
 
 macOS photo review and selection application for Sony A1 mkI and mkII ARW raw files. This is a build for Apple Silicon only.
 
@@ -23,7 +22,7 @@ brew tap rsyncOSX/cask && brew install --cask rawcull
 
 ## Version
 
-Current version: v1.2.4 - released 26 March 2026
+Current version: v1.2.5 - released 26 March 2026
 
 ## Documentation
 
