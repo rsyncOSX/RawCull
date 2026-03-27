@@ -93,6 +93,7 @@ struct MainThumbnailImageView: View {
                             if showFocusPoints, let focusPoints, !focusMaskSlidersVisible {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
+                                    imageSize: image?.size,
                                     markerSize: markerSize,
                                 )
                                 .scaleEffect(scale)

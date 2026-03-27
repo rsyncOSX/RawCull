@@ -125,11 +125,15 @@ struct ZoomableFocusePeekNSImageView: View {
     @ViewBuilder
     private func focusPoint() -> some View {
         if showFocusPoints, let focusPoints, !slidersVisible {
-            FocusOverlayView(focusPoints: focusPoints, markerSize: markerSize)
-                .scaleEffect(currentScale)
-                .offset(offset)
-                .allowsHitTesting(false)
-                .transition(.opacity.combined(with: .blurReplace))
+            FocusOverlayView(
+                focusPoints: focusPoints,
+                imageSize: nsImage?.size,
+                markerSize: markerSize,
+            )
+            .scaleEffect(currentScale)
+            .offset(offset)
+            .allowsHitTesting(false)
+            .transition(.opacity.combined(with: .blurReplace))
         }
     }
 
