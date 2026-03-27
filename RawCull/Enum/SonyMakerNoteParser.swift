@@ -25,7 +25,7 @@
 
 import Foundation
 
-struct SonyMakerNoteParser {
+enum SonyMakerNoteParser {
     /// Returns "width height x y" calibrated for the Sony A1 sensor.
     nonisolated static func focusLocation(from url: URL) -> String? {
         // Read only the first 4 MB. Sony ARW MakerNote metadata sits well within
@@ -47,9 +47,7 @@ private struct TIFFParser {
     nonisolated init?(data: Data) {
         guard data.count >= 8 else { return nil }
         let b0 = data[0], b1 = data[1]
-        if b0 == 0x49 && b1 == 0x49 { le = true }
-        else if b0 == 0x4D && b1 == 0x4D { le = false }
-        else { return nil }
+        if b0 == 0x49, b1 == 0x49 { le = true } else if b0 == 0x4D, b1 == 0x4D { le = false } else { return nil }
         self.data = data
     }
 
@@ -64,14 +62,14 @@ private struct TIFFParser {
 
         // Tag 0x2027: FocusLocation — int16u[4] = [width, height, x, y] in pixel coords.
         // Try 0x2027 first, fall back to 0x204a (identical values within one pixel).
-        let flTag: UInt16 = tagDataRange(in: ifdStart, tag: 0x2027) != nil ? 0x2027 : 0x204a
+        let flTag: UInt16 = tagDataRange(in: ifdStart, tag: 0x2027) != nil ? 0x2027 : 0x204A
         guard let (flOffset, flSize) = tagDataRange(in: ifdStart, tag: flTag),
               flSize >= 8 else { return nil }
 
-        let width  = Int(readU16(at: flOffset + 0))
+        let width = Int(readU16(at: flOffset + 0))
         let height = Int(readU16(at: flOffset + 2))
-        let x      = Int(readU16(at: flOffset + 4))
-        let y      = Int(readU16(at: flOffset + 6))
+        let x = Int(readU16(at: flOffset + 4))
+        let y = Int(readU16(at: flOffset + 6))
 
         guard width > 0, height > 0, x > 0 || y > 0 else { return nil }
 
@@ -80,12 +78,12 @@ private struct TIFFParser {
 
     // MARK: - Binary Parsing Helpers
 
-    nonisolated private func subIFDOffset(in ifdOffset: Int, tag: UInt16) -> Int? {
+    private nonisolated func subIFDOffset(in ifdOffset: Int, tag: UInt16) -> Int? {
         guard let (valLoc, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
         return readU32(at: valLoc).map(Int.init)
     }
 
-    nonisolated private func tagDataRange(in ifdOffset: Int, tag: UInt16) -> (dataOffset: Int, byteCount: Int)? {
+    private nonisolated func tagDataRange(in ifdOffset: Int, tag: UInt16) -> (dataOffset: Int, byteCount: Int)? {
         guard ifdOffset + 2 <= data.count else { return nil }
         let entryCount = Int(readU16(at: ifdOffset))
         for i in 0 ..< entryCount {
@@ -94,7 +92,7 @@ private struct TIFFParser {
             if readU16(at: e) == tag {
                 let type = Int(readU16(at: e + 2))
                 let count = Int(readU32(at: e + 4) ?? 0)
-                let sizes = [0,1,1,2,4,8,1,1,2,4,8,4,8,4]
+                let sizes = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8, 4]
                 let bytes = count * (type < sizes.count ? sizes[type] : 1)
 
                 if bytes <= 4 { return (e + 8, bytes) }
@@ -107,26 +105,26 @@ private struct TIFFParser {
         return nil
     }
 
-    nonisolated private func sonyIFDStart(at offset: Int) -> Int {
+    private nonisolated func sonyIFDStart(at offset: Int) -> Int {
         guard offset + 12 <= data.count else { return offset }
         // Check for "SONY DSC " ASCII prefix (9 bytes + 3 null pad = 12 bytes).
         // Read raw bytes — do not use endian-aware readU32 for ASCII magic.
-        let isSony = data[offset]   == 0x53 &&  // S
-                     data[offset+1] == 0x4F &&  // O
-                     data[offset+2] == 0x4E &&  // N
-                     data[offset+3] == 0x59     // Y
+        let isSony = data[offset] == 0x53 && // S
+            data[offset + 1] == 0x4F && // O
+            data[offset + 2] == 0x4E && // N
+            data[offset + 3] == 0x59 // Y
         return isSony ? offset + 12 : offset
     }
 
-    nonisolated private func readU16(at offset: Int) -> UInt16 {
+    private nonisolated func readU16(at offset: Int) -> UInt16 {
         guard offset + 2 <= data.count else { return 0 }
-        return le ? UInt16(data[offset]) | (UInt16(data[offset+1]) << 8) :
-                    (UInt16(data[offset]) << 8) | UInt16(data[offset+1])
+        return le ? UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8) :
+            (UInt16(data[offset]) << 8) | UInt16(data[offset + 1])
     }
 
-    nonisolated private func readU32(at offset: Int) -> UInt32? {
+    private nonisolated func readU32(at offset: Int) -> UInt32? {
         guard offset + 4 <= data.count else { return nil }
-        return le ? UInt32(data[offset]) | (UInt32(data[offset+1]) << 8) | (UInt32(data[offset+2]) << 16) | (UInt32(data[offset+3]) << 24) :
-                    (UInt32(data[offset]) << 24) | (UInt32(data[offset+1]) << 16) | (UInt32(data[offset+2]) << 8) | UInt32(data[offset+3])
+        return le ? UInt32(data[offset]) | (UInt32(data[offset + 1]) << 8) | (UInt32(data[offset + 2]) << 16) | (UInt32(data[offset + 3]) << 24) :
+            (UInt32(data[offset]) << 24) | (UInt32(data[offset + 1]) << 16) | (UInt32(data[offset + 2]) << 8) | UInt32(data[offset + 3])
     }
 }

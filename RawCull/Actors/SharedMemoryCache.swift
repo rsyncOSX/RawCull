@@ -8,6 +8,7 @@
 import AppKit
 import Dispatch
 import Foundation
+
 // import OSLog
 
 /// A thread-safe singleton wrapper around the shared NSCache.
@@ -189,13 +190,13 @@ actor SharedMemoryCache {
         }
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
 
-/*
-        Logger.process.debugMessageOnly(
-            "CACHE CONFIG APPLIED: " +
-                "totalCostLimit=\(config.totalCostLimit) bytes (\(totalCostMB) MB), " +
-                "countLimit=\(config.countLimit) items (memory-limited, not item-count limited)",
-        )
- */
+        /*
+                Logger.process.debugMessageOnly(
+                    "CACHE CONFIG APPLIED: " +
+                        "totalCostLimit=\(config.totalCostLimit) bytes (\(totalCostMB) MB), " +
+                        "countLimit=\(config.countLimit) items (memory-limited, not item-count limited)",
+                )
+         */
     }
 
     // MARK: - Memory Pressure Monitoring
@@ -268,7 +269,7 @@ actor SharedMemoryCache {
         }
     }
 
-    private func logMemoryPressure(_ message: String) {
+    private func logMemoryPressure(_: String) {
         // Logger.process.debugMessageOnly("SharedMemoryCache: \(message)")
     }
 

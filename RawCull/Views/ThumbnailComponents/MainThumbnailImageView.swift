@@ -88,7 +88,6 @@ struct MainThumbnailImageView: View {
                                     .allowsHitTesting(false)
                                     .transition(.opacity)
                             }
-                            
 
                             // 3️⃣ Focus points overlay
                             if showFocusPoints, let focusPoints, !focusMaskSlidersVisible {
@@ -155,12 +154,14 @@ struct MainThumbnailImageView: View {
                                     lastScale = scale
                                 }
                                 return .handled
+
                             case "-":
                                 withAnimation(.spring()) {
                                     scale = max(0.5, scale - 0.2)
                                     lastScale = scale
                                 }
                                 return .handled
+
                             default:
                                 return .ignored
                             }
