@@ -11,6 +11,7 @@ import SwiftUI
 
 struct FocusOverlayView: View {
     let focusPoints: [FocusPoint]
+    var imageSize: CGSize?
     var markerSize: CGFloat = 64
     var markerColor: Color = .yellow
     var lineWidth: CGFloat = 2.5
@@ -24,6 +25,7 @@ struct FocusOverlayView: View {
                     normalizedX: point.normalizedX,
                     normalizedY: point.normalizedY,
                     boxSize: markerSize,
+                    imageSize: imageSize,
                 )
                 .stroke(markerColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
@@ -38,10 +40,36 @@ struct FocusPointMarker: Shape {
     let normalizedX: CGFloat
     let normalizedY: CGFloat
     let boxSize: CGFloat
+    var imageSize: CGSize?
+
+    /// Returns the actual rendered rect of an aspect-fit image inside a container.
+    private func aspectFitRect(imageSize: CGSize, in containerRect: CGRect) -> CGRect {
+        let imageAspect = imageSize.width / imageSize.height
+        let containerAspect = containerRect.width / containerRect.height
+        if imageAspect > containerAspect {
+            // Wider than container → letterbox (bars top & bottom)
+            let height = containerRect.width / imageAspect
+            let y = containerRect.minY + (containerRect.height - height) / 2
+            return CGRect(x: containerRect.minX, y: y, width: containerRect.width, height: height)
+        } else {
+            // Taller than container → pillarbox (bars left & right)
+            let width = containerRect.height * imageAspect
+            let x = containerRect.minX + (containerRect.width - width) / 2
+            return CGRect(x: x, y: containerRect.minY, width: width, height: containerRect.height)
+        }
+    }
 
     func path(in rect: CGRect) -> Path {
-        let cx = normalizedX * rect.width
-        let cy = normalizedY * rect.height
+        // Use the actual image bounds within the container so the marker aligns
+        // correctly regardless of aspect-ratio mismatch (letterbox / pillarbox).
+        let drawRect: CGRect = if let imageSize, imageSize.width > 0, imageSize.height > 0 {
+            aspectFitRect(imageSize: imageSize, in: rect)
+        } else {
+            rect
+        }
+
+        let cx = drawRect.minX + normalizedX * drawRect.width
+        let cy = drawRect.minY + normalizedY * drawRect.height
         let half = boxSize / 2
         let bracket = boxSize * 0.28
 
