@@ -2,7 +2,6 @@ import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Observation
-import OSLog
 
 struct FocusDetectorConfig: Equatable {
     var preBlurRadius: Float = 1.92
@@ -37,7 +36,8 @@ final class FocusMaskModel: @unchecked Sendable {
 
     /// IMPROVEMENT 1: Force float32 working format so Laplacian
     /// intermediate values are not clipped to 8-bit before thresholding.
-    private let context = CIContext(options: [
+    /// nonisolated(unsafe): CIContext is thread-safe for concurrent renders; let never mutated.
+    private nonisolated(unsafe) let context = CIContext(options: [
         .workingColorSpace: NSNull(),
         .workingFormat: CIFormat.RGBAf
     ])
@@ -118,33 +118,26 @@ final class FocusMaskModel: @unchecked Sendable {
     ///
     /// The returned value is in [0, ∞). Compare values *relative to each other*
     /// within the same burst — do not treat the number as an absolute measure.
-    func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) async -> Float? {
-        let context = self.context
-        let config = self.config
+    nonisolated func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) async -> Float? {
+        // One lightweight main-actor hop to snapshot config; no Task allocation.
+        let config = await MainActor.run { self.config }
 
-        return await Task.detached(priority: .utility) { () -> Float? in
-            // Extract the embedded JPEG preview — no full RAW decode needed.
-            // kCGImageSourceCreateThumbnailFromImageIfAbsent ensures a fallback
-            // if the ARW somehow has no embedded preview (rare).
-            let options: [CFString: Any] = [
-                kCGImageSourceShouldCache: false,
-                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixelSize
-            ]
-            guard
-                let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-                let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
-            else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixelSize
+        ]
+        guard
+            let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        else { return nil }
 
-            // scale: 1.0 — the thumbnail is already at the target pixel size
-            return Self.computeSharpnessScalar(
-                from: CIImage(cgImage: cgThumb),
-                scale: 1.0,
-                context: context,
-                config: config,
-            )
-        }.value
+        return Self.computeSharpnessScalar(
+            from: CIImage(cgImage: cgThumb),
+            context: context,
+            config: config,
+        )
     }
 
     /// Runs passes 1–3 of the focus pipeline (blur → Laplacian → amplify) then
@@ -154,17 +147,12 @@ final class FocusMaskModel: @unchecked Sendable {
     /// hopping back to the main actor.
     private nonisolated static func computeSharpnessScalar(
         from inputImage: CIImage,
-        scale: CGFloat,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> Float? {
-        let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale),
-        )
-
         // Pass 1: Gaussian pre-blur (noise suppression)
         let preBlur = CIFilter.gaussianBlur()
-        preBlur.inputImage = scaledImage
+        preBlur.inputImage = inputImage
         preBlur.radius = config.preBlurRadius
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
