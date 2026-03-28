@@ -9,6 +9,29 @@ enum AlertType {
     case resetSavedFiles
 }
 
+/// Restricts the catalog view to images shot within a specific aperture range.
+/// Photographers typically use wide apertures for wildlife/portraits and
+/// stopped-down apertures for landscapes — filtering by style lets them
+/// score and cull each session type without mixing them.
+enum ApertureFilter: String, CaseIterable, Identifiable {
+    case all       = "All"
+    case wide      = "Wide (≤ f/5.6)"   // birds, wildlife, portraits
+    case landscape = "Landscape (≥ f/8)" // tripod, landscape, architecture
+
+    var id: String { rawValue }
+
+    func matches(_ file: FileItem) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .wide:
+            return file.exifData?.apertureValue.map { $0 <= 5.6 } ?? true
+        case .landscape:
+            return file.exifData?.apertureValue.map { $0 >= 8.0 } ?? true
+        }
+    }
+}
+
 @Observable @MainActor
 final class RawCullViewModel {
     /// Remember previous selected source to avoid a new rescan of
@@ -67,6 +90,29 @@ final class RawCullViewModel {
     /// If there is created Focus Data with exiftool
     var focusPoints: [FocusPointsModel]?
 
+    // MARK: - Sharpness Scoring
+
+    /// Scored sharpness for each FileItem by UUID. Keyed by FileItem.id.
+    /// Empty until the user triggers scoreSharpnessForCurrentCatalog().
+    var sharpnessScores: [UUID: Float] = [:]
+
+    /// True while batch scoring is running.
+    var isScoringSharpness: Bool = false
+
+    /// When true, filteredFiles is sorted sharpest-first after any standard sort.
+    var sortBySharpness: Bool = false
+
+    // MARK: - Aperture Filter
+
+    /// Restricts filteredFiles to a shooting-style aperture range.
+    /// Changing this triggers a handleSortOrderChange() in the view via .onChange.
+    var apertureFilter: ApertureFilter = .all
+
+    /// The highest sharpness score in the current catalog — used for badge normalisation.
+    var maxSharpnessScore: Float {
+        sharpnessScores.values.max() ?? 1.0
+    }
+
     /// Use Thumbnail as Zoom Preview - reads from SettingsViewModel
     var useThumbnailAsZoomPreview: Bool {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
@@ -104,6 +150,11 @@ final class RawCullViewModel {
     func handleSourceChange(url: URL) async {
         scanning = true
 
+        // Invalidate sharpness data and filters from the previous catalog
+        sharpnessScores = [:]
+        sortBySharpness = false
+        apertureFilter = .all
+
         let scan = ScanFiles()
 
         files = await scan.scanFiles(
@@ -122,11 +173,16 @@ final class RawCullViewModel {
 
         Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
 
-        filteredFiles = await ScanFiles().sortFiles(
+        var initialFiles = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
             searchText: searchText,
         )
+        if apertureFilter != .all {
+            let filter = apertureFilter
+            initialFiles = initialFiles.filter { filter.matches($0) }
+        }
+        filteredFiles = initialFiles
 
         guard !files.isEmpty else {
             scanning = false
@@ -169,22 +225,93 @@ final class RawCullViewModel {
 
     func handleSortOrderChange() async {
         issorting = true
-        filteredFiles = await ScanFiles().sortFiles(
+        var sorted = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
             searchText: searchText,
         )
+        if apertureFilter != .all {
+            let filter = apertureFilter
+            sorted = sorted.filter { filter.matches($0) }
+        }
+        if sortBySharpness, !sharpnessScores.isEmpty {
+            let scores = sharpnessScores
+            sorted.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        }
+        filteredFiles = sorted
         issorting = false
     }
 
     func handleSearchTextChange() async {
         issorting = true
-        filteredFiles = await ScanFiles().sortFiles(
+        var sorted = await ScanFiles().sortFiles(
             files,
             by: sortOrder,
             searchText: searchText,
         )
+        if apertureFilter != .all {
+            let filter = apertureFilter
+            sorted = sorted.filter { filter.matches($0) }
+        }
+        if sortBySharpness, !sharpnessScores.isEmpty {
+            let scores = sharpnessScores
+            sorted.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        }
+        filteredFiles = sorted
         issorting = false
+    }
+
+    /// Batch-score all files in the current catalog. Runs heavy work off the
+    /// main actor via Task.detached. Call from a Button or other user action.
+    func scoreSharpnessForCurrentCatalog() async {
+        guard !isScoringSharpness, !files.isEmpty else { return }
+        isScoringSharpness = true
+        sharpnessScores = [:]
+
+        let filesToScore = files // local copy — safe to capture in detached task
+        // Create the model here on @MainActor so the detached task doesn't need
+        // to hop back to initialise it.
+        let model = FocusMaskModel()
+
+        let results = await Task.detached(priority: .userInitiated) { [filesToScore, model] () -> [UUID: Float] in
+            var scores: [UUID: Float] = [:]
+            // Bounded concurrency: max 6 simultaneous thumbnail decodes to avoid
+            // saturating disk I/O and causing the OS to show a beach ball.
+            let maxConcurrent = 6
+            var iterator = filesToScore.makeIterator()
+            var active = 0
+
+            await withTaskGroup(of: (UUID, Float?).self) { group in
+                // Seed the first batch
+                while active < maxConcurrent, let file = iterator.next() {
+                    group.addTask(priority: .userInitiated) {
+                        let score = model.computeSharpnessScore(fromRawURL: file.url)
+                        return (file.id, score)
+                    }
+                    active += 1
+                }
+                // Drain results and top up as slots free
+                for await (id, score) in group {
+                    active -= 1
+                    if let score { scores[id] = score }
+                    if let file = iterator.next() {
+                        group.addTask(priority: .userInitiated) {
+                            let s = model.computeSharpnessScore(fromRawURL: file.url)
+                            return (file.id, s)
+                        }
+                        active += 1
+                    }
+                }
+            }
+            return scores
+        }.value
+
+        sharpnessScores = results
+        isScoringSharpness = false
+
+        // Auto-enable sort by sharpness after first successful score run
+        sortBySharpness = true
+        await handleSortOrderChange()
     }
 
     func fileHandler(_ update: Int) {

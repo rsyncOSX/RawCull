@@ -159,6 +159,20 @@ extension HorizontalMainThumbnailsListView {
             .help("Show inspector")
             .labelStyle(.iconOnly)
         }
+
+        ToolbarItem(placement: .status) {
+            Toggle(isOn: $viewModel.sortBySharpness) {
+                Label("Sharp", systemImage: "arrow.up.arrow.down")
+            }
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessScores.isEmpty)
+            .labelStyle(.iconOnly)
+            .help("Sort thumbnails sharpest-first")
+            .onChange(of: viewModel.sortBySharpness) { _, _ in
+                Task(priority: .background) {
+                    await viewModel.handleSortOrderChange()
+                }
+            }
+        }
     }
 
     func openCopyView() {

@@ -19,7 +19,8 @@ import OSLog
 struct ExifMetadata: Hashable {
     let shutterSpeed: String?
     let focalLength: String?
-    let aperture: String?
+    let aperture: String?      // formatted display string, e.g. "ƒ/5.6"
+    let apertureValue: Double? // raw f-number for filtering, e.g. 5.6
     let iso: String?
     let camera: String?
     let lensModel: String?
@@ -164,10 +165,12 @@ actor ScanFiles {
             return nil
         }
 
+        let fNumber = exifDict[kCGImagePropertyExifFNumber] as? NSNumber
         return ExifMetadata(
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
             focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),
-            aperture: formatAperture(exifDict[kCGImagePropertyExifFNumber]),
+            aperture: formatAperture(fNumber),
+            apertureValue: fNumber.map { $0.doubleValue },
             iso: formatISO((exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first),
             camera: tiffDict[kCGImagePropertyTIFFModel] as? String,
             lensModel: exifDict[kCGImagePropertyExifLensModel] as? String,
