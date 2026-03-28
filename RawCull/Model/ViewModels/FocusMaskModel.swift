@@ -134,17 +134,22 @@ final class FocusMaskModel: @unchecked Sendable {
     ///
     /// The returned value is in [0, ∞). Compare values *relative to each other*
     /// within the same burst — do not treat the number as an absolute measure.
-    nonisolated func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) async -> Float? {
+    nonisolated func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) -> Float? {
         let options: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixelSize
         ]
-        guard
-            let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-            let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
-        else { return nil }
+
+        // Wrap ImageIO in an explicit QoS context. DispatchQueue.sync establishes
+        // a libdispatch sync override that propagates .userInitiated priority to
+        // any internal dispatch queues ImageIO uses, preventing priority inversion.
+        let cgThumb: CGImage? = DispatchQueue.global(qos: .userInitiated).sync {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+            return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        }
+        guard let cgThumb else { return nil }
 
         return Self.computeSharpnessScalar(
             from: CIImage(cgImage: cgThumb),

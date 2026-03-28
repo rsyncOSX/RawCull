@@ -241,8 +241,8 @@ final class RawCullViewModel {
             await withTaskGroup(of: (UUID, Float?).self) { group in
                 // Seed the first batch
                 while active < maxConcurrent, let file = iterator.next() {
-                    group.addTask {
-                        let score = await model.computeSharpnessScore(fromRawURL: file.url)
+                    group.addTask(priority: .userInitiated) {
+                        let score = model.computeSharpnessScore(fromRawURL: file.url)
                         return (file.id, score)
                     }
                     active += 1
@@ -252,8 +252,8 @@ final class RawCullViewModel {
                     active -= 1
                     if let score { scores[id] = score }
                     if let file = iterator.next() {
-                        group.addTask {
-                            let s = await model.computeSharpnessScore(fromRawURL: file.url)
+                        group.addTask(priority: .userInitiated) {
+                            let s = model.computeSharpnessScore(fromRawURL: file.url)
                             return (file.id, s)
                         }
                         active += 1
