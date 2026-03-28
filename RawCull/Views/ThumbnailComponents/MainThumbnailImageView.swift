@@ -25,7 +25,6 @@ struct MainThumbnailImageView: View {
     @State private var focusMask: NSImage?
     @State private var showFocusMask: Bool = false
     @State private var overlayOpacity: Double = 0.95
-    @State private var focusDetectorModel = FocusMaskModel()
     @State private var maskTask: Task<Void, Never>?
     @State private var controlsCollapsed: Bool = false
     @FocusState private var isImageFocused: Bool
@@ -35,6 +34,7 @@ struct MainThumbnailImageView: View {
     }
 
     var body: some View {
+        @Bindable var vm = viewModel
         ZStack {
             if let thumbnailSizePreview {
                 VStack {
@@ -126,7 +126,7 @@ struct MainThumbnailImageView: View {
 
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
-                                    config: $focusDetectorModel.config,
+                                    config: $vm.focusMaskModel.config,
                                     overlayOpacity: $overlayOpacity,
                                     controlsCollapsed: $controlsCollapsed,
                                     focusMaskAvailable: focusMask != nil,
@@ -184,11 +184,11 @@ struct MainThumbnailImageView: View {
         }
         .task(id: image) {
             if let image {
-                let mask = await focusDetectorModel.generateFocusMask(from: image, scale: 1.0)
+                let mask = await viewModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
                 await MainActor.run { self.focusMask = mask }
             }
         }
-        .onChange(of: focusDetectorModel.config) { _, _ in
+        .onChange(of: viewModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -202,7 +202,7 @@ struct MainThumbnailImageView: View {
 
     private func regenerateMask() async {
         guard let image else { return }
-        let mask = await focusDetectorModel.generateFocusMask(from: image, scale: 1.0)
+        let mask = await viewModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
         await MainActor.run { self.focusMask = mask }
     }
 }

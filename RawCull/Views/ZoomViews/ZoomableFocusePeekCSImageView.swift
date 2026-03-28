@@ -20,7 +20,6 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var focusDetectorModel = FocusMaskModel()
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
@@ -36,6 +35,7 @@ struct ZoomableFocusePeekCSImageView: View {
     }
 
     var body: some View {
+        @Bindable var vm = viewModel
         ZStack {
             Color.black.ignoresSafeArea()
 
@@ -75,7 +75,7 @@ struct ZoomableFocusePeekCSImageView: View {
 
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
-                        config: $focusDetectorModel.config,
+                        config: $vm.focusMaskModel.config,
                         overlayOpacity: $overlayOpacity,
                         controlsCollapsed: $controlsCollapsed,
                         focusMaskAvailable: focusMask != nil,
@@ -110,7 +110,7 @@ struct ZoomableFocusePeekCSImageView: View {
             guard !Task.isCancelled else { return }
             await regenerateMask()
         }
-        .onChange(of: focusDetectorModel.config) { _, _ in
+        .onChange(of: viewModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -125,7 +125,7 @@ struct ZoomableFocusePeekCSImageView: View {
     private func regenerateMask() async {
         guard let cgImage else { return }
         let downscaled = cgImage.downscaled(toWidth: 1024)
-        let mask = await focusDetectorModel.generateFocusMask(
+        let mask = await viewModel.focusMaskModel.generateFocusMask(
             from: downscaled ?? cgImage,
             scale: 1.0,
         )
