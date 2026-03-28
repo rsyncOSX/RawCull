@@ -107,6 +107,98 @@ final class FocusMaskModel: @unchecked Sendable {
         }.value
     }
 
+    /// Computes a scalar sharpness score for a RAW file without generating a
+    /// visual mask. Reuses the same RAW-decode → pre-blur → Laplacian → amplify
+    /// pipeline as generateFocusMask, then collapses the result to a single
+    /// Float via CIAreaAverage instead of rendering a full image.
+    ///
+    /// The returned value is in [0, ∞). Compare values *relative to each other*
+    /// within the same burst — do not treat the number as an absolute measure.
+    func computeSharpnessScore(fromRawURL url: URL, scale: CGFloat = 0.15) async -> Float? {
+        let context = self.context
+        let config = self.config
+
+        return await Task.detached(priority: .utility) { () -> Float? in
+            guard let rawFilter = CIRAWFilter(imageURL: url) else { return nil }
+
+            // Disable all in-camera processing — identical to generateFocusMask
+            rawFilter.luminanceNoiseReductionAmount = 0
+            rawFilter.colorNoiseReductionAmount = 0
+            rawFilter.contrastAmount = 0
+            rawFilter.detailAmount = 0
+            rawFilter.moireReductionAmount = 0
+            rawFilter.boostAmount = 0
+            rawFilter.boostShadowAmount = 0
+            rawFilter.sharpnessAmount = 0
+            rawFilter.localToneMapAmount = 0
+            rawFilter.isGamutMappingEnabled = false
+            rawFilter.isLensCorrectionEnabled = false
+
+            guard let linearImage = rawFilter.outputImage else { return nil }
+            return Self.computeSharpnessScalar(
+                from: linearImage, scale: scale, context: context, config: config
+            )
+        }.value
+    }
+
+    /// Runs passes 1–3 of the focus pipeline (blur → Laplacian → amplify) then
+    /// collapses the amplified Laplacian to a 1×1 average pixel via CIAreaAverage.
+    /// The red channel of that pixel is returned as the sharpness score.
+    private static func computeSharpnessScalar(
+        from inputImage: CIImage,
+        scale: CGFloat,
+        context: CIContext,
+        config: FocusDetectorConfig
+    ) -> Float? {
+        let scaledImage = inputImage.transformed(
+            by: CGAffineTransform(scaleX: scale, y: scale)
+        )
+
+        // Pass 1: Gaussian pre-blur (noise suppression)
+        let preBlur = CIFilter.gaussianBlur()
+        preBlur.inputImage = scaledImage
+        preBlur.radius = config.preBlurRadius
+        guard let smoothedImage = preBlur.outputImage else { return nil }
+
+        // Pass 2: Metal Laplacian kernel
+        guard let laplacianKernel = Self.magnitudeKernel else { return nil }
+        guard let laplacianOutput = laplacianKernel.apply(
+            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
+            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
+            arguments: [smoothedImage]
+        ) else { return nil }
+
+        // Pass 3: Amplify (same multiplier as visual mask for consistent calibration)
+        let boost = CIFilter.colorMatrix()
+        boost.inputImage = laplacianOutput
+        boost.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
+        boost.gVector = CIVector(x: 0, y: CGFloat(config.energyMultiplier), z: 0, w: 0)
+        boost.bVector = CIVector(x: 0, y: 0, z: CGFloat(config.energyMultiplier), w: 0)
+        boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        guard let boostedLaplacian = boost.outputImage else { return nil }
+
+        // Collapse to scalar: CIAreaAverage → render 1×1 pixel
+        guard let avgFilter = CIFilter(
+            name: "CIAreaAverage",
+            parameters: [
+                kCIInputImageKey: boostedLaplacian,
+                kCIInputExtentKey: CIVector(cgRect: boostedLaplacian.extent),
+            ]
+        ), let avgImage = avgFilter.outputImage else { return nil }
+
+        var pixel = [Float](repeating: 0, count: 4)
+        context.render(
+            avgImage,
+            toBitmap: &pixel,
+            rowBytes: 16,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .RGBAf,
+            colorSpace: nil
+        )
+        // Red channel carries the luma energy from the Metal kernel
+        return pixel[0]
+    }
+
     /// IMPROVEMENT 5: Single unified implementation — both public overloads
     /// delegate here, eliminating the previous code duplication.
     private static func buildFocusMask(

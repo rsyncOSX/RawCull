@@ -20,8 +20,39 @@ struct GridThumbnailSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with info
-            HStack {
+            // Header with info + sharpness controls
+            HStack(spacing: 10) {
+                // Score button
+                Button {
+                    Task { await viewModel.scoreSharpnessForCurrentCatalog() }
+                } label: {
+                    if viewModel.isScoringSharpness {
+                        Label("Scoring…", systemImage: "scope")
+                    } else if viewModel.sharpnessScores.isEmpty {
+                        Label("Score Sharpness", systemImage: "scope")
+                    } else {
+                        Label("Re-score", systemImage: "scope")
+                    }
+                }
+                .font(.caption)
+                .disabled(viewModel.isScoringSharpness || viewModel.files.isEmpty)
+                .help("Analyse sharpness for all images in this catalog")
+
+                // Sort toggle — only visible once scores exist
+                if !viewModel.sharpnessScores.isEmpty {
+                    Toggle(isOn: $viewModel.sortBySharpness) {
+                        Label("Sort by Sharpness", systemImage: "arrow.up.arrow.down")
+                    }
+                    .toggleStyle(.button)
+                    .font(.caption)
+                    .help("Sort thumbnails sharpest-first")
+                    .onChange(of: viewModel.sortBySharpness) { _, _ in
+                        Task(priority: .background) {
+                            await viewModel.handleSortOrderChange()
+                        }
+                    }
+                }
+
                 Spacer()
 
                 Text("\(files.count) Thumbnails ")
@@ -79,6 +110,6 @@ struct GridThumbnailSelectionView: View {
     }
 
     var files: [FileItem] {
-        viewModel.files
+        viewModel.filteredFiles
     }
 }

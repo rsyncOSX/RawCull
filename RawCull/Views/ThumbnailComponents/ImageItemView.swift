@@ -8,6 +8,42 @@
 import OSLog
 import SwiftUI
 
+// MARK: - Sharpness Badge
+
+struct SharpnessBadgeView: View {
+    let score: Float
+    let maxScore: Float
+
+    /// 0–1, where 1 = sharpest image in the current set
+    private var normalized: Float {
+        guard maxScore > 0 else { return 0 }
+        return min(score / maxScore, 1.0)
+    }
+
+    private var label: String {
+        String(format: "%.0f", normalized * 100)
+    }
+
+    private var badgeColor: Color {
+        switch normalized {
+        case 0.65...: return .green
+        case 0.35...: return .yellow
+        default:      return .red
+        }
+    }
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(badgeColor.opacity(0.80), in: RoundedRectangle(cornerRadius: 3))
+    }
+}
+
+// MARK: - ImageItemView
+
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
 
@@ -36,6 +72,16 @@ struct ImageItemView: View {
                         isTagged: isTagged,
                         isHovered: isHovered,
                     )
+                }
+                // Sharpness score badge — bottom-left corner, only when scored
+                .overlay(alignment: .bottomLeading) {
+                    if let score = viewModel.sharpnessScores[file.id] {
+                        SharpnessBadgeView(
+                            score: score,
+                            maxScore: viewModel.maxSharpnessScore
+                        )
+                        .padding(5)
+                    }
                 }
                 // Green tint ribbon at bottom when tagged
                 .overlay(alignment: .bottom) {
