@@ -57,7 +57,7 @@ extension RawCullMainView {
             }
             .help("Show inspector")
         }
-        
+
         ToolbarItem(placement: .status) {
             Toggle(isOn: $viewModel.sortBySharpness) {
                 Label("Sharp", systemImage: "arrow.up.arrow.down")

@@ -15,6 +15,9 @@ struct FocusDetectorConfig {
 
 // Explicit nonisolated conformance so the @Observable macro's change-tracking
 // code can call == from a nonisolated context (config is nonisolated(unsafe)).
+// SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor would make the synthesized == @MainActor,
+// blocking the nonisolated call site — so we must spell it out manually.
+// swiftformat:disable:next redundantEquatable
 extension FocusDetectorConfig: Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.preBlurRadius == rhs.preBlurRadius
