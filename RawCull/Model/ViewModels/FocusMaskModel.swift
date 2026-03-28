@@ -2,6 +2,7 @@ import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Observation
+import Vision
 
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
@@ -154,20 +155,42 @@ final class FocusMaskModel: @unchecked Sendable {
         }
         guard let cgThumb else { return nil }
 
+        let region = Self.salientRegion(for: cgThumb)
         return Self.computeSharpnessScalar(
             from: CIImage(cgImage: cgThumb),
+            salientRegion: region,
             context: context,
             config: config,
         )
     }
 
+    /// Runs VNGenerateAttentionBasedSaliencyImageRequest synchronously and returns
+    /// the union bounding box of all salient objects in normalised Vision coordinates
+    /// (origin bottom-left, values in [0, 1]). Returns nil when nothing meaningful
+    /// is detected (< 3 % of image area) so the caller falls back to full-image scoring.
+    ///
+    /// Using salientObjects bounding boxes — rather than rendering the saliency pixel
+    /// buffer through CIContext — avoids coordinate-space and value-range ambiguities
+    /// while still restricting scoring to the subject region.
+    private nonisolated static func salientRegion(for cgImage: CGImage) -> CGRect? {
+        let request = VNGenerateAttentionBasedSaliencyImageRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        try? handler.perform([request])
+        guard let observation = request.results?.first,
+              let objects = observation.salientObjects,
+              !objects.isEmpty else { return nil }
+        let union = objects.reduce(CGRect.null) { $0.union($1.boundingBox) }
+        guard union.width * union.height > 0.03 else { return nil }
+        return union
+    }
+
     /// Runs passes 1–3 of the focus pipeline (blur → Laplacian → amplify) then
-    /// collapses the amplified Laplacian to a 1×1 average pixel via CIAreaAverage.
-    /// The red channel of that pixel is returned as the sharpness score.
+    /// collapses to a scalar via a region-restricted 95th-percentile.
     /// `nonisolated` lets this be called synchronously from Task.detached without
     /// hopping back to the main actor.
     private nonisolated static func computeSharpnessScalar(
         from inputImage: CIImage,
+        salientRegion: CGRect?,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> Float? {
@@ -194,29 +217,57 @@ final class FocusMaskModel: @unchecked Sendable {
         boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         guard let boostedLaplacian = boost.outputImage else { return nil }
 
-        // Collapse to scalar: 95th-percentile of the red channel across all pixels.
-        // Mean (CIAreaAverage) is skewed by large smooth backgrounds — a wildlife shot
-        // with a sharp subject against bokeh scores the same as a blurry image because
-        // ~75% of pixels contribute near-zero values. The 95th percentile ignores the
-        // background mass and scores the sharpest 5% of pixels, so a tack-sharp owl
-        // against smooth green sky ranks alongside a fully-sharp frame.
+        // Collapse to scalar: region-restricted 95th-percentile of the red channel.
+        //
+        // When Vision detected a salient subject, only the Laplacian pixels inside
+        // that bounding box are sorted — background texture (rocks, bokeh, sky) is
+        // excluded entirely. Laplacian values are never scaled down by a weight, so
+        // the score magnitude is independent of how large or small the subject is and
+        // the max-normalisation in the UI remains stable. When no region is available
+        // every pixel is included (same behaviour as the plain 95th-percentile path).
+        //
+        // Vision bounding boxes use normalised coordinates with origin at bottom-left,
+        // matching the CIImage / Laplacian bitmap coordinate system (row 0 = bottom).
         let extent = boostedLaplacian.extent
         let width = Int(extent.width)
         let height = Int(extent.height)
         guard width > 0, height > 0 else { return nil }
 
-        var pixels = [Float](repeating: 0, count: width * height * 4)
+        let pixelCount = width * height
+        var laplacianPixels = [Float](repeating: 0, count: pixelCount * 4)
         context.render(
             boostedLaplacian,
-            toBitmap: &pixels,
+            toBitmap: &laplacianPixels,
             rowBytes: width * 16,
             bounds: extent,
             format: .RGBAf,
             colorSpace: nil,
         )
 
-        // Extract red channel (luma energy), sort ascending, pick 95th percentile.
-        var redChannel = (0 ..< width * height).map { pixels[$0 * 4] }
+        var redChannel: [Float]
+        if let region = salientRegion {
+            // Map normalised Vision coords → pixel indices in the Laplacian bitmap.
+            let colStart = max(0, Int(region.minX * CGFloat(width)))
+            let colEnd   = min(width,  Int(region.maxX * CGFloat(width)))
+            let rowStart = max(0, Int(region.minY * CGFloat(height)))
+            let rowEnd   = min(height, Int(region.maxY * CGFloat(height)))
+
+            var filtered = [Float]()
+            filtered.reserveCapacity((colEnd - colStart) * (rowEnd - rowStart))
+            for row in rowStart ..< rowEnd {
+                for col in colStart ..< colEnd {
+                    filtered.append(laplacianPixels[(row * width + col) * 4])
+                }
+            }
+            // Fall back to full image if the mapped region turned out empty
+            redChannel = filtered.isEmpty
+                ? (0 ..< pixelCount).map { laplacianPixels[$0 * 4] }
+                : filtered
+        } else {
+            redChannel = (0 ..< pixelCount).map { laplacianPixels[$0 * 4] }
+        }
+
+        // Sort ascending and return 95th percentile.
         redChannel.sort()
         let idx = min(Int(Float(redChannel.count) * 0.95), redChannel.count - 1)
         return redChannel[idx]
