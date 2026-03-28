@@ -26,9 +26,9 @@ struct SharpnessBadgeView: View {
 
     private var badgeColor: Color {
         switch normalized {
-        case 0.65...: return .green
-        case 0.35...: return .yellow
-        default:      return .red
+        case 0.65...: .green
+        case 0.35...: .yellow
+        default: .red
         }
     }
 
@@ -78,7 +78,7 @@ struct ImageItemView: View {
                     if let score = viewModel.sharpnessScores[file.id] {
                         SharpnessBadgeView(
                             score: score,
-                            maxScore: viewModel.maxSharpnessScore
+                            maxScore: viewModel.maxSharpnessScore,
                         )
                         .padding(5)
                     }

@@ -195,7 +195,7 @@ final class RawCullViewModel {
             by: sortOrder,
             searchText: searchText,
         )
-        if sortBySharpness && !sharpnessScores.isEmpty {
+        if sortBySharpness, !sharpnessScores.isEmpty {
             let scores = sharpnessScores
             sorted.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
         }
@@ -210,7 +210,7 @@ final class RawCullViewModel {
             by: sortOrder,
             searchText: searchText,
         )
-        if sortBySharpness && !sharpnessScores.isEmpty {
+        if sortBySharpness, !sharpnessScores.isEmpty {
             let scores = sharpnessScores
             sorted.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
         }
@@ -226,21 +226,38 @@ final class RawCullViewModel {
         sharpnessScores = [:]
 
         let filesToScore = files // local copy — safe to capture in detached task
+        // Create the model here on @MainActor so the detached task doesn't need
+        // to hop back to initialise it.
+        let model = FocusMaskModel()
 
-        let results = await Task.detached(priority: .userInitiated) { [filesToScore] () -> [UUID: Float] in
-            let model = await FocusMaskModel()
+        let results = await Task.detached(priority: .userInitiated) { [filesToScore, model] () -> [UUID: Float] in
             var scores: [UUID: Float] = [:]
+            // Bounded concurrency: max 6 simultaneous thumbnail decodes to avoid
+            // saturating disk I/O and causing the OS to show a beach ball.
+            let maxConcurrent = 6
+            var iterator = filesToScore.makeIterator()
+            var active = 0
+
             await withTaskGroup(of: (UUID, Float?).self) { group in
-                for file in filesToScore {
+                // Seed the first batch
+                while active < maxConcurrent, let file = iterator.next() {
                     group.addTask {
-                        let score = await model.computeSharpnessScore(
-                            fromRawURL: file.url, scale: 0.15
-                        )
+                        let score = await model.computeSharpnessScore(fromRawURL: file.url)
                         return (file.id, score)
                     }
+                    active += 1
                 }
+                // Drain results and top up as slots free
                 for await (id, score) in group {
+                    active -= 1
                     if let score { scores[id] = score }
+                    if let file = iterator.next() {
+                        group.addTask {
+                            let s = await model.computeSharpnessScore(fromRawURL: file.url)
+                            return (file.id, s)
+                        }
+                        active += 1
+                    }
                 }
             }
             return scores
