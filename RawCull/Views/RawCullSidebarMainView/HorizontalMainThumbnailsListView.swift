@@ -162,7 +162,7 @@ extension HorizontalMainThumbnailsListView {
 
         ToolbarItem(placement: .status) {
             Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
-                Label("Sharp", systemImage: "arrow.up.arrow.down")
+                Label("Sharpness", systemImage: "arrow.up.arrow.down")
             }
             .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessModel.scores.isEmpty)
             .labelStyle(.iconOnly)
@@ -173,6 +173,20 @@ extension HorizontalMainThumbnailsListView {
                 }
             }
         }
+
+        if viewModel.filteredFiles.isEmpty {
+            ToolbarItem(placement: .status) {
+                Button(action: resetApertureSelection) {
+                    Label("Reset Sharpness", systemImage: "clear.fill")
+                }
+                .help("Reset Sharpness Model")
+                .labelStyle(.iconOnly)
+            }
+        }
+    }
+
+    func resetApertureSelection() {
+        viewModel.sharpnessModel.reset()
     }
 
     func openCopyView() {
