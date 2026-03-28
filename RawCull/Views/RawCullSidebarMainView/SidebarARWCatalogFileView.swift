@@ -56,6 +56,21 @@ struct SidebarARWCatalogFileView: View {
                             ) {
                                 verticalimages.toggle()
                             }
+                            
+                            // Sort toggle — only visible once scores exist
+                            if !viewModel.sharpnessScores.isEmpty {
+                                Toggle(isOn: $viewModel.sortBySharpness) {
+                                    Label("Sharp", systemImage: "arrow.up.arrow.down")
+                                }
+                                .toggleStyle(.button)
+                                .font(.caption)
+                                .help("Sort thumbnails sharpest-first")
+                                .onChange(of: viewModel.sortBySharpness) { _, _ in
+                                    Task(priority: .background) {
+                                        await viewModel.handleSortOrderChange()
+                                    }
+                                }
+                            }
 
                             if !viewModel.files.isEmpty, verticalimages == false {
                                 Picker("Rating", selection: $viewModel.rating) {
@@ -155,7 +170,7 @@ struct SidebarARWCatalogFileView: View {
     }
 
     var files: [FileItem] {
-        viewModel.files
+        viewModel.filteredFiles
     }
 
     var thumbnailSizeGrid: CGFloat {
