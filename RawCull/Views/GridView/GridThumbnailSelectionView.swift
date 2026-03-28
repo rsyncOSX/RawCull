@@ -53,6 +53,21 @@ struct GridThumbnailSelectionView: View {
                     }
                 }
 
+                Picker("Aperture", selection: $viewModel.apertureFilter) {
+                    ForEach(ApertureFilter.allCases) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .frame(width: 160)
+                .help("Filter by aperture — Wide for birds/portraits, Landscape for stopped-down shots")
+                .onChange(of: viewModel.apertureFilter) { _, _ in
+                    Task(priority: .background) {
+                        await viewModel.handleSortOrderChange()
+                    }
+                }
+
                 Spacer()
 
                 Text("\(files.count) Thumbnails ")
