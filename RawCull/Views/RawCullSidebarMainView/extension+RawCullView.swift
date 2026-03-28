@@ -59,13 +59,13 @@ extension RawCullMainView {
         }
 
         ToolbarItem(placement: .status) {
-            Toggle(isOn: $viewModel.sortBySharpness) {
+            Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
                 Label("Sharp", systemImage: "arrow.up.arrow.down")
             }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessScores.isEmpty)
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessModel.scores.isEmpty)
             .labelStyle(.iconOnly)
             .help("Sort thumbnails sharpest-first")
-            .onChange(of: viewModel.sortBySharpness) { _, _ in
+            .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, _ in
                 Task(priority: .background) {
                     await viewModel.handleSortOrderChange()
                 }

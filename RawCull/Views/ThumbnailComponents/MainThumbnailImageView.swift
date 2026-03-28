@@ -126,7 +126,7 @@ struct MainThumbnailImageView: View {
 
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
-                                    config: $vm.focusMaskModel.config,
+                                    config: $vm.sharpnessModel.focusMaskModel.config,
                                     overlayOpacity: $overlayOpacity,
                                     controlsCollapsed: $controlsCollapsed,
                                     focusMaskAvailable: focusMask != nil,
@@ -184,11 +184,11 @@ struct MainThumbnailImageView: View {
         }
         .task(id: image) {
             if let image {
-                let mask = await viewModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
+                let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
                 await MainActor.run { self.focusMask = mask }
             }
         }
-        .onChange(of: viewModel.focusMaskModel.config) { _, _ in
+        .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -202,7 +202,7 @@ struct MainThumbnailImageView: View {
 
     private func regenerateMask() async {
         guard let image else { return }
-        let mask = await viewModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
+        let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
         await MainActor.run { self.focusMask = mask }
     }
 }

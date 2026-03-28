@@ -9,29 +9,6 @@ enum AlertType {
     case resetSavedFiles
 }
 
-/// Restricts the catalog view to images shot within a specific aperture range.
-/// Photographers typically use wide apertures for wildlife/portraits and
-/// stopped-down apertures for landscapes — filtering by style lets them
-/// score and cull each session type without mixing them.
-enum ApertureFilter: String, CaseIterable, Identifiable {
-    case all       = "All"
-    case wide      = "Wide (≤ f/5.6)"   // birds, wildlife, portraits
-    case landscape = "Landscape (≥ f/8)" // tripod, landscape, architecture
-
-    var id: String { rawValue }
-
-    func matches(_ file: FileItem) -> Bool {
-        switch self {
-        case .all:
-            return true
-        case .wide:
-            return file.exifData?.apertureValue.map { $0 <= 5.6 } ?? true
-        case .landscape:
-            return file.exifData?.apertureValue.map { $0 >= 8.0 } ?? true
-        }
-    }
-}
-
 @Observable @MainActor
 final class RawCullViewModel {
     /// Remember previous selected source to avoid a new rescan of
@@ -52,7 +29,7 @@ final class RawCullViewModel {
     var issorting: Bool = false
     var progress: Double = 0
     var max: Double = 0
-    var estimatedSeconds: Int = 0 // Estimated seconds to completion
+    var estimatedSeconds: Int = 0
     var creatingthumbnails: Bool = false
     var scanning: Bool = true
     var showingAlert: Bool = false
@@ -78,52 +55,39 @@ final class RawCullViewModel {
     var lastScale: CGFloat = 1.0
     var offset: CGSize = .zero
 
-    // This is the oncly place the Culling Model is initialzed.
+    /// This is the only place CullingModel is initialised.
     var cullingModel = CullingModel()
 
-    // Single shared instance — config changes here affect both the zoom overlay
-    // and the sharpness scoring pipeline.
-    var focusMaskModel = FocusMaskModel()
-    private var processedURLs: Set<URL> = []
+    /// Single shared instance — config changes here affect both the zoom
+    /// overlay and the sharpness scoring pipeline.
+    var sharpnessModel = SharpnessScoringModel()
+
     /// URLs for which startAccessingSecurityScopedResource() has been called.
     /// Stopped in deinit to pair every start with a stop.
     @ObservationIgnored private var securityScopedURLs: Set<URL> = []
 
+    /// URLs whose thumbnails have already been preloaded — skip on revisit.
+    @ObservationIgnored var processedURLs: Set<URL> = []
+
     var memorypressurewarning: Bool = false
 
-    /// If there is created Focus Data with exiftool
+    /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
 
-    // MARK: - Sharpness Scoring
+    var showSavedFiles: Bool = false
 
-    /// Scored sharpness for each FileItem by UUID. Keyed by FileItem.id.
-    /// Empty until the user triggers scoreSharpnessForCurrentCatalog().
-    var sharpnessScores: [UUID: Float] = [:]
+    /// Closure to count scanning files
+    var countingScannedFiles: (@Sendable (Int) -> Void)?
 
-    /// True while batch scoring is running.
-    var isScoringSharpness: Bool = false
+    var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
+    var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
+    var preloadTask: Task<Void, Never>?
 
-    /// When true, filteredFiles is sorted sharpest-first after any standard sort.
-    var sortBySharpness: Bool = false
+    // MARK: - Computed
 
-    // MARK: - Aperture Filter
-
-    /// Restricts filteredFiles to a shooting-style aperture range.
-    /// Changing this triggers a handleSortOrderChange() in the view via .onChange.
-    var apertureFilter: ApertureFilter = .all
-
-    /// The highest sharpness score in the current catalog — used for badge normalisation.
-    var maxSharpnessScore: Float {
-        sharpnessScores.values.max() ?? 1.0
-    }
-
-    /// Use Thumbnail as Zoom Preview - reads from SettingsViewModel
     var useThumbnailAsZoomPreview: Bool {
         SettingsViewModel.shared.useThumbnailAsZoomPreview
     }
-
-    /// Show what is saved of tagged files
-    var showSavedFiles: Bool = false
 
     var alertTitle: String {
         switch alertType {
@@ -143,251 +107,7 @@ final class RawCullViewModel {
         }
     }
 
-    /// Closure to count scanning files
-    var countingScannedFiles: (@Sendable (Int) -> Void)?
-
-    // Add a property to hold the current preload actor
-    var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
-    var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
-    var preloadTask: Task<Void, Never>?
-
-    func handleSourceChange(url: URL) async {
-        scanning = true
-
-        // Invalidate sharpness data and filters from the previous catalog
-        sharpnessScores = [:]
-        sortBySharpness = false
-        apertureFilter = .all
-
-        let scan = ScanFiles()
-
-        files = await scan.scanFiles(
-            url: url,
-            onProgress: countingScannedFiles,
-        )
-        // Get the focuspoints if created
-        // Map raw decoded data → FocusPointsModel here on @MainActor — no isolation issue
-        if let raw = await scan.decodedFocusPoints {
-            focusPoints = raw.map {
-                FocusPointsModel(sourceFile: $0.sourceFile, focusLocations: [$0.focusLocation])
-            }
-        } else {
-            focusPoints = nil
-        }
-
-        Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
-
-        var initialFiles = await ScanFiles().sortFiles(
-            files,
-            by: sortOrder,
-            searchText: searchText,
-        )
-        if apertureFilter != .all {
-            let filter = apertureFilter
-            initialFiles = initialFiles.filter { filter.matches($0) }
-        }
-        filteredFiles = initialFiles
-
-        guard !files.isEmpty else {
-            scanning = false
-            return
-        }
-
-        scanning = false
-        cullingModel.loadSavedFiles()
-
-        if !processedURLs.contains(url) {
-            processedURLs.insert(url)
-            creatingthumbnails = true
-
-            let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
-            let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
-
-            let handlers = CreateFileHandlers().createFileHandlers(
-                fileHandler: fileHandler,
-                maxfilesHandler: maxfilesHandler,
-                estimatedTimeHandler: estimatedTimeHandler,
-                memorypressurewarning: memorypressurewarning,
-            )
-
-            let scanAndCreateThumbnails = ScanAndCreateThumbnails()
-            await scanAndCreateThumbnails.setFileHandlers(handlers)
-            currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
-
-            preloadTask = Task {
-                await scanAndCreateThumbnails.preloadCatalog(
-                    at: url,
-                    targetSize: thumbnailSizePreview,
-                )
-            }
-
-            await preloadTask?.value // wait for completion (or cancellation)
-            creatingthumbnails = false
-            currentScanAndCreateThumbnailsActor = nil
-        }
-    }
-
-    func handleSortOrderChange() async {
-        issorting = true
-        var sorted = await ScanFiles().sortFiles(
-            files,
-            by: sortOrder,
-            searchText: searchText,
-        )
-        if apertureFilter != .all {
-            let filter = apertureFilter
-            sorted = sorted.filter { filter.matches($0) }
-        }
-        if sortBySharpness, !sharpnessScores.isEmpty {
-            let scores = sharpnessScores
-            sorted.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
-        }
-        filteredFiles = sorted
-        issorting = false
-    }
-
-    func handleSearchTextChange() async {
-        issorting = true
-        var sorted = await ScanFiles().sortFiles(
-            files,
-            by: sortOrder,
-            searchText: searchText,
-        )
-        if apertureFilter != .all {
-            let filter = apertureFilter
-            sorted = sorted.filter { filter.matches($0) }
-        }
-        if sortBySharpness, !sharpnessScores.isEmpty {
-            let scores = sharpnessScores
-            sorted.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
-        }
-        filteredFiles = sorted
-        issorting = false
-    }
-
-    /// Batch-score all files in the current catalog. Runs heavy work off the
-    /// main actor via Task.detached. Call from a Button or other user action.
-    func scoreSharpnessForCurrentCatalog() async {
-        guard !isScoringSharpness, !files.isEmpty else { return }
-        isScoringSharpness = true
-        sharpnessScores = [:]
-
-        let filesToScore = files // local copy — safe to capture in detached task
-        // Capture the shared model here on @MainActor — picks up any config
-        // changes the user has made via the Focus Mask Controls.
-        let model = focusMaskModel
-
-        let results = await Task.detached(priority: .userInitiated) { [filesToScore, model] () -> [UUID: Float] in
-            var scores: [UUID: Float] = [:]
-            // Bounded concurrency: max 6 simultaneous thumbnail decodes to avoid
-            // saturating disk I/O and causing the OS to show a beach ball.
-            let maxConcurrent = 6
-            var iterator = filesToScore.makeIterator()
-            var active = 0
-
-            await withTaskGroup(of: (UUID, Float?).self) { group in
-                // Seed the first batch
-                while active < maxConcurrent, let file = iterator.next() {
-                    group.addTask(priority: .userInitiated) {
-                        let score = model.computeSharpnessScore(fromRawURL: file.url)
-                        return (file.id, score)
-                    }
-                    active += 1
-                }
-                // Drain results and top up as slots free
-                for await (id, score) in group {
-                    active -= 1
-                    if let score { scores[id] = score }
-                    if let file = iterator.next() {
-                        group.addTask(priority: .userInitiated) {
-                            let s = model.computeSharpnessScore(fromRawURL: file.url)
-                            return (file.id, s)
-                        }
-                        active += 1
-                    }
-                }
-            }
-            return scores
-        }.value
-
-        sharpnessScores = results
-        isScoringSharpness = false
-
-        // Auto-enable sort by sharpness after first successful score run
-        sortBySharpness = true
-        await handleSortOrderChange()
-    }
-
-    func fileHandler(_ update: Int) {
-        progress = Double(update)
-    }
-
-    func maxfilesHandler(_ maxfiles: Int) {
-        max = Double(maxfiles)
-    }
-
-    func estimatedTimeHandler(_ seconds: Int) {
-        estimatedSeconds = seconds
-    }
-
-    func abort() {
-        Logger.process.debugMessageOnly("Abort scanning")
-
-        // Cancel thumbnail preload
-        preloadTask?.cancel()
-        preloadTask = nil
-        if let actor = currentScanAndCreateThumbnailsActor {
-            Task { await actor.cancelPreload() }
-        }
-        currentScanAndCreateThumbnailsActor = nil
-
-        // Cancel JPG extraction — same pattern
-        if let actor = currentExtractAndSaveJPGsActor {
-            Task { await actor.cancelExtractJPGSTask() }
-        }
-        currentExtractAndSaveJPGsActor = nil
-
-        creatingthumbnails = false
-    }
-
-    func extractRatedfilenames(_ rating: Int) -> [String] {
-        let result = filteredFiles.compactMap { file in
-            (getRating(for: file) >= rating) ? file : nil
-        }
-        return result.map(\.name)
-    }
-
-    func extractTaggedfilenames() -> [String] {
-        if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
-           let taggedfilerecords = cullingModel.savedFiles[index].filerecords {
-            return taggedfilerecords.compactMap(\.fileName)
-        }
-        return []
-    }
-
-    func getRating(for file: FileItem) -> Int {
-        if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
-           let filerecords = cullingModel.savedFiles[index].filerecords,
-           let record = filerecords.first(where: { $0.fileName == file.name }) {
-            return record.rating ?? 0
-        }
-        return 0
-    }
-
-    func updateRating(for file: FileItem, rating: Int) {
-        Task {
-            guard let selectedSource else { return }
-            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource.url }),
-               let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-                cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
-                await WriteSavedFilesJSON(cullingModel.savedFiles)
-            }
-        }
-    }
-
-    func memorypressurewarning(_ warning: Bool) {
-        memorypressurewarning = warning
-    }
+    // MARK: - Zoom
 
     func resetZoom() {
         scale = 1.0
@@ -395,32 +115,23 @@ final class RawCullViewModel {
         offset = .zero
     }
 
-    /// Pick the right focus points
-    func getFocusPoints() -> [FocusPoint]? {
-        guard focusPoints != nil else {
-            return nil
-        }
-        if let imageName = selectedFile?.name {
-            if let points = focusPoints?.filter({ $0.sourceFile == imageName }) {
-                guard points.count == 1 else {
-                    return nil
-                }
-                return points[0].focusPoints
-            }
-        }
-        return nil
-    }
+    // MARK: - File Selection
 
     func selectFile(_ file: FileItem) {
         selectedFile = file
         selectedFileID = file.id
     }
 
-    func toggleTag(for file: FileItem) async {
-        await cullingModel.toggleSelectionSavedFiles(
-            in: file.url,
-            toggledfilename: file.name,
-        )
+    // MARK: - Focus Points
+
+    func getFocusPoints() -> [FocusPoint]? {
+        guard focusPoints != nil else { return nil }
+        if let imageName = selectedFile?.name,
+           let points = focusPoints?.filter({ $0.sourceFile == imageName }),
+           points.count == 1 {
+            return points[0].focusPoints
+        }
+        return nil
     }
 
     // MARK: - Security-scoped resource lifecycle

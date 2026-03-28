@@ -248,9 +248,9 @@ final class FocusMaskModel: @unchecked Sendable {
         if let region = salientRegion {
             // Map normalised Vision coords → pixel indices in the Laplacian bitmap.
             let colStart = max(0, Int(region.minX * CGFloat(width)))
-            let colEnd   = min(width,  Int(region.maxX * CGFloat(width)))
+            let colEnd = min(width, Int(region.maxX * CGFloat(width)))
             let rowStart = max(0, Int(region.minY * CGFloat(height)))
-            let rowEnd   = min(height, Int(region.maxY * CGFloat(height)))
+            let rowEnd = min(height, Int(region.maxY * CGFloat(height)))
 
             var filtered = [Float]()
             filtered.reserveCapacity((colEnd - colStart) * (rowEnd - rowStart))
