@@ -37,7 +37,7 @@ final class SettingsViewModel {
     /// Grid View thumbnail size in pixels (default: 200)
     var thumbnailSizeGridView: Int = 200
     /// Preview thumbnail size in pixels (default: 1024)
-    var thumbnailSizePreview: Int = 1024
+    var thumbnailSizePreview: Int = 2048
     /// Full size thumbnail in pixels (default: 8700)
     var thumbnailSizeFullSize: Int = 8700
     /// Estimated cost per pixel for thumbnail (in bytes, default: 4 for RGBA)
@@ -169,7 +169,7 @@ final class SettingsViewModel {
     func resetToDefaultsThumbnails() async {
         await MainActor.run {
             self.thumbnailSizeGrid = 200
-            self.thumbnailSizePreview = 1024
+            self.thumbnailSizePreview = 2048
             self.thumbnailSizeFullSize = 8700
             self.thumbnailCostPerPixel = 6
             self.thumbnailSizeGridView = 200
