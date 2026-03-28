@@ -194,26 +194,32 @@ final class FocusMaskModel: @unchecked Sendable {
         boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         guard let boostedLaplacian = boost.outputImage else { return nil }
 
-        // Collapse to scalar: CIAreaAverage → render 1×1 pixel
-        guard let avgFilter = CIFilter(
-            name: "CIAreaAverage",
-            parameters: [
-                kCIInputImageKey: boostedLaplacian,
-                kCIInputExtentKey: CIVector(cgRect: boostedLaplacian.extent)
-            ],
-        ), let avgImage = avgFilter.outputImage else { return nil }
+        // Collapse to scalar: 95th-percentile of the red channel across all pixels.
+        // Mean (CIAreaAverage) is skewed by large smooth backgrounds — a wildlife shot
+        // with a sharp subject against bokeh scores the same as a blurry image because
+        // ~75% of pixels contribute near-zero values. The 95th percentile ignores the
+        // background mass and scores the sharpest 5% of pixels, so a tack-sharp owl
+        // against smooth green sky ranks alongside a fully-sharp frame.
+        let extent = boostedLaplacian.extent
+        let width = Int(extent.width)
+        let height = Int(extent.height)
+        guard width > 0, height > 0 else { return nil }
 
-        var pixel = [Float](repeating: 0, count: 4)
+        var pixels = [Float](repeating: 0, count: width * height * 4)
         context.render(
-            avgImage,
-            toBitmap: &pixel,
-            rowBytes: 16,
-            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            boostedLaplacian,
+            toBitmap: &pixels,
+            rowBytes: width * 16,
+            bounds: extent,
             format: .RGBAf,
             colorSpace: nil,
         )
-        // Red channel carries the luma energy from the Metal kernel
-        return pixel[0]
+
+        // Extract red channel (luma energy), sort ascending, pick 95th percentile.
+        var redChannel = (0 ..< width * height).map { pixels[$0 * 4] }
+        redChannel.sort()
+        let idx = min(Int(Float(redChannel.count) * 0.95), redChannel.count - 1)
+        return redChannel[idx]
     }
 
     /// IMPROVEMENT 5: Single unified implementation — both public overloads
