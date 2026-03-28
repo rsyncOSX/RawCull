@@ -3,7 +3,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import Observation
 
-struct FocusDetectorConfig: Equatable {
+struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
     var threshold: Float = 0.46
     var dilationRadius: Float = 0.43
@@ -11,6 +11,20 @@ struct FocusDetectorConfig: Equatable {
     var erosionRadius: Float = 0.27
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
+}
+
+// Explicit nonisolated conformance so the @Observable macro's change-tracking
+// code can call == from a nonisolated context (config is nonisolated(unsafe)).
+extension FocusDetectorConfig: Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.preBlurRadius == rhs.preBlurRadius
+            && lhs.threshold == rhs.threshold
+            && lhs.dilationRadius == rhs.dilationRadius
+            && lhs.energyMultiplier == rhs.energyMultiplier
+            && lhs.erosionRadius == rhs.erosionRadius
+            && lhs.featherRadius == rhs.featherRadius
+            && lhs.showRawLaplacian == rhs.showRawLaplacian
+    }
 }
 
 // nonisolated(unsafe): immutable after one-time lazy init, safe to read from any context.
@@ -32,7 +46,9 @@ private nonisolated(unsafe) let _focusMagnitudeKernel: CIKernel? = {
 
 @Observable
 final class FocusMaskModel: @unchecked Sendable {
-    var config = FocusDetectorConfig()
+    // nonisolated(unsafe): FocusDetectorConfig is a struct of primitives; scoring
+    // reads a snapshot while the UI disables mutation — no real concurrent write risk.
+    nonisolated(unsafe) var config = FocusDetectorConfig()
 
     /// IMPROVEMENT 1: Force float32 working format so Laplacian
     /// intermediate values are not clipped to 8-bit before thresholding.
@@ -119,9 +135,6 @@ final class FocusMaskModel: @unchecked Sendable {
     /// The returned value is in [0, ∞). Compare values *relative to each other*
     /// within the same burst — do not treat the number as an absolute measure.
     nonisolated func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) async -> Float? {
-        // One lightweight main-actor hop to snapshot config; no Task allocation.
-        let config = await MainActor.run { self.config }
-
         let options: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
