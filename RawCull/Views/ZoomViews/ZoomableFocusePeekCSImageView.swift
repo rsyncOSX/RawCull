@@ -75,7 +75,7 @@ struct ZoomableFocusePeekCSImageView: View {
 
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
-                        config: $vm.focusMaskModel.config,
+                        config: $vm.sharpnessModel.focusMaskModel.config,
                         overlayOpacity: $overlayOpacity,
                         controlsCollapsed: $controlsCollapsed,
                         focusMaskAvailable: focusMask != nil,
@@ -110,7 +110,7 @@ struct ZoomableFocusePeekCSImageView: View {
             guard !Task.isCancelled else { return }
             await regenerateMask()
         }
-        .onChange(of: viewModel.focusMaskModel.config) { _, _ in
+        .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -125,7 +125,7 @@ struct ZoomableFocusePeekCSImageView: View {
     private func regenerateMask() async {
         guard let cgImage else { return }
         let downscaled = cgImage.downscaled(toWidth: 1024)
-        let mask = await viewModel.focusMaskModel.generateFocusMask(
+        let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
             from: downscaled ?? cgImage,
             scale: 1.0,
         )

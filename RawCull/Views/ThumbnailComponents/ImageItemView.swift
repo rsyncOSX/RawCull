@@ -75,10 +75,10 @@ struct ImageItemView: View {
                 }
                 // Sharpness score badge — bottom-left corner, only when scored
                 .overlay(alignment: .bottomLeading) {
-                    if let score = viewModel.sharpnessScores[file.id] {
+                    if let score = viewModel.sharpnessModel.scores[file.id] {
                         SharpnessBadgeView(
                             score: score,
-                            maxScore: viewModel.maxSharpnessScore,
+                            maxScore: viewModel.sharpnessModel.maxScore,
                         )
                         .padding(5)
                     }

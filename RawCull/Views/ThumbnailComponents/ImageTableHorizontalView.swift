@@ -147,7 +147,7 @@ struct ImageTableHorizontalView: View {
     }
 
     private var sortedFiles: [FileItem] {
-        guard !viewModel.sortBySharpness else { return filteredFiles }
+        guard !viewModel.sharpnessModel.sortBySharpness else { return filteredFiles }
         return filteredFiles.sorted { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }

@@ -26,34 +26,34 @@ struct GridThumbnailSelectionView: View {
                 Button {
                     Task { await viewModel.scoreSharpnessForCurrentCatalog() }
                 } label: {
-                    if viewModel.isScoringSharpness {
+                    if viewModel.sharpnessModel.isScoring {
                         Label("Scoring…", systemImage: "scope")
-                    } else if viewModel.sharpnessScores.isEmpty {
+                    } else if viewModel.sharpnessModel.scores.isEmpty {
                         Label("Score Sharpness", systemImage: "scope")
                     } else {
                         Label("Re-score", systemImage: "scope")
                     }
                 }
                 .font(.caption)
-                .disabled(viewModel.isScoringSharpness || viewModel.files.isEmpty)
+                .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
                 .help("Analyse sharpness for all images in this catalog")
 
                 // Sort toggle — only visible once scores exist
-                if !viewModel.sharpnessScores.isEmpty {
-                    Toggle(isOn: $viewModel.sortBySharpness) {
+                if !viewModel.sharpnessModel.scores.isEmpty {
+                    Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
                         Label("Sharpness", systemImage: "arrow.up.arrow.down")
                     }
                     .toggleStyle(.button)
                     .font(.caption)
                     .help("Sort thumbnails sharpest-first")
-                    .onChange(of: viewModel.sortBySharpness) { _, _ in
+                    .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, _ in
                         Task(priority: .background) {
                             await viewModel.handleSortOrderChange()
                         }
                     }
                 }
 
-                Picker("Aperture", selection: $viewModel.apertureFilter) {
+                Picker("Aperture", selection: $viewModel.sharpnessModel.apertureFilter) {
                     ForEach(ApertureFilter.allCases) { filter in
                         Text(filter.rawValue).tag(filter)
                     }
@@ -62,7 +62,7 @@ struct GridThumbnailSelectionView: View {
                 .font(.caption)
                 .frame(width: 160)
                 .help("Filter by aperture — Wide for birds/portraits, Landscape for stopped-down shots")
-                .onChange(of: viewModel.apertureFilter) { _, _ in
+                .onChange(of: viewModel.sharpnessModel.apertureFilter) { _, _ in
                     Task(priority: .background) {
                         await viewModel.handleSortOrderChange()
                     }

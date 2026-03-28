@@ -19,7 +19,7 @@ import OSLog
 struct ExifMetadata: Hashable {
     let shutterSpeed: String?
     let focalLength: String?
-    let aperture: String?      // formatted display string, e.g. "ƒ/5.6"
+    let aperture: String? // formatted display string, e.g. "ƒ/5.6"
     let apertureValue: Double? // raw f-number for filtering, e.g. 5.6
     let iso: String?
     let camera: String?
