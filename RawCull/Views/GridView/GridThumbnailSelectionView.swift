@@ -41,7 +41,7 @@ struct GridThumbnailSelectionView: View {
                 // Sort toggle — only visible once scores exist
                 if !viewModel.sharpnessScores.isEmpty {
                     Toggle(isOn: $viewModel.sortBySharpness) {
-                        Label("Sort by Sharpness", systemImage: "arrow.up.arrow.down")
+                        Label("Sharpness", systemImage: "arrow.up.arrow.down")
                     }
                     .toggleStyle(.button)
                     .font(.caption)
