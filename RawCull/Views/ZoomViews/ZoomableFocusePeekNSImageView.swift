@@ -20,7 +20,6 @@ struct ZoomableFocusePeekNSImageView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var focusDetectorModel = FocusMaskModel()
     @State private var showFocusPoints: Bool = false
     @State private var markerSize: CGFloat = 64
     @State private var showFocusMask: Bool = false
@@ -36,6 +35,7 @@ struct ZoomableFocusePeekNSImageView: View {
     }
 
     var body: some View {
+        @Bindable var vm = viewModel
         ZStack {
             Color.black.ignoresSafeArea()
 
@@ -74,7 +74,7 @@ struct ZoomableFocusePeekNSImageView: View {
 
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
-                        config: $focusDetectorModel.config,
+                        config: $vm.focusMaskModel.config,
                         overlayOpacity: $overlayOpacity,
                         controlsCollapsed: $controlsCollapsed,
                         focusMaskAvailable: focusMask != nil,
@@ -106,11 +106,11 @@ struct ZoomableFocusePeekNSImageView: View {
         .onAppear { isImageFocused = true }
         .task(id: nsImage) {
             if let nsImage {
-                let mask = await focusDetectorModel.generateFocusMask(from: nsImage, scale: 1.0)
+                let mask = await viewModel.focusMaskModel.generateFocusMask(from: nsImage, scale: 1.0)
                 await MainActor.run { self.focusMask = mask }
             }
         }
-        .onChange(of: focusDetectorModel.config) { _, _ in
+        .onChange(of: viewModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -141,7 +141,7 @@ struct ZoomableFocusePeekNSImageView: View {
 
     private func regenerateMask() async {
         guard let nsImage else { return }
-        let mask = await focusDetectorModel.generateFocusMask(from: nsImage, scale: 1.0)
+        let mask = await viewModel.focusMaskModel.generateFocusMask(from: nsImage, scale: 1.0)
         await MainActor.run { self.focusMask = mask }
     }
 

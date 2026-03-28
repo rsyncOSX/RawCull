@@ -80,6 +80,10 @@ final class RawCullViewModel {
 
     // This is the oncly place the Culling Model is initialzed.
     var cullingModel = CullingModel()
+
+    // Single shared instance — config changes here affect both the zoom overlay
+    // and the sharpness scoring pipeline.
+    var focusMaskModel = FocusMaskModel()
     private var processedURLs: Set<URL> = []
     /// URLs for which startAccessingSecurityScopedResource() has been called.
     /// Stopped in deinit to pair every start with a stop.
@@ -269,9 +273,9 @@ final class RawCullViewModel {
         sharpnessScores = [:]
 
         let filesToScore = files // local copy — safe to capture in detached task
-        // Create the model here on @MainActor so the detached task doesn't need
-        // to hop back to initialise it.
-        let model = FocusMaskModel()
+        // Capture the shared model here on @MainActor — picks up any config
+        // changes the user has made via the Focus Mask Controls.
+        let model = focusMaskModel
 
         let results = await Task.detached(priority: .userInitiated) { [filesToScore, model] () -> [UUID: Float] in
             var scores: [UUID: Float] = [:]
