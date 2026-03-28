@@ -135,7 +135,7 @@ final class FocusMaskModel: @unchecked Sendable {
             rawFilter.isLensCorrectionEnabled = false
 
             guard let linearImage = rawFilter.outputImage else { return nil }
-            return Self.computeSharpnessScalar(
+            return await Self.computeSharpnessScalar(
                 from: linearImage, scale: scale, context: context, config: config
             )
         }.value

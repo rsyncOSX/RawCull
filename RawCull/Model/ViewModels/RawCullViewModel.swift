@@ -228,7 +228,7 @@ final class RawCullViewModel {
         let filesToScore = files // local copy — safe to capture in detached task
 
         let results = await Task.detached(priority: .userInitiated) { [filesToScore] () -> [UUID: Float] in
-            let model = FocusMaskModel()
+            let model = await FocusMaskModel()
             var scores: [UUID: Float] = [:]
             await withTaskGroup(of: (UUID, Float?).self) { group in
                 for file in filesToScore {

@@ -67,16 +67,6 @@ struct SidebarARWCatalogFileView: View {
                                 .pickerStyle(DefaultPickerStyle())
                             }
 
-                            if viewModel.focusPoints?.isEmpty == false {
-                                Image(systemName: "viewfinder.circle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.yellow)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(.yellow.opacity(0.12), in: Capsule())
-                                    .help("Focus Points available")
-                            }
-
                             if verticalimages {
                                 ConditionalGlassButton(
                                     systemImage: "trash.fill",
