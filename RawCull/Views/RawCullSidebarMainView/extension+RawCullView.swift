@@ -75,7 +75,7 @@ extension RawCullMainView {
         if viewModel.filteredFiles.isEmpty {
             ToolbarItem(placement: .status) {
                 Button(action: resetApertureSelection) {
-                    Label("Reset Sharpness", systemImage: "clear.fill")
+                    Label("Reset Sharpness", systemImage: "arrow.counterclockwise")
                 }
                 .help("Reset Sharpness Model")
                 .labelStyle(.iconOnly)
