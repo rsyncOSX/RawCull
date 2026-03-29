@@ -45,13 +45,13 @@ struct ImageTableHorizontalView: View {
                         }
                     }
                     .frame(height: CGFloat(savedSettings.thumbnailSizeGrid) + 40)
-                    .onChange(of: viewModel.selectedFile?.id) { _, newID in
-                        if let newID {
+                    .onAppear(perform: {
+                        if let newID = viewModel.selectedFile?.id {
                             withAnimation {
                                 proxy.scrollTo(newID, anchor: .center)
                             }
                         }
-                    }
+                    })
                     .task(id: viewModel.selectedSource) {
                         await ThumbnailLoader.shared.cancelAll()
                     }
