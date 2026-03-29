@@ -14,8 +14,6 @@ struct SidebarARWCatalogFileView: View {
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
-    @Binding var zoomCGImageWindowFocused: Bool
-    @Binding var zoomNSImageWindowFocused: Bool
 
     @State var counterScannedFiles: Int = 0
     @State var verticalimages: Bool = true
@@ -105,8 +103,6 @@ struct SidebarARWCatalogFileView: View {
                                 FileTableRowView(viewModel: viewModel,
                                                  nsImage: $nsImage,
                                                  cgImage: $cgImage,
-                                                 zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                                 zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
                                                  openWindow: { id in openWindow(id: id) })
                             }
                         }
