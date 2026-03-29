@@ -69,7 +69,7 @@ struct SidebarARWCatalogFileView: View {
 
                             if verticalimages {
                                 ConditionalGlassButton(
-                                    systemImage: "trash.fill",
+                                    systemImage: "arrow.counterclockwise",
                                     text: "Clear",
                                     helpText: "Clear tagged files",
                                     style: .softCapsule,
