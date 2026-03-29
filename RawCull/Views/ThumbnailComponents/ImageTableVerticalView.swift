@@ -10,9 +10,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImageTableVerticalView: View {
-    @Bindable var viewModel: RawCullViewModel
     @Environment(SettingsViewModel.self) private var settings
-
+    
+    @Bindable var viewModel: RawCullViewModel
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
     @Binding var zoomCGImageWindowFocused: Bool
@@ -43,10 +43,13 @@ struct ImageTableVerticalView: View {
                                         },
                                         // Double clik for tag Image
                                         onSelected: {
+                                            
+                                            /*
                                             Task {
                                                 viewModel.selectFile(file)
                                                 await viewModel.toggleTag(for: file)
                                             }
+                                             */
                                         },
                                     )
                                     .id(file.id)
@@ -111,6 +114,7 @@ struct ImageTableVerticalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
+        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
     // MARK: - Private Helpers

@@ -31,10 +31,12 @@ struct ImageTableHorizontalView: View {
                                     onToggle: { handleSelect(for: file) },
                                     // Double clik for tag Image
                                     onSelected: {
+                                        /*
                                         Task {
                                             viewModel.selectFile(file)
                                             await viewModel.toggleTag(for: file)
                                         }
+                                         */
                                     },
                                 )
                                 .id(file.id)
@@ -99,6 +101,7 @@ struct ImageTableHorizontalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
+        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
     private func handleSelect(for file: FileItem) {
