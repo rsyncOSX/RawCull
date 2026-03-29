@@ -16,7 +16,7 @@ struct ImageTableHorizontalView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollViewReader { proxy in
+            ScrollViewReader { _ in
                 if let savedSettings {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 4) {
@@ -45,20 +45,13 @@ struct ImageTableHorizontalView: View {
                         }
                     }
                     .frame(height: CGFloat(savedSettings.thumbnailSizeGrid) + 40)
-                    .onChange(of: viewModel.selectedFile?.id) { _, newID in
-                        if let newID {
-                            withAnimation {
-                                proxy.scrollTo(newID, anchor: .center)
-                            }
-                        }
-                    }
                     .task(id: viewModel.selectedSource) {
                         await ThumbnailLoader.shared.cancelAll()
                     }
                     .overlay(alignment: .top) {
                         HStack(spacing: 8) {
                             Button {
-                                moveSelectionUp(proxy: proxy)
+                                moveSelectionUp()
                             } label: {
                                 Image(systemName: "chevron.left")
                                     .font(.caption)
@@ -67,7 +60,7 @@ struct ImageTableHorizontalView: View {
                             .help("Scroll up")
 
                             Button {
-                                moveSelectionDown(proxy: proxy)
+                                moveSelectionDown()
                             } label: {
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
@@ -124,7 +117,7 @@ struct ImageTableHorizontalView: View {
         // Scrolling is handled by onChange(of: viewModel.selectedFile?.id) to avoid double animation
     }
 
-    private func moveSelectionUp(proxy: ScrollViewProxy) {
+    private func moveSelectionUp() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
@@ -132,7 +125,7 @@ struct ImageTableHorizontalView: View {
         selectAndScroll(file: files[nextIndex])
     }
 
-    private func moveSelectionDown(proxy: ScrollViewProxy) {
+    private func moveSelectionDown() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1

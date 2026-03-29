@@ -24,7 +24,7 @@ struct ImageTableVerticalView: View {
 
     var body: some View {
         VStack(alignment: .center) {
-            ScrollViewReader { proxy in
+            ScrollViewReader { _ in
                 GeometryReader { geo in
                     ScrollView(.vertical) {
                         VStack {
@@ -62,19 +62,12 @@ struct ImageTableVerticalView: View {
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
-                        .onChange(of: viewModel.selectedFile?.id) { _, newID in
-                            if let newID {
-                                withAnimation {
-                                    proxy.scrollTo(newID, anchor: .center)
-                                }
-                            }
-                        }
                     }
                 }
                 .overlay(alignment: .trailing) {
                     VStack(spacing: 8) {
                         Button {
-                            moveSelectionUp(proxy: proxy)
+                            moveSelectionUp()
                         } label: {
                             Image(systemName: "chevron.up")
                                 .font(.caption)
@@ -83,7 +76,7 @@ struct ImageTableVerticalView: View {
                         .help("Scroll up")
 
                         Button {
-                            moveSelectionDown(proxy: proxy)
+                            moveSelectionDown()
                         } label: {
                             Image(systemName: "chevron.down")
                                 .font(.caption)
@@ -150,7 +143,7 @@ struct ImageTableVerticalView: View {
         // Scrolling is handled by onChange(of: viewModel.selectedFileID) to avoid double animation
     }
 
-    private func moveSelectionUp(proxy: ScrollViewProxy) {
+    private func moveSelectionUp() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
@@ -158,7 +151,7 @@ struct ImageTableVerticalView: View {
         selectAndScroll(file: files[nextIndex])
     }
 
-    private func moveSelectionDown(proxy: ScrollViewProxy) {
+    private func moveSelectionDown() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
