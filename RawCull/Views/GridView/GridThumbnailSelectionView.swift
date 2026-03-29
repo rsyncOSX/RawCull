@@ -96,12 +96,14 @@ struct GridThumbnailSelectionView: View {
                             onToggle: { handleToggleSelection(for: file) },
                             // Double clik for tag Image
                             onSelected: {
+                                /*
                                 Task {
                                     viewModel.selectFile(file)
                                     Task {
                                         await viewModel.toggleTag(for: file)
                                     }
                                 }
+                                 */
                             },
                         )
                         .id(file.id)

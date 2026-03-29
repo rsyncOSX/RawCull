@@ -21,8 +21,6 @@ struct RawCullApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var nsImage: NSImage?
     @State private var cgImage: CGImage?
-    @State private var zoomCGImageWindowFocused: Bool = false
-    @State private var zoomNSImageWindowFocused: Bool = false
 
     @State private var settingsviewmodel = SettingsViewModel.shared
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
@@ -34,8 +32,6 @@ struct RawCullApp: App {
                 viewModel: viewModel,
                 nsImage: $nsImage,
                 cgImage: $cgImage,
-                zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
             )
             .environment(settingsviewmodel)
             .environment(gridthumbnailviewmodel)
@@ -63,12 +59,8 @@ struct RawCullApp: App {
             )
             .environment(viewModel)
             .environment(settingsviewmodel)
-            .onAppear {
-                zoomCGImageWindowFocused = true
-            }
-            .onDisappear {
-                zoomCGImageWindowFocused = false
-            }
+            .onAppear { viewModel.zoomCGImageWindowFocused = true }
+            .onDisappear { viewModel.zoomCGImageWindowFocused = false }
         }
 
         .defaultPosition(.center)
@@ -81,12 +73,8 @@ struct RawCullApp: App {
             )
             .environment(viewModel)
             .environment(settingsviewmodel)
-            .onAppear {
-                zoomNSImageWindowFocused = true
-            }
-            .onDisappear {
-                zoomNSImageWindowFocused = false
-            }
+            .onAppear { viewModel.zoomNSImageWindowFocused = true }
+            .onDisappear { viewModel.zoomNSImageWindowFocused = false }
         }
         .defaultPosition(.center)
         .defaultSize(width: 800, height: 600)

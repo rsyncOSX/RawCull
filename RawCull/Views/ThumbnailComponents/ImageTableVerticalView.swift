@@ -10,17 +10,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImageTableVerticalView: View {
-    @Bindable var viewModel: RawCullViewModel
     @Environment(SettingsViewModel.self) private var settings
-
-    @Binding var nsImage: NSImage?
-    @Binding var cgImage: CGImage?
-    @Binding var zoomCGImageWindowFocused: Bool
-    @Binding var zoomNSImageWindowFocused: Bool
-
+    
+    @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?
-
-    var openWindow: (String) -> Void
 
     var body: some View {
         VStack(alignment: .center) {
@@ -43,10 +36,13 @@ struct ImageTableVerticalView: View {
                                         },
                                         // Double clik for tag Image
                                         onSelected: {
+                                            
+                                            /*
                                             Task {
                                                 viewModel.selectFile(file)
                                                 await viewModel.toggleTag(for: file)
                                             }
+                                             */
                                         },
                                     )
                                     .id(file.id)
@@ -62,11 +58,20 @@ struct ImageTableVerticalView: View {
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
-                        .onChange(of: viewModel.selectedFile?.id) { _, newID in
-                            if let newID {
-                                withAnimation {
-                                    proxy.scrollTo(newID, anchor: .center)
+                        .onAppear(perform: {
+                            // Defer one run loop so LazyVStack IDs are registered in scroll geometry
+                            DispatchQueue.main.async {
+                                if let newID = viewModel.selectedFile?.id {
+                                    withAnimation {
+                                        proxy.scrollTo(newID, anchor: .center)
+                                    }
                                 }
+                            }
+                        })
+                        .onChange(of: viewModel.selectedFileID) { _, newID in
+                            guard let newID else { return }
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(newID, anchor: .center)
                             }
                         }
                     }
@@ -74,7 +79,7 @@ struct ImageTableVerticalView: View {
                 .overlay(alignment: .trailing) {
                     VStack(spacing: 8) {
                         Button {
-                            moveSelectionUp(proxy: proxy)
+                            moveSelectionUp()
                         } label: {
                             Image(systemName: "chevron.up")
                                 .font(.caption)
@@ -83,7 +88,7 @@ struct ImageTableVerticalView: View {
                         .help("Scroll up")
 
                         Button {
-                            moveSelectionDown(proxy: proxy)
+                            moveSelectionDown()
                         } label: {
                             Image(systemName: "chevron.down")
                                 .font(.caption)
@@ -102,6 +107,7 @@ struct ImageTableVerticalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
+        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
     // MARK: - Private Helpers
@@ -150,7 +156,7 @@ struct ImageTableVerticalView: View {
         // Scrolling is handled by onChange(of: viewModel.selectedFileID) to avoid double animation
     }
 
-    private func moveSelectionUp(proxy: ScrollViewProxy) {
+    private func moveSelectionUp() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
@@ -158,7 +164,7 @@ struct ImageTableVerticalView: View {
         selectAndScroll(file: files[nextIndex])
     }
 
-    private func moveSelectionDown(proxy: ScrollViewProxy) {
+    private func moveSelectionDown() {
         let files = sortedFiles
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1

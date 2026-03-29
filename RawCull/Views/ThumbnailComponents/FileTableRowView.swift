@@ -12,8 +12,6 @@ struct FileTableRowView: View {
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
-    @Binding var zoomCGImageWindowFocused: Bool
-    @Binding var zoomNSImageWindowFocused: Bool
 
     var openWindow: (String) -> Void
 
@@ -87,7 +85,7 @@ struct FileTableRowView: View {
                 viewModel.selectedFile = viewModel.files[index]
 
                 let file = viewModel.files[index]
-                if zoomCGImageWindowFocused || zoomNSImageWindowFocused {
+                if viewModel.zoomCGImageWindowFocused || viewModel.zoomNSImageWindowFocused {
                     ZoomPreviewHandler.handle(
                         file: file,
                         useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,

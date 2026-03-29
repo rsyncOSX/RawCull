@@ -13,8 +13,6 @@ struct RawCullMainView: View {
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
-    @Binding var zoomCGImageWindowFocused: Bool
-    @Binding var zoomNSImageWindowFocused: Bool
 
     // @State var settings: settings?
     @State private var memoryWarningOpacity: Double = 0.3
@@ -24,6 +22,7 @@ struct RawCullMainView: View {
 
     var body: some View {
         // let _ = Self._printChanges()
+        Group {
         if showhorizontalthumbnailview {
             HorizontalMainThumbnailsListView(
                 viewModel: viewModel,
@@ -68,9 +67,6 @@ struct RawCullMainView: View {
 
                     nsImage: $nsImage,
                     cgImage: $cgImage,
-                    zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                    zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-
                     issorting: viewModel.issorting,
                     max: viewModel.max,
                 )
@@ -199,6 +195,18 @@ struct RawCullMainView: View {
                     startMemoryWarningFlash()
                 }
             }
+        }
+        } // Group
+        .onChange(of: viewModel.selectedFile) { _, newFile in
+            guard let file = newFile else { return }
+            guard viewModel.zoomCGImageWindowFocused || viewModel.zoomNSImageWindowFocused else { return }
+            ZoomPreviewHandler.handle(
+                file: file,
+                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
+                setNSImage: { nsImage = $0 },
+                setCGImage: { cgImage = $0 },
+                openWindow: { _ in }, // window already open — don't steal focus
+            )
         }
     }
 
