@@ -24,6 +24,7 @@ struct RawCullMainView: View {
 
     var body: some View {
         // let _ = Self._printChanges()
+        Group {
         if showhorizontalthumbnailview {
             HorizontalMainThumbnailsListView(
                 viewModel: viewModel,
@@ -199,6 +200,18 @@ struct RawCullMainView: View {
                     startMemoryWarningFlash()
                 }
             }
+        }
+        } // Group
+        .onChange(of: viewModel.selectedFile) { _, newFile in
+            guard let file = newFile else { return }
+            guard zoomCGImageWindowFocused || zoomNSImageWindowFocused else { return }
+            ZoomPreviewHandler.handle(
+                file: file,
+                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
+                setNSImage: { nsImage = $0 },
+                setCGImage: { cgImage = $0 },
+                openWindow: { id in openWindow(id: id) },
+            )
         }
     }
 
