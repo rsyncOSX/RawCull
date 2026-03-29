@@ -63,12 +63,21 @@ struct ImageTableVerticalView: View {
                         }
                         .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
                         .onAppear(perform: {
-                            if let newID = viewModel.selectedFile?.id {
-                                withAnimation {
-                                    proxy.scrollTo(newID, anchor: .center)
+                            // Defer one run loop so LazyVStack IDs are registered in scroll geometry
+                            DispatchQueue.main.async {
+                                if let newID = viewModel.selectedFile?.id {
+                                    withAnimation {
+                                        proxy.scrollTo(newID, anchor: .center)
+                                    }
                                 }
                             }
                         })
+                        .onChange(of: viewModel.selectedFileID) { _, newID in
+                            guard let newID else { return }
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(newID, anchor: .center)
+                            }
+                        }
                     }
                 }
                 .overlay(alignment: .trailing) {
