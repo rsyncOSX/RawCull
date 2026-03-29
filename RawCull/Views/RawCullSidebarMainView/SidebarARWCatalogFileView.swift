@@ -106,6 +106,7 @@ struct SidebarARWCatalogFileView: View {
                                                        zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
                                                        openWindow: { id in openWindow(id: id) })
                             } else {
+                                // This is the plain table view
                                 FileTableRowView(viewModel: viewModel,
                                                  nsImage: $nsImage,
                                                  cgImage: $cgImage,

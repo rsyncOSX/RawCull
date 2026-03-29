@@ -145,7 +145,7 @@ struct ImageTableVerticalView: View {
         }
     }
 
-    private func selectAndScroll(file: FileItem, proxy _: ScrollViewProxy) {
+    private func selectAndScroll(file: FileItem) {
         viewModel.selectFile(file)
         // Scrolling is handled by onChange(of: viewModel.selectedFileID) to avoid double animation
     }
@@ -155,7 +155,7 @@ struct ImageTableVerticalView: View {
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? 0
         let nextIndex = max(0, currentIndex - 1)
-        selectAndScroll(file: files[nextIndex], proxy: proxy)
+        selectAndScroll(file: files[nextIndex])
     }
 
     private func moveSelectionDown(proxy: ScrollViewProxy) {
@@ -163,7 +163,7 @@ struct ImageTableVerticalView: View {
         guard !files.isEmpty else { return }
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
         let nextIndex = min(files.count - 1, currentIndex + 1)
-        selectAndScroll(file: files[nextIndex], proxy: proxy)
+        selectAndScroll(file: files[nextIndex])
     }
 
     private func isSelected(_ file: FileItem) -> Bool {
