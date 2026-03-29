@@ -99,12 +99,7 @@ struct SidebarARWCatalogFileView: View {
                             // files in a table view
 
                             if verticalimages {
-                                ImageTableVerticalView(viewModel: viewModel,
-                                                       nsImage: $nsImage,
-                                                       cgImage: $cgImage,
-                                                       zoomCGImageWindowFocused: $zoomCGImageWindowFocused,
-                                                       zoomNSImageWindowFocused: $zoomNSImageWindowFocused,
-                                                       openWindow: { id in openWindow(id: id) })
+                                ImageTableVerticalView(viewModel: viewModel)
                             } else {
                                 // This is the plain table view
                                 FileTableRowView(viewModel: viewModel,

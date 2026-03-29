@@ -13,14 +13,7 @@ struct ImageTableVerticalView: View {
     @Environment(SettingsViewModel.self) private var settings
     
     @Bindable var viewModel: RawCullViewModel
-    @Binding var nsImage: NSImage?
-    @Binding var cgImage: CGImage?
-    @Binding var zoomCGImageWindowFocused: Bool
-    @Binding var zoomNSImageWindowFocused: Bool
-
     @State private var hoveredFileID: FileItem.ID?
-
-    var openWindow: (String) -> Void
 
     var body: some View {
         VStack(alignment: .center) {
