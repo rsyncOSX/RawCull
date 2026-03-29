@@ -62,9 +62,9 @@ struct ImageTableVerticalView: View {
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
-                        .onChange(of: viewModel.selectedFileID) { _, newID in
+                        .onChange(of: viewModel.selectedFile?.id) { _, newID in
                             if let newID {
-                                withAnimation(.easeInOut(duration: 0.2)) {
+                                withAnimation {
                                     proxy.scrollTo(newID, anchor: .center)
                                 }
                             }
