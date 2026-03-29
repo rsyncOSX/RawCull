@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 
 struct ImageTableVerticalView: View {
     @Environment(SettingsViewModel.self) private var settings
-    
+
     @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?
 
@@ -36,13 +36,12 @@ struct ImageTableVerticalView: View {
                                         },
                                         // Double clik for tag Image
                                         onSelected: {
-                                            
                                             /*
-                                            Task {
-                                                viewModel.selectFile(file)
-                                                await viewModel.toggleTag(for: file)
-                                            }
-                                             */
+                                             Task {
+                                                 viewModel.selectFile(file)
+                                                 await viewModel.toggleTag(for: file)
+                                             }
+                                              */
                                         },
                                     )
                                     .id(file.id)

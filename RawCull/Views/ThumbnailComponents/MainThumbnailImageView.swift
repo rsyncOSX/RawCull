@@ -146,7 +146,7 @@ struct MainThumbnailImageView: View {
                         }
                         .focusable()
                         .focused($isImageFocused)
-                        .focusEffectDisabled()
+                        .focusEffectDisabled(true)
                         .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
                             switch press.characters {
                             case "+":

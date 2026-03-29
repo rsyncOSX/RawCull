@@ -17,7 +17,6 @@ struct ToggleViewDefault: View {
         HStack {
             Toggle(mytext ?? "", isOn: mybinding)
                 .labelsHidden()
-                // .toggleStyle(CheckboxToggleStyle())
                 .toggleStyle(.switch)
 
             Text(mytext ?? "")
@@ -31,4 +30,3 @@ struct ToggleViewDefault: View {
         mybinding = binding
     }
 }
-
