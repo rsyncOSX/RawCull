@@ -103,7 +103,7 @@ struct ZoomableFocusePeekNSImageView: View {
             default: return .ignored
             }
         }
-        .onAppear { isImageFocused = true }
+        .onAppear { isImageFocused = false }
         .task(id: nsImage) {
             if let nsImage {
                 let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: nsImage, scale: 1.0)

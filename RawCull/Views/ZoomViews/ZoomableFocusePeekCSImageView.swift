@@ -104,7 +104,7 @@ struct ZoomableFocusePeekCSImageView: View {
             default: return .ignored
             }
         }
-        .onAppear { isImageFocused = true }
+        .onAppear { isImageFocused = false }
         .task(id: cgImage?.hashValue) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }

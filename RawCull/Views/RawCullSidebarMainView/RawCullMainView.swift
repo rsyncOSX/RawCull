@@ -210,7 +210,7 @@ struct RawCullMainView: View {
                 useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                 setNSImage: { nsImage = $0 },
                 setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id: id) },
+                openWindow: { _ in }, // window already open — don't steal focus
             )
         }
     }
