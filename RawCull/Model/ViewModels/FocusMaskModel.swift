@@ -139,6 +139,7 @@ final class FocusMaskModel: @unchecked Sendable {
     /// The returned value is in [0, ∞). Compare values *relative to each other*
     /// within the same burst — do not treat the number as an absolute measure.
     nonisolated func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) -> Float? {
+        let config = self.config
         let options: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,

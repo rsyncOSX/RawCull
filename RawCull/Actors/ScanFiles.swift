@@ -14,7 +14,8 @@
 
 import Foundation
 import ImageIO
-import OSLog
+
+// import OSLog
 
 struct ExifMetadata: Hashable {
     let shutterSpeed: String?
@@ -48,7 +49,7 @@ actor ScanFiles {
         defer { url.stopAccessingSecurityScopedResource() }
 
         var discoveredCount = 0
-        Logger.process.debugThreadOnly("ScanFiles: func scanFiles()")
+        // Logger.process.debugThreadOnly("ScanFiles: func scanFiles()")
 
         let keys: [URLResourceKey] = [
             .nameKey, .fileSizeKey, .contentTypeKey, .contentModificationDateKey
@@ -97,7 +98,7 @@ actor ScanFiles {
 
             return result
         } catch {
-            Logger.process.warning("Scan Error: \(error)")
+            // Logger.process.warning("Scan Error: \(error)")
             return []
         }
     }
@@ -130,9 +131,8 @@ actor ScanFiles {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         do {
             let data = try Data(contentsOf: fileURL)
-            let decoded = try JSONDecoder().decode([DecodeFocusPoints].self, from: data)
-            Logger.process.debugThreadOnly("decodeFocusPointsJSON - read \(decoded.count) records")
-            return decoded
+            return try JSONDecoder().decode([DecodeFocusPoints].self, from: data)
+            // Logger.process.debugThreadOnly("decodeFocusPointsJSON - read \(decoded.count) records")
         } catch {
             // Logger.process.errorMessageOnly("decodeFocusPointsJSON: ERROR \(error)")
             return nil
@@ -145,7 +145,7 @@ actor ScanFiles {
         by sortOrder: [some SortComparator<FileItem>],
         searchText: String,
     ) async -> [FileItem] {
-        Logger.process.debugThreadOnly("func sortFiles()")
+        // Logger.process.debugThreadOnly("func sortFiles()")
         let sorted = files.sorted(using: sortOrder)
         if searchText.isEmpty {
             return sorted
