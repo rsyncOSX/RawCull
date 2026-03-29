@@ -16,7 +16,7 @@ struct ImageTableHorizontalView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollViewReader { _ in
+            ScrollViewReader { proxy in
                 if let savedSettings {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 4) {
@@ -45,6 +45,13 @@ struct ImageTableHorizontalView: View {
                         }
                     }
                     .frame(height: CGFloat(savedSettings.thumbnailSizeGrid) + 40)
+                    .onChange(of: viewModel.selectedFile?.id) { _, newID in
+                        if let newID {
+                            withAnimation {
+                                proxy.scrollTo(newID, anchor: .center)
+                            }
+                        }
+                    }
                     .task(id: viewModel.selectedSource) {
                         await ThumbnailLoader.shared.cancelAll()
                     }

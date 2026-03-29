@@ -24,7 +24,7 @@ struct ImageTableVerticalView: View {
 
     var body: some View {
         VStack(alignment: .center) {
-            ScrollViewReader { _ in
+            ScrollViewReader { proxy in
                 GeometryReader { geo in
                     ScrollView(.vertical) {
                         VStack {
@@ -62,6 +62,13 @@ struct ImageTableVerticalView: View {
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
+                        .onChange(of: viewModel.selectedFile?.id) { _, newID in
+                            if let newID {
+                                withAnimation {
+                                    proxy.scrollTo(newID, anchor: .center)
+                                }
+                            }
+                        }
                     }
                 }
                 .overlay(alignment: .trailing) {
