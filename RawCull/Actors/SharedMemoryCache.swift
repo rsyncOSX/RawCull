@@ -184,6 +184,7 @@ actor SharedMemoryCache {
     private func applyConfig(_ config: CacheConfig) {
         memoryCache.totalCostLimit = config.totalCostLimit
         memoryCache.countLimit = config.countLimit
+        memoryCache.evictsObjectsWithDiscardedContent = false
         memoryCache.delegate = CacheDelegate.shared
         if let costPerPixel = config.costPerPixel {
             _costPerPixel = costPerPixel

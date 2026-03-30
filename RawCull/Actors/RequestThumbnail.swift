@@ -11,6 +11,8 @@ import Foundation
 // import OSLog
 
 actor RequestThumbnail {
+    static let shared = RequestThumbnail()
+
     private var setupTask: Task<Void, Never>?
     private let diskCache: DiskCacheManager
 
@@ -113,8 +115,10 @@ actor RequestThumbnail {
     }
 
     private func storeInMemory(_ image: NSImage, for url: URL) async {
+        let nsUrl = url as NSURL
+        guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
-        SharedMemoryCache.shared.setObject(wrapper, forKey: url as NSURL, cost: wrapper.cost)
+        SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 }

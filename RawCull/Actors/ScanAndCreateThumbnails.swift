@@ -286,9 +286,11 @@ actor ScanAndCreateThumbnails {
     }
 
     private func storeInMemoryCache(_ image: NSImage, for url: URL) {
+        let nsUrl = url as NSURL
+        guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
         let costPerPixel = getCostPerPixel()
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
-        SharedMemoryCache.shared.setObject(wrapper, forKey: url as NSURL, cost: wrapper.cost)
+        SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 
     // MARK: - Public Thumbnail Lookup
