@@ -30,7 +30,7 @@ struct ImageTableVerticalView: View {
                                         selectedSource: viewModel.selectedSource,
                                         isHovered: hoveredFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
-                                        onToggle: {
+                                        onSelect: {
                                             viewModel.selectFile(file)
                                         },
                                         onTag: {
@@ -172,9 +172,5 @@ struct ImageTableVerticalView: View {
         let currentIndex = files.firstIndex { $0.id == viewModel.selectedFileID } ?? -1
         let nextIndex = min(files.count - 1, currentIndex + 1)
         selectAndScroll(file: files[nextIndex])
-    }
-
-    private func isSelected(_ file: FileItem) -> Bool {
-        viewModel.selectedFileID == file.id
     }
 }

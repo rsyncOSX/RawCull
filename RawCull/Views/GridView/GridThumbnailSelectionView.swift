@@ -92,7 +92,7 @@ struct GridThumbnailSelectionView: View {
                             selectedSource: selectedSource,
                             isHovered: hoveredFileID == file.id,
                             thumbnailSize: settings.thumbnailSizeGridView,
-                            onToggle: { handleToggleSelection(for: file) },
+                            onSelect: { handleToggleSelection(for: file) },
                             onTag: {
                                 Task { await viewModel.toggleTag(for: file) }
                             },

@@ -52,7 +52,7 @@ struct ImageItemView: View {
     let isHovered: Bool
     let thumbnailSize: Int
 
-    var onToggle: () -> Void = {}
+    var onSelect: () -> Void = {}
     var onTag: () -> Void = {}
 
     @FocusState private var isFocused: Bool
@@ -126,7 +126,7 @@ struct ImageItemView: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
-        .onTapGesture(count: 1) { onToggle() }
+        .onTapGesture(count: 1) { onSelect() }
         .focusable()
         .focusEffectDisabled(true)
         .focused($isFocused)
