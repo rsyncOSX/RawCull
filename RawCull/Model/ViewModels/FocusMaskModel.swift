@@ -57,7 +57,7 @@ final class FocusMaskModel: @unchecked Sendable {
     /// IMPROVEMENT 1: Force float32 working format so Laplacian
     /// intermediate values are not clipped to 8-bit before thresholding.
     /// nonisolated(unsafe): CIContext is thread-safe for concurrent renders; let never mutated.
-    private nonisolated(unsafe) let context = CIContext(options: [
+    private nonisolated let context = CIContext(options: [
         .workingColorSpace: NSNull(),
         .workingFormat: CIFormat.RGBAf
     ])
