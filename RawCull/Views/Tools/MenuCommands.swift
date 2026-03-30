@@ -15,12 +15,13 @@ struct MenuCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Actions") {
-            CommandButton("Tag Image", action: { tagimage = true }, shortcut: "t")
-            CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
-
+            // CommandButton("Tag Image", action: { tagimage = true }, shortcut: "t")
+            
+            CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
+            
             Divider()
 
-            CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
+            CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
         }
     }
 }
