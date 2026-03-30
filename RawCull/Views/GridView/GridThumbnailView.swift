@@ -41,7 +41,7 @@ struct GridThumbnailView: View {
         .onDisappear {
             gridthumbnailviewmodel.close()
         }
-        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+        // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
         .focusable()
         .focusEffectDisabled(true)
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }

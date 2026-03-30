@@ -109,7 +109,7 @@ struct ImageTableVerticalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
-        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+        // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
     // MARK: - Private Helpers

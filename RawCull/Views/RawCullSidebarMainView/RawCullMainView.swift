@@ -135,7 +135,7 @@ struct RawCullMainView: View {
                 .sheet(isPresented: $viewModel.showSavedFiles) {
                     SavedFilesView()
                 }
-                .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+                // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
                 .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
                 .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
                 .task {

@@ -79,7 +79,7 @@ struct HorizontalMainThumbnailsListView: View {
             )
             .padding()
             .toolbar { toolbarContent }
-            .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+            // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
 
             if viewModel.focustagimage == true {
                 TagImageFocusView(

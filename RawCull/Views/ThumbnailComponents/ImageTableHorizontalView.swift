@@ -104,7 +104,7 @@ struct ImageTableHorizontalView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
-        .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
+        // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
     private func handleSelect(for file: FileItem) {
