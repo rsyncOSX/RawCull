@@ -98,16 +98,16 @@ struct GridThumbnailSelectionView: View {
                             },
                             // Double clik for tag Image
                             /*
-                            onSelected: {
-                                
-                                 Task {
-                                     viewModel.selectFile(file)
+                                onSelected: {
+
                                      Task {
-                                         await viewModel.toggleTag(for: file)
+                                         viewModel.selectFile(file)
+                                         Task {
+                                             await viewModel.toggleTag(for: file)
+                                         }
                                      }
-                                 }
-                            },
-                             */
+                                },
+                                 */
                         )
                         .id(file.id)
                         .onHover { isHovered in

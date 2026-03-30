@@ -5,6 +5,7 @@
 //  Created by Thomas Evensen on 12/03/2026.
 //
 
+import AppKit
 import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
@@ -14,7 +15,7 @@ struct ImageTableVerticalView: View {
 
     @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?
-    @FocusState private var isFocused: Bool
+    @State private var keyMonitor: Any?
 
     var body: some View {
         VStack(alignment: .center) {
@@ -33,21 +34,20 @@ struct ImageTableVerticalView: View {
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         onSelect: {
                                             viewModel.selectFile(file)
-                                            isFocused = true
                                         },
                                         onTag: {
                                             Task { await viewModel.toggleTag(for: file) }
                                         },
                                         /*
-                                        // Double clik for tag Image
-                                        onSelected: {
-                                            
-                                             Task {
-                                                 viewModel.selectFile(file)
-                                                 await viewModel.toggleTag(for: file)
-                                             }
-                                        },
-                                         */
+                                            // Double clik for tag Image
+                                            onSelected: {
+
+                                                 Task {
+                                                     viewModel.selectFile(file)
+                                                     await viewModel.toggleTag(for: file)
+                                                 }
+                                            },
+                                             */
                                     )
                                     .id(file.id)
                                     .onHover { isHovered in
@@ -107,15 +107,50 @@ struct ImageTableVerticalView: View {
                 }
             }
         }
-        .focusable()
-        .focusEffectDisabled(true)
-        .focused($isFocused)
-        .onKeyPress(.upArrow) { navigateToUp(); return .handled }
-        .onKeyPress(.downArrow) { navigateDown(); return .handled }
-        .onKeyPress("t") {
-            guard let file = viewModel.selectedFile else { return .ignored }
-            Task { await viewModel.toggleTag(for: file) }
-            return .handled
+        .onAppear {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                // Don't steal events from text inputs
+                guard !(NSApp.keyWindow?.firstResponder is NSText),
+                      viewModel.selectedFile != nil else { return event }
+
+                let filtered = viewModel.filteredFiles.filter { viewModel.getRating(for: $0) >= viewModel.rating }
+                let files: [FileItem] = viewModel.sharpnessModel.sortBySharpness
+                    ? filtered
+                    : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+
+                switch event.keyCode {
+                case 126: // ↑ up arrow
+                    guard let current = viewModel.selectedFile,
+                          let idx = files.firstIndex(where: { $0.id == current.id }),
+                          idx > 0 else { return nil }
+                    viewModel.selectedFile = files[idx - 1]
+                    viewModel.selectedFileID = files[idx - 1].id
+                    return nil
+
+                case 125: // ↓ down arrow
+                    guard let current = viewModel.selectedFile,
+                          let idx = files.firstIndex(where: { $0.id == current.id }),
+                          idx + 1 < files.count else { return nil }
+                    viewModel.selectedFile = files[idx + 1]
+                    viewModel.selectedFileID = files[idx + 1].id
+                    return nil
+
+                case 17: // t — toggle tag
+                    if let file = viewModel.selectedFile {
+                        Task { await viewModel.toggleTag(for: file) }
+                    }
+                    return nil
+
+                default:
+                    return event
+                }
+            }
+        }
+        .onDisappear {
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
+            }
         }
         // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
@@ -124,22 +159,6 @@ struct ImageTableVerticalView: View {
 
     var cullingModel: CullingModel {
         viewModel.cullingModel
-    }
-
-    private func navigateToUp() {
-        guard let current = viewModel.selectedFile,
-              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
-              index - 1 >= 0 else { return }
-        viewModel.selectedFile = sortedFiles[index - 1]
-        viewModel.selectedFileID = sortedFiles[index - 1].id
-    }
-
-    private func navigateDown() {
-        guard let current = viewModel.selectedFile,
-              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
-              index + 1 < sortedFiles.count else { return }
-        viewModel.selectedFile = sortedFiles[index + 1]
-        viewModel.selectedFileID = sortedFiles[index + 1].id
     }
 
     private var filteredFiles: [FileItem] {
