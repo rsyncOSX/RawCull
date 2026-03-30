@@ -92,19 +92,22 @@ struct GridThumbnailSelectionView: View {
                             selectedSource: selectedSource,
                             isHovered: hoveredFileID == file.id,
                             thumbnailSize: settings.thumbnailSizeGridView,
-                            // One click for select only
                             onToggle: { handleToggleSelection(for: file) },
+                            onTag: {
+                                Task { await viewModel.toggleTag(for: file) }
+                            },
                             // Double clik for tag Image
+                            /*
                             onSelected: {
-                                /*
+                                
                                  Task {
                                      viewModel.selectFile(file)
                                      Task {
                                          await viewModel.toggleTag(for: file)
                                      }
                                  }
-                                  */
                             },
+                             */
                         )
                         .id(file.id)
                         .onHover { isHovered in

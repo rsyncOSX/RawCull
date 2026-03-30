@@ -30,19 +30,22 @@ struct ImageTableVerticalView: View {
                                         selectedSource: viewModel.selectedSource,
                                         isHovered: hoveredFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
-                                        // One click for select only
                                         onToggle: {
                                             viewModel.selectFile(file)
                                         },
+                                        onTag: {
+                                            Task { await viewModel.toggleTag(for: file) }
+                                        },
+                                        /*
                                         // Double clik for tag Image
                                         onSelected: {
-                                            /*
+                                            
                                              Task {
                                                  viewModel.selectFile(file)
                                                  await viewModel.toggleTag(for: file)
                                              }
-                                              */
                                         },
+                                         */
                                     )
                                     .id(file.id)
                                     .onHover { isHovered in

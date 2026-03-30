@@ -53,7 +53,9 @@ struct ImageItemView: View {
     let thumbnailSize: Int
 
     var onToggle: () -> Void = {}
-    var onSelected: () -> Void = {}
+    var onTag: () -> Void = {}
+
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -124,8 +126,14 @@ struct ImageItemView: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onSelected() }
         .onTapGesture(count: 1) { onToggle() }
+        .focusable()
+        .focusEffectDisabled(true)
+        .focused($isFocused)
+        .onChange(of: isSelected) { _, selected in
+            if selected { isFocused = true }
+        }
+        .onKeyPress("t") { onTag(); return .handled }
     }
 
     var cullingModel: CullingModel {
