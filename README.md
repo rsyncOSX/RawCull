@@ -22,7 +22,7 @@ brew tap rsyncOSX/cask && brew install --cask rawcull
 
 ## Version
 
-Current version: v1.2.7 - released 28 March 2026
+Current version: v1.2.8 - released 30 March 2026
 
 ## Documentation
 
