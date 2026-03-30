@@ -136,16 +136,28 @@ final class FocusMaskModel: @unchecked Sendable {
     ///
     /// The returned value is in [0, ∞). Compare values *relative to each other*
     /// within the same burst — do not treat the number as an absolute measure.
-    nonisolated func computeSharpnessScore(fromRawURL url: URL, config: FocusDetectorConfig, thumbnailMaxPixelSize: Int = 512) -> Float? {
-        let options: [CFString: Any] = [
-            kCGImageSourceShouldCache: false,
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixelSize
-        ]
-
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        guard let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+    nonisolated func computeSharpnessScore(fromRawURL url: URL, config: FocusDetectorConfig, thumbnailMaxPixelSize: Int = 512) async -> Float? {
+        // ImageIO's internal thread pool does not inherit Swift Concurrency QoS.
+        // Bridge to a GCD queue so libdispatch can propagate .userInitiated to
+        // ImageIO's worker threads. options is built inside the closure to avoid
+        // capturing [CFString: Any] (non-Sendable) across the isolation boundary.
+        let cgThumb: CGImage? = await withCheckedContinuation { continuation in
+            let maxPixels = thumbnailMaxPixelSize
+            DispatchQueue.global(qos: .userInitiated).async {
+                let options: [CFString: Any] = [
+                    kCGImageSourceShouldCache: false,
+                    kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixels
+                ]
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary))
+            }
+        }
+        guard let cgThumb else { return nil }
 
         let region = Self.salientRegion(for: cgThumb)
         return Self.computeSharpnessScalar(

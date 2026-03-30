@@ -94,7 +94,7 @@ final class SharpnessScoringModel {
                 // Seed the first batch
                 while active < maxConcurrent, let file = iterator.next() {
                     group.addTask(priority: .userInitiated) {
-                        let score = model.computeSharpnessScore(fromRawURL: file.url, config: config)
+                        let score = await model.computeSharpnessScore(fromRawURL: file.url, config: config)
                         return (file.id, score)
                     }
                     active += 1
@@ -105,7 +105,7 @@ final class SharpnessScoringModel {
                     if let score { scored[id] = score }
                     if let file = iterator.next() {
                         group.addTask(priority: .userInitiated) {
-                            let s = model.computeSharpnessScore(fromRawURL: file.url, config: config)
+                            let s = await model.computeSharpnessScore(fromRawURL: file.url, config: config)
                             return (file.id, s)
                         }
                         active += 1
