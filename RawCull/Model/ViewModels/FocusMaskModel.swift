@@ -34,7 +34,7 @@ extension FocusDetectorConfig: Equatable {
 // nonisolated(unsafe): immutable after one-time lazy init, safe to read from any context.
 // Required because SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor would otherwise
 // infer @MainActor on this constant, blocking access from nonisolated methods.
-private nonisolated(unsafe) let _focusMagnitudeKernel: CIKernel? = {
+private nonisolated let _focusMagnitudeKernel: CIKernel? = {
     guard let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
           let data = try? Data(contentsOf: url)
     else {
