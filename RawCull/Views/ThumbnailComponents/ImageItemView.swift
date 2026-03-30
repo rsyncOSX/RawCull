@@ -55,8 +55,6 @@ struct ImageItemView: View {
     var onSelect: () -> Void = {}
     var onTag: () -> Void = {}
 
-    @FocusState private var isFocused: Bool
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Thumbnail area
@@ -127,13 +125,6 @@ struct ImageItemView: View {
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
         .onTapGesture(count: 1) { onSelect() }
-        .focusable()
-        .focusEffectDisabled(true)
-        .focused($isFocused)
-        .onChange(of: isSelected) { _, selected in
-            if selected { isFocused = true }
-        }
-        .onKeyPress("t") { onTag(); return .handled }
     }
 
     var cullingModel: CullingModel {

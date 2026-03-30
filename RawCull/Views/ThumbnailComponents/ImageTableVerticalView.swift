@@ -14,6 +14,7 @@ struct ImageTableVerticalView: View {
 
     @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .center) {
@@ -32,6 +33,7 @@ struct ImageTableVerticalView: View {
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         onSelect: {
                                             viewModel.selectFile(file)
+                                            isFocused = true
                                         },
                                         onTag: {
                                             Task { await viewModel.toggleTag(for: file) }
@@ -107,8 +109,14 @@ struct ImageTableVerticalView: View {
         }
         .focusable()
         .focusEffectDisabled(true)
+        .focused($isFocused)
         .onKeyPress(.upArrow) { navigateToUp(); return .handled }
         .onKeyPress(.downArrow) { navigateDown(); return .handled }
+        .onKeyPress("t") {
+            guard let file = viewModel.selectedFile else { return .ignored }
+            Task { await viewModel.toggleTag(for: file) }
+            return .handled
+        }
         // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 

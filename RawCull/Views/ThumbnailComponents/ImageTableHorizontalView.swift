@@ -11,6 +11,7 @@ struct ImageTableHorizontalView: View {
     @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?
     @State private var savedSettings: SavedSettings?
+    @FocusState private var isFocused: Bool
 
     let selectedSource: ARWSourceCatalog?
 
@@ -27,7 +28,10 @@ struct ImageTableHorizontalView: View {
                                     selectedSource: selectedSource,
                                     isHovered: hoveredFileID == file.id,
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
-                                    onSelect: { handleSelect(for: file) },
+                                    onSelect: {
+                                        handleSelect(for: file)
+                                        isFocused = true
+                                    },
                                     onTag: {
                                         Task { await viewModel.toggleTag(for: file) }
                                     },
@@ -102,8 +106,14 @@ struct ImageTableHorizontalView: View {
         }
         .focusable()
         .focusEffectDisabled(true)
+        .focused($isFocused)
         .onKeyPress(.leftArrow) { navigateToPrevious(); return .handled }
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
+        .onKeyPress("t") {
+            guard let file = viewModel.selectedFile else { return .ignored }
+            Task { await viewModel.toggleTag(for: file) }
+            return .handled
+        }
         // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
