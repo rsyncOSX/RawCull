@@ -81,9 +81,10 @@ final class SharpnessScoringModel {
         scores = [:]
 
         let filesToScore = files // local copy — safe to capture in detached task
-        let model = focusMaskModel // capture config snapshot on @MainActor
+        let model = focusMaskModel
+        let config = focusMaskModel.config // snapshot on @MainActor before crossing boundary
 
-        let results = await Task.detached(priority: .userInitiated) { [filesToScore, model] () -> [UUID: Float] in
+        let results = await Task.detached(priority: .userInitiated) { [filesToScore, model, config] () -> [UUID: Float] in
             var scored: [UUID: Float] = [:]
             let maxConcurrent = 6
             var iterator = filesToScore.makeIterator()
@@ -93,7 +94,7 @@ final class SharpnessScoringModel {
                 // Seed the first batch
                 while active < maxConcurrent, let file = iterator.next() {
                     group.addTask(priority: .userInitiated) {
-                        let score = model.computeSharpnessScore(fromRawURL: file.url)
+                        let score = model.computeSharpnessScore(fromRawURL: file.url, config: config)
                         return (file.id, score)
                     }
                     active += 1
@@ -104,7 +105,7 @@ final class SharpnessScoringModel {
                     if let score { scored[id] = score }
                     if let file = iterator.next() {
                         group.addTask(priority: .userInitiated) {
-                            let s = model.computeSharpnessScore(fromRawURL: file.url)
+                            let s = model.computeSharpnessScore(fromRawURL: file.url, config: config)
                             return (file.id, s)
                         }
                         active += 1

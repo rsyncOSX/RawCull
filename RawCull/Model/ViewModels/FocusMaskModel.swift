@@ -15,7 +15,7 @@ struct FocusDetectorConfig {
 }
 
 // Explicit nonisolated conformance so the @Observable macro's change-tracking
-// code can call == from a nonisolated context (config is nonisolated(unsafe)).
+// code can call == from a nonisolated context.
 // SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor would make the synthesized == @MainActor,
 // blocking the nonisolated call site — so we must spell it out manually.
 // swiftformat:disable:next redundantEquatable
@@ -50,9 +50,7 @@ private nonisolated let _focusMagnitudeKernel: CIKernel? = {
 
 @Observable
 final class FocusMaskModel: @unchecked Sendable {
-    // nonisolated(unsafe): FocusDetectorConfig is a struct of primitives; scoring
-    // reads a snapshot while the UI disables mutation — no real concurrent write risk.
-    nonisolated(unsafe) var config = FocusDetectorConfig()
+    var config = FocusDetectorConfig()
 
     /// IMPROVEMENT 1: Force float32 working format so Laplacian
     /// intermediate values are not clipped to 8-bit before thresholding.
@@ -138,8 +136,7 @@ final class FocusMaskModel: @unchecked Sendable {
     ///
     /// The returned value is in [0, ∞). Compare values *relative to each other*
     /// within the same burst — do not treat the number as an absolute measure.
-    nonisolated func computeSharpnessScore(fromRawURL url: URL, thumbnailMaxPixelSize: Int = 512) -> Float? {
-        let config = self.config
+    nonisolated func computeSharpnessScore(fromRawURL url: URL, config: FocusDetectorConfig, thumbnailMaxPixelSize: Int = 512) -> Float? {
         let options: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
@@ -147,14 +144,8 @@ final class FocusMaskModel: @unchecked Sendable {
             kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixelSize
         ]
 
-        // Wrap ImageIO in an explicit QoS context. DispatchQueue.sync establishes
-        // a libdispatch sync override that propagates .userInitiated priority to
-        // any internal dispatch queues ImageIO uses, preventing priority inversion.
-        let cgThumb: CGImage? = DispatchQueue.global(qos: .userInitiated).sync {
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-            return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
-        }
-        guard let cgThumb else { return nil }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        guard let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
 
         let region = Self.salientRegion(for: cgThumb)
         return Self.computeSharpnessScalar(
