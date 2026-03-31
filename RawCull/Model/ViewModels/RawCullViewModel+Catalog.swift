@@ -17,7 +17,14 @@ extension RawCullViewModel {
         files = await scan.scanFiles(
             url: url,
             onProgress: countingScannedFiles,
+            onFocusPointsProgress: { [weak self] completed, total in
+                guard let self else { return }
+                self.focusPointsTotal = total
+                self.focusPointsProgress = completed
+                self.isExtractingFocusPoints = completed < total
+            },
         )
+        isExtractingFocusPoints = false
 
         // Map raw decoded data → FocusPointsModel here on @MainActor
         if let raw = await scan.decodedFocusPoints {

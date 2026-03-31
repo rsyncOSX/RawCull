@@ -44,6 +44,7 @@ actor ScanFiles {
     func scanFiles(
         url: URL,
         onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil,
+        onFocusPointsProgress: (@MainActor @Sendable (_ completed: Int, _ total: Int) -> Void)? = nil,
     ) async -> [FileItem] {
         guard url.startAccessingSecurityScopedResource() else { return [] }
         defer { url.stopAccessingSecurityScopedResource() }
@@ -93,7 +94,7 @@ actor ScanFiles {
             // Native Sony MakerNote parsing — no exiftool or focuspoints.json needed.
             // Falls back to focuspoints.json if native extraction yields nothing
             // (e.g. non-A1 files or files captured before the feature was added).
-            decodedFocusPoints = await extractNativeFocusPoints(from: result)
+            decodedFocusPoints = await extractNativeFocusPoints(from: result, onProgress: onFocusPointsProgress)
                 ?? decodeFocusPointsJSON(from: url)
 
             return result
@@ -105,7 +106,16 @@ actor ScanFiles {
 
     /// Extracts focus location from each ARW file's Sony MakerNote directly.
     /// Returns `nil` if no files yielded a result so the JSON fallback can take over.
-    private func extractNativeFocusPoints(from items: [FileItem]) async -> [DecodeFocusPoints]? {
+    private func extractNativeFocusPoints(
+        from items: [FileItem],
+        onProgress: (@MainActor @Sendable (_ completed: Int, _ total: Int) -> Void)? = nil
+    ) async -> [DecodeFocusPoints]? {
+        let total = items.count
+        guard total > 0 else { return nil }
+
+        // Signal extraction start so the UI can switch to the progress view
+        await onProgress?(0, total)
+
         let collected = await withTaskGroup(of: DecodeFocusPoints?.self) { group in
             for item in items {
                 group.addTask {
@@ -117,8 +127,11 @@ actor ScanFiles {
                 }
             }
             var results: [DecodeFocusPoints] = []
+            var completed = 0
             for await result in group {
                 if let r = result { results.append(r) }
+                completed += 1
+                await onProgress?(completed, total)
             }
             return results
         }
