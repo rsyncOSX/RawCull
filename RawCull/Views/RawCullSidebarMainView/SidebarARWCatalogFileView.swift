@@ -35,14 +35,7 @@ struct SidebarARWCatalogFileView: View {
                     Button("+ Add Catalog") { isShowingPicker = true }
                 }
             } else if scanning {
-                if viewModel.isExtractingFocusPoints {
-                    FocusPointsProgressView(
-                        completed: viewModel.focusPointsProgress,
-                        total: viewModel.focusPointsTotal
-                    )
-                } else {
-                    ProgressView("Scanning for ARW images: \(counterScannedFiles)")
-                }
+                ProgressView("Scanning for ARW images: \(counterScannedFiles)")
             } else if files.isEmpty, !scanning {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")

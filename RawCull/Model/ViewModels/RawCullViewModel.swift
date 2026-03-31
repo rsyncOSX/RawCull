@@ -74,13 +74,6 @@ final class RawCullViewModel {
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
 
-    /// True while `extractNativeFocusPoints` is running inside a scan.
-    var isExtractingFocusPoints: Bool = false
-    /// Number of files whose focus points have been extracted so far.
-    var focusPointsProgress: Int = 0
-    /// Total number of files being processed for focus point extraction.
-    var focusPointsTotal: Int = 0
-
     var showSavedFiles: Bool = false
 
     /// Closure to count scanning files
