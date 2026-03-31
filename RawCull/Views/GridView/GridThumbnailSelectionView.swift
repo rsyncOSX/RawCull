@@ -109,32 +109,41 @@ struct GridThumbnailSelectionView: View {
             }
 
             // Grid view
-            ScrollView {
-                LazyVGrid(
-                    columns: [
-                        GridItem(.adaptive(minimum: CGFloat(settings.thumbnailSizeGridView)), spacing: 12)
-                    ],
-                    spacing: 12,
-                ) {
-                    ForEach(files, id: \.id) { file in
-                        ImageItemView(
-                            viewModel: viewModel,
-                            file: file,
-                            selectedSource: selectedSource,
-                            isHovered: hoveredFileID == file.id,
-                            thumbnailSize: settings.thumbnailSizeGridView,
-                            onSelect: { handleToggleSelection(for: file) },
-                            onTag: {
-                                Task { await viewModel.toggleTag(for: file) }
-                            },
-                        )
-                        .id(file.id)
-                        .onHover { isHovered in
-                            hoveredFileID = isHovered ? file.id : nil
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.adaptive(minimum: CGFloat(settings.thumbnailSizeGridView)), spacing: 12)
+                        ],
+                        spacing: 12,
+                    ) {
+                        ForEach(files, id: \.id) { file in
+                            ImageItemView(
+                                viewModel: viewModel,
+                                file: file,
+                                selectedSource: selectedSource,
+                                isHovered: hoveredFileID == file.id,
+                                thumbnailSize: settings.thumbnailSizeGridView,
+                                onSelect: { handleToggleSelection(for: file) },
+                                onTag: {
+                                    Task { await viewModel.toggleTag(for: file) }
+                                },
+                            )
+                            .id(file.id)
+                            .onHover { isHovered in
+                                hoveredFileID = isHovered ? file.id : nil
+                            }
                         }
                     }
+                    .padding()
                 }
-                .padding()
+                .onAppear {
+                    guard let id = viewModel.selectedFileID else { return }
+                    // Defer one runloop cycle so LazyVGrid has laid out before scrolling
+                    Task { @MainActor in
+                        proxy.scrollTo(id, anchor: .top)
+                    }
+                }
             }
         }
         .frame(minWidth: 400, minHeight: 400)
