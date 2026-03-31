@@ -56,10 +56,22 @@ final class SharpnessScoringModel {
     /// Shared config for both the Focus Mask overlay and the scoring pipeline.
     var focusMaskModel = FocusMaskModel()
 
+    /// Number of images scored so far in the current batch.
+    var scoringProgress: Int = 0
+
+    /// Total number of images in the current batch.
+    var scoringTotal: Int = 0
+
+    /// Rough ETA in seconds to completion, updated after each image.
+    var scoringEstimatedSeconds: Int = 0
+
     /// Highest score in the current catalog — used for badge normalisation.
     var maxScore: Float {
         scores.values.max() ?? 1.0
     }
+
+    /// The running batch task — retained so it can be cancelled externally.
+    private var _scoringTask: Task<Void, Never>?
 
     // MARK: - Lifecycle
 
@@ -68,55 +80,95 @@ final class SharpnessScoringModel {
         scores = [:]
         sortBySharpness = false
         apertureFilter = .all
+        scoringProgress = 0
+        scoringTotal = 0
+        scoringEstimatedSeconds = 0
+    }
+
+    // MARK: - Cancellation
+
+    /// Aborts any in-progress batch score and clears all results.
+    func cancelScoring() {
+        _scoringTask?.cancel()
+        _scoringTask = nil
+        isScoring = false
+        scores = [:]
+        scoringProgress = 0
+        scoringTotal = 0
+        scoringEstimatedSeconds = 0
+        sortBySharpness = false
     }
 
     // MARK: - Batch Scoring
 
-    /// Batch-scores all files off the main actor with bounded concurrency (max 6
-    /// simultaneous thumbnail decodes). Writes results into `scores` and sets
-    /// `sortBySharpness = true` on completion.
+    /// Batch-scores all files with bounded concurrency (max 6 simultaneous
+    /// thumbnail decodes). Updates `scoringProgress` and `scoringEstimatedSeconds`
+    /// after each result. Supports cooperative cancellation via `cancelScoring()`.
     func scoreFiles(_ files: [FileItem]) async {
         guard !isScoring, !files.isEmpty else { return }
         isScoring = true
+        scoringProgress = 0
+        scoringTotal = files.count
+        scoringEstimatedSeconds = 0
         scores = [:]
 
-        let filesToScore = files // local copy — safe to capture in detached task
         let model = focusMaskModel
-        let config = focusMaskModel.config // snapshot on @MainActor before crossing boundary
+        let config = focusMaskModel.config
+        let startTime = Date()
+        var iterator = files.makeIterator()
+        var active = 0
+        let maxConcurrent = 6
 
-        let results = await Task.detached(priority: .userInitiated) { [filesToScore, model, config] () -> [UUID: Float] in
-            var scored: [UUID: Float] = [:]
-            let maxConcurrent = 6
-            var iterator = filesToScore.makeIterator()
-            var active = 0
-
+        // Wrap withTaskGroup in an unstructured Task so we can cancel it via
+        // _scoringTask while scoreFiles is suspended at `await workTask.value`.
+        let workTask = Task {
             await withTaskGroup(of: (UUID, Float?).self) { group in
                 // Seed the first batch
                 while active < maxConcurrent, let file = iterator.next() {
+                    let url = file.url
+                    let id = file.id
                     group.addTask(priority: .userInitiated) {
-                        let score = await model.computeSharpnessScore(fromRawURL: file.url, config: config)
-                        return (file.id, score)
+                        await (id, model.computeSharpnessScore(fromRawURL: url, config: config))
                     }
                     active += 1
                 }
-                // Drain results and top up as slots free
+                // Drain results, replenish slots, update progress
                 for await (id, score) in group {
                     active -= 1
-                    if let score { scored[id] = score }
+                    // Cancellation check before mutating state
+                    guard !Task.isCancelled else { break }
+                    if let score { self.scores[id] = score }
+                    self.scoringProgress = self.scores.count
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    let count = self.scoringProgress
+                    if count > 0, elapsed > 0 {
+                        let rate = Double(count) / elapsed
+                        self.scoringEstimatedSeconds = max(0, Int(Double(files.count - count) / rate))
+                    }
                     if let file = iterator.next() {
+                        let url = file.url
+                        let id = file.id
                         group.addTask(priority: .userInitiated) {
-                            let s = await model.computeSharpnessScore(fromRawURL: file.url, config: config)
-                            return (file.id, s)
+                            await (id, model.computeSharpnessScore(fromRawURL: url, config: config))
                         }
                         active += 1
                     }
                 }
             }
-            return scored
-        }.value
+        }
 
-        scores = results
+        _scoringTask = workTask
+        await workTask.value
+
+        // cancelScoring() sets isScoring = false before we get here — bail out
+        // without overwriting the cleared state.
+        _scoringTask = nil
+        guard isScoring else { return }
+
         isScoring = false
         sortBySharpness = true
+        scoringProgress = 0
+        scoringTotal = 0
+        scoringEstimatedSeconds = 0
     }
 }

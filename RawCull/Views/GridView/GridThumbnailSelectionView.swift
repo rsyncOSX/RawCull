@@ -13,7 +13,6 @@ struct GridThumbnailSelectionView: View {
 
     @Bindable var viewModel: RawCullViewModel
 
-    /// @State private var savedSettings: SavedSettings?
     @State private var hoveredFileID: FileItem.ID?
 
     let selectedSource: ARWSourceCatalog?
@@ -38,8 +37,21 @@ struct GridThumbnailSelectionView: View {
                 .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
                 .help("Analyse sharpness for all images in this catalog")
 
-                // Sort toggle — only visible once scores exist
-                if !viewModel.sharpnessModel.scores.isEmpty {
+                // Cancel button — only visible while scoring
+                if viewModel.sharpnessModel.isScoring {
+                    Button(role: .cancel) {
+                        viewModel.sharpnessModel.cancelScoring()
+                    } label: {
+                        Label("Cancel", systemImage: "xmark.circle")
+                    }
+                    .font(.caption)
+                    .tint(.red)
+                    .help("Abort sharpness scoring and discard results")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+
+                // Sort toggle — only visible once scores exist and not currently scoring
+                if !viewModel.sharpnessModel.scores.isEmpty, !viewModel.sharpnessModel.isScoring {
                     Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
                         Label("Sharpness", systemImage: "arrow.up.arrow.down")
                     }
@@ -77,6 +89,25 @@ struct GridThumbnailSelectionView: View {
             .padding()
             .background(Color.gray.opacity(0.1))
 
+            // Progress view — shown during sharpness scoring
+            if viewModel.sharpnessModel.isScoring {
+                ProgressCount(
+                    progress: Binding(
+                        get: { Double(viewModel.sharpnessModel.scoringProgress) },
+                        set: { _ in },
+                    ),
+                    estimatedSeconds: Binding(
+                        get: { viewModel.sharpnessModel.scoringEstimatedSeconds },
+                        set: { _ in },
+                    ),
+                    max: Double(viewModel.sharpnessModel.scoringTotal),
+                    statusText: "Scoring sharpness…",
+                )
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Grid view
             ScrollView {
                 LazyVGrid(
@@ -96,18 +127,6 @@ struct GridThumbnailSelectionView: View {
                             onTag: {
                                 Task { await viewModel.toggleTag(for: file) }
                             },
-                            // Double clik for tag Image
-                            /*
-                                onSelected: {
-
-                                     Task {
-                                         viewModel.selectFile(file)
-                                         Task {
-                                             await viewModel.toggleTag(for: file)
-                                         }
-                                     }
-                                },
-                                 */
                         )
                         .id(file.id)
                         .onHover { isHovered in
@@ -119,6 +138,7 @@ struct GridThumbnailSelectionView: View {
             }
         }
         .frame(minWidth: 400, minHeight: 400)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
