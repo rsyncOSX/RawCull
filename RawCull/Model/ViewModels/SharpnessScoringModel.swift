@@ -109,7 +109,7 @@ final class SharpnessScoringModel {
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
             rawURLs: urls,
             minSamples: 5,
-            maxConcurrentTasks: 8
+            maxConcurrentTasks: 8,
         ) else {
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
             return

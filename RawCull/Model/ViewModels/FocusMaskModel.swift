@@ -3,8 +3,8 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import ImageIO
 import Observation
-import Vision
 import OSLog
+import Vision
 
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
@@ -614,4 +614,3 @@ extension FocusMaskModel {
         )
     }
 }
-
