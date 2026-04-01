@@ -1,15 +1,16 @@
 import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import ImageIO
 import Observation
 import Vision
 
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
     var threshold: Float = 0.46
-    var dilationRadius: Float = 0.43
+    var dilationRadius: Float = 1.0   // was 0.43
     var energyMultiplier: Float = 7.62
-    var erosionRadius: Float = 0.27
+    var erosionRadius: Float = 1.0    // was 0.27
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
 }
@@ -52,54 +53,56 @@ private nonisolated let _focusMagnitudeKernel: CIKernel? = {
 final class FocusMaskModel: @unchecked Sendable {
     var config = FocusDetectorConfig()
 
-    /// IMPROVEMENT 1: Force float32 working format so Laplacian
-    /// intermediate values are not clipped to 8-bit before thresholding.
+    /// Force float32 working format so Laplacian intermediate values are not clipped.
     /// nonisolated(unsafe): CIContext is thread-safe for concurrent renders; let never mutated.
     private nonisolated let context = CIContext(options: [
         .workingColorSpace: NSNull(),
         .workingFormat: CIFormat.RGBAf
     ])
 
-    /// IMPROVEMENT 4: ARW-aware entry point.
-    /// Loads the raw file via CIRAWFilter with NR, sharpening and boost
-    /// all disabled so the Laplacian fires on true optical sharpness.
-    /// Falls back to the CGImage path if CIRAWFilter is unavailable or
-    /// the URL does not point to a supported RAW format.
+    // MARK: - Public API
+
+    /// ARW-aware entry point.
+    /// Loads RAW via CIRAWFilter with NR/sharpen/boost disabled for optical sharpness analysis.
+    /// Falls back to safe ImageIO decode for non-RAW/unsupported RAW.
     func generateFocusMask(fromRawURL url: URL, scale: CGFloat) async -> CGImage? {
         let context = self.context
         let config = self.config
 
         return await Task.detached(priority: .userInitiated) { () -> CGImage? in
             guard let rawFilter = CIRAWFilter(imageURL: url) else {
-                // Not a RAW file or unsupported — fall back to decoded path
-
-                guard let cgImage = CGImage(
-                    jpegDataProviderSource: CGDataProvider(url: url as CFURL)!,
-                    decode: nil, shouldInterpolate: true, intent: .defaultIntent,
-                ) else { return nil }
-                return Self.buildFocusMask(from: CIImage(cgImage: cgImage),
-                                           scale: scale, context: context, config: config)
+                guard let cgImage = Self.decodeImage(at: url) else { return nil }
+                return Self.buildFocusMask(
+                    from: CIImage(cgImage: cgImage),
+                    scale: scale,
+                    context: context,
+                    config: config
+                )
             }
-            // Disable all in-camera processing before focus analysis
-            rawFilter.luminanceNoiseReductionAmount = 0 // luma NR
-            rawFilter.colorNoiseReductionAmount = 0 // chroma NR
-            rawFilter.contrastAmount = 0 // contrast
-            rawFilter.detailAmount = 0 // detail / micro-contrast
-            rawFilter.moireReductionAmount = 0 // moire
-            rawFilter.boostAmount = 0 // global tone curve
-            rawFilter.boostShadowAmount = 0 // shadow lift
-            rawFilter.sharpnessAmount = 0 // critical: no USM
-            rawFilter.localToneMapAmount = 0 // local tone mapping
-            rawFilter.isGamutMappingEnabled = false // no gamut clip
-            rawFilter.isLensCorrectionEnabled = false // no lens warp
+
+            // Disable in-camera processing before focus analysis
+            rawFilter.luminanceNoiseReductionAmount = 0
+            rawFilter.colorNoiseReductionAmount = 0
+            rawFilter.contrastAmount = 0
+            rawFilter.detailAmount = 0
+            rawFilter.moireReductionAmount = 0
+            rawFilter.boostAmount = 0
+            rawFilter.boostShadowAmount = 0
+            rawFilter.sharpnessAmount = 0
+            rawFilter.localToneMapAmount = 0
+            rawFilter.isGamutMappingEnabled = false
+            rawFilter.isLensCorrectionEnabled = false
 
             guard let linearImage = rawFilter.outputImage else { return nil }
-            return Self.buildFocusMask(from: linearImage,
-                                       scale: scale, context: context, config: config)
+            return Self.buildFocusMask(
+                from: linearImage,
+                scale: scale,
+                context: context,
+                config: config
+            )
         }.value
     }
 
-    /// Existing NSImage entry point — unchanged public API
     func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let originalSize = nsImage.size
@@ -109,13 +112,14 @@ final class FocusMaskModel: @unchecked Sendable {
         return await Task.detached(priority: .userInitiated) {
             guard let result = Self.buildFocusMask(
                 from: CIImage(cgImage: cgImage),
-                scale: scale, context: context, config: config,
+                scale: scale,
+                context: context,
+                config: config
             ) else { return nil }
             return NSImage(cgImage: result, size: originalSize)
         }.value
     }
 
-    /// Existing CGImage entry point — unchanged public API
     func generateFocusMask(from cgImage: CGImage, scale: CGFloat) async -> CGImage? {
         let context = self.context
         let config = self.config
@@ -123,59 +127,82 @@ final class FocusMaskModel: @unchecked Sendable {
         return await Task.detached(priority: .userInitiated) {
             Self.buildFocusMask(
                 from: CIImage(cgImage: cgImage),
-                scale: scale, context: context, config: config,
+                scale: scale,
+                context: context,
+                config: config
             )
         }.value
     }
 
-    /// Computes a scalar sharpness score for a RAW file without generating a
-    /// visual mask. Extracts the embedded JPEG thumbnail from the ARW (the same
-    /// data the grid view already uses) and runs it through the Laplacian pipeline.
-    /// This is ~20-50× faster than a full CIRAWFilter decode and produces accurate
-    /// relative scores within a burst.
-    ///
-    /// The returned value is in [0, ∞). Compare values *relative to each other*
-    /// within the same burst — do not treat the number as an absolute measure.
-    nonisolated func computeSharpnessScore(fromRawURL url: URL, config: FocusDetectorConfig, thumbnailMaxPixelSize: Int = 512) async -> Float? {
-        // ImageIO's internal thread pool does not inherit Swift Concurrency QoS.
-        // Bridge to a GCD queue so libdispatch can propagate .userInitiated to
-        // ImageIO's worker threads. options is built inside the closure to avoid
-        // capturing [CFString: Any] (non-Sendable) across the isolation boundary.
-        let cgThumb: CGImage? = await withCheckedContinuation { continuation in
+    /// Computes scalar sharpness from fast thumbnail path, with full-decode fallback.
+    /// Returned value is relative; compare within same burst/session.
+    nonisolated func computeSharpnessScore(
+        fromRawURL url: URL,
+        config: FocusDetectorConfig,
+        thumbnailMaxPixelSize: Int = 512
+    ) async -> Float? {
+        let cgImage: CGImage? = await withCheckedContinuation { continuation in
             let maxPixels = thumbnailMaxPixelSize
             DispatchQueue.global(qos: .userInitiated).async {
-                let options: [CFString: Any] = [
-                    kCGImageSourceShouldCache: false,
-                    kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: maxPixels
-                ]
-                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-                    continuation.resume(returning: nil)
+                if let thumb = Self.decodeThumbnail(at: url, maxPixelSize: maxPixels) {
+                    continuation.resume(returning: thumb)
                     return
                 }
-                continuation.resume(returning: CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary))
+                continuation.resume(returning: Self.decodeImage(at: url))
             }
         }
-        guard let cgThumb else { return nil }
 
-        let region = Self.salientRegion(for: cgThumb)
+        guard let cgImage else { return nil }
+
+        let region = Self.salientRegion(for: cgImage)
         return Self.computeSharpnessScalar(
-            from: CIImage(cgImage: cgThumb),
+            from: CIImage(cgImage: cgImage),
             salientRegion: region,
             context: context,
-            config: config,
+            config: config
         )
     }
 
-    /// Runs VNGenerateAttentionBasedSaliencyImageRequest synchronously and returns
-    /// the union bounding box of all salient objects in normalised Vision coordinates
-    /// (origin bottom-left, values in [0, 1]). Returns nil when nothing meaningful
-    /// is detected (< 3 % of image area) so the caller falls back to full-image scoring.
-    ///
-    /// Using salientObjects bounding boxes — rather than rendering the saliency pixel
-    /// buffer through CIContext — avoids coordinate-space and value-range ambiguities
-    /// while still restricting scoring to the subject region.
+    // MARK: - Decode helpers
+
+    /// Safe, format-agnostic first-frame decode.
+    private nonisolated static func decodeImage(at url: URL) -> CGImage? {
+        let srcOptions: [CFString: Any] = [
+            kCGImageSourceShouldCache: false
+        ]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else {
+            return nil
+        }
+
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldAllowFloat: true
+        ]
+        return CGImageSourceCreateImageAtIndex(source, 0, decodeOptions as CFDictionary)
+    }
+
+    /// Fast thumbnail decode: uses embedded thumbnail when present.
+    private nonisolated static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
+        let srcOptions: [CFString: Any] = [
+            kCGImageSourceShouldCache: false
+        ]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else {
+            return nil
+        }
+
+        let thumbOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailFromImageAlways: false,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+    }
+
+    // MARK: - Saliency
+
+    /// Returns union bounding box of salient objects in normalized Vision coords.
     private nonisolated static func salientRegion(for cgImage: CGImage) -> CGRect? {
         let request = VNGenerateAttentionBasedSaliencyImageRequest()
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -188,124 +215,179 @@ final class FocusMaskModel: @unchecked Sendable {
         return union
     }
 
-    /// Runs passes 1–3 of the focus pipeline (blur → Laplacian → amplify) then
-    /// collapses to a scalar via a region-restricted 95th-percentile.
-    /// `nonisolated` lets this be called synchronously from Task.detached without
-    /// hopping back to the main actor.
+    // MARK: - Scalar scoring
+
+    /// Robust scalar sharpness:
+    /// blur -> Laplacian -> amplify -> robust tail score.
+    /// Computes both full-frame and salient-region score, then fuses conservatively.
     private nonisolated static func computeSharpnessScalar(
         from inputImage: CIImage,
         salientRegion: CGRect?,
         context: CIContext,
-        config: FocusDetectorConfig,
+        config: FocusDetectorConfig
     ) -> Float? {
-        // Pass 1: Gaussian pre-blur (noise suppression)
+        // Pass 1: Gaussian pre-blur
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = inputImage
         preBlur.radius = config.preBlurRadius
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        // Pass 2: Metal Laplacian kernel
+        // Pass 2: Laplacian
         guard let laplacianKernel = _focusMagnitudeKernel else { return nil }
         guard let laplacianOutput = laplacianKernel.apply(
             extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage],
+            arguments: [smoothedImage]
         ) else { return nil }
 
-        // Pass 3: Amplify (same multiplier as visual mask for consistent calibration)
+        // Pass 3: Amplify
         let boost = CIFilter.colorMatrix()
         boost.inputImage = laplacianOutput
         boost.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
         boost.gVector = CIVector(x: 0, y: CGFloat(config.energyMultiplier), z: 0, w: 0)
         boost.bVector = CIVector(x: 0, y: 0, z: CGFloat(config.energyMultiplier), w: 0)
         boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-        guard let boostedLaplacian = boost.outputImage else { return nil }
+        guard let boosted = boost.outputImage else { return nil }
 
-        // Collapse to scalar: region-restricted 95th-percentile of the red channel.
-        //
-        // When Vision detected a salient subject, only the Laplacian pixels inside
-        // that bounding box are sorted — background texture (rocks, bokeh, sky) is
-        // excluded entirely. Laplacian values are never scaled down by a weight, so
-        // the score magnitude is independent of how large or small the subject is and
-        // the max-normalisation in the UI remains stable. When no region is available
-        // every pixel is included (same behaviour as the plain 95th-percentile path).
-        //
-        // Vision bounding boxes use normalised coordinates with origin at bottom-left,
-        // matching the CIImage / Laplacian bitmap coordinate system (row 0 = bottom).
-        let extent = boostedLaplacian.extent
+        let extent = boosted.extent
         let width = Int(extent.width)
         let height = Int(extent.height)
         guard width > 0, height > 0 else { return nil }
 
         let pixelCount = width * height
-        var laplacianPixels = [Float](repeating: 0, count: pixelCount * 4)
+        var rgba = [Float](repeating: 0, count: pixelCount * 4)
         context.render(
-            boostedLaplacian,
-            toBitmap: &laplacianPixels,
+            boosted,
+            toBitmap: &rgba,
             rowBytes: width * 16,
             bounds: extent,
             format: .RGBAf,
-            colorSpace: nil,
+            colorSpace: nil
         )
 
-        var redChannel: [Float]
-        if let region = salientRegion {
-            // Map normalised Vision coords → pixel indices in the Laplacian bitmap.
+        @inline(__always)
+        func redAt(_ idx: Int) -> Float { rgba[idx * 4] }
+
+        var full = [Float]()
+        full.reserveCapacity(pixelCount)
+        for i in 0..<pixelCount { full.append(redAt(i)) }
+
+        func regionSamples(_ region: CGRect) -> [Float] {
             let colStart = max(0, Int(region.minX * CGFloat(width)))
             let colEnd = min(width, Int(region.maxX * CGFloat(width)))
             let rowStart = max(0, Int(region.minY * CGFloat(height)))
             let rowEnd = min(height, Int(region.maxY * CGFloat(height)))
 
-            var filtered = [Float]()
-            filtered.reserveCapacity((colEnd - colStart) * (rowEnd - rowStart))
-            for row in rowStart ..< rowEnd {
-                for col in colStart ..< colEnd {
-                    filtered.append(laplacianPixels[(row * width + col) * 4])
+            guard colEnd > colStart, rowEnd > rowStart else { return [] }
+
+            var out = [Float]()
+            out.reserveCapacity((colEnd - colStart) * (rowEnd - rowStart))
+            for row in rowStart..<rowEnd {
+                let base = row * width
+                for col in colStart..<colEnd {
+                    out.append(redAt(base + col))
                 }
             }
-            // Fall back to full image if the mapped region turned out empty
-            redChannel = filtered.isEmpty
-                ? (0 ..< pixelCount).map { laplacianPixels[$0 * 4] }
-                : filtered
-        } else {
-            redChannel = (0 ..< pixelCount).map { laplacianPixels[$0 * 4] }
+            return out
         }
 
-        // Sort ascending and return 95th percentile.
-        redChannel.sort()
-        let idx = min(Int(Float(redChannel.count) * 0.95), redChannel.count - 1)
-        return redChannel[idx]
+        @inline(__always)
+        func partition(_ a: inout [Float], _ lo: Int, _ hi: Int, _ p: Int) -> Int {
+            let pivot = a[p]
+            a.swapAt(p, hi)
+            var store = lo
+            for i in lo..<hi where a[i] < pivot {
+                a.swapAt(store, i)
+                store += 1
+            }
+            a.swapAt(store, hi)
+            return store
+        }
+
+        func quickselect(_ a: inout [Float], k: Int) -> Float {
+            var lo = 0
+            var hi = a.count - 1
+            while true {
+                if lo == hi { return a[lo] }
+                let pivotIndex = (lo + hi) >> 1
+                let p = partition(&a, lo, hi, pivotIndex)
+                if k == p { return a[k] }
+                if k < p { hi = p - 1 } else { lo = p + 1 }
+            }
+        }
+
+        // Score as winsorized tail mean (>= p95, clipped at p99.5)
+        func robustTailScore(_ samples: [Float]) -> Float? {
+            guard !samples.isEmpty else { return nil }
+            var a = samples
+            let n = a.count
+
+            let k95 = min(max(Int(Float(n) * 0.95), 0), n - 1)
+            let k995 = min(max(Int(Float(n) * 0.995), 0), n - 1)
+
+            let p95 = quickselect(&a, k: k95)
+            let p995 = quickselect(&a, k: k995)
+
+            var sum: Float = 0
+            var cnt = 0
+            for v in samples where v >= p95 {
+                sum += min(v, p995)
+                cnt += 1
+            }
+            guard cnt > 0 else { return p95 }
+            return sum / Float(cnt)
+        }
+
+        let fullScore = robustTailScore(full)
+
+        var salientScore: Float? = nil
+        if let region = salientRegion {
+            let s = regionSamples(region)
+            if s.count >= 256 {
+                salientScore = robustTailScore(s)
+            }
+        }
+
+        // Conservative fusion to avoid saliency failures collapsing score.
+        switch (fullScore, salientScore) {
+        case let (f?, s?):
+            return max(f * 0.85, s * 0.90)
+        case let (f?, nil):
+            return f
+        case let (nil, s?):
+            return s
+        default:
+            return nil
+        }
     }
 
-    /// IMPROVEMENT 5: Single unified implementation — both public overloads
-    /// delegate here, eliminating the previous code duplication.
+    // MARK: - Mask generation
+    
     private nonisolated static func buildFocusMask(
         from inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig,
+        config: FocusDetectorConfig
     ) -> CGImage? {
         let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale),
+            by: CGAffineTransform(scaleX: scale, y: scale)
         )
 
-        // Pass 1: Gaussian pre-blur (noise suppression)
+        // Pass 1: Gaussian pre-blur
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = scaledImage
         preBlur.radius = config.preBlurRadius
         guard let smoothedImage = preBlur.outputImage else { return nil }
 
-        // Pass 2: Laplacian (custom Metal kernel)
+        // Pass 2: Laplacian
         guard let laplacianKernel = _focusMagnitudeKernel else { return nil }
         guard let laplacianOutput = laplacianKernel.apply(
             extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage],
+            arguments: [smoothedImage]
         ) else { return nil }
 
-        // IMPROVEMENT 3: Amplify BEFORE threshold so the threshold operates
-        // on a boosted signal. The energyMultiplier now affects mask quality,
-        // not just overlay brightness.
+        // Amplify before threshold
         let preThresholdBoost = CIFilter.colorMatrix()
         preThresholdBoost.inputImage = laplacianOutput
         preThresholdBoost.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
@@ -314,44 +396,40 @@ final class FocusMaskModel: @unchecked Sendable {
         preThresholdBoost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         guard let boostedLaplacian = preThresholdBoost.outputImage else { return nil }
 
-        // Debug shortcut: skip threshold/morphology and return the raw
-        // Laplacian response directly so preBlurRadius and energyMultiplier
-        // can be calibrated visually before touching the other controls.
         if config.showRawLaplacian {
             let cropped = boostedLaplacian.cropped(to: scaledImage.extent)
             return context.createCGImage(cropped, from: cropped.extent)
         }
 
-        // Pass 3: Threshold on the boosted signal
+        // Pass 3: Threshold
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = boostedLaplacian
         thresholdFilter.threshold = config.threshold
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // Pass 4a: Optional erosion — removes isolated noise pixels that
-        // survive thresholding before the dilation widens them.
+        // Pass 4a: Optional erosion
+        let erosionPx = Self.morphologyPixelRadius(config.erosionRadius)
         let eroded: CIImage
-        if config.erosionRadius > 0,
-           let erode = CIFilter(name: "CIMorphologyMinimum") {
+        if erosionPx > 0, let erode = CIFilter(name: "CIMorphologyMinimum") {
             erode.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-            erode.setValue(CGFloat(config.erosionRadius), forKey: kCIInputRadiusKey)
+            erode.setValue(erosionPx, forKey: kCIInputRadiusKey) // Int pixel radius
             eroded = erode.outputImage ?? thresholdedEdges
         } else {
             eroded = thresholdedEdges
         }
 
-        // Pass 4b: Dilation — fills small gaps and connects nearby blobs.
+        // Pass 4b: Dilation
+        let dilationPx = Self.morphologyPixelRadius(config.dilationRadius)
         let dilated: CIImage
-        if config.dilationRadius > 0,
-           let dilate = CIFilter(name: "CIMorphologyMaximum") {
+        if dilationPx > 0, let dilate = CIFilter(name: "CIMorphologyMaximum") {
             dilate.setValue(eroded, forKey: kCIInputImageKey)
-            dilate.setValue(CGFloat(config.dilationRadius), forKey: kCIInputRadiusKey)
+            dilate.setValue(dilationPx, forKey: kCIInputRadiusKey) // Int pixel radius
             dilated = dilate.outputImage ?? eroded
         } else {
             dilated = eroded
         }
 
-        // Pass 5: Map to red channel for visual overlay
+        // Pass 5: Map to red channel
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = dilated
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
@@ -360,7 +438,7 @@ final class FocusMaskModel: @unchecked Sendable {
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // Pass 6: Optional feather — final Gaussian for soft mask edges.
+        // Pass 6: Optional feather
         let feathered: CIImage
         if config.featherRadius > 0 {
             let featherBlur = CIFilter.gaussianBlur()
@@ -373,5 +451,13 @@ final class FocusMaskModel: @unchecked Sendable {
 
         let croppedMask = feathered.cropped(to: scaledImage.extent)
         return context.createCGImage(croppedMask, from: croppedMask.extent)
+    }
+    
+    // Add this helper inside FocusMaskModel
+    @inline(__always)
+    private nonisolated static func morphologyPixelRadius(_ r: Float) -> Int {
+        // Quantize to nearest pixel so morphology behaves predictably.
+        // 0 disables the pass.
+        max(0, Int((r).rounded()))
     }
 }
