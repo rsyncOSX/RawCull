@@ -141,16 +141,10 @@ final class FocusMaskModel: @unchecked Sendable {
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512
     ) async -> Float? {
-        let cgImage: CGImage? = await withCheckedContinuation { continuation in
-            let maxPixels = thumbnailMaxPixelSize
-            DispatchQueue.global(qos: .userInitiated).async {
-                if let thumb = Self.decodeThumbnail(at: url, maxPixelSize: maxPixels) {
-                    continuation.resume(returning: thumb)
-                    return
-                }
-                continuation.resume(returning: Self.decodeImage(at: url))
-            }
-        }
+        let cgImage: CGImage? = await Task.detached(priority: .userInitiated) {
+            Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize)
+                ?? Self.decodeImage(at: url)
+        }.value
 
         guard let cgImage else { return nil }
 
@@ -270,7 +264,10 @@ final class FocusMaskModel: @unchecked Sendable {
 
         var full = [Float]()
         full.reserveCapacity(pixelCount)
-        for i in 0..<pixelCount { full.append(redAt(i)) }
+        for i in 0..<pixelCount {
+            let v = redAt(i)
+            if v.isFinite { full.append(v) }
+        }
 
         func regionSamples(_ region: CGRect) -> [Float] {
             let colStart = max(0, Int(region.minX * CGFloat(width)))
@@ -285,7 +282,8 @@ final class FocusMaskModel: @unchecked Sendable {
             for row in rowStart..<rowEnd {
                 let base = row * width
                 for col in colStart..<colEnd {
-                    out.append(redAt(base + col))
+                    let v = redAt(base + col)
+                    if v.isFinite { out.append(v) }
                 }
             }
             return out
