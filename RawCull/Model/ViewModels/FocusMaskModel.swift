@@ -8,9 +8,9 @@ import Vision
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
     var threshold: Float = 0.46
-    var dilationRadius: Float = 1.0   // was 0.43
+    var dilationRadius: Float = 1.0 // was 0.43
     var energyMultiplier: Float = 7.62
-    var erosionRadius: Float = 1.0    // was 0.27
+    var erosionRadius: Float = 1.0 // was 0.27
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
 }
@@ -76,7 +76,7 @@ final class FocusMaskModel: @unchecked Sendable {
                     from: CIImage(cgImage: cgImage),
                     scale: scale,
                     context: context,
-                    config: config
+                    config: config,
                 )
             }
 
@@ -98,7 +98,7 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: linearImage,
                 scale: scale,
                 context: context,
-                config: config
+                config: config,
             )
         }.value
     }
@@ -114,7 +114,7 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
                 context: context,
-                config: config
+                config: config,
             ) else { return nil }
             return NSImage(cgImage: result, size: originalSize)
         }.value
@@ -129,7 +129,7 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
                 context: context,
-                config: config
+                config: config,
             )
         }.value
     }
@@ -139,7 +139,7 @@ final class FocusMaskModel: @unchecked Sendable {
     nonisolated func computeSharpnessScore(
         fromRawURL url: URL,
         config: FocusDetectorConfig,
-        thumbnailMaxPixelSize: Int = 512
+        thumbnailMaxPixelSize: Int = 512,
     ) async -> Float? {
         let cgImage: CGImage? = await Task.detached(priority: .userInitiated) {
             Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize)
@@ -153,7 +153,7 @@ final class FocusMaskModel: @unchecked Sendable {
             from: CIImage(cgImage: cgImage),
             salientRegion: region,
             context: context,
-            config: config
+            config: config,
         )
     }
 
@@ -218,30 +218,9 @@ final class FocusMaskModel: @unchecked Sendable {
         from inputImage: CIImage,
         salientRegion: CGRect?,
         context: CIContext,
-        config: FocusDetectorConfig
+        config: FocusDetectorConfig,
     ) -> Float? {
-        // Pass 1: Gaussian pre-blur
-        let preBlur = CIFilter.gaussianBlur()
-        preBlur.inputImage = inputImage
-        preBlur.radius = config.preBlurRadius
-        guard let smoothedImage = preBlur.outputImage else { return nil }
-
-        // Pass 2: Laplacian
-        guard let laplacianKernel = _focusMagnitudeKernel else { return nil }
-        guard let laplacianOutput = laplacianKernel.apply(
-            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
-            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage]
-        ) else { return nil }
-
-        // Pass 3: Amplify
-        let boost = CIFilter.colorMatrix()
-        boost.inputImage = laplacianOutput
-        boost.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
-        boost.gVector = CIVector(x: 0, y: CGFloat(config.energyMultiplier), z: 0, w: 0)
-        boost.bVector = CIVector(x: 0, y: 0, z: CGFloat(config.energyMultiplier), w: 0)
-        boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-        guard let boosted = boost.outputImage else { return nil }
+        guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
 
         let extent = boosted.extent
         let width = Int(extent.width)
@@ -256,15 +235,17 @@ final class FocusMaskModel: @unchecked Sendable {
             rowBytes: width * 16,
             bounds: extent,
             format: .RGBAf,
-            colorSpace: nil
+            colorSpace: nil,
         )
 
         @inline(__always)
-        func redAt(_ idx: Int) -> Float { rgba[idx * 4] }
+        func redAt(_ idx: Int) -> Float {
+            rgba[idx * 4]
+        }
 
         var full = [Float]()
         full.reserveCapacity(pixelCount)
-        for i in 0..<pixelCount {
+        for i in 0 ..< pixelCount {
             let v = redAt(i)
             if v.isFinite { full.append(v) }
         }
@@ -279,9 +260,9 @@ final class FocusMaskModel: @unchecked Sendable {
 
             var out = [Float]()
             out.reserveCapacity((colEnd - colStart) * (rowEnd - rowStart))
-            for row in rowStart..<rowEnd {
+            for row in rowStart ..< rowEnd {
                 let base = row * width
-                for col in colStart..<colEnd {
+                for col in colStart ..< colEnd {
                     let v = redAt(base + col)
                     if v.isFinite { out.append(v) }
                 }
@@ -294,7 +275,7 @@ final class FocusMaskModel: @unchecked Sendable {
             let pivot = a[p]
             a.swapAt(p, hi)
             var store = lo
-            for i in lo..<hi where a[i] < pivot {
+            for i in lo ..< hi where a[i] < pivot {
                 a.swapAt(store, i)
                 store += 1
             }
@@ -314,7 +295,7 @@ final class FocusMaskModel: @unchecked Sendable {
             }
         }
 
-        // Score as winsorized tail mean (>= p95, clipped at p99.5)
+        /// Score as winsorized tail mean (>= p95, clipped at p99.5)
         func robustTailScore(_ samples: [Float]) -> Float? {
             guard !samples.isEmpty else { return nil }
             var a = samples
@@ -338,7 +319,7 @@ final class FocusMaskModel: @unchecked Sendable {
 
         let fullScore = robustTailScore(full)
 
-        var salientScore: Float? = nil
+        var salientScore: Float?
         if let region = salientRegion {
             let s = regionSamples(region)
             if s.count >= 256 {
@@ -350,49 +331,58 @@ final class FocusMaskModel: @unchecked Sendable {
         switch (fullScore, salientScore) {
         case let (f?, s?):
             return max(f * 0.85, s * 0.90)
+
         case let (f?, nil):
             return f
+
         case let (nil, s?):
             return s
+
         default:
             return nil
         }
     }
 
     // MARK: - Mask generation
-    
+
+    /// Shared passes 1–3: blur → Laplacian → amplify.
+    /// Used by both scalar scoring and mask generation so tuning one affects both.
+    private nonisolated static func buildAmplifiedLaplacian(
+        from image: CIImage,
+        config: FocusDetectorConfig,
+    ) -> CIImage? {
+        let preBlur = CIFilter.gaussianBlur()
+        preBlur.inputImage = image
+        preBlur.radius = config.preBlurRadius
+        guard let smoothed = preBlur.outputImage else { return nil }
+
+        guard let kernel = _focusMagnitudeKernel else { return nil }
+        guard let laplacianOutput = kernel.apply(
+            extent: smoothed.extent.insetBy(dx: 1, dy: 1),
+            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
+            arguments: [smoothed],
+        ) else { return nil }
+
+        let boost = CIFilter.colorMatrix()
+        boost.inputImage = laplacianOutput
+        boost.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
+        boost.gVector = CIVector(x: 0, y: CGFloat(config.energyMultiplier), z: 0, w: 0)
+        boost.bVector = CIVector(x: 0, y: 0, z: CGFloat(config.energyMultiplier), w: 0)
+        boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        return boost.outputImage
+    }
+
     private nonisolated static func buildFocusMask(
         from inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig
+        config: FocusDetectorConfig,
     ) -> CGImage? {
         let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale)
+            by: CGAffineTransform(scaleX: scale, y: scale),
         )
 
-        // Pass 1: Gaussian pre-blur
-        let preBlur = CIFilter.gaussianBlur()
-        preBlur.inputImage = scaledImage
-        preBlur.radius = config.preBlurRadius
-        guard let smoothedImage = preBlur.outputImage else { return nil }
-
-        // Pass 2: Laplacian
-        guard let laplacianKernel = _focusMagnitudeKernel else { return nil }
-        guard let laplacianOutput = laplacianKernel.apply(
-            extent: smoothedImage.extent.insetBy(dx: 1, dy: 1),
-            roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothedImage]
-        ) else { return nil }
-
-        // Amplify before threshold
-        let preThresholdBoost = CIFilter.colorMatrix()
-        preThresholdBoost.inputImage = laplacianOutput
-        preThresholdBoost.rVector = CIVector(x: CGFloat(config.energyMultiplier), y: 0, z: 0, w: 0)
-        preThresholdBoost.gVector = CIVector(x: 0, y: CGFloat(config.energyMultiplier), z: 0, w: 0)
-        preThresholdBoost.bVector = CIVector(x: 0, y: 0, z: CGFloat(config.energyMultiplier), w: 0)
-        preThresholdBoost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-        guard let boostedLaplacian = preThresholdBoost.outputImage else { return nil }
+        guard let boostedLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else { return nil }
 
         if config.showRawLaplacian {
             let cropped = boostedLaplacian.cropped(to: scaledImage.extent)
@@ -450,19 +440,17 @@ final class FocusMaskModel: @unchecked Sendable {
         let croppedMask = feathered.cropped(to: scaledImage.extent)
         return context.createCGImage(croppedMask, from: croppedMask.extent)
     }
-    
-    // Add this helper inside FocusMaskModel
+
     @inline(__always)
     private nonisolated static func morphologyPixelRadius(_ r: Float) -> Int {
         // Quantize to nearest pixel so morphology behaves predictably.
         // 0 disables the pass.
-        max(0, Int((r).rounded()))
+        max(0, Int(r.rounded()))
     }
 }
 
 extension FocusMaskModel {
-    
-    struct FocusCalibrationResult: Sendable {
+    struct FocusCalibrationResult {
         let threshold: Float
         let energyMultiplier: Float
         let sampleCount: Int
@@ -471,7 +459,7 @@ extension FocusMaskModel {
         let p95: Float
         let p99: Float
     }
-    
+
     /// Parallel auto-calibration for larger bursts.
     /// Limits in-flight work to avoid oversubscribing CPU/IO.
     nonisolated func calibrateFromBurstParallel(
@@ -481,7 +469,7 @@ extension FocusMaskModel {
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.85,
         minSamples: Int = 5,
-        maxConcurrentTasks: Int = 8
+        maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
         guard !rawURLs.isEmpty else { return nil }
 
@@ -498,7 +486,7 @@ extension FocusMaskModel {
 
         await withTaskGroup(of: Float?.self) { group in
             // Seed initial tasks
-            for _ in 0..<concurrency {
+            for _ in 0 ..< concurrency {
                 guard nextIndex < rawURLs.count else { break }
                 let url = rawURLs[nextIndex]
                 nextIndex += 1
@@ -512,7 +500,7 @@ extension FocusMaskModel {
                         from: CIImage(cgImage: cgImage),
                         salientRegion: region,
                         context: ctx,
-                        config: probeConfig
+                        config: probeConfig,
                     )
                 }
             }
@@ -536,7 +524,7 @@ extension FocusMaskModel {
                             from: CIImage(cgImage: cgImage),
                             salientRegion: region,
                             context: ctx,
-                            config: probeConfig
+                            config: probeConfig,
                         )
                     }
                 }
@@ -570,7 +558,7 @@ extension FocusMaskModel {
             p50: p50,
             p90: p90,
             p95: p95,
-            p99: p99
+            p99: p99,
         )
     }
 }
