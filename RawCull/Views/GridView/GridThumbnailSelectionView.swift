@@ -21,9 +21,9 @@ struct GridThumbnailSelectionView: View {
         VStack(spacing: 0) {
             // Header with info + sharpness controls
             HStack(spacing: 10) {
-                // Score button
+                // Score button — calibrates from the burst then scores
                 Button {
-                    Task { await viewModel.scoreSharpnessForCurrentCatalog() }
+                    Task { await viewModel.calibrateAndScoreCurrentCatalog() }
                 } label: {
                     if viewModel.sharpnessModel.isScoring {
                         Label("Scoring…", systemImage: "scope")
@@ -35,17 +35,7 @@ struct GridThumbnailSelectionView: View {
                 }
                 .font(.caption)
                 .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
-                .help("Analyse sharpness for all images in this catalog")
-
-                // Calibrate + score button
-                Button {
-                    Task { await viewModel.calibrateAndScoreCurrentCatalog() }
-                } label: {
-                    Label("Calibrate & Score", systemImage: "wand.and.sparkles")
-                }
-                .font(.caption)
-                .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
-                .help("Auto-calibrate threshold and gain from this burst, then score")
+                .help("Auto-calibrate threshold and gain from this burst, then score sharpness")
 
                 // Cancel button — only visible while scoring
                 if viewModel.sharpnessModel.isScoring {
