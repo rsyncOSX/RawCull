@@ -595,10 +595,12 @@ extension FocusMaskModel {
         let p95 = percentile(scores, 0.95)
         let p99 = percentile(scores, 0.99)
 
-        let tunedThreshold = percentile(scores, thresholdPercentile)
         let eps: Float = 1e-6
         let rawGain = targetP95AfterGain / max(p95, eps)
         let tunedGain = min(max(rawGain, 0.5), 32.0)
+        // Scale threshold into the boosted space so it aligns with what
+        // buildFocusMask sees after applying energyMultiplier.
+        let tunedThreshold = min(percentile(scores, thresholdPercentile) * tunedGain, 1.0)
 
         return FocusCalibrationResult(
             threshold: tunedThreshold,
