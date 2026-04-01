@@ -73,6 +73,9 @@ final class SharpnessScoringModel {
 
     /// The running batch task — retained so it can be cancelled externally.
     private var _scoringTask: Task<Void, Never>?
+    
+    /// Calibrate
+    var calibratingsharpnessscoring: Bool = false
 
     // MARK: - Lifecycle
 
@@ -105,6 +108,8 @@ final class SharpnessScoringModel {
     /// Auto-calibrates `focusMaskModel.config` from a burst and logs the result.
     /// Applies threshold + gain directly; call before `scoreFiles(_:)` for best results.
     func calibrateFromBurst(_ files: [FileItem]) async {
+        // Starte calibrate
+        calibratingsharpnessscoring = true
         let urls = files.map(\.url)
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
             rawURLs: urls,
@@ -112,10 +117,13 @@ final class SharpnessScoringModel {
             maxConcurrentTasks: 8,
         ) else {
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
+            calibratingsharpnessscoring = false
             return
         }
         Logger.process.debugMessageOnly("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
         Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
+        
+        calibratingsharpnessscoring = false
     }
 
     // MARK: - Batch Scoring

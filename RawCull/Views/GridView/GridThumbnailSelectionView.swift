@@ -79,6 +79,14 @@ struct GridThumbnailSelectionView: View {
                         await viewModel.handleSortOrderChange()
                     }
                 }
+                
+                // Create a spinner when calibrating is in progress
+                if viewModel.sharpnessModel.calibratingsharpnessscoring {
+                    HStack {
+                        ProgressView()
+                        Text("Calibrating sharpness scoring, please wait...")
+                    }
+                }
 
                 Spacer()
 
