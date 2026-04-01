@@ -460,6 +460,55 @@ extension FocusMaskModel {
         let p99: Float
     }
 
+    /// Applies a calibration result to the current model config.
+    /// Only threshold + energyMultiplier are changed.
+    @MainActor
+    func applyCalibration(_ result: FocusCalibrationResult) {
+        var cfg = config
+        cfg.threshold = result.threshold
+        cfg.energyMultiplier = result.energyMultiplier
+        config = cfg
+    }
+
+    /// Returns a config with calibration applied (pure helper, no mutation).
+    nonisolated static func applyingCalibration(
+        _ result: FocusCalibrationResult,
+        to base: FocusDetectorConfig,
+    ) -> FocusDetectorConfig {
+        var cfg = base
+        cfg.threshold = result.threshold
+        cfg.energyMultiplier = result.energyMultiplier
+        return cfg
+    }
+
+    /// Convenience: calibrate in parallel and immediately apply to model config.
+    /// Returns calibration details for logging/UI.
+    @MainActor
+    func calibrateAndApplyFromBurstParallel(
+        rawURLs: [URL],
+        thumbnailMaxPixelSize: Int = 512,
+        thresholdPercentile: Float = 0.90,
+        targetP95AfterGain: Float = 0.85,
+        minSamples: Int = 5,
+        maxConcurrentTasks: Int = 8,
+    ) async -> FocusCalibrationResult? {
+        let base = config
+        guard let result = await calibrateFromBurstParallel(
+            rawURLs: rawURLs,
+            baseConfig: base,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            thresholdPercentile: thresholdPercentile,
+            targetP95AfterGain: targetP95AfterGain,
+            minSamples: minSamples,
+            maxConcurrentTasks: maxConcurrentTasks,
+        ) else {
+            return nil
+        }
+
+        applyCalibration(result)
+        return result
+    }
+
     /// Parallel auto-calibration for larger bursts.
     /// Limits in-flight work to avoid oversubscribing CPU/IO.
     nonisolated func calibrateFromBurstParallel(
@@ -564,19 +613,24 @@ extension FocusMaskModel {
 }
 
 /*
- var cfg = model.config
+ // 1) Two-step apply
+ if let result = await model.calibrateFromBurstParallel(rawURLs: burstURLs, baseConfig: model.config) {
+     await model.applyCalibration(result)
+ }
 
- if let result = await model.calibrateFromBurstParallel(
+ // 2) One-liner calibrate + apply
+ if let result = await model.calibrateAndApplyFromBurstParallel(
      rawURLs: burstURLs,
-     baseConfig: cfg,
-     thumbnailMaxPixelSize: 512,
-     thresholdPercentile: 0.90,
-     targetP95AfterGain: 0.85,
      minSamples: 8,
      maxConcurrentTasks: 8
  ) {
-     cfg.threshold = result.threshold
-     cfg.energyMultiplier = result.energyMultiplier
-     model.config = cfg
+     print("Applied calibration: threshold=\(result.threshold), gain=\(result.energyMultiplier)")
  }
+
+ // 3) Pure config (no model mutation), useful for previews/tests
+ if let result = await model.calibrateFromBurstParallel(rawURLs: burstURLs, baseConfig: model.config) {
+     let tuned = FocusMaskModel.applyingCalibration(result, to: model.config)
+     // use `tuned` directly with computeSharpnessScore(...)
+ }
+
  */
