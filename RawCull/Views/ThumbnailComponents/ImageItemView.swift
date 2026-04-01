@@ -53,6 +53,7 @@ struct ImageItemView: View {
     let thumbnailSize: Int
 
     var onSelect: () -> Void = {}
+    var onDoubleSelect: () -> Void = {}
     var onTag: () -> Void = {}
 
     var body: some View {
@@ -124,6 +125,7 @@ struct ImageItemView: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
+        .onTapGesture(count: 2) { onDoubleSelect() }
         .onTapGesture(count: 1) { onSelect() }
     }
 

@@ -133,6 +133,7 @@ struct GridThumbnailSelectionView: View {
                                 isHovered: hoveredFileID == file.id,
                                 thumbnailSize: settings.thumbnailSizeGridView,
                                 onSelect: { handleToggleSelection(for: file) },
+                                onDoubleSelect: { handleDoubleSelect(for: file) },
                                 onTag: {
                                     Task { await viewModel.toggleTag(for: file) }
                                 },
@@ -164,6 +165,10 @@ struct GridThumbnailSelectionView: View {
     private func handleToggleSelection(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.selectedFile = file
+    }
+
+    private func handleDoubleSelect(for file: FileItem) {
+        // TODO: assign an action to double-click
     }
 
     var files: [FileItem] {
