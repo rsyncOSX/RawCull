@@ -4,6 +4,7 @@ import CoreImage.CIFilterBuiltins
 import ImageIO
 import Observation
 import Vision
+import OSLog
 
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
@@ -44,7 +45,7 @@ private nonisolated let _focusMagnitudeKernel: CIKernel? = {
     do {
         return try CIKernel(functionName: "focusLaplacian", fromMetalLibraryData: data)
     } catch {
-        print("FocusDetector: Failed to load kernel: \(error)")
+        Logger.process.debugMessageOnly("FocusDetector: Failed to load kernel: \(error)")
         return nil
     }
 }()
@@ -614,25 +615,3 @@ extension FocusMaskModel {
     }
 }
 
-/*
- // 1) Two-step apply
- if let result = await model.calibrateFromBurstParallel(rawURLs: burstURLs, baseConfig: model.config) {
-     await model.applyCalibration(result)
- }
-
- // 2) One-liner calibrate + apply
- if let result = await model.calibrateAndApplyFromBurstParallel(
-     rawURLs: burstURLs,
-     minSamples: 8,
-     maxConcurrentTasks: 8
- ) {
-     print("Applied calibration: threshold=\(result.threshold), gain=\(result.energyMultiplier)")
- }
-
- // 3) Pure config (no model mutation), useful for previews/tests
- if let result = await model.calibrateFromBurstParallel(rawURLs: burstURLs, baseConfig: model.config) {
-     let tuned = FocusMaskModel.applyingCalibration(result, to: model.config)
-     // use `tuned` directly with computeSharpnessScore(...)
- }
-
- */

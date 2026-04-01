@@ -5,6 +5,7 @@
 
 import Foundation
 import Observation
+import OSLog
 
 // MARK: - ApertureFilter
 
@@ -110,11 +111,11 @@ final class SharpnessScoringModel {
             minSamples: 5,
             maxConcurrentTasks: 8
         ) else {
-            print("SharpnessScoringModel: calibration failed (too few scoreable images)")
+            Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
             return
         }
-        print("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
-        print("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
+        Logger.process.debugMessageOnly("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
+        Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
     }
 
     // MARK: - Batch Scoring
