@@ -73,7 +73,7 @@ final class SharpnessScoringModel {
 
     /// The running batch task — retained so it can be cancelled externally.
     private var _scoringTask: Task<Void, Never>?
-    
+
     /// Calibrate
     var calibratingsharpnessscoring: Bool = false
 
@@ -122,7 +122,7 @@ final class SharpnessScoringModel {
         }
         Logger.process.debugMessageOnly("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
         Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
-        
+
         calibratingsharpnessscoring = false
     }
 

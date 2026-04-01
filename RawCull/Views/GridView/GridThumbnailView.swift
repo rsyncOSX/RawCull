@@ -13,6 +13,8 @@ struct GridThumbnailView: View {
     @Environment(SettingsViewModel.self) var settingsviewmodel
 
     @Binding var isPresented: Bool
+    @Binding var nsImage: NSImage?
+    @Binding var cgImage: CGImage?
 
     var body: some View {
         // let _ = Self._printChanges()
@@ -21,6 +23,8 @@ struct GridThumbnailView: View {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
                     selectedSource: gridthumbnailviewmodel.selectedSource,
+                    nsImage: $nsImage,
+                    cgImage: $cgImage,
                 )
             } else {
                 ContentUnavailableView(

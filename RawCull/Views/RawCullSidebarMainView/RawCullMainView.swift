@@ -46,6 +46,8 @@ struct RawCullMainView: View {
                 GridThumbnailView(
                     viewModel: viewModel,
                     isPresented: $showGridThumbnail,
+                    nsImage: $nsImage,
+                    cgImage: $cgImage,
                 )
             } else {
                 // Default view starts here

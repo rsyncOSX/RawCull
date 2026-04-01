@@ -30,6 +30,8 @@ struct HorizontalMainThumbnailsListView: View {
             GridThumbnailView(
                 viewModel: viewModel,
                 isPresented: $showGridThumbnail,
+                nsImage: $nsImage,
+                cgImage: $cgImage,
             )
         } else {
             if let file = viewModel.selectedFile {

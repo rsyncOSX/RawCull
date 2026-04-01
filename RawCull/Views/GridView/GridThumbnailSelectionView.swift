@@ -10,12 +10,15 @@ import SwiftUI
 
 struct GridThumbnailSelectionView: View {
     @Environment(SettingsViewModel.self) private var settings
+    @Environment(\.openWindow) private var openWindow
 
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
 
     let selectedSource: ARWSourceCatalog?
+    @Binding var nsImage: NSImage?
+    @Binding var cgImage: CGImage?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -79,7 +82,7 @@ struct GridThumbnailSelectionView: View {
                         await viewModel.handleSortOrderChange()
                     }
                 }
-                
+
                 // Create a spinner when calibrating is in progress
                 if viewModel.sharpnessModel.calibratingsharpnessscoring {
                     HStack {
@@ -168,7 +171,13 @@ struct GridThumbnailSelectionView: View {
     }
 
     private func handleDoubleSelect(for file: FileItem) {
-        // TODO: assign an action to double-click
+        ZoomPreviewHandler.handle(
+            file: file,
+            useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
+            setNSImage: { nsImage = $0 },
+            setCGImage: { cgImage = $0 },
+            openWindow: { id in openWindow(id: id) },
+        )
     }
 
     var files: [FileItem] {
