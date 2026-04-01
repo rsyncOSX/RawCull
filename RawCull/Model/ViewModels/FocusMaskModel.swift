@@ -461,3 +461,136 @@ final class FocusMaskModel: @unchecked Sendable {
         max(0, Int((r).rounded()))
     }
 }
+
+extension FocusMaskModel {
+    
+    struct FocusCalibrationResult: Sendable {
+        let threshold: Float
+        let energyMultiplier: Float
+        let sampleCount: Int
+        let p50: Float
+        let p90: Float
+        let p95: Float
+        let p99: Float
+    }
+    
+    /// Parallel auto-calibration for larger bursts.
+    /// Limits in-flight work to avoid oversubscribing CPU/IO.
+    nonisolated func calibrateFromBurstParallel(
+        rawURLs: [URL],
+        baseConfig: FocusDetectorConfig,
+        thumbnailMaxPixelSize: Int = 512,
+        thresholdPercentile: Float = 0.90,
+        targetP95AfterGain: Float = 0.85,
+        minSamples: Int = 5,
+        maxConcurrentTasks: Int = 8
+    ) async -> FocusCalibrationResult? {
+        guard !rawURLs.isEmpty else { return nil }
+
+        var probeConfig = baseConfig
+        probeConfig.energyMultiplier = 1.0
+
+        let ctx = self.context
+        let tSize = thumbnailMaxPixelSize
+        let concurrency = max(1, min(maxConcurrentTasks, rawURLs.count))
+
+        var nextIndex = 0
+        var scores = [Float]()
+        scores.reserveCapacity(rawURLs.count)
+
+        await withTaskGroup(of: Float?.self) { group in
+            // Seed initial tasks
+            for _ in 0..<concurrency {
+                guard nextIndex < rawURLs.count else { break }
+                let url = rawURLs[nextIndex]
+                nextIndex += 1
+
+                group.addTask { [probeConfig, ctx, tSize] in
+                    guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: tSize) ?? Self.decodeImage(at: url) else {
+                        return nil
+                    }
+                    let region = Self.salientRegion(for: cgImage)
+                    return Self.computeSharpnessScalar(
+                        from: CIImage(cgImage: cgImage),
+                        salientRegion: region,
+                        context: ctx,
+                        config: probeConfig
+                    )
+                }
+            }
+
+            // Refill as tasks complete
+            while let value = await group.next() {
+                if let s = value, s.isFinite, s > 0 {
+                    scores.append(s)
+                }
+
+                if nextIndex < rawURLs.count {
+                    let url = rawURLs[nextIndex]
+                    nextIndex += 1
+
+                    group.addTask { [probeConfig, ctx, tSize] in
+                        guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: tSize) ?? Self.decodeImage(at: url) else {
+                            return nil
+                        }
+                        let region = Self.salientRegion(for: cgImage)
+                        return Self.computeSharpnessScalar(
+                            from: CIImage(cgImage: cgImage),
+                            salientRegion: region,
+                            context: ctx,
+                            config: probeConfig
+                        )
+                    }
+                }
+            }
+        }
+
+        guard scores.count >= minSamples else { return nil }
+        scores.sort()
+
+        @inline(__always)
+        func percentile(_ sorted: [Float], _ p: Float) -> Float {
+            let clamped = min(max(p, 0), 1)
+            let idx = Int((Float(sorted.count - 1) * clamped).rounded(.toNearestOrEven))
+            return sorted[idx]
+        }
+
+        let p50 = percentile(scores, 0.50)
+        let p90 = percentile(scores, 0.90)
+        let p95 = percentile(scores, 0.95)
+        let p99 = percentile(scores, 0.99)
+
+        let tunedThreshold = percentile(scores, thresholdPercentile)
+        let eps: Float = 1e-6
+        let rawGain = targetP95AfterGain / max(p95, eps)
+        let tunedGain = min(max(rawGain, 0.5), 32.0)
+
+        return FocusCalibrationResult(
+            threshold: tunedThreshold,
+            energyMultiplier: tunedGain,
+            sampleCount: scores.count,
+            p50: p50,
+            p90: p90,
+            p95: p95,
+            p99: p99
+        )
+    }
+}
+
+/*
+ var cfg = model.config
+
+ if let result = await model.calibrateFromBurstParallel(
+     rawURLs: burstURLs,
+     baseConfig: cfg,
+     thumbnailMaxPixelSize: 512,
+     thresholdPercentile: 0.90,
+     targetP95AfterGain: 0.85,
+     minSamples: 8,
+     maxConcurrentTasks: 8
+ ) {
+     cfg.threshold = result.threshold
+     cfg.energyMultiplier = result.energyMultiplier
+     model.config = cfg
+ }
+ */
