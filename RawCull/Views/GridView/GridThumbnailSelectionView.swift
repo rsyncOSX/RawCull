@@ -37,6 +37,16 @@ struct GridThumbnailSelectionView: View {
                 .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
                 .help("Analyse sharpness for all images in this catalog")
 
+                // Calibrate + score button
+                Button {
+                    Task { await viewModel.calibrateAndScoreCurrentCatalog() }
+                } label: {
+                    Label("Calibrate & Score", systemImage: "wand.and.sparkles")
+                }
+                .font(.caption)
+                .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
+                .help("Auto-calibrate threshold and gain from this burst, then score")
+
                 // Cancel button — only visible while scoring
                 if viewModel.sharpnessModel.isScoring {
                     Button(role: .cancel) {

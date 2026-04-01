@@ -99,6 +99,24 @@ final class SharpnessScoringModel {
         sortBySharpness = false
     }
 
+    // MARK: - Calibration
+
+    /// Auto-calibrates `focusMaskModel.config` from a burst and logs the result.
+    /// Applies threshold + gain directly; call before `scoreFiles(_:)` for best results.
+    func calibrateFromBurst(_ files: [FileItem]) async {
+        let urls = files.map(\.url)
+        guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
+            rawURLs: urls,
+            minSamples: 5,
+            maxConcurrentTasks: 8
+        ) else {
+            print("SharpnessScoringModel: calibration failed (too few scoreable images)")
+            return
+        }
+        print("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
+        print("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
+    }
+
     // MARK: - Batch Scoring
 
     /// Batch-scores all files with bounded concurrency (max 6 simultaneous
