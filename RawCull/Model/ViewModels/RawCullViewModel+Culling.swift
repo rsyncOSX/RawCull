@@ -32,31 +32,40 @@ extension RawCullViewModel {
             guard let selectedSource else { return }
             let catalog = selectedSource.url
 
-            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }),
-               let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-                // Update existing record
-                cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
-            } else {
-                // Create a new record — file has not been tagged yet
+            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) {
+                if rating == 0 {
+                    // Remove the record entirely — file is untagged
+                    cullingModel.savedFiles[index].filerecords?.removeAll { $0.fileName == file.name }
+                } else if let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
+                    // Update existing record
+                    cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
+                } else {
+                    // Create a new record — file has not been tagged yet
+                    let newRecord = FileRecord(
+                        fileName: file.name,
+                        dateTagged: Date().en_string_from_date(),
+                        dateCopied: nil,
+                        rating: rating,
+                    )
+                    if cullingModel.savedFiles[index].filerecords == nil {
+                        cullingModel.savedFiles[index].filerecords = [newRecord]
+                    } else {
+                        cullingModel.savedFiles[index].filerecords?.append(newRecord)
+                    }
+                }
+            } else if rating != 0 {
+                // No catalog entry yet — create one (only for non-zero ratings)
                 let newRecord = FileRecord(
                     fileName: file.name,
                     dateTagged: Date().en_string_from_date(),
                     dateCopied: nil,
                     rating: rating,
                 )
-                if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) {
-                    if cullingModel.savedFiles[index].filerecords == nil {
-                        cullingModel.savedFiles[index].filerecords = [newRecord]
-                    } else {
-                        cullingModel.savedFiles[index].filerecords?.append(newRecord)
-                    }
-                } else {
-                    cullingModel.savedFiles.append(SavedFiles(
-                        catalog: catalog,
-                        dateStart: Date().en_string_from_date(),
-                        filerecord: newRecord,
-                    ))
-                }
+                cullingModel.savedFiles.append(SavedFiles(
+                    catalog: catalog,
+                    dateStart: Date().en_string_from_date(),
+                    filerecord: newRecord,
+                ))
             }
             await WriteSavedFilesJSON(cullingModel.savedFiles)
         }
