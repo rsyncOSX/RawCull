@@ -53,6 +53,11 @@ struct TaggedPhotoItemView: View {
                 Text(photo)
                     .font(.caption)
                     .lineLimit(2)
+
+                // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
+                if let color = ratingColor {
+                    color.frame(height: 4)
+                }
             }
 
             if setbackground() {
@@ -69,6 +74,21 @@ struct TaggedPhotoItemView: View {
             if let url = photoURL {
                 Logger.process.debugMessageOnly("PhotoItemView (in GRID) onAppear - RELEASE thumbnail for \(url)")
             }
+        }
+    }
+
+    private var ratingColor: Color? {
+        guard let catalogURL,
+              let entry = cullingModel.savedFiles.first(where: { $0.catalog == catalogURL }),
+              let record = entry.filerecords?.first(where: { $0.fileName == photo })
+        else { return nil }
+        switch record.rating ?? 0 {
+        case 1: return .red
+        case 2: return .yellow
+        case 3: return .green
+        case 4: return .blue
+        case 5: return .purple
+        default: return nil
         }
     }
 
