@@ -91,6 +91,27 @@ struct GridThumbnailSelectionView: View {
                     }
                 }
 
+                // Rating color filter buttons
+                let ratingColors: [(Int, Color)] = [
+                    (1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
+                ]
+                ForEach(ratingColors, id: \.0) { rating, color in
+                    Button {
+                        viewModel.ratingFilter = viewModel.ratingFilter == rating ? nil : rating
+                        Task(priority: .background) {
+                            await viewModel.handleSortOrderChange()
+                        }
+                    } label: {
+                        if viewModel.ratingFilter == rating {
+                            Circle().fill(color).frame(width: 14, height: 14)
+                        } else {
+                            Circle().strokeBorder(color, lineWidth: 2).frame(width: 14, height: 14)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show only rating \(rating)")
+                }
+
                 Spacer()
 
                 Text("\(files.count) Thumbnails ")
