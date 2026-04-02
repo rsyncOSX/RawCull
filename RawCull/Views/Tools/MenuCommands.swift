@@ -15,8 +15,7 @@ struct MenuCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Actions") {
-            // CommandButton("Tag Image", action: { tagimage = true }, shortcut: "t")
-
+           
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
 
             Divider()
