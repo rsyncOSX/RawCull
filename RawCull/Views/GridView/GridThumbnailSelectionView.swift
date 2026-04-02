@@ -111,6 +111,19 @@ struct GridThumbnailSelectionView: View {
                     .help("Show only rating \(rating)")
                 }
 
+                if ratingFilter != nil {
+                    Button {
+                        ratingFilter = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .contentShape(Rectangle())
+                    .help("Show all thumbnails")
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+
                 Spacer()
 
                 Text("\(files.count) Thumbnails ")
@@ -180,6 +193,7 @@ struct GridThumbnailSelectionView: View {
         }
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
+        .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
