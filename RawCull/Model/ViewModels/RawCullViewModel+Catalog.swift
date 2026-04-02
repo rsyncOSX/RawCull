@@ -100,7 +100,7 @@ extension RawCullViewModel {
             let filter = sharpnessModel.apertureFilter
             result = result.filter { filter.matches($0) }
         }
-if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
+        if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
             let scores = sharpnessModel.scores
             result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
         }
