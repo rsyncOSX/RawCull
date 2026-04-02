@@ -189,6 +189,12 @@ struct GridThumbnailSelectionView: View {
                         proxy.scrollTo(id, anchor: .top)
                     }
                 }
+                .onChange(of: viewModel.selectedFileID) { _, newID in
+                    guard let newID else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(newID, anchor: .center)
+                    }
+                }
             }
         }
         .frame(minWidth: 400, minHeight: 400)
