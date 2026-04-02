@@ -115,6 +115,11 @@ struct ImageItemView: View {
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(white: 0.1))
+
+            // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
+            if let color = ratingColor {
+                color.frame(height: 4)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(
@@ -143,5 +148,16 @@ struct ImageItemView: View {
 
     private var isSelected: Bool {
         viewModel.selectedFile?.id == file.id
+    }
+
+    private var ratingColor: Color? {
+        switch viewModel.getRating(for: file) {
+        case 1: .red
+        case 2: .yellow
+        case 3: .green
+        case 4: .blue
+        case 5: .purple
+        default: nil
+        }
     }
 }

@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RawCull is a native macOS photo culling application for Sony A1 mk I/II ARW raw files. It is written in **Swift 6.0** with **SwiftUI**, targets **macOS 26 (Tahoe)+**, and runs exclusively on **Apple Silicon (arm64)**. Bundle ID: `no.blogspot.RawCull`.
 
+## Skills
+
+Use these skills for the relevant work in this repo:
+
+- `/swift-concurrency` — when writing or reviewing Swift concurrency code (actors, async/await, Sendable, task groups)
+- `/swift-testing-expert` — when writing or reviewing Swift Testing framework tests
+- `/swiftui-expert-skill` — when writing or reviewing SwiftUI views
+
 ## Build Commands
 
 ```bash
