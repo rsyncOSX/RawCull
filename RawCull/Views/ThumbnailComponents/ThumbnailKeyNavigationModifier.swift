@@ -53,6 +53,12 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         viewModel.selectedFileID = files[idx + 1].id
                         return nil
 
+                    case 29: // 0 — clear rating (untag)
+                        if let file = viewModel.selectedFile {
+                            viewModel.updateRating(for: file, rating: 0)
+                        }
+                        return nil
+
                     case 18, 19, 20, 21, 23: // 1–5 — set rating (18=1 19=2 20=3 21=4 23=5)
                         if let file = viewModel.selectedFile {
                             let rating: Int = switch event.keyCode {
