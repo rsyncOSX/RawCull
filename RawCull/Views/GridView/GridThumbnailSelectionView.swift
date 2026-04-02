@@ -18,6 +18,10 @@ struct GridThumbnailSelectionView: View {
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: Int? = nil
 
+    private let ratingColors: [(Int, Color)] = [
+        (1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
+    ]
+
     let selectedSource: ARWSourceCatalog?
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
@@ -94,20 +98,16 @@ struct GridThumbnailSelectionView: View {
                 }
 
                 // Rating color filter buttons
-                let ratingColors: [(Int, Color)] = [
-                    (1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
-                ]
                 ForEach(ratingColors, id: \.0) { rating, color in
                     Button {
                         ratingFilter = ratingFilter == rating ? nil : rating
                     } label: {
-                        if ratingFilter == rating {
-                            Circle().fill(color).frame(width: 14, height: 14)
-                        } else {
-                            Circle().strokeBorder(color, lineWidth: 2).frame(width: 14, height: 14)
-                        }
+                        Circle()
+                            .fill(color.opacity(ratingFilter == rating ? 1.0 : 0.25))
+                            .frame(width: 14, height: 14)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
+                    .contentShape(Rectangle())
                     .help("Show only rating \(rating)")
                 }
 
