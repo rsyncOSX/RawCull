@@ -489,7 +489,7 @@ extension FocusMaskModel {
         rawURLs: [URL],
         thumbnailMaxPixelSize: Int = 512,
         thresholdPercentile: Float = 0.90,
-        targetP95AfterGain: Float = 0.85,
+        targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
@@ -517,7 +517,7 @@ extension FocusMaskModel {
         baseConfig: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
         thresholdPercentile: Float = 0.90,
-        targetP95AfterGain: Float = 0.85,
+        targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
