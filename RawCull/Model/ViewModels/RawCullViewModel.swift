@@ -43,7 +43,6 @@ final class RawCullViewModel {
     var sheetType: SheetType? = .copytasksview
     var remotedatanumbers: RemoteDataNumbers?
     var rating: Int = 0
-    var ratingFilter: Int? = nil
 
     // Zoom window state
     var zoomCGImageWindowFocused: Bool = false

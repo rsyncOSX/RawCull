@@ -16,6 +16,7 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
+    @State private var ratingFilter: Int? = nil
 
     let selectedSource: ARWSourceCatalog?
     @Binding var nsImage: NSImage?
@@ -98,12 +99,9 @@ struct GridThumbnailSelectionView: View {
                 ]
                 ForEach(ratingColors, id: \.0) { rating, color in
                     Button {
-                        viewModel.ratingFilter = viewModel.ratingFilter == rating ? nil : rating
-                        Task(priority: .background) {
-                            await viewModel.handleSortOrderChange()
-                        }
+                        ratingFilter = ratingFilter == rating ? nil : rating
                     } label: {
-                        if viewModel.ratingFilter == rating {
+                        if ratingFilter == rating {
                             Circle().fill(color).frame(width: 14, height: 14)
                         } else {
                             Circle().strokeBorder(color, lineWidth: 2).frame(width: 14, height: 14)
@@ -204,6 +202,7 @@ struct GridThumbnailSelectionView: View {
     }
 
     var files: [FileItem] {
-        viewModel.filteredFiles
+        guard let ratingFilter else { return viewModel.filteredFiles }
+        return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == ratingFilter }
     }
 }
