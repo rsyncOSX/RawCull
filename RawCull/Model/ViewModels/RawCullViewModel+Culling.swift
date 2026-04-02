@@ -3,6 +3,8 @@
 //  RawCull
 //
 
+import Foundation
+
 extension RawCullViewModel {
     func extractRatedfilenames(_ rating: Int) -> [String] {
         filteredFiles
@@ -28,11 +30,35 @@ extension RawCullViewModel {
     func updateRating(for file: FileItem, rating: Int) {
         Task {
             guard let selectedSource else { return }
-            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource.url }),
+            let catalog = selectedSource.url
+
+            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }),
                let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
+                // Update existing record
                 cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
-                await WriteSavedFilesJSON(cullingModel.savedFiles)
+            } else {
+                // Create a new record — file has not been tagged yet
+                let newRecord = FileRecord(
+                    fileName: file.name,
+                    dateTagged: Date().en_string_from_date(),
+                    dateCopied: nil,
+                    rating: rating,
+                )
+                if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) {
+                    if cullingModel.savedFiles[index].filerecords == nil {
+                        cullingModel.savedFiles[index].filerecords = [newRecord]
+                    } else {
+                        cullingModel.savedFiles[index].filerecords?.append(newRecord)
+                    }
+                } else {
+                    cullingModel.savedFiles.append(SavedFiles(
+                        catalog: catalog,
+                        dateStart: Date().en_string_from_date(),
+                        filerecord: newRecord,
+                    ))
+                }
             }
+            await WriteSavedFilesJSON(cullingModel.savedFiles)
         }
     }
 

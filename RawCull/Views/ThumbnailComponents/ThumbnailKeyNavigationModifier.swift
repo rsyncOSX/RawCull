@@ -48,9 +48,22 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         viewModel.selectedFileID = files[idx + 1].id
                         return nil
 
-                    case 17: // t — toggle tag
+                    case 18, 19, 20, 21, 23: // 1–5 — set rating (18=1 19=2 20=3 21=4 23=5)
                         if let file = viewModel.selectedFile {
-                            Task { await viewModel.toggleTag(for: file) }
+                            let rating: Int = switch event.keyCode {
+                            case 18: 1
+                            case 19: 2
+                            case 20: 3
+                            case 21: 4
+                            default: 5 // 23
+                            }
+                            viewModel.updateRating(for: file, rating: rating)
+                        }
+                        return nil
+
+                    case 17: // t — default tag (rating 3, green)
+                        if let file = viewModel.selectedFile {
+                            viewModel.updateRating(for: file, rating: 3)
                         }
                         return nil
 
