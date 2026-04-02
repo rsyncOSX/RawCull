@@ -32,12 +32,6 @@ struct TaggedPhotoItemView: View {
                             height: CGFloat(settings.thumbnailSizeGrid),
                         )
                         .clipped()
-                        .overlay(alignment: .topTrailing) {
-                            TagButtonView(
-                                isTagged: isTagged,
-                                isHovered: false,
-                            )
-                        }
                     } else {
                         ZStack {
                             Rectangle()
@@ -89,14 +83,6 @@ struct TaggedPhotoItemView: View {
         case 4: return .blue
         case 5: return .purple
         default: return nil
-        }
-    }
-
-    private var isTagged: Bool {
-        if let catalogURL {
-            cullingModel.isTagged(photo: photo, in: catalogURL)
-        } else {
-            false
         }
     }
 
