@@ -9,6 +9,7 @@ import SwiftUI
 enum ThumbnailNavigationAxis {
     case vertical   // ↑ 126 / ↓ 125
     case horizontal // ← 123 / → 124
+    case grid       // ↑← prev / ↓→ next
 }
 
 struct ThumbnailKeyNavigationModifier: ViewModifier {
@@ -28,11 +29,15 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         ? filtered
                         : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
-                    let prevKey: UInt16 = axis == .vertical ? 126 : 123
-                    let nextKey: UInt16 = axis == .vertical ? 125 : 124
+                    let isPrev = axis == .vertical ? event.keyCode == 126
+                        : axis == .horizontal ? event.keyCode == 123
+                        : event.keyCode == 126 || event.keyCode == 123 // grid: ↑ or ←
+                    let isNext = axis == .vertical ? event.keyCode == 125
+                        : axis == .horizontal ? event.keyCode == 124
+                        : event.keyCode == 125 || event.keyCode == 124 // grid: ↓ or →
 
                     switch event.keyCode {
-                    case prevKey:
+                    case _ where isPrev:
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx > 0 else { return nil }
@@ -40,7 +45,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         viewModel.selectedFileID = files[idx - 1].id
                         return nil
 
-                    case nextKey:
+                    case _ where isNext:
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx + 1 < files.count else { return nil }

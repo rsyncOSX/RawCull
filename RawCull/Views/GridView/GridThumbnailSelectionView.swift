@@ -5,6 +5,7 @@
 //  Created by Thomas Evensen on 13/02/2026.
 //
 
+import AppKit
 import OSLog
 import SwiftUI
 
@@ -184,6 +185,7 @@ struct GridThumbnailSelectionView: View {
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
+        .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
     }
 
     private func handleToggleSelection(for file: FileItem) {
