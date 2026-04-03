@@ -240,6 +240,10 @@ struct GridThumbnailSelectionView: View {
 
     var files: [FileItem] {
         guard let ratingFilter else { return viewModel.filteredFiles }
+        if ratingFilter == 0 {
+            // Keepers mode: show keep (0) and rated images (2–5), exclude rejected (–1)
+            return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) >= 0 }
+        }
         return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == ratingFilter }
     }
 }
