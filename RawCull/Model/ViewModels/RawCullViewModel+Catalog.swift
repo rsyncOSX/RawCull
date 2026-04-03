@@ -11,6 +11,7 @@ extension RawCullViewModel {
 
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
+        ratingFilter = .all
 
         let scan = ScanFiles()
 
@@ -93,9 +94,12 @@ extension RawCullViewModel {
 
     // MARK: - Helpers
 
-    /// Applies the active aperture filter and sharpness sort to a pre-sorted file list.
+    /// Applies the active rating filter, aperture filter, and sharpness sort to a pre-sorted file list.
     private func applyFilters(to files: [FileItem]) -> [FileItem] {
         var result = files
+        if ratingFilter != .all {
+            result = result.filter { passesRatingFilter($0) }
+        }
         if sharpnessModel.apertureFilter != .all {
             let filter = sharpnessModel.apertureFilter
             result = result.filter { filter.matches($0) }
