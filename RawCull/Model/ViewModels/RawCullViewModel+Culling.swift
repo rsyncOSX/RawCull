@@ -79,6 +79,16 @@ extension RawCullViewModel {
         }
     }
 
+    func applySharpnessThreshold(_ thresholdPercent: Int) {
+        let maxScore = sharpnessModel.maxScore
+        guard maxScore > 0 else { return }
+        for file in filteredFiles {
+            guard let score = sharpnessModel.scores[file.id] else { continue }
+            let normalised = Int((score / maxScore) * 100)
+            updateRating(for: file, rating: normalised >= thresholdPercent ? 0 : -1)
+        }
+    }
+
     func toggleTag(for file: FileItem) async {
         await cullingModel.toggleSelectionSavedFiles(
             in: file.url,

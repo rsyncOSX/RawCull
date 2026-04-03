@@ -17,6 +17,7 @@ struct GridThumbnailSelectionView: View {
 
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: Int? = nil
+    @State private var sharpnessThreshold: Int = 50
 
     private let ratingColors: [(Int, Color)] = [
         (-1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
@@ -87,6 +88,25 @@ struct GridThumbnailSelectionView: View {
                     Task(priority: .background) {
                         await viewModel.handleSortOrderChange()
                     }
+                }
+
+                // Sharpness threshold classifier — visible once scores exist
+                if !viewModel.sharpnessModel.scores.isEmpty, !viewModel.sharpnessModel.isScoring {
+                    Picker("Threshold", selection: $sharpnessThreshold) {
+                        ForEach([20, 30, 40, 50, 60, 70, 80], id: \.self) { pct in
+                            Text("\(pct)%").tag(pct)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .font(.caption)
+                    .frame(width: 70)
+                    .help("Sharpness cut-off: images at or above this score become Keep (P), below become Rejected (X)")
+
+                    Button("Apply") {
+                        viewModel.applySharpnessThreshold(sharpnessThreshold)
+                    }
+                    .font(.caption)
+                    .help("Auto-classify all scored images using the selected sharpness threshold")
                 }
 
                 // Create a spinner when calibrating is in progress
