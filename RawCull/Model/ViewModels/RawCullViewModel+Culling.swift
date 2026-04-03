@@ -81,11 +81,45 @@ extension RawCullViewModel {
 
     func applySharpnessThreshold(_ thresholdPercent: Int) {
         let maxScore = sharpnessModel.maxScore
-        guard maxScore > 0 else { return }
+        guard maxScore > 0, let selectedSource else { return }
+        let catalog = selectedSource.url
+        let date = Date().en_string_from_date()
+
+        // Ensure a catalog entry exists — created from the first scored file if needed
+        if cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) == nil {
+            guard let firstFile = filteredFiles.first(where: { sharpnessModel.scores[$0.id] != nil }),
+                  let firstScore = sharpnessModel.scores[firstFile.id]
+            else { return }
+            let normalised = Int((firstScore / maxScore) * 100)
+            cullingModel.savedFiles.append(SavedFiles(
+                catalog: catalog,
+                dateStart: date,
+                filerecord: FileRecord(fileName: firstFile.name, dateTagged: date, dateCopied: nil, rating: normalised >= thresholdPercent ? 0 : -1),
+            ))
+        }
+
+        guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
+
+        // Mutate all records in-memory, then write once
         for file in filteredFiles {
             guard let score = sharpnessModel.scores[file.id] else { continue }
             let normalised = Int((score / maxScore) * 100)
-            updateRating(for: file, rating: normalised >= thresholdPercent ? 0 : -1)
+            let rating = normalised >= thresholdPercent ? 0 : -1
+
+            if let recordIndex = cullingModel.savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
+                cullingModel.savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
+            } else {
+                let newRecord = FileRecord(fileName: file.name, dateTagged: date, dateCopied: nil, rating: rating)
+                if cullingModel.savedFiles[catalogIndex].filerecords == nil {
+                    cullingModel.savedFiles[catalogIndex].filerecords = [newRecord]
+                } else {
+                    cullingModel.savedFiles[catalogIndex].filerecords?.append(newRecord)
+                }
+            }
+        }
+
+        Task {
+            await WriteSavedFilesJSON(cullingModel.savedFiles)
         }
     }
 
