@@ -9,6 +9,13 @@ enum AlertType {
     case resetSavedFiles
 }
 
+enum RatingFilter: Hashable {
+    case all
+    case rejected       // rating == -1
+    case keepers        // rating == 0
+    case minimum(Int)   // rating >= n, n in 2...5
+}
+
 @Observable @MainActor
 final class RawCullViewModel {
     /// Remember previous selected source to avoid a new rescan of
@@ -42,7 +49,7 @@ final class RawCullViewModel {
     var alertType: AlertType?
     var sheetType: SheetType? = .copytasksview
     var remotedatanumbers: RemoteDataNumbers?
-    var rating: Int = 0
+    var ratingFilter: RatingFilter = .all
 
     // Zoom window state
     var zoomCGImageWindowFocused: Bool = false

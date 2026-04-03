@@ -87,9 +87,7 @@ struct GridThumbnailView: View {
     }
 
     private var filteredFiles: [FileItem] {
-        viewModel.filteredFiles.filter { file in
-            viewModel.getRating(for: file) >= viewModel.rating
-        }
+        viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
     }
 
     private var sortedFiles: [FileItem] {

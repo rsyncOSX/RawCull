@@ -21,6 +21,15 @@ extension RawCullViewModel {
             .compactMap(\.fileName)
     }
 
+    func passesRatingFilter(_ file: FileItem) -> Bool {
+        switch ratingFilter {
+        case .all:           return true
+        case .rejected:      return getRating(for: file) == -1
+        case .keepers:       return getRating(for: file) == 0
+        case .minimum(let n): return getRating(for: file) >= n
+        }
+    }
+
     func getRating(for file: FileItem) -> Int {
         guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
               let filerecords = cullingModel.savedFiles[index].filerecords,

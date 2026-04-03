@@ -24,7 +24,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                     guard !(NSApp.keyWindow?.firstResponder is NSText),
                           viewModel.selectedFile != nil else { return event }
 
-                    let filtered = viewModel.filteredFiles.filter { viewModel.getRating(for: $0) >= viewModel.rating }
+                    let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
                     let files: [FileItem] = viewModel.sharpnessModel.sortBySharpness
                         ? filtered
                         : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

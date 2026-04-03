@@ -17,7 +17,7 @@ struct FileTableRowView: View {
 
     var body: some View {
         let filteredFiles = viewModel.filteredFiles.compactMap { file in
-            (viewModel.getRating(for: file) >= viewModel.rating) ? file : nil
+            viewModel.passesRatingFilter(file) ? file : nil
         }
 
         VStack(alignment: .leading) {

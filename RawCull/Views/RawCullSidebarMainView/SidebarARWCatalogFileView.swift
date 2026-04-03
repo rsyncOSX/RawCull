@@ -56,10 +56,17 @@ struct SidebarARWCatalogFileView: View {
                             }
 
                             if !viewModel.files.isEmpty, verticalimages == false {
-                                Picker("Rating", selection: $viewModel.rating) {
-                                    // Iterate over the range 0 to 5
-                                    ForEach(0 ... 5, id: \.self) { number in
-                                        Text("\(number)").tag(number)
+                                Picker("Filter", selection: $viewModel.ratingFilter) {
+                                    Text("All").tag(RatingFilter.all)
+                                    Text("✕ Rejected").foregroundStyle(.red).tag(RatingFilter.rejected)
+                                    Text("Keep").tag(RatingFilter.keepers)
+                                    ForEach(2 ... 5, id: \.self) { n in
+                                        HStack(spacing: 2) {
+                                            ForEach(0 ..< n, id: \.self) { _ in
+                                                Image(systemName: "star.fill").font(.caption2)
+                                            }
+                                        }
+                                        .tag(RatingFilter.minimum(n))
                                     }
                                 }
                                 .pickerStyle(DefaultPickerStyle())
