@@ -54,7 +54,6 @@ struct ImageItemView: View {
 
     var onSelect: () -> Void = {}
     var onDoubleSelect: () -> Void = {}
-    var onTag: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -68,12 +67,6 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-                .overlay(alignment: .topTrailing) {
-                    TagButtonView(
-                        isTagged: isTagged,
-                        isHovered: isHovered,
-                    )
-                }
                 // Sharpness score badge — bottom-left corner, only when scored
                 .overlay(alignment: .bottomLeading) {
                     if let score = viewModel.sharpnessModel.scores[file.id] {

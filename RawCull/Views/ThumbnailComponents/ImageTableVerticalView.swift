@@ -34,9 +34,6 @@ struct ImageTableVerticalView: View {
                                         onSelect: {
                                             viewModel.selectFile(file)
                                         },
-                                        onTag: {
-                                            Task { await viewModel.toggleTag(for: file) }
-                                        },
                                         /*
                                             // Double clik for tag Image
                                             onSelected: {

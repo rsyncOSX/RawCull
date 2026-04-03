@@ -29,9 +29,6 @@ struct ImageTableHorizontalView: View {
                                     isHovered: hoveredFileID == file.id,
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
                                     onSelect: { handleSelect(for: file) },
-                                    onTag: {
-                                        Task { await viewModel.toggleTag(for: file) }
-                                    },
                                     // Double clik for tag Image
                                     /*
                                         onSelected: {

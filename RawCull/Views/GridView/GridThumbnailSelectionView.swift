@@ -190,9 +190,6 @@ struct GridThumbnailSelectionView: View {
                                 thumbnailSize: settings.thumbnailSizeGridView,
                                 onSelect: { handleToggleSelection(for: file) },
                                 onDoubleSelect: { handleDoubleSelect(for: file) },
-                                onTag: {
-                                    Task { await viewModel.toggleTag(for: file) }
-                                },
                             )
                             .id(file.id)
                             .onHover { isHovered in
