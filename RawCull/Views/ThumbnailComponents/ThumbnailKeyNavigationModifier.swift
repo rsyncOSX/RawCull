@@ -7,9 +7,9 @@ import AppKit
 import SwiftUI
 
 enum ThumbnailNavigationAxis {
-    case vertical   // ↑ 126 / ↓ 125
+    case vertical // ↑ 126 / ↓ 125
     case horizontal // ← 123 / → 124
-    case grid       // ↑← prev / ↓→ next
+    case grid // ↑← prev / ↓→ next
 }
 
 struct ThumbnailKeyNavigationModifier: ViewModifier {
@@ -82,7 +82,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                     case 18, 19, 20, 21, 23: // 1→2, 2, 3, 4, 5 — set rating and advance to next
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
-                        let rating: Int = switch event.keyCode {
+                        let rating = switch event.keyCode {
                         case 18: 2 // key 1 maps to rating 2 (rating 1 retired)
                         case 19: 2
                         case 20: 3

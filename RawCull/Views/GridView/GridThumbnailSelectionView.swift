@@ -16,11 +16,11 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
-    @State private var ratingFilter: Int? = nil
+    @State private var ratingFilter: Int?
     @State private var sharpnessThreshold: Int = 50
 
     private let ratingColors: [(Int, Color)] = [
-        (-1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
+        (-1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple)
     ]
 
     let selectedSource: ARWSourceCatalog?
@@ -143,7 +143,7 @@ struct GridThumbnailSelectionView: View {
                         .frame(width: 18, height: 18)
                         .background(
                             Circle()
-                                .fill(ratingFilter == 0 ? Color.accentColor : Color.secondary.opacity(0.2))
+                                .fill(ratingFilter == 0 ? Color.accentColor : Color.secondary.opacity(0.2)),
                         )
                 }
                 .buttonStyle(.borderless)
@@ -165,9 +165,15 @@ struct GridThumbnailSelectionView: View {
 
                 Spacer()
 
-                Text("\(files.count) Thumbnails ")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Culling progress
+                let stats = cullingStats
+                HStack(spacing: 8) {
+                    Text("✕ \(stats.rejected)").foregroundStyle(.red)
+                    Text("P \(stats.kept)").foregroundStyle(Color.accentColor)
+                    Text("\(stats.unrated) unrated").foregroundStyle(.secondary)
+                    Text("/ \(stats.total)").foregroundStyle(.secondary)
+                }
+                .font(.caption.monospacedDigit())
             }
             .padding()
             .background(Color.gray.opacity(0.1))
@@ -258,6 +264,23 @@ struct GridThumbnailSelectionView: View {
             setCGImage: { cgImage = $0 },
             openWindow: { id in openWindow(id: id) },
         )
+    }
+
+    private var cullingStats: (rejected: Int, kept: Int, unrated: Int, total: Int) {
+        guard let catalog = viewModel.selectedSource?.url else {
+            return (0, 0, viewModel.filteredFiles.count, viewModel.filteredFiles.count)
+        }
+        var rejected = 0, kept = 0, unrated = 0
+        for file in viewModel.filteredFiles {
+            let hasRecord = viewModel.cullingModel.isTagged(photo: file.name, in: catalog)
+            if !hasRecord {
+                unrated += 1
+            } else {
+                let r = viewModel.getRating(for: file)
+                if r == -1 { rejected += 1 } else { kept += 1 }
+            }
+        }
+        return (rejected, kept, unrated, viewModel.filteredFiles.count)
     }
 
     var files: [FileItem] {

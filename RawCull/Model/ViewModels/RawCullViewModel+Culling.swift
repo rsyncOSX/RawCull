@@ -23,10 +23,10 @@ extension RawCullViewModel {
 
     func passesRatingFilter(_ file: FileItem) -> Bool {
         switch ratingFilter {
-        case .all:           return true
-        case .rejected:      return getRating(for: file) == -1
-        case .keepers:       return getRating(for: file) == 0
-        case .minimum(let n): return getRating(for: file) >= n
+        case .all: true
+        case .rejected: getRating(for: file) == -1
+        case .keepers: getRating(for: file) == 0
+        case let .minimum(n): getRating(for: file) >= n
         }
     }
 

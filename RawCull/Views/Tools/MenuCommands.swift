@@ -15,7 +15,6 @@ struct MenuCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Actions") {
-           
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
 
             Divider()

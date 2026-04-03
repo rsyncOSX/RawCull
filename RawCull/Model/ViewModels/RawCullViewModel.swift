@@ -11,9 +11,9 @@ enum AlertType {
 
 enum RatingFilter: Hashable {
     case all
-    case rejected       // rating == -1
-    case keepers        // rating == 0
-    case minimum(Int)   // rating >= n, n in 2...5
+    case rejected // rating == -1
+    case keepers // rating == 0
+    case minimum(Int) // rating >= n, n in 2...5
 }
 
 @Observable @MainActor
