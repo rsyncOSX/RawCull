@@ -100,12 +100,14 @@ struct GridThumbnailSelectionView: View {
                     .pickerStyle(.menu)
                     .font(.caption)
                     .frame(width: 70)
+                    .padding(.leading, 12)
                     .help("Sharpness cut-off: images at or above this score become Keep (P), below become Rejected (X)")
 
                     Button("Apply") {
                         viewModel.applySharpnessThreshold(sharpnessThreshold)
                     }
                     .font(.caption)
+                    .padding(.trailing, 12)
                     .help("Auto-classify all scored images using the selected sharpness threshold")
                 }
 
