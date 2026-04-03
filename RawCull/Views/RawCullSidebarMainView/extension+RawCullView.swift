@@ -93,7 +93,7 @@ extension RawCullMainView {
                         .frame(width: 18, height: 18)
                         .background(
                             Circle()
-                                .fill(viewModel.ratingFilter == .keepers ? Color.accentColor : Color.secondary.opacity(0.2))
+                                .fill(viewModel.ratingFilter == .keepers ? Color.accentColor : Color.secondary.opacity(0.2)),
                         )
                 }
                 .buttonStyle(.borderless)
@@ -113,9 +113,9 @@ extension RawCullMainView {
                     .help("Show all thumbnails")
                 }
             }
+            .padding(.trailing, 8)
             .disabled(viewModel.selectedSource == nil)
         }
-
     }
 
     func applyRatingFilter(_ rating: Int) {
