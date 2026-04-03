@@ -91,48 +91,25 @@ struct SharedMainToolbarContent: ToolbarContent {
         }
 
         ToolbarItem(placement: .status) {
-            HStack(spacing: 4) {
-                ForEach([(-1, Color.red), (2, Color.yellow), (3, Color.green), (4, Color.blue), (5, Color.purple)], id: \.0) { rating, color in
-                    Button { applyRatingFilter(rating) } label: {
-                        Circle()
-                            .fill(color.opacity(isRatingFilterActive(rating) ? 1.0 : 0.25))
-                            .frame(width: 14, height: 14)
-                    }
-                    .buttonStyle(.borderless)
-                    .contentShape(Rectangle())
-                    .help(rating == -1 ? "Show only rejected images" : "Show only \(rating)-star images")
-                }
-
-                // Keepers button (rating == 0)
-                Button { applyRatingFilter(0) } label: {
-                    Text("P")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(viewModel.ratingFilter == .keepers ? .white : .secondary)
-                        .frame(width: 18, height: 18)
-                        .background(
-                            Circle()
-                                .fill(viewModel.ratingFilter == .keepers ? Color.accentColor : Color.secondary.opacity(0.2)),
-                        )
-                }
-                .buttonStyle(.borderless)
-                .contentShape(Rectangle())
-                .help("Show only keepers (rating 0)")
-
-                if viewModel.ratingFilter != .all {
-                    Button {
-                        viewModel.ratingFilter = .all
-                        Task(priority: .background) { await viewModel.handleSortOrderChange() }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .contentShape(Rectangle())
-                    .help("Show all thumbnails")
-                }
-            }
+            RatingFilterButtons(
+                activeRating: activeRatingInt,
+                onSelect: applyRatingFilter,
+                onClear: {
+                    viewModel.ratingFilter = .all
+                    Task(priority: .background) { await viewModel.handleSortOrderChange() }
+                },
+            )
             .padding(.trailing, 8)
             .disabled(viewModel.selectedSource == nil)
+        }
+    }
+
+    private var activeRatingInt: Int? {
+        switch viewModel.ratingFilter {
+        case .all: nil
+        case .rejected: -1
+        case .keepers: 0
+        case .minimum(let n): n
         }
     }
 
@@ -171,11 +148,4 @@ struct SharedMainToolbarContent: ToolbarContent {
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
 
-    private func isRatingFilterActive(_ rating: Int) -> Bool {
-        switch rating {
-        case -1: viewModel.ratingFilter == .rejected
-        case 0: viewModel.ratingFilter == .keepers
-        default: viewModel.ratingFilter == .minimum(rating)
-        }
-    }
 }
