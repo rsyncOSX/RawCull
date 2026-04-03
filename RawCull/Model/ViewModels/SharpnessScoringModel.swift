@@ -110,9 +110,9 @@ final class SharpnessScoringModel {
     func calibrateFromBurst(_ files: [FileItem]) async {
         // Starte calibrate
         calibratingsharpnessscoring = true
-        let urls = files.map(\.url)
+        let fileEntries = files.map { (url: $0.url, iso: $0.exifData?.isoValue) }
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
-            rawURLs: urls,
+            files: fileEntries,
             minSamples: 5,
             maxConcurrentTasks: 8,
         ) else {
@@ -154,8 +154,11 @@ final class SharpnessScoringModel {
                 while active < maxConcurrent, let file = iterator.next() {
                     let url = file.url
                     let id = file.id
+                    let iso = file.exifData?.isoValue ?? 400
                     group.addTask(priority: .userInitiated) {
-                        await (id, model.computeSharpnessScore(fromRawURL: url, config: config))
+                        var fileConfig = config
+                        fileConfig.iso = iso
+                        return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig))
                     }
                     active += 1
                 }
@@ -175,8 +178,11 @@ final class SharpnessScoringModel {
                     if let file = iterator.next() {
                         let url = file.url
                         let id = file.id
+                        let iso = file.exifData?.isoValue ?? 400
                         group.addTask(priority: .userInitiated) {
-                            await (id, model.computeSharpnessScore(fromRawURL: url, config: config))
+                            var fileConfig = config
+                            fileConfig.iso = iso
+                            return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig))
                         }
                         active += 1
                     }

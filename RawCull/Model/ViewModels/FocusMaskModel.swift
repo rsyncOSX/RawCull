@@ -8,6 +8,10 @@ import Vision
 
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
+    /// ISO at capture time. Used to scale preBlurRadius upward at high ISO
+    /// where noise would otherwise cause the Laplacian to fire on noise rather
+    /// than real edges. Default 400 (no adaptation).
+    var iso: Int = 400
     var threshold: Float = 0.46
     var dilationRadius: Float = 1.0 // was 0.43
     var energyMultiplier: Float = 7.62
@@ -24,6 +28,7 @@ struct FocusDetectorConfig {
 extension FocusDetectorConfig: Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.preBlurRadius == rhs.preBlurRadius
+            && lhs.iso == rhs.iso
             && lhs.threshold == rhs.threshold
             && lhs.dilationRadius == rhs.dilationRadius
             && lhs.energyMultiplier == rhs.energyMultiplier
@@ -348,13 +353,26 @@ final class FocusMaskModel: @unchecked Sendable {
 
     /// Shared passes 1–3: blur → Laplacian → amplify.
     /// Used by both scalar scoring and mask generation so tuning one affects both.
+    ///
+    /// The Gaussian pre-blur radius is scaled dynamically:
+    /// - ISO adaptation: noise amplitude ∝ √(ISO/400); higher ISO needs more blur
+    ///   to suppress noise before the Laplacian fires on it. Capped at 3× base.
+    /// - Resolution adaptation: maintains proportional spatial-frequency cutoff
+    ///   relative to the 512 px thumbnail baseline. Uses √ scaling to be
+    ///   conservative. Scoring thumbnails (≈512 px) see factor ≈1.0; larger
+    ///   images (e.g. 1024 px mask path) see factor ≈1.4. Capped at 3×.
     private nonisolated static func buildAmplifiedLaplacian(
         from image: CIImage,
         config: FocusDetectorConfig,
     ) -> CIImage? {
+        let isoFactor = max(1.0, min(sqrt(Float(max(config.iso, 1)) / 400.0), 3.0))
+        let imageWidth = Float(image.extent.width)
+        let resFactor = max(1.0, min(sqrt(max(imageWidth, 512.0) / 512.0), 3.0))
+        let effectiveRadius = config.preBlurRadius * isoFactor * resFactor
+
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = image
-        preBlur.radius = config.preBlurRadius
+        preBlur.radius = effectiveRadius
         guard let smoothed = preBlur.outputImage else { return nil }
 
         guard let kernel = _focusMagnitudeKernel else { return nil }
@@ -484,9 +502,10 @@ extension FocusMaskModel {
 
     /// Convenience: calibrate in parallel and immediately apply to model config.
     /// Returns calibration details for logging/UI.
+    /// `files` pairs each URL with its EXIF ISO value (nil → 400 default).
     @MainActor
     func calibrateAndApplyFromBurstParallel(
-        rawURLs: [URL],
+        files: [(url: URL, iso: Int?)],
         thumbnailMaxPixelSize: Int = 512,
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
@@ -495,7 +514,7 @@ extension FocusMaskModel {
     ) async -> FocusCalibrationResult? {
         let base = config
         guard let result = await calibrateFromBurstParallel(
-            rawURLs: rawURLs,
+            files: files,
             baseConfig: base,
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
             thresholdPercentile: thresholdPercentile,
@@ -512,8 +531,10 @@ extension FocusMaskModel {
 
     /// Parallel auto-calibration for larger bursts.
     /// Limits in-flight work to avoid oversubscribing CPU/IO.
+    /// Per-file ISO values are used so the adaptive pre-blur radius during
+    /// calibration matches what scoring will use for each image.
     nonisolated func calibrateFromBurstParallel(
-        rawURLs: [URL],
+        files: [(url: URL, iso: Int?)],
         baseConfig: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
         thresholdPercentile: Float = 0.90,
@@ -521,28 +542,28 @@ extension FocusMaskModel {
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
-        guard !rawURLs.isEmpty else { return nil }
-
-        var probeConfig = baseConfig
-        probeConfig.energyMultiplier = 1.0
+        guard !files.isEmpty else { return nil }
 
         let ctx = self.context
         let tSize = thumbnailMaxPixelSize
-        let concurrency = max(1, min(maxConcurrentTasks, rawURLs.count))
+        let concurrency = max(1, min(maxConcurrentTasks, files.count))
 
         var nextIndex = 0
         var scores = [Float]()
-        scores.reserveCapacity(rawURLs.count)
+        scores.reserveCapacity(files.count)
 
         await withTaskGroup(of: Float?.self) { group in
             // Seed initial tasks
             for _ in 0 ..< concurrency {
-                guard nextIndex < rawURLs.count else { break }
-                let url = rawURLs[nextIndex]
+                guard nextIndex < files.count else { break }
+                let entry = files[nextIndex]
                 nextIndex += 1
 
-                group.addTask { [probeConfig, ctx, tSize] in
-                    guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: tSize) ?? Self.decodeImage(at: url) else {
+                group.addTask { [baseConfig, ctx, tSize] in
+                    var fileConfig = baseConfig
+                    fileConfig.energyMultiplier = 1.0
+                    fileConfig.iso = entry.iso ?? 400
+                    guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
                         return nil
                     }
                     let region = Self.salientRegion(for: cgImage)
@@ -550,7 +571,7 @@ extension FocusMaskModel {
                         from: CIImage(cgImage: cgImage),
                         salientRegion: region,
                         context: ctx,
-                        config: probeConfig,
+                        config: fileConfig,
                     )
                 }
             }
@@ -561,12 +582,15 @@ extension FocusMaskModel {
                     scores.append(s)
                 }
 
-                if nextIndex < rawURLs.count {
-                    let url = rawURLs[nextIndex]
+                if nextIndex < files.count {
+                    let entry = files[nextIndex]
                     nextIndex += 1
 
-                    group.addTask { [probeConfig, ctx, tSize] in
-                        guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: tSize) ?? Self.decodeImage(at: url) else {
+                    group.addTask { [baseConfig, ctx, tSize] in
+                        var fileConfig = baseConfig
+                        fileConfig.energyMultiplier = 1.0
+                        fileConfig.iso = entry.iso ?? 400
+                        guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
                             return nil
                         }
                         let region = Self.salientRegion(for: cgImage)
@@ -574,7 +598,7 @@ extension FocusMaskModel {
                             from: CIImage(cgImage: cgImage),
                             salientRegion: region,
                             context: ctx,
-                            config: probeConfig,
+                            config: fileConfig,
                         )
                     }
                 }

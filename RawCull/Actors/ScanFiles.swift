@@ -23,6 +23,7 @@ struct ExifMetadata: Hashable {
     let aperture: String? // formatted display string, e.g. "ƒ/5.6"
     let apertureValue: Double? // raw f-number for filtering, e.g. 5.6
     let iso: String?
+    let isoValue: Int? // raw integer ISO for computation (e.g. 6400)
     let camera: String?
     let lensModel: String?
 }
@@ -166,12 +167,14 @@ actor ScanFiles {
         }
 
         let fNumber = exifDict[kCGImagePropertyExifFNumber] as? NSNumber
+        let rawISO = (exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first
         return ExifMetadata(
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
             focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),
             aperture: formatAperture(fNumber),
             apertureValue: fNumber.map { $0.doubleValue },
-            iso: formatISO((exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first),
+            iso: formatISO(rawISO),
+            isoValue: rawISO,
             camera: tiffDict[kCGImagePropertyTIFFModel] as? String,
             lensModel: exifDict[kCGImagePropertyExifLensModel] as? String,
         )
