@@ -19,7 +19,7 @@ struct GridThumbnailSelectionView: View {
     @State private var ratingFilter: Int? = nil
 
     private let ratingColors: [(Int, Color)] = [
-        (1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
+        (-1, .red), (2, .yellow), (3, .green), (4, .blue), (5, .purple),
     ]
 
     let selectedSource: ARWSourceCatalog?
@@ -97,7 +97,7 @@ struct GridThumbnailSelectionView: View {
                     }
                 }
 
-                // Rating color filter buttons
+                // Rating color filter buttons (-1=rejected, 2-5=stars)
                 ForEach(ratingColors, id: \.0) { rating, color in
                     Button {
                         ratingFilter = ratingFilter == rating ? nil : rating
@@ -108,8 +108,25 @@ struct GridThumbnailSelectionView: View {
                     }
                     .buttonStyle(.borderless)
                     .contentShape(Rectangle())
-                    .help("Show only rating \(rating)")
+                    .help(rating == -1 ? "Show only rejected images" : "Show only \(rating)-star images")
                 }
+
+                // Keepers button (rating == 0)
+                Button {
+                    ratingFilter = ratingFilter == 0 ? nil : 0
+                } label: {
+                    Text("P")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(ratingFilter == 0 ? .white : .secondary)
+                        .frame(width: 18, height: 18)
+                        .background(
+                            Circle()
+                                .fill(ratingFilter == 0 ? Color.accentColor : Color.secondary.opacity(0.2))
+                        )
+                }
+                .buttonStyle(.borderless)
+                .contentShape(Rectangle())
+                .help("Show only keepers (rating 0)")
 
                 if ratingFilter != nil {
                     Button {
