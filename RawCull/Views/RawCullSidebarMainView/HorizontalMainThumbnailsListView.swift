@@ -220,19 +220,6 @@ extension HorizontalMainThumbnailsListView {
             .disabled(viewModel.selectedSource == nil)
         }
 
-        if viewModel.filteredFiles.isEmpty {
-            ToolbarItem(placement: .status) {
-                Button(action: resetApertureSelection) {
-                    Label("Reset Sharpness", systemImage: "arrow.counterclockwise")
-                }
-                .help("Reset Sharpness Model")
-                .labelStyle(.iconOnly)
-            }
-        }
-    }
-
-    func resetApertureSelection() {
-        viewModel.sharpnessModel.reset()
     }
 
     func applyRatingFilter(_ rating: Int) {
