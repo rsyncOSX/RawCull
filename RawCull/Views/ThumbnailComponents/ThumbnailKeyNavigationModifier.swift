@@ -53,16 +53,36 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         viewModel.selectedFileID = files[idx + 1].id
                         return nil
 
-                    case 29: // 0 — clear rating (untag)
+                    case 7: // x / X — reject (rating −1, red), advance to next
+                        guard let current = viewModel.selectedFile,
+                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRating(for: current, rating: -1)
+                        if idx + 1 < files.count {
+                            viewModel.selectedFile = files[idx + 1]
+                            viewModel.selectedFileID = files[idx + 1].id
+                        }
+                        return nil
+
+                    case 35: // p / P — keep (rating 0), advance to next
+                        guard let current = viewModel.selectedFile,
+                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRating(for: current, rating: 0)
+                        if idx + 1 < files.count {
+                            viewModel.selectedFile = files[idx + 1]
+                            viewModel.selectedFileID = files[idx + 1].id
+                        }
+                        return nil
+
+                    case 29: // 0 — keep (rating 0)
                         if let file = viewModel.selectedFile {
                             viewModel.updateRating(for: file, rating: 0)
                         }
                         return nil
 
-                    case 18, 19, 20, 21, 23: // 1–5 — set rating (18=1 19=2 20=3 21=4 23=5)
+                    case 18, 19, 20, 21, 23: // 1→2, 2, 3, 4, 5 — set rating (18=key1→2, 19=2, 20=3, 21=4, 23=5)
                         if let file = viewModel.selectedFile {
                             let rating: Int = switch event.keyCode {
-                            case 18: 1
+                            case 18: 2 // key 1 maps to rating 2 (rating 1 retired)
                             case 19: 2
                             case 20: 3
                             case 21: 4

@@ -152,7 +152,7 @@ struct ImageItemView: View {
 
     private var ratingColor: Color? {
         switch viewModel.getRating(for: file) {
-        case 1: .red
+        case -1: .red
         case 2: .yellow
         case 3: .green
         case 4: .blue

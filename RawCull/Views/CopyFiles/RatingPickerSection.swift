@@ -11,7 +11,7 @@ struct RatingPickerSection: View {
             Spacer()
 
             Picker("Rating", selection: $rating) {
-                ForEach(1 ... 5, id: \.self) { number in
+                ForEach(2 ... 5, id: \.self) { number in
                     HStack {
                         ForEach(0 ..< number, id: \.self) { _ in
                             Image(systemName: "star.fill")

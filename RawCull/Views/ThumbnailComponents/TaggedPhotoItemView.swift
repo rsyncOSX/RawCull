@@ -77,7 +77,7 @@ struct TaggedPhotoItemView: View {
               let record = entry.filerecords?.first(where: { $0.fileName == photo })
         else { return nil }
         switch record.rating ?? 0 {
-        case 1: return .red
+        case -1: return .red
         case 2: return .yellow
         case 3: return .green
         case 4: return .blue

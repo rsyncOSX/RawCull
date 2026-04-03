@@ -13,7 +13,7 @@ struct RatingView: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(1 ... 5, id: \.self) { star in
+            ForEach(2 ... 5, id: \.self) { star in
                 Button(action: {
                     onChange(star)
                 }, label: {
