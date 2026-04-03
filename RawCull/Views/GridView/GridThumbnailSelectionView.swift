@@ -9,6 +9,12 @@ import AppKit
 import OSLog
 import SwiftUI
 
+private enum GridRatingFilter: Equatable {
+    case all
+    case unrated
+    case rating(Int)  // -1 = rejected, 0 = keepers, 2–5 = stars
+}
+
 struct GridThumbnailSelectionView: View {
     @Environment(SettingsViewModel.self) private var settings
     @Environment(\.openWindow) private var openWindow
@@ -16,7 +22,7 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
-    @State private var ratingFilter: Int?
+    @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
 
     let selectedSource: ARWSourceCatalog?
@@ -117,9 +123,12 @@ struct GridThumbnailSelectionView: View {
 
                 // Rating color filter buttons
                 RatingFilterButtons(
-                    activeRating: ratingFilter,
-                    onSelect: { rating in ratingFilter = ratingFilter == rating ? nil : rating },
-                    onClear: { ratingFilter = nil },
+                    activeRating: { if case .rating(let n) = ratingFilter { return n }; return nil }(),
+                    onSelect: { rating in
+                        let next = GridRatingFilter.rating(rating)
+                        ratingFilter = ratingFilter == next ? .all : next
+                    },
+                    onClear: { ratingFilter = .all },
                 )
 
                 Spacer()
@@ -129,7 +138,14 @@ struct GridThumbnailSelectionView: View {
                 HStack(spacing: 8) {
                     Text("✕ \(stats.rejected)").foregroundStyle(.red)
                     Text("P \(stats.kept)").foregroundStyle(Color.accentColor)
-                    Text("\(stats.unrated) unrated").foregroundStyle(.secondary)
+                    Button {
+                        ratingFilter = ratingFilter == .unrated ? .all : .unrated
+                    } label: {
+                        Text("\(stats.unrated) unrated")
+                            .foregroundStyle(ratingFilter == .unrated ? Color.primary : Color.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Show only unrated images")
                     Text("/ \(stats.total)").foregroundStyle(.secondary)
                 }
                 .font(.caption.monospacedDigit())
@@ -243,11 +259,17 @@ struct GridThumbnailSelectionView: View {
     }
 
     var files: [FileItem] {
-        guard let ratingFilter else { return viewModel.filteredFiles }
-        if ratingFilter == 0 {
+        switch ratingFilter {
+        case .all:
+            return viewModel.filteredFiles
+        case .unrated:
+            guard let catalog = viewModel.selectedSource?.url else { return viewModel.filteredFiles }
+            return viewModel.filteredFiles.filter { !viewModel.cullingModel.isTagged(photo: $0.name, in: catalog) }
+        case .rating(0):
             // Keepers mode: show keep (0) and rated images (2–5), exclude rejected (–1)
             return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) >= 0 }
+        case .rating(let n):
+            return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == n }
         }
-        return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == ratingFilter }
     }
 }
