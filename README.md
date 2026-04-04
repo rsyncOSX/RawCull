@@ -7,6 +7,8 @@ RawCull is currently in development, with frequent code updates. Both the user i
 
 macOS photo review and selection application for Sony A1 mkI and mkII ARW raw files. This is a build for Apple Silicon only.
 
+RawCull is developed for culling Sony A1 mkI and mkII ARW files. However, I have recently tested RawCull on Sony 7RV and the new Sony 7V, and it appears that all functions are functioning correctly on these models as well.
+
 ## Requirements
 
 - macOS 26 Tahoe and later
@@ -22,7 +24,7 @@ brew tap rsyncOSX/cask && brew install --cask rawcull
 
 ## Version
 
-Current version: v1.3.4 - released April 3, 2026
+Current version: v1.3.5 - released April 4, 2026
 
 ## Documentation
 
@@ -31,6 +33,8 @@ Current version: v1.3.4 - released April 3, 2026
 
 ![](images/rawcull.png)
 
-Focus Mask applied.
+![](images/nomask.png)
+
+Focus Mask and Focus Point applied.
 
 ![](images/focusmask.png)
