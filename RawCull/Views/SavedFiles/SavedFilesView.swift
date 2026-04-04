@@ -4,12 +4,14 @@ import SwiftUI
 
 struct SavedFilesView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(RawCullViewModel.self) private var viewModel
 
     @State private var savedFiles: [SavedFiles] = []
     @State private var selectedCatalog: SavedFiles?
     @State private var selectedRecord: FileRecord?
     @State private var hoveredCatalog: UUID?
     @State private var hoveredRecord: UUID?
+    @State private var showResetAlert = false
 
     private var records: [FileRecord] {
         selectedCatalog?.filerecords ?? []
@@ -32,13 +34,38 @@ struct SavedFilesView: View {
                     placeholderDetail
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+        }
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+            }
+            ToolbarItem(placement: .destructiveAction) {
+                ConditionalGlassButton(
+                    systemImage: "trash",
+                    text: "Reset",
+                    helpText: "Clean up data from previous saves",
+                    style: .softCapsule,
+                ) {
+                    showResetAlert = true
                 }
+                .disabled(viewModel.creatingthumbnails)
             }
         }
         .frame(minWidth: 820, minHeight: 500)
+        .alert("Reset Saved Files", isPresented: $showResetAlert) {
+            Button("Reset", role: .destructive) {
+                viewModel.cullingModel.savedFiles.removeAll()
+                savedFiles = []
+                selectedCatalog = nil
+                selectedRecord = nil
+                Task {
+                    await WriteSavedFilesJSON(viewModel.cullingModel.savedFiles)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to reset all saved files?")
+        }
         .task {
             savedFiles = ReadSavedFilesJSON().readjsonfilesavedfiles() ?? []
         }
@@ -277,6 +304,8 @@ struct FileRecordRow: View {
                     Label(dateTagged, systemImage: "tag")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
 
