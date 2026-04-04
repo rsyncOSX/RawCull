@@ -54,11 +54,6 @@ struct TaggedPhotoItemView: View {
                 }
             }
 
-            if setbackground() {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.blue)
-                    .padding(5)
-            }
         }
         .onTapGesture {
             onSelected()

@@ -135,9 +135,14 @@ struct GridThumbnailSelectionView: View {
 
                 // Culling progress
                 let stats = cullingStats
-                HStack(spacing: 8) {
-                    Text("✕ \(stats.rejected)").foregroundStyle(.red)
+                let ratingSum = stats.rejected + stats.kept + stats.r2 + stats.r3 + stats.r4 + stats.r5 + stats.unrated
+                HStack(spacing: 6) {
+                    Text("✕ \(stats.rejected)").foregroundStyle(Color.red)
                     Text("P \(stats.kept)").foregroundStyle(Color.accentColor)
+                    Text("★2 \(stats.r2)").foregroundStyle(Color.yellow)
+                    Text("★3 \(stats.r3)").foregroundStyle(Color.green)
+                    Text("★4 \(stats.r4)").foregroundStyle(Color.blue)
+                    Text("★5 \(stats.r5)").foregroundStyle(Color.purple)
                     Button {
                         ratingFilter = ratingFilter == .unrated ? .all : .unrated
                     } label: {
@@ -146,7 +151,8 @@ struct GridThumbnailSelectionView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Show only unrated images")
-                    Text("/ \(stats.total)").foregroundStyle(.secondary)
+                    Text("= \(ratingSum) / \(stats.total)")
+                        .foregroundStyle(ratingSum == stats.total ? Color.secondary : Color.red)
                 }
                 .font(.caption.monospacedDigit())
             }
@@ -238,21 +244,29 @@ struct GridThumbnailSelectionView: View {
         )
     }
 
-    private var cullingStats: (rejected: Int, kept: Int, unrated: Int, total: Int) {
+    private var cullingStats: (rejected: Int, kept: Int, r2: Int, r3: Int, r4: Int, r5: Int, unrated: Int, total: Int) {
         guard let catalog = viewModel.selectedSource?.url else {
-            return (0, 0, viewModel.filteredFiles.count, viewModel.filteredFiles.count)
+            let n = viewModel.filteredFiles.count
+            return (0, 0, 0, 0, 0, 0, n, n)
         }
-        var rejected = 0, kept = 0, unrated = 0
+        var rejected = 0, kept = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, unrated = 0
         for file in viewModel.filteredFiles {
             let hasRecord = viewModel.cullingModel.isTagged(photo: file.name, in: catalog)
             if !hasRecord {
                 unrated += 1
             } else {
-                let r = viewModel.getRating(for: file)
-                if r == -1 { rejected += 1 } else { kept += 1 }
+                switch viewModel.getRating(for: file) {
+                case -1: rejected += 1
+                case 0:  kept += 1
+                case 2:  r2 += 1
+                case 3:  r3 += 1
+                case 4:  r4 += 1
+                case 5:  r5 += 1
+                default: unrated += 1
+                }
             }
         }
-        return (rejected, kept, unrated, viewModel.filteredFiles.count)
+        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.filteredFiles.count)
     }
 
     var files: [FileItem] {
@@ -265,8 +279,7 @@ struct GridThumbnailSelectionView: View {
             return viewModel.filteredFiles.filter { !viewModel.cullingModel.isTagged(photo: $0.name, in: catalog) }
 
         case .rating(0):
-            // Keepers mode: show keep (0) and rated images (2–5), exclude rejected (–1)
-            return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) >= 0 }
+            return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == 0 }
 
         case let .rating(n):
             return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == n }
