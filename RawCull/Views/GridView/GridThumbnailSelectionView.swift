@@ -24,6 +24,7 @@ struct GridThumbnailSelectionView: View {
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
+    @State private var showScanStats = false
 
     let selectedSource: ARWSourceCatalog?
     @Binding var nsImage: NSImage?
@@ -256,6 +257,20 @@ struct GridThumbnailSelectionView: View {
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showScanStats = true
+                } label: {
+                    Label("Statistics", systemImage: "info.circle")
+                }
+                .help("Show scan statistics")
+                .disabled(viewModel.files.isEmpty)
+            }
+        }
+        .sheet(isPresented: $showScanStats) {
+            ScanStatsSheetView(viewModel: viewModel)
+        }
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()
         }
