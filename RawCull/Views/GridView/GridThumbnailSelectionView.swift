@@ -131,6 +131,10 @@ struct GridThumbnailSelectionView: View {
                     onClear: { ratingFilter = .all },
                 )
 
+                Text("P = picked, not rated")
+                    .font(.caption2)
+                    .foregroundStyle(Color.secondary)
+
                 Spacer()
 
                 // Culling progress
