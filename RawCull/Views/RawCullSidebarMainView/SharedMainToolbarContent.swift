@@ -109,7 +109,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         case .all: nil
         case .rejected: -1
         case .keepers: 0
-        case .minimum(let n): n
+        case let .minimum(n): n
         }
     }
 
@@ -147,5 +147,4 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
-
 }

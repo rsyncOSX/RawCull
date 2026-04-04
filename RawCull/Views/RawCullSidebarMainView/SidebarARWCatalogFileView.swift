@@ -21,11 +21,23 @@ struct SidebarARWCatalogFileView: View {
     let issorting: Bool
     let max: Double
 
-    // let filetable: AnyView
-
     var body: some View {
         Group {
             if selectedSource == nil {
+                ConditionalGlassButton(
+                    systemImage: "trash",
+                    text: "Reset",
+                    helpText: "Clean up data from previous saves",
+                    style: .softCapsule,
+                ) {
+                    viewModel.alertType = .resetSavedFiles
+                    viewModel.showingAlert = true
+                }
+                .disabled(viewModel.creatingthumbnails)
+                .padding()
+
+                Spacer()
+
                 // Empty State when no catalog is selected
                 ContentUnavailableView {
                     Label("No Catalog Selected", systemImage: "folder.badge.plus")
@@ -76,21 +88,10 @@ struct SidebarARWCatalogFileView: View {
                                 ConditionalGlassButton(
                                     systemImage: "arrow.counterclockwise",
                                     text: "Clear",
-                                    helpText: "Clear tagged files",
+                                    helpText: "Clear rated ARW-files",
                                     style: .softCapsule,
                                 ) {
                                     viewModel.alertType = .clearToggledFiles
-                                    viewModel.showingAlert = true
-                                }
-                                .disabled(viewModel.creatingthumbnails)
-
-                                ConditionalGlassButton(
-                                    systemImage: "trash",
-                                    text: "Reset",
-                                    helpText: "Clean up data from previous saves",
-                                    style: .softCapsule,
-                                ) {
-                                    viewModel.alertType = .resetSavedFiles
                                     viewModel.showingAlert = true
                                 }
                                 .disabled(viewModel.creatingthumbnails)
