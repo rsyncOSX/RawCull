@@ -207,7 +207,6 @@ struct SavedFilesView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -316,7 +315,7 @@ struct FileRecordRow: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .background(
             Group {
                 if isSelected {
@@ -332,17 +331,7 @@ struct FileRecordRow: View {
     }
 
     private var fileIcon: String {
-        guard let name = record.fileName?.lowercased() else { return "doc" }
-        if name.hasSuffix(".jpg") || name.hasSuffix(".jpeg") || name.hasSuffix(".png") || name.hasSuffix(".heic") || name.hasSuffix(".tiff") {
-            return "photo"
-        } else if name.hasSuffix(".mp4") || name.hasSuffix(".mov") || name.hasSuffix(".avi") {
-            return "video"
-        } else if name.hasSuffix(".mp3") || name.hasSuffix(".wav") || name.hasSuffix(".aiff") {
-            return "waveform"
-        } else if name.hasSuffix(".pdf") {
-            return "doc.richtext"
-        }
-        return "doc"
+        "photo"
     }
 }
 
@@ -360,8 +349,6 @@ struct FileRecordDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     SectionHeader(title: "File Details")
 
-                    DetailRow(icon: "doc.text", label: "File Name", value: record.fileName ?? "—")
-                    Divider()
                     DetailRow(icon: "tag.fill", label: "Date Tagged", value: record.dateTagged ?? "—")
                     Divider()
                     DetailRow(icon: "arrow.right.doc.on.clipboard", label: "Date Copied", value: record.dateCopied ?? "—")
@@ -402,27 +389,21 @@ struct FileRecordDetailView: View {
     }
 
     private var detailHeader: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(Color.accentColor.opacity(0.12))
-                    .frame(width: 64, height: 64)
-                Image(systemName: "doc.fill")
-                    .font(.system(size: 28))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "photo")
+                    .font(.system(size: 20))
                     .foregroundStyle(Color.accentColor)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(record.fileName ?? "Unnamed File")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .lineLimit(2)
-                if let dateTagged = record.dateTagged {
-                    Text("Tagged \(dateTagged)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(record.fileName ?? "Unnamed File")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .lineLimit(2)
+
             Spacer()
         }
     }
