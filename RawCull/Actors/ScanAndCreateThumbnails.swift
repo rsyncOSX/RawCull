@@ -262,22 +262,6 @@ actor ScanAndCreateThumbnails {
         return normalizedImage
     }
 
-    private func nsImageToCGImage(_ nsImage: NSImage) throws -> CGImage {
-        for rep in nsImage.representations {
-            if let bitmapRep = rep as? NSBitmapImageRep, let cgImage = bitmapRep.cgImage {
-                return cgImage
-            }
-        }
-
-        guard let tiffData = nsImage.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmapRep.cgImage
-        else {
-            throw ThumbnailError.generationFailed
-        }
-        return cgImage
-    }
-
     // MARK: - Cache Helpers
 
     private func incrementAndGetCount() -> Int {
@@ -293,84 +277,4 @@ actor ScanAndCreateThumbnails {
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 
-    // MARK: - Public Thumbnail Lookup
-
-    func thumbnail(for url: URL, targetSize: Int) async -> CGImage? {
-        await ensureReady()
-        do {
-            return try await resolveImage(for: url, targetSize: targetSize)
-        } catch {
-            // Logger.process.warning("Failed to resolve thumbnail: \(error)")
-            return nil
-        }
-    }
-
-    private var inflightTasks: [URL: Task<NSImage, Error>] = [:]
-
-    private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
-        let nsUrl = url as NSURL
-
-        // A. Check RAM
-        if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
-            defer { wrapper.endContentAccess() }
-            cacheMemory += 1
-            // Logger.process.debugThreadOnly("resolveImage: found in RAM Cache (hits: \(cacheMemory))")
-            return try nsImageToCGImage(wrapper.image)
-        }
-
-        // B. Check Disk
-        if let diskImage = await diskCache.load(for: url) {
-            storeInMemoryCache(diskImage, for: url)
-            cacheDisk += 1
-            // Logger.process.debugThreadOnly("resolveImage: found in Disk Cache (misses: \(cacheDisk))")
-            return try nsImageToCGImage(diskImage)
-        }
-
-        // C. Check In-Flight Requests
-        if let existingTask = inflightTasks[url] {
-            // Logger.process.debugThreadOnly("resolveImage: coalescing request for \(url.lastPathComponent)")
-            let image = try await existingTask.value
-            return try nsImageToCGImage(image)
-        }
-
-        // D. Start New Work
-        let task = Task { () throws -> NSImage in
-            let costPerPixel = await SharedMemoryCache.shared.costPerPixel
-
-            let cgImage = try await SonyThumbnailExtractor.extractSonyThumbnail(
-                from: url,
-                maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel,
-            )
-
-            let image = try self.cgImageToNormalizedNSImage(cgImage)
-
-            self.storeInMemoryCache(image, for: url)
-
-            // Encode to Data inside this actor-bound Task before handing off to a
-            // detached task.  `Data` is Sendable; `CGImage` is not.
-            if let jpegData = DiskCacheManager.jpegData(from: cgImage) {
-                let dcache = self.diskCache
-                Task.detached(priority: .background) {
-                    await dcache.save(jpegData, for: url)
-                }
-            } else {
-                // Logger.process.warning("resolveImage: failed to encode JPEG for \(url.lastPathComponent)")
-            }
-
-            self.inflightTasks[url] = nil
-
-            return image
-        }
-
-        inflightTasks[url] = task
-
-        do {
-            let image = try await task.value
-            return try nsImageToCGImage(image)
-        } catch {
-            inflightTasks[url] = nil
-            throw error
-        }
-    }
 }

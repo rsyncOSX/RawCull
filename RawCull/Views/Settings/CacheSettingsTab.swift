@@ -226,14 +226,6 @@ struct CacheSettingsTab: View {
         return ByteCountFormatStyle(style: .memory).format(Int64(bytes))
     }
 
-    func formatted_memory_GiB() -> String {
-        let availableMemory = ProcessInfo.processInfo.physicalMemory
-        return NumberFormatter.localizedString(
-            from: NSNumber(value: availableMemory / 1_073_741_824),
-            number: NumberFormatter.Style.decimal,
-        )
-    }
-
     private func displayValue(for megabytes: Int) -> String {
         // Convert MB to bytes
         let bytes = megabytes * 1024 * 1024

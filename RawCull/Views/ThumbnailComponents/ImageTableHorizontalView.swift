@@ -107,28 +107,6 @@ struct ImageTableHorizontalView: View {
         viewModel.selectedFile = file
     }
 
-    private func navigateToNext() {
-        guard let current = viewModel.selectedFile,
-              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
-              index + 1 < sortedFiles.count else { return }
-        viewModel.selectedFile = sortedFiles[index + 1]
-        viewModel.selectedFileID = sortedFiles[index + 1].id
-    }
-
-    private func navigateToPrevious() {
-        guard let current = viewModel.selectedFile,
-              let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
-              index - 1 >= 0 else { return }
-        viewModel.selectedFile = sortedFiles[index - 1]
-        viewModel.selectedFileID = sortedFiles[index - 1].id
-    }
-
-    private func scrollTo(_ file: FileItem, proxy: ScrollViewProxy) {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            proxy.scrollTo(file.id, anchor: .center)
-        }
-    }
-
     private func selectAndScroll(file: FileItem) {
         viewModel.selectFile(file)
         // Scrolling is handled by onChange(of: viewModel.selectedFile?.id) to avoid double animation

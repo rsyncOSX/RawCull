@@ -9,7 +9,6 @@ import Foundation
 import SwiftUI
 
 struct MenuCommands: Commands {
-    @FocusedBinding(\.tagimage) private var tagimage
     @FocusedBinding(\.aborttask) private var aborttask
     @FocusedBinding(\.extractJPGs) private var extractJPGs
 
@@ -52,10 +51,6 @@ struct CommandButton: View {
 
 // MARK: - Focused Value Keys
 
-struct FocusedTagImage: FocusedValueKey {
-    typealias Value = Binding<Bool>
-}
-
 struct FocusedAborttask: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
@@ -65,11 +60,6 @@ struct FocusedExtractJPGs: FocusedValueKey {
 }
 
 extension FocusedValues {
-    var tagimage: FocusedTagImage.Value? {
-        get { self[FocusedTagImage.self] }
-        set { self[FocusedTagImage.self] = newValue }
-    }
-
     var aborttask: FocusedAborttask.Value? {
         get { self[FocusedAborttask.self] }
         set { self[FocusedAborttask.self] = newValue }

@@ -84,10 +84,10 @@ struct DetailsView: View {
 
 // MARK: - RsyncOutputRowView
 
-public struct RsyncOutputRowView: View {
+struct RsyncOutputRowView: View {
     let remotedatanumbers: RemoteDataNumbers
 
-    public var body: some View {
+    var body: some View {
         if let originalRecords = remotedatanumbers.outputfromrsync {
             // Safely drop the last 11 elements if available
             let countToDrop = min(11, originalRecords.count)

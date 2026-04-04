@@ -10,7 +10,6 @@ import RsyncProcessStreaming
 struct CopyDataResult {
     let output: [String]?
     let viewOutput: [RsyncOutputData]?
-    let linesCount: Int
 }
 
 struct RsyncOutputData: Identifiable, Equatable, Hashable {
@@ -185,7 +184,6 @@ final class ExecuteCopyFiles {
         let result = CopyDataResult(
             output: stringoutputfromrsync,
             viewOutput: viewOutput,
-            linesCount: stringoutputfromrsync?.count ?? 0,
         )
 
         // Call completion handler - let it finish before cleanup

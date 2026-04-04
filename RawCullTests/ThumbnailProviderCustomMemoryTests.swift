@@ -297,21 +297,3 @@ struct IntegrationTestExamples {
     }
 }
 
-// MARK: - Helper Functions for Custom Tests
-
-/// Create a test configuration for a specific memory size
-func createMemoryConfig(sizeInMB: Int, itemCount: Int) -> CacheConfig {
-    let costLimit = sizeInMB * 1_000_000
-    return CacheConfig(totalCostLimit: costLimit, countLimit: itemCount)
-}
-
-/// Create test images of various sizes
-func createTestImages(count: Int, width: Int = 100, height: Int = 100) -> [NSImage] {
-    (0 ..< count).map { _ in
-        createTestImage(width: width, height: height)
-    }
-}
-
-// Example usage:
-// let config = createMemoryConfig(sizeInMB: 5, itemCount: 20)
-// let images = createTestImages(count: 10, width: 256, height: 256)

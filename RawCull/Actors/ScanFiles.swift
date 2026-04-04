@@ -77,7 +77,6 @@ actor ScanFiles {
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
                             size: Int64(res?.fileSize ?? 0),
-                            type: res?.contentType?.localizedDescription ?? "File",
                             dateModified: res?.contentModificationDate ?? Date(),
                             exifData: exifData,
                         )

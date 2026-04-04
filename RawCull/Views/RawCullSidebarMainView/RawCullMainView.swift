@@ -7,7 +7,6 @@ extension KeyPath<FileItem, String>: @unchecked @retroactive Sendable {}
 struct RawCullMainView: View {
     @Environment(\.openWindow) var openWindow
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
-    @Environment(SettingsViewModel.self) private var settings
 
     @Bindable var viewModel: RawCullViewModel
 

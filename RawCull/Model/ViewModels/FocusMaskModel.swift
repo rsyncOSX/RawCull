@@ -68,47 +68,6 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Public API
 
-    /// ARW-aware entry point.
-    /// Loads RAW via CIRAWFilter with NR/sharpen/boost disabled for optical sharpness analysis.
-    /// Falls back to safe ImageIO decode for non-RAW/unsupported RAW.
-    func generateFocusMask(fromRawURL url: URL, scale: CGFloat) async -> CGImage? {
-        let context = self.context
-        let config = self.config
-
-        return await Task.detached(priority: .userInitiated) { () -> CGImage? in
-            guard let rawFilter = CIRAWFilter(imageURL: url) else {
-                guard let cgImage = Self.decodeImage(at: url) else { return nil }
-                return Self.buildFocusMask(
-                    from: CIImage(cgImage: cgImage),
-                    scale: scale,
-                    context: context,
-                    config: config,
-                )
-            }
-
-            // Disable in-camera processing before focus analysis
-            rawFilter.luminanceNoiseReductionAmount = 0
-            rawFilter.colorNoiseReductionAmount = 0
-            rawFilter.contrastAmount = 0
-            rawFilter.detailAmount = 0
-            rawFilter.moireReductionAmount = 0
-            rawFilter.boostAmount = 0
-            rawFilter.boostShadowAmount = 0
-            rawFilter.sharpnessAmount = 0
-            rawFilter.localToneMapAmount = 0
-            rawFilter.isGamutMappingEnabled = false
-            rawFilter.isLensCorrectionEnabled = false
-
-            guard let linearImage = rawFilter.outputImage else { return nil }
-            return Self.buildFocusMask(
-                from: linearImage,
-                scale: scale,
-                context: context,
-                config: config,
-            )
-        }.value
-    }
-
     func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let originalSize = nsImage.size
@@ -487,17 +446,6 @@ extension FocusMaskModel {
         cfg.threshold = result.threshold
         cfg.energyMultiplier = result.energyMultiplier
         config = cfg
-    }
-
-    /// Returns a config with calibration applied (pure helper, no mutation).
-    nonisolated static func applyingCalibration(
-        _ result: FocusCalibrationResult,
-        to base: FocusDetectorConfig,
-    ) -> FocusDetectorConfig {
-        var cfg = base
-        cfg.threshold = result.threshold
-        cfg.energyMultiplier = result.energyMultiplier
-        return cfg
     }
 
     /// Convenience: calibrate in parallel and immediately apply to model config.

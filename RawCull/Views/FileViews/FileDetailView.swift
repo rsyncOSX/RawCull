@@ -99,7 +99,4 @@ struct FileDetailView: View {
         .blendMode(.screen)
     }
 
-    var focusPoints: [FocusPoint]? {
-        viewModel.getFocusPoints()
-    }
 }

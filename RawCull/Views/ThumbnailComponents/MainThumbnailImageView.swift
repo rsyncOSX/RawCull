@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MainThumbnailImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
-    @Environment(SettingsViewModel.self) private var settings
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()

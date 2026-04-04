@@ -93,9 +93,6 @@ struct FileRecord: Identifiable, Codable {
     var dateTagged: String?
     var dateCopied: String?
     var rating: Int?
-    var date: Date {
-        dateTagged?.en_date_from_string() ?? Date()
-    }
 }
 
 extension FileRecord: Hashable, Equatable {

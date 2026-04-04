@@ -109,10 +109,6 @@ struct ImageTableVerticalView: View {
 
     // MARK: - Private Helpers
 
-    var cullingModel: CullingModel {
-        viewModel.cullingModel
-    }
-
     private var filteredFiles: [FileItem] {
         viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
     }
@@ -121,12 +117,6 @@ struct ImageTableVerticalView: View {
         guard !viewModel.sharpnessModel.sortBySharpness else { return filteredFiles }
         return filteredFiles.sorted { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-        }
-    }
-
-    private func scrollTo(_ file: FileItem, proxy: ScrollViewProxy) {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            proxy.scrollTo(file.id, anchor: .center)
         }
     }
 

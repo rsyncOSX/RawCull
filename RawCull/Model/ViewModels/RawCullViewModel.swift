@@ -149,13 +149,6 @@ final class RawCullViewModel {
         securityScopedURLs.insert(url)
     }
 
-    /// Explicitly release access for a URL (e.g., when a catalog source is removed).
-    func stopSecurityScopedAccess(for url: URL) {
-        guard securityScopedURLs.contains(url) else { return }
-        url.stopAccessingSecurityScopedResource()
-        securityScopedURLs.remove(url)
-    }
-
     deinit {
         for url in securityScopedURLs {
             url.stopAccessingSecurityScopedResource()

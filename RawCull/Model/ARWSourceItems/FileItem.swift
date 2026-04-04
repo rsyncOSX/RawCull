@@ -16,7 +16,6 @@ struct FileItem: Identifiable, Hashable {
     let url: URL
     let name: String
     let size: Int64
-    let type: String
     let dateModified: Date
     let exifData: ExifMetadata?
 
