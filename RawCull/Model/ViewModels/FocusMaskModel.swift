@@ -206,12 +206,61 @@ final class FocusMaskModel: @unchecked Sendable {
         let union = objects.reduce(CGRect.null) { $0.union($1.boundingBox) }
         guard union.width * union.height > 0.03 else { return (nil, nil) }
 
-        // Pick the highest-confidence classification label (results are confidence-descending).
-        let label = classifyRequest.results?
-            .first { $0.confidence >= 0.20 }
-            .map { $0.identifier.replacingOccurrences(of: "_", with: " ") }
-
+        let label = Self.bestClassificationLabel(from: classifyRequest.results ?? [])
         return (union, SaliencyInfo(subjectLabel: label))
+    }
+
+    /// Two-pass label selection tuned for wildlife / outdoor photography.
+    ///
+    /// Pass 1 — Subject priority: scan all results above 0.06 confidence and
+    /// return the first that contains a known animal, person, or subject keyword.
+    /// This surfaces "bird" or "animal" even when the forest background pushes
+    /// broad scene labels ("structure", "plant") to the top by raw confidence.
+    ///
+    /// Pass 2 — Blocklist fallback: take the highest-confidence result that does
+    /// not match known environment / scene tokens. Returns nil if nothing passes.
+    private nonisolated static func bestClassificationLabel(
+        from observations: [VNClassificationObservation]
+    ) -> String? {
+        guard !observations.isEmpty else { return nil }
+
+        // Subject keywords we actively want to surface.
+        // Contains-match so "songbird", "waterfowl", "raptor" etc. all qualify.
+        let subjectKeywords = [
+            "bird", "raptor", "fowl", "waterfowl", "wildlife",
+            "animal", "mammal", "vertebrate", "creature", "predator",
+            "reptile", "amphibian", "insect", "spider",
+            "dog", "cat", "horse", "deer", "bear", "fox", "wolf",
+            "lion", "tiger", "elephant", "monkey", "ape",
+            "person", "people", "human", "face", "portrait",
+        ]
+
+        // Tokens that indicate a broad scene or environment label — not useful
+        // as the primary badge when a subject is present.
+        let environmentTokens = [
+            "structure", "plant", "grass", "tree", "forest", "wood",
+            "nature", "outdoor", "indoor", "landscape", "sky", "water",
+            "ground", "soil", "rock", "stone", "darkness", "light",
+            "photography", "scene", "background", "texture", "pattern",
+        ]
+
+        // Pass 1: prefer any animal/subject hit, even at low confidence.
+        for obs in observations where obs.confidence >= 0.06 {
+            let id = obs.identifier.lowercased()
+            if subjectKeywords.contains(where: { id.contains($0) }) {
+                return obs.identifier.replacingOccurrences(of: "_", with: " ")
+            }
+        }
+
+        // Pass 2: highest-confidence result that is not a pure environment label.
+        for obs in observations where obs.confidence >= 0.15 {
+            let id = obs.identifier.lowercased()
+            if !environmentTokens.contains(where: { id.contains($0) }) {
+                return obs.identifier.replacingOccurrences(of: "_", with: " ")
+            }
+        }
+
+        return nil
     }
 
     // MARK: - Scalar scoring
