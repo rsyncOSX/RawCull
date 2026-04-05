@@ -104,10 +104,6 @@ struct HorizontalMainThumbnailsListView: View {
     var files: [FileItem] {
         viewModel.files
     }
-
-    var cullingModel: CullingModel {
-        viewModel.cullingModel
-    }
 }
 
 extension HorizontalMainThumbnailsListView {
