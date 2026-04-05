@@ -148,6 +148,7 @@ final class SharpnessScoringModel {
         scoringTotal = files.count
         scoringEstimatedSeconds = 0
         scores = [:]
+        saliencyInfo = [:]
 
         let model = focusMaskModel
         let config = focusMaskModel.config
@@ -174,19 +175,27 @@ final class SharpnessScoringModel {
                     }
                     active += 1
                 }
+                // Accumulate locally; assign to @Observable state once at the end
+                // so the UI only pays one observer notification for the entire run.
+                var localScores: [UUID: Float] = [:]
+                var localSaliency: [UUID: SaliencyInfo] = [:]
+                var completedCount = 0
+
                 // Drain results, replenish slots, update progress
                 for await (id, score, saliency) in group {
                     active -= 1
                     // Cancellation check before mutating state
                     guard !Task.isCancelled else { break }
-                    if let score { self.scores[id] = score }
-                    if let saliency { self.saliencyInfo[id] = saliency }
-                    self.scoringProgress = self.scores.count
+                    if let score { localScores[id] = score }
+                    if let saliency { localSaliency[id] = saliency }
+                    completedCount += 1
+
+                    // Progress and ETA are cheap scalars — update every image.
+                    self.scoringProgress = completedCount
                     let elapsed = Date().timeIntervalSince(startTime)
-                    let count = self.scoringProgress
-                    if count > 0, elapsed > 0 {
-                        let rate = Double(count) / elapsed
-                        self.scoringEstimatedSeconds = max(0, Int(Double(files.count - count) / rate))
+                    if completedCount > 0, elapsed > 0 {
+                        let rate = Double(completedCount) / elapsed
+                        self.scoringEstimatedSeconds = max(0, Int(Double(files.count - completedCount) / rate))
                     }
                     if let file = iterator.next() {
                         let url = file.url
@@ -201,6 +210,10 @@ final class SharpnessScoringModel {
                         active += 1
                     }
                 }
+
+                // Single assignment — one observer notification for the whole run.
+                self.scores = localScores
+                self.saliencyInfo = localSaliency
             }
         }
 
