@@ -57,6 +57,10 @@ final class SharpnessScoringModel {
     /// Shared config for both the Focus Mask overlay and the scoring pipeline.
     var focusMaskModel = FocusMaskModel()
 
+    /// Thumbnail pixel size used when decoding images for sharpness scoring.
+    /// Larger values are more accurate but slower (~3–4× per step).
+    var thumbnailMaxPixelSize: Int = 512
+
     /// Number of images scored so far in the current batch.
     var scoringProgress: Int = 0
 
@@ -113,6 +117,7 @@ final class SharpnessScoringModel {
         let fileEntries = files.map { (url: $0.url, iso: $0.exifData?.isoValue) }
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
             files: fileEntries,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
             minSamples: 5,
             maxConcurrentTasks: 8,
         ) else {
@@ -141,6 +146,7 @@ final class SharpnessScoringModel {
 
         let model = focusMaskModel
         let config = focusMaskModel.config
+        let thumbSize = thumbnailMaxPixelSize
         let startTime = Date()
         var iterator = files.makeIterator()
         var active = 0
@@ -158,7 +164,7 @@ final class SharpnessScoringModel {
                     group.addTask(priority: .userInitiated) {
                         var fileConfig = config
                         fileConfig.iso = iso
-                        return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig))
+                        return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize))
                     }
                     active += 1
                 }
@@ -182,7 +188,7 @@ final class SharpnessScoringModel {
                         group.addTask(priority: .userInitiated) {
                             var fileConfig = config
                             fileConfig.iso = iso
-                            return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig))
+                            return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize))
                         }
                         active += 1
                     }

@@ -8,6 +8,7 @@ import SwiftUI
 struct ScoringParametersSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var config: FocusDetectorConfig
+    @Binding var thumbnailMaxPixelSize: Int
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,6 +30,18 @@ struct ScoringParametersSheetView: View {
             Divider()
 
             Form {
+                Section("Scoring Resolution") {
+                    Picker("Thumbnail size", selection: $thumbnailMaxPixelSize) {
+                        Text("512 px  (fast)").tag(512)
+                        Text("768 px").tag(768)
+                        Text("1024 px  (accurate)").tag(1024)
+                    }
+                    .pickerStyle(.inline)
+                    Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Border") {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {

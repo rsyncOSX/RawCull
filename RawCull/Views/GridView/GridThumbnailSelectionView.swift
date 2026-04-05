@@ -286,7 +286,10 @@ struct GridThumbnailSelectionView: View {
             case .stats:
                 ScanStatsSheetView(viewModel: viewModel)
             case .scoringParams:
-                ScoringParametersSheetView(config: Bindable(viewModel.sharpnessModel.focusMaskModel).config)
+                ScoringParametersSheetView(
+                    config: Bindable(viewModel.sharpnessModel.focusMaskModel).config,
+                    thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize
+                )
             }
         }
         .task(id: viewModel.selectedSource) {
