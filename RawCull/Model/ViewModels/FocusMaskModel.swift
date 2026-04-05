@@ -395,7 +395,22 @@ final class FocusMaskModel: @unchecked Sendable {
             by: CGAffineTransform(scaleX: scale, y: scale),
         )
 
-        guard let boostedLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else { return nil }
+        guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else { return nil }
+
+        // Zero out the outer border to suppress Gaussian pre-blur edge artifacts.
+        // The same borderInsetFraction used in scalar scoring applies here so the
+        // mask and the score are consistent. With no inset (0%) this is a no-op.
+        let boostedLaplacian: CIImage
+        if config.borderInsetFraction > 0 {
+            let ext = scaledImage.extent
+            let borderX = ext.width * CGFloat(config.borderInsetFraction)
+            let borderY = ext.height * CGFloat(config.borderInsetFraction)
+            let innerRect = ext.insetBy(dx: borderX, dy: borderY)
+            let blackBg = CIImage(color: .black).cropped(to: ext)
+            boostedLaplacian = rawLaplacian.cropped(to: innerRect).composited(over: blackBg)
+        } else {
+            boostedLaplacian = rawLaplacian
+        }
 
         if config.showRawLaplacian {
             let cropped = boostedLaplacian.cropped(to: scaledImage.extent)
