@@ -41,6 +41,11 @@ struct FocusDetectorConfig {
     /// (normalized 0–1) is multiplied by this value and added to 1.0,
     /// giving larger subjects a proportional score boost. 0 = disabled.
     var subjectSizeFactor: Float = 1.5
+
+    /// When true, runs VNClassifyImageRequest alongside saliency detection to
+    /// populate the subject badge on each thumbnail. Adds ~10–20% scoring time.
+    /// Disable for faster re-scores when the badge label is not needed.
+    var enableSubjectClassification: Bool = true
 }
 
 // Explicit nonisolated conformance so the @Observable macro's change-tracking
@@ -61,6 +66,7 @@ extension FocusDetectorConfig: Equatable {
             && lhs.borderInsetFraction == rhs.borderInsetFraction
             && lhs.salientWeight == rhs.salientWeight
             && lhs.subjectSizeFactor == rhs.subjectSizeFactor
+            && lhs.enableSubjectClassification == rhs.enableSubjectClassification
     }
 }
 
@@ -140,7 +146,7 @@ final class FocusMaskModel: @unchecked Sendable {
 
         guard let cgImage else { return (nil, nil) }
 
-        let (region, saliencyInfo) = Self.detectSaliencyAndClassify(for: cgImage)
+        let (region, saliencyInfo) = Self.detectSaliencyAndClassify(for: cgImage, classify: config.enableSubjectClassification)
         let score = Self.computeSharpnessScalar(
             from: CIImage(cgImage: cgImage),
             salientRegion: region,
@@ -193,11 +199,12 @@ final class FocusMaskModel: @unchecked Sendable {
     /// Returns the union bounding box of salient objects and a `SaliencyInfo` when a
     /// subject is found (area > 3% of frame). Both requests share one handler call so
     /// the image is decoded by Vision only once.
-    private nonisolated static func detectSaliencyAndClassify(for cgImage: CGImage) -> (region: CGRect?, saliency: SaliencyInfo?) {
+    private nonisolated static func detectSaliencyAndClassify(for cgImage: CGImage, classify: Bool) -> (region: CGRect?, saliency: SaliencyInfo?) {
         let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
         let classifyRequest = VNClassifyImageRequest()
+        let requests: [VNRequest] = classify ? [saliencyRequest, classifyRequest] : [saliencyRequest]
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([saliencyRequest, classifyRequest])
+        try? handler.perform(requests)
 
         guard let observation = saliencyRequest.results?.first,
               let objects = observation.salientObjects,
@@ -634,7 +641,7 @@ extension FocusMaskModel {
                     guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
                         return nil
                     }
-                    let (region, _) = Self.detectSaliencyAndClassify(for: cgImage)
+                    let (region, _) = Self.detectSaliencyAndClassify(for: cgImage, classify: false)
                     return Self.computeSharpnessScalar(
                         from: CIImage(cgImage: cgImage),
                         salientRegion: region,
@@ -661,7 +668,7 @@ extension FocusMaskModel {
                         guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
                             return nil
                         }
-                        let (region, _) = Self.detectSaliencyAndClassify(for: cgImage)
+                        let (region, _) = Self.detectSaliencyAndClassify(for: cgImage, classify: false)
                         return Self.computeSharpnessScalar(
                             from: CIImage(cgImage: cgImage),
                             salientRegion: region,

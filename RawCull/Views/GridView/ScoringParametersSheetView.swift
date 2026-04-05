@@ -60,6 +60,13 @@ struct ScoringParametersSheetView: View {
                     }
                 }
 
+                Section("Subject Detection") {
+                    Toggle("Classify subject during scoring", isOn: $config.enableSubjectClassification)
+                    Text("Runs an additional Vision classification pass to label each thumbnail with the detected subject (e.g. \"animal\", \"bird\"). Adds ~10–20% to scoring time. Disable for faster re-scores when the badge label is not needed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Subject Weighting") {
                     LabeledSlider(
                         label: "Subject weight",
