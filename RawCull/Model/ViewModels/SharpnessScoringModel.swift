@@ -28,10 +28,11 @@ enum ApertureFilter: String, CaseIterable, Identifiable {
             true
 
         case .wide:
-            file.exifData?.apertureValue.map { $0 <= 5.6 } ?? true
+            // Exclude files with missing EXIF rather than accidentally including them.
+            file.exifData?.apertureValue.map { $0 <= 5.6 } ?? false
 
         case .landscape:
-            file.exifData?.apertureValue.map { $0 >= 8.0 } ?? true
+            file.exifData?.apertureValue.map { $0 >= 8.0 } ?? false
         }
     }
 }
@@ -73,9 +74,15 @@ final class SharpnessScoringModel {
     /// Rough ETA in seconds to completion, updated after each image.
     var scoringEstimatedSeconds: Int = 0
 
-    /// Highest score in the current catalog — used for badge normalisation.
+    /// p90 of all scores — used as the "100%" anchor for badge normalisation.
+    /// Using p90 rather than max prevents a single noise spike from making
+    /// every other image render as near-zero stars.
     var maxScore: Float {
-        scores.values.max() ?? 1.0
+        guard scores.count >= 2 else { return scores.values.first ?? 1.0 }
+        var sorted = Array(scores.values)
+        sorted.sort()
+        let k = Int(Float(sorted.count - 1) * 0.90)
+        return max(sorted[k], 1e-6)
     }
 
     /// The running batch task — retained so it can be cancelled externally.

@@ -72,14 +72,14 @@ struct ScoringParametersSheetView: View {
                         label: "Subject weight",
                         value: $config.salientWeight,
                         range: 0.0 ... 1.0,
-                        hint: "0 = full-frame score only · 1 = subject region only. Higher values make the score reflect how sharp the subject is rather than the background"
+                        hint: "0 = full-frame score only · 1 = subject region only. Higher values make the score reflect how sharp the subject is rather than the background",
                     )
 
                     LabeledSlider(
                         label: "Subject size bonus",
                         value: $config.subjectSizeFactor,
                         range: 0.0 ... 3.0,
-                        hint: "Gives a proportional score bonus for larger subjects in frame (closer subjects fill more of the frame). 0 = disabled"
+                        hint: "Gives a proportional score bonus for larger subjects in frame (closer subjects fill more of the frame). 0 = disabled",
                     )
                 }
             }

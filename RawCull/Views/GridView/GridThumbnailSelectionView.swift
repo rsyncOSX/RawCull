@@ -17,7 +17,9 @@ private enum GridRatingFilter: Equatable {
 
 private enum ActiveSheet: String, Identifiable {
     case stats, scoringParams
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 struct GridThumbnailSelectionView: View {
@@ -285,10 +287,11 @@ struct GridThumbnailSelectionView: View {
             switch sheet {
             case .stats:
                 ScanStatsSheetView(viewModel: viewModel)
+
             case .scoringParams:
                 ScoringParametersSheetView(
                     config: Bindable(viewModel.sharpnessModel.focusMaskModel).config,
-                    thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize
+                    thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize,
                 )
             }
         }
@@ -326,11 +329,11 @@ struct GridThumbnailSelectionView: View {
             } else {
                 switch viewModel.getRating(for: file) {
                 case -1: rejected += 1
-                case 0:  kept += 1
-                case 2:  r2 += 1
-                case 3:  r3 += 1
-                case 4:  r4 += 1
-                case 5:  r5 += 1
+                case 0: kept += 1
+                case 2: r2 += 1
+                case 3: r3 += 1
+                case 4: r4 += 1
+                case 5: r5 += 1
                 default: unrated += 1
                 }
             }

@@ -98,5 +98,4 @@ struct FileDetailView: View {
         .allowsHitTesting(false)
         .blendMode(.screen)
     }
-
 }

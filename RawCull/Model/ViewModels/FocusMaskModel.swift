@@ -8,7 +8,7 @@ import Vision
 
 /// Saliency detection result: whether a salient region was found and, if Vision
 /// classification succeeded, what the dominant subject is.
-struct SaliencyInfo: Sendable {
+struct SaliencyInfo {
     /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
     let subjectLabel: String?
 }
@@ -39,8 +39,9 @@ struct FocusDetectorConfig {
 
     /// Bonus multiplier for subject size. The salient bounding-box area
     /// (normalized 0–1) is multiplied by this value and added to 1.0,
-    /// giving larger subjects a proportional score boost. 0 = disabled.
-    var subjectSizeFactor: Float = 1.5
+    /// giving larger subjects a small proportional score boost. Kept very low
+    /// (≤ 0.1) so a large-but-blurry subject cannot outscore a small-but-sharp one.
+    var subjectSizeFactor: Float = 0.1
 
     /// When true, runs VNClassifyImageRequest alongside saliency detection to
     /// populate the subject badge on each thumbnail. Adds ~10–20% scoring time.
@@ -211,7 +212,11 @@ final class FocusMaskModel: @unchecked Sendable {
               !objects.isEmpty else { return (nil, nil) }
 
         let union = objects.reduce(CGRect.null) { $0.union($1.boundingBox) }
-        guard union.width * union.height > 0.03 else { return (nil, nil) }
+        let maxConfidence = objects.map(\.confidence).max() ?? 0
+        // Accept the region when Vision is highly confident (small but clearly
+        // identifiable subject — e.g. bird on a stick) OR when the area crosses
+        // the 3% floor. Confidence ≥ 0.9 trusts Vision even for tiny subjects.
+        guard union.width * union.height > 0.03 || maxConfidence >= 0.9 else { return (nil, nil) }
 
         let label = Self.bestClassificationLabel(from: classifyRequest.results ?? [])
         return (union, SaliencyInfo(subjectLabel: label))
@@ -227,7 +232,7 @@ final class FocusMaskModel: @unchecked Sendable {
     /// Pass 2 — Blocklist fallback: take the highest-confidence result that does
     /// not match known environment / scene tokens. Returns nil if nothing passes.
     private nonisolated static func bestClassificationLabel(
-        from observations: [VNClassificationObservation]
+        from observations: [VNClassificationObservation],
     ) -> String? {
         guard !observations.isEmpty else { return nil }
 
@@ -239,7 +244,7 @@ final class FocusMaskModel: @unchecked Sendable {
             "reptile", "amphibian", "insect", "spider",
             "dog", "cat", "horse", "deer", "bear", "fox", "wolf",
             "lion", "tiger", "elephant", "monkey", "ape",
-            "person", "people", "human", "face", "portrait",
+            "person", "people", "human", "face", "portrait"
         ]
 
         // Tokens that indicate a broad scene or environment label — not useful
@@ -248,7 +253,7 @@ final class FocusMaskModel: @unchecked Sendable {
             "structure", "plant", "grass", "tree", "forest", "wood",
             "nature", "outdoor", "indoor", "landscape", "sky", "water",
             "ground", "soil", "rock", "stone", "darkness", "light",
-            "photography", "scene", "background", "texture", "pattern",
+            "photography", "scene", "background", "texture", "pattern"
         ]
 
         // Pass 1: prefer any animal/subject hit, even at low confidence.
@@ -439,7 +444,8 @@ final class FocusMaskModel: @unchecked Sendable {
         let isoFactor = max(1.0, min(sqrt(Float(max(config.iso, 1)) / 400.0), 3.0))
         let imageWidth = Float(image.extent.width)
         let resFactor = max(1.0, min(sqrt(max(imageWidth, 512.0) / 512.0), 3.0))
-        let effectiveRadius = config.preBlurRadius * isoFactor * resFactor
+        // CIGaussianBlur rejects radii above 100; clamp to avoid a nil output image.
+        let effectiveRadius = min(config.preBlurRadius * isoFactor * resFactor, 100.0)
 
         let preBlur = CIFilter.gaussianBlur()
         preBlur.inputImage = image

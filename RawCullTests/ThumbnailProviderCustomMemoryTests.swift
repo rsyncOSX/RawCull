@@ -296,4 +296,3 @@ struct IntegrationTestExamples {
         #expect(cleanHits == 0 || cleanHits >= 0) // Reset
     }
 }
-

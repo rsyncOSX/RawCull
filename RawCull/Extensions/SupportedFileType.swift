@@ -12,6 +12,4 @@
 enum SupportedFileType: String, CaseIterable {
     case arw
     case jpeg, jpg
-
-
 }

@@ -53,7 +53,6 @@ struct TaggedPhotoItemView: View {
                     color.frame(height: 4)
                 }
             }
-
         }
         .onTapGesture {
             onSelected()

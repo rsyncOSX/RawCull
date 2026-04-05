@@ -276,5 +276,4 @@ actor ScanAndCreateThumbnails {
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
-
 }

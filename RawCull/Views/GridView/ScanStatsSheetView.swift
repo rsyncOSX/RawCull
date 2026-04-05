@@ -30,6 +30,7 @@ struct ScanStatsSheetView: View {
 
             Form {
                 // MARK: Catalog
+
                 Section("Catalog") {
                     if let catalog = viewModel.selectedSource {
                         LabeledContent("Name", value: catalog.name)
@@ -48,6 +49,7 @@ struct ScanStatsSheetView: View {
                 }
 
                 // MARK: Culling
+
                 Section("Culling Status") {
                     let s = cullingStats
                     let total = s.total
@@ -67,13 +69,13 @@ struct ScanStatsSheetView: View {
 
                         Divider().gridCellUnsizedAxes(.horizontal)
 
-                        statRow("✕  Rejected",  color: .red,      count: s.rejected, total: total)
-                        statRow("P  Kept",       color: .accentColor, count: s.kept,  total: total)
-                        statRow("★2",            color: .yellow,   count: s.r2,       total: total)
-                        statRow("★3",            color: .green,    count: s.r3,       total: total)
-                        statRow("★4",            color: .blue,     count: s.r4,       total: total)
-                        statRow("★5",            color: .purple,   count: s.r5,       total: total)
-                        statRow("—  Unrated",    color: .secondary, count: s.unrated, total: total)
+                        statRow("✕  Rejected", color: .red, count: s.rejected, total: total)
+                        statRow("P  Kept", color: .accentColor, count: s.kept, total: total)
+                        statRow("★2", color: .yellow, count: s.r2, total: total)
+                        statRow("★3", color: .green, count: s.r3, total: total)
+                        statRow("★4", color: .blue, count: s.r4, total: total)
+                        statRow("★5", color: .purple, count: s.r5, total: total)
+                        statRow("—  Unrated", color: .secondary, count: s.unrated, total: total)
 
                         Divider().gridCellUnsizedAxes(.horizontal)
 
@@ -100,14 +102,15 @@ struct ScanStatsSheetView: View {
                     if allPicked > 0 {
                         let needRating = s.kept
                         Text(needRating == 0
-                             ? "All \(allPicked) picked images have a star rating"
-                             : "\(needRating) of \(allPicked) picked images still need a star rating")
+                            ? "All \(allPicked) picked images have a star rating"
+                            : "\(needRating) of \(allPicked) picked images still need a star rating")
                             .font(.caption)
                             .foregroundStyle(needRating == 0 ? Color.secondary : Color.orange)
                     }
                 }
 
                 // MARK: Sharpness
+
                 if !viewModel.sharpnessModel.scores.isEmpty {
                     Section("Sharpness Scoring") {
                         let scores = Array(viewModel.sharpnessModel.scores.values)
@@ -131,7 +134,6 @@ struct ScanStatsSheetView: View {
 
     // MARK: Grid row builder
 
-    @ViewBuilder
     private func statRow(_ label: String, color: Color, count: Int, total: Int) -> some View {
         GridRow {
             Text(label)
@@ -161,11 +163,11 @@ struct ScanStatsSheetView: View {
             } else {
                 switch viewModel.getRating(for: file) {
                 case -1: rejected += 1
-                case 0:  kept += 1
-                case 2:  r2 += 1
-                case 3:  r3 += 1
-                case 4:  r4 += 1
-                case 5:  r5 += 1
+                case 0: kept += 1
+                case 2: r2 += 1
+                case 3: r3 += 1
+                case 4: r4 += 1
+                case 5: r5 += 1
                 default: unrated += 1
                 }
             }
