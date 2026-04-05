@@ -15,6 +15,11 @@ private enum GridRatingFilter: Equatable {
     case rating(Int) // -1 = rejected, 0 = keepers, 2–5 = stars
 }
 
+private enum ActiveSheet: String, Identifiable {
+    case stats, scoringParams
+    var id: String { rawValue }
+}
+
 struct GridThumbnailSelectionView: View {
     @Environment(SettingsViewModel.self) private var settings
     @Environment(\.openWindow) private var openWindow
@@ -24,7 +29,7 @@ struct GridThumbnailSelectionView: View {
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
-    @State private var showScanStats = false
+    @State private var activeSheet: ActiveSheet?
 
     let selectedSource: ARWSourceCatalog?
     @Binding var nsImage: NSImage?
@@ -260,7 +265,15 @@ struct GridThumbnailSelectionView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    showScanStats = true
+                    activeSheet = .scoringParams
+                } label: {
+                    Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+                }
+                .help("Configure sharpness scoring parameters")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    activeSheet = .stats
                 } label: {
                     Label("Statistics", systemImage: "info.circle")
                 }
@@ -268,8 +281,13 @@ struct GridThumbnailSelectionView: View {
                 .disabled(viewModel.files.isEmpty)
             }
         }
-        .sheet(isPresented: $showScanStats) {
-            ScanStatsSheetView(viewModel: viewModel)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .stats:
+                ScanStatsSheetView(viewModel: viewModel)
+            case .scoringParams:
+                ScoringParametersSheetView(config: Bindable(viewModel.sharpnessModel.focusMaskModel).config)
+            }
         }
         .task(id: viewModel.selectedSource) {
             await ThumbnailLoader.shared.cancelAll()

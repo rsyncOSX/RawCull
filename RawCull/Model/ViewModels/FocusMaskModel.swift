@@ -18,6 +18,22 @@ struct FocusDetectorConfig {
     var erosionRadius: Float = 1.0 // was 0.27
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
+
+    // MARK: Scoring-only parameters (do not affect the focus mask overlay)
+
+    /// Fraction of image dimension excluded from each border when computing
+    /// the full-frame sharpness score. Prevents Gaussian-blur edge artifacts
+    /// from inflating the score. Range 0–0.10; default 4%.
+    var borderInsetFraction: Float = 0.04
+
+    /// Weight given to the salient-region score vs the full-frame score.
+    /// 0 = full-frame only, 1 = subject region only. Default 0.75.
+    var salientWeight: Float = 0.75
+
+    /// Bonus multiplier for subject size. The salient bounding-box area
+    /// (normalized 0–1) is multiplied by this value and added to 1.0,
+    /// giving larger subjects a proportional score boost. 0 = disabled.
+    var subjectSizeFactor: Float = 1.5
 }
 
 // Explicit nonisolated conformance so the @Observable macro's change-tracking
@@ -35,6 +51,9 @@ extension FocusDetectorConfig: Equatable {
             && lhs.erosionRadius == rhs.erosionRadius
             && lhs.featherRadius == rhs.featherRadius
             && lhs.showRawLaplacian == rhs.showRawLaplacian
+            && lhs.borderInsetFraction == rhs.borderInsetFraction
+            && lhs.salientWeight == rhs.salientWeight
+            && lhs.subjectSizeFactor == rhs.subjectSizeFactor
     }
 }
 
@@ -208,11 +227,21 @@ final class FocusMaskModel: @unchecked Sendable {
             rgba[idx * 4]
         }
 
+        // Exclude the outer N% of pixels on each border to prevent Gaussian-blur
+        // edge artifacts from inflating the full-frame tail score.
+        let borderCols = max(0, Int(Float(width) * config.borderInsetFraction))
+        let borderRows = max(0, Int(Float(height) * config.borderInsetFraction))
+        let innerW = max(0, width - 2 * borderCols)
+        let innerH = max(0, height - 2 * borderRows)
+
         var full = [Float]()
-        full.reserveCapacity(pixelCount)
-        for i in 0 ..< pixelCount {
-            let v = redAt(i)
-            if v.isFinite { full.append(v) }
+        full.reserveCapacity(innerW * innerH)
+        for row in borderRows ..< (height - borderRows) {
+            let base = row * width
+            for col in borderCols ..< (width - borderCols) {
+                let v = redAt(base + col)
+                if v.isFinite { full.append(v) }
+            }
         }
 
         func regionSamples(_ region: CGRect) -> [Float] {
@@ -292,10 +321,16 @@ final class FocusMaskModel: @unchecked Sendable {
             }
         }
 
-        // Conservative fusion to avoid saliency failures collapsing score.
+        // Weighted fusion: salientWeight controls how much the subject region
+        // drives the score vs the full frame. A subject-size factor gives a
+        // proportional bonus for frame-filling subjects.
         switch (fullScore, salientScore) {
         case let (f?, s?):
-            return max(f * 0.85, s * 0.90)
+            let w = config.salientWeight
+            let blended = f * (1.0 - w) + s * w
+            let area = salientRegion.map { Float($0.width * $0.height) } ?? 0
+            let sizeFactor = 1.0 + area * config.subjectSizeFactor
+            return blended * sizeFactor
 
         case let (f?, nil):
             return f
