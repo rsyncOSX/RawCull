@@ -45,6 +45,9 @@ final class SharpnessScoringModel {
     /// Scored sharpness for each FileItem by UUID.
     var scores: [UUID: Float] = [:]
 
+    /// Saliency result for each FileItem by UUID. Populated alongside scoring.
+    var saliencyInfo: [UUID: SaliencyInfo] = [:]
+
     /// True while batch scoring is running.
     var isScoring: Bool = false
 
@@ -86,6 +89,7 @@ final class SharpnessScoringModel {
     /// Called when a new catalog is opened to discard stale data.
     func reset() {
         scores = [:]
+        saliencyInfo = [:]
         sortBySharpness = false
         apertureFilter = .all
         scoringProgress = 0
@@ -101,6 +105,7 @@ final class SharpnessScoringModel {
         _scoringTask = nil
         isScoring = false
         scores = [:]
+        saliencyInfo = [:]
         scoringProgress = 0
         scoringTotal = 0
         scoringEstimatedSeconds = 0
@@ -155,7 +160,7 @@ final class SharpnessScoringModel {
         // Wrap withTaskGroup in an unstructured Task so we can cancel it via
         // _scoringTask while scoreFiles is suspended at `await workTask.value`.
         let workTask = Task {
-            await withTaskGroup(of: (UUID, Float?).self) { group in
+            await withTaskGroup(of: (UUID, Float?, SaliencyInfo?).self) { group in
                 // Seed the first batch
                 while active < maxConcurrent, let file = iterator.next() {
                     let url = file.url
@@ -164,16 +169,18 @@ final class SharpnessScoringModel {
                     group.addTask(priority: .userInitiated) {
                         var fileConfig = config
                         fileConfig.iso = iso
-                        return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize))
+                        let result = await model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize)
+                        return (id, result.score, result.saliency)
                     }
                     active += 1
                 }
                 // Drain results, replenish slots, update progress
-                for await (id, score) in group {
+                for await (id, score, saliency) in group {
                     active -= 1
                     // Cancellation check before mutating state
                     guard !Task.isCancelled else { break }
                     if let score { self.scores[id] = score }
+                    if let saliency { self.saliencyInfo[id] = saliency }
                     self.scoringProgress = self.scores.count
                     let elapsed = Date().timeIntervalSince(startTime)
                     let count = self.scoringProgress
@@ -188,7 +195,8 @@ final class SharpnessScoringModel {
                         group.addTask(priority: .userInitiated) {
                             var fileConfig = config
                             fileConfig.iso = iso
-                            return await (id, model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize))
+                            let result = await model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize)
+                            return (id, result.score, result.saliency)
                         }
                         active += 1
                     }

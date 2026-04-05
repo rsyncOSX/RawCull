@@ -6,6 +6,13 @@ import Observation
 import OSLog
 import Vision
 
+/// Saliency detection result: whether a salient region was found and, if Vision
+/// classification succeeded, what the dominant subject is.
+struct SaliencyInfo: Sendable {
+    /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
+    let subjectLabel: String?
+}
+
 struct FocusDetectorConfig {
     var preBlurRadius: Float = 1.92
     /// ISO at capture time. Used to scale preBlurRadius upward at high ISO
@@ -119,26 +126,28 @@ final class FocusMaskModel: @unchecked Sendable {
     }
 
     /// Computes scalar sharpness from fast thumbnail path, with full-decode fallback.
-    /// Returned value is relative; compare within same burst/session.
+    /// Also runs saliency + subject classification in the same Vision pass.
+    /// Returned score is relative; compare within same burst/session.
     nonisolated func computeSharpnessScore(
         fromRawURL url: URL,
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
-    ) async -> Float? {
+    ) async -> (score: Float?, saliency: SaliencyInfo?) {
         let cgImage: CGImage? = await Task.detached(priority: .userInitiated) {
             Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize)
                 ?? Self.decodeImage(at: url)
         }.value
 
-        guard let cgImage else { return nil }
+        guard let cgImage else { return (nil, nil) }
 
-        let region = Self.salientRegion(for: cgImage)
-        return Self.computeSharpnessScalar(
+        let (region, saliencyInfo) = Self.detectSaliencyAndClassify(for: cgImage)
+        let score = Self.computeSharpnessScalar(
             from: CIImage(cgImage: cgImage),
             salientRegion: region,
             context: context,
             config: config,
         )
+        return (score, saliencyInfo)
     }
 
     // MARK: - Decode helpers
@@ -180,17 +189,29 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Saliency
 
-    /// Returns union bounding box of salient objects in normalized Vision coords.
-    private nonisolated static func salientRegion(for cgImage: CGImage) -> CGRect? {
-        let request = VNGenerateAttentionBasedSaliencyImageRequest()
+    /// Runs saliency detection and subject classification in a single Vision pass.
+    /// Returns the union bounding box of salient objects and a `SaliencyInfo` when a
+    /// subject is found (area > 3% of frame). Both requests share one handler call so
+    /// the image is decoded by Vision only once.
+    private nonisolated static func detectSaliencyAndClassify(for cgImage: CGImage) -> (region: CGRect?, saliency: SaliencyInfo?) {
+        let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
+        let classifyRequest = VNClassifyImageRequest()
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
-        guard let observation = request.results?.first,
+        try? handler.perform([saliencyRequest, classifyRequest])
+
+        guard let observation = saliencyRequest.results?.first,
               let objects = observation.salientObjects,
-              !objects.isEmpty else { return nil }
+              !objects.isEmpty else { return (nil, nil) }
+
         let union = objects.reduce(CGRect.null) { $0.union($1.boundingBox) }
-        guard union.width * union.height > 0.03 else { return nil }
-        return union
+        guard union.width * union.height > 0.03 else { return (nil, nil) }
+
+        // Pick the highest-confidence classification label (results are confidence-descending).
+        let label = classifyRequest.results?
+            .first { $0.confidence >= 0.20 }
+            .map { $0.identifier.replacingOccurrences(of: "_", with: " ") }
+
+        return (union, SaliencyInfo(subjectLabel: label))
     }
 
     // MARK: - Scalar scoring
@@ -564,7 +585,7 @@ extension FocusMaskModel {
                     guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
                         return nil
                     }
-                    let region = Self.salientRegion(for: cgImage)
+                    let (region, _) = Self.detectSaliencyAndClassify(for: cgImage)
                     return Self.computeSharpnessScalar(
                         from: CIImage(cgImage: cgImage),
                         salientRegion: region,
@@ -591,7 +612,7 @@ extension FocusMaskModel {
                         guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
                             return nil
                         }
-                        let region = Self.salientRegion(for: cgImage)
+                        let (region, _) = Self.detectSaliencyAndClassify(for: cgImage)
                         return Self.computeSharpnessScalar(
                             from: CIImage(cgImage: cgImage),
                             salientRegion: region,

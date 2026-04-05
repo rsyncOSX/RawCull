@@ -42,6 +42,29 @@ struct SharpnessBadgeView: View {
     }
 }
 
+// MARK: - Saliency Badge
+
+struct SaliencyBadgeView: View {
+    let info: SaliencyInfo
+
+    private var label: String {
+        if let subject = info.subjectLabel {
+            String(subject.prefix(10))
+        } else {
+            "subject"
+        }
+    }
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.cyan.opacity(0.80), in: RoundedRectangle(cornerRadius: 3))
+    }
+}
+
 // MARK: - ImageItemView
 
 struct ImageItemView: View {
@@ -67,13 +90,22 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-                // Sharpness score badge — bottom-left corner, only when scored
+                // Score + saliency badges — bottom-left corner, only when scored
                 .overlay(alignment: .bottomLeading) {
-                    if let score = viewModel.sharpnessModel.scores[file.id] {
-                        SharpnessBadgeView(
-                            score: score,
-                            maxScore: viewModel.sharpnessModel.maxScore,
-                        )
+                    let hasScore = viewModel.sharpnessModel.scores[file.id] != nil
+                    let hasSaliency = viewModel.sharpnessModel.saliencyInfo[file.id] != nil
+                    if hasScore || hasSaliency {
+                        HStack(spacing: 3) {
+                            if let score = viewModel.sharpnessModel.scores[file.id] {
+                                SharpnessBadgeView(
+                                    score: score,
+                                    maxScore: viewModel.sharpnessModel.maxScore,
+                                )
+                            }
+                            if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
+                                SaliencyBadgeView(info: saliency)
+                            }
+                        }
                         .padding(5)
                     }
                 }
