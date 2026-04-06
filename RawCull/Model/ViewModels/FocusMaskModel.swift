@@ -329,8 +329,12 @@ final class FocusMaskModel: @unchecked Sendable {
         func regionSamples(_ region: CGRect) -> [Float] {
             let colStart = max(0, Int(region.minX * CGFloat(width)))
             let colEnd = min(width, Int(region.maxX * CGFloat(width)))
-            let rowStart = max(0, Int(region.minY * CGFloat(height)))
-            let rowEnd = min(height, Int(region.maxY * CGFloat(height)))
+            // Vision uses y=0 at the visual bottom, but CIImage(cgImage:) flips the
+            // image vertically (CGImage origin is top-left; CIImage origin is bottom-left),
+            // so context.render fills the buffer with row 0 at the visual top.
+            // Invert the y-axis so we sample the region Vision actually identified.
+            let rowStart = max(0, Int((1.0 - region.maxY) * CGFloat(height)))
+            let rowEnd = min(height, Int((1.0 - region.minY) * CGFloat(height)))
 
             guard colEnd > colStart, rowEnd > rowStart else { return [] }
 
