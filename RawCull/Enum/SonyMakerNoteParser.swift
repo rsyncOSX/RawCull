@@ -3,7 +3,8 @@
 //  RawCull
 //
 //  Parses Sony ARW raw files to extract AF focus location natively,
-//  without requiring exiftool. Targets Sony A1 (ILCE-1) and A1 Mark II (ILCE-1M2).
+//  without requiring exiftool. Supports ILCE-1, ILCE-1M2, ILCE-7M5, ILCE-7RM5,
+//  and ILCE-9M3 (A9 III stores TIFF metadata near EOF; requires full-file read).
 //
 //  Technical background
 //  ─────────────────────
@@ -62,15 +63,24 @@ struct TIFFWalkDiagnostics: Sendable {
 // MARK: - Parser
 
 enum SonyMakerNoteParser {
-    /// Returns "width height x y" calibrated for the Sony A1 sensor.
+    /// Returns "width height x y" for the AF focus location encoded in the Sony MakerNote.
     nonisolated static func focusLocation(from url: URL) -> String? {
-        // Read only the first 4 MB. Sony ARW MakerNote metadata sits well within
-        // that range; loading the full ~50 MB RAW file is wasteful on external storage
-        // where mmap is unavailable and Data(contentsOf:) falls back to a full read.
         guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? fh.close() }
-        guard let data = try? fh.read(upToCount: 4 * 1024 * 1024),
-              let result = TIFFParser(data: data)?.parseSonyFocusLocation()
+
+        // Fast path: read only the first 4 MB. Most Sony bodies (A1, A1 II, A7 V,
+        // A7R V) store MakerNote metadata well within this range.
+        guard let data = try? fh.read(upToCount: 4 * 1024 * 1024) else { return nil }
+        if let result = TIFFParser(data: data)?.parseSonyFocusLocation() {
+            return "\(result.width) \(result.height) \(result.x) \(result.y)"
+        }
+
+        // Slow path: IFD0 may fall beyond the 4 MB window (e.g. ILCE-9M3 stores
+        // TIFF metadata in the last 1–2 MB of the file). Re-read the full file.
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max),
+              full.count > data.count,
+              let result = TIFFParser(data: full)?.parseSonyFocusLocation()
         else { return nil }
         return "\(result.width) \(result.height) \(result.x) \(result.y)"
     }
@@ -84,7 +94,17 @@ enum SonyMakerNoteParser {
         guard let data = try? fh.read(upToCount: 4 * 1024 * 1024),
               let parser = TIFFParser(data: data)
         else { return nil }
-        return parser.runDiagnostics()
+        let result = parser.runDiagnostics()
+
+        // If IFD0 reports 0 entries the offset likely falls outside the 4 MB window
+        // (e.g. ILCE-9M3). Retry with the full file so all IFD levels are reachable.
+        guard result.ifd0EntryCount == 0 else { return result }
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max),
+              full.count > data.count,
+              let fullParser = TIFFParser(data: full)
+        else { return result }
+        return fullParser.runDiagnostics()
     }
 }
 
