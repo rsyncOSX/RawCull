@@ -89,19 +89,14 @@ final class SharpnessScoringModel {
     private var _scoringTask: Task<Void, Never>?
 
     /// Calibrate
-    var calibratingsharpnessscoring: Bool = false
+    var isCalibratingSharpnessScoring: Bool = false
 
     // MARK: - Lifecycle
 
     /// Called when a new catalog is opened to discard stale data.
     func reset() {
-        scores = [:]
-        saliencyInfo = [:]
-        sortBySharpness = false
+        cancelScoring()
         apertureFilter = .all
-        scoringProgress = 0
-        scoringTotal = 0
-        scoringEstimatedSeconds = 0
     }
 
     // MARK: - Cancellation
@@ -125,7 +120,7 @@ final class SharpnessScoringModel {
     /// Applies threshold + gain directly; call before `scoreFiles(_:)` for best results.
     func calibrateFromBurst(_ files: [FileItem]) async {
         // Starte calibrate
-        calibratingsharpnessscoring = true
+        isCalibratingSharpnessScoring = true
         let fileEntries = files.map { (url: $0.url, iso: $0.exifData?.isoValue) }
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
             files: fileEntries,
@@ -134,13 +129,13 @@ final class SharpnessScoringModel {
             maxConcurrentTasks: 8,
         ) else {
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
-            calibratingsharpnessscoring = false
+            isCalibratingSharpnessScoring = false
             return
         }
         Logger.process.debugMessageOnly("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
         Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
 
-        calibratingsharpnessscoring = false
+        isCalibratingSharpnessScoring = false
     }
 
     // MARK: - Batch Scoring
@@ -151,6 +146,7 @@ final class SharpnessScoringModel {
     func scoreFiles(_ files: [FileItem]) async {
         guard !isScoring, !files.isEmpty else { return }
         isScoring = true
+        defer { isScoring = false }
         scoringProgress = 0
         scoringTotal = files.count
         scoringEstimatedSeconds = 0
@@ -218,7 +214,10 @@ final class SharpnessScoringModel {
                     }
                 }
 
-                // Single assignment — one observer notification for the whole run.
+                // Only commit results if we weren't cancelled mid-run.
+                // cancelScoring() already cleared scores; overwriting them with
+                // partial results would re-surface data the user discarded.
+                guard !Task.isCancelled else { return }
                 self.scores = localScores
                 self.saliencyInfo = localSaliency
             }
@@ -227,12 +226,10 @@ final class SharpnessScoringModel {
         _scoringTask = workTask
         await workTask.value
 
-        // cancelScoring() sets isScoring = false before we get here — bail out
-        // without overwriting the cleared state.
         _scoringTask = nil
-        guard isScoring else { return }
+        // defer resets isScoring; only update sort/progress for a clean completion.
+        guard !workTask.isCancelled else { return }
 
-        isScoring = false
         sortBySharpness = true
         scoringProgress = 0
         scoringTotal = 0
