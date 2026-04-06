@@ -25,6 +25,42 @@
 
 import Foundation
 
+// MARK: - Diagnostic types
+
+/// Complete record of a verbose TIFF IFD walk through a Sony ARW file.
+/// Used by the body-compatibility test to diagnose unsupported bodies and
+/// identify candidate tags for extending `SonyMakerNoteParser`.
+struct TIFFWalkDiagnostics: Sendable {
+    let isLittleEndian: Bool
+    let ifd0Offset: Int
+    let ifd0EntryCount: Int
+    let exifIFDOffset: Int?
+    let exifEntryCount: Int?
+    let makerNoteOffset: Int?
+    let makerNoteSize: Int?
+    let hasSonyPrefix: Bool
+    let sonyIFDOffset: Int?
+    let sonyIFDEntryCount: Int?
+    /// Every tag number found in the Sony MakerNote IFD, sorted ascending.
+    let sonyAllTags: [UInt16]
+    /// 0x2027 or 0x204A if a focus location tag was found, nil otherwise.
+    let focusTagUsed: UInt16?
+    let focusOffset: Int?
+    /// Raw 8 bytes of the FocusLocation value (4 × uint16 LE).
+    let focusRawBytes: [UInt8]?
+    /// Decoded result; nil when tag is missing or dimensions are zero.
+    let focusResult: FocusLocationValues?
+
+    struct FocusLocationValues: Sendable {
+        let width: Int
+        let height: Int
+        let x: Int
+        let y: Int
+    }
+}
+
+// MARK: - Parser
+
 enum SonyMakerNoteParser {
     /// Returns "width height x y" calibrated for the Sony A1 sensor.
     nonisolated static func focusLocation(from url: URL) -> String? {
@@ -38,7 +74,21 @@ enum SonyMakerNoteParser {
         else { return nil }
         return "\(result.width) \(result.height) \(result.x) \(result.y)"
     }
+
+    /// Performs a verbose TIFF IFD walk and returns diagnostic details for
+    /// every level: IFD0 → ExifIFD → MakerNote → Sony IFD → FocusLocation.
+    /// Returns `nil` only if the file cannot be opened or lacks a valid TIFF header.
+    nonisolated static func tiffDiagnostics(from url: URL) -> TIFFWalkDiagnostics? {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fh.close() }
+        guard let data = try? fh.read(upToCount: 4 * 1024 * 1024),
+              let parser = TIFFParser(data: data)
+        else { return nil }
+        return parser.runDiagnostics()
+    }
 }
+
+// MARK: - TIFF binary parser
 
 private struct TIFFParser {
     let data: Data
@@ -76,7 +126,106 @@ private struct TIFFParser {
         return (width, height, x, y)
     }
 
-    // MARK: - Binary Parsing Helpers
+    // MARK: Diagnostics
+
+    /// Verbose IFD walk used by the body-compatibility test.
+    nonisolated func runDiagnostics() -> TIFFWalkDiagnostics {
+        let empty = TIFFWalkDiagnostics(
+            isLittleEndian: le, ifd0Offset: 0, ifd0EntryCount: 0,
+            exifIFDOffset: nil, exifEntryCount: nil,
+            makerNoteOffset: nil, makerNoteSize: nil,
+            hasSonyPrefix: false, sonyIFDOffset: nil, sonyIFDEntryCount: nil,
+            sonyAllTags: [], focusTagUsed: nil,
+            focusOffset: nil, focusRawBytes: nil, focusResult: nil)
+
+        guard let ifd0Raw = readU32(at: 4) else { return empty }
+        let ifd0 = Int(ifd0Raw)
+        let ifd0Count = Int(readU16(at: ifd0))
+
+        // ExifIFD (tag 0x8769)
+        var exifIFDOffset: Int?
+        var exifEntryCount: Int?
+        if let (valLoc, _) = tagDataRange(in: ifd0, tag: 0x8769),
+           let off = readU32(at: valLoc).map(Int.init) {
+            exifIFDOffset = off
+            exifEntryCount = Int(readU16(at: off))
+        }
+
+        // MakerNote (tag 0x927C)
+        var makerNoteOffset: Int?
+        var makerNoteSize: Int?
+        if let exifOff = exifIFDOffset,
+           let (mnOff, mnSz) = tagDataRange(in: exifOff, tag: 0x927C) {
+            makerNoteOffset = mnOff
+            makerNoteSize = mnSz
+        }
+
+        // Sony IFD
+        var hasSonyPrefix = false
+        var sonyIFDOffset: Int?
+        var sonyIFDEntryCount: Int?
+        var sonyAllTags: [UInt16] = []
+        var focusTagUsed: UInt16?
+        var focusOffset: Int?
+        var focusRawBytes: [UInt8]?
+        var focusResult: TIFFWalkDiagnostics.FocusLocationValues?
+
+        if let mnOff = makerNoteOffset {
+            let ifdStart = sonyIFDStart(at: mnOff)
+            hasSonyPrefix = ifdStart != mnOff
+            sonyIFDOffset = ifdStart
+
+            let entryCount = Int(readU16(at: ifdStart))
+            sonyIFDEntryCount = entryCount
+
+            // Collect all tag numbers, sorted ascending for readability
+            for i in 0 ..< entryCount {
+                let e = ifdStart + 2 + i * 12
+                guard e + 12 <= data.count else { break }
+                sonyAllTags.append(readU16(at: e))
+            }
+            sonyAllTags.sort()
+
+            // Try 0x2027 first, fall back to 0x204A (mirrors parseSonyFocusLocation)
+            for tag: UInt16 in [0x2027, 0x204A] {
+                guard let (flOff, flSz) = tagDataRange(in: ifdStart, tag: tag), flSz >= 8 else { continue }
+                focusTagUsed = tag
+                focusOffset = flOff
+                var raw = [UInt8]()
+                for j in 0 ..< 8 where flOff + j < data.count {
+                    raw.append(data[flOff + j])
+                }
+                focusRawBytes = raw
+                let w = Int(readU16(at: flOff + 0))
+                let h = Int(readU16(at: flOff + 2))
+                let x = Int(readU16(at: flOff + 4))
+                let y = Int(readU16(at: flOff + 6))
+                if w > 0, h > 0, (x > 0 || y > 0) {
+                    focusResult = .init(width: w, height: h, x: x, y: y)
+                }
+                break
+            }
+        }
+
+        return TIFFWalkDiagnostics(
+            isLittleEndian: le,
+            ifd0Offset: ifd0,
+            ifd0EntryCount: ifd0Count,
+            exifIFDOffset: exifIFDOffset,
+            exifEntryCount: exifEntryCount,
+            makerNoteOffset: makerNoteOffset,
+            makerNoteSize: makerNoteSize,
+            hasSonyPrefix: hasSonyPrefix,
+            sonyIFDOffset: sonyIFDOffset,
+            sonyIFDEntryCount: sonyIFDEntryCount,
+            sonyAllTags: sonyAllTags,
+            focusTagUsed: focusTagUsed,
+            focusOffset: focusOffset,
+            focusRawBytes: focusRawBytes,
+            focusResult: focusResult)
+    }
+
+    // MARK: Binary parsing helpers
 
     private nonisolated func subIFDOffset(in ifdOffset: Int, tag: UInt16) -> Int? {
         guard let (valLoc, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
