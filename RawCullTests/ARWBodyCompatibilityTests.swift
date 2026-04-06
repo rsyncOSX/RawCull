@@ -23,7 +23,7 @@ import Testing
 import Vision
 
 /// Set this to the folder containing your multi-body ARW test files.
-private let catalogPath = "/Users/thomas/Pictures_raw/test_bodies"
+private let catalogPath = "/Users/thomas/ARWtestfiles"
 
 // MARK: - Tag
 
