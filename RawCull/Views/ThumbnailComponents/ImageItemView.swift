@@ -91,19 +91,19 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-                // Score + saliency badges — bottom-left corner, only when scored
+                // Score + saliency badges — bottom-left corner, gated by settings toggles
                 .overlay(alignment: .bottomLeading) {
-                    let hasScore = viewModel.sharpnessModel.scores[file.id] != nil
-                    let hasSaliency = viewModel.sharpnessModel.saliencyInfo[file.id] != nil
+                    let hasScore = settings.showScoringBadge && viewModel.sharpnessModel.scores[file.id] != nil
+                    let hasSaliency = settings.showSaliencyBadge && viewModel.sharpnessModel.saliencyInfo[file.id] != nil
                     if hasScore || hasSaliency {
                         HStack(spacing: 3) {
-                            if let score = viewModel.sharpnessModel.scores[file.id] {
+                            if settings.showScoringBadge, let score = viewModel.sharpnessModel.scores[file.id] {
                                 SharpnessBadgeView(
                                     score: score,
                                     maxScore: viewModel.sharpnessModel.maxScore,
                                 )
                             }
-                            if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id], settings.showSaliencyBadge {
+                            if settings.showSaliencyBadge, let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
                                 SaliencyBadgeView(info: saliency)
                             }
                         }

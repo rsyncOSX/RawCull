@@ -45,6 +45,8 @@ final class SettingsViewModel {
     /// Use thumbnail as zoom preview (default: true)
     var useThumbnailAsZoomPreview: Bool = false
 
+    /// Show sharpness score badge on thumbnails (default: false = hidden, for scroll performance)
+    var showScoringBadge: Bool = false
     /// Show cyan saliency badge on thumbnails (default: false = hidden)
     var showSaliencyBadge: Bool = false
 
@@ -92,6 +94,7 @@ final class SettingsViewModel {
                 self.thumbnailCostPerPixel = savedSettings.thumbnailCostPerPixel
                 self.thumbnailSizeGridView = savedSettings.thumbnailSizeGridView
                 self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
+                self.showScoringBadge = savedSettings.showScoringBadge
                 self.showSaliencyBadge = savedSettings.showSaliencyBadge
             }
 
@@ -125,6 +128,7 @@ final class SettingsViewModel {
                 thumbnailCostPerPixel: thumbnailCostPerPixel,
                 thumbnailSizeGridView: thumbnailSizeGridView,
                 useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
+                showScoringBadge: showScoringBadge,
                 showSaliencyBadge: showSaliencyBadge,
             )
 
@@ -193,6 +197,7 @@ final class SettingsViewModel {
                 thumbnailCostPerPixel: self.thumbnailCostPerPixel,
                 thumbnailSizeGridView: self.thumbnailSizeGridView,
                 useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
+                showScoringBadge: self.showScoringBadge,
                 showSaliencyBadge: self.showSaliencyBadge,
             )
         }
@@ -210,6 +215,7 @@ struct SavedSettings: Codable {
     let thumbnailCostPerPixel: Int
     let thumbnailSizeGridView: Int
     let useThumbnailAsZoomPreview: Bool
+    let showScoringBadge: Bool
     let showSaliencyBadge: Bool
 
     init(
@@ -220,6 +226,7 @@ struct SavedSettings: Codable {
         thumbnailCostPerPixel: Int,
         thumbnailSizeGridView: Int,
         useThumbnailAsZoomPreview: Bool,
+        showScoringBadge: Bool = false,
         showSaliencyBadge: Bool = false,
     ) {
         self.memoryCacheSizeMB = memoryCacheSizeMB
@@ -229,6 +236,7 @@ struct SavedSettings: Codable {
         self.thumbnailCostPerPixel = thumbnailCostPerPixel
         self.thumbnailSizeGridView = thumbnailSizeGridView
         self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
+        self.showScoringBadge = showScoringBadge
         self.showSaliencyBadge = showSaliencyBadge
     }
 
@@ -241,6 +249,7 @@ struct SavedSettings: Codable {
         thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
         thumbnailSizeGridView = try c.decode(Int.self, forKey: .thumbnailSizeGridView)
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
+        showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
         showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
     }
 }
