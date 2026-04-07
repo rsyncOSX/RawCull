@@ -65,6 +65,19 @@ struct SaliencyBadgeView: View {
     }
 }
 
+// MARK: - No-Subject Badge
+
+struct NoSubjectBadgeView: View {
+    var body: some View {
+        Text("~")
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.gray.opacity(0.70), in: RoundedRectangle(cornerRadius: 3))
+    }
+}
+
 // MARK: - ImageItemView
 
 struct ImageItemView: View {
@@ -103,8 +116,14 @@ struct ImageItemView: View {
                                     maxScore: viewModel.sharpnessModel.maxScore,
                                 )
                             }
-                            if settings.showSaliencyBadge, let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
-                                SaliencyBadgeView(info: saliency)
+                            if settings.showSaliencyBadge {
+                                if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
+                                    SaliencyBadgeView(info: saliency)
+                                } else if hasScore {
+                                    // Scored but Vision found no salient subject —
+                                    // subject-weighting parameters had no effect on this photo.
+                                    NoSubjectBadgeView()
+                                }
                             }
                         }
                         .padding(5)

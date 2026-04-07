@@ -216,7 +216,7 @@ final class FocusMaskModel: @unchecked Sendable {
         // Accept the region when Vision is highly confident (small but clearly
         // identifiable subject — e.g. bird on a stick) OR when the area crosses
         // the 3% floor. Confidence ≥ 0.9 trusts Vision even for tiny subjects.
-        guard union.width * union.height > 0.03 || maxConfidence >= 0.9 else { return (nil, nil) }
+        guard union.width * union.height > 0.01 || maxConfidence >= 0.9 else { return (nil, nil) }
 
         let label = Self.bestClassificationLabel(from: classifyRequest.results ?? [])
         return (union, SaliencyInfo(subjectLabel: label))
@@ -419,7 +419,11 @@ final class FocusMaskModel: @unchecked Sendable {
             return blended * sizeFactor
 
         case let (f?, nil):
-            return f
+            // Respect salientWeight: when the user wants subject-centric scoring
+            // but Vision found no salient region, reduce the score proportionally
+            // so these photos rank below ones where a subject was detected.
+            // At weight=0 (full-frame mode) there is no penalty.
+            return f * (1.0 - config.salientWeight)
 
         case let (nil, s?):
             return s
