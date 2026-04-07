@@ -222,8 +222,10 @@ actor ScanFiles {
     private nonisolated func rawFileTypeString(from value: Int) -> String {
         switch value {
         case 1:     return "Uncompressed"
-        case 32767: return "Compressed"
-        case 32770: return "Lossless Compressed"
+        case 6:     return "Compressed"           // newer Sony bodies (A1, A7R V…)
+        case 7:     return "Lossless Compressed"  // newer Sony bodies (A1, A7R V…)
+        case 32767: return "Compressed"           // older Sony bodies
+        case 32770: return "Lossless Compressed"  // older Sony bodies
         default:    return "Unknown (\(value))"
         }
     }

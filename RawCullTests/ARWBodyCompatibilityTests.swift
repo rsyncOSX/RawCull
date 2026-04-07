@@ -229,8 +229,10 @@ struct ARWBodyCompatibilityTests {
                 let label: String
                 switch compVal {
                 case 1:     label = "Uncompressed"
-                case 32767: label = "Compressed"
-                case 32770: label = "Lossless Compressed"
+                case 6:     label = "Compressed"           // newer Sony bodies (A1, A7R V…)
+                case 7:     label = "Lossless Compressed"  // newer Sony bodies (A1, A7R V…)
+                case 32767: label = "Compressed"           // older Sony bodies
+                case 32770: label = "Lossless Compressed"  // older Sony bodies
                 default:    label = "Unknown (\(compVal))"
                 }
                 print("  RAW file type: \(label)   (TIFF compression tag: \(compVal))")
