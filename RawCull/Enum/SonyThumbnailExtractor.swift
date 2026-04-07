@@ -53,8 +53,13 @@ enum SonyThumbnailExtractor {
             throw ThumbnailError.invalidSource
         }
 
+        // Use the embedded JPEG preview that all Sony ARW files contain in IFD0.
+        // kCGImageSourceCreateThumbnailFromImageAlways forces ImageIO to synthesize
+        // a thumbnail from the full RAW data (RA16 on A7V), which fails with err=-50.
+        // kCGImageSourceCreateThumbnailFromImageIfAbsent uses the embedded preview
+        // when one exists — which it always does in ARW — and only synthesizes if not.
         let thumbOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
             kCGImageSourceShouldCacheImmediately: true
