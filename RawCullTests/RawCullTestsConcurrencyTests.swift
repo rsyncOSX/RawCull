@@ -333,7 +333,7 @@ enum ConcurrencyTests {
     struct SendableTests {
         @Test
         func `SavedSettings is safely sendable across isolation domains`() async {
-            let settings = SavedSettings(
+            let settings = await SavedSettings(
                 memoryCacheSizeMB: 5000,
                 thumbnailSizeGrid: 100,
                 thumbnailSizePreview: 1024,

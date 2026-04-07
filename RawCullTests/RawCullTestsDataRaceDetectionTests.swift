@@ -210,7 +210,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `SavedSettings is truly Sendable`() async {
-        let settings = SavedSettings(
+        let settings = await SavedSettings(
             memoryCacheSizeMB: 5000,
             thumbnailSizeGrid: 100,
             thumbnailSizePreview: 1024,
