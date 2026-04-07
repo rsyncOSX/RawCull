@@ -26,6 +26,10 @@ struct ExifMetadata: Hashable {
     let isoValue: Int? // raw integer ISO for computation (e.g. 6400)
     let camera: String?
     let lensModel: String?
+    let rawFileType: String? // "Uncompressed" | "Compressed" | "Lossless Compressed"
+    let rawSizeClass: String? // "L" | "M" | "S"
+    let pixelWidth: Int?
+    let pixelHeight: Int?
 }
 
 struct DecodeFocusPoints: Codable {
@@ -167,6 +171,13 @@ actor ScanFiles {
 
         let fNumber = exifDict[kCGImagePropertyExifFNumber] as? NSNumber
         let rawISO = (exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first
+        let pixelWidth = properties[kCGImagePropertyPixelWidth] as? Int
+        let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int
+        let compressionValue = tiffDict[kCGImagePropertyTIFFCompression] as? Int
+        let cameraModel = tiffDict[kCGImagePropertyTIFFModel] as? String
+        let rawSizeClass: String? = (pixelWidth != nil && pixelHeight != nil)
+            ? sizeClass(width: pixelWidth!, height: pixelHeight!, camera: cameraModel ?? "")
+            : nil
         return ExifMetadata(
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
             focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),
@@ -174,8 +185,12 @@ actor ScanFiles {
             apertureValue: fNumber.map { $0.doubleValue },
             iso: formatISO(rawISO),
             isoValue: rawISO,
-            camera: tiffDict[kCGImagePropertyTIFFModel] as? String,
+            camera: cameraModel,
             lensModel: exifDict[kCGImagePropertyExifLensModel] as? String,
+            rawFileType: compressionValue.map { rawFileTypeString(from: $0) },
+            rawSizeClass: rawSizeClass,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
         )
     }
 
@@ -202,5 +217,28 @@ actor ScanFiles {
     nonisolated func formatISO(_ iso: Int?) -> String? {
         guard let iso else { return nil }
         return "ISO \(iso)"
+    }
+
+    private nonisolated func rawFileTypeString(from value: Int) -> String {
+        switch value {
+        case 1:     return "Uncompressed"
+        case 32767: return "Compressed"
+        case 32770: return "Lossless Compressed"
+        default:    return "Unknown (\(value))"
+        }
+    }
+
+    private nonisolated func sizeClass(width: Int, height: Int, camera: String) -> String {
+        let mp = Double(width * height) / 1_000_000
+        let upper = camera.uppercased()
+        let (lThresh, mThresh): (Double, Double)
+        if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }
+        else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }
+        else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }
+        else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }
+        else                               { (lThresh, mThresh) = (25, 10) }
+        if mp >= lThresh { return "L" }
+        if mp >= mThresh { return "M" }
+        return "S"
     }
 }

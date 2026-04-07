@@ -119,6 +119,20 @@ private func runSaliencyDetail(cgImage: CGImage) -> SaliencyDetail {
     return SaliencyDetail(boundingBox: union, area: area, maxConfidence: maxConf, subjectLabel: label)
 }
 
+private func sizeClassForTest(width: Int, height: Int, camera: String) -> String {
+    let mp = Double(width * height) / 1_000_000
+    let upper = camera.uppercased()
+    let (lThresh, mThresh): (Double, Double)
+    if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }
+    else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }
+    else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }
+    else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }
+    else                               { (lThresh, mThresh) = (25, 10) }
+    if mp >= lThresh { return "L" }
+    if mp >= mThresh { return "M" }
+    return "S"
+}
+
 // Per-file result used to build the summary table
 private struct BodyFileResult {
     let camera: String
@@ -199,6 +213,27 @@ struct ARWBodyCompatibilityTests {
             }
             if let iso = rawISO {
                 print("  ISO:           ISO \(iso)   (raw: \(iso))")
+            }
+
+            // Pixel dimensions + size class
+            let pixelWidth  = props[kCGImagePropertyPixelWidth]  as? Int
+            let pixelHeight = props[kCGImagePropertyPixelHeight] as? Int
+            if let w = pixelWidth, let h = pixelHeight {
+                let mp = Double(w * h) / 1_000_000
+                let sc = sizeClassForTest(width: w, height: h, camera: camera)
+                print(String(format: "  Dimensions:    %d × %d  (%.1f MP)  → Size class: %@", w, h, mp, sc))
+            }
+
+            // RAW compression type
+            if let compVal = tiff[kCGImagePropertyTIFFCompression] as? Int {
+                let label: String
+                switch compVal {
+                case 1:     label = "Uncompressed"
+                case 32767: label = "Compressed"
+                case 32770: label = "Lossless Compressed"
+                default:    label = "Unknown (\(compVal))"
+                }
+                print("  RAW file type: \(label)   (TIFF compression tag: \(compVal))")
             }
 
             // ── Focus point TIFF walk ────────────────────────────────────────

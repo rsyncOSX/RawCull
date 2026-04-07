@@ -39,6 +39,14 @@ struct FileInspectorView: View {
                         if let iso = exif.iso {
                             LabeledContent("ISO", value: iso)
                         }
+                        if let rawFileType = exif.rawFileType {
+                            LabeledContent("RAW Type", value: rawFileType)
+                        }
+                        if let w = exif.pixelWidth, let h = exif.pixelHeight {
+                            let mp = Double(w * h) / 1_000_000
+                            let sizeClass = exif.rawSizeClass.map { " (\($0))" } ?? ""
+                            LabeledContent("Dimensions", value: String(format: "%d × %d  %.1f MP%@", w, h, mp, sizeClass))
+                        }
                     }
                 }
 
