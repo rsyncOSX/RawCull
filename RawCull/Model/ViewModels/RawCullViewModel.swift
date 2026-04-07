@@ -79,6 +79,13 @@ final class RawCullViewModel {
     var memorypressurewarning: Bool = false
     var softMemoryWarning: Bool = false
 
+    /// O(1) lookup: filename → rating for the current source catalog.
+    /// Rebuilt by rebuildRatingCache() after any culling state change.
+    var ratingCache: [String: Int] = [:]
+
+    /// Filenames that have an explicit record in the current catalog.
+    var taggedNamesCache: Set<String> = []
+
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?
 

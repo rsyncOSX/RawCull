@@ -85,6 +85,23 @@ struct GridThumbnailSelectionView: View {
                     }
                 }
 
+                // Subject filter — only visible once saliency data exists
+                if !viewModel.sharpnessModel.saliencyInfo.isEmpty, !viewModel.sharpnessModel.isScoring {
+                    Picker("Subject", selection: $viewModel.sharpnessModel.saliencyCategoryFilter) {
+                        Text("All Subjects").tag(String?.none)
+                        ForEach(viewModel.sharpnessModel.availableSaliencyCategories, id: \.self) { label in
+                            Text(label.capitalized).tag(String?.some(label))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .font(.caption)
+                    .frame(width: 130)
+                    .help("Filter thumbnails by detected subject category")
+                    .onChange(of: viewModel.sharpnessModel.saliencyCategoryFilter) { _, _ in
+                        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+                    }
+                }
+
                 Picker("Aperture", selection: $viewModel.sharpnessModel.apertureFilter) {
                     ForEach(ApertureFilter.allCases) { filter in
                         Text(filter.rawValue).tag(filter)

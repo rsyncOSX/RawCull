@@ -69,6 +69,7 @@ struct SaliencyBadgeView: View {
 
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
+    @Environment(SettingsViewModel.self) private var settings
 
     let file: FileItem
     let selectedSource: ARWSourceCatalog?
@@ -102,7 +103,7 @@ struct ImageItemView: View {
                                     maxScore: viewModel.sharpnessModel.maxScore,
                                 )
                             }
-                            if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
+                            if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id], settings.showSaliencyBadge {
                                 SaliencyBadgeView(info: saliency)
                             }
                         }
@@ -159,16 +160,8 @@ struct ImageItemView: View {
         .onTapGesture(count: 1) { onSelect() }
     }
 
-    var cullingModel: CullingModel {
-        viewModel.cullingModel
-    }
-
     private var isTagged: Bool {
-        if let photoURL = selectedSource?.url {
-            cullingModel.isTagged(photo: file.name, in: photoURL)
-        } else {
-            false
-        }
+        viewModel.taggedNamesCache.contains(file.name)
     }
 
     private var isSelected: Bool {

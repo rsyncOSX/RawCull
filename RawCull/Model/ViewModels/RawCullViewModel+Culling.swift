@@ -6,6 +6,28 @@
 import Foundation
 
 extension RawCullViewModel {
+    /// Rebuilds the O(1) rating and tagged-names caches from the current catalog entry.
+    /// Must be called after any mutation of cullingModel.savedFiles.
+    func rebuildRatingCache() {
+        guard let catalog = selectedSource?.url,
+              let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }),
+              let records = cullingModel.savedFiles[index].filerecords
+        else {
+            ratingCache = [:]
+            taggedNamesCache = []
+            return
+        }
+        var cache: [String: Int] = [:]
+        var tagged: Set<String> = []
+        for record in records {
+            guard let name = record.fileName else { continue }
+            cache[name] = record.rating ?? 0
+            tagged.insert(name)
+        }
+        ratingCache = cache
+        taggedNamesCache = tagged
+    }
+
     func extractRatedfilenames(_ rating: Int) -> [String] {
         filteredFiles
             .filter { getRating(for: $0) >= rating }
@@ -31,11 +53,7 @@ extension RawCullViewModel {
     }
 
     func getRating(for file: FileItem) -> Int {
-        guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
-              let filerecords = cullingModel.savedFiles[index].filerecords,
-              let record = filerecords.first(where: { $0.fileName == file.name })
-        else { return 0 }
-        return record.rating ?? 0
+        ratingCache[file.name] ?? 0
     }
 
     func updateRating(for file: FileItem, rating: Int) {
@@ -76,6 +94,7 @@ extension RawCullViewModel {
                 ))
             }
             await WriteSavedFilesJSON(cullingModel.savedFiles)
+            rebuildRatingCache()
         }
     }
 
@@ -121,6 +140,7 @@ extension RawCullViewModel {
         Task {
             await WriteSavedFilesJSON(cullingModel.savedFiles)
         }
+        rebuildRatingCache()
     }
 
     func toggleTag(for file: FileItem) async {
@@ -128,5 +148,6 @@ extension RawCullViewModel {
             in: file.url,
             toggledfilename: file.name,
         )
+        rebuildRatingCache()
     }
 }

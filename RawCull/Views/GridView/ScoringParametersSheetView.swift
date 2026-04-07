@@ -7,6 +7,7 @@ import SwiftUI
 
 struct ScoringParametersSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(SettingsViewModel.self) private var settingsViewModel
     @Binding var config: FocusDetectorConfig
     @Binding var thumbnailMaxPixelSize: Int
 
@@ -63,6 +64,15 @@ struct ScoringParametersSheetView: View {
                 Section("Subject Detection") {
                     Toggle("Classify subject during scoring", isOn: $config.enableSubjectClassification)
                     Text("Runs an additional Vision classification pass to label each thumbnail with the detected subject (e.g. \"animal\", \"bird\"). Adds ~10–20% to scoring time. Disable for faster re-scores when the badge label is not needed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    let settings = Bindable(settingsViewModel)
+                    Toggle("Show saliency label on thumbnails", isOn: settings.showSaliencyBadge)
+                        .onChange(of: settingsViewModel.showSaliencyBadge) { _, _ in
+                            Task { await SettingsViewModel.shared.saveSettings() }
+                        }
+                    Text("Displays the detected subject category as a cyan badge on each thumbnail. Hidden by default.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

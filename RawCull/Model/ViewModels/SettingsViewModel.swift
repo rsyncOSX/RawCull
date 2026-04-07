@@ -45,6 +45,9 @@ final class SettingsViewModel {
     /// Use thumbnail as zoom preview (default: true)
     var useThumbnailAsZoomPreview: Bool = false
 
+    /// Show cyan saliency badge on thumbnails (default: false = hidden)
+    var showSaliencyBadge: Bool = false
+
     // MARK: - Private Properties
 
     private let settingsFileName = "settings.json"
@@ -89,6 +92,7 @@ final class SettingsViewModel {
                 self.thumbnailCostPerPixel = savedSettings.thumbnailCostPerPixel
                 self.thumbnailSizeGridView = savedSettings.thumbnailSizeGridView
                 self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
+                self.showSaliencyBadge = savedSettings.showSaliencyBadge
             }
 
             Logger.process.debugMessageOnly("SettingsManager: Settings loaded successfully")
@@ -121,6 +125,7 @@ final class SettingsViewModel {
                 thumbnailCostPerPixel: thumbnailCostPerPixel,
                 thumbnailSizeGridView: thumbnailSizeGridView,
                 useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
+                showSaliencyBadge: showSaliencyBadge,
             )
 
             let encoder = JSONEncoder()
@@ -188,6 +193,7 @@ final class SettingsViewModel {
                 thumbnailCostPerPixel: self.thumbnailCostPerPixel,
                 thumbnailSizeGridView: self.thumbnailSizeGridView,
                 useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
+                showSaliencyBadge: self.showSaliencyBadge,
             )
         }
     }
@@ -204,4 +210,37 @@ struct SavedSettings: Codable {
     let thumbnailCostPerPixel: Int
     let thumbnailSizeGridView: Int
     let useThumbnailAsZoomPreview: Bool
+    let showSaliencyBadge: Bool
+
+    init(
+        memoryCacheSizeMB: Int,
+        thumbnailSizeGrid: Int,
+        thumbnailSizePreview: Int,
+        thumbnailSizeFullSize: Int,
+        thumbnailCostPerPixel: Int,
+        thumbnailSizeGridView: Int,
+        useThumbnailAsZoomPreview: Bool,
+        showSaliencyBadge: Bool = false,
+    ) {
+        self.memoryCacheSizeMB = memoryCacheSizeMB
+        self.thumbnailSizeGrid = thumbnailSizeGrid
+        self.thumbnailSizePreview = thumbnailSizePreview
+        self.thumbnailSizeFullSize = thumbnailSizeFullSize
+        self.thumbnailCostPerPixel = thumbnailCostPerPixel
+        self.thumbnailSizeGridView = thumbnailSizeGridView
+        self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
+        self.showSaliencyBadge = showSaliencyBadge
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        memoryCacheSizeMB = try c.decode(Int.self, forKey: .memoryCacheSizeMB)
+        thumbnailSizeGrid = try c.decode(Int.self, forKey: .thumbnailSizeGrid)
+        thumbnailSizePreview = try c.decode(Int.self, forKey: .thumbnailSizePreview)
+        thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)
+        thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
+        thumbnailSizeGridView = try c.decode(Int.self, forKey: .thumbnailSizeGridView)
+        useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
+        showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
+    }
 }

@@ -44,6 +44,7 @@ extension RawCullViewModel {
 
         scanning = false
         cullingModel.loadSavedFiles()
+        rebuildRatingCache()
 
         if !processedURLs.contains(url) {
             processedURLs.insert(url)
@@ -107,6 +108,10 @@ extension RawCullViewModel {
         if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
             let scores = sharpnessModel.scores
             result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        }
+        if let label = sharpnessModel.saliencyCategoryFilter {
+            let info = sharpnessModel.saliencyInfo
+            result = result.filter { info[$0.id]?.subjectLabel == label }
         }
         return result
     }

@@ -58,6 +58,14 @@ final class SharpnessScoringModel {
     /// Active aperture filter — changing this triggers a re-sort in the ViewModel.
     var apertureFilter: ApertureFilter = .all
 
+    /// Currently selected saliency category filter. nil = all subjects shown.
+    var saliencyCategoryFilter: String? = nil
+
+    /// Distinct subject labels from the current scoring run, sorted alphabetically.
+    var availableSaliencyCategories: [String] {
+        Array(Set(saliencyInfo.values.compactMap(\.subjectLabel))).sorted()
+    }
+
     /// Shared config for both the Focus Mask overlay and the scoring pipeline.
     var focusMaskModel = FocusMaskModel()
 
@@ -97,6 +105,7 @@ final class SharpnessScoringModel {
     func reset() {
         cancelScoring()
         apertureFilter = .all
+        saliencyCategoryFilter = nil
     }
 
     // MARK: - Cancellation
@@ -112,6 +121,7 @@ final class SharpnessScoringModel {
         scoringTotal = 0
         scoringEstimatedSeconds = 0
         sortBySharpness = false
+        saliencyCategoryFilter = nil
     }
 
     // MARK: - Calibration
