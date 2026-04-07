@@ -140,6 +140,8 @@ private struct BodyFileResult {
     let focusOK: Bool
     let sharpnessOK: Bool
     let saliencyFound: Bool
+    let rawFileType: String?
+    let dimensions: String?  // e.g. "8640 × 5760 (49.8 MP, L)"
 }
 
 // MARK: - Test
@@ -188,7 +190,8 @@ struct ARWBodyCompatibilityTests {
             else {
                 print("  [EXIF: FAILED — CGImageSourceCopyPropertiesAtIndex returned nothing]")
                 results.append(BodyFileResult(camera: "unknown", exifOK: false,
-                                             focusOK: false, sharpnessOK: false, saliencyFound: false))
+                                             focusOK: false, sharpnessOK: false, saliencyFound: false,
+                                             rawFileType: nil, dimensions: nil))
                 continue
             }
 
@@ -218,13 +221,18 @@ struct ARWBodyCompatibilityTests {
             // Pixel dimensions + size class
             let pixelWidth  = props[kCGImagePropertyPixelWidth]  as? Int
             let pixelHeight = props[kCGImagePropertyPixelHeight] as? Int
+            let dimensionsLabel: String?
             if let w = pixelWidth, let h = pixelHeight {
                 let mp = Double(w * h) / 1_000_000
                 let sc = sizeClassForTest(width: w, height: h, camera: camera)
                 print(String(format: "  Dimensions:    %d × %d  (%.1f MP)  → Size class: %@", w, h, mp, sc))
+                dimensionsLabel = String(format: "%d × %d (%.1f MP, %@)", w, h, mp, sc)
+            } else {
+                dimensionsLabel = nil
             }
 
             // RAW compression type
+            let rawFileTypeLabel: String?
             if let compVal = tiff[kCGImagePropertyTIFFCompression] as? Int {
                 let label: String
                 switch compVal {
@@ -236,6 +244,9 @@ struct ARWBodyCompatibilityTests {
                 default:    label = "Unknown (\(compVal))"
                 }
                 print("  RAW file type: \(label)   (TIFF compression tag: \(compVal))")
+                rawFileTypeLabel = label
+            } else {
+                rawFileTypeLabel = nil
             }
 
             // ── Focus point TIFF walk ────────────────────────────────────────
@@ -352,7 +363,9 @@ struct ARWBodyCompatibilityTests {
                 exifOK: true,
                 focusOK: focusOK,
                 sharpnessOK: score != nil,
-                saliencyFound: saliencyFound))
+                saliencyFound: saliencyFound,
+                rawFileType: rawFileTypeLabel,
+                dimensions: dimensionsLabel))
         }
 
         // ── Summary table ────────────────────────────────────────────────────
@@ -380,6 +393,14 @@ struct ARWBodyCompatibilityTests {
             print(String(format: "%@  %4d   %3d/%-3d  %3d/%-3d   %3d/%-3d   %3d/%-3d",
                          pad(cam, 24) as NSString, n,
                          exif, n, focus, n, sharp, n, sal, n))
+            let uniqueTypes = Set(group.compactMap(\.rawFileType)).sorted()
+            if !uniqueTypes.isEmpty {
+                print("  \(pad("RAW types:", 22)) \(uniqueTypes.joined(separator: ", "))")
+            }
+            let uniqueDimensions = Set(group.compactMap(\.dimensions)).sorted()
+            if !uniqueDimensions.isEmpty {
+                print("  \(pad("Dimensions:", 22)) \(uniqueDimensions.joined(separator: ", "))")
+            }
         }
         print(d)
         print(String(format: "%@  %4d   %3d/%-3d  %3d/%-3d   %3d/%-3d   %3d/%-3d",
