@@ -4,17 +4,6 @@
 
 macOS photo review and selection application for Sony A1 mkI and mkII ARW raw files. This is a build for Apple Silicon only.
 
-> April 4, 2026:
-It has been observed that RawCull supports a broader range of Sony FullFrame camera bodies. I have conducted tests on ARW files for the Sony A7RV and the newly released Sony A7V. After Easter, I plan to acquire additional full-frame ARW files from Sony A bodies to conduct further tests. Upon the completion of these tests, I will compile a comprehensive list of the Sony bodies that RawCull supports.
-
-| Camera Body | Verified |
-|---|---|
-| Sony A1 mk I and mk II | Verified |
-| Sony A7RV | Tested and seems to work |
-| Sony A7V | Tested and seems to work |
-| Sony A7S mk III | Not verified  |
-| Sony A9 mk III  | Not verified |
-
 ## Requirements
 
 - macOS 26 Tahoe and later
@@ -46,7 +35,7 @@ The two next bodies to focus on are the ILCE-7M5 and ILCE-7RM5. However, I am de
 
 ## Version
 
-Current version: v1.4.0 - released April 7, 2026
+Current version: v1.4.0 - released April 7, 2026. Version 1.4.0 is submitted for approval for update on Apple App Store.
 
 ## Documentation
 
