@@ -5,13 +5,6 @@
 //  Created by Thomas Evensen on 20/01/2026.
 //
 
-//
-//  ScanFiles.swift
-//  RawCull
-//
-//  Created by Thomas Evensen on 20/01/2026.
-//
-
 import Foundation
 import ImageIO
 
@@ -171,6 +164,7 @@ actor ScanFiles {
 
         let fNumber = exifDict[kCGImagePropertyExifFNumber] as? NSNumber
         let rawISO = (exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first
+        // pixelWidth/Height are top-level properties, not inside kCGImagePropertyTIFFDictionary
         let pixelWidth = properties[kCGImagePropertyPixelWidth] as? Int
         let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int
         let compressionValue = tiffDict[kCGImagePropertyTIFFCompression] as? Int
@@ -219,6 +213,9 @@ actor ScanFiles {
         return "ISO \(iso)"
     }
 
+    /// Maps the TIFF compression tag to a human-readable Sony RAW type label.
+    /// Newer bodies (A1, A7R V, A9 III…) write 6/7; older bodies write 32767/32770.
+    /// Both generations use the same semantic meaning: lossy compressed vs lossless compressed.
     private nonisolated func rawFileTypeString(from value: Int) -> String {
         switch value {
         case 1:     return "Uncompressed"
@@ -230,15 +227,20 @@ actor ScanFiles {
         }
     }
 
+    /// Classifies pixel dimensions as L / M / S using per-body MP thresholds.
+    /// Thresholds are derived from each camera's known resolution steps — e.g. the A1
+    /// shoots L at ~50 MP, M at ~21 MP, and S at ~12 MP, so the M boundary sits at 18 MP.
+    /// The fallback (25/10) covers unknown bodies generically.
     private nonisolated func sizeClass(width: Int, height: Int, camera: String) -> String {
         let mp = Double(width * height) / 1_000_000
         let upper = camera.uppercased()
+        // (L threshold MP, M threshold MP) — classified as L if ≥ lThresh, M if ≥ mThresh, else S
         let (lThresh, mThresh): (Double, Double)
-        if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }
-        else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }
-        else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }
-        else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }
-        else                               { (lThresh, mThresh) = (25, 10) }
+        if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }  // A7R IV/V: 61/26/15 MP
+        else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }  // A1/A1 II: 50/21/12 MP
+        else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }  // A9 III: 24/12/6 MP
+        else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }  // A7M5: 33/17/9 MP
+        else                               { (lThresh, mThresh) = (25, 10) }  // generic fallback
         if mp >= lThresh { return "L" }
         if mp >= mThresh { return "M" }
         return "S"

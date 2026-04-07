@@ -4,8 +4,11 @@
 //
 //  Diagnostic test for ARW compatibility across Sony camera bodies.
 //  For each file in the catalog it prints every piece of data RawCull
-//  extracts: EXIF, a verbose TIFF IFD walk for the focus point, sharpness
-//  score with ISO-adaptation breakdown, and saliency / subject detection.
+//  extracts: EXIF (camera, lens, exposure, pixel dimensions, RAW file type),
+//  a verbose TIFF IFD walk for the focus point, sharpness score with
+//  ISO-adaptation breakdown, and saliency / subject detection.
+//  The summary groups results by body and lists the RAW types and
+//  dimensions seen for each.
 //
 //  No assertions — console output only.
 //
@@ -119,15 +122,17 @@ private func runSaliencyDetail(cgImage: CGImage) -> SaliencyDetail {
     return SaliencyDetail(boundingBox: union, area: area, maxConfidence: maxConf, subjectLabel: label)
 }
 
+/// Mirrors `ScanFiles.sizeClass` — must be kept in sync if thresholds change.
 private func sizeClassForTest(width: Int, height: Int, camera: String) -> String {
     let mp = Double(width * height) / 1_000_000
     let upper = camera.uppercased()
+    // (L threshold MP, M threshold MP) — see ScanFiles.sizeClass for derivation
     let (lThresh, mThresh): (Double, Double)
-    if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }
-    else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }
-    else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }
-    else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }
-    else                               { (lThresh, mThresh) = (25, 10) }
+    if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }  // A7R IV/V: 61/26/15 MP
+    else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }  // A1/A1 II: 50/21/12 MP
+    else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }  // A9 III: 24/12/6 MP
+    else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }  // A7M5: 33/17/9 MP
+    else                               { (lThresh, mThresh) = (25, 10) }  // generic fallback
     if mp >= lThresh { return "L" }
     if mp >= mThresh { return "M" }
     return "S"
