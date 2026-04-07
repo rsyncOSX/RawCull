@@ -15,6 +15,7 @@ struct RawCullMainView: View {
 
     // @State var settings: settings?
     @State private var memoryWarningOpacity: Double = 0.3
+    @State private var memoryMonitorModel = MemoryViewModel(pressureThresholdFactor: 0.85)
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State var showhorizontalthumbnailview: Bool = false
     @State var showGridThumbnail: Bool = false
@@ -185,10 +186,27 @@ struct RawCullMainView: View {
                 .overlay(alignment: .bottom) {
                     if viewModel.memorypressurewarning {
                         MemoryWarningLabelView(
+                            style: .full,
                             memoryWarningOpacity: $memoryWarningOpacity,
                             onAppearAction: startMemoryWarningFlash,
                         )
                         .transition(.move(edge: .top).combined(with: .opacity))
+                    } else if viewModel.softMemoryWarning {
+                        MemoryWarningLabelView(style: .soft)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .task {
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(5))
+                        await memoryMonitorModel.updateMemoryStats()
+                        let exceeded = memoryMonitorModel.usedMemory >= memoryMonitorModel.memoryPressureThreshold
+                        if exceeded {
+                            let macOSLevel = SharedMemoryCache.shared.currentPressureLevel
+                            viewModel.softMemoryWarning = macOSLevel == .normal
+                        } else {
+                            viewModel.softMemoryWarning = false
+                        }
                     }
                 }
                 .onChange(of: viewModel.memorypressurewarning) { _, newValue in

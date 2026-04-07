@@ -19,8 +19,7 @@ final class MemoryViewModel {
     private let pressureThresholdFactor: Double
 
     init(
-        updateInterval _: TimeInterval = 1.5,
-        pressureThresholdFactor: Double = 0.80,
+        pressureThresholdFactor: Double = 0.85,
     ) {
         self.pressureThresholdFactor = pressureThresholdFactor
     }

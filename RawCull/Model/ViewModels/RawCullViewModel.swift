@@ -77,6 +77,7 @@ final class RawCullViewModel {
     @ObservationIgnored var processedURLs: Set<URL> = []
 
     var memorypressurewarning: Bool = false
+    var softMemoryWarning: Bool = false
 
     /// Focus points created by exiftool, if available.
     var focusPoints: [FocusPointsModel]?

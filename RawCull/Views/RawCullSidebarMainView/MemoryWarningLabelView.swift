@@ -1,18 +1,32 @@
 import SwiftUI
 
 struct MemoryWarningLabelView: View {
+    enum WarningStyle {
+        case soft
+        case full
+    }
+
+    let style: WarningStyle
     @Binding var memoryWarningOpacity: Double
     let onAppearAction: () -> Void
 
+    init(style: WarningStyle = .full, memoryWarningOpacity: Binding<Double> = .constant(0.8), onAppearAction: @escaping () -> Void = {}) {
+        self.style = style
+        self._memoryWarningOpacity = memoryWarningOpacity
+        self.onAppearAction = onAppearAction
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
+            Image(systemName: style == .soft ? "memorychip" : "exclamationmark.triangle.fill")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Memory Warning")
+                Text(style == .soft ? "Memory Pressure" : "Memory Warning")
                     .font(.headline)
-                Text("System memory pressure detected. Cache has been reduced.")
+                Text(style == .soft
+                    ? "Memory usage at 85%+. macOS reports normal."
+                    : "System memory pressure detected. Cache has been reduced.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -21,7 +35,7 @@ struct MemoryWarningLabelView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.red.opacity(memoryWarningOpacity))
+        .background(style == .soft ? Color.orange.opacity(0.7) : Color.red.opacity(memoryWarningOpacity))
         .foregroundStyle(.white)
         .clipShape(.rect(cornerRadius: 8))
         .padding(12)
