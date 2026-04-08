@@ -18,12 +18,20 @@ struct ScoringParametersSheetView: View {
                 Label("Scoring Parameters", systemImage: "slider.horizontal.3")
                     .font(.title3.bold())
                 Spacer()
-                Button("Reset") { config = FocusDetectorConfig() }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.return)
-                    .buttonStyle(.borderedProminent)
+                Button("Reset") {
+                    let defaults = FocusDetectorConfig()
+                    config = defaults
+                    thumbnailMaxPixelSize = 512
+                    saveScoringSettings()
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                Button("Done") {
+                    saveScoringSettings()
+                    dismiss()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
@@ -97,5 +105,14 @@ struct ScoringParametersSheetView: View {
         }
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func saveScoringSettings() {
+        settingsViewModel.scoringBorderInsetFraction = config.borderInsetFraction
+        settingsViewModel.scoringEnableSubjectClassification = config.enableSubjectClassification
+        settingsViewModel.scoringSalientWeight = config.salientWeight
+        settingsViewModel.scoringSubjectSizeFactor = config.subjectSizeFactor
+        settingsViewModel.scoringThumbnailMaxPixelSize = thumbnailMaxPixelSize
+        Task { await settingsViewModel.saveSettings() }
     }
 }

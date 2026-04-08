@@ -22,6 +22,15 @@ extension RawCullViewModel {
         memorypressurewarning = warning
     }
 
+    func applyStoredScoringSettings() async {
+        let settings = await SettingsViewModel.shared.asyncgetsettings()
+        sharpnessModel.thumbnailMaxPixelSize = settings.scoringThumbnailMaxPixelSize
+        sharpnessModel.focusMaskModel.config.borderInsetFraction = settings.scoringBorderInsetFraction
+        sharpnessModel.focusMaskModel.config.enableSubjectClassification = settings.scoringEnableSubjectClassification
+        sharpnessModel.focusMaskModel.config.salientWeight = settings.scoringSalientWeight
+        sharpnessModel.focusMaskModel.config.subjectSizeFactor = settings.scoringSubjectSizeFactor
+    }
+
     func abort() {
         Logger.process.debugMessageOnly("Abort scanning")
 

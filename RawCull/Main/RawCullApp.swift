@@ -36,6 +36,9 @@ struct RawCullApp: App {
             .environment(settingsviewmodel)
             .environment(gridthumbnailviewmodel)
             .environment(viewModel)
+            .task {
+                await viewModel.applyStoredScoringSettings()
+            }
             .onDisappear {
                 // Quit the app when the main window is closed
                 performCleanupTask()

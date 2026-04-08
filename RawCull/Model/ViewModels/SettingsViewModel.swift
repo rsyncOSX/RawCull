@@ -50,6 +50,19 @@ final class SettingsViewModel {
     /// Show cyan saliency badge on thumbnails (default: false = hidden)
     var showSaliencyBadge: Bool = false
 
+    // MARK: - Scoring Parameters
+
+    /// Border inset fraction for sharpness scoring (default: 0.04)
+    var scoringBorderInsetFraction: Float = 0.04
+    /// Run subject classification pass during scoring (default: true)
+    var scoringEnableSubjectClassification: Bool = true
+    /// Weight for salient-region score vs full-frame score (default: 0.75)
+    var scoringSalientWeight: Float = 0.75
+    /// Subject size bonus multiplier (default: 0.1)
+    var scoringSubjectSizeFactor: Float = 0.1
+    /// Thumbnail pixel size used when decoding images for sharpness scoring (default: 512)
+    var scoringThumbnailMaxPixelSize: Int = 512
+
     // MARK: - Private Properties
 
     private let settingsFileName = "settings.json"
@@ -98,6 +111,11 @@ final class SettingsViewModel {
                 self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
                 self.showScoringBadge = savedSettings.showScoringBadge
                 self.showSaliencyBadge = savedSettings.showSaliencyBadge
+                self.scoringBorderInsetFraction = savedSettings.scoringBorderInsetFraction
+                self.scoringEnableSubjectClassification = savedSettings.scoringEnableSubjectClassification
+                self.scoringSalientWeight = savedSettings.scoringSalientWeight
+                self.scoringSubjectSizeFactor = savedSettings.scoringSubjectSizeFactor
+                self.scoringThumbnailMaxPixelSize = savedSettings.scoringThumbnailMaxPixelSize
             }
 
             Logger.process.debugMessageOnly("SettingsManager: Settings loaded successfully")
@@ -132,6 +150,11 @@ final class SettingsViewModel {
                 useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
                 showScoringBadge: showScoringBadge,
                 showSaliencyBadge: showSaliencyBadge,
+                scoringBorderInsetFraction: scoringBorderInsetFraction,
+                scoringEnableSubjectClassification: scoringEnableSubjectClassification,
+                scoringSalientWeight: scoringSalientWeight,
+                scoringSubjectSizeFactor: scoringSubjectSizeFactor,
+                scoringThumbnailMaxPixelSize: scoringThumbnailMaxPixelSize,
             )
 
             let encoder = JSONEncoder()
@@ -201,6 +224,11 @@ final class SettingsViewModel {
                 useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
                 showScoringBadge: self.showScoringBadge,
                 showSaliencyBadge: self.showSaliencyBadge,
+                scoringBorderInsetFraction: self.scoringBorderInsetFraction,
+                scoringEnableSubjectClassification: self.scoringEnableSubjectClassification,
+                scoringSalientWeight: self.scoringSalientWeight,
+                scoringSubjectSizeFactor: self.scoringSubjectSizeFactor,
+                scoringThumbnailMaxPixelSize: self.scoringThumbnailMaxPixelSize,
             )
         }
     }
@@ -220,6 +248,12 @@ struct SavedSettings: Codable {
     let showScoringBadge: Bool
     let showSaliencyBadge: Bool
 
+    let scoringBorderInsetFraction: Float
+    let scoringEnableSubjectClassification: Bool
+    let scoringSalientWeight: Float
+    let scoringSubjectSizeFactor: Float
+    let scoringThumbnailMaxPixelSize: Int
+
     init(
         memoryCacheSizeMB: Int,
         thumbnailSizeGrid: Int,
@@ -230,6 +264,11 @@ struct SavedSettings: Codable {
         useThumbnailAsZoomPreview: Bool,
         showScoringBadge: Bool = false,
         showSaliencyBadge: Bool = false,
+        scoringBorderInsetFraction: Float = 0.04,
+        scoringEnableSubjectClassification: Bool = true,
+        scoringSalientWeight: Float = 0.75,
+        scoringSubjectSizeFactor: Float = 0.1,
+        scoringThumbnailMaxPixelSize: Int = 512,
     ) {
         self.memoryCacheSizeMB = memoryCacheSizeMB
         self.thumbnailSizeGrid = thumbnailSizeGrid
@@ -240,6 +279,11 @@ struct SavedSettings: Codable {
         self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
         self.showScoringBadge = showScoringBadge
         self.showSaliencyBadge = showSaliencyBadge
+        self.scoringBorderInsetFraction = scoringBorderInsetFraction
+        self.scoringEnableSubjectClassification = scoringEnableSubjectClassification
+        self.scoringSalientWeight = scoringSalientWeight
+        self.scoringSubjectSizeFactor = scoringSubjectSizeFactor
+        self.scoringThumbnailMaxPixelSize = scoringThumbnailMaxPixelSize
     }
 
     init(from decoder: Decoder) throws {
@@ -253,5 +297,10 @@ struct SavedSettings: Codable {
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
         showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
         showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
+        scoringBorderInsetFraction = (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04
+        scoringEnableSubjectClassification = (try? c.decode(Bool.self, forKey: .scoringEnableSubjectClassification)) ?? true
+        scoringSalientWeight = (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75
+        scoringSubjectSizeFactor = (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1
+        scoringThumbnailMaxPixelSize = (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512
     }
 }
