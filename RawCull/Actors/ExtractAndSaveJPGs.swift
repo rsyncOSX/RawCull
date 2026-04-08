@@ -41,18 +41,17 @@ actor ExtractAndSaveJPGs {
 
             await fileHandlers?.maxfilesHandler(urls.count)
 
-            return await withThrowingTaskGroup(of: Void.self) { group in
-                let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2 // Be a bit more aggressive
+            return await withTaskGroup(of: Void.self) { group in
+                let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
 
                 for (index, url) in urls.enumerated() {
-                    // Check for cancellation at the start of every loop
                     if Task.isCancelled {
-                        group.cancelAll() // FIX #2: Stop all running tasks
+                        group.cancelAll()
                         break
                     }
 
                     if index >= maxConcurrent {
-                        try? await group.next()
+                        await group.next()
                     }
 
                     group.addTask {
@@ -60,8 +59,7 @@ actor ExtractAndSaveJPGs {
                     }
                 }
 
-                // Wait for remaining tasks to finish (or be cancelled)
-                try? await group.waitForAll()
+                await group.waitForAll()
                 return successCount
             }
         }
@@ -102,11 +100,6 @@ actor ExtractAndSaveJPGs {
             let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
-
-            // Only update if the new estimate is lower than the current one
-            if let current = lastEstimatedSeconds, estimatedSeconds > current {
-                return
-            }
 
             lastEstimatedSeconds = estimatedSeconds
             await fileHandlers?.estimatedTimeHandler(estimatedSeconds)

@@ -95,7 +95,7 @@ struct ThumbnailImageView: View {
 
         case .list:
             guard let url else { return nil }
-            let cgThumb = await RequestThumbnail().requestThumbnail(for: url, targetSize: targetSize)
+            let cgThumb = await RequestThumbnail.shared.requestThumbnail(for: url, targetSize: targetSize)
             return cgThumb.map { NSImage(cgImage: $0, size: .zero) }
         }
     }

@@ -82,7 +82,9 @@ final class SettingsViewModel {
                 return
             }
 
-            let data = try Data(contentsOf: fileURL)
+            let data = try await Task.detached(priority: .utility) {
+                try Data(contentsOf: fileURL)
+            }.value
             let decoder = JSONDecoder()
             let savedSettings = try decoder.decode(SavedSettings.self, from: data)
 

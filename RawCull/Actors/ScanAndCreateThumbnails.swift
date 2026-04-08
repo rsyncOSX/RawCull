@@ -16,10 +16,6 @@ actor ScanAndCreateThumbnails {
     private var successCount = 0
     private let diskCache: DiskCacheManager
 
-    // Cache statistics for monitoring
-    private var cacheMemory = 0
-    private var cacheDisk = 0
-
     // Timing tracking
     private var processingTimes: [TimeInterval] = []
     private var totalFilesToProcess = 0
@@ -148,7 +144,7 @@ actor ScanAndCreateThumbnails {
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
-            cacheMemory += 1
+            await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(for: startTime, itemsProcessed: newCount)
@@ -161,7 +157,7 @@ actor ScanAndCreateThumbnails {
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
             storeInMemoryCache(diskImage, for: url)
-            cacheDisk += 1
+            await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(for: startTime, itemsProcessed: newCount)
@@ -183,7 +179,7 @@ actor ScanAndCreateThumbnails {
 
             if Task.isCancelled { return }
 
-            let image = try cgImageToNormalizedNSImage(cgImage)
+            let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
             storeInMemoryCache(image, for: url)
 
@@ -235,31 +231,10 @@ actor ScanAndCreateThumbnails {
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
 
-            if let current = lastEstimatedSeconds, estimatedSeconds > current {
-                return
-            }
-
             lastEstimatedSeconds = estimatedSeconds
             let handler = fileHandlers?.estimatedTimeHandler
             Task { @MainActor in handler?(estimatedSeconds) }
         }
-    }
-
-    // MARK: - Image Conversion
-
-    /// Converts a `CGImage` to an `NSImage` backed by a single JPEG representation.
-    private func cgImageToNormalizedNSImage(_ cgImage: CGImage) throws -> NSImage {
-        let bitmapRep = NSBitmapImageRep(cgImage: cgImage)
-
-        guard let data = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) else {
-            throw ThumbnailError.generationFailed
-        }
-
-        guard let normalizedImage = NSImage(data: data) else {
-            throw ThumbnailError.generationFailed
-        }
-
-        return normalizedImage
     }
 
     // MARK: - Cache Helpers

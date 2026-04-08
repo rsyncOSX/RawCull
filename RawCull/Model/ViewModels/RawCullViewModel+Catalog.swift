@@ -31,7 +31,7 @@ extension RawCullViewModel {
 
         Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
 
-        filteredFiles = await applyFilters(to: ScanFiles().sortFiles(
+        filteredFiles = await applyFilters(to: ScanFiles.sortFiles(
             files,
             by: sortOrder,
             searchText: searchText,
@@ -79,7 +79,7 @@ extension RawCullViewModel {
 
     func handleSortOrderChange() async {
         issorting = true
-        var sorted = await ScanFiles().sortFiles(files, by: sortOrder, searchText: searchText)
+        var sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
         sorted = applyFilters(to: sorted)
         filteredFiles = sorted
         issorting = false
@@ -87,7 +87,7 @@ extension RawCullViewModel {
 
     func handleSearchTextChange() async {
         issorting = true
-        var sorted = await ScanFiles().sortFiles(files, by: sortOrder, searchText: searchText)
+        var sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
         sorted = applyFilters(to: sorted)
         filteredFiles = sorted
         issorting = false

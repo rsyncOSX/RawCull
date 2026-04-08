@@ -20,7 +20,7 @@ enum ZoomPreviewHandler {
     ) {
         if useThumbnailAsZoomPreview {
             Task {
-                let cgThumb = await RequestThumbnail().requestThumbnail(
+                let cgThumb = await RequestThumbnail.shared.requestThumbnail(
                     for: file.url,
                     targetSize: thumbnailSizePreview,
                 )

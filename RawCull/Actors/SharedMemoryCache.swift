@@ -241,6 +241,7 @@ actor SharedMemoryCache {
             currentPressureLevel = .normal
             logMemoryPressure("Normal memory pressure")
             Task {
+                await self.refreshConfig()
                 await fileHandlers?.memorypressurewarning(false)
             }
 

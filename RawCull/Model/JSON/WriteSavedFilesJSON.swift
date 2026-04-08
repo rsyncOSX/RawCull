@@ -19,7 +19,7 @@ actor WriteSavedFilesJSON {
     private func writeJSONToPersistentStore(jsonData: Data?) async {
         if let jsonData {
             do {
-                try jsonData.write(to: savePath)
+                try jsonData.write(to: savePath, options: .atomic)
             } catch let err {
                 let error = err
                 await Logger.process.errorMessageOnly(

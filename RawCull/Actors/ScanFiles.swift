@@ -60,7 +60,11 @@ actor ScanFiles {
                 options: [.skipsHiddenFiles],
             )
 
-            let result: [FileItem] = await withTaskGroup(of: FileItem?.self) { group in
+            // Single-pass: extract EXIF and Sony MakerNote focus point in the same task per file,
+            // eliminating the second file-open pass that extractNativeFocusPoints() previously required.
+            let pairs: [(FileItem, DecodeFocusPoints?)] = await withTaskGroup(
+                of: (FileItem, DecodeFocusPoints?).self
+            ) { group in
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
                     discoveredCount += 1
@@ -70,56 +74,35 @@ actor ScanFiles {
                     group.addTask {
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
                         let exifData = self.extractExifData(from: fileURL)
-                        return FileItem(
+                        let fileItem = FileItem(
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
                             size: Int64(res?.fileSize ?? 0),
                             dateModified: res?.contentModificationDate ?? Date(),
                             exifData: exifData,
                         )
+                        let focusPoint: DecodeFocusPoints? = SonyMakerNoteParser.focusLocation(from: fileURL).map {
+                            DecodeFocusPoints(sourceFile: fileURL.lastPathComponent, focusLocation: $0)
+                        }
+                        return (fileItem, focusPoint)
                     }
                 }
-                var items: [FileItem] = []
-                for await item in group {
-                    if let item { items.append(item) }
-                }
-                return items
+                var collected: [(FileItem, DecodeFocusPoints?)] = []
+                for await pair in group { collected.append(pair) }
+                return collected
             }
 
-            // Decode raw JSON — plain Codable struct, no @MainActor involved
-            // Native Sony MakerNote parsing — no exiftool or focuspoints.json needed.
-            // Falls back to focuspoints.json if native extraction yields nothing
+            let result = pairs.map(\.0)
+            let nativePoints = pairs.compactMap(\.1)
+            // Falls back to focuspoints.json if native MakerNote extraction yielded nothing
             // (e.g. non-A1 files or files captured before the feature was added).
-            decodedFocusPoints = await extractNativeFocusPoints(from: result)
-                ?? decodeFocusPointsJSON(from: url)
+            decodedFocusPoints = nativePoints.isEmpty ? decodeFocusPointsJSON(from: url) : nativePoints
 
             return result
         } catch {
             // Logger.process.warning("Scan Error: \(error)")
             return []
         }
-    }
-
-    /// Extracts focus location from each ARW file's Sony MakerNote directly.
-    /// Returns `nil` if no files yielded a result so the JSON fallback can take over.
-    private func extractNativeFocusPoints(from items: [FileItem]) async -> [DecodeFocusPoints]? {
-        let collected = await withTaskGroup(of: DecodeFocusPoints?.self) { group in
-            for item in items {
-                group.addTask {
-                    guard let location = SonyMakerNoteParser.focusLocation(from: item.url)
-                    else { return nil }
-                    // sourceFile must equal file.name — getFocusPoints() matches on filename only
-                    return DecodeFocusPoints(sourceFile: item.url.lastPathComponent,
-                                             focusLocation: location)
-                }
-            }
-            var results: [DecodeFocusPoints] = []
-            for await result in group {
-                if let r = result { results.append(r) }
-            }
-            return results
-        }
-        return collected.isEmpty ? nil : collected
     }
 
     /// Synchronous — plain Data read + JSONDecoder, no actor-isolated types touched
@@ -137,7 +120,7 @@ actor ScanFiles {
     }
 
     @concurrent
-    nonisolated func sortFiles(
+    nonisolated static func sortFiles(
         _ files: [FileItem],
         by sortOrder: [some SortComparator<FileItem>],
         searchText: String,

@@ -9,10 +9,9 @@ import AppKit
 import Foundation
 import OSLog
 
-actor DiscoverFiles {
-    @concurrent
+struct DiscoverFiles {
     nonisolated func discoverFiles(at catalogURL: URL, recursive: Bool) async -> [URL] {
-        await Task {
+        await Task.detached(priority: .utility) {
             let supported: Set<String> = [SupportedFileType.arw.rawValue]
             let fileManager = FileManager.default
             var urls: [URL] = []
