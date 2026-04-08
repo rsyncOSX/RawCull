@@ -60,6 +60,30 @@ struct TIFFWalkDiagnostics: Sendable {
     }
 }
 
+// MARK: - Embedded JPEG locations
+
+/// Absolute file offsets for the three JPEG images embedded in every Sony ARW.
+/// Used as a fallback when the macOS RA16 decoder cannot handle the file
+/// (e.g. ARW 6.0 from the A7V returns err=-50 from CGImageSourceCreateThumbnailAtIndex).
+struct EmbeddedJPEGLocations: Sendable {
+    struct Location: Sendable {
+        let offset: Int
+        let length: Int
+    }
+    /// IFD1 tiny thumbnail (~8 KB, ~160 px).
+    let thumbnail: Location?
+    /// IFD0 preview JPEG (~400 KB, 1616×1080).
+    let preview: Location?
+    /// IFD2 full-resolution JPEG (~4 MB, 7008×4672).
+    let fullJPEG: Location?
+
+    nonisolated init(thumbnail: Location? = nil, preview: Location? = nil, fullJPEG: Location? = nil) {
+        self.thumbnail = thumbnail
+        self.preview = preview
+        self.fullJPEG = fullJPEG
+    }
+}
+
 // MARK: - Parser
 
 enum SonyMakerNoteParser {
@@ -83,6 +107,29 @@ enum SonyMakerNoteParser {
               let result = TIFFParser(data: full)?.parseSonyFocusLocation()
         else { return nil }
         return "\(result.width) \(result.height) \(result.x) \(result.y)"
+    }
+
+    /// Parses the TIFF IFD chain and returns the absolute file offsets of the three
+    /// embedded JPEGs present in all Sony ARW files. Only the first 64 KB of the file
+    /// is read because all IFD structures fall within that range.
+    nonisolated static func embeddedJPEGLocations(from url: URL) -> EmbeddedJPEGLocations? {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fh.close() }
+        guard let data = try? fh.read(upToCount: 65536),
+              let parser = TIFFParser(data: data)
+        else { return nil }
+        return parser.parseEmbeddedJPEGLocations()
+    }
+
+    /// Reads raw bytes for an embedded JPEG from the file at the given absolute offset.
+    nonisolated static func readEmbeddedJPEGData(
+        at location: EmbeddedJPEGLocations.Location,
+        from url: URL
+    ) -> Data? {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fh.close() }
+        try? fh.seek(toOffset: UInt64(location.offset))
+        return try? fh.read(upToCount: location.length)
     }
 
     /// Performs a verbose TIFF IFD walk and returns diagnostic details for
@@ -243,6 +290,60 @@ private struct TIFFParser {
             focusOffset: focusOffset,
             focusRawBytes: focusRawBytes,
             focusResult: focusResult)
+    }
+
+    // MARK: Embedded JPEG locations
+
+    nonisolated func parseEmbeddedJPEGLocations() -> EmbeddedJPEGLocations {
+        typealias Loc = EmbeddedJPEGLocations.Location
+
+        guard let ifd0Raw = readU32(at: 4) else { return .init() }
+        let ifd0 = Int(ifd0Raw)
+
+        // IFD0: preview JPEG via StripOffsets (0x0111) + StripByteCounts (0x0117).
+        // Sony also stores this pair as JPEGInterchangeFormat (0x0201) / Length (0x0202)
+        // on some bodies — try both so we work regardless of which tag is used.
+        let preview: Loc? = locateJPEG(in: ifd0, offTag: 0x0111, lenTag: 0x0117)
+            ?? locateJPEG(in: ifd0, offTag: 0x0201, lenTag: 0x0202)
+
+        // Walk IFD chain: IFD0 → IFD1
+        guard ifd0 + 2 <= data.count else { return .init(preview: preview) }
+        let ifd0Count = Int(readU16(at: ifd0))
+        let ifd1Ptr = ifd0 + 2 + ifd0Count * 12
+        guard let ifd1Raw = readU32(at: ifd1Ptr), ifd1Raw > 0 else {
+            return .init(preview: preview)
+        }
+        let ifd1 = Int(ifd1Raw)
+
+        // IFD1: tiny thumbnail via JPEGInterchangeFormat (0x0201) + Length (0x0202).
+        let thumbnail: Loc? = locateJPEG(in: ifd1, offTag: 0x0201, lenTag: 0x0202)
+
+        // Walk IFD chain: IFD1 → IFD2
+        guard ifd1 + 2 <= data.count else {
+            return .init(thumbnail: thumbnail, preview: preview)
+        }
+        let ifd1Count = Int(readU16(at: ifd1))
+        let ifd2Ptr = ifd1 + 2 + ifd1Count * 12
+        guard let ifd2Raw = readU32(at: ifd2Ptr), ifd2Raw > 0 else {
+            return .init(thumbnail: thumbnail, preview: preview)
+        }
+        let ifd2 = Int(ifd2Raw)
+
+        // IFD2: full-resolution JPEG via StripOffsets (0x0111) + StripByteCounts (0x0117).
+        let fullJPEG: Loc? = locateJPEG(in: ifd2, offTag: 0x0111, lenTag: 0x0117)
+            ?? locateJPEG(in: ifd2, offTag: 0x0201, lenTag: 0x0202)
+
+        return .init(thumbnail: thumbnail, preview: preview, fullJPEG: fullJPEG)
+    }
+
+    /// Returns a Location by reading two LONG tags from an IFD: one for the file offset,
+    /// one for the byte count. Both must be present and non-zero.
+    private nonisolated func locateJPEG(in ifdOffset: Int, offTag: UInt16, lenTag: UInt16) -> EmbeddedJPEGLocations.Location? {
+        guard let offset = subIFDOffset(in: ifdOffset, tag: offTag),
+              let length = subIFDOffset(in: ifdOffset, tag: lenTag),
+              offset > 0, length > 0
+        else { return nil }
+        return .init(offset: offset, length: length)
     }
 
     // MARK: Binary parsing helpers

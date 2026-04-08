@@ -56,42 +56,76 @@ enum JPGSonyARWExtractor {
                     }
                 }
 
-                guard targetIndex != -1 else {
-                    Logger.process.warning("PreviewExtractor: No JPEG found in file")
-                    continuation.resume(returning: nil)
-                    return
+                var result: CGImage?
+
+                if targetIndex != -1 {
+                    let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
+
+                    // 2. Decode & Downsample using ImageIO directly
+                    if requiresDownsampling {
+                        Logger.process.info("PreviewExtractor: Native downsampling to \(maxThumbnailSize)px")
+
+                        let options: [CFString: Any] = [
+                            kCGImageSourceCreateThumbnailFromImageAlways: true,
+                            kCGImageSourceCreateThumbnailWithTransform: true,
+                            kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
+                        ]
+                        result = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
+                    } else {
+                        Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
+
+                        let decodeOptions: [CFString: Any] = [
+                            kCGImageSourceShouldCache: true,
+                            kCGImageSourceShouldCacheImmediately: true
+                        ]
+                        result = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
+                    }
+                } else {
+                    Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
                 }
 
-                let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
-                let result: CGImage?
-
-                // 2. Decode & Downsample using ImageIO directly
-                if requiresDownsampling {
-                    Logger.process.info("PreviewExtractor: Native downsampling to \(maxThumbnailSize)px")
-
-                    // THESE ARE THE MAGIC OPTIONS that replace your resizeImage() function
-                    let options: [CFString: Any] = [
-                        kCGImageSourceCreateThumbnailFromImageAlways: true,
-                        kCGImageSourceCreateThumbnailWithTransform: true,
-                        kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
-                    ]
-
-                    result = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
-                } else {
-                    Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
-
-                    // Your original standard decoding options
-                    let decodeOptions: [CFString: Any] = [
-                        kCGImageSourceShouldCache: true,
-                        kCGImageSourceShouldCacheImmediately: true
-                    ]
-
-                    result = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
+                // Binary fallback for ARW 6.0 (RA16 decoder unsupported on this macOS version).
+                // Reads the embedded full-resolution JPEG directly from the raw file bytes,
+                // bypassing the RA16 decoder entirely.
+                if result == nil {
+                    result = Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
+                    if result == nil {
+                        Logger.process.warning("PreviewExtractor: Binary fallback also failed for \(arwURL.lastPathComponent)")
+                    }
                 }
 
                 continuation.resume(returning: result)
             }
         }
+    }
+
+    /// Binary fallback for ARW 6.0 files (e.g. Sony A7V) where the macOS RA16 decoder
+    /// cannot decode the file. Extracts an embedded JPEG directly from the raw file bytes
+    /// and decodes it as a plain JPEG, bypassing the RA16 path.
+    private nonisolated static func binaryFallbackJPEG(
+        from url: URL,
+        fullSize: Bool,
+        maxSize: CGFloat
+    ) -> CGImage? {
+        guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) else { return nil }
+
+        // For full-size export prefer the full JPEG; for thumbnails prefer the smaller preview.
+        let loc = fullSize
+            ? (locations.fullJPEG ?? locations.preview ?? locations.thumbnail)
+            : (locations.preview ?? locations.fullJPEG ?? locations.thumbnail)
+
+        guard let loc,
+              let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
+              let src = CGImageSourceCreateWithData(data as CFData, nil)
+        else { return nil }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxSize),
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
+            ?? CGImageSourceCreateImageAtIndex(src, 0, nil)
     }
 
     private nonisolated static func getWidth(from properties: [CFString: Any]) -> Int? {

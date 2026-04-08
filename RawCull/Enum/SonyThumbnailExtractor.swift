@@ -65,11 +65,37 @@ enum SonyThumbnailExtractor {
             kCGImageSourceShouldCacheImmediately: true
         ]
 
-        guard let rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary) else {
+        // ImageIO path: works for A1, A1 II, A7R V. Falls back for ARW 6.0 (A7V / RA16).
+        let rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+            ?? Self.binaryFallbackThumbnail(from: url, maxDimension: maxDimension)
+
+        guard let rawThumbnail else {
             throw ThumbnailError.generationFailed
         }
 
         return try rerender(rawThumbnail, qualityCost: qualityCost)
+    }
+
+    /// Binary fallback for ARW 6.0 files where the macOS RA16 decoder returns err=-50.
+    /// Reads the embedded preview JPEG directly from the file without going through ImageIO's
+    /// raw decoder, then asks ImageIO to thumbnail the extracted JPEG bytes.
+    private nonisolated static func binaryFallbackThumbnail(
+        from url: URL,
+        maxDimension: CGFloat
+    ) -> CGImage? {
+        guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
+              let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
+              let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
+              let src = CGImageSourceCreateWithData(data as CFData, nil)
+        else { return nil }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
     }
 
     private nonisolated static func rerender(_ image: CGImage, qualityCost: Int) throws -> CGImage {
