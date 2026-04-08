@@ -23,12 +23,16 @@ extension RawCullViewModel {
     }
 
     func applyStoredScoringSettings() async {
-        let settings = await SettingsViewModel.shared.asyncgetsettings()
-        sharpnessModel.thumbnailMaxPixelSize = settings.scoringThumbnailMaxPixelSize
-        sharpnessModel.focusMaskModel.config.borderInsetFraction = settings.scoringBorderInsetFraction
-        sharpnessModel.focusMaskModel.config.enableSubjectClassification = settings.scoringEnableSubjectClassification
-        sharpnessModel.focusMaskModel.config.salientWeight = settings.scoringSalientWeight
-        sharpnessModel.focusMaskModel.config.subjectSizeFactor = settings.scoringSubjectSizeFactor
+        // Wait for the initial settings load to complete before reading.
+        // Without this, we may race with the fire-and-forget Task in SettingsViewModel.init()
+        // and read default values from the JSON before the file I/O finishes.
+        await SettingsViewModel.shared.ensureLoaded()
+        let s = SettingsViewModel.shared
+        sharpnessModel.thumbnailMaxPixelSize = s.scoringThumbnailMaxPixelSize
+        sharpnessModel.focusMaskModel.config.borderInsetFraction = s.scoringBorderInsetFraction
+        sharpnessModel.focusMaskModel.config.enableSubjectClassification = s.scoringEnableSubjectClassification
+        sharpnessModel.focusMaskModel.config.salientWeight = s.scoringSalientWeight
+        sharpnessModel.focusMaskModel.config.subjectSizeFactor = s.scoringSubjectSizeFactor
     }
 
     func abort() {

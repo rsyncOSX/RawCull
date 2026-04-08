@@ -19,10 +19,21 @@ final class SettingsViewModel {
 
     // MARK: - Initialization
 
+    /// Retained so callers can `await ensureLoaded()` before reading settings.
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+
     private init() {
-        Task {
-            await loadSettings()
+        // Phase 1: all stored properties must be set before self can be captured.
+        loadTask = nil
+        // Phase 2: self is now fully initialized — safe to capture in the Task closure.
+        loadTask = Task {
+            await self.loadSettings()
         }
+    }
+
+    /// Awaits the initial settings load. Safe to call multiple times.
+    func ensureLoaded() async {
+        await loadTask?.value
     }
 
     // MARK: - Memory Cache Settings
