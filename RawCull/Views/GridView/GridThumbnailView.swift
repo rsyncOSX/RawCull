@@ -63,10 +63,7 @@ struct GridThumbnailView: View {
 
     private func handleToggleSelection(for file: FileItem) {
         Task {
-            await gridthumbnailviewmodel.cullingModel?.toggleSelectionSavedFiles(
-                in: file.url,
-                toggledfilename: file.name,
-            )
+            await viewModel.toggleTag(for: file)
         }
     }
 

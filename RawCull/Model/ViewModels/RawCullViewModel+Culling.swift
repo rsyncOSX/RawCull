@@ -48,7 +48,7 @@ extension RawCullViewModel {
         case .all: true
         case .rejected: getRating(for: file) == -1
         case .keepers: getRating(for: file) == 0
-        case let .minimum(n): getRating(for: file) >= n
+        case let .stars(n): getRating(for: file) == n
         }
     }
 

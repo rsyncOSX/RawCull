@@ -64,7 +64,7 @@ struct SidebarARWCatalogFileView: View {
                                                 Image(systemName: "star.fill").font(.caption2)
                                             }
                                         }
-                                        .tag(RatingFilter.minimum(n))
+                                        .tag(RatingFilter.stars(n))
                                     }
                                 }
                                 .pickerStyle(DefaultPickerStyle())
