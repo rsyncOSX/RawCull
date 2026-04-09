@@ -29,6 +29,8 @@ extension RawCullMainView {
     }
 
     func openGridThumbnailWindow() {
+        viewModel.ratingFilter = .all
+        Task(priority: .background) { await viewModel.handleSortOrderChange() }
         gridthumbnailviewmodel.open(
             cullingModel: viewModel.cullingModel,
             selectedSource: viewModel.selectedSource,
