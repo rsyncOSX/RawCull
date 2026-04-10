@@ -23,7 +23,7 @@ private enum ActiveSheet: String, Identifiable {
 }
 
 struct GridThumbnailSelectionView: View {
-    @Environment(SettingsViewModel.self) private var settings
+    private var settings: SettingsViewModel { SettingsViewModel.shared }
     @Environment(\.openWindow) private var openWindow
 
     @Bindable var viewModel: RawCullViewModel

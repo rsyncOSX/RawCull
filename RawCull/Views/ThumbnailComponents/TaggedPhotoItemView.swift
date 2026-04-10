@@ -9,7 +9,7 @@ import OSLog
 import SwiftUI
 
 struct TaggedPhotoItemView: View {
-    @Environment(SettingsViewModel.self) private var settings
+    private var settings: SettingsViewModel { SettingsViewModel.shared }
     @Bindable var viewModel: RawCullViewModel
 
     let photo: String

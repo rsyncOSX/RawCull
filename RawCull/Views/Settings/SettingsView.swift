@@ -8,24 +8,19 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(SettingsViewModel.self) var settingsManager
-
     var body: some View {
         TabView {
             CacheSettingsTab()
-                .environment(settingsManager)
                 .tabItem {
                     Label("Cache", systemImage: "memorychip.fill")
                 }
 
             ThumbnailSizesTab()
-                .environment(settingsManager)
                 .tabItem {
                     Label("Thumbnails", systemImage: "photo.fill")
                 }
 
             MemoryTab()
-                .environment(settingsManager)
                 .tabItem {
                     Label("Memory", systemImage: "rectangle.compress.vertical")
                 }

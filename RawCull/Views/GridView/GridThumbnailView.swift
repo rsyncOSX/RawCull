@@ -10,7 +10,6 @@ import SwiftUI
 struct GridThumbnailView: View {
     @Bindable var viewModel: RawCullViewModel
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
-    @Environment(SettingsViewModel.self) var settingsviewmodel
 
     @Binding var isPresented: Bool
     @Binding var nsImage: NSImage?

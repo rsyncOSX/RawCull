@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ThumbnailSizesTab: View {
-    @Environment(SettingsViewModel.self) var settingsManager
+    private var settingsManager: SettingsViewModel { SettingsViewModel.shared }
     @State private var showResetConfirmation = false
     @State private var showSaveSettingsConfirmation = false
 

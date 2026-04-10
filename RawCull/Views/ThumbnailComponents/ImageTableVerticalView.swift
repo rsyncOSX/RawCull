@@ -11,7 +11,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImageTableVerticalView: View {
-    @Environment(SettingsViewModel.self) private var settings
+    private var settings: SettingsViewModel { SettingsViewModel.shared }
 
     @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?

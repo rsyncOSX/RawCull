@@ -9,7 +9,7 @@ import OSLog
 import SwiftUI
 
 struct CacheSettingsTab: View {
-    @Environment(SettingsViewModel.self) var settingsManager
+    private var settingsManager: SettingsViewModel { SettingsViewModel.shared }
 
     @State private var showResetConfirmation = false
     @State private var showPruneConfirmation = false

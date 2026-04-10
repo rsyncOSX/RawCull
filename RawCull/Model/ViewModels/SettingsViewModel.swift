@@ -5,8 +5,6 @@
 //  Created by Thomas Evensen on 05/02/2026.
 //
 
-// @Environment(SettingsManager.self) var settingsManager
-
 import Foundation
 import OSLog
 

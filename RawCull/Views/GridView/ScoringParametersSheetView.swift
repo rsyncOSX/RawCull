@@ -7,7 +7,6 @@ import SwiftUI
 
 struct ScoringParametersSheetView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(SettingsViewModel.self) private var settingsViewModel
     @Binding var config: FocusDetectorConfig
     @Binding var thumbnailMaxPixelSize: Int
 
@@ -75,9 +74,9 @@ struct ScoringParametersSheetView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    let settings = Bindable(settingsViewModel)
+                    let settings = Bindable(SettingsViewModel.shared)
                     Toggle("Show saliency label on thumbnails", isOn: settings.showSaliencyBadge)
-                        .onChange(of: settingsViewModel.showSaliencyBadge) { _, _ in
+                        .onChange(of: SettingsViewModel.shared.showSaliencyBadge) { _, _ in
                             Task { await SettingsViewModel.shared.saveSettings() }
                         }
                     Text("Displays the detected subject category as a cyan badge on each thumbnail. Hidden by default.")
@@ -108,11 +107,11 @@ struct ScoringParametersSheetView: View {
     }
 
     private func saveScoringSettings() {
-        settingsViewModel.scoringBorderInsetFraction = config.borderInsetFraction
-        settingsViewModel.scoringEnableSubjectClassification = config.enableSubjectClassification
-        settingsViewModel.scoringSalientWeight = config.salientWeight
-        settingsViewModel.scoringSubjectSizeFactor = config.subjectSizeFactor
-        settingsViewModel.scoringThumbnailMaxPixelSize = thumbnailMaxPixelSize
-        Task { await settingsViewModel.saveSettings() }
+        SettingsViewModel.shared.scoringBorderInsetFraction = config.borderInsetFraction
+        SettingsViewModel.shared.scoringEnableSubjectClassification = config.enableSubjectClassification
+        SettingsViewModel.shared.scoringSalientWeight = config.salientWeight
+        SettingsViewModel.shared.scoringSubjectSizeFactor = config.subjectSizeFactor
+        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = thumbnailMaxPixelSize
+        Task { await SettingsViewModel.shared.saveSettings() }
     }
 }

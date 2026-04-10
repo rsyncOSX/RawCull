@@ -22,7 +22,6 @@ struct RawCullApp: App {
     @State private var nsImage: NSImage?
     @State private var cgImage: CGImage?
 
-    @State private var settingsviewmodel = SettingsViewModel.shared
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
     @State private var viewModel = RawCullViewModel()
 
@@ -33,7 +32,6 @@ struct RawCullApp: App {
                 nsImage: $nsImage,
                 cgImage: $cgImage,
             )
-            .environment(settingsviewmodel)
             .environment(gridthumbnailviewmodel)
             .environment(viewModel)
             .task {
@@ -53,7 +51,6 @@ struct RawCullApp: App {
 
         Settings {
             SettingsView()
-                .environment(settingsviewmodel)
         }
 
         Window("ZoomcgImage", id: "zoom-window-cgImage") {
@@ -61,7 +58,6 @@ struct RawCullApp: App {
                 cgImage: cgImage, // ← pass viewModel instead
             )
             .environment(viewModel)
-            .environment(settingsviewmodel)
             .onAppear { viewModel.zoomCGImageWindowFocused = true }
             .onDisappear { viewModel.zoomCGImageWindowFocused = false }
         }
@@ -75,7 +71,6 @@ struct RawCullApp: App {
                 nsImage: nsImage,
             )
             .environment(viewModel)
-            .environment(settingsviewmodel)
             .onAppear { viewModel.zoomNSImageWindowFocused = true }
             .onDisappear { viewModel.zoomNSImageWindowFocused = false }
         }
@@ -91,7 +86,6 @@ struct RawCullApp: App {
                     viewModel.selectedFile = file
                 },
             )
-            .environment(settingsviewmodel)
         }
         .defaultPosition(.center)
         .defaultSize(width: 900, height: 700)

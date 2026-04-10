@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TaggedPhotoHorisontalGridView: View {
     @Bindable var viewModel: RawCullViewModel
-    @Environment(SettingsViewModel.self) private var settings
+    private var settings: SettingsViewModel { SettingsViewModel.shared }
 
     let catalogURL: URL?
     var onPhotoSelected: (FileItem) -> Void = { _ in }

@@ -82,7 +82,7 @@ struct NoSubjectBadgeView: View {
 
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
-    @Environment(SettingsViewModel.self) private var settings
+    private var settings: SettingsViewModel { SettingsViewModel.shared }
 
     let file: FileItem
     let selectedSource: ARWSourceCatalog?
