@@ -1,6 +1,8 @@
 //
 //  SynchronizeConfiguration.swift
-//  RsyncUI
+//  RawCull
+//
+//  Created by Thomas Evensen on 10/06/2025.
 //
 
 import Foundation
@@ -33,6 +35,9 @@ struct SynchronizeConfiguration {
     var snaplast: Int?
     /// task is halted
     var halted: Int
+    /// True when the rsync binary produces GNU rsync v3 output (not openrsync/BSD format).
+    /// The system /usr/bin/rsync on macOS is openrsync, so this defaults to false.
+    var rsyncVersion3: Bool
 
     /// Create an empty record with no values
     init() {
@@ -45,5 +50,6 @@ struct SynchronizeConfiguration {
         offsiteServer = ""
         backupID = ""
         halted = 0
+        rsyncVersion3 = false
     }
 }

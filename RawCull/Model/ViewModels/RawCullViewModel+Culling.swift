@@ -93,7 +93,7 @@ extension RawCullViewModel {
                     filerecord: newRecord,
                 ))
             }
-            await WriteSavedFilesJSON(cullingModel.savedFiles)
+            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
             rebuildRatingCache()
         }
     }
@@ -138,7 +138,7 @@ extension RawCullViewModel {
         }
 
         Task {
-            await WriteSavedFilesJSON(cullingModel.savedFiles)
+            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
         }
         rebuildRatingCache()
     }

@@ -154,21 +154,13 @@ final class SettingsViewModel {
         }
     }
 
-    /// Save settings to JSON file
+    /// Save settings to JSON file. Encodes on the MainActor then writes on a background thread.
     func saveSettings() async {
         do {
-            // Validate settings before saving
             validateSettings()
 
             let fileURL = settingsURL
-
-            // Create directory if it doesn't exist
             let dirURL = fileURL.deletingLastPathComponent()
-            try FileManager.default.createDirectory(
-                at: dirURL,
-                withIntermediateDirectories: true,
-                attributes: nil,
-            )
 
             let settingsToSave = SavedSettings(
                 memoryCacheSizeMB: memoryCacheSizeMB,
@@ -197,7 +189,17 @@ final class SettingsViewModel {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(settingsToSave)
 
-            try data.write(to: fileURL, options: .atomic)
+            // Offload blocking directory creation and file write to a background thread
+            // to avoid stalling the MainActor. data and URLs are Sendable value types.
+            try await Task.detached(priority: .background) {
+                try FileManager.default.createDirectory(
+                    at: dirURL,
+                    withIntermediateDirectories: true,
+                    attributes: nil,
+                )
+                try data.write(to: fileURL, options: .atomic)
+            }.value
+
             Logger.process.debugMessageOnly("Settings saved successfully")
         } catch {
             Logger.process.errorMessageOnly("Failed to save settings: \(error.localizedDescription)")

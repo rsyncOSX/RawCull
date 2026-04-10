@@ -111,15 +111,28 @@ enum SonyMakerNoteParser {
     }
 
     /// Parses the TIFF IFD chain and returns the absolute file offsets of the three
-    /// embedded JPEGs present in all Sony ARW files. Only the first 64 KB of the file
-    /// is read because all IFD structures fall within that range.
+    /// embedded JPEGs present in all Sony ARW files. Reads the first 64 KB on the fast
+    /// path; falls back to a full-file read when IFD structures fall outside that range
+    /// (e.g. ILCE-9M3 stores TIFF metadata near EOF).
     nonisolated static func embeddedJPEGLocations(from url: URL) -> EmbeddedJPEGLocations? {
         guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? fh.close() }
         guard let data = try? fh.read(upToCount: 65536),
               let parser = TIFFParser(data: data)
         else { return nil }
-        return parser.parseEmbeddedJPEGLocations()
+        let initial = parser.parseEmbeddedJPEGLocations()
+
+        // If the fast path found nothing, IFD0 likely falls beyond the 64 KB window.
+        // Re-read the full file (ILCE-9M3 slow-path, mirrors focusLocation behaviour).
+        guard initial.thumbnail == nil, initial.preview == nil, initial.fullJPEG == nil else {
+            return initial
+        }
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max),
+              full.count > data.count,
+              let fullParser = TIFFParser(data: full)
+        else { return initial }
+        return fullParser.parseEmbeddedJPEGLocations()
     }
 
     /// Reads raw bytes for an embedded JPEG from the file at the given absolute offset.

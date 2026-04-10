@@ -98,7 +98,7 @@ actor ScanFiles {
             let nativePoints = pairs.compactMap(\.1)
             // Falls back to focuspoints.json if native MakerNote extraction yielded nothing
             // (e.g. non-A1 files or files captured before the feature was added).
-            decodedFocusPoints = nativePoints.isEmpty ? decodeFocusPointsJSON(from: url) : nativePoints
+            decodedFocusPoints = nativePoints.isEmpty ? await decodeFocusPointsJSON(from: url) : nativePoints
 
             return result
         } catch {
@@ -107,16 +107,17 @@ actor ScanFiles {
         }
     }
 
-    /// Synchronous — plain Data read + JSONDecoder, no actor-isolated types touched
-    private func decodeFocusPointsJSON(from url: URL) -> [DecodeFocusPoints]? {
+    /// Reads focuspoints.json from the catalog directory. File I/O is offloaded to a
+    /// background thread to avoid blocking the ScanFiles actor.
+    private func decodeFocusPointsJSON(from url: URL) async -> [DecodeFocusPoints]? {
         let fileURL = url.appendingPathComponent("focuspoints.json")
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         do {
-            let data = try Data(contentsOf: fileURL)
+            let data = try await Task.detached(priority: .utility) {
+                try Data(contentsOf: fileURL)
+            }.value
             return try JSONDecoder().decode([DecodeFocusPoints].self, from: data)
-            // Logger.process.debugThreadOnly("decodeFocusPointsJSON - read \(decoded.count) records")
         } catch {
-            // Logger.process.errorMessageOnly("decodeFocusPointsJSON: ERROR \(error)")
             return nil
         }
     }
@@ -154,9 +155,12 @@ actor ScanFiles {
         let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int
         let compressionValue = tiffDict[kCGImagePropertyTIFFCompression] as? Int
         let cameraModel = tiffDict[kCGImagePropertyTIFFModel] as? String
-        let rawSizeClass: String? = (pixelWidth != nil && pixelHeight != nil)
-            ? sizeClass(width: pixelWidth!, height: pixelHeight!, camera: cameraModel ?? "")
-            : nil
+        let rawSizeClass: String?
+        if let pixelWidth, let pixelHeight {
+            rawSizeClass = sizeClass(width: pixelWidth, height: pixelHeight, camera: cameraModel ?? "")
+        } else {
+            rawSizeClass = nil
+        }
         return ExifMetadata(
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
             focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),

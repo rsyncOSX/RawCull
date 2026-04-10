@@ -109,7 +109,7 @@ struct RawCullMainView: View {
                             Button("Reset", role: .destructive) {
                                 viewModel.cullingModel.savedFiles.removeAll()
                                 Task {
-                                    await WriteSavedFilesJSON(viewModel.cullingModel.savedFiles)
+                                    await WriteSavedFilesJSON.write(viewModel.cullingModel.savedFiles)
                                 }
                             }
                             .frame(width: 100)

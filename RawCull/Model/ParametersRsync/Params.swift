@@ -1,6 +1,6 @@
 //
 //  Params.swift
-//  RsyncUI
+//  RawCull
 //
 //  Created by Thomas Evensen on 20/11/2025.
 //
@@ -36,7 +36,7 @@ struct Params {
                 sshkeypathandidentityfile: "",
                 sharedsshport: "",
                 sharedsshkeypathandidentityfile: "",
-                rsyncversion3: false,
+                rsyncversion3: config.rsyncVersion3,
             ),
             paths: PathConfiguration(
                 localCatalog: config.localCatalog,
@@ -45,7 +45,7 @@ struct Params {
             ),
             snapshotNumber: 0,
             isRsyncDaemon: false,
-            rsyncVersion3: false,
+            rsyncVersion3: config.rsyncVersion3,
         )
     }
 }

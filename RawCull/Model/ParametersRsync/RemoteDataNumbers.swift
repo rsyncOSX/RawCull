@@ -1,6 +1,8 @@
 //
 //  RemoteDataNumbers.swift
-//  RsyncVerify
+//  RawCull
+//
+//  Created by Thomas Evensen on 10/06/2025.
 //
 
 import Foundation
@@ -94,8 +96,10 @@ struct RemoteDataNumbers: Identifiable, Hashable {
             preparedoutputfromrsync = stringoutputfromrsync
         }
         if let preparedoutputfromrsync, !preparedoutputfromrsync.isEmpty {
-            let parsersyncoutput = ParseRsyncOutput(preparedoutputfromrsync,
-                                                    false ? .ver3 : .openrsync)
+            let parsersyncoutput = ParseRsyncOutput(
+                preparedoutputfromrsync,
+                (config?.rsyncVersion3 == true) ? .ver3 : .openrsync
+            )
             do {
                 stats = try parsersyncoutput.getstats()
                 Logger.process.debugMessageOnly("RemoteDataNumbers: getstats() SUCCESS")

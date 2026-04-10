@@ -81,9 +81,13 @@ actor ThumbnailLoader {
         return nil
     }
 
+    /// Unblocks all continuations that are waiting for a concurrency slot.
+    ///
+    /// **Caller responsibility:** cancel the outer `Task`s that called `thumbnailLoader(file:)`
+    /// *before* calling this method. Only cancelled tasks will hit the `Task.isCancelled`
+    /// guard and return `nil` early; tasks whose outer `Task` is still live will proceed to
+    /// load the thumbnail after being unblocked.
     func cancelAll() {
-        // Resume all pending continuations so they unfreeze
-        // They will then hit the Task.isCancelled check and bail out
         for entry in pendingContinuations {
             entry.continuation.resume()
         }

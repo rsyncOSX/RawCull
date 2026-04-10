@@ -1,6 +1,8 @@
 //
 //  ArgumentsSynchronize.swift
-//  RsyncUI
+//  RawCull
+//
+//  Created by Thomas Evensen on 10/06/2025.
 //
 
 import Foundation

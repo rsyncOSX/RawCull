@@ -16,6 +16,19 @@ actor WriteSavedFilesJSON {
             .appendingPathComponent(fileName)
     }
 
+    /// Write saved files to persistent storage.
+    static func write(_ savedFiles: [SavedFiles]?) async {
+        guard let savedFiles else { return }
+        await WriteSavedFilesJSON().performWrite(savedFiles)
+    }
+
+    private init() {}
+
+    private func performWrite(_ savedFiles: [SavedFiles]) async {
+        Logger.process.debugThreadOnly("WriteSavedFilesJSON write")
+        await encodeJSONData(savedFiles)
+    }
+
     private func writeJSONToPersistentStore(jsonData: Data?) async {
         if let jsonData {
             do {
@@ -40,17 +53,5 @@ actor WriteSavedFilesJSON {
                 "WriteSavedFilesJSON: some ERROR encoding filerecords \(error)",
             )
         }
-    }
-
-    @discardableResult
-    init(_ savedfiles: [SavedFiles]?) async {
-        if let savedfiles {
-            Logger.process.debugThreadOnly("WriteSavedFilesJSON INIT")
-            await encodeJSONData(savedfiles)
-        }
-    }
-
-    deinit {
-        Logger.process.debugMessageOnly("WriteSavedFilesJSON DEINIT")
     }
 }

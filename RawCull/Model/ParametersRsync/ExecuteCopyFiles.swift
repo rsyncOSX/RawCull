@@ -155,7 +155,7 @@ final class ExecuteCopyFiles {
     }
 
     private func setupStreamingHandlers() {
-        streamingHandlers = CreateStreamingHandlers().createHandlersWithCleanup(
+        streamingHandlers = CreateStreamingHandlers().createHandlers(
             fileHandler: { [weak self] count in
                 self?.progressContinuation?.yield(count)
             },
@@ -165,12 +165,6 @@ final class ExecuteCopyFiles {
                         stringoutputfromrsync: output,
                         hiddenID: hiddenID,
                     )
-                }
-            },
-            cleanup: { [weak self] in
-                Logger.process.debugMessageOnly("DEBUG cleanup called")
-                Task { @MainActor in
-                    self?.cleanup()
                 }
             },
         )

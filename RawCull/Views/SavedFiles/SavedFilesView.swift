@@ -59,7 +59,7 @@ struct SavedFilesView: View {
                 selectedCatalog = nil
                 selectedRecord = nil
                 Task {
-                    await WriteSavedFilesJSON(viewModel.cullingModel.savedFiles)
+                    await WriteSavedFilesJSON.write(viewModel.cullingModel.savedFiles)
                 }
             }
             Button("Cancel", role: .cancel) {}

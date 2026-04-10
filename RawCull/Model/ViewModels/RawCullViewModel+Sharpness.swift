@@ -15,7 +15,7 @@ extension RawCullViewModel {
         // an empty dict means the run was cancelled, so skip the write.
         if !sharpnessModel.scores.isEmpty {
             persistScoringResultsInMemory()
-            await WriteSavedFilesJSON(cullingModel.savedFiles)
+            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
         }
         await handleSortOrderChange()
     }

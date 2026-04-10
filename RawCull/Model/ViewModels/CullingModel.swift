@@ -17,7 +17,7 @@ final class CullingModel {
             if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
                 savedFiles[index].filerecords = nil
                 // Save updated
-                await WriteSavedFilesJSON(savedFiles)
+                await WriteSavedFilesJSON.write(savedFiles)
             }
         }
     }
@@ -82,7 +82,7 @@ final class CullingModel {
                     }
                 }
             }
-            await WriteSavedFilesJSON(savedFiles)
+            await WriteSavedFilesJSON.write(savedFiles)
         }
     }
 
