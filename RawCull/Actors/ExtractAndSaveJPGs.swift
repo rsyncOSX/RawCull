@@ -23,7 +23,6 @@ actor ExtractAndSaveJPGs {
 
     /// Used in time remaining
     private var lastItemTime: Date?
-    private var lastEstimatedSeconds: Int?
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
@@ -100,8 +99,6 @@ actor ExtractAndSaveJPGs {
             let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
-
-            lastEstimatedSeconds = estimatedSeconds
             await fileHandlers?.estimatedTimeHandler(estimatedSeconds)
         }
     }

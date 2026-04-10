@@ -13,8 +13,6 @@ struct ImageTableHorizontalView: View {
     @State private var hoveredFileID: FileItem.ID?
     @State private var savedSettings: SavedSettings?
 
-    let selectedSource: ARWSourceCatalog?
-
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
@@ -25,7 +23,6 @@ struct ImageTableHorizontalView: View {
                                 ImageItemView(
                                     viewModel: viewModel,
                                     file: file,
-                                    selectedSource: selectedSource,
                                     isHovered: hoveredFileID == file.id,
                                     thumbnailSize: savedSettings.thumbnailSizeGrid,
                                     onSelect: { handleSelect(for: file) },

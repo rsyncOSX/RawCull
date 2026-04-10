@@ -82,10 +82,11 @@ struct NoSubjectBadgeView: View {
 
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
-    private var settings: SettingsViewModel { SettingsViewModel.shared }
+    private var settings: SettingsViewModel {
+        SettingsViewModel.shared
+    }
 
     let file: FileItem
-    let selectedSource: ARWSourceCatalog?
     let isHovered: Bool
     let thumbnailSize: Int
 

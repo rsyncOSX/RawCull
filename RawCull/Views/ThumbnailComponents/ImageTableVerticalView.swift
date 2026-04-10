@@ -11,7 +11,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImageTableVerticalView: View {
-    private var settings: SettingsViewModel { SettingsViewModel.shared }
+    private var settings: SettingsViewModel {
+        SettingsViewModel.shared
+    }
 
     @Bindable var viewModel: RawCullViewModel
     @State private var hoveredFileID: FileItem.ID?
@@ -28,7 +30,6 @@ struct ImageTableVerticalView: View {
                                     ImageItemView(
                                         viewModel: viewModel,
                                         file: file,
-                                        selectedSource: viewModel.selectedSource,
                                         isHovered: hoveredFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         onSelect: {

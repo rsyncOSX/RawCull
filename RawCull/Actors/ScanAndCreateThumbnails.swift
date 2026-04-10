@@ -34,7 +34,6 @@ actor ScanAndCreateThumbnails {
 
     /// Timestamp of the last completed item, used for rolling ETA calculation.
     private var lastItemTime: Date?
-    private var lastEstimatedSeconds: Int?
 
     // MARK: - Init
 
@@ -100,7 +99,6 @@ actor ScanAndCreateThumbnails {
             successCount = 0
             processingTimes = []
             lastItemTime = nil
-            lastEstimatedSeconds = nil
 
             let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
             totalFilesToProcess = urls.count
@@ -230,8 +228,6 @@ actor ScanAndCreateThumbnails {
             let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
             let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
-
-            lastEstimatedSeconds = estimatedSeconds
             let handler = fileHandlers?.estimatedTimeHandler
             Task { @MainActor in handler?(estimatedSeconds) }
         }

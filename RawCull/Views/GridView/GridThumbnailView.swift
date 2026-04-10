@@ -21,7 +21,6 @@ struct GridThumbnailView: View {
             if gridthumbnailviewmodel.cullingModel != nil {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
-                    selectedSource: gridthumbnailviewmodel.selectedSource,
                     nsImage: $nsImage,
                     cgImage: $cgImage,
                 )

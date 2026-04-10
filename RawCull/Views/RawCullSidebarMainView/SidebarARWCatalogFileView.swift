@@ -2,7 +2,9 @@ import SwiftUI
 
 struct SidebarARWCatalogFileView: View {
     @Environment(\.openWindow) var openWindow
-    private var settings: SettingsViewModel { SettingsViewModel.shared }
+    private var settings: SettingsViewModel {
+        SettingsViewModel.shared
+    }
 
     @Bindable var viewModel: RawCullViewModel
     @Binding var isShowingPicker: Bool

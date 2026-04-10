@@ -77,7 +77,6 @@ struct HorizontalMainThumbnailsListView: View {
 
             ImageTableHorizontalView(
                 viewModel: viewModel,
-                selectedSource: viewModel.selectedSource,
             )
             .padding()
             .toolbar { toolbarContent }

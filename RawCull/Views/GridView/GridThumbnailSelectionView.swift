@@ -23,7 +23,10 @@ private enum ActiveSheet: String, Identifiable {
 }
 
 struct GridThumbnailSelectionView: View {
-    private var settings: SettingsViewModel { SettingsViewModel.shared }
+    private var settings: SettingsViewModel {
+        SettingsViewModel.shared
+    }
+
     @Environment(\.openWindow) private var openWindow
 
     @Bindable var viewModel: RawCullViewModel
@@ -33,7 +36,6 @@ struct GridThumbnailSelectionView: View {
     @State private var sharpnessThreshold: Int = 50
     @State private var activeSheet: ActiveSheet?
 
-    let selectedSource: ARWSourceCatalog?
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
@@ -249,7 +251,6 @@ struct GridThumbnailSelectionView: View {
                             ImageItemView(
                                 viewModel: viewModel,
                                 file: file,
-                                selectedSource: selectedSource,
                                 isHovered: hoveredFileID == file.id,
                                 thumbnailSize: settings.thumbnailSizeGridView,
                                 onSelect: { handleToggleSelection(for: file) },
