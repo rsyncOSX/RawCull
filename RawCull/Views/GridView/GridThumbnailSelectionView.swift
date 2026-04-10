@@ -131,55 +131,7 @@ struct GridThumbnailSelectionView: View {
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
-        .toolbar {
-            if selectedFileIDs.count > 1 {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        applyToMultipleSelection()
-                    } label: {
-                        Label("Apply (\(selectedFileIDs.count))", systemImage: "checkmark.circle.fill")
-                    }
-                    .help("Apply action to \(selectedFileIDs.count) selected images")
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Toggle(isOn: Binding(
-                    get: { settings.showScoringBadge },
-                    set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
-                )) {
-                    Label("Score Badge", systemImage: "number.circle")
-                }
-                .toggleStyle(.button)
-                .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Toggle(isOn: Binding(
-                    get: { settings.showSaliencyBadge },
-                    set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
-                )) {
-                    Label("Saliency Badge", systemImage: "eye.circle")
-                }
-                .toggleStyle(.button)
-                .help("Show saliency badge on thumbnails")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    activeSheet = .scoringParams
-                } label: {
-                    Label("Scoring Parameters", systemImage: "slider.horizontal.3")
-                }
-                .help("Configure sharpness scoring parameters")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    activeSheet = .stats
-                } label: {
-                    Label("Statistics", systemImage: "info.circle")
-                }
-                .help("Show scan statistics")
-                .disabled(viewModel.files.isEmpty)
-            }
-        }
+        .toolbar { gridToolbar }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .stats:
@@ -213,8 +165,7 @@ struct GridThumbnailSelectionView: View {
         } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
             let ids = files.map(\.id)
             if let from = ids.firstIndex(of: anchorID),
-               let to = ids.firstIndex(of: file.id)
-            {
+               let to = ids.firstIndex(of: file.id) {
                 let range = from <= to ? from ... to : to ... from
                 selectedFileIDs = Set(ids[range])
             }
@@ -280,6 +231,61 @@ struct GridThumbnailSelectionView: View {
 
         case let .rating(n):
             return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == n }
+        }
+    }
+}
+
+// MARK: - Toolbar
+
+extension GridThumbnailSelectionView {
+    @ToolbarContentBuilder
+    var gridToolbar: some ToolbarContent {
+        if selectedFileIDs.count > 1 {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    applyToMultipleSelection()
+                } label: {
+                    Label("Apply (\(selectedFileIDs.count))", systemImage: "checkmark.circle.fill")
+                }
+                .help("Apply action to \(selectedFileIDs.count) selected images")
+            }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Toggle(isOn: Binding(
+                get: { settings.showScoringBadge },
+                set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
+            )) {
+                Label("Score Badge", systemImage: "number.circle")
+            }
+            .toggleStyle(.button)
+            .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Toggle(isOn: Binding(
+                get: { settings.showSaliencyBadge },
+                set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
+            )) {
+                Label("Saliency Badge", systemImage: "eye.circle")
+            }
+            .toggleStyle(.button)
+            .help("Show saliency badge on thumbnails")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                activeSheet = .scoringParams
+            } label: {
+                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+            }
+            .help("Configure sharpness scoring parameters")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                activeSheet = .stats
+            } label: {
+                Label("Statistics", systemImage: "info.circle")
+            }
+            .help("Show scan statistics")
+            .disabled(viewModel.files.isEmpty)
         }
     }
 }
