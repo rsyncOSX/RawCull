@@ -74,6 +74,21 @@ final class SettingsViewModel {
     /// Thumbnail pixel size used when decoding images for sharpness scoring (default: 512)
     var scoringThumbnailMaxPixelSize: Int = 512
 
+    // MARK: - Focus Mask Parameters
+
+    /// Pre-blur radius applied before Laplacian (default: 1.92)
+    var focusMaskPreBlurRadius: Float = 1.92
+    /// Laplacian threshold for focus detection (default: 0.46)
+    var focusMaskThreshold: Float = 0.46
+    /// Energy amplification multiplier (default: 7.62)
+    var focusMaskEnergyMultiplier: Float = 7.62
+    /// Erosion radius for noise removal (default: 1.0)
+    var focusMaskErosionRadius: Float = 1.0
+    /// Dilation radius for connecting regions (default: 1.0)
+    var focusMaskDilationRadius: Float = 1.0
+    /// Feather radius for mask edges (default: 2.0)
+    var focusMaskFeatherRadius: Float = 2.0
+
     // MARK: - Private Properties
 
     private let settingsFileName = "settings.json"
@@ -127,6 +142,12 @@ final class SettingsViewModel {
                 self.scoringSalientWeight = savedSettings.scoringSalientWeight
                 self.scoringSubjectSizeFactor = savedSettings.scoringSubjectSizeFactor
                 self.scoringThumbnailMaxPixelSize = savedSettings.scoringThumbnailMaxPixelSize
+                self.focusMaskPreBlurRadius = savedSettings.focusMaskPreBlurRadius
+                self.focusMaskThreshold = savedSettings.focusMaskThreshold
+                self.focusMaskEnergyMultiplier = savedSettings.focusMaskEnergyMultiplier
+                self.focusMaskErosionRadius = savedSettings.focusMaskErosionRadius
+                self.focusMaskDilationRadius = savedSettings.focusMaskDilationRadius
+                self.focusMaskFeatherRadius = savedSettings.focusMaskFeatherRadius
             }
 
             Logger.process.debugMessageOnly("SettingsManager: Settings loaded successfully")
@@ -166,6 +187,12 @@ final class SettingsViewModel {
                 scoringSalientWeight: scoringSalientWeight,
                 scoringSubjectSizeFactor: scoringSubjectSizeFactor,
                 scoringThumbnailMaxPixelSize: scoringThumbnailMaxPixelSize,
+                focusMaskPreBlurRadius: focusMaskPreBlurRadius,
+                focusMaskThreshold: focusMaskThreshold,
+                focusMaskEnergyMultiplier: focusMaskEnergyMultiplier,
+                focusMaskErosionRadius: focusMaskErosionRadius,
+                focusMaskDilationRadius: focusMaskDilationRadius,
+                focusMaskFeatherRadius: focusMaskFeatherRadius,
             )
 
             let encoder = JSONEncoder()
@@ -240,6 +267,12 @@ final class SettingsViewModel {
                 scoringSalientWeight: self.scoringSalientWeight,
                 scoringSubjectSizeFactor: self.scoringSubjectSizeFactor,
                 scoringThumbnailMaxPixelSize: self.scoringThumbnailMaxPixelSize,
+                focusMaskPreBlurRadius: self.focusMaskPreBlurRadius,
+                focusMaskThreshold: self.focusMaskThreshold,
+                focusMaskEnergyMultiplier: self.focusMaskEnergyMultiplier,
+                focusMaskErosionRadius: self.focusMaskErosionRadius,
+                focusMaskDilationRadius: self.focusMaskDilationRadius,
+                focusMaskFeatherRadius: self.focusMaskFeatherRadius,
             )
         }
     }
@@ -265,6 +298,13 @@ struct SavedSettings: Codable {
     let scoringSubjectSizeFactor: Float
     let scoringThumbnailMaxPixelSize: Int
 
+    let focusMaskPreBlurRadius: Float
+    let focusMaskThreshold: Float
+    let focusMaskEnergyMultiplier: Float
+    let focusMaskErosionRadius: Float
+    let focusMaskDilationRadius: Float
+    let focusMaskFeatherRadius: Float
+
     init(
         memoryCacheSizeMB: Int,
         thumbnailSizeGrid: Int,
@@ -280,6 +320,12 @@ struct SavedSettings: Codable {
         scoringSalientWeight: Float = 0.75,
         scoringSubjectSizeFactor: Float = 0.1,
         scoringThumbnailMaxPixelSize: Int = 512,
+        focusMaskPreBlurRadius: Float = 1.92,
+        focusMaskThreshold: Float = 0.46,
+        focusMaskEnergyMultiplier: Float = 7.62,
+        focusMaskErosionRadius: Float = 1.0,
+        focusMaskDilationRadius: Float = 1.0,
+        focusMaskFeatherRadius: Float = 2.0,
     ) {
         self.memoryCacheSizeMB = memoryCacheSizeMB
         self.thumbnailSizeGrid = thumbnailSizeGrid
@@ -295,6 +341,12 @@ struct SavedSettings: Codable {
         self.scoringSalientWeight = scoringSalientWeight
         self.scoringSubjectSizeFactor = scoringSubjectSizeFactor
         self.scoringThumbnailMaxPixelSize = scoringThumbnailMaxPixelSize
+        self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
+        self.focusMaskThreshold = focusMaskThreshold
+        self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
+        self.focusMaskErosionRadius = focusMaskErosionRadius
+        self.focusMaskDilationRadius = focusMaskDilationRadius
+        self.focusMaskFeatherRadius = focusMaskFeatherRadius
     }
 
     init(from decoder: Decoder) throws {
@@ -313,5 +365,11 @@ struct SavedSettings: Codable {
         scoringSalientWeight = (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75
         scoringSubjectSizeFactor = (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1
         scoringThumbnailMaxPixelSize = (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512
+        focusMaskPreBlurRadius = (try? c.decode(Float.self, forKey: .focusMaskPreBlurRadius)) ?? 1.92
+        focusMaskThreshold = (try? c.decode(Float.self, forKey: .focusMaskThreshold)) ?? 0.46
+        focusMaskEnergyMultiplier = (try? c.decode(Float.self, forKey: .focusMaskEnergyMultiplier)) ?? 7.62
+        focusMaskErosionRadius = (try? c.decode(Float.self, forKey: .focusMaskErosionRadius)) ?? 1.0
+        focusMaskDilationRadius = (try? c.decode(Float.self, forKey: .focusMaskDilationRadius)) ?? 1.0
+        focusMaskFeatherRadius = (try? c.decode(Float.self, forKey: .focusMaskFeatherRadius)) ?? 2.0
     }
 }

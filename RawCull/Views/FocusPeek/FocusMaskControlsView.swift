@@ -20,6 +20,7 @@ struct FocusMaskControlsView: View {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 controlsCollapsed = true
                             }
+                            saveFocusMaskSettings()
                         } label: {
                             Label("Hide", systemImage: "chevron.down")
                                 .font(.caption)
@@ -31,8 +32,16 @@ struct FocusMaskControlsView: View {
                         .buttonStyle(.plain)
 
                         Button("Reset") {
-                            config = FocusDetectorConfig()
+                            let d = FocusDetectorConfig()
+                            config.preBlurRadius = d.preBlurRadius
+                            config.threshold = d.threshold
+                            config.energyMultiplier = d.energyMultiplier
+                            config.erosionRadius = d.erosionRadius
+                            config.dilationRadius = d.dilationRadius
+                            config.featherRadius = d.featherRadius
+                            config.showRawLaplacian = d.showRawLaplacian
                             overlayOpacity = 0.95
+                            saveFocusMaskSettings()
                         }
                         .buttonStyle(.borderless)
                         .font(.caption)
@@ -124,5 +133,16 @@ struct FocusMaskControlsView: View {
                 .transition(.opacity)
             }
         }
+    }
+
+    private func saveFocusMaskSettings() {
+        let s = SettingsViewModel.shared
+        s.focusMaskPreBlurRadius = config.preBlurRadius
+        s.focusMaskThreshold = config.threshold
+        s.focusMaskEnergyMultiplier = config.energyMultiplier
+        s.focusMaskErosionRadius = config.erosionRadius
+        s.focusMaskDilationRadius = config.dilationRadius
+        s.focusMaskFeatherRadius = config.featherRadius
+        Task { await s.saveSettings() }
     }
 }

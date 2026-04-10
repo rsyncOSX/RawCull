@@ -33,6 +33,12 @@ extension RawCullViewModel {
         sharpnessModel.focusMaskModel.config.enableSubjectClassification = s.scoringEnableSubjectClassification
         sharpnessModel.focusMaskModel.config.salientWeight = s.scoringSalientWeight
         sharpnessModel.focusMaskModel.config.subjectSizeFactor = s.scoringSubjectSizeFactor
+        sharpnessModel.focusMaskModel.config.preBlurRadius = s.focusMaskPreBlurRadius
+        sharpnessModel.focusMaskModel.config.threshold = s.focusMaskThreshold
+        sharpnessModel.focusMaskModel.config.energyMultiplier = s.focusMaskEnergyMultiplier
+        sharpnessModel.focusMaskModel.config.erosionRadius = s.focusMaskErosionRadius
+        sharpnessModel.focusMaskModel.config.dilationRadius = s.focusMaskDilationRadius
+        sharpnessModel.focusMaskModel.config.featherRadius = s.focusMaskFeatherRadius
     }
 
     func abort() {
