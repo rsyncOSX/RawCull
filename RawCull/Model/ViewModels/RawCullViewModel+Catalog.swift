@@ -45,7 +45,13 @@ extension RawCullViewModel {
         scanning = false
         cullingModel.loadSavedFiles()
         rebuildRatingCache()
-        
+        loadPersistedScoringandSaliency()
+        sharpnessModel.applyPreloadedScores(
+            files,
+            preloadedScores: sharpnessModel.scores,
+            preloadedSaliency: sharpnessModel.saliencyInfo
+        )
+
         if !processedURLs.contains(url) {
             processedURLs.insert(url)
             creatingthumbnails = true
@@ -74,13 +80,6 @@ extension RawCullViewModel {
             await preloadTask?.value
             creatingthumbnails = false
             currentScanAndCreateThumbnailsActor = nil
-            /// After loading JSON SavedFiles
-            loadPersistedScoringandSaliency()
-            sharpnessModel.applyPreloadedScores(
-                files,
-                preloadedScores: sharpnessModel.scores,
-                preloadedSaliency: sharpnessModel.saliencyInfo
-            )
         }
     }
 

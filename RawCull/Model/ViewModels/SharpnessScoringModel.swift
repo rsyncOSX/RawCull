@@ -275,7 +275,7 @@ final class SharpnessScoringModel {
         scores = preloadedScores.filter { validIDs.contains($0.key) }
         saliencyInfo = preloadedSaliency.filter { validIDs.contains($0.key) }
 
-        sortBySharpness = true
+        sortBySharpness = !scores.isEmpty
         scoringProgress = 0
         scoringTotal = 0
         scoringEstimatedSeconds = 0
