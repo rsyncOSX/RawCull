@@ -22,7 +22,7 @@ extension RawCullViewModel {
 
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
     /// without writing to disk. Caller is responsible for the WriteSavedFilesJSON call.
-    private func persistScoringResultsInMemory() {
+    func persistScoringResultsInMemory() {
         guard let catalog = selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo

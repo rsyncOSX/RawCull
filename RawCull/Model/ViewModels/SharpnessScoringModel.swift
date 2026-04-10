@@ -250,9 +250,13 @@ final class SharpnessScoringModel {
     /// without doing any RAW decoding or sharpness computation.
     ///
     /// Keeps only entries for `files` and leaves preloaded values intact.
-    func applyPreloadedScores(_ files: [FileItem]) {
+    /// Applies externally preloaded dictionaries to the given files.
+    func applyPreloadedScores(
+        _ files: [FileItem],
+        preloadedScores: [UUID: Float],
+        preloadedSaliency: [UUID: SaliencyInfo]
+    ) {
         guard !files.isEmpty else {
-            // Keep behavior consistent with "no work" path
             sortBySharpness = false
             scoringProgress = 0
             scoringTotal = 0
@@ -260,23 +264,17 @@ final class SharpnessScoringModel {
             return
         }
 
-        // If a compute batch is currently running, stop it first so state does not race.
         cancelScoring()
 
         isScoring = true
         defer { isScoring = false }
 
-        scoringProgress = 0
-        scoringTotal = files.count
-        scoringEstimatedSeconds = 0
-
         let validIDs = Set(files.map(\.id))
 
-        // Intersect with incoming file IDs (preloaded dicts may include stale catalog entries).
-        scores = scores.filter { validIDs.contains($0.key) }
-        saliencyInfo = saliencyInfo.filter { validIDs.contains($0.key) }
+        // First assign from preloaded source, then keep only current files
+        scores = preloadedScores.filter { validIDs.contains($0.key) }
+        saliencyInfo = preloadedSaliency.filter { validIDs.contains($0.key) }
 
-        // Mark as instantly complete from UI perspective.
         sortBySharpness = true
         scoringProgress = 0
         scoringTotal = 0
