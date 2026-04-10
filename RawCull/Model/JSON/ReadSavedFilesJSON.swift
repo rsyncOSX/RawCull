@@ -18,13 +18,14 @@ import OSLog
 
 @MainActor
 final class ReadSavedFilesJSON {
+    
+    private let fileName = "savedfiles.json"
+    private var savePath: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(fileName)
+    }
+    
     func readjsonfilesavedfiles() -> [SavedFiles]? {
-        let fileName = "savedfiles.json"
-        var savePath: URL {
-            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent(fileName)
-        }
-
         let decodeimport = DecodeGeneric()
         do {
             let data = try
