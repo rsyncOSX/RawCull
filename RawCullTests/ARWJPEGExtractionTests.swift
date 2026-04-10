@@ -36,7 +36,7 @@ private func arwURLsForExtraction(in path: String) -> [URL] {
     guard !path.isEmpty else { return [] }
     let dir = URL(fileURLWithPath: path, isDirectory: true)
     guard let contents = try? FileManager.default.contentsOfDirectory(
-        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles,
     ) else { return [] }
     return contents
         .filter { $0.pathExtension.lowercased() == "arw" }
@@ -79,7 +79,6 @@ private struct ExtractionResult {
 // MARK: - Test
 
 struct ARWJPEGExtractionTests {
-
     @Test(.tags(.integration))
     @MainActor
     func `ARW JPEG extraction diagnostic`() async {
@@ -103,7 +102,8 @@ struct ARWJPEGExtractionTests {
             let resKeys: [URLResourceKey] = [.fileSizeKey]
             let res = try? url.resourceValues(forKeys: Set(resKeys))
             let sizeStr = ByteCountFormatter.string(
-                fromByteCount: Int64(res?.fileSize ?? 0), countStyle: .file)
+                fromByteCount: Int64(res?.fileSize ?? 0), countStyle: .file,
+            )
 
             print("\n\(D)")
             print("FILE [\(idx + 1)/\(urls.count)]: \(name)   \(sizeStr)")
@@ -120,7 +120,6 @@ struct ARWJPEGExtractionTests {
             var binaryFullOK = false
 
             if let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) {
-
                 // Thumbnail (IFD1)
                 if let loc = locations.thumbnail {
                     print("  Thumbnail:   offset=\(loc.offset)  length=\(formatBytes(loc.length))")
@@ -162,7 +161,6 @@ struct ARWJPEGExtractionTests {
                 } else {
                     print("  Full JPEG:   NOT FOUND in IFD2")
                 }
-
             } else {
                 print("  FAILED — could not parse TIFF IFD chain")
             }
@@ -172,7 +170,8 @@ struct ARWJPEGExtractionTests {
 
             // Thumbnail mode (fullSize: false, max 4320 px)
             let thumbImage = await JPGSonyARWExtractor.jpgSonyARWExtractor(
-                from: url, fullSize: false)
+                from: url, fullSize: false,
+            )
             if let img = thumbImage {
                 print("  Thumbnail mode:  OK   \(img.width) × \(img.height) px")
             } else {
@@ -181,7 +180,8 @@ struct ARWJPEGExtractionTests {
 
             // Export mode (fullSize: true, max 8640 px)
             let fullImage = await JPGSonyARWExtractor.jpgSonyARWExtractor(
-                from: url, fullSize: true)
+                from: url, fullSize: true,
+            )
             if let img = fullImage {
                 print("  Export mode:     OK   \(img.width) × \(img.height) px")
             } else {
@@ -194,7 +194,8 @@ struct ARWJPEGExtractionTests {
                 binaryPreviewOK: binaryPreviewOK,
                 binaryFullJPEGOK: binaryFullOK,
                 extractorThumbOK: thumbImage != nil,
-                extractorFullOK: fullImage != nil))
+                extractorFullOK: fullImage != nil,
+            ))
         }
 
         // ── Summary table ────────────────────────────────────────────────────
@@ -210,16 +211,18 @@ struct ARWJPEGExtractionTests {
         print(d)
 
         var byCamera: [String: [ExtractionResult]] = [:]
-        for r in results { byCamera[r.camera, default: []].append(r) }
+        for r in results {
+            byCamera[r.camera, default: []].append(r)
+        }
 
         var totN = 0, totBT = 0, totBP = 0, totBF = 0, totET = 0, totEF = 0
         for (cam, group) in byCamera.sorted(by: { $0.key < $1.key }) {
-            let n   = group.count
-            let bt  = group.filter(\.binaryThumbnailOK).count
-            let bp  = group.filter(\.binaryPreviewOK).count
-            let bf  = group.filter(\.binaryFullJPEGOK).count
-            let et  = group.filter(\.extractorThumbOK).count
-            let ef  = group.filter(\.extractorFullOK).count
+            let n = group.count
+            let bt = group.filter(\.binaryThumbnailOK).count
+            let bp = group.filter(\.binaryPreviewOK).count
+            let bf = group.filter(\.binaryFullJPEGOK).count
+            let et = group.filter(\.extractorThumbOK).count
+            let ef = group.filter(\.extractorFullOK).count
             totN += n; totBT += bt; totBP += bp; totBF += bf; totET += et; totEF += ef
             print(String(format: "%@  %4d   %3d/%-3d   %3d/%-3d   %3d/%-3d   %3d/%-3d   %3d/%-3d",
                          pad(cam, 24) as NSString, n,

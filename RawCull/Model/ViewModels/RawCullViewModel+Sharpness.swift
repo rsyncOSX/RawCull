@@ -65,4 +65,23 @@ extension RawCullViewModel {
             }
         }
     }
+
+    func loadPersistedScoringandSaliency() {
+        guard let catalog = selectedSource?.url else { return }
+        guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
+        guard let filerecords = cullingModel.savedFiles[catalogIndex].filerecords else { return }
+
+        for file in files {
+            // Find the matching file record for this file
+            guard let fileRecord = filerecords.first(where: { $0.fileName == file.name }) else { continue }
+
+            // Load the persisted score and saliency info back into the sharpness model
+            if let score = fileRecord.sharpnessScore { sharpnessModel.scores[file.id] = score }
+
+            if let subjectLabel = fileRecord.saliencySubject {
+                // Create saliency info with the subject label
+                sharpnessModel.saliencyInfo[file.id] = SaliencyInfo(subjectLabel: subjectLabel)
+            }
+        }
+    }
 }

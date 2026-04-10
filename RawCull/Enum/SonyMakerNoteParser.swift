@@ -31,7 +31,7 @@ import Foundation
 /// Complete record of a verbose TIFF IFD walk through a Sony ARW file.
 /// Used by the body-compatibility test to diagnose unsupported bodies and
 /// identify candidate tags for extending `SonyMakerNoteParser`.
-struct TIFFWalkDiagnostics: Sendable {
+struct TIFFWalkDiagnostics {
     let isLittleEndian: Bool
     let ifd0Offset: Int
     let ifd0EntryCount: Int
@@ -52,7 +52,7 @@ struct TIFFWalkDiagnostics: Sendable {
     /// Decoded result; nil when tag is missing or dimensions are zero.
     let focusResult: FocusLocationValues?
 
-    struct FocusLocationValues: Sendable {
+    struct FocusLocationValues {
         let width: Int
         let height: Int
         let x: Int
@@ -65,11 +65,12 @@ struct TIFFWalkDiagnostics: Sendable {
 /// Absolute file offsets for the three JPEG images embedded in every Sony ARW.
 /// Used as a fallback when the macOS RA16 decoder cannot handle the file
 /// (e.g. ARW 6.0 from the A7V returns err=-50 from CGImageSourceCreateThumbnailAtIndex).
-struct EmbeddedJPEGLocations: Sendable {
-    struct Location: Sendable {
+struct EmbeddedJPEGLocations {
+    struct Location {
         let offset: Int
         let length: Int
     }
+
     /// IFD1 tiny thumbnail (~8 KB, ~160 px).
     let thumbnail: Location?
     /// IFD0 preview JPEG (~400 KB, 1616×1080).
@@ -124,7 +125,7 @@ enum SonyMakerNoteParser {
     /// Reads raw bytes for an embedded JPEG from the file at the given absolute offset.
     nonisolated static func readEmbeddedJPEGData(
         at location: EmbeddedJPEGLocations.Location,
-        from url: URL
+        from url: URL,
     ) -> Data? {
         guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? fh.close() }
@@ -203,7 +204,8 @@ private struct TIFFParser {
             makerNoteOffset: nil, makerNoteSize: nil,
             hasSonyPrefix: false, sonyIFDOffset: nil, sonyIFDEntryCount: nil,
             sonyAllTags: [], focusTagUsed: nil,
-            focusOffset: nil, focusRawBytes: nil, focusResult: nil)
+            focusOffset: nil, focusRawBytes: nil, focusResult: nil,
+        )
 
         guard let ifd0Raw = readU32(at: 4) else { return empty }
         let ifd0 = Int(ifd0Raw)
@@ -267,7 +269,7 @@ private struct TIFFParser {
                 let h = Int(readU16(at: flOff + 2))
                 let x = Int(readU16(at: flOff + 4))
                 let y = Int(readU16(at: flOff + 6))
-                if w > 0, h > 0, (x > 0 || y > 0) {
+                if w > 0, h > 0, x > 0 || y > 0 {
                     focusResult = .init(width: w, height: h, x: x, y: y)
                 }
                 break
@@ -289,7 +291,8 @@ private struct TIFFParser {
             focusTagUsed: focusTagUsed,
             focusOffset: focusOffset,
             focusRawBytes: focusRawBytes,
-            focusResult: focusResult)
+            focusResult: focusResult,
+        )
     }
 
     // MARK: Embedded JPEG locations

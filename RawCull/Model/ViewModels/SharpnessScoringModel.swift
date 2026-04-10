@@ -59,7 +59,7 @@ final class SharpnessScoringModel {
     var apertureFilter: ApertureFilter = .all
 
     /// Currently selected saliency category filter. nil = all subjects shown.
-    var saliencyCategoryFilter: String? = nil
+    var saliencyCategoryFilter: String?
 
     /// Distinct subject labels from the current scoring run, sorted alphabetically.
     var availableSaliencyCategories: [String] {

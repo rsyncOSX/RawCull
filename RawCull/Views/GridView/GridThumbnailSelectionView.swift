@@ -285,7 +285,7 @@ struct GridThumbnailSelectionView: View {
             ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: Binding(
                     get: { settings.showScoringBadge },
-                    set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } }
+                    set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
                 )) {
                     Label("Score Badge", systemImage: "number.circle")
                 }
@@ -295,7 +295,7 @@ struct GridThumbnailSelectionView: View {
             ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: Binding(
                     get: { settings.showSaliencyBadge },
-                    set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } }
+                    set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
                 )) {
                     Label("Saliency Badge", systemImage: "eye.circle")
                 }

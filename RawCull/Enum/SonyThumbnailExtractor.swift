@@ -81,7 +81,7 @@ enum SonyThumbnailExtractor {
     /// raw decoder, then asks ImageIO to thumbnail the extracted JPEG bytes.
     private nonisolated static func binaryFallbackThumbnail(
         from url: URL,
-        maxDimension: CGFloat
+        maxDimension: CGFloat,
     ) -> CGImage? {
         guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
               let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
@@ -93,7 +93,7 @@ enum SonyThumbnailExtractor {
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldCacheImmediately: true
         ]
         return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
     }

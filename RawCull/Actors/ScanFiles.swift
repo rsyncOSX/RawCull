@@ -63,7 +63,7 @@ actor ScanFiles {
             // Single-pass: extract EXIF and Sony MakerNote focus point in the same task per file,
             // eliminating the second file-open pass that extractNativeFocusPoints() previously required.
             let pairs: [(FileItem, DecodeFocusPoints?)] = await withTaskGroup(
-                of: (FileItem, DecodeFocusPoints?).self
+                of: (FileItem, DecodeFocusPoints?).self,
             ) { group in
                 for fileURL in contents {
                     guard fileURL.pathExtension.lowercased() == SupportedFileType.arw.rawValue else { continue }
@@ -88,7 +88,9 @@ actor ScanFiles {
                     }
                 }
                 var collected: [(FileItem, DecodeFocusPoints?)] = []
-                for await pair in group { collected.append(pair) }
+                for await pair in group {
+                    collected.append(pair)
+                }
                 return collected
             }
 
@@ -201,12 +203,12 @@ actor ScanFiles {
     /// Both generations use the same semantic meaning: lossy compressed vs lossless compressed.
     private nonisolated func rawFileTypeString(from value: Int) -> String {
         switch value {
-        case 1:     return "Uncompressed"
-        case 6:     return "Compressed"           // newer Sony bodies (A1, A7R V…)
-        case 7:     return "Lossless Compressed"  // newer Sony bodies (A1, A7R V…)
-        case 32767: return "Compressed"           // older Sony bodies
-        case 32770: return "Lossless Compressed"  // older Sony bodies
-        default:    return "Unknown (\(value))"
+        case 1: "Uncompressed"
+        case 6: "Compressed" // newer Sony bodies (A1, A7R V…)
+        case 7: "Lossless Compressed" // newer Sony bodies (A1, A7R V…)
+        case 32767: "Compressed" // older Sony bodies
+        case 32770: "Lossless Compressed" // older Sony bodies
+        default: "Unknown (\(value))"
         }
     }
 
@@ -219,11 +221,11 @@ actor ScanFiles {
         let upper = camera.uppercased()
         // (L threshold MP, M threshold MP) — classified as L if ≥ lThresh, M if ≥ mThresh, else S
         let (lThresh, mThresh): (Double, Double)
-        if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }  // A7R IV/V: 61/26/15 MP
-        else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }  // A1/A1 II: 50/21/12 MP
-        else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }  // A9 III: 24/12/6 MP
-        else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }  // A7M5: 33/17/9 MP
-        else                               { (lThresh, mThresh) = (25, 10) }  // generic fallback
+        if upper.contains("ILCE-7RM") { (lThresh, mThresh) = (50, 22) } // A7R IV/V: 61/26/15 MP
+        else if upper.contains("ILCE-1") { (lThresh, mThresh) = (40, 18) } // A1/A1 II: 50/21/12 MP
+        else if upper.contains("ILCE-9") { (lThresh, mThresh) = (20, 10) } // A9 III: 24/12/6 MP
+        else if upper.contains("ILCE-7") { (lThresh, mThresh) = (28, 14) } // A7M5: 33/17/9 MP
+        else { (lThresh, mThresh) = (25, 10) } // generic fallback
         if mp >= lThresh { return "L" }
         if mp >= mThresh { return "M" }
         return "S"

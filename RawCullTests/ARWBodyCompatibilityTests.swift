@@ -40,7 +40,7 @@ private func arwURLs(in path: String) -> [URL] {
     guard !path.isEmpty else { return [] }
     let dir = URL(fileURLWithPath: path, isDirectory: true)
     guard let contents = try? FileManager.default.contentsOfDirectory(
-        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles,
     ) else { return [] }
     return contents
         .filter { $0.pathExtension.lowercased() == "arw" }
@@ -53,7 +53,7 @@ private func decodeThumbnail(from url: URL, maxPx: Int) -> CGImage? {
         kCGImageSourceCreateThumbnailFromImageAlways: false,
         kCGImageSourceCreateThumbnailWithTransform: true,
         kCGImageSourceThumbnailMaxPixelSize: maxPx,
-        kCGImageSourceShouldCacheImmediately: true,
+        kCGImageSourceShouldCacheImmediately: true
     ]
     guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
     return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
@@ -128,17 +128,17 @@ private func sizeClassForTest(width: Int, height: Int, camera: String) -> String
     let upper = camera.uppercased()
     // (L threshold MP, M threshold MP) — see ScanFiles.sizeClass for derivation
     let (lThresh, mThresh): (Double, Double)
-    if upper.contains("ILCE-7RM")      { (lThresh, mThresh) = (50, 22) }  // A7R IV/V: 61/26/15 MP
-    else if upper.contains("ILCE-1")   { (lThresh, mThresh) = (40, 18) }  // A1/A1 II: 50/21/12 MP
-    else if upper.contains("ILCE-9")   { (lThresh, mThresh) = (20, 10) }  // A9 III: 24/12/6 MP
-    else if upper.contains("ILCE-7")   { (lThresh, mThresh) = (28, 14) }  // A7M5: 33/17/9 MP
-    else                               { (lThresh, mThresh) = (25, 10) }  // generic fallback
+    if upper.contains("ILCE-7RM") { (lThresh, mThresh) = (50, 22) } // A7R IV/V: 61/26/15 MP
+    else if upper.contains("ILCE-1") { (lThresh, mThresh) = (40, 18) } // A1/A1 II: 50/21/12 MP
+    else if upper.contains("ILCE-9") { (lThresh, mThresh) = (20, 10) } // A9 III: 24/12/6 MP
+    else if upper.contains("ILCE-7") { (lThresh, mThresh) = (28, 14) } // A7M5: 33/17/9 MP
+    else { (lThresh, mThresh) = (25, 10) } // generic fallback
     if mp >= lThresh { return "L" }
     if mp >= mThresh { return "M" }
     return "S"
 }
 
-// Per-file result used to build the summary table
+/// Per-file result used to build the summary table
 private struct BodyFileResult {
     let camera: String
     let exifOK: Bool
@@ -146,13 +146,12 @@ private struct BodyFileResult {
     let sharpnessOK: Bool
     let saliencyFound: Bool
     let rawFileType: String?
-    let dimensions: String?  // e.g. "8640 × 5760 (49.8 MP, L)"
+    let dimensions: String? // e.g. "8640 × 5760 (49.8 MP, L)"
 }
 
 // MARK: - Test
 
 struct ARWBodyCompatibilityTests {
-
     @Test(.tags(.integration))
     @MainActor
     func `ARW body compatibility diagnostic`() async {
@@ -177,7 +176,8 @@ struct ARWBodyCompatibilityTests {
             let resKeys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
             let res = try? url.resourceValues(forKeys: Set(resKeys))
             let sizeStr = ByteCountFormatter.string(
-                fromByteCount: Int64(res?.fileSize ?? 0), countStyle: .file)
+                fromByteCount: Int64(res?.fileSize ?? 0), countStyle: .file,
+            )
             let dateStr: String = res?.contentModificationDate
                 .map { ISO8601DateFormatter().string(from: $0) } ?? "(unknown)"
 
@@ -195,17 +195,17 @@ struct ARWBodyCompatibilityTests {
             else {
                 print("  [EXIF: FAILED — CGImageSourceCopyPropertiesAtIndex returned nothing]")
                 results.append(BodyFileResult(camera: "unknown", exifOK: false,
-                                             focusOK: false, sharpnessOK: false, saliencyFound: false,
-                                             rawFileType: nil, dimensions: nil))
+                                              focusOK: false, sharpnessOK: false, saliencyFound: false,
+                                              rawFileType: nil, dimensions: nil))
                 continue
             }
 
-            let camera  = tiff[kCGImagePropertyTIFFModel] as? String ?? "unknown"
-            let lens    = exif[kCGImagePropertyExifLensModel] as? String
-            let fNum    = exif[kCGImagePropertyExifFNumber] as? NSNumber
-            let rawISO  = (exif[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first
-            let fLen    = exif[kCGImagePropertyExifFocalLength] as? NSNumber
-            let expT    = exif[kCGImagePropertyExifExposureTime] as? NSNumber
+            let camera = tiff[kCGImagePropertyTIFFModel] as? String ?? "unknown"
+            let lens = exif[kCGImagePropertyExifLensModel] as? String
+            let fNum = exif[kCGImagePropertyExifFNumber] as? NSNumber
+            let rawISO = (exif[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first
+            let fLen = exif[kCGImagePropertyExifFocalLength] as? NSNumber
+            let expT = exif[kCGImagePropertyExifExposureTime] as? NSNumber
 
             print("  Camera:        \(camera)")
             print("  Lens:          \(lens ?? "(nil)")")
@@ -224,7 +224,7 @@ struct ARWBodyCompatibilityTests {
             }
 
             // Pixel dimensions + size class
-            let pixelWidth  = props[kCGImagePropertyPixelWidth]  as? Int
+            let pixelWidth = props[kCGImagePropertyPixelWidth] as? Int
             let pixelHeight = props[kCGImagePropertyPixelHeight] as? Int
             let dimensionsLabel: String?
             if let w = pixelWidth, let h = pixelHeight {
@@ -239,14 +239,13 @@ struct ARWBodyCompatibilityTests {
             // RAW compression type
             let rawFileTypeLabel: String?
             if let compVal = tiff[kCGImagePropertyTIFFCompression] as? Int {
-                let label: String
-                switch compVal {
-                case 1:     label = "Uncompressed"
-                case 6:     label = "Compressed"           // newer Sony bodies (A1, A7R V…)
-                case 7:     label = "Lossless Compressed"  // newer Sony bodies (A1, A7R V…)
-                case 32767: label = "Compressed"           // older Sony bodies
-                case 32770: label = "Lossless Compressed"  // older Sony bodies
-                default:    label = "Unknown (\(compVal))"
+                let label = switch compVal {
+                case 1: "Uncompressed"
+                case 6: "Compressed" // newer Sony bodies (A1, A7R V…)
+                case 7: "Lossless Compressed" // newer Sony bodies (A1, A7R V…)
+                case 32767: "Compressed" // older Sony bodies
+                case 32770: "Lossless Compressed" // older Sony bodies
+                default: "Unknown (\(compVal))"
                 }
                 print("  RAW file type: \(label)   (TIFF compression tag: \(compVal))")
                 rawFileTypeLabel = label
@@ -316,12 +315,13 @@ struct ARWBodyCompatibilityTests {
             var cfg = FocusDetectorConfig()
             cfg.iso = isoVal
 
-            let isoFactor  = max(1.0, min(sqrt(Float(max(isoVal, 1)) / 400.0), 3.0))
-            let resFactor: Float = 1.0  // 512 px thumbnail → baseline
-            let effective  = min(cfg.preBlurRadius * isoFactor * resFactor, 100.0)
+            let isoFactor = max(1.0, min(sqrt(Float(max(isoVal, 1)) / 400.0), 3.0))
+            let resFactor: Float = 1.0 // 512 px thumbnail → baseline
+            let effective = min(cfg.preBlurRadius * isoFactor * resFactor, 100.0)
 
             let (score, _) = await model.computeSharpnessScore(
-                fromRawURL: url, config: cfg, thumbnailMaxPixelSize: 512)
+                fromRawURL: url, config: cfg, thumbnailMaxPixelSize: 512,
+            )
 
             print("  Thumbnail:        512 px max dimension")
             print(String(format: "  preBlurRadius:    %.2f (base)", cfg.preBlurRadius))
@@ -370,7 +370,8 @@ struct ARWBodyCompatibilityTests {
                 sharpnessOK: score != nil,
                 saliencyFound: saliencyFound,
                 rawFileType: rawFileTypeLabel,
-                dimensions: dimensionsLabel))
+                dimensions: dimensionsLabel,
+            ))
         }
 
         // ── Summary table ────────────────────────────────────────────────────
@@ -379,7 +380,9 @@ struct ARWBodyCompatibilityTests {
         print(D)
 
         var byCamera: [String: [BodyFileResult]] = [:]
-        for r in results { byCamera[r.camera, default: []].append(r) }
+        for r in results {
+            byCamera[r.camera, default: []].append(r)
+        }
 
         func pad(_ s: String, _ width: Int) -> String {
             s.count >= width ? s : s + String(repeating: " ", count: width - s.count)
@@ -389,11 +392,11 @@ struct ARWBodyCompatibilityTests {
 
         var totFiles = 0, totExif = 0, totFocus = 0, totSharp = 0, totSal = 0
         for (cam, group) in byCamera.sorted(by: { $0.key < $1.key }) {
-            let n     = group.count
-            let exif  = group.filter(\.exifOK).count
+            let n = group.count
+            let exif = group.filter(\.exifOK).count
             let focus = group.filter(\.focusOK).count
             let sharp = group.filter(\.sharpnessOK).count
-            let sal   = group.filter(\.saliencyFound).count
+            let sal = group.filter(\.saliencyFound).count
             totFiles += n; totExif += exif; totFocus += focus; totSharp += sharp; totSal += sal
             print(String(format: "%@  %4d   %3d/%-3d  %3d/%-3d   %3d/%-3d   %3d/%-3d",
                          pad(cam, 24) as NSString, n,

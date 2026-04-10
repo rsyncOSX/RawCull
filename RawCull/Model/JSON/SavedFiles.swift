@@ -95,8 +95,8 @@ struct FileRecord: Identifiable, Codable {
     var dateTagged: String?
     var dateCopied: String?
     var rating: Int?
-    var sharpnessScore: Float? = nil
-    var saliencySubject: String? = nil
+    var sharpnessScore: Float?
+    var saliencySubject: String?
 }
 
 extension FileRecord: Hashable, Equatable {

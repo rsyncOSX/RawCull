@@ -105,7 +105,7 @@ enum JPGSonyARWExtractor {
     private nonisolated static func binaryFallbackJPEG(
         from url: URL,
         fullSize: Bool,
-        maxSize: CGFloat
+        maxSize: CGFloat,
     ) -> CGImage? {
         guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) else { return nil }
 
@@ -122,7 +122,7 @@ enum JPGSonyARWExtractor {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: Int(maxSize),
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxSize)
         ]
         return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
             ?? CGImageSourceCreateImageAtIndex(src, 0, nil)
