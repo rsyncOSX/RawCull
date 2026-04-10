@@ -245,7 +245,7 @@ final class SharpnessScoringModel {
         scoringTotal = 0
         scoringEstimatedSeconds = 0
     }
-    
+
     /// Applies already-preloaded score/saliency dictionaries to the provided files
     /// without doing any RAW decoding or sharpness computation.
     ///
@@ -254,7 +254,7 @@ final class SharpnessScoringModel {
     func applyPreloadedScores(
         _ files: [FileItem],
         preloadedScores: [UUID: Float],
-        preloadedSaliency: [UUID: SaliencyInfo]
+        preloadedSaliency: [UUID: SaliencyInfo],
     ) {
         guard !files.isEmpty else {
             sortBySharpness = false

@@ -382,6 +382,50 @@ struct FileRecordDetailView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color(NSColor.controlBackgroundColor)),
                 )
+
+                if record.sharpnessScore != nil || record.saliencySubject != nil {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionHeader(title: "Sharpness Analysis")
+
+                        if let score = record.sharpnessScore {
+                            DetailRow(
+                                icon: "viewfinder.circle",
+                                label: "Sharpness",
+                                value: String(format: "%.2f", score),
+                            )
+                        }
+
+                        if record.sharpnessScore != nil, record.saliencySubject != nil {
+                            Divider()
+                        }
+
+                        if let subject = record.saliencySubject {
+                            HStack(alignment: .center) {
+                                Image(systemName: "eye")
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 20)
+                                Text("Subject")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 100, alignment: .leading)
+                                Text(subject)
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Color.cyan.opacity(0.15), in: Capsule())
+                                    .foregroundStyle(.cyan)
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(NSColor.controlBackgroundColor)),
+                    )
+                    .padding(.top, 12)
+                }
             }
             .padding(24)
         }

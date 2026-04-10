@@ -49,7 +49,7 @@ extension RawCullViewModel {
         sharpnessModel.applyPreloadedScores(
             files,
             preloadedScores: sharpnessModel.scores,
-            preloadedSaliency: sharpnessModel.saliencyInfo
+            preloadedSaliency: sharpnessModel.saliencyInfo,
         )
 
         if !processedURLs.contains(url) {
