@@ -63,6 +63,8 @@ struct SavedFiles: Identifiable, Codable {
                 dateTagged: record.dateTagged,
                 dateCopied: record.dateCopied,
                 rating: record.rating,
+                sharpnessScore: record.sharpnessScore,
+                saliencySubject: record.saliencySubject,
             )
         }
     }
@@ -93,6 +95,8 @@ struct FileRecord: Identifiable, Codable {
     var dateTagged: String?
     var dateCopied: String?
     var rating: Int?
+    var sharpnessScore: Float? = nil
+    var saliencySubject: String? = nil
 }
 
 extension FileRecord: Hashable, Equatable {

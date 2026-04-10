@@ -31,12 +31,16 @@ struct DecodeFileRecord: Codable, Hashable {
     var dateTagged: String?
     var dateCopied: String?
     var rating: Int?
+    var sharpnessScore: Float?
+    var saliencySubject: String?
 
     enum CodingKeys: String, CodingKey {
         case fileName
         case dateTagged
         case dateCopied
         case rating
+        case sharpnessScore
+        case saliencySubject
     }
 
     init(from decoder: Decoder) throws {
@@ -45,6 +49,8 @@ struct DecodeFileRecord: Codable, Hashable {
         dateTagged = try values.decodeIfPresent(String.self, forKey: .dateTagged)
         dateCopied = try values.decodeIfPresent(String.self, forKey: .dateCopied)
         rating = try values.decodeIfPresent(Int.self, forKey: .rating)
+        sharpnessScore = try values.decodeIfPresent(Float.self, forKey: .sharpnessScore)
+        saliencySubject = try values.decodeIfPresent(String.self, forKey: .saliencySubject)
     }
 
     init() {
@@ -52,5 +58,7 @@ struct DecodeFileRecord: Codable, Hashable {
         dateTagged = nil
         dateCopied = nil
         rating = nil
+        sharpnessScore = nil
+        saliencySubject = nil
     }
 }
