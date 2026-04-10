@@ -44,8 +44,10 @@ extension RawCullViewModel {
 
         scanning = false
         cullingModel.loadSavedFiles()
+        /// After loading JSON SavedFiles
+        loadPersistedScoringandSaliency()
         rebuildRatingCache()
-
+        
         if !processedURLs.contains(url) {
             processedURLs.insert(url)
             creatingthumbnails = true
