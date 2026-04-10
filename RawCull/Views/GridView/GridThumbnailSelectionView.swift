@@ -32,6 +32,7 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
+    @State private var selectedFileIDs: Set<FileItem.ID> = []
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
     @State private var activeSheet: ActiveSheet?
@@ -252,6 +253,7 @@ struct GridThumbnailSelectionView: View {
                                 viewModel: viewModel,
                                 file: file,
                                 isHovered: hoveredFileID == file.id,
+                                isMultiSelected: selectedFileIDs.contains(file.id),
                                 thumbnailSize: settings.thumbnailSizeGridView,
                                 onSelect: { handleToggleSelection(for: file) },
                                 onDoubleSelect: { handleDoubleSelect(for: file) },
@@ -283,6 +285,16 @@ struct GridThumbnailSelectionView: View {
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .toolbar {
+            if selectedFileIDs.count > 1 {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        applyToMultipleSelection()
+                    } label: {
+                        Label("Apply (\(selectedFileIDs.count))", systemImage: "checkmark.circle.fill")
+                    }
+                    .help("Apply action to \(selectedFileIDs.count) selected images")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: Binding(
                     get: { settings.showScoringBadge },
@@ -334,14 +346,42 @@ struct GridThumbnailSelectionView: View {
             }
         }
         .task(id: viewModel.selectedSource) {
+            selectedFileIDs = []
             await ThumbnailLoader.shared.cancelAll()
         }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
     }
 
     private func handleToggleSelection(for file: FileItem) {
-        viewModel.selectedFileID = file.id
-        viewModel.selectedFile = file
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.command) {
+            if selectedFileIDs.contains(file.id) {
+                selectedFileIDs.remove(file.id)
+            } else {
+                selectedFileIDs.insert(file.id)
+                if let anchor = viewModel.selectedFileID {
+                    selectedFileIDs.insert(anchor)
+                }
+            }
+        } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
+            let ids = files.map(\.id)
+            if let from = ids.firstIndex(of: anchorID),
+               let to = ids.firstIndex(of: file.id)
+            {
+                let range = from <= to ? from ... to : to ... from
+                selectedFileIDs = Set(ids[range])
+            }
+        } else {
+            selectedFileIDs = []
+            viewModel.selectedFileID = file.id
+            viewModel.selectedFile = file
+        }
+    }
+
+    private func applyToMultipleSelection() {
+        // TODO: implement action for multiple selected files
+        let selected = files.filter { selectedFileIDs.contains($0.id) }
+        _ = selected
     }
 
     private func handleDoubleSelect(for file: FileItem) {

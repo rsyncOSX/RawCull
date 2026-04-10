@@ -88,6 +88,7 @@ struct ImageItemView: View {
 
     let file: FileItem
     let isHovered: Bool
+    var isMultiSelected: Bool = false
     let thumbnailSize: Int
 
     var onSelect: () -> Void = {}
@@ -138,6 +139,16 @@ struct ImageItemView: View {
                             .frame(height: 3)
                     }
                 }
+                // Multi-selection checkmark badge — top-right corner
+                .overlay(alignment: .topTrailing) {
+                    if isMultiSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white, Color.teal)
+                            .padding(5)
+                            .shadow(radius: 2)
+                    }
+                }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
             // Selected: accent glow border
@@ -170,10 +181,7 @@ struct ImageItemView: View {
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(
-                    isSelected ? Color.accentColor : Color(white: isHovered ? 0.35 : 0.18),
-                    lineWidth: isSelected ? 2.5 : 1,
-                ),
+                .stroke(borderColor, lineWidth: borderWidth),
         )
         .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
         .shadow(
@@ -185,6 +193,18 @@ struct ImageItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelect() }
         .onTapGesture(count: 1) { onSelect() }
+    }
+
+    private var borderColor: Color {
+        if isSelected { return Color.accentColor }
+        if isMultiSelected { return Color.teal }
+        return Color(white: isHovered ? 0.35 : 0.18)
+    }
+
+    private var borderWidth: CGFloat {
+        if isSelected { return 2.5 }
+        if isMultiSelected { return 2.0 }
+        return 1
     }
 
     private var isTagged: Bool {
