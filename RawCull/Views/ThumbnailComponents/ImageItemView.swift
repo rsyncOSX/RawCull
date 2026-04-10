@@ -142,11 +142,11 @@ struct ImageItemView: View {
             // Selected: accent glow border
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.accentColor, lineWidth: isSelected ? 2 : 0),
+                    .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
             )
             .shadow(
-                color: isSelected ? Color.accentColor.opacity(0.5) : .clear,
-                radius: isSelected ? 6 : 0,
+                color: isSelected ? Color.accentColor.opacity(0.65) : .clear,
+                radius: isSelected ? 8 : 0,
             )
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
@@ -169,9 +169,16 @@ struct ImageItemView: View {
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(Color(white: isHovered ? 0.35 : 0.18), lineWidth: 1),
+                .stroke(
+                    isSelected ? Color.accentColor : Color(white: isHovered ? 0.35 : 0.18),
+                    lineWidth: isSelected ? 2.5 : 1,
+                ),
         )
         .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+        .shadow(
+            color: isSelected ? Color.accentColor.opacity(0.75) : .clear,
+            radius: isSelected ? 12 : 0,
+        )
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
