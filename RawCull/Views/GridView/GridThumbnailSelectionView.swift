@@ -32,7 +32,6 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
-    @State private var selectedFileIDs: Set<FileItem.ID> = []
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
     @State private var activeSheet: ActiveSheet?
@@ -100,7 +99,7 @@ struct GridThumbnailSelectionView: View {
                                 viewModel: viewModel,
                                 file: file,
                                 isHovered: hoveredFileID == file.id,
-                                isMultiSelected: selectedFileIDs.contains(file.id),
+                                isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
                                 thumbnailSize: settings.thumbnailSizeGridView,
                                 onSelect: { handleToggleSelection(for: file) },
                                 onDoubleSelect: { handleDoubleSelect(for: file) },
@@ -145,7 +144,7 @@ struct GridThumbnailSelectionView: View {
             }
         }
         .task(id: viewModel.selectedSource) {
-            selectedFileIDs = []
+            viewModel.selectedFileIDs = []
             await ThumbnailLoader.shared.cancelAll()
         }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
@@ -154,32 +153,28 @@ struct GridThumbnailSelectionView: View {
     private func handleToggleSelection(for file: FileItem) {
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
-            if selectedFileIDs.contains(file.id) {
-                selectedFileIDs.remove(file.id)
+            if viewModel.selectedFileIDs.contains(file.id) {
+                viewModel.selectedFileIDs.remove(file.id)
             } else {
-                selectedFileIDs.insert(file.id)
+                viewModel.selectedFileIDs.insert(file.id)
                 if let anchor = viewModel.selectedFileID {
-                    selectedFileIDs.insert(anchor)
+                    viewModel.selectedFileIDs.insert(anchor)
                 }
             }
+            viewModel.selectedFileID = file.id
+            viewModel.selectedFile = file
         } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
             let ids = files.map(\.id)
             if let from = ids.firstIndex(of: anchorID),
                let to = ids.firstIndex(of: file.id) {
                 let range = from <= to ? from ... to : to ... from
-                selectedFileIDs = Set(ids[range])
+                viewModel.selectedFileIDs = Set(ids[range])
             }
         } else {
-            selectedFileIDs = []
+            viewModel.selectedFileIDs = []
             viewModel.selectedFileID = file.id
             viewModel.selectedFile = file
         }
-    }
-
-    private func applyToMultipleSelection() {
-        // TODO: implement action for multiple selected files
-        let selected = files.filter { selectedFileIDs.contains($0.id) }
-        _ = selected
     }
 
     private func handleDoubleSelect(for file: FileItem) {
@@ -240,14 +235,11 @@ struct GridThumbnailSelectionView: View {
 extension GridThumbnailSelectionView {
     @ToolbarContentBuilder
     var gridToolbar: some ToolbarContent {
-        if selectedFileIDs.count > 1 {
+        if viewModel.selectedFileIDs.count > 1 {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    applyToMultipleSelection()
-                } label: {
-                    Label("Apply (\(selectedFileIDs.count))", systemImage: "checkmark.circle.fill")
-                }
-                .help("Apply action to \(selectedFileIDs.count) selected images")
+                Text("\(viewModel.selectedFileIDs.count) selected — press a rating key to apply")
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
             }
         }
         ToolbarItem(placement: .primaryAction) {

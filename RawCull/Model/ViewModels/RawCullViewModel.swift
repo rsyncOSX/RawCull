@@ -32,6 +32,7 @@ final class RawCullViewModel {
     var isShowingPicker = false
     var hideInspector = true
     var selectedFile: FileItem?
+    var selectedFileIDs: Set<FileItem.ID> = []
     var issorting: Bool = false
     var progress: Double = 0
     var max: Double = 0

@@ -98,6 +98,40 @@ extension RawCullViewModel {
         }
     }
 
+    func updateRating(for files: [FileItem], rating: Int) {
+        Task {
+            guard let selectedSource else { return }
+            let catalog = selectedSource.url
+            let date = Date().en_string_from_date()
+
+            if cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) == nil {
+                guard let first = files.first else { return }
+                cullingModel.savedFiles.append(SavedFiles(
+                    catalog: catalog,
+                    dateStart: date,
+                    filerecord: FileRecord(fileName: first.name, dateTagged: date, dateCopied: nil, rating: rating),
+                ))
+            }
+
+            guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
+
+            for file in files {
+                if let recordIndex = cullingModel.savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
+                    cullingModel.savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
+                } else {
+                    let newRecord = FileRecord(fileName: file.name, dateTagged: date, dateCopied: nil, rating: rating)
+                    if cullingModel.savedFiles[catalogIndex].filerecords == nil {
+                        cullingModel.savedFiles[catalogIndex].filerecords = [newRecord]
+                    } else {
+                        cullingModel.savedFiles[catalogIndex].filerecords?.append(newRecord)
+                    }
+                }
+            }
+            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
+            rebuildRatingCache()
+        }
+    }
+
     func applySharpnessThreshold(_ thresholdPercent: Int) {
         let maxScore = sharpnessModel.maxScore
         guard maxScore > 0, let selectedSource else { return }

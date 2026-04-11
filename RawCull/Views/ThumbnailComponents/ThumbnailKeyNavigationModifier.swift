@@ -54,6 +54,12 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 7: // x / X — reject (rating −1, red), advance to next
+                        let multiIDs = viewModel.selectedFileIDs
+                        if multiIDs.count > 1 {
+                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: -1)
+                            viewModel.selectedFileIDs = []
+                            return nil
+                        }
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         viewModel.updateRating(for: current, rating: -1)
@@ -64,6 +70,12 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 35: // p / P — keep (rating 0), advance to next
+                        let multiIDs = viewModel.selectedFileIDs
+                        if multiIDs.count > 1 {
+                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
+                            viewModel.selectedFileIDs = []
+                            return nil
+                        }
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         viewModel.updateRating(for: current, rating: 0)
@@ -74,14 +86,18 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 29: // 0 — keep (rating 0)
+                        let multiIDs = viewModel.selectedFileIDs
+                        if multiIDs.count > 1 {
+                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
+                            viewModel.selectedFileIDs = []
+                            return nil
+                        }
                         if let file = viewModel.selectedFile {
                             viewModel.updateRating(for: file, rating: 0)
                         }
                         return nil
 
                     case 18, 19, 20, 21, 23: // 1→2, 2, 3, 4, 5 — set rating and advance to next
-                        guard let current = viewModel.selectedFile,
-                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         let rating = switch event.keyCode {
                         case 18: 2 // key 1 maps to rating 2 (rating 1 retired)
                         case 19: 2
@@ -89,6 +105,14 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         case 21: 4
                         default: 5 // 23
                         }
+                        let multiIDs = viewModel.selectedFileIDs
+                        if multiIDs.count > 1 {
+                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: rating)
+                            viewModel.selectedFileIDs = []
+                            return nil
+                        }
+                        guard let current = viewModel.selectedFile,
+                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         viewModel.updateRating(for: current, rating: rating)
                         if idx + 1 < files.count {
                             viewModel.selectedFile = files[idx + 1]
@@ -97,6 +121,12 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         return nil
 
                     case 17: // t — default tag (rating 3, green)
+                        let multiIDs = viewModel.selectedFileIDs
+                        if multiIDs.count > 1 {
+                            viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
+                            viewModel.selectedFileIDs = []
+                            return nil
+                        }
                         if let file = viewModel.selectedFile {
                             viewModel.updateRating(for: file, rating: 3)
                         }
