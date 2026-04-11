@@ -97,19 +97,12 @@ struct RawCullMainView: View {
                             }
                             .frame(width: 100)
 
-                        case .clearToggledFiles:
+                        case .clearRatedFiles:
                             Button("Clear", role: .destructive) {
                                 if let url = viewModel.selectedSource?.url {
+                                    viewModel.ratingCache = [:]
+                                    viewModel.taggedNamesCache = []
                                     viewModel.cullingModel.resetSavedFiles(in: url)
-                                }
-                            }
-                            .frame(width: 100)
-
-                        case .resetSavedFiles:
-                            Button("Reset", role: .destructive) {
-                                viewModel.cullingModel.savedFiles.removeAll()
-                                Task {
-                                    await WriteSavedFilesJSON.write(viewModel.cullingModel.savedFiles)
                                 }
                             }
                             .frame(width: 100)

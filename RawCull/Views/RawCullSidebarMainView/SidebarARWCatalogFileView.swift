@@ -79,7 +79,7 @@ struct SidebarARWCatalogFileView: View {
                                     helpText: "Clear rated ARW-files",
                                     style: .softCapsule,
                                 ) {
-                                    viewModel.alertType = .clearToggledFiles
+                                    viewModel.alertType = .clearRatedFiles
                                     viewModel.showingAlert = true
                                 }
                                 .disabled(viewModel.creatingthumbnails)

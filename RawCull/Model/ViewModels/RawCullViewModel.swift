@@ -5,8 +5,7 @@ import OSLog
 
 enum AlertType {
     case extractJPGs
-    case clearToggledFiles
-    case resetSavedFiles
+    case clearRatedFiles
 }
 
 enum RatingFilter: Hashable {
@@ -107,8 +106,7 @@ final class RawCullViewModel {
     var alertTitle: String {
         switch alertType {
         case .extractJPGs: "Extract JPGs"
-        case .clearToggledFiles: "Clear Tagged Files"
-        case .resetSavedFiles: "Reset Saved Files"
+        case .clearRatedFiles: "Clear Rated Images"
         case .none: ""
         }
     }
@@ -116,8 +114,7 @@ final class RawCullViewModel {
     var alertMessage: String {
         switch alertType {
         case .extractJPGs: "Are you sure you want to extract JPG images from ARW files?"
-        case .clearToggledFiles: "Are you sure you want to clear all tagged files?"
-        case .resetSavedFiles: "Are you sure you want to reset all saved files?"
+        case .clearRatedFiles: "Are you sure you want to clear all rated images?"
         case .none: ""
         }
     }
