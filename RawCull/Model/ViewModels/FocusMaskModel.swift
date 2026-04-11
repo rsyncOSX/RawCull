@@ -20,9 +20,9 @@ struct FocusDetectorConfig {
     /// than real edges. Default 400 (no adaptation).
     var iso: Int = 400
     var threshold: Float = 0.46
-    var dilationRadius: Float = 1.0 // was 0.43
+    var dilationRadius: Float = 1.0
     var energyMultiplier: Float = 7.62
-    var erosionRadius: Float = 1.0 // was 0.27
+    var erosionRadius: Float = 1.0
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
 
@@ -30,34 +30,25 @@ struct FocusDetectorConfig {
 
     /// Fraction of image dimension excluded from each border when computing
     /// the full-frame sharpness score. Prevents Gaussian-blur edge artifacts
-    /// from inflating the score. Range 0–0.10; default 4%.
+    /// from inflating the score. Range 0–0.10.
     var borderInsetFraction: Float = 0.04
 
     /// Weight given to the salient-region score vs the full-frame score.
-    /// 0 = full-frame only, 1 = subject region only. Default 0.75.
+    /// 0 = full-frame only, 1 = subject region only.
     var salientWeight: Float = 0.75
 
-    /// Bonus multiplier for subject size. The salient bounding-box area
-    /// (normalized 0–1) is multiplied by this value and added to 1.0,
-    /// giving larger subjects a small proportional score boost. Kept very low
-    /// (≤ 0.1) so a large-but-blurry subject cannot outscore a small-but-sharp one.
+    /// Bonus multiplier for subject size.
     var subjectSizeFactor: Float = 0.1
 
-    /// When true, runs VNClassifyImageRequest alongside saliency detection to
-    /// populate the subject badge on each thumbnail. Adds ~10–20% scoring time.
-    /// Disable for faster re-scores when the badge label is not needed.
+    /// When true, runs VNClassifyImageRequest alongside saliency detection.
     var enableSubjectClassification: Bool = true
 
-    /// Half-size of the AF-point scoring region as a fraction of the longest image
-    /// dimension. 0.12 gives a 24 % × 24 % square centred on the Sony MakerNote AF
-    /// point. Set to 0 to disable AF-point weighting.
+    /// Half-size of the AF-point scoring region as a fraction of image dimension.
     var afRegionRadius: Float = 0.12
 }
 
 // Explicit nonisolated conformance so the @Observable macro's change-tracking
 // code can call == from a nonisolated context.
-// SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor would make the synthesized == @MainActor,
-// blocking the nonisolated call site — so we must spell it out manually.
 // swiftformat:disable:next redundantEquatable
 extension FocusDetectorConfig: Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
@@ -77,15 +68,47 @@ extension FocusDetectorConfig: Equatable {
     }
 }
 
-// nonisolated(unsafe): immutable after one-time lazy init, safe to read from any context.
-// Required because SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor would otherwise
-// infer @MainActor on this constant, blocking access from nonisolated methods.
+extension FocusDetectorConfig {
+    /// Birds-in-flight preset.
+    static var birdsInFlight: FocusDetectorConfig {
+        var c = FocusDetectorConfig()
+        c.preBlurRadius = 2.2
+        c.threshold = 0.46
+        c.dilationRadius = 1.0
+        c.erosionRadius = 1.0
+        c.featherRadius = 2.0
+
+        c.borderInsetFraction = 0.05
+        c.salientWeight = 0.85
+        c.subjectSizeFactor = 0.05
+        c.enableSubjectClassification = true
+        c.afRegionRadius = 0.06
+        return c
+    }
+
+    /// Perched/static wildlife preset.
+    static var perchedWildlife: FocusDetectorConfig {
+        var c = FocusDetectorConfig()
+        c.preBlurRadius = 1.8
+        c.threshold = 0.44
+        c.dilationRadius = 1.0
+        c.erosionRadius = 1.0
+        c.featherRadius = 1.5
+
+        c.borderInsetFraction = 0.04
+        c.salientWeight = 0.70
+        c.subjectSizeFactor = 0.08
+        c.enableSubjectClassification = true
+        c.afRegionRadius = 0.08
+        return c
+    }
+}
+
 private nonisolated let _focusMagnitudeKernel: CIKernel? = {
     guard let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
           let data = try? Data(contentsOf: url)
-    else {
-        return nil
-    }
+    else { return nil }
+
     do {
         return try CIKernel(functionName: "focusLaplacian", fromMetalLibraryData: data)
     } catch {
@@ -98,8 +121,6 @@ private nonisolated let _focusMagnitudeKernel: CIKernel? = {
 final class FocusMaskModel: @unchecked Sendable {
     var config = FocusDetectorConfig()
 
-    /// Force float32 working format so Laplacian intermediate values are not clipped.
-    /// nonisolated(unsafe): CIContext is thread-safe for concurrent renders; let never mutated.
     private nonisolated let context = CIContext(options: [
         .workingColorSpace: NSNull(),
         .workingFormat: CIFormat.RGBAf
@@ -118,7 +139,7 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
                 context: context,
-                config: config,
+                config: config
             ) else { return nil }
             return NSImage(cgImage: result, size: originalSize)
         }.value
@@ -133,28 +154,19 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
                 context: context,
-                config: config,
+                config: config
             )
         }.value
     }
 
-    /// Computes scalar sharpness from fast thumbnail path, with full-decode fallback.
-    /// Also runs saliency + subject classification in the same Vision pass.
-    /// Returned score is relative; compare within same burst/session.
-    ///
-    /// - Parameter afPoint: Sony MakerNote AF centre, normalised 0–1 origin top-left.
-    ///   When provided the AF region score replaces the Vision saliency score so that
-    ///   sharpness is evaluated at the camera's intended focus point rather than the
-    ///   Vision-detected subject bounding box (which may include motion-blurred wing tips).
     nonisolated func computeSharpnessScore(
         fromRawURL url: URL,
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
-        afPoint: CGPoint? = nil,
+        afPoint: CGPoint? = nil
     ) async -> (score: Float?, saliency: SaliencyInfo?) {
         let cgImage: CGImage? = await Task.detached(priority: .userInitiated) {
-            Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize)
-                ?? Self.decodeImage(at: url)
+            Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) ?? Self.decodeImage(at: url)
         }.value
 
         guard let cgImage else { return (nil, nil) }
@@ -165,21 +177,16 @@ final class FocusMaskModel: @unchecked Sendable {
             salientRegion: region,
             afPoint: afPoint,
             context: context,
-            config: config,
+            config: config
         )
         return (score, saliencyInfo)
     }
 
     // MARK: - Decode helpers
 
-    /// Safe, format-agnostic first-frame decode.
     private nonisolated static func decodeImage(at url: URL) -> CGImage? {
-        let srcOptions: [CFString: Any] = [
-            kCGImageSourceShouldCache: false
-        ]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else {
-            return nil
-        }
+        let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
 
         let decodeOptions: [CFString: Any] = [
             kCGImageSourceShouldCacheImmediately: true,
@@ -188,14 +195,9 @@ final class FocusMaskModel: @unchecked Sendable {
         return CGImageSourceCreateImageAtIndex(source, 0, decodeOptions as CFDictionary)
     }
 
-    /// Fast thumbnail decode: uses embedded thumbnail when present.
     private nonisolated static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
-        let srcOptions: [CFString: Any] = [
-            kCGImageSourceShouldCache: false
-        ]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else {
-            return nil
-        }
+        let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
 
         let thumbOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
@@ -209,10 +211,6 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Saliency
 
-    /// Runs saliency detection and subject classification in a single Vision pass.
-    /// Returns the union bounding box of salient objects and a `SaliencyInfo` when a
-    /// subject is found (area > 3% of frame). Both requests share one handler call so
-    /// the image is decoded by Vision only once.
     private nonisolated static func detectSaliencyAndClassify(for cgImage: CGImage, classify: Bool) -> (region: CGRect?, saliency: SaliencyInfo?) {
         let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
         let classifyRequest = VNClassifyImageRequest()
@@ -226,31 +224,15 @@ final class FocusMaskModel: @unchecked Sendable {
 
         let union = objects.reduce(CGRect.null) { $0.union($1.boundingBox) }
         let maxConfidence = objects.map(\.confidence).max() ?? 0
-        // Accept the region when Vision is highly confident (small but clearly
-        // identifiable subject — e.g. bird on a stick) OR when the area crosses
-        // the 3% floor. Confidence ≥ 0.9 trusts Vision even for tiny subjects.
-        guard union.width * union.height > 0.01 || maxConfidence >= 0.9 else { return (nil, nil) }
+        guard union.width * union.height > 0.03 || maxConfidence >= 0.9 else { return (nil, nil) }
 
         let label = Self.bestClassificationLabel(from: classifyRequest.results ?? [])
         return (union, SaliencyInfo(subjectLabel: label))
     }
 
-    /// Two-pass label selection tuned for wildlife / outdoor photography.
-    ///
-    /// Pass 1 — Subject priority: scan all results above 0.06 confidence and
-    /// return the first that contains a known animal, person, or subject keyword.
-    /// This surfaces "bird" or "animal" even when the forest background pushes
-    /// broad scene labels ("structure", "plant") to the top by raw confidence.
-    ///
-    /// Pass 2 — Blocklist fallback: take the highest-confidence result that does
-    /// not match known environment / scene tokens. Returns nil if nothing passes.
-    private nonisolated static func bestClassificationLabel(
-        from observations: [VNClassificationObservation],
-    ) -> String? {
+    private nonisolated static func bestClassificationLabel(from observations: [VNClassificationObservation]) -> String? {
         guard !observations.isEmpty else { return nil }
 
-        // Subject keywords we actively want to surface.
-        // Contains-match so "songbird", "waterfowl", "raptor" etc. all qualify.
         let subjectKeywords = [
             "bird", "raptor", "fowl", "waterfowl", "wildlife",
             "animal", "mammal", "vertebrate", "creature", "predator",
@@ -260,8 +242,6 @@ final class FocusMaskModel: @unchecked Sendable {
             "person", "people", "human", "face", "portrait"
         ]
 
-        // Tokens that indicate a broad scene or environment label — not useful
-        // as the primary badge when a subject is present.
         let environmentTokens = [
             "structure", "plant", "grass", "tree", "forest", "wood",
             "nature", "outdoor", "indoor", "landscape", "sky", "water",
@@ -269,7 +249,6 @@ final class FocusMaskModel: @unchecked Sendable {
             "photography", "scene", "background", "texture", "pattern"
         ]
 
-        // Pass 1: prefer any animal/subject hit, even at low confidence.
         for obs in observations where obs.confidence >= 0.06 {
             let id = obs.identifier.lowercased()
             if subjectKeywords.contains(where: { id.contains($0) }) {
@@ -277,7 +256,6 @@ final class FocusMaskModel: @unchecked Sendable {
             }
         }
 
-        // Pass 2: highest-confidence result that is not a pure environment label.
         for obs in observations where obs.confidence >= 0.15 {
             let id = obs.identifier.lowercased()
             if !environmentTokens.contains(where: { id.contains($0) }) {
@@ -290,17 +268,12 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Scalar scoring
 
-    /// Robust scalar sharpness:
-    /// blur -> Laplacian -> amplify -> robust tail score.
-    /// Computes full-frame, salient-region, and (when available) AF-point scores,
-    /// then fuses them. AF-point score replaces the Vision saliency score when present
-    /// so that sharpness is measured at the camera's intended focus location.
     private nonisolated static func computeSharpnessScalar(
         from inputImage: CIImage,
         salientRegion: CGRect?,
         afPoint: CGPoint?,
         context: CIContext,
-        config: FocusDetectorConfig,
+        config: FocusDetectorConfig
     ) -> Float? {
         guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
 
@@ -311,29 +284,16 @@ final class FocusMaskModel: @unchecked Sendable {
 
         let pixelCount = width * height
         var rgba = [Float](repeating: 0, count: pixelCount * 4)
-        context.render(
-            boosted,
-            toBitmap: &rgba,
-            rowBytes: width * 16,
-            bounds: extent,
-            format: .RGBAf,
-            colorSpace: nil,
-        )
+        context.render(boosted, toBitmap: &rgba, rowBytes: width * 16, bounds: extent, format: .RGBAf, colorSpace: nil)
 
         @inline(__always)
-        func redAt(_ idx: Int) -> Float {
-            rgba[idx * 4]
-        }
+        func redAt(_ idx: Int) -> Float { rgba[idx * 4] }
 
-        // Exclude the outer N% of pixels on each border to prevent Gaussian-blur
-        // edge artifacts from inflating the full-frame tail score.
         let borderCols = max(0, Int(Float(width) * config.borderInsetFraction))
         let borderRows = max(0, Int(Float(height) * config.borderInsetFraction))
-        let innerW = max(0, width - 2 * borderCols)
-        let innerH = max(0, height - 2 * borderRows)
 
         var full = [Float]()
-        full.reserveCapacity(innerW * innerH)
+        full.reserveCapacity(max(0, width - 2 * borderCols) * max(0, height - 2 * borderRows))
         for row in borderRows ..< (height - borderRows) {
             let base = row * width
             for col in borderCols ..< (width - borderCols) {
@@ -345,13 +305,8 @@ final class FocusMaskModel: @unchecked Sendable {
         func regionSamples(_ region: CGRect) -> [Float] {
             let colStart = max(0, Int(region.minX * CGFloat(width)))
             let colEnd = min(width, Int(region.maxX * CGFloat(width)))
-            // Vision uses y=0 at the visual bottom, but CIImage(cgImage:) flips the
-            // image vertically (CGImage origin is top-left; CIImage origin is bottom-left),
-            // so context.render fills the buffer with row 0 at the visual top.
-            // Invert the y-axis so we sample the region Vision actually identified.
             let rowStart = max(0, Int((1.0 - region.maxY) * CGFloat(height)))
             let rowEnd = min(height, Int((1.0 - region.minY) * CGFloat(height)))
-
             guard colEnd > colStart, rowEnd > rowStart else { return [] }
 
             var out = [Float]()
@@ -391,26 +346,37 @@ final class FocusMaskModel: @unchecked Sendable {
             }
         }
 
-        /// Score as winsorized tail mean (>= p95, clipped at p99.5)
+        // Noise-robust + sparse-edge-penalized score
         func robustTailScore(_ samples: [Float]) -> Float? {
             guard !samples.isEmpty else { return nil }
             var a = samples
             let n = a.count
 
-            let k95 = min(max(Int(Float(n) * 0.95), 0), n - 1)
-            let k995 = min(max(Int(Float(n) * 0.995), 0), n - 1)
+            func k(_ p: Float) -> Int {
+                min(max(Int(Float(n - 1) * p), 0), n - 1)
+            }
 
-            let p95 = quickselect(&a, k: k95)
-            let p995 = quickselect(&a, k: k995)
+            let p20 = quickselect(&a, k: k(0.20))
+            let p90 = quickselect(&a, k: k(0.90))
+            let p97 = quickselect(&a, k: k(0.97))
+
+            if p97 <= p90 { return max(0, p90 - p20) }
 
             var sum: Float = 0
             var cnt = 0
-            for v in samples where v >= p95 {
-                sum += min(v, p995)
+            for v in samples where v >= p90 && v <= p97 {
+                sum += max(0, v - p20)
                 cnt += 1
             }
-            guard cnt > 0 else { return p95 }
-            return sum / Float(cnt)
+
+            guard cnt > 0 else { return max(0, p90 - p20) }
+
+            let bandMean = sum / Float(cnt)
+            let density = Float(cnt) / Float(n)
+            let minDensity: Float = 0.06
+            let densityFactor = min(1.0, density / minDensity)
+
+            return bandMean * densityFactor
         }
 
         let fullScore = robustTailScore(full)
@@ -418,55 +384,34 @@ final class FocusMaskModel: @unchecked Sendable {
         var salientScore: Float?
         if let region = salientRegion {
             let s = regionSamples(region)
-            if s.count >= 256 {
-                salientScore = robustTailScore(s)
-            }
+            if s.count >= 256 { salientScore = robustTailScore(s) }
         }
 
-        // AF-point score: evaluate sharpness at the camera's intended focus location
-        // rather than the Vision bounding box (which includes motion-blurred wing tips).
-        // The AF point (top-left origin) is converted to Vision space (bottom-left origin)
-        // before being passed to regionSamples(), which expects Vision coordinates.
         var afScore: Float?
         if let pt = afPoint, config.afRegionRadius > 0 {
             let r = CGFloat(config.afRegionRadius)
-            // Flip Y: AF origin is top-left; Vision origin is bottom-left.
             let visionY = 1.0 - pt.y
-            let afRegion = CGRect(
-                x: pt.x - r,
-                y: visionY - r,
-                width: r * 2,
-                height: r * 2,
-            )
-            let s = regionSamples(afRegion)
-            if s.count >= 64 {
-                afScore = robustTailScore(s)
+            let afRegionRaw = CGRect(x: pt.x - r, y: visionY - r, width: r * 2, height: r * 2)
+            let afRegion = afRegionRaw.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+            if !afRegion.isNull, !afRegion.isEmpty {
+                let s = regionSamples(afRegion)
+                if s.count >= 64 { afScore = robustTailScore(s) }
             }
         }
 
-        // Weighted fusion.
-        // When an AF score is available it replaces the Vision saliency score —
-        // the AF region is precisely where the camera tried to focus, which gives
-        // much stronger discrimination between in-focus and out-of-focus shots than
-        // the broader Vision bounding box.
         let effectiveSubjectScore = afScore ?? salientScore
 
         switch (fullScore, effectiveSubjectScore) {
         case let (f?, s?):
             let w = config.salientWeight
             let blended = f * (1.0 - w) + s * w
-            // Size bonus only applies when Vision detected a salient region (AF regions
-            // are a fixed radius and shouldn't inflate scores for large subjects).
             let area = (afScore == nil ? salientRegion.map { Float($0.width * $0.height) } : nil) ?? 0
             let sizeFactor = 1.0 + area * config.subjectSizeFactor
             return blended * sizeFactor
 
         case let (f?, nil):
-            // Respect salientWeight: when the user wants subject-centric scoring
-            // but Vision found no salient region, reduce the score proportionally
-            // so these photos rank below ones where a subject was detected.
-            // At weight=0 (full-frame mode) there is no penalty.
-            return f * (1.0 - config.salientWeight)
+            let penalty = (1.0 - config.salientWeight)
+            return f * penalty * penalty
 
         case let (nil, s?):
             return s
@@ -478,24 +423,10 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Mask generation
 
-    /// Shared passes 1–3: blur → Laplacian → amplify.
-    /// Used by both scalar scoring and mask generation so tuning one affects both.
-    ///
-    /// The Gaussian pre-blur radius is scaled dynamically:
-    /// - ISO adaptation: noise amplitude ∝ √(ISO/400); higher ISO needs more blur
-    ///   to suppress noise before the Laplacian fires on it. Capped at 3× base.
-    /// - Resolution adaptation: maintains proportional spatial-frequency cutoff
-    ///   relative to the 512 px thumbnail baseline. Uses √ scaling to be
-    ///   conservative. Scoring thumbnails (≈512 px) see factor ≈1.0; larger
-    ///   images (e.g. 1024 px mask path) see factor ≈1.4. Capped at 3×.
-    private nonisolated static func buildAmplifiedLaplacian(
-        from image: CIImage,
-        config: FocusDetectorConfig,
-    ) -> CIImage? {
+    private nonisolated static func buildAmplifiedLaplacian(from image: CIImage, config: FocusDetectorConfig) -> CIImage? {
         let isoFactor = max(1.0, min(sqrt(Float(max(config.iso, 1)) / 400.0), 3.0))
         let imageWidth = Float(image.extent.width)
         let resFactor = max(1.0, min(sqrt(max(imageWidth, 512.0) / 512.0), 3.0))
-        // CIGaussianBlur rejects radii above 100; clamp to avoid a nil output image.
         let effectiveRadius = min(config.preBlurRadius * isoFactor * resFactor, 100.0)
 
         let preBlur = CIFilter.gaussianBlur()
@@ -507,7 +438,7 @@ final class FocusMaskModel: @unchecked Sendable {
         guard let laplacianOutput = kernel.apply(
             extent: smoothed.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothed],
+            arguments: [smoothed]
         ) else { return nil }
 
         let boost = CIFilter.colorMatrix()
@@ -523,17 +454,11 @@ final class FocusMaskModel: @unchecked Sendable {
         from inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig,
+        config: FocusDetectorConfig
     ) -> CGImage? {
-        let scaledImage = inputImage.transformed(
-            by: CGAffineTransform(scaleX: scale, y: scale),
-        )
-
+        let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else { return nil }
 
-        // Zero out the outer border to suppress Gaussian pre-blur edge artifacts.
-        // The same borderInsetFraction used in scalar scoring applies here so the
-        // mask and the score are consistent. With no inset (0%) this is a no-op.
         let boostedLaplacian: CIImage
         if config.borderInsetFraction > 0 {
             let ext = scaledImage.extent
@@ -551,35 +476,31 @@ final class FocusMaskModel: @unchecked Sendable {
             return context.createCGImage(cropped, from: cropped.extent)
         }
 
-        // Pass 3: Threshold
         let thresholdFilter = CIFilter.colorThreshold()
         thresholdFilter.inputImage = boostedLaplacian
         thresholdFilter.threshold = config.threshold
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
-        // Pass 4a: Optional erosion
         let erosionPx = Self.morphologyPixelRadius(config.erosionRadius)
         let eroded: CIImage
         if erosionPx > 0, let erode = CIFilter(name: "CIMorphologyMinimum") {
             erode.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-            erode.setValue(erosionPx, forKey: kCIInputRadiusKey) // Int pixel radius
+            erode.setValue(erosionPx, forKey: kCIInputRadiusKey)
             eroded = erode.outputImage ?? thresholdedEdges
         } else {
             eroded = thresholdedEdges
         }
 
-        // Pass 4b: Dilation
         let dilationPx = Self.morphologyPixelRadius(config.dilationRadius)
         let dilated: CIImage
         if dilationPx > 0, let dilate = CIFilter(name: "CIMorphologyMaximum") {
             dilate.setValue(eroded, forKey: kCIInputImageKey)
-            dilate.setValue(dilationPx, forKey: kCIInputRadiusKey) // Int pixel radius
+            dilate.setValue(dilationPx, forKey: kCIInputRadiusKey)
             dilated = dilate.outputImage ?? eroded
         } else {
             dilated = eroded
         }
 
-        // Pass 5: Map to red channel
         let redMatrix = CIFilter.colorMatrix()
         redMatrix.inputImage = dilated
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
@@ -588,7 +509,6 @@ final class FocusMaskModel: @unchecked Sendable {
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         guard let redMask = redMatrix.outputImage else { return nil }
 
-        // Pass 6: Optional feather
         let feathered: CIImage
         if config.featherRadius > 0 {
             let featherBlur = CIFilter.gaussianBlur()
@@ -605,8 +525,6 @@ final class FocusMaskModel: @unchecked Sendable {
 
     @inline(__always)
     private nonisolated static func morphologyPixelRadius(_ r: Float) -> Int {
-        // Quantize to nearest pixel so morphology behaves predictably.
-        // 0 disables the pass.
         max(0, Int(r.rounded()))
     }
 }
@@ -622,8 +540,6 @@ extension FocusMaskModel {
         let p99: Float
     }
 
-    /// Applies a calibration result to the current model config.
-    /// Only threshold + energyMultiplier are changed.
     @MainActor
     func applyCalibration(_ result: FocusCalibrationResult) {
         var cfg = config
@@ -632,9 +548,6 @@ extension FocusMaskModel {
         config = cfg
     }
 
-    /// Convenience: calibrate in parallel and immediately apply to model config.
-    /// Returns calibration details for logging/UI.
-    /// `files` pairs each URL with its EXIF ISO value (nil → 400 default).
     @MainActor
     func calibrateAndApplyFromBurstParallel(
         files: [(url: URL, iso: Int?)],
@@ -642,7 +555,7 @@ extension FocusMaskModel {
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
-        maxConcurrentTasks: Int = 8,
+        maxConcurrentTasks: Int = 8
     ) async -> FocusCalibrationResult? {
         let base = config
         guard let result = await calibrateFromBurstParallel(
@@ -652,19 +565,13 @@ extension FocusMaskModel {
             thresholdPercentile: thresholdPercentile,
             targetP95AfterGain: targetP95AfterGain,
             minSamples: minSamples,
-            maxConcurrentTasks: maxConcurrentTasks,
-        ) else {
-            return nil
-        }
+            maxConcurrentTasks: maxConcurrentTasks
+        ) else { return nil }
 
         applyCalibration(result)
         return result
     }
 
-    /// Parallel auto-calibration for larger bursts.
-    /// Limits in-flight work to avoid oversubscribing CPU/IO.
-    /// Per-file ISO values are used so the adaptive pre-blur radius during
-    /// calibration matches what scoring will use for each image.
     nonisolated func calibrateFromBurstParallel(
         files: [(url: URL, iso: Int?)],
         baseConfig: FocusDetectorConfig,
@@ -672,7 +579,7 @@ extension FocusMaskModel {
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
-        maxConcurrentTasks: Int = 8,
+        maxConcurrentTasks: Int = 8
     ) async -> FocusCalibrationResult? {
         guard !files.isEmpty else { return nil }
 
@@ -685,7 +592,6 @@ extension FocusMaskModel {
         scores.reserveCapacity(files.count)
 
         await withTaskGroup(of: Float?.self) { group in
-            // Seed initial tasks
             for _ in 0 ..< concurrency {
                 guard nextIndex < files.count else { break }
                 let entry = files[nextIndex]
@@ -695,25 +601,14 @@ extension FocusMaskModel {
                     var fileConfig = baseConfig
                     fileConfig.energyMultiplier = 1.0
                     fileConfig.iso = entry.iso ?? 400
-                    guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
-                        return nil
-                    }
+                    guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else { return nil }
                     let (region, _) = Self.detectSaliencyAndClassify(for: cgImage, classify: false)
-                    return Self.computeSharpnessScalar(
-                        from: CIImage(cgImage: cgImage),
-                        salientRegion: region,
-                        afPoint: nil,
-                        context: ctx,
-                        config: fileConfig,
-                    )
+                    return Self.computeSharpnessScalar(from: CIImage(cgImage: cgImage), salientRegion: region, afPoint: nil, context: ctx, config: fileConfig)
                 }
             }
 
-            // Refill as tasks complete
             while let value = await group.next() {
-                if let s = value, s.isFinite, s > 0 {
-                    scores.append(s)
-                }
+                if let s = value, s.isFinite, s > 0 { scores.append(s) }
 
                 if nextIndex < files.count {
                     let entry = files[nextIndex]
@@ -723,17 +618,9 @@ extension FocusMaskModel {
                         var fileConfig = baseConfig
                         fileConfig.energyMultiplier = 1.0
                         fileConfig.iso = entry.iso ?? 400
-                        guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else {
-                            return nil
-                        }
+                        guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else { return nil }
                         let (region, _) = Self.detectSaliencyAndClassify(for: cgImage, classify: false)
-                        return Self.computeSharpnessScalar(
-                            from: CIImage(cgImage: cgImage),
-                            salientRegion: region,
-                            afPoint: nil,
-                            context: ctx,
-                            config: fileConfig,
-                        )
+                        return Self.computeSharpnessScalar(from: CIImage(cgImage: cgImage), salientRegion: region, afPoint: nil, context: ctx, config: fileConfig)
                     }
                 }
             }
@@ -757,8 +644,6 @@ extension FocusMaskModel {
         let eps: Float = 1e-6
         let rawGain = targetP95AfterGain / max(p95, eps)
         let tunedGain = min(max(rawGain, 0.5), 32.0)
-        // Scale threshold into the boosted space so it aligns with what
-        // buildFocusMask sees after applying energyMultiplier.
         let tunedThreshold = min(percentile(scores, thresholdPercentile) * tunedGain, 1.0)
 
         return FocusCalibrationResult(
@@ -768,7 +653,7 @@ extension FocusMaskModel {
             p50: p50,
             p90: p90,
             p95: p95,
-            p99: p99,
+            p99: p99
         )
     }
 }
