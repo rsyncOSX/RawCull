@@ -254,8 +254,101 @@ struct SharpnessScoringTests {
             (UUID(), Float(i) * 0.10)
         })
         // p90 for 10 sorted values: k = Int(9 * 0.90) = 8 → sorted[8] = 0.90
-        #expect(model.maxScore == 0.90 as Float,
-                accuracy: 0.001,
+        #expect(abs(model.maxScore - 0.90) < 0.001,
                 "p90 anchor for 10 evenly-spaced scores should be 0.90")
+    }
+}
+
+// MARK: - Numeric helper unit tests
+
+@Suite("FocusMaskModel numeric helpers")
+struct FocusNumericHelperTests {
+
+    // MARK: robustTailScore
+
+    @Test(.tags(.smoke))
+    func robustTailScoreEmptyReturnsNil() {
+        #expect(FocusMaskModel.robustTailScore([]) == nil)
+    }
+
+    @Test(.tags(.smoke))
+    func robustTailScoreUniformReturnsZero() {
+        // All values identical → p20 == p90 == p97, so spread is zero.
+        let samples = [Float](repeating: 0.5, count: 1000)
+        let score = FocusMaskModel.robustTailScore(samples)
+        #expect(score != nil)
+        #expect(score! < 1e-5)
+    }
+
+    @Test(.tags(.smoke))
+    func robustTailScoreDenseEdgesFullDensityFactor() {
+        // Linearly spaced 0…1: p20=0.20, p90=0.90, p97=0.97.
+        // Band (p90…p97) contains 7% of values → density 0.07 > minDensity 0.06 → factor = 1.0.
+        let n = 1000
+        let samples = (0 ..< n).map { Float($0) / Float(n - 1) }
+        let score = FocusMaskModel.robustTailScore(samples)
+        #expect(score != nil)
+        // Band mean of values in [0.90, 0.97] minus p20 (≈0.20) should be ≈ 0.735 * 1.0
+        #expect(score! > 0.70)
+        #expect(score! < 0.80)
+    }
+
+    @Test(.tags(.smoke))
+    func robustTailScoreSparseEdgesScoresLow() {
+        // 94.5% zeros + 5.5% ones: p90 = 0.0, so the band [0.0, 1.0] captures all
+        // 1000 values. bandMean = 55 / 1000 = 0.055 → low score for sparse-edge image.
+        let n = 1000
+        let highCount = 55
+        var samples = [Float](repeating: 0.0, count: n - highCount)
+        samples += [Float](repeating: 1.0, count: highCount)
+        let score = FocusMaskModel.robustTailScore(samples)
+        #expect(score != nil)
+        #expect(score! < 0.10)
+        #expect(score! > 0.01)
+    }
+
+    @Test(.tags(.smoke))
+    func robustTailScoreDenseEdgesScoresHigherThanSparse() {
+        // A uniform 0…1 distribution (dense edges) should score higher than
+        // the near-zero distribution above (sparse edges).
+        let n = 1000
+        let dense = (0 ..< n).map { Float($0) / Float(n - 1) }
+        var sparse = [Float](repeating: 0.0, count: 950)
+        sparse += [Float](repeating: 1.0, count: 50)
+        let denseScore = FocusMaskModel.robustTailScore(dense)
+        let sparseScore = FocusMaskModel.robustTailScore(sparse)
+        #expect(denseScore != nil)
+        #expect(sparseScore != nil)
+        #expect(denseScore! > sparseScore!)
+    }
+
+    // MARK: microContrast
+
+    @Test(.tags(.smoke))
+    func microContrastEmptyReturnsZero() {
+        #expect(FocusMaskModel.microContrast([]) == 0.0)
+    }
+
+    @Test(.tags(.smoke))
+    func microContrastUniformReturnsZero() {
+        let samples = [Float](repeating: 0.5, count: 500)
+        #expect(FocusMaskModel.microContrast(samples) < 1e-5)
+    }
+
+    @Test(.tags(.smoke))
+    func microContrastAlternatingKnownVariance() {
+        // Values alternating 0 and 1: mean = 0.5, variance = 0.25, std-dev = 0.5.
+        let samples: [Float] = (0 ..< 1000).map { $0 % 2 == 0 ? 0.0 : 1.0 }
+        let result = FocusMaskModel.microContrast(samples)
+        #expect(abs(result - 0.5) < 0.01)
+    }
+
+    @Test(.tags(.smoke))
+    func microContrastIgnoresNonFinite() {
+        // Mix of valid values and NaN/Inf — should not crash, should equal uniform result.
+        var samples: [Float] = [Float](repeating: 0.5, count: 100)
+        samples.append(Float.nan)
+        samples.append(Float.infinity)
+        #expect(FocusMaskModel.microContrast(samples) < 1e-5)
     }
 }

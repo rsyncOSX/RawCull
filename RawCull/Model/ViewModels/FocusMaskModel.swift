@@ -266,6 +266,81 @@ final class FocusMaskModel: @unchecked Sendable {
         return nil
     }
 
+    // MARK: - Numeric helpers
+
+    @inline(__always)
+    private nonisolated static func partition(_ a: inout [Float], lo: Int, hi: Int, p: Int) -> Int {
+        let pivot = a[p]
+        a.swapAt(p, hi)
+        var store = lo
+        for i in lo ..< hi where a[i] < pivot {
+            a.swapAt(store, i)
+            store += 1
+        }
+        a.swapAt(store, hi)
+        return store
+    }
+
+    private nonisolated static func quickselect(_ a: inout [Float], k: Int) -> Float {
+        var lo = 0
+        var hi = a.count - 1
+        while true {
+            if lo == hi { return a[lo] }
+            let pivotIndex = (lo + hi) >> 1
+            let p = partition(&a, lo: lo, hi: hi, p: pivotIndex)
+            if k == p { return a[k] }
+            if k < p { hi = p - 1 } else { lo = p + 1 }
+        }
+    }
+
+    /// p90–p97 band mean relative to the p20 noise floor, penalized when fewer
+    /// than 6% of pixels land in the band (sparse edges → likely out-of-focus).
+    nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
+        guard !samples.isEmpty else { return nil }
+        var a = samples
+        let n = a.count
+
+        func k(_ p: Float) -> Int {
+            min(max(Int(Float(n - 1) * p), 0), n - 1)
+        }
+
+        let p20 = quickselect(&a, k: k(0.20))
+        let p90 = quickselect(&a, k: k(0.90))
+        let p97 = quickselect(&a, k: k(0.97))
+
+        if p97 <= p90 { return max(0, p90 - p20) }
+
+        var sum: Float = 0
+        var cnt = 0
+        for v in samples where v >= p90 && v <= p97 {
+            sum += max(0, v - p20)
+            cnt += 1
+        }
+        guard cnt > 0 else { return max(0, p90 - p20) }
+
+        let bandMean = sum / Float(cnt)
+        let densityFactor = min(1.0, (Float(cnt) / Float(n)) / 0.06)
+
+        return bandMean * densityFactor
+    }
+
+    /// Standard deviation of Laplacian sample values.
+    /// Near zero for blurry/smooth regions; higher for real textured detail.
+    nonisolated static func microContrast(_ samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        var sum: Float = 0
+        var sum2: Float = 0
+        var n: Float = 0
+        for v in samples where v.isFinite {
+            sum += v
+            sum2 += v * v
+            n += 1
+        }
+        guard n > 1 else { return 0 }
+        let mean = sum / n
+        return sqrt(max(0, (sum2 / n) - mean * mean))
+    }
+
     // MARK: - Scalar scoring
 
     private nonisolated static func computeSharpnessScalar(
@@ -312,97 +387,32 @@ final class FocusMaskModel: @unchecked Sendable {
             }
         }
 
-        func regionSamples(_ region: CGRect) -> [Float] {
+        // Single-pass region analysis: pixel samples + silhouette fraction together.
+        struct RegionAnalysis {
+            let samples: [Float]
+            let borderFraction: Float  // border energy / total; high => silhouette-dominated
+        }
+
+        func analyzeRegion(_ region: CGRect) -> RegionAnalysis {
             let colStart = max(0, Int(region.minX * CGFloat(width)))
             let colEnd = min(width, Int(region.maxX * CGFloat(width)))
-            // Vision coords are bottom-left origin.
+            // Vision uses y=0 at the visual bottom; CIImage(cgImage:) flips to top-left
+            // origin, so context.render fills row 0 at the visual top. Invert y so we
+            // sample the region Vision identified. Removing this flip silently scores
+            // the wrong area.
             let rowStart = max(0, Int((1.0 - region.maxY) * CGFloat(height)))
             let rowEnd = min(height, Int((1.0 - region.minY) * CGFloat(height)))
 
-            guard colEnd > colStart, rowEnd > rowStart else { return [] }
-
-            var out = [Float]()
-            out.reserveCapacity((colEnd - colStart) * (rowEnd - rowStart))
-            for row in rowStart ..< rowEnd {
-                let base = row * width
-                for col in colStart ..< colEnd {
-                    let v = redAt(base + col)
-                    if v.isFinite { out.append(v) }
-                }
-            }
-            return out
-        }
-
-        @inline(__always)
-        func partition(_ a: inout [Float], _ lo: Int, _ hi: Int, _ p: Int) -> Int {
-            let pivot = a[p]
-            a.swapAt(p, hi)
-            var store = lo
-            for i in lo ..< hi where a[i] < pivot {
-                a.swapAt(store, i)
-                store += 1
-            }
-            a.swapAt(store, hi)
-            return store
-        }
-
-        func quickselect(_ a: inout [Float], k: Int) -> Float {
-            var lo = 0
-            var hi = a.count - 1
-            while true {
-                if lo == hi { return a[lo] }
-                let pivotIndex = (lo + hi) >> 1
-                let p = partition(&a, lo, hi, pivotIndex)
-                if k == p { return a[k] }
-                if k < p { hi = p - 1 } else { lo = p + 1 }
-            }
-        }
-
-        // Noise-robust + sparse-edge-penalized score
-        func robustTailScore(_ samples: [Float]) -> Float? {
-            guard !samples.isEmpty else { return nil }
-            var a = samples
-            let n = a.count
-
-            func k(_ p: Float) -> Int {
-                min(max(Int(Float(n - 1) * p), 0), n - 1)
+            guard colEnd > colStart, rowEnd > rowStart else {
+                return RegionAnalysis(samples: [], borderFraction: 1.0)
             }
 
-            let p20 = quickselect(&a, k: k(0.20))
-            let p90 = quickselect(&a, k: k(0.90))
-            let p97 = quickselect(&a, k: k(0.97))
+            let rw = colEnd - colStart
+            let rh = rowEnd - rowStart
+            let b = max(1, Int(0.12 * Float(min(rw, rh))))
 
-            if p97 <= p90 { return max(0, p90 - p20) }
-
-            var sum: Float = 0
-            var cnt = 0
-            for v in samples where v >= p90 && v <= p97 {
-                sum += max(0, v - p20)
-                cnt += 1
-            }
-            guard cnt > 0 else { return max(0, p90 - p20) }
-
-            let bandMean = sum / Float(cnt)
-
-            let density = Float(cnt) / Float(n)
-            let minDensity: Float = 0.06
-            let densityFactor = min(1.0, density / minDensity)
-
-            return bandMean * densityFactor
-        }
-
-        // Fraction of energy near boundary; high => silhouette-dominated
-        func borderEnergyFraction(_ region: CGRect) -> Float {
-            let colStart = max(0, Int(region.minX * CGFloat(width)))
-            let colEnd = min(width, Int(region.maxX * CGFloat(width)))
-            let rowStart = max(0, Int((1.0 - region.maxY) * CGFloat(height)))
-            let rowEnd = min(height, Int((1.0 - region.minY) * CGFloat(height)))
-            guard colEnd > colStart, rowEnd > rowStart else { return 1.0 }
-
-            let w = colEnd - colStart
-            let h = rowEnd - rowStart
-            let b = max(1, Int(0.12 * Float(min(w, h))))
-
+            var samples = [Float]()
+            samples.reserveCapacity(rw * rh)
             var borderSum: Float = 0
             var borderCnt = 0
             var innerSum: Float = 0
@@ -412,7 +422,8 @@ final class FocusMaskModel: @unchecked Sendable {
                 let base = row * width
                 for col in colStart ..< colEnd {
                     let v = redAt(base + col)
-                    if !v.isFinite { continue }
+                    guard v.isFinite else { continue }
+                    samples.append(v)
 
                     let isBorder =
                         (col - colStart) < b || (colEnd - 1 - col) < b ||
@@ -428,72 +439,54 @@ final class FocusMaskModel: @unchecked Sendable {
                 }
             }
 
-            guard borderCnt > 0, innerCnt > 0 else { return 1.0 }
-            let borderMean = borderSum / Float(borderCnt)
-            let innerMean = innerSum / Float(innerCnt)
-            let total = max(borderMean + innerMean, 1e-6)
-            return borderMean / total
-        }
-
-        // Micro-detail contrast (std-dev)
-        func microContrast(_ samples: [Float]) -> Float {
-            guard !samples.isEmpty else { return 0 }
-            var sum: Float = 0
-            var sum2: Float = 0
-            var n: Float = 0
-            for v in samples where v.isFinite {
-                sum += v
-                sum2 += v * v
-                n += 1
+            let borderFraction: Float
+            if borderCnt > 0, innerCnt > 0 {
+                let bm = borderSum / Float(borderCnt)
+                let im = innerSum / Float(innerCnt)
+                borderFraction = bm / max(bm + im, 1e-6)
+            } else {
+                borderFraction = 1.0
             }
-            guard n > 1 else { return 0 }
-            let mean = sum / n
-            let varr = max(0, (sum2 / n) - mean * mean)
-            return sqrt(varr)
+
+            return RegionAnalysis(samples: samples, borderFraction: borderFraction)
         }
 
-        let fullScore = robustTailScore(full)
+        let fullScore = Self.robustTailScore(full)
 
+        var salientAnalysis: RegionAnalysis?
         var salientScore: Float?
         if let region = salientRegion {
-            let s = regionSamples(region)
-            if s.count >= 256 { salientScore = robustTailScore(s) }
+            let a = analyzeRegion(region)
+            salientAnalysis = a
+            if a.samples.count >= 256 { salientScore = Self.robustTailScore(a.samples) }
         }
 
         // AF-point subject score
+        var afAnalysis: RegionAnalysis?
         var afScore: Float?
         var afRegionUsed: CGRect?
         if let pt = afPoint, config.afRegionRadius > 0 {
             let r = CGFloat(config.afRegionRadius)
             let visionY = 1.0 - pt.y
-            let afRegionRaw = CGRect(
-                x: pt.x - r,
-                y: visionY - r,
-                width: r * 2,
-                height: r * 2
-            )
+            let afRegionRaw = CGRect(x: pt.x - r, y: visionY - r, width: r * 2, height: r * 2)
             let afRegion = afRegionRaw.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
             if !afRegion.isNull, !afRegion.isEmpty {
-                let s = regionSamples(afRegion)
-                if s.count >= 64 {
-                    afScore = robustTailScore(s)
+                let a = analyzeRegion(afRegion)
+                if a.samples.count >= 64 {
+                    afScore = Self.robustTailScore(a.samples)
                     afRegionUsed = afRegion
+                    afAnalysis = a
                 }
             }
         }
 
         let effectiveSubjectScore = afScore ?? salientScore
-        let effectiveRegion = afRegionUsed ?? salientRegion
+        let effectiveAnalysis = afAnalysis ?? salientAnalysis
 
         // HARD BLUR GATE: if subject micro-detail is too low, clamp score down
-        let subjectSamples: [Float] = {
-            if let ar = afRegionUsed { return regionSamples(ar) }
-            if let sr = salientRegion { return regionSamples(sr) }
-            return []
-        }()
-        let subjectMicro = microContrast(subjectSamples)
+        let subjectMicro = effectiveAnalysis.map { Self.microContrast($0.samples) } ?? 0
         let blurGate: Float = 0.014
-        if subjectSamples.count >= 64, subjectMicro < blurGate {
+        if let ea = effectiveAnalysis, ea.samples.count >= 64, subjectMicro < blurGate {
             return max(0.01, (effectiveSubjectScore ?? fullScore ?? 0) * 0.12)
         }
 
@@ -503,13 +496,12 @@ final class FocusMaskModel: @unchecked Sendable {
             var blended = f * (1.0 - w) + s * w
 
             // Silhouette penalty
-            if let r = effectiveRegion {
-                let frac = borderEnergyFraction(r)
+            if let ea = effectiveAnalysis {
+                let frac = ea.borderFraction
                 let t: Float = 0.62
                 if frac > t {
                     let over = min(1.0, (frac - t) / (1.0 - t))
-                    let penalty = 1.0 - 0.55 * over
-                    blended *= penalty
+                    blended *= 1.0 - 0.55 * over
                 }
             }
 
