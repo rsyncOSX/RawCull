@@ -284,16 +284,26 @@ final class FocusMaskModel: @unchecked Sendable {
 
         let pixelCount = width * height
         var rgba = [Float](repeating: 0, count: pixelCount * 4)
-        context.render(boosted, toBitmap: &rgba, rowBytes: width * 16, bounds: extent, format: .RGBAf, colorSpace: nil)
+        context.render(
+            boosted,
+            toBitmap: &rgba,
+            rowBytes: width * 16,
+            bounds: extent,
+            format: .RGBAf,
+            colorSpace: nil
+        )
 
         @inline(__always)
         func redAt(_ idx: Int) -> Float { rgba[idx * 4] }
 
+        // Exclude outer border to avoid Gaussian edge artifacts
         let borderCols = max(0, Int(Float(width) * config.borderInsetFraction))
         let borderRows = max(0, Int(Float(height) * config.borderInsetFraction))
+        let innerW = max(0, width - 2 * borderCols)
+        let innerH = max(0, height - 2 * borderRows)
 
         var full = [Float]()
-        full.reserveCapacity(max(0, width - 2 * borderCols) * max(0, height - 2 * borderRows))
+        full.reserveCapacity(innerW * innerH)
         for row in borderRows ..< (height - borderRows) {
             let base = row * width
             for col in borderCols ..< (width - borderCols) {
@@ -305,8 +315,10 @@ final class FocusMaskModel: @unchecked Sendable {
         func regionSamples(_ region: CGRect) -> [Float] {
             let colStart = max(0, Int(region.minX * CGFloat(width)))
             let colEnd = min(width, Int(region.maxX * CGFloat(width)))
+            // Vision coords are bottom-left origin.
             let rowStart = max(0, Int((1.0 - region.maxY) * CGFloat(height)))
             let rowEnd = min(height, Int((1.0 - region.minY) * CGFloat(height)))
+
             guard colEnd > colStart, rowEnd > rowStart else { return [] }
 
             var out = [Float]()
@@ -368,15 +380,76 @@ final class FocusMaskModel: @unchecked Sendable {
                 sum += max(0, v - p20)
                 cnt += 1
             }
-
             guard cnt > 0 else { return max(0, p90 - p20) }
 
             let bandMean = sum / Float(cnt)
+
             let density = Float(cnt) / Float(n)
             let minDensity: Float = 0.06
             let densityFactor = min(1.0, density / minDensity)
 
             return bandMean * densityFactor
+        }
+
+        // Fraction of energy near boundary; high => silhouette-dominated
+        func borderEnergyFraction(_ region: CGRect) -> Float {
+            let colStart = max(0, Int(region.minX * CGFloat(width)))
+            let colEnd = min(width, Int(region.maxX * CGFloat(width)))
+            let rowStart = max(0, Int((1.0 - region.maxY) * CGFloat(height)))
+            let rowEnd = min(height, Int((1.0 - region.minY) * CGFloat(height)))
+            guard colEnd > colStart, rowEnd > rowStart else { return 1.0 }
+
+            let w = colEnd - colStart
+            let h = rowEnd - rowStart
+            let b = max(1, Int(0.12 * Float(min(w, h))))
+
+            var borderSum: Float = 0
+            var borderCnt = 0
+            var innerSum: Float = 0
+            var innerCnt = 0
+
+            for row in rowStart ..< rowEnd {
+                let base = row * width
+                for col in colStart ..< colEnd {
+                    let v = redAt(base + col)
+                    if !v.isFinite { continue }
+
+                    let isBorder =
+                        (col - colStart) < b || (colEnd - 1 - col) < b ||
+                        (row - rowStart) < b || (rowEnd - 1 - row) < b
+
+                    if isBorder {
+                        borderSum += v
+                        borderCnt += 1
+                    } else {
+                        innerSum += v
+                        innerCnt += 1
+                    }
+                }
+            }
+
+            guard borderCnt > 0, innerCnt > 0 else { return 1.0 }
+            let borderMean = borderSum / Float(borderCnt)
+            let innerMean = innerSum / Float(innerCnt)
+            let total = max(borderMean + innerMean, 1e-6)
+            return borderMean / total
+        }
+
+        // Micro-detail contrast (std-dev)
+        func microContrast(_ samples: [Float]) -> Float {
+            guard !samples.isEmpty else { return 0 }
+            var sum: Float = 0
+            var sum2: Float = 0
+            var n: Float = 0
+            for v in samples where v.isFinite {
+                sum += v
+                sum2 += v * v
+                n += 1
+            }
+            guard n > 1 else { return 0 }
+            let mean = sum / n
+            let varr = max(0, (sum2 / n) - mean * mean)
+            return sqrt(varr)
         }
 
         let fullScore = robustTailScore(full)
@@ -387,31 +460,70 @@ final class FocusMaskModel: @unchecked Sendable {
             if s.count >= 256 { salientScore = robustTailScore(s) }
         }
 
+        // AF-point subject score
         var afScore: Float?
+        var afRegionUsed: CGRect?
         if let pt = afPoint, config.afRegionRadius > 0 {
             let r = CGFloat(config.afRegionRadius)
             let visionY = 1.0 - pt.y
-            let afRegionRaw = CGRect(x: pt.x - r, y: visionY - r, width: r * 2, height: r * 2)
+            let afRegionRaw = CGRect(
+                x: pt.x - r,
+                y: visionY - r,
+                width: r * 2,
+                height: r * 2
+            )
             let afRegion = afRegionRaw.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
             if !afRegion.isNull, !afRegion.isEmpty {
                 let s = regionSamples(afRegion)
-                if s.count >= 64 { afScore = robustTailScore(s) }
+                if s.count >= 64 {
+                    afScore = robustTailScore(s)
+                    afRegionUsed = afRegion
+                }
             }
         }
 
         let effectiveSubjectScore = afScore ?? salientScore
+        let effectiveRegion = afRegionUsed ?? salientRegion
+
+        // HARD BLUR GATE: if subject micro-detail is too low, clamp score down
+        let subjectSamples: [Float] = {
+            if let ar = afRegionUsed { return regionSamples(ar) }
+            if let sr = salientRegion { return regionSamples(sr) }
+            return []
+        }()
+        let subjectMicro = microContrast(subjectSamples)
+        let blurGate: Float = 0.014
+        if subjectSamples.count >= 64, subjectMicro < blurGate {
+            return max(0.01, (effectiveSubjectScore ?? fullScore ?? 0) * 0.12)
+        }
 
         switch (fullScore, effectiveSubjectScore) {
         case let (f?, s?):
             let w = config.salientWeight
-            let blended = f * (1.0 - w) + s * w
-            let area = (afScore == nil ? salientRegion.map { Float($0.width * $0.height) } : nil) ?? 0
-            let sizeFactor = 1.0 + area * config.subjectSizeFactor
-            return blended * sizeFactor
+            var blended = f * (1.0 - w) + s * w
+
+            // Silhouette penalty
+            if let r = effectiveRegion {
+                let frac = borderEnergyFraction(r)
+                let t: Float = 0.62
+                if frac > t {
+                    let over = min(1.0, (frac - t) / (1.0 - t))
+                    let penalty = 1.0 - 0.55 * over
+                    blended *= penalty
+                }
+            }
+
+            // Subject-size bonus only for Vision saliency region (not AF)
+            if afRegionUsed == nil, let region = salientRegion {
+                let area = Float(region.width * region.height)
+                blended *= 1.0 + area * config.subjectSizeFactor
+            }
+
+            return blended
 
         case let (f?, nil):
-            let penalty = (1.0 - config.salientWeight)
-            return f * penalty * penalty
+            let p = (1.0 - config.salientWeight)
+            return f * p * p * p
 
         case let (nil, s?):
             return s
