@@ -18,10 +18,16 @@ struct FileItem: Identifiable, Hashable {
     let size: Int64
     let dateModified: Date
     let exifData: ExifMetadata?
+    /// Sony MakerNote AF centre point, normalised 0–1 (origin top-left). Nil when unavailable.
+    let afFocusNormalized: CGPoint?
 
     var formattedSize: String {
         ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
+
+    // CGPoint is not Hashable, so we provide explicit conformance keyed on the UUID.
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
 }
 
 /*

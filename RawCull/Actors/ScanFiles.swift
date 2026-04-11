@@ -74,14 +74,16 @@ actor ScanFiles {
                     group.addTask {
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
                         let exifData = self.extractExifData(from: fileURL)
+                        let focusStr = SonyMakerNoteParser.focusLocation(from: fileURL)
                         let fileItem = FileItem(
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
                             size: Int64(res?.fileSize ?? 0),
                             dateModified: res?.contentModificationDate ?? Date(),
                             exifData: exifData,
+                            afFocusNormalized: focusStr.flatMap { Self.parseFocusNormalized($0) },
                         )
-                        let focusPoint: DecodeFocusPoints? = SonyMakerNoteParser.focusLocation(from: fileURL).map {
+                        let focusPoint: DecodeFocusPoints? = focusStr.map {
                             DecodeFocusPoints(sourceFile: fileURL.lastPathComponent, focusLocation: $0)
                         }
                         return (fileItem, focusPoint)
@@ -135,6 +137,16 @@ actor ScanFiles {
         } else {
             return sorted.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
+    }
+
+    // MARK: - AF Point Parsing
+
+    /// Parses a Sony MakerNote focus-location string ("width height x y") into a
+    /// normalised CGPoint (origin top-left, range 0–1). Returns nil if malformed.
+    private nonisolated static func parseFocusNormalized(_ str: String) -> CGPoint? {
+        let parts = str.split(separator: " ").compactMap { Double($0) }
+        guard parts.count == 4, parts[0] > 0, parts[1] > 0 else { return nil }
+        return CGPoint(x: parts[2] / parts[0], y: parts[3] / parts[1])
     }
 
     // MARK: - EXIF Extraction

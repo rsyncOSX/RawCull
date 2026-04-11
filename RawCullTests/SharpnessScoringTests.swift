@@ -221,4 +221,41 @@ struct SharpnessScoringTests {
         print("Scored: \(scored)/\(results.count)  |  Saliency detected: \(saliencyCount)/\(results.count)")
         print(D)
     }
+
+    // MARK: - Unit tests
+
+    /// Regression test: with exactly 2 scores the p90 index formula `Int(1 * 0.90) = 0`
+    /// used to return the *minimum* score as the anchor, making both images display as 100.
+    /// After the fix, small sets (< 10) use the observed maximum instead.
+    @Test(.tags(.smoke))
+    @MainActor
+    func maxScoreSmallSetUsesMaximumNotMinimum() {
+        let model = SharpnessScoringModel()
+        // Inject two scores that mirror the failing real-world case.
+        let sharpID = UUID()
+        let softID = UUID()
+        model.scores = [sharpID: 0.1834, softID: 0.1676]
+
+        let max = model.maxScore
+        #expect(max == 0.1834, "maxScore should be the observed maximum for N=2, not the minimum")
+
+        // The soft image normalised score must be strictly below 100.
+        let softNormalised = Int((0.1676 / max) * 100)
+        #expect(softNormalised < 100, "Soft (out-of-focus) image must not score 100 when a sharper image exists")
+    }
+
+    /// Sanity check: with ≥ 10 scores the p90 path is still used (index > 0).
+    @Test(.tags(.smoke))
+    @MainActor
+    func maxScoreLargeSetUsesP90() {
+        let model = SharpnessScoringModel()
+        // 10 evenly-spaced scores from 0.10 to 1.00.
+        model.scores = Dictionary(uniqueKeysWithValues: (1 ... 10).map { i in
+            (UUID(), Float(i) * 0.10)
+        })
+        // p90 for 10 sorted values: k = Int(9 * 0.90) = 8 → sorted[8] = 0.90
+        #expect(model.maxScore == 0.90 as Float,
+                accuracy: 0.001,
+                "p90 anchor for 10 evenly-spaced scores should be 0.90")
+    }
 }

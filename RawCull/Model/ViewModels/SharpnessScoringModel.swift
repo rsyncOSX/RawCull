@@ -85,10 +85,13 @@ final class SharpnessScoringModel {
     /// p90 of all scores — used as the "100%" anchor for badge normalisation.
     /// Using p90 rather than max prevents a single noise spike from making
     /// every other image render as near-zero stars.
+    /// For fewer than 10 scores the p90 index floor-truncates to 0 (the minimum),
+    /// so we fall back to the observed maximum for small sets.
     var maxScore: Float {
         guard scores.count >= 2 else { return scores.values.first ?? 1.0 }
         var sorted = Array(scores.values)
         sorted.sort()
+        guard sorted.count >= 10 else { return max(sorted.last ?? 1e-6, 1e-6) }
         let k = Int(Float(sorted.count - 1) * 0.90)
         return max(sorted[k], 1e-6)
     }
@@ -180,10 +183,11 @@ final class SharpnessScoringModel {
                     let url = file.url
                     let id = file.id
                     let iso = file.exifData?.isoValue ?? 400
+                    let afPoint = file.afFocusNormalized
                     group.addTask(priority: .userInitiated) {
                         var fileConfig = config
                         fileConfig.iso = iso
-                        let result = await model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize)
+                        let result = await model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize, afPoint: afPoint)
                         return (id, result.score, result.saliency)
                     }
                     active += 1
@@ -214,10 +218,11 @@ final class SharpnessScoringModel {
                         let url = file.url
                         let id = file.id
                         let iso = file.exifData?.isoValue ?? 400
+                        let afPoint = file.afFocusNormalized
                         group.addTask(priority: .userInitiated) {
                             var fileConfig = config
                             fileConfig.iso = iso
-                            let result = await model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize)
+                            let result = await model.computeSharpnessScore(fromRawURL: url, config: fileConfig, thumbnailMaxPixelSize: thumbSize, afPoint: afPoint)
                             return (id, result.score, result.saliency)
                         }
                         active += 1

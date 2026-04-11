@@ -47,6 +47,11 @@ struct FocusDetectorConfig {
     /// populate the subject badge on each thumbnail. Adds ~10–20% scoring time.
     /// Disable for faster re-scores when the badge label is not needed.
     var enableSubjectClassification: Bool = true
+
+    /// Half-size of the AF-point scoring region as a fraction of the longest image
+    /// dimension. 0.12 gives a 24 % × 24 % square centred on the Sony MakerNote AF
+    /// point. Set to 0 to disable AF-point weighting.
+    var afRegionRadius: Float = 0.12
 }
 
 // Explicit nonisolated conformance so the @Observable macro's change-tracking
@@ -68,6 +73,7 @@ extension FocusDetectorConfig: Equatable {
             && lhs.salientWeight == rhs.salientWeight
             && lhs.subjectSizeFactor == rhs.subjectSizeFactor
             && lhs.enableSubjectClassification == rhs.enableSubjectClassification
+            && lhs.afRegionRadius == rhs.afRegionRadius
     }
 }
 
@@ -135,10 +141,16 @@ final class FocusMaskModel: @unchecked Sendable {
     /// Computes scalar sharpness from fast thumbnail path, with full-decode fallback.
     /// Also runs saliency + subject classification in the same Vision pass.
     /// Returned score is relative; compare within same burst/session.
+    ///
+    /// - Parameter afPoint: Sony MakerNote AF centre, normalised 0–1 origin top-left.
+    ///   When provided the AF region score replaces the Vision saliency score so that
+    ///   sharpness is evaluated at the camera's intended focus point rather than the
+    ///   Vision-detected subject bounding box (which may include motion-blurred wing tips).
     nonisolated func computeSharpnessScore(
         fromRawURL url: URL,
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
+        afPoint: CGPoint? = nil,
     ) async -> (score: Float?, saliency: SaliencyInfo?) {
         let cgImage: CGImage? = await Task.detached(priority: .userInitiated) {
             Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize)
@@ -151,6 +163,7 @@ final class FocusMaskModel: @unchecked Sendable {
         let score = Self.computeSharpnessScalar(
             from: CIImage(cgImage: cgImage),
             salientRegion: region,
+            afPoint: afPoint,
             context: context,
             config: config,
         )
@@ -279,10 +292,13 @@ final class FocusMaskModel: @unchecked Sendable {
 
     /// Robust scalar sharpness:
     /// blur -> Laplacian -> amplify -> robust tail score.
-    /// Computes both full-frame and salient-region score, then fuses conservatively.
+    /// Computes full-frame, salient-region, and (when available) AF-point scores,
+    /// then fuses them. AF-point score replaces the Vision saliency score when present
+    /// so that sharpness is measured at the camera's intended focus location.
     private nonisolated static func computeSharpnessScalar(
         from inputImage: CIImage,
         salientRegion: CGRect?,
+        afPoint: CGPoint?,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> Float? {
@@ -407,14 +423,41 @@ final class FocusMaskModel: @unchecked Sendable {
             }
         }
 
-        // Weighted fusion: salientWeight controls how much the subject region
-        // drives the score vs the full frame. A subject-size factor gives a
-        // proportional bonus for frame-filling subjects.
-        switch (fullScore, salientScore) {
+        // AF-point score: evaluate sharpness at the camera's intended focus location
+        // rather than the Vision bounding box (which includes motion-blurred wing tips).
+        // The AF point (top-left origin) is converted to Vision space (bottom-left origin)
+        // before being passed to regionSamples(), which expects Vision coordinates.
+        var afScore: Float?
+        if let pt = afPoint, config.afRegionRadius > 0 {
+            let r = CGFloat(config.afRegionRadius)
+            // Flip Y: AF origin is top-left; Vision origin is bottom-left.
+            let visionY = 1.0 - pt.y
+            let afRegion = CGRect(
+                x: pt.x - r,
+                y: visionY - r,
+                width: r * 2,
+                height: r * 2,
+            )
+            let s = regionSamples(afRegion)
+            if s.count >= 64 {
+                afScore = robustTailScore(s)
+            }
+        }
+
+        // Weighted fusion.
+        // When an AF score is available it replaces the Vision saliency score —
+        // the AF region is precisely where the camera tried to focus, which gives
+        // much stronger discrimination between in-focus and out-of-focus shots than
+        // the broader Vision bounding box.
+        let effectiveSubjectScore = afScore ?? salientScore
+
+        switch (fullScore, effectiveSubjectScore) {
         case let (f?, s?):
             let w = config.salientWeight
             let blended = f * (1.0 - w) + s * w
-            let area = salientRegion.map { Float($0.width * $0.height) } ?? 0
+            // Size bonus only applies when Vision detected a salient region (AF regions
+            // are a fixed radius and shouldn't inflate scores for large subjects).
+            let area = (afScore == nil ? salientRegion.map { Float($0.width * $0.height) } : nil) ?? 0
             let sizeFactor = 1.0 + area * config.subjectSizeFactor
             return blended * sizeFactor
 
@@ -659,6 +702,7 @@ extension FocusMaskModel {
                     return Self.computeSharpnessScalar(
                         from: CIImage(cgImage: cgImage),
                         salientRegion: region,
+                        afPoint: nil,
                         context: ctx,
                         config: fileConfig,
                     )
@@ -686,6 +730,7 @@ extension FocusMaskModel {
                         return Self.computeSharpnessScalar(
                             from: CIImage(cgImage: cgImage),
                             salientRegion: region,
+                            afPoint: nil,
                             context: ctx,
                             config: fileConfig,
                         )
