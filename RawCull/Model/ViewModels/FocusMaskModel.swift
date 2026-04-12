@@ -167,28 +167,20 @@ final class FocusMaskModel: @unchecked Sendable {
         afPoint: CGPoint? = nil
     ) async -> (score: Float?, saliency: SaliencyInfo?) {
         return await Task.detached(priority: .userInitiated) { [context] in
-            let name = url.lastPathComponent
-            print("[sharpness] \(name) — binary fallback start (maxPx: \(thumbnailMaxPixelSize))")
             let binaryImg = Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
 
             let cgImage: CGImage
             if let img = binaryImg {
-                print("[sharpness] \(name) — binary fallback OK \(img.width)×\(img.height)")
                 cgImage = img
             } else {
-                print("[sharpness] \(name) — binary fallback nil, trying ImageIO")
                 guard let img = Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) else {
-                    print("[sharpness] \(name) — both decode paths nil")
                     return (nil, nil)
                 }
-                print("[sharpness] \(name) — ImageIO OK \(img.width)×\(img.height)")
                 cgImage = img
             }
 
-            print("[sharpness] \(name) — saliency start")
             let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
                 for: cgImage, classify: config.enableSubjectClassification)
-            print("[sharpness] \(name) — saliency done, Metal scoring start")
             let score = Self.computeSharpnessScalar(
                 from: CIImage(cgImage: cgImage),
                 salientRegion: region,
@@ -196,7 +188,6 @@ final class FocusMaskModel: @unchecked Sendable {
                 context: context,
                 config: config
             )
-            print("[sharpness] \(name) — done, score: \(score.map { String(format: "%.4f", $0) } ?? "nil")")
             return (score, saliencyInfo)
         }.value
     }
@@ -245,7 +236,7 @@ final class FocusMaskModel: @unchecked Sendable {
             kCGImageSourceShouldCacheImmediately: true
         ]
         guard let raw = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
-        print("[decode] \(url.lastPathComponent) raw CGImage: \(raw.width)×\(raw.height)  bpc:\(raw.bitsPerComponent)  colorSpace:\(raw.colorSpace?.name as String? ?? "nil")  alphaInfo:\(raw.alphaInfo.rawValue)")
+
         return Self.normalizeToSRGB(raw)
     }
 
@@ -386,20 +377,14 @@ final class FocusMaskModel: @unchecked Sendable {
         context: CIContext,
         config: FocusDetectorConfig
     ) -> Float? {
-        print("[scalar] inputImage extent: \(inputImage.extent)")
-        guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else {
-            print("[scalar] buildAmplifiedLaplacian returned nil")
-            return nil
-        }
+        guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
 
         let extent = boosted.extent
         let width = Int(extent.width)
         let height = Int(extent.height)
-        print("[scalar] boosted extent: \(extent)  width:\(width) height:\(height)")
         guard width > 0, height > 0 else { return nil }
 
         let pixelCount = width * height
-        print("[scalar] allocating \(pixelCount * 4) floats, about to render")
         var rgba = [Float](repeating: 0, count: pixelCount * 4)
         context.render(
             boosted,
@@ -409,7 +394,6 @@ final class FocusMaskModel: @unchecked Sendable {
             format: .RGBAf,
             colorSpace: nil
         )
-        print("[scalar] render complete")
 
         @inline(__always)
         func redAt(_ idx: Int) -> Float { rgba[idx * 4] }
