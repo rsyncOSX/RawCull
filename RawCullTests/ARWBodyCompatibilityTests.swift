@@ -49,7 +49,7 @@ private func arwURLs(in path: String) -> [URL] {
 
 private func decodeThumbnail(from url: URL, maxPx: Int) -> CGImage? {
     let options: [CFString: Any] = [
-        kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+        kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
         kCGImageSourceCreateThumbnailFromImageAlways: false,
         kCGImageSourceCreateThumbnailWithTransform: true,
         kCGImageSourceThumbnailMaxPixelSize: maxPx,

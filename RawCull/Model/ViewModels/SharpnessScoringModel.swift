@@ -96,6 +96,7 @@ final class SharpnessScoringModel {
     }
 
     func calibrateFromBurst(_ files: [FileItem]) async {
+        print("[calib] calibrateFromBurst START — \(files.count) files, thumbPx: \(thumbnailMaxPixelSize)")
         isCalibratingSharpnessScoring = true
         let fileEntries = files.map { (url: $0.url, iso: $0.exifData?.isoValue) }
 
@@ -105,11 +106,13 @@ final class SharpnessScoringModel {
             minSamples: 5,
             maxConcurrentTasks: 8
         ) else {
+            print("[calib] calibrateFromBurst FAILED (too few samples)")
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
             isCalibratingSharpnessScoring = false
             return
         }
 
+        print("[calib] calibrateFromBurst DONE — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
         Logger.process.debugMessageOnly("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
         Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
         isCalibratingSharpnessScoring = false

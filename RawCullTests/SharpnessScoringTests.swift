@@ -40,7 +40,7 @@ private func arwURLs(in path: String) -> [URL] {
 /// Uses the same CGImageSource options as `FocusMaskModel.decodeThumbnail`.
 private func decodeThumbnailSize(url: URL, maxPx: Int) -> (width: Int, height: Int)? {
     let options: [CFString: Any] = [
-        kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+        kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
         kCGImageSourceCreateThumbnailFromImageAlways: false,
         kCGImageSourceCreateThumbnailWithTransform: true,
         kCGImageSourceThumbnailMaxPixelSize: maxPx,
