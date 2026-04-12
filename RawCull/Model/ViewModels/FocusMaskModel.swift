@@ -1,3 +1,4 @@
+import Accelerate
 import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
@@ -323,31 +324,6 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Numeric helpers
 
-    @inline(__always)
-    private nonisolated static func partition(_ a: inout [Float], lo: Int, hi: Int, p: Int) -> Int {
-        let pivot = a[p]
-        a.swapAt(p, hi)
-        var store = lo
-        for i in lo ..< hi where a[i] < pivot {
-            a.swapAt(store, i)
-            store += 1
-        }
-        a.swapAt(store, hi)
-        return store
-    }
-
-    private nonisolated static func quickselect(_ a: inout [Float], k: Int) -> Float {
-        var lo = 0
-        var hi = a.count - 1
-        while true {
-            if lo == hi { return a[lo] }
-            let pivotIndex = (lo + hi) >> 1
-            let p = partition(&a, lo: lo, hi: hi, p: pivotIndex)
-            if k == p { return a[k] }
-            if k < p { hi = p - 1 } else { lo = p + 1 }
-        }
-    }
-
     /// p90–p97 band mean relative to the p20 noise floor, penalized when fewer
     /// than 6% of pixels land in the band (sparse edges → likely out-of-focus).
     nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
@@ -355,13 +331,18 @@ final class FocusMaskModel: @unchecked Sendable {
         var a = samples
         let n = a.count
 
-        func k(_ p: Float) -> Int {
-            min(max(Int(Float(n - 1) * p), 0), n - 1)
+        // Accelerate SIMD sort: O(n log n), no worst-case O(n²) for equal-value inputs.
+        // The previous quickselect with median-of-one pivot was O(n²) when the Laplacian
+        // output is heavily zero-biased (blurry/out-of-focus images at high ISO).
+        vDSP.sort(&a, sortOrder: .ascending)
+
+        func p(_ frac: Float) -> Float {
+            a[min(max(Int(Float(n - 1) * frac), 0), n - 1)]
         }
 
-        let p20 = quickselect(&a, k: k(0.20))
-        let p90 = quickselect(&a, k: k(0.90))
-        let p97 = quickselect(&a, k: k(0.97))
+        let p20 = p(0.20)
+        let p90 = p(0.90)
+        let p97 = p(0.97)
 
         if p97 <= p90 { return max(0, p90 - p20) }
 
