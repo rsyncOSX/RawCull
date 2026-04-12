@@ -5,9 +5,6 @@ struct RawCullDetailContainerView: View {
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
     @Binding var selectedFileID: FileItem.ID?
-    @Binding var scale: CGFloat
-    @Binding var lastScale: CGFloat
-    @Binding var offset: CGSize
     let handleToggleSelection: (FileItem) -> Void
     let abort: () -> Void
 
@@ -17,9 +14,6 @@ struct RawCullDetailContainerView: View {
             cgImage: $cgImage,
             nsImage: $nsImage,
             selectedFileID: $selectedFileID,
-            scale: $scale,
-            lastScale: $lastScale,
-            offset: $offset,
             file: viewModel.selectedFile,
         )
 

@@ -7,10 +7,6 @@ struct MainThumbnailImageView: View {
         viewModel.getFocusPoints()
     }
 
-    @Binding var scale: CGFloat
-    @Binding var lastScale: CGFloat
-    @Binding var offset: CGSize
-
     let url: URL
     let file: FileItem?
 
@@ -48,23 +44,23 @@ struct MainThumbnailImageView: View {
                                 contentMode: .fit,
                                 image: $image,
                             )
-                            .scaleEffect(scale)
-                            .offset(offset)
+                            .scaleEffect(viewModel.scale)
+                            .offset(viewModel.offset)
                             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
                             .gesture(
                                 MagnifyGesture()
                                     .onChanged { value in
-                                        scale = lastScale * value.magnification
+                                        viewModel.scale = viewModel.lastScale * value.magnification
                                     }
                                     .onEnded { _ in
-                                        lastScale = scale
+                                        viewModel.lastScale = viewModel.scale
                                     },
                             )
                             .simultaneousGesture(
                                 DragGesture()
                                     .onChanged { value in
-                                        if scale > 1.0 {
-                                            offset = CGSize(
+                                        if viewModel.scale > 1.0 {
+                                            viewModel.offset = CGSize(
                                                 width: value.translation.width,
                                                 height: value.translation.height,
                                             )
@@ -80,8 +76,8 @@ struct MainThumbnailImageView: View {
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: geo.size.width, height: geo.size.height)
-                                    .scaleEffect(scale)
-                                    .offset(offset)
+                                    .scaleEffect(viewModel.scale)
+                                    .offset(viewModel.offset)
                                     .blendMode(.screen)
                                     .opacity(overlayOpacity)
                                     .allowsHitTesting(false)
@@ -95,8 +91,8 @@ struct MainThumbnailImageView: View {
                                     imageSize: image?.size,
                                     markerSize: markerSize,
                                 )
-                                .scaleEffect(scale)
-                                .offset(offset)
+                                .scaleEffect(viewModel.scale)
+                                .offset(viewModel.offset)
                                 .allowsHitTesting(false)
                                 .transition(.opacity.combined(with: .blurReplace))
                             }
@@ -150,15 +146,15 @@ struct MainThumbnailImageView: View {
                             switch press.characters {
                             case "+":
                                 withAnimation(.spring()) {
-                                    scale = min(4.0, scale + 0.2)
-                                    lastScale = scale
+                                    viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                    viewModel.lastScale = viewModel.scale
                                 }
                                 return .handled
 
                             case "-":
                                 withAnimation(.spring()) {
-                                    scale = max(0.5, scale - 0.2)
-                                    lastScale = scale
+                                    viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                    viewModel.lastScale = viewModel.scale
                                 }
                                 return .handled
 

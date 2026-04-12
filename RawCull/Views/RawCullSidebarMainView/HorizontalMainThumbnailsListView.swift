@@ -16,9 +16,6 @@ struct HorizontalMainThumbnailsListView: View {
 
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
-    @Binding var scale: CGFloat
-    @Binding var lastScale: CGFloat
-    @Binding var offset: CGSize
 
     @State var showInspector: Bool = true
     @State var showGridThumbnail: Bool = false
@@ -37,9 +34,6 @@ struct HorizontalMainThumbnailsListView: View {
             if let file = viewModel.selectedFile {
                 VStack(spacing: 20) {
                     MainThumbnailImageView(
-                        scale: $scale,
-                        lastScale: $lastScale,
-                        offset: $offset,
                         url: file.url,
                         file: file,
                     )

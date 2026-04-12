@@ -29,9 +29,6 @@ struct RawCullMainView: View {
                     showhorizontalvertical: $showhorizontalthumbnailview,
                     cgImage: $cgImage,
                     nsImage: $nsImage,
-                    scale: $viewModel.scale,
-                    lastScale: $viewModel.lastScale,
-                    offset: $viewModel.offset,
                 )
                 .sheet(isPresented: $viewModel.showcopyARWFilesView) {
                     CopyARWFilesView(
@@ -120,9 +117,6 @@ struct RawCullMainView: View {
                         cgImage: $cgImage,
                         nsImage: $nsImage,
                         selectedFileID: $viewModel.selectedFileID,
-                        scale: $viewModel.scale,
-                        lastScale: $viewModel.lastScale,
-                        offset: $viewModel.offset,
                         handleToggleSelection: handleToggleSelection,
                         abort: abort,
                     )

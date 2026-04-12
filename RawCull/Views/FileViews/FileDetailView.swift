@@ -7,9 +7,6 @@ struct FileDetailView: View {
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
     @Binding var selectedFileID: UUID?
-    @Binding var scale: CGFloat
-    @Binding var lastScale: CGFloat
-    @Binding var offset: CGSize
 
     let file: FileItem?
 
@@ -17,9 +14,6 @@ struct FileDetailView: View {
         if let file {
             VStack(spacing: 20) {
                 MainThumbnailImageView(
-                    scale: $scale,
-                    lastScale: $lastScale,
-                    offset: $offset,
                     url: file.url,
                     file: file,
                 )
