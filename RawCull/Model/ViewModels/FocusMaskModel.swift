@@ -165,21 +165,22 @@ final class FocusMaskModel: @unchecked Sendable {
         thumbnailMaxPixelSize: Int = 512,
         afPoint: CGPoint? = nil
     ) async -> (score: Float?, saliency: SaliencyInfo?) {
-        let cgImage: CGImage? = await Task.detached(priority: .userInitiated) {
-            Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) ?? Self.decodeImage(at: url)
+        return await Task.detached(priority: .userInitiated) { [context] in
+            guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize)
+                                ?? Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
+            else { return (nil, nil) }
+
+            let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
+                for: cgImage, classify: config.enableSubjectClassification)
+            let score = Self.computeSharpnessScalar(
+                from: CIImage(cgImage: cgImage),
+                salientRegion: region,
+                afPoint: afPoint,
+                context: context,
+                config: config
+            )
+            return (score, saliencyInfo)
         }.value
-
-        guard let cgImage else { return (nil, nil) }
-
-        let (region, saliencyInfo) = Self.detectSaliencyAndClassify(for: cgImage, classify: config.enableSubjectClassification)
-        let score = Self.computeSharpnessScalar(
-            from: CIImage(cgImage: cgImage),
-            salientRegion: region,
-            afPoint: afPoint,
-            context: context,
-            config: config
-        )
-        return (score, saliencyInfo)
     }
 
     // MARK: - Decode helpers
@@ -200,13 +201,32 @@ final class FocusMaskModel: @unchecked Sendable {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
 
         let thumbOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
             kCGImageSourceCreateThumbnailFromImageAlways: false,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
             kCGImageSourceShouldCacheImmediately: true
         ]
         return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+    }
+
+    /// Binary fallback for ARW 6.0 (RA16) files where CGImageSourceCreateThumbnailAtIndex
+    /// returns nil. Reads the embedded JPEG directly from the file bytes via
+    /// SonyMakerNoteParser, bypassing the RA16 decoder entirely.
+    private nonisolated static func decodeBinaryFallback(at url: URL, maxPixelSize: Int) -> CGImage? {
+        guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
+              let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
+              let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
+              let src = CGImageSourceCreateWithData(data as CFData, nil)
+        else { return nil }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
     }
 
     // MARK: - Saliency
@@ -705,7 +725,7 @@ extension FocusMaskModel {
                     var fileConfig = baseConfig
                     fileConfig.energyMultiplier = 1.0
                     fileConfig.iso = entry.iso ?? 400
-                    guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else { return nil }
+                    guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeBinaryFallback(at: entry.url, maxPixelSize: tSize) else { return nil }
                     let (region, _) = Self.detectSaliencyAndClassify(for: cgImage, classify: false)
                     return Self.computeSharpnessScalar(from: CIImage(cgImage: cgImage), salientRegion: region, afPoint: nil, context: ctx, config: fileConfig)
                 }
@@ -722,7 +742,7 @@ extension FocusMaskModel {
                         var fileConfig = baseConfig
                         fileConfig.energyMultiplier = 1.0
                         fileConfig.iso = entry.iso ?? 400
-                        guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeImage(at: entry.url) else { return nil }
+                        guard let cgImage = Self.decodeThumbnail(at: entry.url, maxPixelSize: tSize) ?? Self.decodeBinaryFallback(at: entry.url, maxPixelSize: tSize) else { return nil }
                         let (region, _) = Self.detectSaliencyAndClassify(for: cgImage, classify: false)
                         return Self.computeSharpnessScalar(from: CIImage(cgImage: cgImage), salientRegion: region, afPoint: nil, context: ctx, config: fileConfig)
                     }
