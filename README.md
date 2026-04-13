@@ -31,7 +31,7 @@ The following Sony bodies successfully extract EXIF, focus points, sharpness, an
 
 ## Version
 
-Current version: v1.4.6 - released April 11, 2026. 
+Current version: v1.4.8 - released April 13, 2026. 
 
 ## Documentation
 
