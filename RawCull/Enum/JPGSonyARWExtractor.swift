@@ -20,7 +20,7 @@ enum JPGSonyARWExtractor {
         return await withCheckedContinuation { (continuation: CheckedContinuation<CGImage?, Never>) in
             // Dispatch to GCD to prevent Thread Pool Starvation
             DispatchQueue.global(qos: .utility).async {
-                let result: CGImage? = autoreleasepool {
+                let imageIOResult: CGImage? = autoreleasepool {
                     guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
                         Logger.process.warning("PreviewExtractor: Failed to create image source")
                         return nil
@@ -55,7 +55,7 @@ enum JPGSonyARWExtractor {
                         }
                     }
 
-                    var decoded: CGImage?
+                    var image: CGImage?
 
                     if targetIndex != -1 {
                         let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
@@ -69,7 +69,7 @@ enum JPGSonyARWExtractor {
                                 kCGImageSourceCreateThumbnailWithTransform: true,
                                 kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
                             ]
-                            decoded = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
+                            image = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
                         } else {
                             Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
 
@@ -77,20 +77,20 @@ enum JPGSonyARWExtractor {
                                 kCGImageSourceShouldCache: true,
                                 kCGImageSourceShouldCacheImmediately: true
                             ]
-                            decoded = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
+                            image = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
                         }
                     } else {
                         Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
                     }
 
-                    return decoded
+                    return image
                 }
 
                 // Binary fallback for ARW 6.0 (RA16 decoder unsupported on this macOS version).
                 // Reads the embedded full-resolution JPEG directly from the raw file bytes,
                 // bypassing the RA16 decoder entirely.
                 let finalResult: CGImage?
-                if result == nil {
+                if imageIOResult == nil {
                     finalResult = autoreleasepool {
                         Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
                     }
@@ -98,7 +98,7 @@ enum JPGSonyARWExtractor {
                         Logger.process.warning("PreviewExtractor: Binary fallback also failed for \(arwURL.lastPathComponent)")
                     }
                 } else {
-                    finalResult = result
+                    finalResult = imageIOResult
                 }
 
                 continuation.resume(returning: finalResult)
