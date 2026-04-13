@@ -2,7 +2,7 @@
 
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
-macOS photo review and selection application for Sony A1 mkI and mkII ARW raw files. This is a build for Apple Silicon only.
+RawCull is macOS photo review and selection application for Sony ILCE-1, ILCE-1M2 (Sony A1) and ILCE-7M5 (Sony A7V5) ARW raw files. This is a build for Apple Silicon only.
 
 ## Requirements
 
