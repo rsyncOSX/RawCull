@@ -86,7 +86,8 @@ struct FileTableRowView: View {
 
                 let file = viewModel.files[index]
                 if viewModel.zoomCGImageWindowFocused || viewModel.zoomNSImageWindowFocused {
-                    ZoomPreviewHandler.handle(
+                    viewModel.zoomExtractionTask?.cancel()
+                    viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
                         file: file,
                         useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                         setNSImage: { nsImage = $0 },
@@ -101,7 +102,8 @@ struct FileTableRowView: View {
             guard let selectedID = viewModel.selectedFileID,
                   let file = viewModel.files.first(where: { $0.id == selectedID }) else { return }
 
-            ZoomPreviewHandler.handle(
+            viewModel.zoomExtractionTask?.cancel()
+            viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
                 file: file,
                 useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                 setNSImage: { nsImage = $0 },
@@ -113,7 +115,8 @@ struct FileTableRowView: View {
             guard let selectedID = viewModel.selectedFileID,
                   let file = viewModel.files.first(where: { $0.id == selectedID }) else { return .handled }
 
-            ZoomPreviewHandler.handle(
+            viewModel.zoomExtractionTask?.cancel()
+            viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
                 file: file,
                 useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                 setNSImage: { nsImage = $0 },

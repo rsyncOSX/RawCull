@@ -97,6 +97,9 @@ final class RawCullViewModel {
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
     var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
     var preloadTask: Task<Void, Never>?
+    /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
+    /// Cancelled when the zoom window closes or a new file is opened for zoom.
+    var zoomExtractionTask: Task<Void, Never>?
 
     // MARK: - Computed
 

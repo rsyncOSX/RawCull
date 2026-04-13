@@ -23,7 +23,8 @@ struct FileDetailView: View {
                 guard let selectedID = selectedFileID,
                       let file = files.first(where: { $0.id == selectedID }) else { return }
 
-                ZoomPreviewHandler.handle(
+                viewModel.zoomExtractionTask?.cancel()
+                viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
                     file: file,
                     useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
                     setNSImage: { nsImage = $0 },

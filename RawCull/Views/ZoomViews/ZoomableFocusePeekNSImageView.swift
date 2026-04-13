@@ -104,9 +104,15 @@ struct ZoomableFocusePeekNSImageView: View {
             }
         }
         .onAppear { isImageFocused = false }
+        .onDisappear {
+            maskTask?.cancel()
+            maskTask = nil
+            focusMask = nil
+        }
         .task(id: nsImage) {
             if let nsImage {
                 let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: nsImage, scale: 1.0)
+                guard !Task.isCancelled else { return }
                 await MainActor.run { self.focusMask = mask }
             }
         }
@@ -142,6 +148,7 @@ struct ZoomableFocusePeekNSImageView: View {
     private func regenerateMask() async {
         guard let nsImage else { return }
         let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: nsImage, scale: 1.0)
+        guard !Task.isCancelled else { return }
         await MainActor.run { self.focusMask = mask }
     }
 
