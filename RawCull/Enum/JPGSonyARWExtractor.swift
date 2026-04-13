@@ -73,12 +73,20 @@ enum JPGSonyARWExtractor {
                         } else {
                             Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
 
+                            // kCGImageSourceShouldCache: false prevents ImageIO from retaining
+                            // a decoded pixel buffer in its process-level internal cache.
+                            // That cache is not subject to ARC or autoreleasepool draining, so
+                            // leaving it enabled caused memory to stay elevated after the zoom
+                            // window closed even though cgImage was set to nil.
                             let decodeOptions: [CFString: Any] = [
-                                kCGImageSourceShouldCache: true,
-                                kCGImageSourceShouldCacheImmediately: true
+                                kCGImageSourceShouldCache: false
                             ]
                             image = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
                         }
+
+                        // Explicitly evict any residual ImageIO cache entry for this index
+                        // so the decoded pixel data is freed when imageSource is released.
+                        CGImageSourceRemoveCacheAtIndex(imageSource, targetIndex)
                     } else {
                         Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
                     }

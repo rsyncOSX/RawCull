@@ -54,8 +54,6 @@ final class RawCullViewModel {
     // Zoom window state
     var zoomCGImageWindowFocused: Bool = false
     var zoomNSImageWindowFocused: Bool = false
-    var pendingCGImageUpdate: CGImage?
-    var pendingNSImageUpdate: NSImage?
 
     // Thumbnail preview zoom state
     var scale: CGFloat = 1.0
