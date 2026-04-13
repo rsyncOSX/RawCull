@@ -20,81 +20,88 @@ enum JPGSonyARWExtractor {
         return await withCheckedContinuation { (continuation: CheckedContinuation<CGImage?, Never>) in
             // Dispatch to GCD to prevent Thread Pool Starvation
             DispatchQueue.global(qos: .utility).async {
-
-                guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
-                    Logger.process.warning("PreviewExtractor: Failed to create image source")
-                    continuation.resume(returning: nil)
-                    return
-                }
-
-                let imageCount = CGImageSourceGetCount(imageSource)
-                var targetIndex: Int = -1
-                var targetWidth = 0
-
-                // 1. Find the LARGEST JPEG available
-                for index in 0 ..< imageCount {
-                    guard let properties = CGImageSourceCopyPropertiesAtIndex(
-                        imageSource,
-                        index,
-                        nil,
-                    ) as? [CFString: Any]
-                    else {
-                        Logger.process.debugMessageOnly("enum: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
-                        continue
+                let result: CGImage? = autoreleasepool {
+                    guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
+                        Logger.process.warning("PreviewExtractor: Failed to create image source")
+                        return nil
                     }
 
-                    let hasJFIF = (properties[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
-                    let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
-                    let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
-                    let isJPEG = hasJFIF || (compression == 6)
+                    let imageCount = CGImageSourceGetCount(imageSource)
+                    var targetIndex: Int = -1
+                    var targetWidth = 0
 
-                    if let width = getWidth(from: properties) {
-                        if isJPEG, width > targetWidth {
-                            targetWidth = width
-                            targetIndex = index
+                    // 1. Find the LARGEST JPEG available
+                    for index in 0 ..< imageCount {
+                        guard let properties = CGImageSourceCopyPropertiesAtIndex(
+                            imageSource,
+                            index,
+                            nil,
+                        ) as? [CFString: Any]
+                        else {
+                            Logger.process.debugMessageOnly("enum: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
+                            continue
+                        }
+
+                        let hasJFIF = (properties[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
+                        let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+                        let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
+                        let isJPEG = hasJFIF || (compression == 6)
+
+                        if let width = getWidth(from: properties) {
+                            if isJPEG, width > targetWidth {
+                                targetWidth = width
+                                targetIndex = index
+                            }
                         }
                     }
-                }
 
-                var result: CGImage?
+                    var decoded: CGImage?
 
-                if targetIndex != -1 {
-                    let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
+                    if targetIndex != -1 {
+                        let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
 
-                    // 2. Decode & Downsample using ImageIO directly
-                    if requiresDownsampling {
-                        Logger.process.info("PreviewExtractor: Native downsampling to \(maxThumbnailSize)px")
+                        // 2. Decode & Downsample using ImageIO directly
+                        if requiresDownsampling {
+                            Logger.process.info("PreviewExtractor: Native downsampling to \(maxThumbnailSize)px")
 
-                        let options: [CFString: Any] = [
-                            kCGImageSourceCreateThumbnailFromImageAlways: true,
-                            kCGImageSourceCreateThumbnailWithTransform: true,
-                            kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
-                        ]
-                        result = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
+                            let options: [CFString: Any] = [
+                                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                                kCGImageSourceCreateThumbnailWithTransform: true,
+                                kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
+                            ]
+                            decoded = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
+                        } else {
+                            Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
+
+                            let decodeOptions: [CFString: Any] = [
+                                kCGImageSourceShouldCache: true,
+                                kCGImageSourceShouldCacheImmediately: true
+                            ]
+                            decoded = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
+                        }
                     } else {
-                        Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
-
-                        let decodeOptions: [CFString: Any] = [
-                            kCGImageSourceShouldCache: true,
-                            kCGImageSourceShouldCacheImmediately: true
-                        ]
-                        result = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
+                        Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
                     }
-                } else {
-                    Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
+
+                    return decoded
                 }
 
                 // Binary fallback for ARW 6.0 (RA16 decoder unsupported on this macOS version).
                 // Reads the embedded full-resolution JPEG directly from the raw file bytes,
                 // bypassing the RA16 decoder entirely.
+                let finalResult: CGImage?
                 if result == nil {
-                    result = Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
-                    if result == nil {
+                    finalResult = autoreleasepool {
+                        Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
+                    }
+                    if finalResult == nil {
                         Logger.process.warning("PreviewExtractor: Binary fallback also failed for \(arwURL.lastPathComponent)")
                     }
+                } else {
+                    finalResult = result
                 }
 
-                continuation.resume(returning: result)
+                continuation.resume(returning: finalResult)
             }
         }
     }
