@@ -14,7 +14,7 @@ enum ZoomPreviewHandler {
     static func handle(
         file: FileItem,
         useThumbnailAsZoomPreview: Bool = false,
-        thumbnailSizePreview: Int = 2048,
+        thumbnailSizePreview: Int = 1616,
         setNSImage: @escaping (NSImage?) -> Void,
         setCGImage: @escaping (CGImage?) -> Void,
         openWindow: @escaping (String) -> Void,

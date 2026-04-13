@@ -63,7 +63,7 @@ struct ThumbnailSizesTab: View {
                                 get: { Double(settingsManager.thumbnailSizePreview) },
                                 set: { settingsManager.thumbnailSizePreview = Int($0) },
                             ),
-                            range: 1024 ... 2048,
+                            range: 1024 ... 1664,
                             step: 128,
                         )
 
