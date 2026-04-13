@@ -83,11 +83,20 @@ enum ZoomPreviewHandler {
 
     private static func loadCGImage(from url: URL) -> CGImage? {
         autoreleasepool {
-            guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil)
-            else {
+            // Disable source-level AND decode-level ImageIO caching. Without this, ImageIO
+            // retains the decoded pixel buffer (~188 MB for a 50 MP JPEG) in a process-level
+            // cache that is NOT subject to ARC or autoreleasepool drain — setting cgImage = nil
+            // in onDisappear does not free it. CGImageSourceRemoveCacheAtIndex then acts as a
+            // belt-and-suspenders eviction before imageSource goes out of scope.
+            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
                 return nil
             }
+            let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
+                return nil
+            }
+            CGImageSourceRemoveCacheAtIndex(imageSource, 0)
             return cgImage
         }
     }

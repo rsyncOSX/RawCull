@@ -21,7 +21,15 @@ enum JPGSonyARWExtractor {
             // Dispatch to GCD to prevent Thread Pool Starvation
             DispatchQueue.global(qos: .utility).async {
                 let imageIOResult: CGImage? = autoreleasepool {
-                    guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, nil) else {
+                    // kCGImageSourceShouldCache: false on the SOURCE prevents ImageIO from
+                    // building a process-level cache for the ARW file itself. Without this,
+                    // calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW sensor
+                    // data sub-image can cause ImageIO to initialise its RA16 decoder and
+                    // allocate hundreds of MB that persist well after the imageSource is
+                    // released, because they are held in ImageIO's own internal cache rather
+                    // than being owned by the CGImageSource object.
+                    let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+                    guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, sourceOptions) else {
                         Logger.process.warning("PreviewExtractor: Failed to create image source")
                         return nil
                     }
@@ -73,22 +81,25 @@ enum JPGSonyARWExtractor {
                         } else {
                             Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
 
-                            // kCGImageSourceShouldCache: false prevents ImageIO from retaining
-                            // a decoded pixel buffer in its process-level internal cache.
-                            // That cache is not subject to ARC or autoreleasepool draining, so
-                            // leaving it enabled caused memory to stay elevated after the zoom
-                            // window closed even though cgImage was set to nil.
-                            let decodeOptions: [CFString: Any] = [
-                                kCGImageSourceShouldCache: false
-                            ]
-                            image = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions as CFDictionary)
+                            // kCGImageSourceShouldCache: false on the decode call prevents
+                            // ImageIO from retaining the decoded pixel buffer separately from
+                            // the returned CGImage. Combined with source-level caching disabled
+                            // above, this ensures all ImageIO memory is freed when imageSource
+                            // is released at the end of this autoreleasepool block.
+                            let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+                            image = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions)
                         }
-
-                        // Explicitly evict any residual ImageIO cache entry for this index
-                        // so the decoded pixel data is freed when imageSource is released.
-                        CGImageSourceRemoveCacheAtIndex(imageSource, targetIndex)
                     } else {
                         Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
+                    }
+
+                    // Evict cache entries for ALL sub-images. Even with source-level caching
+                    // disabled, calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW
+                    // sub-image may have seeded residual entries in ImageIO's internal cache.
+                    // This belt-and-suspenders call ensures they are freed before imageSource
+                    // is released when this autoreleasepool block closes.
+                    for i in 0 ..< imageCount {
+                        CGImageSourceRemoveCacheAtIndex(imageSource, i)
                     }
 
                     return image
