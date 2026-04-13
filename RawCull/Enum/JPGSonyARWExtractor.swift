@@ -30,7 +30,7 @@ enum JPGSonyARWExtractor {
                     // than being owned by the CGImageSource object.
                     let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
                     guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, sourceOptions) else {
-                        Logger.process.warning("PreviewExtractor: Failed to create image source")
+                        Logger.process.warning("JPGSonyARWExtractor: Failed to create image source")
                         return nil
                     }
 
@@ -46,7 +46,7 @@ enum JPGSonyARWExtractor {
                             nil,
                         ) as? [CFString: Any]
                         else {
-                            Logger.process.debugMessageOnly("enum: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
+                            Logger.process.debugMessageOnly("JPGSonyARWExtractor: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
                             continue
                         }
 
@@ -70,7 +70,7 @@ enum JPGSonyARWExtractor {
 
                         // 2. Decode & Downsample using ImageIO directly
                         if requiresDownsampling {
-                            Logger.process.info("PreviewExtractor: Native downsampling to \(maxThumbnailSize)px")
+                            Logger.process.info("JPGSonyARWExtractor: Native downsampling to \(maxThumbnailSize)px")
 
                             let options: [CFString: Any] = [
                                 kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -79,7 +79,7 @@ enum JPGSonyARWExtractor {
                             ]
                             image = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
                         } else {
-                            Logger.process.info("PreviewExtractor: Using original preview size (\(targetWidth)px)")
+                            Logger.process.info("JPGSonyARWExtractor: Using original preview size (\(targetWidth)px)")
 
                             // kCGImageSourceShouldCache: false on the decode call prevents
                             // ImageIO from retaining the decoded pixel buffer separately from
@@ -90,7 +90,7 @@ enum JPGSonyARWExtractor {
                             image = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions)
                         }
                     } else {
-                        Logger.process.warning("PreviewExtractor: No JPEG found via ImageIO — trying binary fallback")
+                        Logger.process.warning("JPGSonyARWExtractor: No JPEG found via ImageIO — trying binary fallback")
                     }
 
                     // Evict cache entries for ALL sub-images. Even with source-level caching
@@ -101,7 +101,6 @@ enum JPGSonyARWExtractor {
                     for i in 0 ..< imageCount {
                         CGImageSourceRemoveCacheAtIndex(imageSource, i)
                     }
-
                     return image
                 }
 
@@ -114,7 +113,7 @@ enum JPGSonyARWExtractor {
                         Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
                     }
                     if finalResult == nil {
-                        Logger.process.warning("PreviewExtractor: Binary fallback also failed for \(arwURL.lastPathComponent)")
+                        Logger.process.warning("JPGSonyARWExtractor: Binary fallback also failed for \(arwURL.lastPathComponent)")
                     }
                 } else {
                     finalResult = imageIOResult
