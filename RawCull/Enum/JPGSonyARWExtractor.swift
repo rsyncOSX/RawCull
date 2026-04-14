@@ -20,88 +20,84 @@ enum JPGSonyARWExtractor {
         return await withCheckedContinuation { (continuation: CheckedContinuation<CGImage?, Never>) in
             // Dispatch to GCD to prevent Thread Pool Starvation
             DispatchQueue.global(qos: .utility).async {
-                let imageIOResult: CGImage? = autoreleasepool {
-                    // kCGImageSourceShouldCache: false on the SOURCE prevents ImageIO from
-                    // building a process-level cache for the ARW file itself. Without this,
-                    // calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW sensor
-                    // data sub-image can cause ImageIO to initialise its RA16 decoder and
-                    // allocate hundreds of MB that persist well after the imageSource is
-                    // released, because they are held in ImageIO's own internal cache rather
-                    // than being owned by the CGImageSource object.
-                    let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-                    guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, sourceOptions) else {
-                        Logger.process.warning("JPGSonyARWExtractor: Failed to create image source")
-                        return nil
+                // kCGImageSourceShouldCache: false on the SOURCE prevents ImageIO from
+                // building a process-level cache for the ARW file itself. Without this,
+                // calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW sensor
+                // data sub-image can cause ImageIO to initialise its RA16 decoder and
+                // allocate hundreds of MB that persist well after the imageSource is
+                // released, because they are held in ImageIO's own internal cache rather
+                // than being owned by the CGImageSource object.
+                let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+                guard let imageSource = CGImageSourceCreateWithURL(arwURL as CFURL, sourceOptions) else {
+                    Logger.process.warning("JPGSonyARWExtractor: Failed to create image source")
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let imageCount = CGImageSourceGetCount(imageSource)
+                var targetIndex: Int = -1
+                var targetWidth = 0
+
+                // 1. Find the LARGEST JPEG available
+                for index in 0 ..< imageCount {
+                    guard let properties = CGImageSourceCopyPropertiesAtIndex(
+                        imageSource,
+                        index,
+                        nil,
+                    ) as? [CFString: Any]
+                    else {
+                        Logger.process.debugMessageOnly("JPGSonyARWExtractor: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
+                        continue
                     }
 
-                    let imageCount = CGImageSourceGetCount(imageSource)
-                    var targetIndex: Int = -1
-                    var targetWidth = 0
+                    let hasJFIF = (properties[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
+                    let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+                    let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
+                    let isJPEG = hasJFIF || (compression == 6)
 
-                    // 1. Find the LARGEST JPEG available
-                    for index in 0 ..< imageCount {
-                        guard let properties = CGImageSourceCopyPropertiesAtIndex(
-                            imageSource,
-                            index,
-                            nil,
-                        ) as? [CFString: Any]
-                        else {
-                            Logger.process.debugMessageOnly("JPGSonyARWExtractor: extractEmbeddedPreview(): Index \(index) - Failed to get properties")
-                            continue
-                        }
-
-                        let hasJFIF = (properties[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
-                        let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
-                        let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
-                        let isJPEG = hasJFIF || (compression == 6)
-
-                        if let width = getWidth(from: properties) {
-                            if isJPEG, width > targetWidth {
-                                targetWidth = width
-                                targetIndex = index
-                            }
+                    if let width = getWidth(from: properties) {
+                        if isJPEG, width > targetWidth {
+                            targetWidth = width
+                            targetIndex = index
                         }
                     }
+                }
 
-                    var image: CGImage?
+                var imageIOResult: CGImage?
 
-                    if targetIndex != -1 {
-                        let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
+                if targetIndex != -1 {
+                    let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
 
-                        // 2. Decode & Downsample using ImageIO directly
-                        if requiresDownsampling {
-                            Logger.process.info("JPGSonyARWExtractor: Native downsampling to \(maxThumbnailSize)px")
+                    // 2. Decode & Downsample using ImageIO directly
+                    if requiresDownsampling {
+                        Logger.process.info("JPGSonyARWExtractor: Native downsampling to \(maxThumbnailSize)px")
 
-                            let options: [CFString: Any] = [
-                                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                                kCGImageSourceCreateThumbnailWithTransform: true,
-                                kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
-                            ]
-                            image = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
-                        } else {
-                            Logger.process.info("JPGSonyARWExtractor: Using original preview size (\(targetWidth)px)")
-
-                            // kCGImageSourceShouldCache: false on the decode call prevents
-                            // ImageIO from retaining the decoded pixel buffer separately from
-                            // the returned CGImage. Combined with source-level caching disabled
-                            // above, this ensures all ImageIO memory is freed when imageSource
-                            // is released at the end of this autoreleasepool block.
-                            let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-                            image = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions)
-                        }
+                        let options: [CFString: Any] = [
+                            kCGImageSourceCreateThumbnailFromImageAlways: true,
+                            kCGImageSourceCreateThumbnailWithTransform: true,
+                            kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
+                        ]
+                        imageIOResult = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
                     } else {
-                        Logger.process.warning("JPGSonyARWExtractor: No JPEG found via ImageIO — trying binary fallback")
-                    }
+                        Logger.process.info("JPGSonyARWExtractor: Using original preview size (\(targetWidth)px)")
 
-                    // Evict cache entries for ALL sub-images. Even with source-level caching
-                    // disabled, calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW
-                    // sub-image may have seeded residual entries in ImageIO's internal cache.
-                    // This belt-and-suspenders call ensures they are freed before imageSource
-                    // is released when this autoreleasepool block closes.
-                    for i in 0 ..< imageCount {
-                        CGImageSourceRemoveCacheAtIndex(imageSource, i)
+                        // kCGImageSourceShouldCache: false on the decode call prevents
+                        // ImageIO from retaining the decoded pixel buffer separately from
+                        // the returned CGImage.
+                        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+                        imageIOResult = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions)
                     }
-                    return image
+                } else {
+                    Logger.process.warning("JPGSonyARWExtractor: No JPEG found via ImageIO — trying binary fallback")
+                }
+
+                // Evict cache entries for ALL sub-images. Even with source-level caching
+                // disabled, calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW
+                // sub-image may have seeded residual entries in ImageIO's internal cache.
+                // This belt-and-suspenders call ensures they are freed before imageSource
+                // goes out of scope.
+                for i in 0 ..< imageCount {
+                    CGImageSourceRemoveCacheAtIndex(imageSource, i)
                 }
 
                 // Binary fallback for ARW 6.0 (RA16 decoder unsupported on this macOS version).
@@ -109,9 +105,7 @@ enum JPGSonyARWExtractor {
                 // bypassing the RA16 decoder entirely.
                 let finalResult: CGImage?
                 if imageIOResult == nil {
-                    finalResult = autoreleasepool {
-                        Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
-                    }
+                    finalResult = Self.binaryFallbackJPEG(from: arwURL, fullSize: fullSize, maxSize: maxThumbnailSize)
                     if finalResult == nil {
                         Logger.process.warning("JPGSonyARWExtractor: Binary fallback also failed for \(arwURL.lastPathComponent)")
                     }
