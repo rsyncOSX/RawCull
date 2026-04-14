@@ -140,7 +140,7 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
                 context: context,
-                config: config
+                config: config,
             ) else { return nil }
             return NSImage(cgImage: result, size: originalSize)
         }.value
@@ -155,7 +155,7 @@ final class FocusMaskModel: @unchecked Sendable {
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
                 context: context,
-                config: config
+                config: config,
             )
         }.value
     }
@@ -164,9 +164,9 @@ final class FocusMaskModel: @unchecked Sendable {
         fromRawURL url: URL,
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
-        afPoint: CGPoint? = nil
+        afPoint: CGPoint? = nil,
     ) async -> (score: Float?, saliency: SaliencyInfo?) {
-        return await Task.detached(priority: .userInitiated) { [context] in
+        await Task.detached(priority: .userInitiated) { [context] in
             let binaryImg = Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
 
             let cgImage: CGImage
@@ -180,13 +180,14 @@ final class FocusMaskModel: @unchecked Sendable {
             }
 
             let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
-                for: cgImage, classify: config.enableSubjectClassification)
+                for: cgImage, classify: config.enableSubjectClassification,
+            )
             let score = Self.computeSharpnessScalar(
                 from: CIImage(cgImage: cgImage),
                 salientRegion: region,
                 afPoint: afPoint,
                 context: context,
-                config: config
+                config: config,
             )
             return (score, saliencyInfo)
         }.value
@@ -250,7 +251,7 @@ final class FocusMaskModel: @unchecked Sendable {
             data: nil,
             width: image.width, height: image.height,
             bitsPerComponent: 8, bytesPerRow: 0,
-            space: srgb, bitmapInfo: bitmapInfo.rawValue
+            space: srgb, bitmapInfo: bitmapInfo.rawValue,
         ) else { return image }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         return ctx.makeImage() ?? image
@@ -375,7 +376,7 @@ final class FocusMaskModel: @unchecked Sendable {
         salientRegion: CGRect?,
         afPoint: CGPoint?,
         context: CIContext,
-        config: FocusDetectorConfig
+        config: FocusDetectorConfig,
     ) -> Float? {
         guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
 
@@ -392,11 +393,13 @@ final class FocusMaskModel: @unchecked Sendable {
             rowBytes: width * 16,
             bounds: extent,
             format: .RGBAf,
-            colorSpace: nil
+            colorSpace: nil,
         )
 
         @inline(__always)
-        func redAt(_ idx: Int) -> Float { rgba[idx * 4] }
+        func redAt(_ idx: Int) -> Float {
+            rgba[idx * 4]
+        }
 
         // Exclude outer border to avoid Gaussian edge artifacts
         let borderCols = max(0, Int(Float(width) * config.borderInsetFraction))
@@ -417,7 +420,7 @@ final class FocusMaskModel: @unchecked Sendable {
         // Single-pass region analysis: pixel samples + silhouette fraction together.
         struct RegionAnalysis {
             let samples: [Float]
-            let borderFraction: Float  // border energy / total; high => silhouette-dominated
+            let borderFraction: Float // border energy / total; high => silhouette-dominated
         }
 
         func analyzeRegion(_ region: CGRect) -> RegionAnalysis {
@@ -569,7 +572,7 @@ final class FocusMaskModel: @unchecked Sendable {
         guard let laplacianOutput = kernel.apply(
             extent: smoothed.extent.insetBy(dx: 1, dy: 1),
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
-            arguments: [smoothed]
+            arguments: [smoothed],
         ) else { return nil }
 
         let boost = CIFilter.colorMatrix()
@@ -585,7 +588,7 @@ final class FocusMaskModel: @unchecked Sendable {
         from inputImage: CIImage,
         scale: CGFloat,
         context: CIContext,
-        config: FocusDetectorConfig
+        config: FocusDetectorConfig,
     ) -> CGImage? {
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else { return nil }
@@ -686,7 +689,7 @@ extension FocusMaskModel {
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
-        maxConcurrentTasks: Int = 8
+        maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
         let base = config
         guard let result = await calibrateFromBurstParallel(
@@ -696,7 +699,7 @@ extension FocusMaskModel {
             thresholdPercentile: thresholdPercentile,
             targetP95AfterGain: targetP95AfterGain,
             minSamples: minSamples,
-            maxConcurrentTasks: maxConcurrentTasks
+            maxConcurrentTasks: maxConcurrentTasks,
         ) else { return nil }
 
         applyCalibration(result)
@@ -710,7 +713,7 @@ extension FocusMaskModel {
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
-        maxConcurrentTasks: Int = 8
+        maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
         guard !files.isEmpty else { return nil }
 
@@ -735,7 +738,7 @@ extension FocusMaskModel {
                     let result = await self.computeSharpnessScore(
                         fromRawURL: entry.url,
                         config: fileConfig,
-                        thumbnailMaxPixelSize: tSize
+                        thumbnailMaxPixelSize: tSize,
                     )
                     return result.score
                 }
@@ -756,7 +759,7 @@ extension FocusMaskModel {
                         let result = await self.computeSharpnessScore(
                             fromRawURL: entry.url,
                             config: fileConfig,
-                            thumbnailMaxPixelSize: tSize
+                            thumbnailMaxPixelSize: tSize,
                         )
                         return result.score
                     }
@@ -791,7 +794,7 @@ extension FocusMaskModel {
             p50: p50,
             p90: p90,
             p95: p95,
-            p99: p99
+            p99: p99,
         )
     }
 }

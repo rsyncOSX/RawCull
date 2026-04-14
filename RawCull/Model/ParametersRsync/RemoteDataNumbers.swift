@@ -98,7 +98,7 @@ struct RemoteDataNumbers: Identifiable, Hashable {
         if let preparedoutputfromrsync, !preparedoutputfromrsync.isEmpty {
             let parsersyncoutput = ParseRsyncOutput(
                 preparedoutputfromrsync,
-                (config?.rsyncVersion3 == true) ? .ver3 : .openrsync
+                (config?.rsyncVersion3 == true) ? .ver3 : .openrsync,
             )
             do {
                 stats = try parsersyncoutput.getstats()

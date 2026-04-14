@@ -21,50 +21,62 @@ actor ExtractAndSaveJPGs {
     private var totalFilesToProcess = 0
     private var estimationStartIndex = 10 // After 10 items, we can estimate
 
+    private var filteredFilesURLs: [URL]?
+
     /// Used in time remaining
     private var lastItemTime: Date?
+
+    init(sortedfiles: [FileItem]) {
+        if !sortedfiles.isEmpty {
+            filteredFilesURLs = sortedfiles.map(\.url)
+        }
+    }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
     }
 
     @discardableResult
-    func extractAndSaveAlljpgs(from catalogURL: URL) async -> Int {
+    func extractAndSaveAlljpgs(from _: URL) async -> Int {
         cancelExtractJPGSTask()
 
-        let task = Task {
-            successCount = 0
-            processingTimes = []
-            let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
-            totalFilesToProcess = urls.count
+        if let filteredFilesURLs {
+            let task = Task {
+                successCount = 0
+                processingTimes = []
+                // let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
+                totalFilesToProcess = filteredFilesURLs.count
 
-            await fileHandlers?.maxfilesHandler(urls.count)
+                await fileHandlers?.maxfilesHandler(filteredFilesURLs.count)
 
-            return await withTaskGroup(of: Void.self) { group in
-                let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
+                return await withTaskGroup(of: Void.self) { group in
+                    let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
 
-                for (index, url) in urls.enumerated() {
-                    if Task.isCancelled {
-                        group.cancelAll()
-                        break
+                    for (index, url) in filteredFilesURLs.enumerated() {
+                        if Task.isCancelled {
+                            group.cancelAll()
+                            break
+                        }
+
+                        if index >= maxConcurrent {
+                            await group.next()
+                        }
+
+                        group.addTask {
+                            await self.processSingleExtraction(url, itemIndex: index)
+                        }
                     }
 
-                    if index >= maxConcurrent {
-                        await group.next()
-                    }
-
-                    group.addTask {
-                        await self.processSingleExtraction(url, itemIndex: index)
-                    }
+                    await group.waitForAll()
+                    return successCount
                 }
-
-                await group.waitForAll()
-                return successCount
             }
+
+            extractJPEGSTask = task
+            return await task.value
         }
 
-        extractJPEGSTask = task
-        return await task.value
+        return 0
     }
 
     private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {

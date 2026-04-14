@@ -29,7 +29,7 @@ private func arwURLs(in path: String) -> [URL] {
     guard !path.isEmpty else { return [] }
     let dir = URL(fileURLWithPath: path, isDirectory: true)
     guard let contents = try? FileManager.default.contentsOfDirectory(
-        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        at: dir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles,
     ) else { return [] }
     return contents
         .filter { $0.pathExtension.lowercased() == "arw" }
@@ -44,7 +44,7 @@ private func decodeThumbnailSize(url: URL, maxPx: Int) -> (width: Int, height: I
         kCGImageSourceCreateThumbnailFromImageAlways: false,
         kCGImageSourceCreateThumbnailWithTransform: true,
         kCGImageSourceThumbnailMaxPixelSize: maxPx,
-        kCGImageSourceShouldCacheImmediately: true,
+        kCGImageSourceShouldCacheImmediately: true
     ]
     guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
           let img = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
@@ -122,7 +122,7 @@ struct SharpnessScoringTests {
 
             // ── Score ─────────────────────────────────────────────────────────
             let (score, saliency) = await model.computeSharpnessScore(
-                fromRawURL: url, config: cfg, thumbnailMaxPixelSize: thumbnailMaxPx
+                fromRawURL: url, config: cfg, thumbnailMaxPixelSize: thumbnailMaxPx,
             )
 
             // ── Print per-file section ────────────────────────────────────────
@@ -182,7 +182,7 @@ struct SharpnessScoringTests {
                 saliencyDetected: saliencyDetected,
                 saliencyLabel: saliencyLabel,
                 thumbWidth: thumbSize?.width,
-                thumbHeight: thumbSize?.height
+                thumbHeight: thumbSize?.height,
             ))
         }
 
@@ -197,9 +197,9 @@ struct SharpnessScoringTests {
 
         let ranked = results.sorted {
             switch ($0.score, $1.score) {
-            case let (a?, b?): return a > b
-            case (_?, nil): return true
-            default: return false
+            case let (a?, b?): a > b
+            case (_?, nil): true
+            default: false
             }
         }
 
@@ -229,7 +229,7 @@ struct SharpnessScoringTests {
     /// After the fix, small sets (< 10) use the observed maximum instead.
     @Test(.tags(.smoke))
     @MainActor
-    func maxScoreSmallSetUsesMaximumNotMinimum() {
+    func `max score small set uses maximum not minimum`() {
         let model = SharpnessScoringModel()
         // Inject two scores that mirror the failing real-world case.
         let sharpID = UUID()
@@ -247,7 +247,7 @@ struct SharpnessScoringTests {
     /// Sanity check: with ≥ 10 scores the p90 path is still used (index > 0).
     @Test(.tags(.smoke))
     @MainActor
-    func maxScoreLargeSetUsesP90() {
+    func `max score large set uses P 90`() {
         let model = SharpnessScoringModel()
         // 10 evenly-spaced scores from 0.10 to 1.00.
         model.scores = Dictionary(uniqueKeysWithValues: (1 ... 10).map { i in
@@ -263,25 +263,24 @@ struct SharpnessScoringTests {
 
 @Suite("FocusMaskModel numeric helpers")
 struct FocusNumericHelperTests {
-
     // MARK: robustTailScore
 
     @Test(.tags(.smoke))
-    func robustTailScoreEmptyReturnsNil() {
+    func `robust tail score empty returns nil`() {
         #expect(FocusMaskModel.robustTailScore([]) == nil)
     }
 
     @Test(.tags(.smoke))
-    func robustTailScoreUniformReturnsZero() {
+    func `robust tail score uniform returns zero`() throws {
         // All values identical → p20 == p90 == p97, so spread is zero.
         let samples = [Float](repeating: 0.5, count: 1000)
         let score = FocusMaskModel.robustTailScore(samples)
         #expect(score != nil)
-        #expect(score! < 1e-5)
+        #expect(try #require(score) < 1e-5)
     }
 
     @Test(.tags(.smoke))
-    func robustTailScoreDenseEdgesFullDensityFactor() {
+    func `robust tail score dense edges full density factor`() throws {
         // Linearly spaced 0…1: p20=0.20, p90=0.90, p97=0.97.
         // Band (p90…p97) contains 7% of values → density 0.07 > minDensity 0.06 → factor = 1.0.
         let n = 1000
@@ -289,12 +288,12 @@ struct FocusNumericHelperTests {
         let score = FocusMaskModel.robustTailScore(samples)
         #expect(score != nil)
         // Band mean of values in [0.90, 0.97] minus p20 (≈0.20) should be ≈ 0.735 * 1.0
-        #expect(score! > 0.70)
-        #expect(score! < 0.80)
+        #expect(try #require(score) > 0.70)
+        #expect(try #require(score) < 0.80)
     }
 
     @Test(.tags(.smoke))
-    func robustTailScoreSparseEdgesScoresLow() {
+    func `robust tail score sparse edges scores low`() throws {
         // 94.5% zeros + 5.5% ones: p90 = 0.0, so the band [0.0, 1.0] captures all
         // 1000 values. bandMean = 55 / 1000 = 0.055 → low score for sparse-edge image.
         let n = 1000
@@ -303,12 +302,12 @@ struct FocusNumericHelperTests {
         samples += [Float](repeating: 1.0, count: highCount)
         let score = FocusMaskModel.robustTailScore(samples)
         #expect(score != nil)
-        #expect(score! < 0.10)
-        #expect(score! > 0.01)
+        #expect(try #require(score) < 0.10)
+        #expect(try #require(score) > 0.01)
     }
 
     @Test(.tags(.smoke))
-    func robustTailScoreDenseEdgesScoresHigherThanSparse() {
+    func `robust tail score dense edges scores higher than sparse`() throws {
         // A uniform 0…1 distribution (dense edges) should score higher than
         // the near-zero distribution above (sparse edges).
         let n = 1000
@@ -319,24 +318,24 @@ struct FocusNumericHelperTests {
         let sparseScore = FocusMaskModel.robustTailScore(sparse)
         #expect(denseScore != nil)
         #expect(sparseScore != nil)
-        #expect(denseScore! > sparseScore!)
+        #expect(try #require(denseScore) > sparseScore!)
     }
 
     // MARK: microContrast
 
     @Test(.tags(.smoke))
-    func microContrastEmptyReturnsZero() {
+    func `micro contrast empty returns zero`() {
         #expect(FocusMaskModel.microContrast([]) == 0.0)
     }
 
     @Test(.tags(.smoke))
-    func microContrastUniformReturnsZero() {
+    func `micro contrast uniform returns zero`() {
         let samples = [Float](repeating: 0.5, count: 500)
         #expect(FocusMaskModel.microContrast(samples) < 1e-5)
     }
 
     @Test(.tags(.smoke))
-    func microContrastAlternatingKnownVariance() {
+    func `micro contrast alternating known variance`() {
         // Values alternating 0 and 1: mean = 0.5, variance = 0.25, std-dev = 0.5.
         let samples: [Float] = (0 ..< 1000).map { $0 % 2 == 0 ? 0.0 : 1.0 }
         let result = FocusMaskModel.microContrast(samples)
@@ -344,9 +343,9 @@ struct FocusNumericHelperTests {
     }
 
     @Test(.tags(.smoke))
-    func microContrastIgnoresNonFinite() {
+    func `micro contrast ignores non finite`() {
         // Mix of valid values and NaN/Inf — should not crash, should equal uniform result.
-        var samples: [Float] = [Float](repeating: 0.5, count: 100)
+        var samples = [Float](repeating: 0.5, count: 100)
         samples.append(Float.nan)
         samples.append(Float.infinity)
         #expect(FocusMaskModel.microContrast(samples) < 1e-5)

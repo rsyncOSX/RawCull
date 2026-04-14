@@ -90,7 +90,7 @@ struct RawCullMainView: View {
                         switch viewModel.alertType {
                         case .extractJPGs:
                             Button("Extract", role: .destructive) {
-                                extractAllJPGS()
+                                extractFilteredFilesJPGS()
                             }
                             .frame(width: 100)
 

@@ -25,9 +25,14 @@ struct FileItem: Identifiable, Hashable {
         ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 
-    // CGPoint is not Hashable, so we provide explicit conformance keyed on the UUID.
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+    /// CGPoint is not Hashable, so we provide explicit conformance keyed on the UUID.
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 /*

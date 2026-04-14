@@ -167,11 +167,10 @@ actor ScanFiles {
         let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int
         let compressionValue = tiffDict[kCGImagePropertyTIFFCompression] as? Int
         let cameraModel = tiffDict[kCGImagePropertyTIFFModel] as? String
-        let rawSizeClass: String?
-        if let pixelWidth, let pixelHeight {
-            rawSizeClass = sizeClass(width: pixelWidth, height: pixelHeight, camera: cameraModel ?? "")
+        let rawSizeClass: String? = if let pixelWidth, let pixelHeight {
+            sizeClass(width: pixelWidth, height: pixelHeight, camera: cameraModel ?? "")
         } else {
-            rawSizeClass = nil
+            nil
         }
         return ExifMetadata(
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
