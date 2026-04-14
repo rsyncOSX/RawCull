@@ -120,8 +120,10 @@ final class SimilarityScoringModel {
                     let elapsed = Date().timeIntervalSince(startTime)
                     if completedCount > 0, elapsed > 0 {
                         let rate = Double(completedCount) / elapsed
-                        let remaining = toIndex.count - completedCount
-                        self.indexingEstimatedSeconds = max(0, Int(Double(remaining) / rate))
+                        if rate > 0 {
+                            let remaining = toIndex.count - completedCount
+                            self.indexingEstimatedSeconds = max(0, Int(Double(remaining) / rate))
+                        }
                     }
 
                     if let file = iterator.next() {

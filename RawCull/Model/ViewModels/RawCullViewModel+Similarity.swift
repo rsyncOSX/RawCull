@@ -43,6 +43,9 @@ extension RawCullViewModel {
         let date = Date().en_string_from_date()
 
         // Resolve (or create) the catalog entry with a single lookup.
+        // When creating a new entry, SavedFiles requires an initial FileRecord — we use the
+        // first embedded file as a seed. Remaining files are added in the loop below.
+        // This mirrors the pattern used by persistScoringResultsInMemory().
         let catalogIndex: Int
         if let existing = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) {
             catalogIndex = existing
