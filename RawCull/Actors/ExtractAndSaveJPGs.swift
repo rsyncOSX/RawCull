@@ -37,7 +37,7 @@ actor ExtractAndSaveJPGs {
     }
 
     @discardableResult
-    func extractAndSaveAlljpgs(from _: URL) async -> Int {
+    func extractAndSavejpgs() async -> Int {
         cancelExtractJPGSTask()
 
         if let filteredFilesURLs {
@@ -63,7 +63,7 @@ actor ExtractAndSaveJPGs {
                         }
 
                         group.addTask {
-                            await self.processSingleExtraction(url, itemIndex: index)
+                            await self.processSingleExtraction(url)
                         }
                     }
 
@@ -79,9 +79,7 @@ actor ExtractAndSaveJPGs {
         return 0
     }
 
-    private func processSingleExtraction(_ url: URL, itemIndex _: Int) async {
-        let startTime = Date()
-
+    private func processSingleExtraction(_ url: URL) async {
         if Task.isCancelled { return } // ← NEW
 
         if let cgImage = await JPGSonyARWExtractor.jpgSonyARWExtractor(
@@ -93,11 +91,11 @@ actor ExtractAndSaveJPGs {
 
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            await updateEstimatedTime(itemsProcessed: newCount)
         }
     }
 
-    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) async {
+    private func updateEstimatedTime(itemsProcessed: Int) async {
         let now = Date()
 
         if let lastTime = lastItemTime {
@@ -118,7 +116,7 @@ actor ExtractAndSaveJPGs {
     func cancelExtractJPGSTask() {
         extractJPEGSTask?.cancel()
         extractJPEGSTask = nil
-        Logger.process.debugMessageOnly("ExtractAndSaveAlljpgs: Preload Cancelled")
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs: Preload Cancelled")
     }
 
     private func incrementAndGetCount() -> Int {

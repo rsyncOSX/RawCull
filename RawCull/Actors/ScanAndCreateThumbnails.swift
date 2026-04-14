@@ -135,8 +135,6 @@ actor ScanAndCreateThumbnails {
     // MARK: - Single File Processing
 
     private func processSingleFile(_ url: URL, targetSize: Int, itemIndex _: Int) async {
-        let startTime = Date()
-
         if Task.isCancelled { return }
 
         // A. Check RAM
@@ -145,7 +143,7 @@ actor ScanAndCreateThumbnails {
             await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
-            updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            updateEstimatedTime(itemsProcessed: newCount)
             // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in RAM Cache")
             return
         }
@@ -158,7 +156,7 @@ actor ScanAndCreateThumbnails {
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
-            updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            updateEstimatedTime(itemsProcessed: newCount)
             // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in DISK Cache")
             return
         }
@@ -183,7 +181,7 @@ actor ScanAndCreateThumbnails {
 
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
-            updateEstimatedTime(for: startTime, itemsProcessed: newCount)
+            updateEstimatedTime(itemsProcessed: newCount)
 
             // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
@@ -214,7 +212,7 @@ actor ScanAndCreateThumbnails {
 
     // MARK: - ETA
 
-    private func updateEstimatedTime(for _: Date, itemsProcessed: Int) {
+    private func updateEstimatedTime(itemsProcessed: Int) {
         let now = Date()
 
         if let lastTime = lastItemTime {

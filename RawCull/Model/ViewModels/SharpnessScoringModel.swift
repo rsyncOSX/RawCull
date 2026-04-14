@@ -32,11 +32,6 @@ enum ApertureFilter: String, CaseIterable, Identifiable {
 
 @Observable @MainActor
 final class SharpnessScoringModel {
-    enum ShootingMode {
-        case birdsInFlight
-        case perchedWildlife
-    }
-
     var scores: [UUID: Float] = [:]
     var saliencyInfo: [UUID: SaliencyInfo] = [:]
     var isScoring: Bool = false
@@ -69,16 +64,6 @@ final class SharpnessScoringModel {
     init() {
         // Default mode for wildlife
         focusMaskModel.config = .birdsInFlight
-    }
-
-    func applyMode(_ mode: ShootingMode) {
-        switch mode {
-        case .birdsInFlight:
-            focusMaskModel.config = .birdsInFlight
-
-        case .perchedWildlife:
-            focusMaskModel.config = .perchedWildlife
-        }
     }
 
     func reset() {

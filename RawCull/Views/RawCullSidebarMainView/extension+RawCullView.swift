@@ -77,8 +77,7 @@ extension RawCullMainView {
             await extract.setFileHandlers(handlers)
             viewModel.currentExtractAndSaveJPGsActor = extract
 
-            guard let url = viewModel.selectedSource?.url else { return }
-            await extract.extractAndSaveAlljpgs(from: url)
+            await extract.extractAndSavejpgs()
 
             viewModel.currentExtractAndSaveJPGsActor = nil // ← NEW: clean up
             viewModel.creatingthumbnails = false

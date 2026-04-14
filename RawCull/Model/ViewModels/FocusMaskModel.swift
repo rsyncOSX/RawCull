@@ -86,23 +86,6 @@ extension FocusDetectorConfig {
         c.afRegionRadius = 0.06
         return c
     }
-
-    /// Perched/static wildlife preset.
-    static var perchedWildlife: FocusDetectorConfig {
-        var c = FocusDetectorConfig()
-        c.preBlurRadius = 1.8
-        c.threshold = 0.44
-        c.dilationRadius = 1.0
-        c.erosionRadius = 1.0
-        c.featherRadius = 1.5
-
-        c.borderInsetFraction = 0.04
-        c.salientWeight = 0.70
-        c.subjectSizeFactor = 0.08
-        c.enableSubjectClassification = true
-        c.afRegionRadius = 0.08
-        return c
-    }
 }
 
 private nonisolated let _focusMagnitudeKernel: CIKernel? = {
@@ -194,17 +177,6 @@ final class FocusMaskModel: @unchecked Sendable {
     }
 
     // MARK: - Decode helpers
-
-    private nonisolated static func decodeImage(at url: URL) -> CGImage? {
-        let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
-
-        let decodeOptions: [CFString: Any] = [
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceShouldAllowFloat: true
-        ]
-        return CGImageSourceCreateImageAtIndex(source, 0, decodeOptions as CFDictionary)
-    }
 
     private nonisolated static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
         let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
