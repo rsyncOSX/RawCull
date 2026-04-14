@@ -80,7 +80,7 @@ struct SimilarityDistanceOrderingTests {
         model.embeddings[nearID] = nearData
         model.embeddings[farID] = farData
 
-        model.rankSimilar(to: anchorID, using: [], saliencyInfo: [:])
+        await model.rankSimilar(to: anchorID, using: [], saliencyInfo: [:])
 
         guard let dNear = model.distances[nearID],
               let dFar = model.distances[farID]
@@ -96,7 +96,7 @@ struct SimilarityDistanceOrderingTests {
     /// The anchor image itself should not appear in the distances map.
     @Test(.tags(.smoke))
     @MainActor
-    func `anchor is excluded from distances`() {
+    func `anchor is excluded from distances`() async {
         let model = SimilarityScoringModel()
         let anchorID = UUID()
         let otherID = UUID()
@@ -105,7 +105,7 @@ struct SimilarityDistanceOrderingTests {
         model.embeddings[anchorID] = Data()
         model.embeddings[otherID] = Data()
 
-        model.rankSimilar(to: anchorID, using: [], saliencyInfo: [:])
+        await model.rankSimilar(to: anchorID, using: [], saliencyInfo: [:])
 
         #expect(model.distances[anchorID] == nil, "Anchor should not appear in distances map")
     }
@@ -118,14 +118,14 @@ struct SimilarityEmptyStateTests {
     /// When anchor is not in embeddings, distances must be empty and anchorFileID nil.
     @Test(.tags(.smoke))
     @MainActor
-    func `rankSimilar with unknown anchor clears state`() {
+    func `rankSimilar with unknown anchor clears state`() async {
         let model = SimilarityScoringModel()
         // Pre-populate with some distances to ensure they are cleared.
         model.distances = [UUID(): 0.5]
         model.anchorFileID = UUID()
 
         let unknownID = UUID()
-        model.rankSimilar(to: unknownID, using: [], saliencyInfo: [:])
+        await model.rankSimilar(to: unknownID, using: [], saliencyInfo: [:])
 
         #expect(model.distances.isEmpty, "Distances should be empty when anchor has no embedding")
         #expect(model.anchorFileID == nil, "anchorFileID should be nil when anchor has no embedding")
@@ -158,7 +158,7 @@ struct SimilaritySubjectMismatchTests {
     /// distance than the same image without any subject information.
     @Test(.tags(.smoke))
     @MainActor
-    func `subject mismatch increases distance`() {
+    func `subject mismatch increases distance`() async {
         let model = SimilarityScoringModel()
 
         guard let anchorData = syntheticEmbeddingData(hue: 0.0),
@@ -181,7 +181,7 @@ struct SimilaritySubjectMismatchTests {
             mismatchedID: SaliencyInfo(subjectLabel: "person"),
         ]
 
-        model.rankSimilar(to: anchorID, using: [], saliencyInfo: saliency)
+        await model.rankSimilar(to: anchorID, using: [], saliencyInfo: saliency)
 
         guard let dMatched = model.distances[matchedID],
               let dMismatched = model.distances[mismatchedID]
@@ -240,6 +240,7 @@ struct SimilarityPersistenceTests {
     /// DecodeSavedFiles must decode old JSON that lacks the featurePrintData key
     /// without crashing, and produce nil for that field.
     @Test(.tags(.smoke))
+    @MainActor
     func `DecodeFileRecord decodes old JSON without featurePrintData`() throws {
         let oldJSON = """
         {
@@ -267,6 +268,7 @@ struct SimilarityPersistenceTests {
 
     /// FileRecord must be fully Codable round-trip including featurePrintData.
     @Test(.tags(.smoke))
+    @MainActor
     func `FileRecord round-trips featurePrintData`() throws {
         let data = Data([0xDE, 0xAD, 0xBE, 0xEF])
         var record = FileRecord(fileName: "test.ARW", dateTagged: nil, dateCopied: nil, rating: nil)
@@ -280,6 +282,7 @@ struct SimilarityPersistenceTests {
 
     /// FileRecord round-trip with nil featurePrintData should not crash and return nil.
     @Test(.tags(.smoke))
+    @MainActor
     func `FileRecord round-trips nil featurePrintData`() throws {
         let record = FileRecord(fileName: "test.ARW", dateTagged: nil, dateCopied: nil, rating: nil)
         let encoded = try JSONEncoder().encode(record)

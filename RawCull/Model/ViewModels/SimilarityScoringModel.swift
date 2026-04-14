@@ -5,6 +5,7 @@
 
 import Foundation
 import ImageIO
+import OSLog
 import Observation
 import Vision
 
@@ -142,6 +143,7 @@ final class SimilarityScoringModel {
                 for (id, data) in localEmbeddings {
                     self.embeddings[id] = data
                 }
+                Logger.process.debugMessageOnly("SimilarityScoringModel: indexed \(localEmbeddings.count)/\(toIndex.count) files")
             }
         }
 
@@ -159,6 +161,9 @@ final class SimilarityScoringModel {
     /// Applies a small saliency-subject mismatch penalty when both images have
     /// subject labels and the labels differ.
     ///
+    /// The heavy unarchiving + distance loop runs on the cooperative thread pool
+    /// (via Task.detached) to avoid blocking the main thread on large catalogs.
+    ///
     /// - Parameters:
     ///   - anchorID: The reference image's UUID.
     ///   - files: The full file list (used only to look up saliency info ordering).
@@ -167,13 +172,8 @@ final class SimilarityScoringModel {
         to anchorID: UUID,
         using files: [FileItem],
         saliencyInfo: [UUID: SaliencyInfo] = [:]
-    ) {
-        guard let anchorData = embeddings[anchorID],
-              let anchor = try? NSKeyedUnarchiver.unarchivedObject(
-                  ofClass: VNFeaturePrintObservation.self,
-                  from: anchorData
-              )
-        else {
+    ) async {
+        guard let anchorData = embeddings[anchorID] else {
             distances = [:]
             anchorFileID = nil
             sortBySimilarity = false
@@ -181,27 +181,51 @@ final class SimilarityScoringModel {
         }
 
         let anchorLabel = saliencyInfo[anchorID]?.subjectLabel
+        // Snapshot both dicts before hopping off the main actor — both are [UUID: Sendable].
+        let snapshot = embeddings
+        // Capture as a local so the file-scope constant (implicitly @MainActor under
+        // SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor) is safe to use inside Task.detached.
+        let mismatchPenalty = kSubjectMismatchPenalty
 
-        var result: [UUID: Float] = [:]
-        for (id, data) in embeddings where id != anchorID {
-            guard let obs = try? NSKeyedUnarchiver.unarchivedObject(
+        let result: [UUID: Float]? = await Task.detached(priority: .userInitiated) {
+            // Unarchive the anchor inside the detached task so no NSObject crosses
+            // actor boundaries; anchorData (Data) is Sendable.
+            guard let anchor = try? NSKeyedUnarchiver.unarchivedObject(
                 ofClass: VNFeaturePrintObservation.self,
-                from: data
-            ) else { continue }
-
-            var d: Float = 0
-            // VNFeaturePrintObservation.computeDistance(_:to:) is throws; skip on error.
-            guard (try? anchor.computeDistance(&d, to: obs)) != nil else { continue }
-
-            // Apply a small saliency-subject mismatch penalty so images of a
-            // different subject type are ranked slightly lower, while keeping
-            // the visual embedding as the dominant signal.
-            let candidateLabel = saliencyInfo[id]?.subjectLabel
-            if let al = anchorLabel, let cl = candidateLabel, al != cl {
-                d += kSubjectMismatchPenalty
+                from: anchorData
+            ) else {
+                Logger.process.warning("SimilarityScoringModel: failed to unarchive anchor embedding")
+                return nil
             }
 
-            result[id] = d
+            var r: [UUID: Float] = [:]
+            for (id, data) in snapshot where id != anchorID {
+                guard let obs = try? NSKeyedUnarchiver.unarchivedObject(
+                    ofClass: VNFeaturePrintObservation.self,
+                    from: data
+                ) else { continue }
+
+                var d: Float = 0
+                // VNFeaturePrintObservation.computeDistance(_:to:) throws; skip on error.
+                guard (try? anchor.computeDistance(&d, to: obs)) != nil else { continue }
+
+                // Apply a small saliency-subject mismatch penalty so images of a
+                // different subject type are ranked slightly lower, while keeping
+                // the visual embedding as the dominant signal.
+                if let al = anchorLabel, let cl = saliencyInfo[id]?.subjectLabel, al != cl {
+                    d += mismatchPenalty
+                }
+
+                r[id] = d
+            }
+            return r
+        }.value
+
+        guard let result else {
+            distances = [:]
+            anchorFileID = nil
+            sortBySimilarity = false
+            return
         }
 
         anchorFileID = anchorID
@@ -217,7 +241,10 @@ final class SimilarityScoringModel {
         await Task.detached(priority: .userInitiated) {
             guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
                     ?? Self.decodeBinaryFallback(at: url, maxPixelSize: maxPixelSize)
-            else { return nil }
+            else {
+                Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
+                return nil
+            }
 
             let request = VNGenerateImageFeaturePrintRequest()
             request.imageCropAndScaleOption = .scaleFill
@@ -225,6 +252,7 @@ final class SimilarityScoringModel {
             do {
                 try handler.perform([request])
             } catch {
+                Logger.process.warning("SimilarityScoringModel: Vision feature-print request failed for \(url.lastPathComponent): \(error)")
                 return nil
             }
 

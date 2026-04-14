@@ -25,7 +25,7 @@ extension RawCullViewModel {
     /// Updates filteredFiles ordering via handleSortOrderChange() after ranking.
     func findSimilarToSelected() async {
         guard let anchor = selectedFile else { return }
-        similarityModel.rankSimilar(
+        await similarityModel.rankSimilar(
             to: anchor.id,
             using: files,
             saliencyInfo: sharpnessModel.saliencyInfo
