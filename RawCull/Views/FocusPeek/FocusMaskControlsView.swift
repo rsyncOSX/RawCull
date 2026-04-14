@@ -84,7 +84,7 @@ struct FocusMaskControlsView: View {
                     )
                 }
                 .padding()
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -126,7 +126,7 @@ struct FocusMaskControlsView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
                 .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
                 .padding(10)
                 .animation(.spring(duration: 0.3), value: showFocusMask)

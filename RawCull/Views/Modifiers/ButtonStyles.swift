@@ -98,7 +98,7 @@ private struct PressureAnimatedButton: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(.regularMaterial)
 
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(

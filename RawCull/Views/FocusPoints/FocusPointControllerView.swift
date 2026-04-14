@@ -34,7 +34,7 @@ struct FocusPointControllerView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(.regularMaterial, in: Capsule())
         .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
         .padding(10)
         .animation(.spring(duration: 0.3), value: showFocusPoints)

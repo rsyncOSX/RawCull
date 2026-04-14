@@ -204,7 +204,7 @@ struct ZoomableFocusePeekNSImageView: View {
                 .font(.system(size: 24))
                 .foregroundStyle(.white)
                 .frame(width: 30, height: 30)
-                .background(Material.ultraThinMaterial)
+                .background(Material.regularMaterial)
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)

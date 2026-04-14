@@ -32,6 +32,7 @@ struct RawCullApp: App {
                 nsImage: $nsImage,
                 cgImage: $cgImage,
             )
+            .background(.windowBackground)
             .environment(gridthumbnailviewmodel)
             .environment(viewModel)
             .task {
@@ -57,6 +58,7 @@ struct RawCullApp: App {
             ZoomableFocusePeekCSImageView(
                 cgImage: cgImage, // ← pass viewModel instead
             )
+            .background(.windowBackground)
             .environment(viewModel)
             .onAppear { viewModel.zoomCGImageWindowFocused = true }
             .onDisappear {
@@ -75,6 +77,7 @@ struct RawCullApp: App {
             ZoomableFocusePeekNSImageView(
                 nsImage: nsImage,
             )
+            .background(.windowBackground)
             .environment(viewModel)
             .onAppear { viewModel.zoomNSImageWindowFocused = true }
             .onDisappear {
@@ -96,6 +99,7 @@ struct RawCullApp: App {
                     viewModel.selectedFile = file
                 },
             )
+            .background(.windowBackground)
         }
         .defaultPosition(.center)
         .defaultSize(width: 900, height: 700)

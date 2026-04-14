@@ -85,7 +85,7 @@ struct ImageTableHorizontalView: View {
                             .help("Scroll down")
                         }
                         .padding(8)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .background(.regularMaterial, in: Capsule())
                         .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
                         .padding(.trailing, 6)
                     }
