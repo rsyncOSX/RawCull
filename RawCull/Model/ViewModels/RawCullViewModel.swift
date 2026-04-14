@@ -67,6 +67,9 @@ final class RawCullViewModel {
     /// overlay and the sharpness scoring pipeline.
     var sharpnessModel = SharpnessScoringModel()
 
+    /// Similarity scoring model — Vision feature-print embeddings and distance ranking.
+    var similarityModel = SimilarityScoringModel()
+
     /// URLs for which startAccessingSecurityScopedResource() has been called.
     /// Stopped in deinit to pair every start with a stop.
     @ObservationIgnored private var securityScopedURLs: Set<URL> = []
