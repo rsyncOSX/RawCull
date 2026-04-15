@@ -65,7 +65,7 @@ struct GridThumbnailSelectionView: View {
 
                 Spacer()
 
-                CullingStatsView(stats: cullingStats, ratingFilter: $ratingFilter)
+                // CullingStatsView(stats: cullingStats, ratingFilter: $ratingFilter)
             }
             .padding()
             .background(Color.gray.opacity(0.1))
