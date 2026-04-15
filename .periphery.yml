@@ -10,3 +10,5 @@ index_exclude:
 - RawCull/Extensions/extension+String+Date.swift
 - RawCull/Extensions/extension+Thread+Logger.swift
 - RawCull/RawCullTests/RawCullTestsDataRaceDetectionTests.swift
+- RawCull/RawCullTests/SharpnessScoringTests.swift
+- RawCull/RawCullTests/SimilarityScoringTests.swift
