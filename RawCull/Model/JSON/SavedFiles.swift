@@ -65,7 +65,6 @@ struct SavedFiles: Identifiable, Codable {
                 rating: record.rating,
                 sharpnessScore: record.sharpnessScore,
                 saliencySubject: record.saliencySubject,
-                featurePrintData: record.featurePrintData,
             )
         }
     }
@@ -98,9 +97,6 @@ struct FileRecord: Identifiable, Codable {
     var rating: Int?
     var sharpnessScore: Float?
     var saliencySubject: String?
-    /// Archived VNFeaturePrintObservation data for similarity scoring.
-    /// Nil for records loaded from older JSON files (backward-compatible).
-    var featurePrintData: Data?
 }
 
 extension FileRecord: Hashable, Equatable {

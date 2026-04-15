@@ -33,9 +33,6 @@ struct DecodeFileRecord: Codable, Hashable {
     var rating: Int?
     var sharpnessScore: Float?
     var saliencySubject: String?
-    /// Archived VNFeaturePrintObservation for similarity scoring.
-    /// Nil when loading from older JSON files (backward-compatible).
-    var featurePrintData: Data?
 
     enum CodingKeys: String, CodingKey {
         case fileName
@@ -44,7 +41,6 @@ struct DecodeFileRecord: Codable, Hashable {
         case rating
         case sharpnessScore
         case saliencySubject
-        case featurePrintData
     }
 
     init(from decoder: Decoder) throws {
@@ -55,7 +51,6 @@ struct DecodeFileRecord: Codable, Hashable {
         rating = try values.decodeIfPresent(Int.self, forKey: .rating)
         sharpnessScore = try values.decodeIfPresent(Float.self, forKey: .sharpnessScore)
         saliencySubject = try values.decodeIfPresent(String.self, forKey: .saliencySubject)
-        featurePrintData = try values.decodeIfPresent(Data.self, forKey: .featurePrintData)
     }
 
     init() {
@@ -65,6 +60,5 @@ struct DecodeFileRecord: Codable, Hashable {
         rating = nil
         sharpnessScore = nil
         saliencySubject = nil
-        featurePrintData = nil
     }
 }

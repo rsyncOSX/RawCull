@@ -47,7 +47,6 @@ extension RawCullViewModel {
         cullingModel.loadSavedFiles()
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
-        loadPersistedSimilarityEmbeddings()
         sharpnessModel.applyPreloadedScores(
             files,
             preloadedScores: sharpnessModel.scores,

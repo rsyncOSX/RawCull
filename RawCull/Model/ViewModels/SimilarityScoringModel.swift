@@ -5,8 +5,8 @@
 
 import Foundation
 import ImageIO
-import OSLog
 import Observation
+import OSLog
 import Vision
 
 // MARK: - Constants
@@ -170,8 +170,8 @@ final class SimilarityScoringModel {
     ///   - saliencyInfo: Optional subject labels from sharpness scoring.
     func rankSimilar(
         to anchorID: UUID,
-        using files: [FileItem],
-        saliencyInfo: [UUID: SaliencyInfo] = [:]
+        using _: [FileItem],
+        saliencyInfo: [UUID: SaliencyInfo] = [:],
     ) async {
         guard let anchorData = embeddings[anchorID] else {
             distances = [:]
@@ -192,7 +192,7 @@ final class SimilarityScoringModel {
             // actor boundaries; anchorData (Data) is Sendable.
             guard let anchor = try? NSKeyedUnarchiver.unarchivedObject(
                 ofClass: VNFeaturePrintObservation.self,
-                from: anchorData
+                from: anchorData,
             ) else {
                 Logger.process.warning("SimilarityScoringModel: failed to unarchive anchor embedding")
                 return nil
@@ -202,7 +202,7 @@ final class SimilarityScoringModel {
             for (id, data) in snapshot where id != anchorID {
                 guard let obs = try? NSKeyedUnarchiver.unarchivedObject(
                     ofClass: VNFeaturePrintObservation.self,
-                    from: data
+                    from: data,
                 ) else { continue }
 
                 var d: Float = 0
@@ -239,14 +239,16 @@ final class SimilarityScoringModel {
     /// Returns the archived Data for the VNFeaturePrintObservation, or nil on failure.
     nonisolated static func computeEmbedding(url: URL, maxPixelSize: Int) async -> Data? {
         await Task.detached(priority: .userInitiated) {
-            guard let cgImage = Self.decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
-                    ?? Self.decodeBinaryFallback(at: url, maxPixelSize: maxPixelSize)
+            guard let cgImage = decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
+                ?? decodeBinaryFallback(at: url, maxPixelSize: maxPixelSize)
             else {
                 Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
                 return nil
             }
 
             let request = VNGenerateImageFeaturePrintRequest()
+            request.revision = VNGenerateImageFeaturePrintRequestRevision2
+
             request.imageCropAndScaleOption = .scaleFill
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
@@ -262,7 +264,7 @@ final class SimilarityScoringModel {
     }
 
     /// Decode an embedded thumbnail from a Sony ARW via CGImageSource.
-    nonisolated private static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
+    private nonisolated static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
         let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
         guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
         let thumbOptions: [CFString: Any] = [
@@ -270,13 +272,13 @@ final class SimilarityScoringModel {
             kCGImageSourceCreateThumbnailFromImageAlways: false,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldCacheImmediately: true
         ]
         return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
     }
 
     /// Binary fallback for ARW files where CGImageSourceCreateThumbnailAtIndex returns nil.
-    nonisolated private static func decodeBinaryFallback(at url: URL, maxPixelSize: Int) -> CGImage? {
+    private nonisolated static func decodeBinaryFallback(at url: URL, maxPixelSize: Int) -> CGImage? {
         guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
               let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
               let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
@@ -286,7 +288,7 @@ final class SimilarityScoringModel {
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldCacheImmediately: true
         ]
         return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
     }

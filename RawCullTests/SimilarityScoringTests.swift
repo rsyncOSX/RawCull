@@ -24,7 +24,7 @@ private func makeFile(name: String) -> FileItem {
         size: 0,
         dateModified: Date(),
         exifData: nil,
-        afFocusNormalized: nil
+        afFocusNormalized: nil,
     )
 }
 
@@ -39,7 +39,7 @@ private func syntheticEmbeddingData(hue: CGFloat) -> Data? {
               width: size, height: size,
               bitsPerComponent: 8, bytesPerRow: 0,
               space: colorSpace,
-              bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue).rawValue
+              bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue).rawValue,
           )
     else { return nil }
     ctx.setFillColor(NSColor(hue: hue, saturation: 0.8, brightness: 0.8, alpha: 1).cgColor)
@@ -65,8 +65,8 @@ struct SimilarityDistanceOrderingTests {
         let model = SimilarityScoringModel()
 
         guard let anchorData = syntheticEmbeddingData(hue: 0.0),
-              let nearData = syntheticEmbeddingData(hue: 0.02),  // very similar hue
-              let farData = syntheticEmbeddingData(hue: 0.5)     // very different hue
+              let nearData = syntheticEmbeddingData(hue: 0.02), // very similar hue
+              let farData = syntheticEmbeddingData(hue: 0.5) // very different hue
         else {
             // Vision unavailable in this test environment; skip gracefully.
             return
@@ -86,7 +86,7 @@ struct SimilarityDistanceOrderingTests {
               let dFar = model.distances[farID]
         else {
             // Observation might fail silently; just verify distances were set.
-            #expect(model.distances.count > 0, "Expected at least one distance entry")
+            #expect(!model.distances.isEmpty, "Expected at least one distance entry")
             return
         }
 
@@ -178,7 +178,7 @@ struct SimilaritySubjectMismatchTests {
         let saliency: [UUID: SaliencyInfo] = [
             anchorID: SaliencyInfo(subjectLabel: "bird"),
             matchedID: SaliencyInfo(subjectLabel: "bird"),
-            mismatchedID: SaliencyInfo(subjectLabel: "person"),
+            mismatchedID: SaliencyInfo(subjectLabel: "person")
         ]
 
         await model.rankSimilar(to: anchorID, using: [], saliencyInfo: saliency)
@@ -230,63 +230,5 @@ struct SimilarityCancellationTests {
         #expect(model.distances.isEmpty)
         #expect(model.anchorFileID == nil)
         #expect(!model.sortBySimilarity)
-    }
-}
-
-// MARK: - Persistence backward compatibility
-
-@Suite("SimilarityScoringModel – persistence backward compat")
-struct SimilarityPersistenceTests {
-    /// DecodeSavedFiles must decode old JSON that lacks the featurePrintData key
-    /// without crashing, and produce nil for that field.
-    @Test(.tags(.smoke))
-    @MainActor
-    func `DecodeFileRecord decodes old JSON without featurePrintData`() throws {
-        let oldJSON = """
-        {
-            "fileName": "_DSC1234.ARW",
-            "dateTagged": "01 Jan 2026 12:00",
-            "dateCopied": null,
-            "rating": 3,
-            "sharpnessScore": 0.72,
-            "saliencySubject": "bird"
-        }
-        """.data(using: .utf8)
-        guard let oldJSON else {
-            Issue.record("UTF-8 encoding of test JSON failed unexpectedly")
-            return
-        }
-
-        let record = try JSONDecoder().decode(DecodeFileRecord.self, from: oldJSON)
-
-        #expect(record.fileName == "_DSC1234.ARW")
-        #expect(record.rating == 3)
-        #expect(record.sharpnessScore == 0.72)
-        #expect(record.saliencySubject == "bird")
-        #expect(record.featurePrintData == nil, "featurePrintData should be nil when absent from JSON")
-    }
-
-    /// FileRecord must be fully Codable round-trip including featurePrintData.
-    @Test(.tags(.smoke))
-    @MainActor
-    func `FileRecord round-trips featurePrintData`() throws {
-        let data = Data([0xDE, 0xAD, 0xBE, 0xEF])
-        var record = FileRecord(fileName: "test.ARW", dateTagged: nil, dateCopied: nil, rating: nil)
-        record.featurePrintData = data
-
-        let encoded = try JSONEncoder().encode(record)
-        let decoded = try JSONDecoder().decode(FileRecord.self, from: encoded)
-
-        #expect(decoded.featurePrintData == data)
-    }
-
-    /// FileRecord round-trip with nil featurePrintData should not crash and return nil.
-    @Test(.tags(.smoke))
-    @MainActor
-    func `FileRecord round-trips nil featurePrintData`() throws {
-        let record = FileRecord(fileName: "test.ARW", dateTagged: nil, dateCopied: nil, rating: nil)
-        let encoded = try JSONEncoder().encode(record)
-        let decoded = try JSONDecoder().decode(FileRecord.self, from: encoded)
-        #expect(decoded.featurePrintData == nil)
     }
 }
