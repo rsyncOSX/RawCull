@@ -78,6 +78,19 @@ struct NoSubjectBadgeView: View {
     }
 }
 
+// MARK: - Picked Badge
+
+struct PickedBadgeView: View {
+    var body: some View {
+        Text("P")
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.orange.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+    }
+}
+
 // MARK: - ImageItemView
 
 struct ImageItemView: View {
@@ -130,14 +143,7 @@ struct ImageItemView: View {
                         .padding(5)
                     }
                 }
-                // Green tint ribbon at bottom when tagged
-                .overlay(alignment: .bottom) {
-                    if isTagged {
-                        Rectangle()
-                            .fill(Color.green.opacity(0.55))
-                            .frame(height: 3)
-                    }
-                }
+
                 // Multi-selection checkmark badge — top-right corner
                 .overlay(alignment: .topTrailing) {
                     if isMultiSelected {
@@ -146,6 +152,13 @@ struct ImageItemView: View {
                             .foregroundStyle(.white, Color.teal)
                             .padding(5)
                             .shadow(radius: 2)
+                    }
+                }
+                // Picked badge (rating == 0) — top-right corner
+                .overlay(alignment: .topTrailing) {
+                    if isPicked {
+                        PickedBadgeView()
+                            .padding(5)
                     }
                 }
             }
@@ -206,8 +219,8 @@ struct ImageItemView: View {
         return 1
     }
 
-    private var isTagged: Bool {
-        viewModel.taggedNamesCache.contains(file.name)
+    private var isPicked: Bool {
+        viewModel.taggedNamesCache.contains(file.name) && viewModel.getRating(for: file) == 0
     }
 
     private var isSelected: Bool {

@@ -158,7 +158,7 @@ struct ScanStatsSheetView: View {
         }
         var rejected = 0, kept = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, unrated = 0
         for file in viewModel.filteredFiles {
-            if !viewModel.cullingModel.isTagged(photo: file.name, in: catalog) {
+            if !viewModel.cullingModel.isUnrated(photo: file.name, in: catalog) {
                 unrated += 1
             } else {
                 switch viewModel.getRating(for: file) {

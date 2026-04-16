@@ -390,7 +390,7 @@ struct GridThumbnailSelectionView: View {
 
         case .unrated:
             guard let catalog = viewModel.selectedSource?.url else { return viewModel.filteredFiles }
-            return viewModel.filteredFiles.filter { !viewModel.cullingModel.isTagged(photo: $0.name, in: catalog) }
+            return viewModel.filteredFiles.filter { !viewModel.cullingModel.isUnrated(photo: $0.name, in: catalog) }
 
         case .rating(0):
             return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == 0 }
