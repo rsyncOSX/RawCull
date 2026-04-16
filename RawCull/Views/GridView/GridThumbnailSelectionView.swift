@@ -389,16 +389,6 @@ struct GridThumbnailSelectionView: View {
         }
     }
 
-    /// Returns true when `file` has the highest positive rating among `group.files`.
-    /// Crown only appears after "Keep Best" (or manual star-rating) — not shown on
-    /// unrated groups (all ratings ≤ 0).
-    private func isHighestRatedInGroup(_ file: FileItem, in group: VisibleBurstGroup) -> Bool {
-        let myRating = viewModel.getRating(for: file)
-        guard myRating > 0 else { return false }
-        let maxRating = group.files.map { viewModel.getRating(for: $0) }.max() ?? 0
-        return myRating == maxRating
-    }
-
     /// Builds the thumbnail cell for a file inside a burst group.
     /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
     /// simple enough for Swift's type-checker, while `isBestInGroup` is still an explicit
@@ -411,7 +401,6 @@ struct GridThumbnailSelectionView: View {
             isHovered: hoveredFileID == file.id,
             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
             thumbnailSize: settings.thumbnailSizeGridView,
-            isBestInGroup: vg.files.count > 1 && isHighestRatedInGroup(file, in: vg),
             onSelect: { handleToggleSelection(for: file) },
             onDoubleSelect: { handleDoubleSelect(for: file) },
         )
