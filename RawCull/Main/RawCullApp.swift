@@ -52,6 +52,7 @@ struct RawCullApp: App {
 
         Settings {
             SettingsView()
+                .environment(viewModel)
         }
 
         Window("ZoomcgImage", id: "zoom-window-cgImage") {

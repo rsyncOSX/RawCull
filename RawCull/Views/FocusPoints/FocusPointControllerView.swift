@@ -2,25 +2,9 @@ import SwiftUI
 
 struct FocusPointControllerView: View {
     @Binding var showFocusPoints: Bool
-    @Binding var markerSize: CGFloat
 
     var body: some View {
         HStack(spacing: 12) {
-            if showFocusPoints {
-                HStack(spacing: 6) {
-                    Image(systemName: "viewfinder")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Slider(value: $markerSize, in: 32 ... 100, step: 4)
-                        .frame(width: 100)
-                        .controlSize(.small)
-                    Image(systemName: "viewfinder")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showFocusPoints.toggle() }
             } label: {

@@ -60,6 +60,9 @@ final class RawCullViewModel {
     var lastScale: CGFloat = 1.0
     var offset: CGSize = .zero
 
+    // Focus point marker size — shared across all overlay views and the Focus settings tab
+    var focusPointMarkerSize: CGFloat = 40
+
     /// This is the only place CullingModel is initialised.
     var cullingModel = CullingModel()
 

@@ -14,19 +14,12 @@ struct MainThumbnailImageView: View {
     @State private var thumbnailSizePreview: Int?
 
     @State private var showFocusPoints = false
-    @State private var markerSize: CGFloat = 40
 
     // Focus mask state
     @State private var focusMask: NSImage?
     @State private var showFocusMask: Bool = false
-    @State private var overlayOpacity: Double = 0.95
     @State private var maskTask: Task<Void, Never>?
-    @State private var controlsCollapsed: Bool = false
     @FocusState private var isImageFocused: Bool
-
-    private var focusMaskSlidersVisible: Bool {
-        showFocusMask && !controlsCollapsed
-    }
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -79,17 +72,17 @@ struct MainThumbnailImageView: View {
                                     .scaleEffect(viewModel.scale)
                                     .offset(viewModel.offset)
                                     .blendMode(.screen)
-                                    .opacity(overlayOpacity)
+                                    .opacity(0.95)
                                     .allowsHitTesting(false)
                                     .transition(.opacity)
                             }
 
                             // 3️⃣ Focus points overlay
-                            if showFocusPoints, let focusPoints, !focusMaskSlidersVisible {
+                            if showFocusPoints, let focusPoints {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
                                     imageSize: image?.size,
-                                    markerSize: markerSize,
+                                    markerSize: viewModel.focusPointMarkerSize,
                                 )
                                 .scaleEffect(viewModel.scale)
                                 .offset(viewModel.offset)
@@ -99,7 +92,7 @@ struct MainThumbnailImageView: View {
 
                             VStack {
                                 // File metadata at the top where it belongs
-                                if let file, !focusMaskSlidersVisible {
+                                if let file {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(file.name)
@@ -121,13 +114,9 @@ struct MainThumbnailImageView: View {
 
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
-                                    config: $vm.sharpnessModel.focusMaskModel.config,
-                                    overlayOpacity: $overlayOpacity,
-                                    controlsCollapsed: $controlsCollapsed,
                                     focusMaskAvailable: focusMask != nil,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
-                                    markerSize: $markerSize,
                                     scale: viewModel.scale,
                                     canZoomOut: viewModel.scale > 0.5,
                                     canZoomIn: viewModel.scale < 4.0,

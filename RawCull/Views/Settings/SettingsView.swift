@@ -20,12 +20,17 @@ struct SettingsView: View {
                     Label("Thumbnails", systemImage: "photo.fill")
                 }
 
+            FocusSettingsTab()
+                .tabItem {
+                    Label("Focus", systemImage: "viewfinder.circle")
+                }
+
             MemoryTab()
                 .tabItem {
                     Label("Memory", systemImage: "rectangle.compress.vertical")
                 }
         }
         .padding(20)
-        .frame(width: 550, height: 540)
+        .frame(width: 550, height: 560)
     }
 }

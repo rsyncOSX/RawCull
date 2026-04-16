@@ -22,17 +22,10 @@ struct ZoomableFocusePeekCSImageView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
-    @State private var markerSize: CGFloat = 64
-    @State private var overlayOpacity: Double = 0.95
     @State private var maskTask: Task<Void, Never>?
-    @State private var controlsCollapsed: Bool = false
     @FocusState private var isImageFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
-
-    private var slidersVisible: Bool {
-        showFocusMask && !controlsCollapsed
-    }
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -75,13 +68,9 @@ struct ZoomableFocusePeekCSImageView: View {
 
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
-                        config: $vm.sharpnessModel.focusMaskModel.config,
-                        overlayOpacity: $overlayOpacity,
-                        controlsCollapsed: $controlsCollapsed,
                         focusMaskAvailable: focusMask != nil,
                         hasFocusPoints: focusPoints != nil,
                         showFocusPoints: $showFocusPoints,
-                        markerSize: $markerSize,
                         scale: currentScale,
                         canZoomOut: currentScale > 0.5,
                         canZoomIn: currentScale < 5.0,
@@ -153,7 +142,7 @@ struct ZoomableFocusePeekCSImageView: View {
                     .scaledToFit()
                     .frame(width: size.width, height: size.height)
                     .blendMode(.screen)
-                    .opacity(overlayOpacity)
+                    .opacity(0.95)
                     .transition(.opacity)
             }
         }
@@ -186,11 +175,11 @@ struct ZoomableFocusePeekCSImageView: View {
 
     @ViewBuilder
     private func focusPoint() -> some View {
-        if showFocusPoints, let focusPoints, !slidersVisible {
+        if showFocusPoints, let focusPoints {
             FocusOverlayView(
                 focusPoints: focusPoints,
                 imageSize: cgImage.map { CGSize(width: $0.width, height: $0.height) },
-                markerSize: markerSize,
+                markerSize: viewModel.focusPointMarkerSize,
             )
             .scaleEffect(currentScale)
             .offset(offset)
@@ -226,7 +215,7 @@ struct ZoomableFocusePeekCSImageView: View {
     }
 
     private func increaseZoom() {
-        withAnimation(.spring()) { currentScale = max(0.5, currentScale + 0.4) }
+        withAnimation(.spring()) { currentScale = min(5.0, currentScale + 0.4) }
     }
 
     private func decreaseZoom() {
