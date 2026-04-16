@@ -225,7 +225,7 @@ struct GridThumbnailSelectionView: View {
                             ForEach(visibleBurstGroups) { vg in
                                 Section {
                                     ForEach(vg.files, id: \.id) { file in
-                                        burstCell(file: file, in: vg)
+                                        burstCell(file: file)
                                             .id(file.id)
                                             .onHover { isHovering in
                                                 hoveredFileID = isHovering ? file.id : nil
@@ -340,31 +340,6 @@ struct GridThumbnailSelectionView: View {
         )
     }
 
-    private var cullingStats: (rejected: Int, kept: Int, r2: Int, r3: Int, r4: Int, r5: Int, unrated: Int, total: Int) {
-        guard let catalog = viewModel.selectedSource?.url else {
-            let n = viewModel.filteredFiles.count
-            return (0, 0, 0, 0, 0, 0, n, n)
-        }
-        var rejected = 0, kept = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, unrated = 0
-        for file in viewModel.filteredFiles {
-            let hasRecord = viewModel.cullingModel.isTagged(photo: file.name, in: catalog)
-            if !hasRecord {
-                unrated += 1
-            } else {
-                switch viewModel.getRating(for: file) {
-                case -1: rejected += 1
-                case 0: kept += 1
-                case 2: r2 += 1
-                case 3: r3 += 1
-                case 4: r4 += 1
-                case 5: r5 += 1
-                default: unrated += 1
-                }
-            }
-        }
-        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.filteredFiles.count)
-    }
-
     // MARK: - Burst grouping helpers
 
     /// A burst group reduced to only the files currently visible (post rating-filter).
@@ -394,7 +369,7 @@ struct GridThumbnailSelectionView: View {
     /// simple enough for Swift's type-checker, while `isBestInGroup` is still an explicit
     /// parameter of `ImageItemView` (guaranteeing SwiftUI re-renders the cell when it changes).
     @ViewBuilder
-    private func burstCell(file: FileItem, in vg: VisibleBurstGroup) -> some View {
+    private func burstCell(file: FileItem) -> some View {
         ImageItemView(
             viewModel: viewModel,
             file: file,
