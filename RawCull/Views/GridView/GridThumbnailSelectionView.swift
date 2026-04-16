@@ -407,13 +407,13 @@ struct GridThumbnailSelectionView: View {
     }
 
     /// Returns true when `file` has the highest sharpness score among `group.files`.
-    /// Falls back to the first file in the group when no scores are available.
+    /// Returns false when no sharpness scores are available — no crown is shown
+    /// until scoring has run, avoiding a misleading random winner.
     private func isBestFrame(_ file: FileItem, in group: VisibleBurstGroup) -> Bool {
         let scores = viewModel.sharpnessModel.scores
-        if let best = group.files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) }) {
-            return file.id == best.id
-        }
-        return file.id == group.files[0].id
+        guard !scores.isEmpty else { return false }
+        guard let best = group.files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) }) else { return false }
+        return file.id == best.id
     }
 
     // MARK: - Rating filter
