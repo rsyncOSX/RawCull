@@ -111,11 +111,13 @@ struct GridThumbnailSelectionView: View {
         VStack(spacing: 0) {
             // Header — Row 1: analysis tools, Row 2: culling/rating filters
             VStack(spacing: 6) {
-                // Row 1 — Analysis tools
+                // Row 1 — Analysis tools (sharpness hidden in burst mode)
                 HStack(spacing: 10) {
-                    SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
+                    if !viewModel.similarityModel.burstModeActive {
+                        SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
 
-                    Divider().frame(height: 20)
+                        Divider().frame(height: 20)
+                    }
 
                     SimilarityControlsView(viewModel: viewModel)
 
