@@ -312,7 +312,6 @@ struct GridThumbnailSelectionView: View {
                 }
             }
             viewModel.selectedFileID = file.id
-            viewModel.selectedFile = file
         } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
             let ids = files.map(\.id)
             if let from = ids.firstIndex(of: anchorID),
@@ -323,12 +322,10 @@ struct GridThumbnailSelectionView: View {
         } else {
             viewModel.selectedFileIDs = []
             viewModel.selectedFileID = file.id
-            viewModel.selectedFile = file
         }
     }
 
     private func handleDoubleSelect(for file: FileItem) {
-        viewModel.selectedFile = file
         viewModel.selectedFileID = file.id
         viewModel.zoomExtractionTask?.cancel()
         viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(

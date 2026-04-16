@@ -81,9 +81,6 @@ struct FileTableRowView: View {
             }
 
             if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                viewModel.selectedFileID = viewModel.files[index].id
-                viewModel.selectedFile = viewModel.files[index]
-
                 let file = viewModel.files[index]
                 if viewModel.zoomCGImageWindowFocused || viewModel.zoomNSImageWindowFocused {
                     viewModel.zoomExtractionTask?.cancel()

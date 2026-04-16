@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct FileInspectorView: View {
-    @Binding var file: FileItem?
+    let file: FileItem?
 
     @State var nsImage: NSImage?
 

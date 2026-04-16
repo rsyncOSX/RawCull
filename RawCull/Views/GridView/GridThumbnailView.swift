@@ -69,7 +69,6 @@ struct GridThumbnailView: View {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index + 1 < sortedFiles.count else { return }
-        viewModel.selectedFile = sortedFiles[index + 1]
         viewModel.selectedFileID = sortedFiles[index + 1].id
     }
 
@@ -77,7 +76,6 @@ struct GridThumbnailView: View {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),
               index - 1 >= 0 else { return }
-        viewModel.selectedFile = sortedFiles[index - 1]
         viewModel.selectedFileID = sortedFiles[index - 1].id
     }
 

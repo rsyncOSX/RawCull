@@ -31,7 +31,7 @@ final class RawCullViewModel {
     var sortOrder = [KeyPathComparator(\FileItem.name)]
     var isShowingPicker = false
     var hideInspector = true
-    var selectedFile: FileItem?
+    var selectedFile: FileItem? { files.first { $0.id == selectedFileID } }
     var selectedFileIDs: Set<FileItem.ID> = []
     var issorting: Bool = false
     var progress: Double = 0
@@ -138,7 +138,6 @@ final class RawCullViewModel {
     // MARK: - File Selection
 
     func selectFile(_ file: FileItem) {
-        selectedFile = file
         selectedFileID = file.id
     }
 

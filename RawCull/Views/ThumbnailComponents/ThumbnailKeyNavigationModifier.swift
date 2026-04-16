@@ -41,7 +41,6 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx > 0 else { return nil }
-                        viewModel.selectedFile = files[idx - 1]
                         viewModel.selectedFileID = files[idx - 1].id
                         return nil
 
@@ -49,7 +48,6 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),
                               idx + 1 < files.count else { return nil }
-                        viewModel.selectedFile = files[idx + 1]
                         viewModel.selectedFileID = files[idx + 1].id
                         return nil
 
@@ -64,7 +62,6 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                               let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         viewModel.updateRating(for: current, rating: -1)
                         if idx + 1 < files.count {
-                            viewModel.selectedFile = files[idx + 1]
                             viewModel.selectedFileID = files[idx + 1].id
                         }
                         return nil
@@ -80,7 +77,6 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                               let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         viewModel.updateRating(for: current, rating: 0)
                         if idx + 1 < files.count {
-                            viewModel.selectedFile = files[idx + 1]
                             viewModel.selectedFileID = files[idx + 1].id
                         }
                         return nil
@@ -115,7 +111,6 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                               let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
                         viewModel.updateRating(for: current, rating: rating)
                         if idx + 1 < files.count {
-                            viewModel.selectedFile = files[idx + 1]
                             viewModel.selectedFileID = files[idx + 1].id
                         }
                         return nil

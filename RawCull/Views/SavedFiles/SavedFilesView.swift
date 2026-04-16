@@ -6,7 +6,6 @@ struct SavedFilesView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(RawCullViewModel.self) private var viewModel
 
-    @State private var savedFiles: [SavedFiles] = []
     @State private var selectedCatalog: SavedFiles?
     @State private var selectedRecord: FileRecord?
     @State private var hoveredCatalog: UUID?
@@ -55,7 +54,6 @@ struct SavedFilesView: View {
         .alert("Reset Saved Files", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
                 viewModel.cullingModel.savedFiles.removeAll()
-                savedFiles = []
                 selectedCatalog = nil
                 selectedRecord = nil
                 Task {
@@ -66,9 +64,6 @@ struct SavedFilesView: View {
         } message: {
             Text("Are you sure you want to reset all saved files?")
         }
-        .task {
-            savedFiles = ReadSavedFilesJSON().readjsonfilesavedfiles() ?? []
-        }
     }
 
     // MARK: - Column 1: Catalog List
@@ -76,10 +71,10 @@ struct SavedFilesView: View {
     private var catalogList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if savedFiles.isEmpty {
+                if viewModel.cullingModel.savedFiles.isEmpty {
                     emptyCatalogs
                 } else {
-                    ForEach(savedFiles) { entry in
+                    ForEach(viewModel.cullingModel.savedFiles) { entry in
                         CatalogRow(
                             entry: entry,
                             isSelected: selectedCatalog?.id == entry.id,
@@ -104,7 +99,7 @@ struct SavedFilesView: View {
         .navigationTitle("Catalogs")
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Text("\(savedFiles.count)")
+                Text("\(viewModel.cullingModel.savedFiles.count)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)

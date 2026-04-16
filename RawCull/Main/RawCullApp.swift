@@ -97,7 +97,6 @@ struct RawCullApp: App {
                 catalogURL: viewModel.selectedSource?.url,
                 onPhotoSelected: { file in
                     viewModel.selectedFileID = file.id
-                    viewModel.selectedFile = file
                 },
             )
             .background(.windowBackground)

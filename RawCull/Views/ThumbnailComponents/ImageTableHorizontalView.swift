@@ -101,7 +101,6 @@ struct ImageTableHorizontalView: View {
 
     private func handleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
-        viewModel.selectedFile = file
     }
 
     private func selectAndScroll(file: FileItem) {
