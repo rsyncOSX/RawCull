@@ -70,6 +70,7 @@ final class SimilarityScoringModel {
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<Void, Never>?
+    @ObservationIgnored private var _groupingGeneration: Int = 0
 
     // MARK: - Public API
 
@@ -82,6 +83,7 @@ final class SimilarityScoringModel {
         burstGroups = []
         burstGroupLookup = [:]
         burstModeActive = false
+        _groupingGeneration = 0
     }
 
     func cancelIndexing() {
@@ -273,6 +275,9 @@ final class SimilarityScoringModel {
         isGrouping = true
         defer { isGrouping = false }
 
+        _groupingGeneration &+= 1
+        let myGeneration = _groupingGeneration
+
         let threshold = burstSensitivity
         let snapshot = embeddings  // [UUID: Data], Sendable
         let fileIDs = files.map(\.id)
@@ -320,6 +325,9 @@ final class SimilarityScoringModel {
             if !current.isEmpty { groups.append(current) }
             return groups
         }.value
+
+        // Discard results if a newer grouping has already started.
+        guard _groupingGeneration == myGeneration else { return }
 
         var lookup: [UUID: Int] = [:]
         burstGroups = rawGroups.enumerated().map { i, ids in

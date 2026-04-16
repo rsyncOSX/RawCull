@@ -225,28 +225,11 @@ struct GridThumbnailSelectionView: View {
                             ForEach(visibleBurstGroups) { vg in
                                 Section {
                                     ForEach(vg.files, id: \.id) { file in
-                                        ImageItemView(
-                                            viewModel: viewModel,
-                                            file: file,
-                                            isHovered: hoveredFileID == file.id,
-                                            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-                                            thumbnailSize: settings.thumbnailSizeGridView,
-                                            onSelect: { handleToggleSelection(for: file) },
-                                            onDoubleSelect: { handleDoubleSelect(for: file) },
-                                        )
-                                        .id(file.id)
-                                        .onHover { isHovered in
-                                            hoveredFileID = isHovered ? file.id : nil
-                                        }
-                                        .overlay(alignment: .topLeading) {
-                                            if vg.files.count > 1, isBestFrame(file, in: vg) {
-                                                Image(systemName: "crown.fill")
-                                                    .font(.system(size: 11, weight: .semibold))
-                                                    .foregroundStyle(.yellow)
-                                                    .shadow(color: .black.opacity(0.55), radius: 2)
-                                                    .padding(5)
+                                        burstCell(file: file, in: vg)
+                                            .id(file.id)
+                                            .onHover { isHovering in
+                                                hoveredFileID = isHovering ? file.id : nil
                                             }
-                                        }
                                     }
                                 } header: {
                                     if vg.files.count > 1 {
@@ -414,6 +397,24 @@ struct GridThumbnailSelectionView: View {
         guard !scores.isEmpty else { return false }
         guard let best = group.files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) }) else { return false }
         return file.id == best.id
+    }
+
+    /// Builds the thumbnail cell for a file inside a burst group.
+    /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
+    /// simple enough for Swift's type-checker, while `isBestInGroup` is still an explicit
+    /// parameter of `ImageItemView` (guaranteeing SwiftUI re-renders the cell when it changes).
+    @ViewBuilder
+    private func burstCell(file: FileItem, in vg: VisibleBurstGroup) -> some View {
+        ImageItemView(
+            viewModel: viewModel,
+            file: file,
+            isHovered: hoveredFileID == file.id,
+            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+            thumbnailSize: settings.thumbnailSizeGridView,
+            isBestInGroup: vg.files.count > 1 && isBestFrame(file, in: vg),
+            onSelect: { handleToggleSelection(for: file) },
+            onDoubleSelect: { handleDoubleSelect(for: file) },
+        )
     }
 
     // MARK: - Rating filter

@@ -90,6 +90,7 @@ struct ImageItemView: View {
     let isHovered: Bool
     var isMultiSelected: Bool = false
     let thumbnailSize: Int
+    var isBestInGroup: Bool = false
 
     var onSelect: () -> Void = {}
     var onDoubleSelect: () -> Void = {}
@@ -137,6 +138,16 @@ struct ImageItemView: View {
                         Rectangle()
                             .fill(Color.green.opacity(0.55))
                             .frame(height: 3)
+                    }
+                }
+                // Crown badge — top-left corner, shown when this is the best frame in its burst group
+                .overlay(alignment: .topLeading) {
+                    if isBestInGroup {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.yellow)
+                            .shadow(color: .black.opacity(0.55), radius: 2)
+                            .padding(5)
                     }
                 }
                 // Multi-selection checkmark badge — top-right corner
