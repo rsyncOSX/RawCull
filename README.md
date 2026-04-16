@@ -1,47 +1,49 @@
 # RawCull
-
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
-RawCull is macOS photo review and selection application for Sony ILCE-1, ILCE-1M2 (Sony A1) and ILCE-7M5 (Sony A7V5) ARW raw files. This is a build for Apple Silicon only.
+RawCull is a macOS photo review and culling application for Sony ARW RAW files, built exclusively for Apple Silicon. It combines GPU-accelerated analysis — EXIF extraction, focus point detection, sharpness scoring, and saliency — to help you quickly identify your best shots.
 
 ## Requirements
 
-- macOS 26 Tahoe and later
+- macOS Sequoia or later
 - **Apple Silicon** (M-series) only
 
 ## Installation
 
-RawCull is available for download on the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) or from the [GitHub Repository](https://github.com/rsyncOSX/RawCull/releases). It is possible that the GitHub version is released a day or two before the Apple App Store release due to the different release processes employed by each platform.
+Install via Homebrew:
 
-```
+```bash
 brew tap rsyncOSX/cask && brew install --cask rawcull
 ```
 
-## ARW body compatibility diagnostic
+Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) or [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases). The GitHub version may appear a day or two ahead of the App Store release due to review timelines.
 
-The following Sony bodies successfully extract EXIF, focus points, sharpness, and saliency, except for the ILCE-7RM5, which failed to extract saliency on one of its three files. The ILCE-1M2 is the only body tested across all three Sony RAW size variants (S/M/L). All files use compressed RAW, and every body achieves full-resolution L-size output, ranging from 12.4 MP (ILCE-1M2 S-crop) to 60.2 MP (ILCE-7RM5). The ILCE-7M5 and ILCE-7RM5 are the next bodies to focus on, but I depend on test ARW files to properly test them before officially concluding support for these two bodies.
+## Latest release
 
-| Camera Body  | EXIF | FocusPt | Sharpness | Saliency | RAW Types | Dimensions |
+v1.5.0 — April 15, 2026 — in active development
+
+## Supported Sony bodies
+
+All bodies listed below have been tested for EXIF, focus point, sharpness, and saliency extraction. All files use compressed RAW.
+
+| Camera body | EXIF | Focus point | Sharpness | Saliency | RAW types | Dimensions |
 |---|---|---|---|---|---|---|
-| ILCE-1   |  ✅  |  ✅  | ✅  | ✅  | Compressed | 8640 × 5760 (49.8 MP, L) |
-| ILCE-1M2  |  ✅  |  ✅  |  ✅  |  ✅  | Compressed | 4320 × 2880 (12.4 MP, S), 5616 × 3744 (21.0 MP, M), 8640 × 5760 (49.8 MP, L) |
-| ILCE-7M5  |  ✅  |  ✅  |  ✅  |  ✅  | Compressed | 7008 × 4672 (32.7 MP, L) |
-| ILCE-7RM5  |  ✅  |  ✅  |  ✅  |  ✅  | Compressed | 9504 × 6336 (60.2 MP, L) |
-| ILCE-9M3 |  ✅  |  ✅  |  ✅  | ✅  | Compressed | 6000 × 4000 (24.0 MP, L) |
+| ILCE-1 | ✅ | ✅ | ✅ | ✅ | Compressed | 8640 × 5760 (49.8 MP, L) |
+| ILCE-1M2 | ✅ | ✅ | ✅ | ✅ | Compressed | 4320 × 2880 (12.4 MP, S), 5616 × 3744 (21.0 MP, M), 8640 × 5760 (49.8 MP, L) |
+| ILCE-7M5 | ✅ | ✅ | ✅ | ✅ | Compressed | 7008 × 4672 (32.7 MP, L) |
+| ILCE-7RM5 | ✅ | ✅ | ✅ | ⚠️ | Compressed | 9504 × 6336 (60.2 MP, L) |
+| ILCE-9M3 | ✅ | ✅ | ✅ | ✅ | Compressed | 6000 × 4000 (24.0 MP, L) |
 
-## Version
-
-Current version: v1.5.0 - released April 15, 2026. 
+> ⚠️ ILCE-7RM5 saliency failed on one of three test files. ILCE-7M5 and ILCE-7RM5 support is being expanded — if you can share test ARW files from either body, please get in touch.
 
 ## Documentation
 
 - [User documentation](https://rawcull.netlify.app)
-- [Changelog](https://rawcull.netlify.app/blog/)
+- [Release notes](https://rawcull.netlify.app/blog/)
 
-![](images/rawcull.png)
+![](images/rsyncui.png)
+
+Focus mask and focus point applied:
 
 ![](images/nomask.png)
-
-Focus Mask and Focus Point applied.
-
 ![](images/focusmask.png)
