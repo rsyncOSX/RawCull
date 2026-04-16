@@ -9,6 +9,74 @@ import AppKit
 import OSLog
 import SwiftUI
 
+// MARK: - BurstGroupHeaderView
+
+private struct BurstGroupHeaderView: View {
+    let files: [FileItem]
+    @Bindable var viewModel: RawCullViewModel
+
+    private var bestFile: FileItem? {
+        let scores = viewModel.sharpnessModel.scores
+        return files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) })
+    }
+
+    private var bestScorePercent: Int? {
+        guard let best = bestFile,
+              let score = viewModel.sharpnessModel.scores[best.id],
+              viewModel.sharpnessModel.maxScore > 0
+        else { return nil }
+        return Int(min(score / viewModel.sharpnessModel.maxScore, 1.0) * 100)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Label("Burst · \(files.count) frames", systemImage: "square.stack.3d.up")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if let best = bestFile {
+                if let pct = bestScorePercent {
+                    Text("Best: \(best.name) (\(pct)%)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Best: \(best.name)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Button("Keep Best") {
+                viewModel.keepBestInGroup(from: files)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .font(.caption)
+            .controlSize(.mini)
+            .help(
+                viewModel.sharpnessModel.scores.isEmpty
+                    ? "Run sharpness scoring first to identify the best frame"
+                    : "Rate sharpest frame ★★★ and reject all others"
+            )
+
+            Button("Reject All") {
+                viewModel.updateRating(for: files, rating: -1)
+            }
+            .font(.caption)
+            .controlSize(.mini)
+            .foregroundStyle(.red)
+            .help("Reject all frames in this burst group")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: -
+
 enum GridRatingFilter: Equatable {
     case all
     case unrated
@@ -89,6 +157,21 @@ struct GridThumbnailSelectionView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
+            // Progress view — shown during burst grouping
+            if viewModel.similarityModel.isGrouping {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.65)
+                    Text("Grouping bursts…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Progress view — shown during similarity indexing
             if viewModel.similarityModel.isIndexing {
                 ProgressCount(
@@ -117,19 +200,57 @@ struct GridThumbnailSelectionView: View {
                         ],
                         spacing: 12,
                     ) {
-                        ForEach(files, id: \.id) { file in
-                            ImageItemView(
-                                viewModel: viewModel,
-                                file: file,
-                                isHovered: hoveredFileID == file.id,
-                                isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-                                thumbnailSize: settings.thumbnailSizeGridView,
-                                onSelect: { handleToggleSelection(for: file) },
-                                onDoubleSelect: { handleDoubleSelect(for: file) },
-                            )
-                            .id(file.id)
-                            .onHover { isHovered in
-                                hoveredFileID = isHovered ? file.id : nil
+                        if viewModel.similarityModel.burstModeActive {
+                            // ── Burst grouping mode ───────────────────────────
+                            ForEach(visibleBurstGroups) { vg in
+                                Section {
+                                    ForEach(vg.files, id: \.id) { file in
+                                        ImageItemView(
+                                            viewModel: viewModel,
+                                            file: file,
+                                            isHovered: hoveredFileID == file.id,
+                                            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+                                            thumbnailSize: settings.thumbnailSizeGridView,
+                                            onSelect: { handleToggleSelection(for: file) },
+                                            onDoubleSelect: { handleDoubleSelect(for: file) },
+                                        )
+                                        .id(file.id)
+                                        .onHover { isHovered in
+                                            hoveredFileID = isHovered ? file.id : nil
+                                        }
+                                        .overlay(alignment: .topLeading) {
+                                            if vg.files.count > 1, isBestFrame(file, in: vg) {
+                                                Image(systemName: "crown.fill")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundStyle(.yellow)
+                                                    .shadow(color: .black.opacity(0.55), radius: 2)
+                                                    .padding(5)
+                                            }
+                                        }
+                                    }
+                                } header: {
+                                    if vg.files.count > 1 {
+                                        BurstGroupHeaderView(files: vg.files, viewModel: viewModel)
+                                            .padding(.top, 4)
+                                    }
+                                }
+                            }
+                        } else {
+                            // ── Flat mode (default) ───────────────────────────
+                            ForEach(files, id: \.id) { file in
+                                ImageItemView(
+                                    viewModel: viewModel,
+                                    file: file,
+                                    isHovered: hoveredFileID == file.id,
+                                    isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+                                    thumbnailSize: settings.thumbnailSizeGridView,
+                                    onSelect: { handleToggleSelection(for: file) },
+                                    onDoubleSelect: { handleDoubleSelect(for: file) },
+                                )
+                                .id(file.id)
+                                .onHover { isHovered in
+                                    hoveredFileID = isHovered ? file.id : nil
+                                }
                             }
                         }
                     }
@@ -153,6 +274,8 @@ struct GridThumbnailSelectionView: View {
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
         .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isIndexing)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isGrouping)
+        .animation(.easeInOut(duration: 0.15), value: viewModel.similarityModel.burstModeActive)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .toolbar { gridToolbar }
         .sheet(item: $activeSheet) { sheet in
@@ -238,6 +361,42 @@ struct GridThumbnailSelectionView: View {
         }
         return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.filteredFiles.count)
     }
+
+    // MARK: - Burst grouping helpers
+
+    /// A burst group reduced to only the files currently visible (post rating-filter).
+    private struct VisibleBurstGroup: Identifiable {
+        let id: Int
+        let files: [FileItem]
+    }
+
+    /// O(1) lookup from file UUID to FileItem for files passing the current rating filter.
+    private var fileLookup: [UUID: FileItem] {
+        Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+    }
+
+    /// Burst groups filtered to only those files visible under the current rating filter.
+    /// Groups where all files are hidden by the filter are omitted entirely.
+    private var visibleBurstGroups: [VisibleBurstGroup] {
+        let lookup = fileLookup
+        return viewModel.similarityModel.burstGroups.compactMap { group in
+            let visible = group.fileIDs.compactMap { lookup[$0] }
+            guard !visible.isEmpty else { return nil }
+            return VisibleBurstGroup(id: group.id, files: visible)
+        }
+    }
+
+    /// Returns true when `file` has the highest sharpness score among `group.files`.
+    /// Falls back to the first file in the group when no scores are available.
+    private func isBestFrame(_ file: FileItem, in group: VisibleBurstGroup) -> Bool {
+        let scores = viewModel.sharpnessModel.scores
+        if let best = group.files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) }) {
+            return file.id == best.id
+        }
+        return file.id == group.files[0].id
+    }
+
+    // MARK: - Rating filter
 
     var files: [FileItem] {
         switch ratingFilter {
