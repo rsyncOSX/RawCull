@@ -109,31 +109,35 @@ struct GridThumbnailSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with info + sharpness controls
-            HStack(spacing: 10) {
-                SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
+            // Header — Row 1: analysis tools, Row 2: culling/rating filters
+            VStack(spacing: 6) {
+                // Row 1 — Analysis tools
+                HStack(spacing: 10) {
+                    SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
 
-                Divider().frame(height: 20)
+                    Divider().frame(height: 20)
 
-                SimilarityControlsView(viewModel: viewModel)
+                    SimilarityControlsView(viewModel: viewModel)
 
-                // Rating color filter buttons
-                RatingFilterButtons(
-                    activeRating: { if case let .rating(n) = ratingFilter { return n }; return nil }(),
-                    onSelect: { rating in
-                        let next = GridRatingFilter.rating(rating)
-                        ratingFilter = ratingFilter == next ? .all : next
-                    },
-                    onClear: { ratingFilter = .all },
-                )
+                    Spacer()
+                }
+                // Row 2 — Culling / rating filters
+                HStack(spacing: 8) {
+                    RatingFilterButtons(
+                        activeRating: { if case let .rating(n) = ratingFilter { return n }; return nil }(),
+                        onSelect: { rating in
+                            let next = GridRatingFilter.rating(rating)
+                            ratingFilter = ratingFilter == next ? .all : next
+                        },
+                        onClear: { ratingFilter = .all },
+                    )
 
-                Text("P = picked, not rated")
-                    .font(.caption2)
-                    .foregroundStyle(Color.secondary)
+                    Text("P = picked, not rated")
+                        .font(.caption2)
+                        .foregroundStyle(Color.secondary)
 
-                Spacer()
-
-                // CullingStatsView(stats: cullingStats, ratingFilter: $ratingFilter)
+                    Spacer()
+                }
             }
             .padding()
             .background(Color.gray.opacity(0.1))
