@@ -15,7 +15,12 @@ private struct BurstGroupHeaderView: View {
     let files: [FileItem]
     @Bindable var viewModel: RawCullViewModel
 
+    private var hasSharpnessScores: Bool {
+        !viewModel.sharpnessModel.scores.isEmpty
+    }
+
     private var bestFile: FileItem? {
+        guard hasSharpnessScores else { return nil }
         let scores = viewModel.sharpnessModel.scores
         return files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) })
     }
@@ -29,45 +34,54 @@ private struct BurstGroupHeaderView: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Label("Burst · \(files.count) frames", systemImage: "square.stack.3d.up")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Label("Burst · \(files.count) frames", systemImage: "square.stack.3d.up")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
 
-            if let best = bestFile {
-                if let pct = bestScorePercent {
-                    Text("Best: \(best.name) (\(pct)%)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Best: \(best.name)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if let best = bestFile {
+                    if let pct = bestScorePercent {
+                        Text("Best: \(best.name) (\(pct)%)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Best: \(best.name)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
+                Spacer()
+
+                Button("Keep Best") {
+                    viewModel.keepBestInGroup(from: files)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .font(.caption)
+                .controlSize(.mini)
+                .disabled(!hasSharpnessScores)
+                .help(
+                    hasSharpnessScores
+                        ? "Rate sharpest frame ★★★ and reject all others"
+                        : "Run sharpness scoring first to identify the best frame"
+                )
+
+                Button("Reject All") {
+                    viewModel.updateRating(for: files, rating: -1)
+                }
+                .font(.caption)
+                .controlSize(.mini)
+                .foregroundStyle(.red)
+                .help("Reject all frames in this burst group")
             }
 
-            Spacer()
-
-            Button("Keep Best") {
-                viewModel.keepBestInGroup(from: files)
+            if !hasSharpnessScores {
+                Text("Run Sharpness Scoring to enable Keep Best")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .font(.caption)
-            .controlSize(.mini)
-            .help(
-                viewModel.sharpnessModel.scores.isEmpty
-                    ? "Run sharpness scoring first to identify the best frame"
-                    : "Rate sharpest frame ★★★ and reject all others"
-            )
-
-            Button("Reject All") {
-                viewModel.updateRating(for: files, rating: -1)
-            }
-            .font(.caption)
-            .controlSize(.mini)
-            .foregroundStyle(.red)
-            .help("Reject all frames in this burst group")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
