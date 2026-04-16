@@ -389,14 +389,14 @@ struct GridThumbnailSelectionView: View {
         }
     }
 
-    /// Returns true when `file` has the highest sharpness score among `group.files`.
-    /// Returns false when no sharpness scores are available — no crown is shown
-    /// until scoring has run, avoiding a misleading random winner.
-    private func isBestFrame(_ file: FileItem, in group: VisibleBurstGroup) -> Bool {
-        let scores = viewModel.sharpnessModel.scores
-        guard !scores.isEmpty else { return false }
-        guard let best = group.files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) }) else { return false }
-        return file.id == best.id
+    /// Returns true when `file` has the highest positive rating among `group.files`.
+    /// Crown only appears after "Keep Best" (or manual star-rating) — not shown on
+    /// unrated groups (all ratings ≤ 0).
+    private func isHighestRatedInGroup(_ file: FileItem, in group: VisibleBurstGroup) -> Bool {
+        let myRating = viewModel.getRating(for: file)
+        guard myRating > 0 else { return false }
+        let maxRating = group.files.map { viewModel.getRating(for: $0) }.max() ?? 0
+        return myRating == maxRating
     }
 
     /// Builds the thumbnail cell for a file inside a burst group.
@@ -411,7 +411,7 @@ struct GridThumbnailSelectionView: View {
             isHovered: hoveredFileID == file.id,
             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
             thumbnailSize: settings.thumbnailSizeGridView,
-            isBestInGroup: vg.files.count > 1 && isBestFrame(file, in: vg),
+            isBestInGroup: vg.files.count > 1 && isHighestRatedInGroup(file, in: vg),
             onSelect: { handleToggleSelection(for: file) },
             onDoubleSelect: { handleDoubleSelect(for: file) },
         )
