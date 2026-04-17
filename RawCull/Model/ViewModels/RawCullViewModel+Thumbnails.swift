@@ -22,6 +22,10 @@ extension RawCullViewModel {
         memorypressurewarning = warning
     }
 
+    func extractionNeeded() {
+        creatingthumbnails = true
+    }
+
     func applyStoredScoringSettings() async {
         // Wait for the initial settings load to complete before reading.
         // Without this, we may race with the fire-and-forget Task in SettingsViewModel.init()

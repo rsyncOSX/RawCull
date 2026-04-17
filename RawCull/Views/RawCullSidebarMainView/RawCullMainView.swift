@@ -130,6 +130,7 @@ struct RawCullMainView: View {
                         maxfilesHandler: { _ in },
                         estimatedTimeHandler: { _ in },
                         memorypressurewarning: viewModel.memorypressurewarning,
+                        onExtractionNeeded: {},
                     )
                     // Set the handler for reporting memorypressurewarning
                     await SharedMemoryCache.shared.setFileHandlers(handlers)

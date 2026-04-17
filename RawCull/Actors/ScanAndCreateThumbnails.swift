@@ -164,6 +164,7 @@ actor ScanAndCreateThumbnails {
         // C. Extract from source file
         do {
             if Task.isCancelled { return }
+            notifyExtractionNeeded()
 
             let costPerPixel = await SharedMemoryCache.shared.costPerPixel
 
@@ -209,6 +210,11 @@ actor ScanAndCreateThumbnails {
     private func notifyFileHandler(_ count: Int) {
         let handler = fileHandlers?.fileHandler
         Task { @MainActor in handler?(count) }
+    }
+
+    private func notifyExtractionNeeded() {
+        let handler = fileHandlers?.onExtractionNeeded
+        Task { @MainActor in handler?() }
     }
 
     // MARK: - ETA

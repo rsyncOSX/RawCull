@@ -55,8 +55,6 @@ extension RawCullViewModel {
 
         if !processedURLs.contains(url) {
             processedURLs.insert(url)
-            creatingthumbnails = true
-
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
 
@@ -65,6 +63,7 @@ extension RawCullViewModel {
                 maxfilesHandler: maxfilesHandler,
                 estimatedTimeHandler: estimatedTimeHandler,
                 memorypressurewarning: memorypressurewarning,
+                onExtractionNeeded: extractionNeeded,
             )
 
             let scanAndCreateThumbnails = ScanAndCreateThumbnails()
