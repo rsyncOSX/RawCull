@@ -8,6 +8,11 @@ import SwiftUI
 struct SimilarityControlsView: View {
     @Bindable var viewModel: RawCullViewModel
 
+    /// Debounced regrouping trigger. Cancelled and recreated on every slider
+    /// tick so continuous dragging collapses to a single regroup call ~200 ms
+    /// after the drag stops.
+    @State private var pendingRegroupTask: Task<Void, Never>?
+
     var body: some View {
         let hasEmbeddings = !viewModel.similarityModel.embeddings.isEmpty
         let isIndexing = viewModel.similarityModel.isIndexing
@@ -85,7 +90,12 @@ struct SimilarityControlsView: View {
                     .frame(width: 70)
                     .help("Burst sensitivity — lower = tighter groups, higher = similar scenes grouped together")
                     .onChange(of: viewModel.similarityModel.burstSensitivity) { _, _ in
-                        Task { await viewModel.reGroupBursts() }
+                        pendingRegroupTask?.cancel()
+                        pendingRegroupTask = Task {
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                            if Task.isCancelled { return }
+                            await viewModel.reGroupBursts()
+                        }
                     }
                     Text(
                         String(

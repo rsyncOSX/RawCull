@@ -27,6 +27,7 @@ extension RawCullViewModel {
         let sorted = files.sorted {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
+        guard !Task.isCancelled else { return }
         await similarityModel.groupBursts(files: sorted)
     }
 

@@ -70,12 +70,15 @@ final class SimilarityScoringModel {
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<Void, Never>?
+    @ObservationIgnored private var _groupingTask: Task<[[UUID]]?, Never>?
     @ObservationIgnored private var _groupingGeneration: Int = 0
 
     // MARK: - Public API
 
     func reset() {
         cancelIndexing()
+        _groupingTask?.cancel()
+        _groupingTask = nil
         embeddings = [:]
         distances = [:]
         anchorFileID = nil
@@ -83,6 +86,7 @@ final class SimilarityScoringModel {
         burstGroups = []
         burstGroupLookup = [:]
         burstModeActive = false
+        isGrouping = false
         _groupingGeneration = 0
     }
 
@@ -264,17 +268,25 @@ final class SimilarityScoringModel {
     /// Cluster `files` into burst groups using a sequential O(n) distance pass.
     /// `files` must be sorted by filename (= shot order) before calling.
     /// Sets `burstModeActive = true` on completion.
+    ///
+    /// Cancels any in-flight grouping work at the top so a dragging slider
+    /// does not spawn multiple concurrent unarchive passes over the full
+    /// embedding snapshot — otherwise the cooperative thread pool saturates
+    /// and the UI beach-balls on large catalogs.
     func groupBursts(files: [FileItem]) async {
         guard !files.isEmpty else {
+            _groupingTask?.cancel()
+            _groupingTask = nil
             burstGroups = []
             burstGroupLookup = [:]
             burstModeActive = true
             return
         }
 
-        isGrouping = true
-        defer { isGrouping = false }
+        _groupingTask?.cancel()
+        _groupingTask = nil
 
+        isGrouping = true
         _groupingGeneration &+= 1
         let myGeneration = _groupingGeneration
 
@@ -282,9 +294,9 @@ final class SimilarityScoringModel {
         let snapshot = embeddings // [UUID: Data], Sendable
         let fileIDs = files.map(\.id)
 
-        let rawGroups: [[UUID]] = await Task.detached(priority: .userInitiated) {
-            // Unarchive all available observations up front.
+        let work = Task.detached(priority: .userInitiated) { () -> [[UUID]]? in
             var observations: [UUID: VNFeaturePrintObservation] = [:]
+            var unarchiveCount = 0
             for (id, data) in snapshot {
                 if let obs = try? NSKeyedUnarchiver.unarchivedObject(
                     ofClass: VNFeaturePrintObservation.self,
@@ -292,19 +304,21 @@ final class SimilarityScoringModel {
                 ) {
                     observations[id] = obs
                 }
+                unarchiveCount &+= 1
+                if unarchiveCount & 0x3F == 0, Task.isCancelled { return nil }
             }
 
             var groups: [[UUID]] = []
             var current: [UUID] = []
 
             for (i, id) in fileIDs.enumerated() {
+                if i & 0x3F == 0, Task.isCancelled { return nil }
                 if i == 0 {
                     current.append(id)
                     continue
                 }
                 let prevID = fileIDs[i - 1]
 
-                // Missing embedding on either side → treat as group boundary.
                 guard let obs = observations[id], let prevObs = observations[prevID] else {
                     groups.append(current)
                     current = [id]
@@ -324,10 +338,21 @@ final class SimilarityScoringModel {
             }
             if !current.isEmpty { groups.append(current) }
             return groups
-        }.value
+        }
+        _groupingTask = work
 
-        // Discard results if a newer grouping has already started.
+        let rawGroups = await work.value
+
+        // Drop our handle only if we're still the current job.
+        if _groupingTask == work { _groupingTask = nil }
+
+        // Only the latest generation's result is allowed to touch state, and
+        // we flip isGrouping off here (not via defer) so a cancelled run does
+        // not briefly clear the indicator while a newer run is still active.
         guard _groupingGeneration == myGeneration else { return }
+        isGrouping = false
+
+        guard let rawGroups else { return }
 
         var lookup: [UUID: Int] = [:]
         burstGroups = rawGroups.enumerated().map { i, ids in
