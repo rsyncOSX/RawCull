@@ -8,6 +8,7 @@
 import AppKit
 import Dispatch
 import Foundation
+import os
 
 // import OSLog
 
@@ -26,7 +27,7 @@ actor SharedMemoryCache {
     private var cacheMemory = 0
     private var cacheDisk = 0
     /// Note: cacheEvictions is now tracked by CacheDelegate and read from there
-    private var gridCacheCurrentCost: Int = 0
+    private nonisolated(unsafe) let _gridCost = OSAllocatedUnfairLock(initialState: 0)
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -302,24 +303,16 @@ actor SharedMemoryCache {
 
     nonisolated func setGridObject(_ obj: DiscardableThumbnail, forKey key: NSURL, cost: Int) {
         gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
-        Task { await SharedMemoryCache.shared.addGridCacheCurrentCost(cost) }
+        _gridCost.withLock { $0 = min($0 + cost, gridThumbnailCache.totalCostLimit) }
     }
 
     nonisolated func removeAllGridObjects() {
         gridThumbnailCache.removeAllObjects()
-        Task { await SharedMemoryCache.shared.resetGridCacheCurrentCost() }
+        _gridCost.withLock { $0 = 0 }
     }
 
-    func addGridCacheCurrentCost(_ cost: Int) {
-        gridCacheCurrentCost = min(gridCacheCurrentCost + cost, gridThumbnailCache.totalCostLimit)
-    }
-
-    func resetGridCacheCurrentCost() {
-        gridCacheCurrentCost = 0
-    }
-
-    func getGridCacheCurrentCost() -> Int {
-        gridCacheCurrentCost
+    nonisolated func getGridCacheCurrentCost() -> Int {
+        _gridCost.withLock { $0 }
     }
 
     /// For Cache monitor
@@ -358,7 +351,7 @@ actor SharedMemoryCache {
         // Reset statistics
         cacheMemory = 0
         cacheDisk = 0
-        gridCacheCurrentCost = 0
+        _gridCost.withLock { $0 = 0 }
         await CacheDelegate.shared.resetEvictionCount()
     }
 

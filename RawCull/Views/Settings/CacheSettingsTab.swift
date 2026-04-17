@@ -221,12 +221,11 @@ struct CacheSettingsTab: View {
     private func refreshDiskCacheSize() {
         isLoadingDiskCacheSize = true
         Task {
-            async let diskSize = SharedMemoryCache.shared.getDiskCacheSize()
-            async let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
-            let (disk, grid) = await (diskSize, gridSize)
+            let diskSize = await SharedMemoryCache.shared.getDiskCacheSize()
+            let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
             await MainActor.run {
-                currentDiskCacheSize = disk
-                currentGridCacheSize = grid
+                currentDiskCacheSize = diskSize
+                currentGridCacheSize = gridSize
                 isLoadingDiskCacheSize = false
             }
         }
