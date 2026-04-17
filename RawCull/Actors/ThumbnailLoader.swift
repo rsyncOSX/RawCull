@@ -62,11 +62,13 @@ actor ThumbnailLoader {
 
     func thumbnailLoader(file: FileItem, targetSize: Int) async -> NSImage? {
         // Fast path: return from dedicated 200px grid cache without acquiring a slot
-        let nsUrl = file.url as NSURL
-        if let wrapper = SharedMemoryCache.shared.gridObject(forKey: nsUrl),
-           wrapper.beginContentAccess() {
-            defer { wrapper.endContentAccess() }
-            return wrapper.image
+        if targetSize <= 200 {
+            let nsUrl = file.url as NSURL
+            if let wrapper = SharedMemoryCache.shared.gridObject(forKey: nsUrl),
+               wrapper.beginContentAccess() {
+                defer { wrapper.endContentAccess() }
+                return wrapper.image
+            }
         }
 
         await acquireSlot()
