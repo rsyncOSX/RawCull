@@ -32,7 +32,14 @@ enum ApertureFilter: String, CaseIterable, Identifiable {
 
 @Observable @MainActor
 final class SharpnessScoringModel {
-    var scores: [UUID: Float] = [:]
+    /// Sharpness scores keyed by FileItem.id. Wholesale-replaced at the end
+    /// of a scoring run; incremental inserts happen only when loading
+    /// persisted scores. `didSet` refreshes `maxScore` so read sites in view
+    /// bodies are O(1) instead of re-sorting the full score set per cell.
+    var scores: [UUID: Float] = [:] {
+        didSet { recomputeMaxScore() }
+    }
+
     var saliencyInfo: [UUID: SaliencyInfo] = [:]
     var isScoring: Bool = false
     var sortBySharpness: Bool = false
@@ -49,13 +56,24 @@ final class SharpnessScoringModel {
     var scoringTotal: Int = 0
     var scoringEstimatedSeconds: Int = 0
 
-    var maxScore: Float {
-        guard scores.count >= 2 else { return scores.values.first ?? 1.0 }
+    /// Normalization denominator for sharpness badges / percentiles. Stored
+    /// (not computed) so each ImageItemView read is O(1); recomputed only on
+    /// `scores` mutation via `didSet`.
+    private(set) var maxScore: Float = 1.0
+
+    private func recomputeMaxScore() {
+        guard scores.count >= 2 else {
+            maxScore = scores.values.first ?? 1.0
+            return
+        }
         var sorted = Array(scores.values)
         sorted.sort()
-        guard sorted.count >= 10 else { return max(sorted.last ?? 1e-6, 1e-6) }
+        guard sorted.count >= 10 else {
+            maxScore = max(sorted.last ?? 1e-6, 1e-6)
+            return
+        }
         let k = Int(Float(sorted.count - 1) * 0.90)
-        return max(sorted[k], 1e-6)
+        maxScore = max(sorted[k], 1e-6)
     }
 
     private var _scoringTask: Task<Void, Never>?
