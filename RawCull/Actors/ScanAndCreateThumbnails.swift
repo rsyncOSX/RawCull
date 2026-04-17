@@ -268,7 +268,7 @@ actor ScanAndCreateThumbnails {
             in: NSRect(origin: .zero, size: newSize),
             from: NSRect(origin: .zero, size: size),
             operation: .copy,
-            fraction: 1.0
+            fraction: 1.0,
         )
         result.unlockFocus()
         return result

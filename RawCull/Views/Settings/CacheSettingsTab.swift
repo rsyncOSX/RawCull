@@ -17,6 +17,7 @@ struct CacheSettingsTab: View {
     @State private var showPruneConfirmation = false
     @State private var showSaveSettingsConfirmation = false
     @State private var currentDiskCacheSize: Int = 0
+    @State private var currentGridCacheSize: Int = 0
     @State private var isLoadingDiskCacheSize = false
     @State private var isPruningDiskCache = false
 
@@ -68,23 +69,41 @@ struct CacheSettingsTab: View {
 
                             // Current Disk Cache Size
                             SettingsCard {
-                                HStack(spacing: 8) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "internaldrive")
-                                            .font(.system(size: 12, weight: .medium))
-                                        Text("Current use: ")
-                                            .font(.system(size: 12, weight: .medium))
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(spacing: 8) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "internaldrive")
+                                                .font(.system(size: 12, weight: .medium))
+                                            Text("Current use: ")
+                                                .font(.system(size: 12, weight: .medium))
 
-                                        if isLoadingDiskCacheSize {
-                                            ProgressView()
-                                                .fixedSize()
-                                        } else {
-                                            Text(formatBytes(currentDiskCacheSize))
-                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                            if isLoadingDiskCacheSize {
+                                                ProgressView()
+                                                    .fixedSize()
+                                            } else {
+                                                Text(formatBytes(currentDiskCacheSize))
+                                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                            }
                                         }
+
+                                        Spacer()
                                     }
 
-                                    Spacer()
+                                    HStack(spacing: 8) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "memorychip")
+                                                .font(.system(size: 12, weight: .medium))
+                                            Text("Grid cache (200px): ")
+                                                .font(.system(size: 12, weight: .medium))
+                                            Text(formatBytes(currentGridCacheSize))
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                            Text("/ \(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit))")
+                                                .font(.system(size: 12, weight: .regular))
+                                                .foregroundStyle(.secondary)
+                                        }
+
+                                        Spacer()
+                                    }
                                 }
                             }
 
@@ -202,9 +221,12 @@ struct CacheSettingsTab: View {
     private func refreshDiskCacheSize() {
         isLoadingDiskCacheSize = true
         Task {
-            let size = await SharedMemoryCache.shared.getDiskCacheSize()
+            async let diskSize = SharedMemoryCache.shared.getDiskCacheSize()
+            async let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
+            let (disk, grid) = await (diskSize, gridSize)
             await MainActor.run {
-                currentDiskCacheSize = size
+                currentDiskCacheSize = disk
+                currentGridCacheSize = grid
                 isLoadingDiskCacheSize = false
             }
         }

@@ -75,11 +75,10 @@ extension RawCullViewModel {
         maxScore: Float,
     ) -> BestInGroupInfo? {
         guard !scores.isEmpty, let best = sharpestFile(in: files, scores: scores) else { return nil }
-        let percent: Int?
-        if let score = scores[best.id], maxScore > 0 {
-            percent = Int(min(score / maxScore, 1.0) * 100)
+        let percent: Int? = if let score = scores[best.id], maxScore > 0 {
+            Int(min(score / maxScore, 1.0) * 100)
         } else {
-            percent = nil
+            nil
         }
         return BestInGroupInfo(fileID: best.id, fileName: best.name, percent: percent)
     }

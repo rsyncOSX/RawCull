@@ -25,7 +25,8 @@ actor SharedMemoryCache {
     // Cache statistics for monitoring (Actor specific, not shared)
     private var cacheMemory = 0
     private var cacheDisk = 0
-    // Note: cacheEvictions is now tracked by CacheDelegate and read from there
+    /// Note: cacheEvictions is now tracked by CacheDelegate and read from there
+    private var gridCacheCurrentCost: Int = 0
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -301,10 +302,24 @@ actor SharedMemoryCache {
 
     nonisolated func setGridObject(_ obj: DiscardableThumbnail, forKey key: NSURL, cost: Int) {
         gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
+        Task { await SharedMemoryCache.shared.addGridCacheCurrentCost(cost) }
     }
 
     nonisolated func removeAllGridObjects() {
         gridThumbnailCache.removeAllObjects()
+        Task { await SharedMemoryCache.shared.resetGridCacheCurrentCost() }
+    }
+
+    func addGridCacheCurrentCost(_ cost: Int) {
+        gridCacheCurrentCost = min(gridCacheCurrentCost + cost, gridThumbnailCache.totalCostLimit)
+    }
+
+    func resetGridCacheCurrentCost() {
+        gridCacheCurrentCost = 0
+    }
+
+    func getGridCacheCurrentCost() -> Int {
+        gridCacheCurrentCost
     }
 
     /// For Cache monitor
@@ -343,6 +358,7 @@ actor SharedMemoryCache {
         // Reset statistics
         cacheMemory = 0
         cacheDisk = 0
+        gridCacheCurrentCost = 0
         await CacheDelegate.shared.resetEvictionCount()
     }
 
