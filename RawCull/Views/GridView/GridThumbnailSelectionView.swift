@@ -124,7 +124,6 @@ struct GridThumbnailSelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header — Row 1: analysis tools, Row 2: culling/rating filters
-            VStack(spacing: 6) {
                 // Row 1 — Analysis tools (sharpness hidden in burst mode)
                 HStack(spacing: 10) {
                     if !viewModel.similarityModel.burstModeActive {
@@ -137,24 +136,7 @@ struct GridThumbnailSelectionView: View {
 
                     Spacer()
                 }
-                // Row 2 — Culling / rating filters
-                HStack(spacing: 8) {
-                    RatingFilterButtons(
-                        activeRating: { if case let .rating(n) = ratingFilter { return n }; return nil }(),
-                        onSelect: { rating in
-                            let next = GridRatingFilter.rating(rating)
-                            ratingFilter = ratingFilter == next ? .all : next
-                        },
-                        onClear: { ratingFilter = .all },
-                    )
-
-                    Text("P = picked, not rated")
-                        .font(.caption2)
-                        .foregroundStyle(Color.secondary)
-
-                    Spacer()
-                }
-            }
+            
             .padding()
             .background(Color.gray.opacity(0.1))
 
@@ -404,13 +386,13 @@ extension GridThumbnailSelectionView {
     @ToolbarContentBuilder
     var gridToolbar: some ToolbarContent {
         if viewModel.selectedFileIDs.count > 1 {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .status) {
                 Text("\(viewModel.selectedFileIDs.count) selected — press a rating key to apply")
                     .font(.caption)
                     .foregroundStyle(Color.secondary)
             }
         }
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .status) {
             Toggle(isOn: Binding(
                 get: { settings.showScoringBadge },
                 set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
@@ -420,7 +402,7 @@ extension GridThumbnailSelectionView {
             .toggleStyle(.button)
             .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
         }
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .status) {
             Toggle(isOn: Binding(
                 get: { settings.showSaliencyBadge },
                 set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
@@ -430,7 +412,7 @@ extension GridThumbnailSelectionView {
             .toggleStyle(.button)
             .help("Show saliency badge on thumbnails")
         }
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .status) {
             Button {
                 activeSheet = .scoringParams
             } label: {
@@ -438,7 +420,7 @@ extension GridThumbnailSelectionView {
             }
             .help("Configure sharpness scoring parameters")
         }
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .status) {
             Button {
                 activeSheet = .stats
             } label: {
@@ -446,6 +428,24 @@ extension GridThumbnailSelectionView {
             }
             .help("Show scan statistics")
             .disabled(viewModel.files.isEmpty)
+        }
+        ToolbarItem(placement: .status) {
+            HStack(spacing: 8) {
+                RatingFilterButtons(
+                    activeRating: { if case let .rating(n) = ratingFilter { return n }; return nil }(),
+                    onSelect: { rating in
+                        let next = GridRatingFilter.rating(rating)
+                        ratingFilter = ratingFilter == next ? .all : next
+                    },
+                    onClear: { ratingFilter = .all },
+                )
+
+                Text("P = picked, not rated")
+                    .font(.caption2)
+                    .foregroundStyle(Color.secondary)
+
+                Spacer()
+            }
         }
     }
 }
