@@ -91,6 +91,19 @@ struct RawCullApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 800, height: 600)
 
+        Window("Thumbnail Grid", id: "grid-thumbnails-window") {
+            GridThumbnailView(
+                viewModel: viewModel,
+                nsImage: $nsImage,
+                cgImage: $cgImage,
+            )
+            .background(.windowBackground)
+            .environment(viewModel)
+            .environment(gridthumbnailviewmodel)
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 1200, height: 800)
+
         Window("Grid Tagged Images", id: "grid-tagged-thumbnails-window") {
             TaggedPhotoHorisontalGridView(
                 viewModel: viewModel,

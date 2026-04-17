@@ -18,7 +18,6 @@ struct RawCullMainView: View {
     @State private var memoryMonitorModel = MemoryViewModel(pressureThresholdFactor: 0.85)
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
     @State var showhorizontalthumbnailview: Bool = false
-    @State var showGridThumbnail: Bool = false
 
     var body: some View {
         // let _ = Self._printChanges()
@@ -39,13 +38,6 @@ struct RawCullMainView: View {
                         showcopytask: $viewModel.showcopyARWFilesView,
                     )
                 }
-            } else if showGridThumbnail {
-                GridThumbnailView(
-                    viewModel: viewModel,
-                    isPresented: $showGridThumbnail,
-                    nsImage: $nsImage,
-                    cgImage: $cgImage,
-                )
             } else {
                 // Default view starts here
                 NavigationSplitView(columnVisibility: $columnVisibility) {

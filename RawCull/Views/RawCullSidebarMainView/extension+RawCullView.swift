@@ -36,7 +36,7 @@ extension RawCullMainView {
             selectedSource: viewModel.selectedSource,
             filteredFiles: viewModel.filteredFiles,
         )
-        showGridThumbnail = true
+        openWindow(id: "grid-thumbnails-window")
     }
 
     func handleToggleSelection(for file: FileItem) {

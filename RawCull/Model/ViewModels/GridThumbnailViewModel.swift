@@ -15,7 +15,6 @@ final class GridThumbnailViewModel {
     var cullingModel: CullingModel?
     var selectedSource: ARWSourceCatalog?
     var filteredFiles: [FileItem] = []
-    var shouldShowWindow = false
 
     func open(
         cullingModel: CullingModel,
@@ -25,13 +24,9 @@ final class GridThumbnailViewModel {
         self.cullingModel = cullingModel
         self.selectedSource = selectedSource
         self.filteredFiles = filteredFiles
-        guard self.cullingModel != nil else { return }
-
-        self.shouldShowWindow = true
     }
 
     func close() {
-        shouldShowWindow = false
         cullingModel = nil
         selectedSource = nil
         filteredFiles = []

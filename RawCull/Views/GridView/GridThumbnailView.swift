@@ -11,7 +11,6 @@ struct GridThumbnailView: View {
     @Bindable var viewModel: RawCullViewModel
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
-    @Binding var isPresented: Bool
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
@@ -30,14 +29,6 @@ struct GridThumbnailView: View {
                     systemImage: "photo.fill",
                     description: Text("Please select a source from the main window to view thumbnails."),
                 )
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button(action: { isPresented = false }) {
-                    Label("Back", systemImage: "chevron.left")
-                }
-                .help("Return to main view")
             }
         }
         .onDisappear {
