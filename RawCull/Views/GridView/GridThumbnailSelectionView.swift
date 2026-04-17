@@ -218,24 +218,35 @@ struct GridThumbnailSelectionView: View {
                         max: Double(viewModel.sharpnessModel.scoringTotal),
                         statusText: "Scoring sharpness…",
                     )
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .frame(maxWidth: 480)
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
+                    )
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                    .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
                 // Progress view — shown during burst grouping
                 if viewModel.similarityModel.isGrouping {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         ProgressView()
-                            .scaleEffect(0.65)
+                            .controlSize(.small)
                         Text("Grouping bursts…")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
+                    )
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                    .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
                 // Progress view — shown during similarity indexing
@@ -252,9 +263,15 @@ struct GridThumbnailSelectionView: View {
                         max: Double(viewModel.similarityModel.indexingTotal),
                         statusText: "Indexing similarity…",
                     )
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .frame(maxWidth: 480)
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
+                    )
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                    .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
             }
         }
