@@ -353,9 +353,10 @@ struct FocusNumericHelperTests {
     }
 
     // MARK: - Scale invariance of robustTailScore
-    // Fix verification: p90–p97 band mean is linearly proportional to a uniform
-    // positive scaling of inputs. Guards against regressions that would make the
-    // score absolute-scale dependent without calibration.
+
+    /// Fix verification: p90–p97 band mean is linearly proportional to a uniform
+    /// positive scaling of inputs. Guards against regressions that would make the
+    /// score absolute-scale dependent without calibration.
     @Test(.tags(.smoke))
     func `robust tail score is scale proportional`() throws {
         let n = 1000
@@ -406,9 +407,9 @@ struct ApertureHintTests {
         // Landscape should be the most permissive at the low end so deep-DoF scenes
         // with legitimately low-contrast subjects aren't demoted.
         #expect(FocusDetectorConfig.ApertureHint.landscape.blurGateLow <
-                FocusDetectorConfig.ApertureHint.mid.blurGateLow)
+            FocusDetectorConfig.ApertureHint.mid.blurGateLow)
         #expect(FocusDetectorConfig.ApertureHint.mid.blurGateLow <
-                FocusDetectorConfig.ApertureHint.wide.blurGateLow)
+            FocusDetectorConfig.ApertureHint.wide.blurGateLow)
     }
 
     @Test(.tags(.smoke))

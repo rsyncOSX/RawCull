@@ -10,9 +10,9 @@ struct SimilarityControlsView: View {
 
     var body: some View {
         let hasEmbeddings = !viewModel.similarityModel.embeddings.isEmpty
-        let isIndexing    = viewModel.similarityModel.isIndexing
-        let isGrouping    = viewModel.similarityModel.isGrouping
-        let inBurstMode   = viewModel.similarityModel.burstModeActive
+        let isIndexing = viewModel.similarityModel.isIndexing
+        let isGrouping = viewModel.similarityModel.isGrouping
+        let inBurstMode = viewModel.similarityModel.burstModeActive
 
         // ── Classic index button + similarity controls (hidden in burst mode) ──
         if !inBurstMode {
@@ -80,7 +80,7 @@ struct SimilarityControlsView: View {
                 HStack(spacing: 4) {
                     Slider(
                         value: $viewModel.similarityModel.burstSensitivity,
-                        in: 0.05...0.60
+                        in: 0.05 ... 0.60,
                     )
                     .frame(width: 70)
                     .help("Burst sensitivity — lower = tighter groups, higher = similar scenes grouped together")
@@ -91,8 +91,8 @@ struct SimilarityControlsView: View {
                         String(
                             format: "%.2f · %d groups",
                             viewModel.similarityModel.burstSensitivity,
-                            viewModel.similarityModel.burstGroups.count
-                        )
+                            viewModel.similarityModel.burstGroups.count,
+                        ),
                     )
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -123,7 +123,7 @@ struct SimilarityControlsView: View {
                 .help(
                     hasEmbeddings
                         ? "Cluster consecutive similar frames into burst groups"
-                        : "Index all images then cluster into burst groups"
+                        : "Index all images then cluster into burst groups",
                 )
             }
         }

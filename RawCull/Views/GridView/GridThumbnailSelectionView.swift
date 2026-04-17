@@ -65,7 +65,7 @@ private struct BurstGroupHeaderView: View {
                 .help(
                     hasSharpnessScores
                         ? "Rate sharpest frame ★★★ and reject all others"
-                        : "Run sharpness scoring first to identify the best frame"
+                        : "Run sharpness scoring first to identify the best frame",
                 )
 
                 Button("Reject All") {
@@ -124,135 +124,137 @@ struct GridThumbnailSelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header — Row 1: analysis tools, Row 2: culling/rating filters
-                // Row 1 — Analysis tools (sharpness hidden in burst mode)
-                HStack(spacing: 10) {
-                    if !viewModel.similarityModel.burstModeActive {
-                        SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
+            // Row 1 — Analysis tools (sharpness hidden in burst mode)
+            HStack(spacing: 10) {
+                if !viewModel.similarityModel.burstModeActive {
+                    SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
 
-                        Divider().frame(height: 20)
-                    }
-
-                    SimilarityControlsView(viewModel: viewModel)
-
-                    Spacer()
+                    Divider().frame(height: 20)
                 }
-            
+
+                SimilarityControlsView(viewModel: viewModel)
+
+                Spacer()
+            }
+
             .padding()
             .background(Color.gray.opacity(0.1))
 
-            // Progress view — shown during sharpness scoring
-            if viewModel.sharpnessModel.isScoring {
-                ProgressCount(
-                    progress: Binding(
-                        get: { Double(viewModel.sharpnessModel.scoringProgress) },
-                        set: { _ in },
-                    ),
-                    estimatedSeconds: Binding(
-                        get: { viewModel.sharpnessModel.scoringEstimatedSeconds },
-                        set: { _ in },
-                    ),
-                    max: Double(viewModel.sharpnessModel.scoringTotal),
-                    statusText: "Scoring sharpness…",
-                )
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // Progress view — shown during burst grouping
-            if viewModel.similarityModel.isGrouping {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .scaleEffect(0.65)
-                    Text("Grouping bursts…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // Progress view — shown during similarity indexing
-            if viewModel.similarityModel.isIndexing {
-                ProgressCount(
-                    progress: Binding(
-                        get: { Double(viewModel.similarityModel.indexingProgress) },
-                        set: { _ in },
-                    ),
-                    estimatedSeconds: Binding(
-                        get: { viewModel.similarityModel.indexingEstimatedSeconds },
-                        set: { _ in },
-                    ),
-                    max: Double(viewModel.similarityModel.indexingTotal),
-                    statusText: "Indexing similarity…",
-                )
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // Grid view
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.adaptive(minimum: CGFloat(settings.thumbnailSizeGridView)), spacing: 12)
-                        ],
-                        spacing: 12,
-                    ) {
-                        if viewModel.similarityModel.burstModeActive {
-                            // ── Burst grouping mode ───────────────────────────
-                            ForEach(visibleBurstGroups) { vg in
-                                Section {
-                                    ForEach(vg.files, id: \.id) { file in
-                                        burstCell(file: file)
-                                            .id(file.id)
-                                            .onHover { isHovering in
-                                                hoveredFileID = isHovering ? file.id : nil
-                                            }
-                                    }
-                                } header: {
-                                    if vg.files.count > 1 {
-                                        BurstGroupHeaderView(files: vg.files, viewModel: viewModel)
-                                            .padding(.top, 4)
+            ZStack {
+                // Grid view
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.adaptive(minimum: CGFloat(settings.thumbnailSizeGridView)), spacing: 12)
+                            ],
+                            spacing: 12,
+                        ) {
+                            if viewModel.similarityModel.burstModeActive {
+                                // ── Burst grouping mode ───────────────────────────
+                                ForEach(visibleBurstGroups) { vg in
+                                    Section {
+                                        ForEach(vg.files, id: \.id) { file in
+                                            burstCell(file: file)
+                                                .id(file.id)
+                                                .onHover { isHovering in
+                                                    hoveredFileID = isHovering ? file.id : nil
+                                                }
+                                        }
+                                    } header: {
+                                        if vg.files.count > 1 {
+                                            BurstGroupHeaderView(files: vg.files, viewModel: viewModel)
+                                                .padding(.top, 4)
+                                        }
                                     }
                                 }
-                            }
-                        } else {
-                            // ── Flat mode (default) ───────────────────────────
-                            ForEach(files, id: \.id) { file in
-                                ImageItemView(
-                                    viewModel: viewModel,
-                                    file: file,
-                                    isHovered: hoveredFileID == file.id,
-                                    isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-                                    thumbnailSize: settings.thumbnailSizeGridView,
-                                    onSelect: { handleToggleSelection(for: file) },
-                                    onDoubleSelect: { handleDoubleSelect(for: file) },
-                                )
-                                .id(file.id)
-                                .onHover { isHovered in
-                                    hoveredFileID = isHovered ? file.id : nil
+                            } else {
+                                // ── Flat mode (default) ───────────────────────────
+                                ForEach(files, id: \.id) { file in
+                                    ImageItemView(
+                                        viewModel: viewModel,
+                                        file: file,
+                                        isHovered: hoveredFileID == file.id,
+                                        isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+                                        thumbnailSize: settings.thumbnailSizeGridView,
+                                        onSelect: { handleToggleSelection(for: file) },
+                                        onDoubleSelect: { handleDoubleSelect(for: file) },
+                                    )
+                                    .id(file.id)
+                                    .onHover { isHovered in
+                                        hoveredFileID = isHovered ? file.id : nil
+                                    }
                                 }
                             }
                         }
+                        .padding()
                     }
-                    .padding()
+                    .onAppear {
+                        guard let id = viewModel.selectedFileID else { return }
+                        // Defer one runloop cycle so LazyVGrid has laid out before scrolling
+                        Task { @MainActor in
+                            proxy.scrollTo(id, anchor: .top)
+                        }
+                    }
+                    .onChange(of: viewModel.selectedFileID) { _, newID in
+                        guard let newID else { return }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(newID, anchor: .center)
+                        }
+                    }
                 }
-                .onAppear {
-                    guard let id = viewModel.selectedFileID else { return }
-                    // Defer one runloop cycle so LazyVGrid has laid out before scrolling
-                    Task { @MainActor in
-                        proxy.scrollTo(id, anchor: .top)
-                    }
+
+                // Progress view — shown during sharpness scoring
+                if viewModel.sharpnessModel.isScoring {
+                    ProgressCount(
+                        progress: Binding(
+                            get: { Double(viewModel.sharpnessModel.scoringProgress) },
+                            set: { _ in },
+                        ),
+                        estimatedSeconds: Binding(
+                            get: { viewModel.sharpnessModel.scoringEstimatedSeconds },
+                            set: { _ in },
+                        ),
+                        max: Double(viewModel.sharpnessModel.scoringTotal),
+                        statusText: "Scoring sharpness…",
+                    )
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                .onChange(of: viewModel.selectedFileID) { _, newID in
-                    guard let newID else { return }
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(newID, anchor: .center)
+
+                // Progress view — shown during burst grouping
+                if viewModel.similarityModel.isGrouping {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.65)
+                        Text("Grouping bursts…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
                     }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // Progress view — shown during similarity indexing
+                if viewModel.similarityModel.isIndexing {
+                    ProgressCount(
+                        progress: Binding(
+                            get: { Double(viewModel.similarityModel.indexingProgress) },
+                            set: { _ in },
+                        ),
+                        estimatedSeconds: Binding(
+                            get: { viewModel.similarityModel.indexingEstimatedSeconds },
+                            set: { _ in },
+                        ),
+                        max: Double(viewModel.similarityModel.indexingTotal),
+                        statusText: "Indexing similarity…",
+                    )
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
         }
@@ -347,7 +349,6 @@ struct GridThumbnailSelectionView: View {
     /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
     /// simple enough for Swift's type-checker, while `isBestInGroup` is still an explicit
     /// parameter of `ImageItemView` (guaranteeing SwiftUI re-renders the cell when it changes).
-    @ViewBuilder
     private func burstCell(file: FileItem) -> some View {
         ImageItemView(
             viewModel: viewModel,

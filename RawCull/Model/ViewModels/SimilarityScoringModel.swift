@@ -12,9 +12,9 @@ import Vision
 // MARK: - BurstGroup
 
 /// A burst group: a sequence of consecutive frames that are visually similar.
-struct BurstGroup: Identifiable, Sendable {
+struct BurstGroup: Identifiable {
     let id: Int
-    let fileIDs: [UUID]  // sequential (name-sorted) order
+    let fileIDs: [UUID] // sequential (name-sorted) order
 }
 
 // MARK: - Constants
@@ -279,7 +279,7 @@ final class SimilarityScoringModel {
         let myGeneration = _groupingGeneration
 
         let threshold = burstSensitivity
-        let snapshot = embeddings  // [UUID: Data], Sendable
+        let snapshot = embeddings // [UUID: Data], Sendable
         let fileIDs = files.map(\.id)
 
         let rawGroups: [[UUID]] = await Task.detached(priority: .userInitiated) {
@@ -288,7 +288,7 @@ final class SimilarityScoringModel {
             for (id, data) in snapshot {
                 if let obs = try? NSKeyedUnarchiver.unarchivedObject(
                     ofClass: VNFeaturePrintObservation.self,
-                    from: data
+                    from: data,
                 ) {
                     observations[id] = obs
                 }
@@ -331,7 +331,9 @@ final class SimilarityScoringModel {
 
         var lookup: [UUID: Int] = [:]
         burstGroups = rawGroups.enumerated().map { i, ids in
-            for id in ids { lookup[id] = i }
+            for id in ids {
+                lookup[id] = i
+            }
             return BurstGroup(id: i, fileIDs: ids)
         }
         burstGroupLookup = lookup

@@ -19,13 +19,13 @@ struct FocusDetectorConfig {
     /// and deserve a stricter blur gate; landscape-aperture shots have deep DoF and
     /// should not be pre-blurred as aggressively nor weighted so heavily toward the
     /// Vision-detected salient region. `.mid` is the neutral baseline.
-    // Explicit nonisolated conformance — default-isolation=MainActor would otherwise
-    // make the synthesized Equatable.== main-isolated and unusable from the
-    // nonisolated scoring statics.
-    enum ApertureHint: Sendable, Equatable {
-        case wide       // ≤ f/5.6
-        case mid        // f/5.6–f/8
-        case landscape  // ≥ f/8
+    /// Explicit nonisolated conformance — default-isolation=MainActor would otherwise
+    /// make the synthesized Equatable.== main-isolated and unusable from the
+    /// nonisolated scoring statics.
+    enum ApertureHint: Equatable {
+        case wide // ≤ f/5.6
+        case mid // f/5.6–f/8
+        case landscape // ≥ f/8
 
         nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
             switch (lhs, rhs) {
@@ -563,12 +563,11 @@ final class FocusMaskModel: @unchecked Sendable {
         // rather than AF silently overriding saliency (the earlier `afScore ?? salientScore`
         // behaviour), which occasionally mis-ranked when the AF point landed on a secondary
         // subject while Vision correctly identified the main one.
-        let effectiveSubjectScore: Float?
-        switch (afScore, salientScore) {
-        case let (a?, s?): effectiveSubjectScore = a * 0.6 + s * 0.4
-        case let (a?, nil): effectiveSubjectScore = a
-        case let (nil, s?): effectiveSubjectScore = s
-        default: effectiveSubjectScore = nil
+        let effectiveSubjectScore: Float? = switch (afScore, salientScore) {
+        case let (a?, s?): a * 0.6 + s * 0.4
+        case let (a?, nil): a
+        case let (nil, s?): s
+        default: nil
         }
         // Prefer AF analysis for micro-contrast / silhouette because the AF region is
         // usually tighter than the Vision salient union.
@@ -655,8 +654,10 @@ final class FocusMaskModel: @unchecked Sendable {
         switch i {
         case ..<800:
             return 1.0
+
         case 800 ..< 3200:
             return 1.0 + (i - 800) / 2400 * 0.6
+
         default:
             return min(1.6 + (i - 3200) / 6400 * 0.6, 2.2)
         }
