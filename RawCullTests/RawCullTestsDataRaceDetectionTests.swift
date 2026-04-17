@@ -216,7 +216,6 @@ struct DataRaceDetectionTests {
             thumbnailSizePreview: 1024,
             thumbnailSizeFullSize: 8700,
             thumbnailCostPerPixel: 4,
-            thumbnailSizeGridView: 400,
             useThumbnailAsZoomPreview: false,
         )
 

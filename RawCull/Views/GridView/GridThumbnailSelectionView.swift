@@ -141,7 +141,7 @@ struct GridThumbnailSelectionView: View {
                     ScrollView {
                         LazyVGrid(
                             columns: [
-                                GridItem(.adaptive(minimum: CGFloat(settings.thumbnailSizeGridView)), spacing: 12)
+                                GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)
                             ],
                             spacing: 12,
                         ) {
@@ -176,7 +176,7 @@ struct GridThumbnailSelectionView: View {
                                         file: file,
                                         isHovered: hoveredFileID == file.id,
                                         isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-                                        thumbnailSize: settings.thumbnailSizeGridView,
+                                        thumbnailSize: 200,
                                         onSelect: { handleToggleSelection(for: file) },
                                         onDoubleSelect: { handleDoubleSelect(for: file) },
                                     )
@@ -423,7 +423,7 @@ struct GridThumbnailSelectionView: View {
             file: file,
             isHovered: hoveredFileID == file.id,
             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-            thumbnailSize: settings.thumbnailSizeGridView,
+            thumbnailSize: 200,
             onSelect: { handleToggleSelection(for: file) },
             onDoubleSelect: { handleDoubleSelect(for: file) },
         )

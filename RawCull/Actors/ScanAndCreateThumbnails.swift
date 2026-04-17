@@ -250,7 +250,7 @@ actor ScanAndCreateThumbnails {
     private func storeInGridCache(_ image: NSImage, for url: URL) {
         let nsUrl = url as NSURL
         guard SharedMemoryCache.shared.gridObject(forKey: nsUrl) == nil else { return }
-        let gridSize = CGFloat(savedSettings?.thumbnailSizeGridView ?? 200)
+        let gridSize: CGFloat = 200
         guard let scaled = downscale(image, to: gridSize) else { return }
         let costPerPixel = getCostPerPixel()
         let wrapper = DiscardableThumbnail(image: scaled, costPerPixel: costPerPixel)

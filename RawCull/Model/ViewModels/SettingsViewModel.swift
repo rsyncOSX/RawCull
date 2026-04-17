@@ -43,8 +43,6 @@ final class SettingsViewModel {
 
     /// Grid thumbnail size in pixels (default: 100)
     var thumbnailSizeGrid: Int = 200
-    /// Grid View thumbnail size in pixels (default: 200)
-    var thumbnailSizeGridView: Int = 200
     /// Preview thumbnail size in pixels (default: 1024)
     var thumbnailSizePreview: Int = 1616
     /// Full size thumbnail in pixels (default: 8700)
@@ -131,7 +129,6 @@ final class SettingsViewModel {
                 self.thumbnailSizePreview = savedSettings.thumbnailSizePreview
                 self.thumbnailSizeFullSize = savedSettings.thumbnailSizeFullSize
                 self.thumbnailCostPerPixel = savedSettings.thumbnailCostPerPixel
-                self.thumbnailSizeGridView = savedSettings.thumbnailSizeGridView
                 self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
                 self.showScoringBadge = savedSettings.showScoringBadge
                 self.showSaliencyBadge = savedSettings.showSaliencyBadge
@@ -168,7 +165,6 @@ final class SettingsViewModel {
                 thumbnailSizePreview: thumbnailSizePreview,
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
                 thumbnailCostPerPixel: thumbnailCostPerPixel,
-                thumbnailSizeGridView: thumbnailSizeGridView,
                 useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
                 showScoringBadge: showScoringBadge,
                 showSaliencyBadge: showSaliencyBadge,
@@ -244,7 +240,6 @@ final class SettingsViewModel {
             self.thumbnailSizePreview = 1616
             self.thumbnailSizeFullSize = 8700
             self.thumbnailCostPerPixel = 6
-            self.thumbnailSizeGridView = 200
         }
         await saveSettings()
     }
@@ -258,7 +253,6 @@ final class SettingsViewModel {
                 thumbnailSizePreview: self.thumbnailSizePreview,
                 thumbnailSizeFullSize: self.thumbnailSizeFullSize,
                 thumbnailCostPerPixel: self.thumbnailCostPerPixel,
-                thumbnailSizeGridView: self.thumbnailSizeGridView,
                 useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
                 showScoringBadge: self.showScoringBadge,
                 showSaliencyBadge: self.showSaliencyBadge,
@@ -287,7 +281,6 @@ struct SavedSettings: Codable {
     let thumbnailSizePreview: Int
     let thumbnailSizeFullSize: Int
     let thumbnailCostPerPixel: Int
-    let thumbnailSizeGridView: Int
     let useThumbnailAsZoomPreview: Bool
     let showScoringBadge: Bool
     let showSaliencyBadge: Bool
@@ -311,7 +304,6 @@ struct SavedSettings: Codable {
         thumbnailSizePreview: Int,
         thumbnailSizeFullSize: Int,
         thumbnailCostPerPixel: Int,
-        thumbnailSizeGridView: Int,
         useThumbnailAsZoomPreview: Bool,
         showScoringBadge: Bool = false,
         showSaliencyBadge: Bool = false,
@@ -332,7 +324,6 @@ struct SavedSettings: Codable {
         self.thumbnailSizePreview = thumbnailSizePreview
         self.thumbnailSizeFullSize = thumbnailSizeFullSize
         self.thumbnailCostPerPixel = thumbnailCostPerPixel
-        self.thumbnailSizeGridView = thumbnailSizeGridView
         self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
         self.showScoringBadge = showScoringBadge
         self.showSaliencyBadge = showSaliencyBadge
@@ -356,7 +347,6 @@ struct SavedSettings: Codable {
         thumbnailSizePreview = try c.decode(Int.self, forKey: .thumbnailSizePreview)
         thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)
         thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
-        thumbnailSizeGridView = try c.decode(Int.self, forKey: .thumbnailSizeGridView)
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
         showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
         showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
