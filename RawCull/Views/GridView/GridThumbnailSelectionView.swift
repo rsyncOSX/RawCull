@@ -11,27 +11,15 @@ import SwiftUI
 
 // MARK: - BurstGroupHeaderView
 
+/// Renders a single burst-group section header. All sharpness math is done
+/// upstream (see `GridCache` in the grid view) and passed in as `best` so
+/// the header body never walks the group's files or reads `maxScore` during
+/// redraw.
 private struct BurstGroupHeaderView: View {
     let files: [FileItem]
+    let best: BestInGroupInfo?
+    let hasSharpnessScores: Bool
     @Bindable var viewModel: RawCullViewModel
-
-    private var hasSharpnessScores: Bool {
-        !viewModel.sharpnessModel.scores.isEmpty
-    }
-
-    private var bestFile: FileItem? {
-        guard hasSharpnessScores else { return nil }
-        let scores = viewModel.sharpnessModel.scores
-        return files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) })
-    }
-
-    private var bestScorePercent: Int? {
-        guard let best = bestFile,
-              let score = viewModel.sharpnessModel.scores[best.id],
-              viewModel.sharpnessModel.maxScore > 0
-        else { return nil }
-        return Int(min(score / viewModel.sharpnessModel.maxScore, 1.0) * 100)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -40,13 +28,13 @@ private struct BurstGroupHeaderView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                if let best = bestFile {
-                    if let pct = bestScorePercent {
-                        Text("Best: \(best.name) (\(pct)%)")
+                if let best {
+                    if let pct = best.percent {
+                        Text("Best: \(best.fileName) (\(pct)%)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("Best: \(best.name)")
+                        Text("Best: \(best.fileName)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -91,7 +79,7 @@ private struct BurstGroupHeaderView: View {
 
 // MARK: -
 
-enum GridRatingFilter: Equatable {
+enum GridRatingFilter: Hashable {
     case all
     case unrated
     case rating(Int) // -1 = rejected, 0 = keepers, 2–5 = stars
@@ -117,6 +105,13 @@ struct GridThumbnailSelectionView: View {
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
     @State private var activeSheet: ActiveSheet?
+
+    // ── Burst-mode render cache ──────────────────────────────────────────
+    // Recomputed only when `gridCacheKey` changes, so hover/selection
+    // invalidations do not rebuild these O(n) / O(m·k) structures.
+    @State private var visibleBurstGroups: [VisibleBurstGroup] = []
+    @State private var bestInGroup: [Int: BestInGroupInfo] = [:]
+    @State private var hasSharpnessScoresSnapshot: Bool = false
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
@@ -163,8 +158,13 @@ struct GridThumbnailSelectionView: View {
                                         }
                                     } header: {
                                         if vg.files.count > 1 {
-                                            BurstGroupHeaderView(files: vg.files, viewModel: viewModel)
-                                                .padding(.top, 4)
+                                            BurstGroupHeaderView(
+                                                files: vg.files,
+                                                best: bestInGroup[vg.id],
+                                                hasSharpnessScores: hasSharpnessScoresSnapshot,
+                                                viewModel: viewModel,
+                                            )
+                                            .padding(.top, 4)
                                         }
                                     }
                                 }
@@ -298,6 +298,9 @@ struct GridThumbnailSelectionView: View {
             viewModel.selectedFileIDs = []
             await ThumbnailLoader.shared.cancelAll()
         }
+        .onChange(of: gridCacheKey, initial: true) { _, _ in
+            recomputeGridCache()
+        }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
     }
 
@@ -346,20 +349,68 @@ struct GridThumbnailSelectionView: View {
         let files: [FileItem]
     }
 
-    /// O(1) lookup from file UUID to FileItem for files passing the current rating filter.
-    private var fileLookup: [UUID: FileItem] {
-        Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+    /// Cheap content signature for the burst-mode render cache. Changes in
+    /// any of these fields invalidate `visibleBurstGroups` and
+    /// `bestInGroup`; unrelated mutations (hover, selection, progress text)
+    /// do not.
+    private struct GridCacheKey: Hashable {
+        let burstGroupsCount: Int
+        let burstStructureHash: Int
+        let filesCount: Int
+        let filesFirstID: UUID?
+        let filesLastID: UUID?
+        let ratingFilter: GridRatingFilter
+        let scoresCount: Int
     }
 
-    /// Burst groups filtered to only those files visible under the current rating filter.
-    /// Groups where all files are hidden by the filter are omitted entirely.
-    private var visibleBurstGroups: [VisibleBurstGroup] {
-        let lookup = fileLookup
-        return viewModel.similarityModel.burstGroups.compactMap { group in
-            let visible = group.fileIDs.compactMap { lookup[$0] }
-            guard !visible.isEmpty else { return nil }
-            return VisibleBurstGroup(id: group.id, files: visible)
+    private var gridCacheKey: GridCacheKey {
+        let groups = viewModel.similarityModel.burstGroups
+        var structureHasher = Hasher()
+        for g in groups {
+            structureHasher.combine(g.id)
+            structureHasher.combine(g.fileIDs.count)
         }
+        let currentFiles = files
+        return GridCacheKey(
+            burstGroupsCount: groups.count,
+            burstStructureHash: structureHasher.finalize(),
+            filesCount: currentFiles.count,
+            filesFirstID: currentFiles.first?.id,
+            filesLastID: currentFiles.last?.id,
+            ratingFilter: ratingFilter,
+            scoresCount: viewModel.sharpnessModel.scores.count,
+        )
+    }
+
+    /// Rebuild the burst-mode render cache. Reads `maxScore` exactly once
+    /// (it is an O(n log n) computed property) and walks each burst group
+    /// a single time for both the visible-filter and best-in-group passes.
+    private func recomputeGridCache() {
+        let currentFiles = files
+        let lookup = Dictionary(uniqueKeysWithValues: currentFiles.map { ($0.id, $0) })
+        let scores = viewModel.sharpnessModel.scores
+        let maxScore = viewModel.sharpnessModel.maxScore
+
+        var newVisible: [VisibleBurstGroup] = []
+        newVisible.reserveCapacity(viewModel.similarityModel.burstGroups.count)
+        var newBest: [Int: BestInGroupInfo] = [:]
+
+        for group in viewModel.similarityModel.burstGroups {
+            let visible = group.fileIDs.compactMap { lookup[$0] }
+            guard !visible.isEmpty else { continue }
+            newVisible.append(VisibleBurstGroup(id: group.id, files: visible))
+            if let info = RawCullViewModel.bestInGroupInfo(
+                files: visible,
+                scores: scores,
+                maxScore: maxScore,
+            ) {
+                newBest[group.id] = info
+            }
+        }
+
+        visibleBurstGroups = newVisible
+        bestInGroup = newBest
+        hasSharpnessScoresSnapshot = !scores.isEmpty
     }
 
     /// Builds the thumbnail cell for a file inside a burst group.
