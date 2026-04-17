@@ -140,11 +140,11 @@ actor ScanAndCreateThumbnails {
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL), wrapper.beginContentAccess() {
             defer { wrapper.endContentAccess() }
+            storeInGridCache(wrapper.image, for: url)
             await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)
-            // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in RAM Cache")
             return
         }
 
@@ -153,11 +153,11 @@ actor ScanAndCreateThumbnails {
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
             storeInMemoryCache(diskImage, for: url)
+            storeInGridCache(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)
-            // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - found in DISK Cache")
             return
         }
 
@@ -178,6 +178,7 @@ actor ScanAndCreateThumbnails {
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
             storeInMemoryCache(image, for: url)
+            storeInGridCache(image, for: url)
 
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -244,5 +245,32 @@ actor ScanAndCreateThumbnails {
         let costPerPixel = getCostPerPixel()
         let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+    }
+
+    private func storeInGridCache(_ image: NSImage, for url: URL) {
+        let nsUrl = url as NSURL
+        guard SharedMemoryCache.shared.gridObject(forKey: nsUrl) == nil else { return }
+        let gridSize = CGFloat(savedSettings?.thumbnailSizeGridView ?? 200)
+        guard let scaled = downscale(image, to: gridSize) else { return }
+        let costPerPixel = getCostPerPixel()
+        let wrapper = DiscardableThumbnail(image: scaled, costPerPixel: costPerPixel)
+        SharedMemoryCache.shared.setGridObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+    }
+
+    private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return nil }
+        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
+        let newSize = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+        let result = NSImage(size: newSize)
+        result.lockFocus()
+        image.draw(
+            in: NSRect(origin: .zero, size: newSize),
+            from: NSRect(origin: .zero, size: size),
+            operation: .copy,
+            fraction: 1.0
+        )
+        result.unlockFocus()
+        return result
     }
 }

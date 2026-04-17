@@ -90,7 +90,7 @@ struct ThumbnailImageView: View {
     private func loadThumbnail() async -> NSImage? {
         switch style {
         case .grid:
-            if let file { return await ThumbnailLoader.shared.thumbnailLoader(file: file) }
+            if let file { return await ThumbnailLoader.shared.thumbnailLoader(file: file, targetSize: targetSize) }
             return nil
 
         case .list:
