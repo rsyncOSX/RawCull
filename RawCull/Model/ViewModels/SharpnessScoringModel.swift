@@ -131,10 +131,12 @@ final class SharpnessScoringModel {
                     let id = file.id
                     let iso = file.exifData?.isoValue ?? 400
                     let afPoint = file.afFocusNormalized
+                    let hint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
 
                     group.addTask(priority: .userInitiated) {
                         var fileConfig = config
                         fileConfig.iso = iso
+                        fileConfig.apertureHint = hint
                         let result = await model.computeSharpnessScore(
                             fromRawURL: url,
                             config: fileConfig,
@@ -170,10 +172,12 @@ final class SharpnessScoringModel {
                         let id = file.id
                         let iso = file.exifData?.isoValue ?? 400
                         let afPoint = file.afFocusNormalized
+                        let hint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
 
                         group.addTask(priority: .userInitiated) {
                             var fileConfig = config
                             fileConfig.iso = iso
+                            fileConfig.apertureHint = hint
                             let result = await model.computeSharpnessScore(
                                 fromRawURL: url,
                                 config: fileConfig,

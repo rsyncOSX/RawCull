@@ -115,10 +115,11 @@ struct SharpnessScoringTests {
             var cfg = FocusDetectorConfig()
             cfg.iso = isoVal
 
-            let isoFactor = max(1.0, min(sqrt(Float(max(isoVal, 1)) / 400.0), 3.0))
+            let isoFactor = FocusMaskModel.isoScalingFactor(iso: isoVal)
             let imageWidth = Float(thumbSize?.width ?? thumbnailMaxPx)
             let resFactor = max(1.0, min(sqrt(max(imageWidth, 512.0) / 512.0), 3.0))
-            let effective = min(cfg.preBlurRadius * isoFactor * resFactor, 100.0)
+            let blurDamp = cfg.apertureHint.blurDamp
+            let effective = min(cfg.preBlurRadius * isoFactor * resFactor * blurDamp, 100.0)
 
             // ── Score ─────────────────────────────────────────────────────────
             let (score, saliency) = await model.computeSharpnessScore(
@@ -150,8 +151,8 @@ struct SharpnessScoringTests {
                 print("  Thumbnail:     [FAILED to decode at max \(thumbnailMaxPx) px]")
             }
 
-            print(String(format: "  preBlurRadius: %.2f (base) × ISO √(%d/400)=%.2f × res √(%.0f/512)=%.2f  →  effective %.2f",
-                         cfg.preBlurRadius, isoVal, isoFactor, imageWidth, resFactor, effective))
+            print(String(format: "  preBlurRadius: %.2f (base) × ISO[%d]=%.2f × res √(%.0f/512)=%.2f × damp[%.2f]  →  effective %.2f",
+                         cfg.preBlurRadius, isoVal, isoFactor, imageWidth, resFactor, blurDamp, effective))
             print(String(format: "  energyMultiplier: %.2f   threshold: %.2f   salientWeight: %.2f",
                          cfg.energyMultiplier, cfg.threshold, cfg.salientWeight))
 
@@ -349,5 +350,120 @@ struct FocusNumericHelperTests {
         samples.append(Float.nan)
         samples.append(Float.infinity)
         #expect(FocusMaskModel.microContrast(samples) < 1e-5)
+    }
+
+    // MARK: - Scale invariance of robustTailScore
+    // Fix verification: p90–p97 band mean is linearly proportional to a uniform
+    // positive scaling of inputs. Guards against regressions that would make the
+    // score absolute-scale dependent without calibration.
+    @Test(.tags(.smoke))
+    func `robust tail score is scale proportional`() throws {
+        let n = 1000
+        let base = (0 ..< n).map { Float($0) / Float(n - 1) }
+        let scaled = base.map { $0 * 10 }
+        let a = try #require(FocusMaskModel.robustTailScore(base))
+        let b = try #require(FocusMaskModel.robustTailScore(scaled))
+        // Allow 1% slack for percentile-index rounding noise.
+        #expect(abs(b / a - 10) < 0.1)
+    }
+}
+
+// MARK: - Aperture hint
+
+@Suite("FocusDetectorConfig.ApertureHint")
+struct ApertureHintTests {
+    @Test(.tags(.smoke))
+    func `nil aperture maps to mid`() {
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: nil) == .mid)
+    }
+
+    @Test(.tags(.smoke))
+    func `wide boundary is inclusive at 5 point 6`() {
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 2.8) == .wide)
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 4.0) == .wide)
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 5.6) == .wide)
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 6.3) == .mid)
+    }
+
+    @Test(.tags(.smoke))
+    func `landscape boundary is inclusive at f 8`() {
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 7.1) == .mid)
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 8.0) == .landscape)
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 11.0) == .landscape)
+        #expect(FocusDetectorConfig.ApertureHint.from(aperture: 22.0) == .landscape)
+    }
+
+    @Test(.tags(.smoke))
+    func `blur gate span is positive for every hint`() {
+        for hint in [FocusDetectorConfig.ApertureHint.wide, .mid, .landscape] {
+            #expect(hint.blurGateHigh > hint.blurGateLow,
+                    "gate span must be positive so the soft ramp is well-defined")
+        }
+    }
+
+    @Test(.tags(.smoke))
+    func `landscape has widest gate window and lowest threshold`() {
+        // Landscape should be the most permissive at the low end so deep-DoF scenes
+        // with legitimately low-contrast subjects aren't demoted.
+        #expect(FocusDetectorConfig.ApertureHint.landscape.blurGateLow <
+                FocusDetectorConfig.ApertureHint.mid.blurGateLow)
+        #expect(FocusDetectorConfig.ApertureHint.mid.blurGateLow <
+                FocusDetectorConfig.ApertureHint.wide.blurGateLow)
+    }
+
+    @Test(.tags(.smoke))
+    func `only landscape overrides salient weight and damps blur`() {
+        #expect(FocusDetectorConfig.ApertureHint.wide.salientWeightOverride == nil)
+        #expect(FocusDetectorConfig.ApertureHint.mid.salientWeightOverride == nil)
+        #expect(FocusDetectorConfig.ApertureHint.landscape.salientWeightOverride == 0.55)
+
+        #expect(FocusDetectorConfig.ApertureHint.wide.blurDamp == 1.0)
+        #expect(FocusDetectorConfig.ApertureHint.mid.blurDamp == 1.0)
+        #expect(FocusDetectorConfig.ApertureHint.landscape.blurDamp == 0.8)
+    }
+}
+
+// MARK: - ISO scaling piecewise
+
+@Suite("FocusMaskModel.isoScalingFactor")
+struct ISOScalingTests {
+    @Test(.tags(.smoke))
+    func `below 800 is flat at 1 point 0`() {
+        #expect(FocusMaskModel.isoScalingFactor(iso: 100) == 1.0)
+        #expect(FocusMaskModel.isoScalingFactor(iso: 400) == 1.0)
+        #expect(FocusMaskModel.isoScalingFactor(iso: 799) == 1.0)
+    }
+
+    @Test(.tags(.smoke))
+    func `mid range ramps to 1 point 6 at 3200`() {
+        #expect(FocusMaskModel.isoScalingFactor(iso: 800) == 1.0)
+        let at2000 = FocusMaskModel.isoScalingFactor(iso: 2000)
+        #expect(abs(at2000 - 1.3) < 1e-4, "expected 1.3 at ISO 2000, got \(at2000)")
+        let at3200 = FocusMaskModel.isoScalingFactor(iso: 3200)
+        #expect(abs(at3200 - 1.6) < 1e-4, "expected 1.6 at ISO 3200, got \(at3200)")
+    }
+
+    @Test(.tags(.smoke))
+    func `high range caps at 2 point 2`() {
+        #expect(FocusMaskModel.isoScalingFactor(iso: 6400) > 1.6)
+        #expect(FocusMaskModel.isoScalingFactor(iso: 12800) == 2.2)
+        #expect(FocusMaskModel.isoScalingFactor(iso: 51200) == 2.2)
+    }
+
+    @Test(.tags(.smoke))
+    func `monotonically non decreasing across range`() {
+        let iso = [100, 200, 400, 800, 1600, 2000, 3200, 6400, 12800, 25600]
+        let factors = iso.map { FocusMaskModel.isoScalingFactor(iso: $0) }
+        for i in 1 ..< factors.count {
+            #expect(factors[i] >= factors[i - 1], "regression at ISO \(iso[i])")
+        }
+    }
+
+    @Test(.tags(.smoke))
+    func `high ISO is less aggressive than old sqrt formula`() {
+        // Regression guard: the previous sqrt(ISO/400) clamped to 3.0 produced 3.0 at
+        // ISO 3600+, over-blurring real detail on A1-series bodies. The new curve must
+        // stay well under 3.0 at ISO 6400.
+        #expect(FocusMaskModel.isoScalingFactor(iso: 6400) < 2.0)
     }
 }
