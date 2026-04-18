@@ -219,23 +219,18 @@ struct GridThumbnailSelectionView: View {
 
                 // Progress view — shown during burst grouping
                 if viewModel.similarityModel.isGrouping {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .controlSize(.small)
-                            .fixedSize()
-                        Text("Grouping bursts…")
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 14)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
-                    )
-                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-                    .transition(.scale(scale: 0.95).combined(with: .opacity))
+                    Text("Grouping bursts…")
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.primary.opacity(0.12), lineWidth: 1),
+                        )
+                        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
                 // Progress view — shown during similarity indexing
