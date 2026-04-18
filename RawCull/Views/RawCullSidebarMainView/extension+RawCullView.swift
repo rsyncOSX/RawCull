@@ -13,7 +13,6 @@ extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
             viewModel: viewModel,
-            columnVisibility: $columnVisibility,
             toggleInspector: toggleShowInspector,
         )
     }

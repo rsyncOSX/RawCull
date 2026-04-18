@@ -9,26 +9,12 @@ import SwiftUI
 
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
-    var columnVisibility: Binding<NavigationSplitViewVisibility>
     let toggleInspector: () -> Void
 
     private var settings: SettingsViewModel { SettingsViewModel.shared }
 
     var body: some ToolbarContent {
         Group {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    if columnVisibility.wrappedValue == .all {
-                        columnVisibility.wrappedValue = viewModel.mainViewMode == .loupe ? .doubleColumn : .detailOnly
-                    } else {
-                        columnVisibility.wrappedValue = .all
-                    }
-                } label: {
-                    Label("Toggle Sidebar", systemImage: "sidebar.leading")
-                }
-                .help("Show/hide sidebar")
-            }
-
             ToolbarItem(placement: .status) {
                 Button(action: openCopyView) {
                     Label("Copy", systemImage: "document.on.document")
