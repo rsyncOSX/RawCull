@@ -25,6 +25,13 @@ enum MainViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum ActiveSheet: String, Identifiable {
+    case stats
+    case scoringParams
+
+    var id: String { rawValue }
+}
+
 @Observable @MainActor
 final class RawCullViewModel {
     /// Remember previous selected source to avoid a new rescan of
@@ -115,6 +122,10 @@ final class RawCullViewModel {
     var focusPoints: [FocusPointsModel]?
 
     var showSavedFiles: Bool = false
+
+    /// Sheet currently presented from the main window toolbar
+    /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
+    var activeSheet: ActiveSheet?
 
     /// Closure to count scanning files
     var countingScannedFiles: (@Sendable (Int) -> Void)?

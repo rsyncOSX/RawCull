@@ -12,6 +12,8 @@ struct SharedMainToolbarContent: ToolbarContent {
     var columnVisibility: Binding<NavigationSplitViewVisibility>
     let toggleInspector: () -> Void
 
+    private var settings: SettingsViewModel { SettingsViewModel.shared }
+
     var body: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             Button {
@@ -46,6 +48,47 @@ struct SharedMainToolbarContent: ToolbarContent {
                 Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
             }
             .help("Show inspector")
+        }
+
+        ToolbarItem(placement: .status) {
+            Toggle(isOn: Binding(
+                get: { settings.showScoringBadge },
+                set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
+            )) {
+                Label("Score Badge", systemImage: "number.circle")
+            }
+            .toggleStyle(.button)
+            .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
+        }
+
+        ToolbarItem(placement: .status) {
+            Toggle(isOn: Binding(
+                get: { settings.showSaliencyBadge },
+                set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
+            )) {
+                Label("Saliency Badge", systemImage: "eye.circle")
+            }
+            .toggleStyle(.button)
+            .help("Show saliency badge on thumbnails")
+        }
+
+        ToolbarItem(placement: .status) {
+            Button {
+                viewModel.activeSheet = .scoringParams
+            } label: {
+                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+            }
+            .help("Configure sharpness scoring parameters")
+        }
+
+        ToolbarItem(placement: .status) {
+            Button {
+                viewModel.activeSheet = .stats
+            } label: {
+                Label("Statistics", systemImage: "info.circle")
+            }
+            .help("Show scan statistics")
+            .disabled(viewModel.files.isEmpty)
         }
 
         ToolbarItem(placement: .status) {

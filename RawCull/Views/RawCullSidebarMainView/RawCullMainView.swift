@@ -38,6 +38,30 @@ struct RawCullMainView: View {
                     .zIndex(10)
             }
         }
+        .sheet(item: $viewModel.activeSheet) { sheet in
+            switch sheet {
+            case .stats:
+                ScanStatsSheetView(viewModel: viewModel)
+
+            case .scoringParams:
+                ScoringParametersSheetView(
+                    config: Bindable(viewModel.sharpnessModel.focusMaskModel).config,
+                    thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize,
+                )
+            }
+        }
+        .sheet(isPresented: $viewModel.showSavedFiles) {
+            SavedFilesView()
+        }
+        .sheet(isPresented: $viewModel.showcopyARWFilesView) {
+            CopyARWFilesView(
+                viewModel: viewModel,
+                sheetType: $viewModel.sheetType,
+                selectedSource: $viewModel.selectedSource,
+                remotedatanumbers: $viewModel.remotedatanumbers,
+                showcopytask: $viewModel.showcopyARWFilesView,
+            )
+        }
         .onChange(of: viewModel.selectedFile) { _, newFile in
             guard let file = newFile, viewModel.zoomOverlayVisible else { return }
             viewModel.zoomExtractionTask?.cancel()
@@ -83,21 +107,7 @@ struct RawCullMainView: View {
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")
-            .searchable(
-                text: $viewModel.searchText,
-                placement: .toolbar,
-                prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")...",
-            )
             .toolbar { toolbarContent }
-            .sheet(isPresented: $viewModel.showcopyARWFilesView) {
-                CopyARWFilesView(
-                    viewModel: viewModel,
-                    sheetType: $viewModel.sheetType,
-                    selectedSource: $viewModel.selectedSource,
-                    remotedatanumbers: $viewModel.remotedatanumbers,
-                    showcopytask: $viewModel.showcopyARWFilesView,
-                )
-            }
             .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
                 switch viewModel.alertType {
                 case .extractJPGs:
@@ -177,11 +187,6 @@ struct RawCullMainView: View {
                 await viewModel.handleSortOrderChange()
             }
         }
-        .onChange(of: viewModel.searchText) { _, _ in
-            Task(priority: .background) {
-                await viewModel.handleSearchTextChange()
-            }
-        }
         .overlay(alignment: .bottom) {
             if viewModel.memorypressurewarning {
                 MemoryWarningLabelView(
@@ -234,15 +239,6 @@ struct RawCullMainView: View {
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")
             .toolbar { toolbarContent }
-            .sheet(isPresented: $viewModel.showcopyARWFilesView) {
-                CopyARWFilesView(
-                    viewModel: viewModel,
-                    sheetType: $viewModel.sheetType,
-                    selectedSource: $viewModel.selectedSource,
-                    remotedatanumbers: $viewModel.remotedatanumbers,
-                    showcopytask: $viewModel.showcopyARWFilesView,
-                )
-            }
         }
         .task {
             columnVisibility = .detailOnly
