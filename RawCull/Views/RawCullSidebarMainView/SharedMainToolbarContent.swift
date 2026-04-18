@@ -9,14 +9,7 @@ import SwiftUI
 
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
-    /// `true` when hosted in `HorizontalMainThumbnailsListView` (shows the "back to vertical" button),
-    /// `false` when hosted in `RawCullMainView` (shows the "go to horizontal" button).
-    let isHorizontal: Bool
-    let toggleLayout: () -> Void
     let toggleInspector: () -> Void
-    let openGridThumbnail: () -> Void
-
-    @Environment(\.openWindow) private var openWindow
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .status) {
@@ -25,41 +18,6 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
             .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
             .help("Copy tagged images to destination...")
-        }
-
-        ToolbarItem(placement: .status) {
-            Button(action: openGridThumbnail) {
-                Label("Grid View", systemImage: "square.grid.2x2")
-            }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-            .help("Open thumbnail grid view")
-        }
-
-        ToolbarItem(placement: .status) {
-            Button(action: opentaggedGridThumbnailWindow) {
-                Label("Grid Tagged Images", systemImage: "square.grid.2x2.fill")
-            }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || !showGridtaggedThumbnailWindow())
-            .help("Open tagged thumbnail grid view")
-        }
-
-        if isHorizontal {
-            ToolbarItem(placement: .status) {
-                Button(action: toggleLayout) {
-                    Label("Horizontal", systemImage: "arrow.up.and.down.text.horizontal")
-                }
-                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-                .help("Show Vertical thumbnails")
-                .labelStyle(.iconOnly)
-            }
-        } else {
-            ToolbarItem(placement: .status) {
-                Button(action: toggleLayout) {
-                    Label("Vertical", systemImage: "arrow.left.and.right.text.vertical")
-                }
-                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty)
-                .help("Show Horizontal thumbnails")
-            }
         }
 
         ToolbarItem(placement: .status) {
@@ -102,6 +60,33 @@ struct SharedMainToolbarContent: ToolbarContent {
             .padding(.trailing, 8)
             .disabled(viewModel.selectedSource == nil)
         }
+
+        // Trailing mode switcher — Loupe / Grid / Rated Grid.
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button {
+                viewModel.mainViewMode = .loupe
+            } label: {
+                Label("Loupe", systemImage: "rectangle.center.inset.filled")
+            }
+            .help("Loupe view")
+            .disabled(viewModel.mainViewMode == .loupe)
+
+            Button {
+                selectGridMode()
+            } label: {
+                Label("Grid", systemImage: "square.grid.2x2")
+            }
+            .help("Thumbnail grid")
+            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.mainViewMode == .grid)
+
+            Button {
+                viewModel.mainViewMode = .ratedGrid
+            } label: {
+                Label("Rated", systemImage: "star.square.fill")
+            }
+            .help("Rated images grid")
+            .disabled(viewModel.selectedSource == nil || !showGridtaggedThumbnailWindow() || viewModel.mainViewMode == .ratedGrid)
+        }
     }
 
     private var activeRatingInt: Int? {
@@ -122,8 +107,10 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.showSavedFiles.toggle()
     }
 
-    private func opentaggedGridThumbnailWindow() {
-        openWindow(id: WindowIdentifier.gridTaggedThumbnails.rawValue)
+    private func selectGridMode() {
+        viewModel.ratingFilter = .all
+        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        viewModel.mainViewMode = .grid
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {

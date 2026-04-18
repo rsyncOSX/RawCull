@@ -24,12 +24,10 @@ struct FileDetailView: View {
                       let file = files.first(where: { $0.id == selectedID }) else { return }
 
                 viewModel.zoomExtractionTask?.cancel()
-                viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
+                viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
                     file: file,
                     useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                    setNSImage: { nsImage = $0 },
-                    setCGImage: { cgImage = $0 },
-                    openWindow: { id in openWindow(id: id) },
+                    viewModel: viewModel,
                 )
             }
         } else {

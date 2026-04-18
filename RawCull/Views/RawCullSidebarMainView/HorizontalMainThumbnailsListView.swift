@@ -94,10 +94,7 @@ extension HorizontalMainThumbnailsListView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
             viewModel: viewModel,
-            isHorizontal: true,
-            toggleLayout: toggleshowhorizontal,
             toggleInspector: toggleshowinspector,
-            openGridThumbnail: openGridThumbnailWindow,
         )
     }
 

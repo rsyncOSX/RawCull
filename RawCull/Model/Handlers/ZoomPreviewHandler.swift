@@ -78,6 +78,71 @@ enum ZoomPreviewHandler {
         }
     }
 
+    /// Overlay variant: writes the extracted preview into the view model's
+    /// in-window overlay state and toggles `zoomOverlayVisible` instead of
+    /// opening a separate window. Mirrors the logic of `handle(...)`.
+    @discardableResult
+    static func handleOverlay(
+        file: FileItem,
+        useThumbnailAsZoomPreview: Bool = false,
+        thumbnailSizePreview: Int = 1616,
+        viewModel: RawCullViewModel,
+    ) -> Task<Void, Never> {
+        if useThumbnailAsZoomPreview {
+            return Task {
+                await MainActor.run {
+                    viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayNSImage = nil
+                }
+
+                let cgThumb = await RequestThumbnail.shared.requestThumbnail(
+                    for: file.url,
+                    targetSize: thumbnailSizePreview,
+                )
+
+                guard !Task.isCancelled else { return }
+
+                await MainActor.run {
+                    if let cgThumb {
+                        viewModel.zoomOverlayNSImage = NSImage(cgImage: cgThumb, size: .zero)
+                    }
+                    viewModel.zoomOverlayVisible = true
+                }
+            }
+        } else {
+            let filejpg = file.url.deletingPathExtension().appendingPathExtension(SupportedFileType.jpg.rawValue)
+            if let cgImage = loadCGImage(from: filejpg) {
+                viewModel.zoomOverlayCGImage = nil
+                viewModel.zoomOverlayNSImage = nil
+                viewModel.zoomOverlayCGImage = cgImage
+                viewModel.zoomOverlayVisible = true
+                return Task {}
+            } else {
+                return Task {
+                    await MainActor.run {
+                        viewModel.zoomOverlayNSImage = nil
+                        viewModel.zoomOverlayCGImage = nil
+                        viewModel.zoomOverlayVisible = true
+                    }
+
+                    guard !Task.isCancelled else { return }
+
+                    if file.url.pathExtension.lowercased() == SupportedFileType.arw.rawValue {
+                        let extracted = await JPGSonyARWExtractor.jpgSonyARWExtractor(from: file.url)
+
+                        guard !Task.isCancelled else { return }
+
+                        if let extracted {
+                            await MainActor.run {
+                                viewModel.zoomOverlayCGImage = extracted
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static func loadCGImage(from url: URL) -> CGImage? {
         // Disable source-level AND decode-level ImageIO caching. Without this, ImageIO
         // retains the decoded pixel buffer (~188 MB for a 50 MP JPEG) in a process-level

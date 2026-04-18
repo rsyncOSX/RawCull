@@ -13,10 +13,7 @@ extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
             viewModel: viewModel,
-            isHorizontal: false,
-            toggleLayout: toggleshowvertical,
             toggleInspector: toggleShowInspector,
-            openGridThumbnail: openGridThumbnailWindow,
         )
     }
 
