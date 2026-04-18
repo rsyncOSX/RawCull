@@ -35,6 +35,25 @@ struct SharedMainToolbarContent: ToolbarContent {
         }
 
         ToolbarItem(placement: .status) {
+            Button {
+                viewModel.activeSheet = .scoringParams
+            } label: {
+                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+            }
+            .help("Configure sharpness scoring parameters")
+        }
+
+        ToolbarItem(placement: .status) {
+            Button {
+                viewModel.activeSheet = .stats
+            } label: {
+                Label("Statistics", systemImage: "info.circle")
+            }
+            .help("Show scan statistics")
+            .disabled(viewModel.files.isEmpty)
+        }
+
+        ToolbarItem(placement: .status) {
             Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
                 Label("Sharpness", systemImage: "arrow.up.arrow.down")
             }

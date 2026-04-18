@@ -85,13 +85,6 @@ enum GridRatingFilter: Hashable {
     case rating(Int) // -1 = rejected, 0 = keepers, 2–5 = stars
 }
 
-private enum ActiveSheet: String, Identifiable {
-    case stats, scoringParams
-    var id: String {
-        rawValue
-    }
-}
-
 struct GridThumbnailSelectionView: View {
     private var settings: SettingsViewModel {
         SettingsViewModel.shared
@@ -104,7 +97,6 @@ struct GridThumbnailSelectionView: View {
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var sharpnessThreshold: Int = 50
-    @State private var activeSheet: ActiveSheet?
 
     // ── Burst-mode render cache ──────────────────────────────────────────
     // Recomputed only when `gridCacheKey` changes, so hover/selection
@@ -283,18 +275,6 @@ struct GridThumbnailSelectionView: View {
         .animation(.easeInOut(duration: 0.15), value: viewModel.similarityModel.burstModeActive)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .toolbar { gridToolbar }
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .stats:
-                ScanStatsSheetView(viewModel: viewModel)
-
-            case .scoringParams:
-                ScoringParametersSheetView(
-                    config: Bindable(viewModel.sharpnessModel.focusMaskModel).config,
-                    thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize,
-                )
-            }
-        }
         .task(id: viewModel.selectedSource) {
             viewModel.selectedFileIDs = []
             await ThumbnailLoader.shared.cancelAll()
@@ -491,23 +471,6 @@ extension GridThumbnailSelectionView {
             }
             .toggleStyle(.button)
             .help("Show saliency badge on thumbnails")
-        }
-        ToolbarItem(placement: .status) {
-            Button {
-                activeSheet = .scoringParams
-            } label: {
-                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
-            }
-            .help("Configure sharpness scoring parameters")
-        }
-        ToolbarItem(placement: .status) {
-            Button {
-                activeSheet = .stats
-            } label: {
-                Label("Statistics", systemImage: "info.circle")
-            }
-            .help("Show scan statistics")
-            .disabled(viewModel.files.isEmpty)
         }
     }
 }
