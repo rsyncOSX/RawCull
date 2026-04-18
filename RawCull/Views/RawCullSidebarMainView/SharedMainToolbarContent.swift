@@ -15,111 +15,114 @@ struct SharedMainToolbarContent: ToolbarContent {
     private var settings: SettingsViewModel { SettingsViewModel.shared }
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            Button {
-                if columnVisibility.wrappedValue == .all {
-                    columnVisibility.wrappedValue = viewModel.mainViewMode == .loupe ? .doubleColumn : .detailOnly
-                } else {
-                    columnVisibility.wrappedValue = .all
+        Group {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    if columnVisibility.wrappedValue == .all {
+                        columnVisibility.wrappedValue = viewModel.mainViewMode == .loupe ? .doubleColumn : .detailOnly
+                    } else {
+                        columnVisibility.wrappedValue = .all
+                    }
+                } label: {
+                    Label("Toggle Sidebar", systemImage: "sidebar.leading")
                 }
-            } label: {
-                Label("Toggle Sidebar", systemImage: "sidebar.leading")
+                .help("Show/hide sidebar")
             }
-            .help("Show/hide sidebar")
-        }
 
-        ToolbarItem(placement: .status) {
-            Button(action: openCopyView) {
-                Label("Copy", systemImage: "document.on.document")
+            ToolbarItem(placement: .status) {
+                Button(action: openCopyView) {
+                    Label("Copy", systemImage: "document.on.document")
+                }
+                .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
+                .help("Copy tagged images to destination...")
             }
-            .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
-            .help("Copy tagged images to destination...")
-        }
 
-        ToolbarItem(placement: .status) {
-            Button(action: toggleshowsavedfiles) {
-                Label("Saved Files", systemImage: "square.and.arrow.down")
+            ToolbarItem(placement: .status) {
+                Button(action: toggleshowsavedfiles) {
+                    Label("Saved Files", systemImage: "square.and.arrow.down")
+                }
+                .help("Show saved files")
             }
-            .help("Show saved files")
-        }
 
-        ToolbarItem(placement: .status) {
-            Button(action: toggleInspector) {
-                Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
+            ToolbarItem(placement: .status) {
+                Button(action: toggleInspector) {
+                    Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+                .help("Show inspector")
             }
-            .help("Show inspector")
-        }
 
-        ToolbarItem(placement: .status) {
-            Toggle(isOn: Binding(
-                get: { settings.showScoringBadge },
-                set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
-            )) {
-                Label("Score Badge", systemImage: "number.circle")
+            ToolbarItem(placement: .status) {
+                Toggle(isOn: Binding(
+                    get: { settings.showScoringBadge },
+                    set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
+                )) {
+                    Label("Score Badge", systemImage: "number.circle")
+                }
+                .toggleStyle(.button)
+                .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
             }
-            .toggleStyle(.button)
-            .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
-        }
 
-        ToolbarItem(placement: .status) {
-            Toggle(isOn: Binding(
-                get: { settings.showSaliencyBadge },
-                set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
-            )) {
-                Label("Saliency Badge", systemImage: "eye.circle")
+            ToolbarItem(placement: .status) {
+                Toggle(isOn: Binding(
+                    get: { settings.showSaliencyBadge },
+                    set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
+                )) {
+                    Label("Saliency Badge", systemImage: "eye.circle")
+                }
+                .toggleStyle(.button)
+                .help("Show saliency badge on thumbnails")
             }
-            .toggleStyle(.button)
-            .help("Show saliency badge on thumbnails")
-        }
 
-        ToolbarItem(placement: .status) {
-            Button {
-                viewModel.activeSheet = .scoringParams
-            } label: {
-                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+            ToolbarItem(placement: .status) {
+                Button {
+                    viewModel.activeSheet = .scoringParams
+                } label: {
+                    Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+                }
+                .help("Configure sharpness scoring parameters")
             }
-            .help("Configure sharpness scoring parameters")
-        }
 
-        ToolbarItem(placement: .status) {
-            Button {
-                viewModel.activeSheet = .stats
-            } label: {
-                Label("Statistics", systemImage: "info.circle")
+            ToolbarItem(placement: .status) {
+                Button {
+                    viewModel.activeSheet = .stats
+                } label: {
+                    Label("Statistics", systemImage: "info.circle")
+                }
+                .help("Show scan statistics")
+                .disabled(viewModel.files.isEmpty)
             }
-            .help("Show scan statistics")
-            .disabled(viewModel.files.isEmpty)
-        }
 
-        ToolbarItem(placement: .status) {
-            Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
-                Label("Sharpness", systemImage: "arrow.up.arrow.down")
-            }
-            .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessModel.scores.isEmpty)
-            .labelStyle(.iconOnly)
-            .help("Sort thumbnails sharpest-first")
-            .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, _ in
-                Task(priority: .background) {
-                    await viewModel.handleSortOrderChange()
+            ToolbarItem(placement: .status) {
+                Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
+                    Label("Sharpness", systemImage: "arrow.up.arrow.down")
+                }
+                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessModel.scores.isEmpty)
+                .labelStyle(.iconOnly)
+                .help("Sort thumbnails sharpest-first")
+                .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, _ in
+                    Task(priority: .background) {
+                        await viewModel.handleSortOrderChange()
+                    }
                 }
             }
-        }
 
-        ToolbarItem(placement: .status) {
-            RatingFilterButtons(
-                activeRating: activeRatingInt,
-                onSelect: applyRatingFilter,
-                onClear: {
-                    viewModel.ratingFilter = .all
-                    Task(priority: .background) { await viewModel.handleSortOrderChange() }
-                },
-            )
-            .padding(.trailing, 8)
-            .disabled(viewModel.selectedSource == nil)
+            ToolbarItem(placement: .status) {
+                RatingFilterButtons(
+                    activeRating: activeRatingInt,
+                    onSelect: applyRatingFilter,
+                    onClear: {
+                        viewModel.ratingFilter = .all
+                        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+                    },
+                )
+                .padding(.trailing, 8)
+                .disabled(viewModel.selectedSource == nil)
+            }
         }
+        
 
         // Trailing mode switcher — Loupe / Grid / Rated Grid.
-        ToolbarItemGroup(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .automatic) {
             Button {
                 viewModel.mainViewMode = .loupe
             } label: {
