@@ -234,6 +234,7 @@ struct GridThumbnailSelectionView: View {
                     HStack(spacing: 10) {
                         ProgressView()
                             .controlSize(.small)
+                            .fixedSize()
                         Text("Grouping bursts…")
                             .font(.subheadline)
                             .foregroundStyle(.primary)
