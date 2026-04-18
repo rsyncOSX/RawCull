@@ -39,6 +39,9 @@ final class SettingsViewModel {
     /// Maximum memory cache size in MB (default: 10000)
     var memoryCacheSizeMB: Int = 10000
 
+    /// Maximum grid (200px) memory cache size in MB (default: 400)
+    var gridCacheSizeMB: Int = 400
+
     // MARK: - Thumbnail Size Settings
 
     /// Grid thumbnail size in pixels (default: 100)
@@ -125,6 +128,7 @@ final class SettingsViewModel {
 
             await MainActor.run {
                 self.memoryCacheSizeMB = savedSettings.memoryCacheSizeMB
+                self.gridCacheSizeMB = savedSettings.gridCacheSizeMB
                 self.thumbnailSizeGrid = savedSettings.thumbnailSizeGrid
                 self.thumbnailSizePreview = savedSettings.thumbnailSizePreview
                 self.thumbnailSizeFullSize = savedSettings.thumbnailSizeFullSize
@@ -161,6 +165,7 @@ final class SettingsViewModel {
 
             let settingsToSave = SavedSettings(
                 memoryCacheSizeMB: memoryCacheSizeMB,
+                gridCacheSizeMB: gridCacheSizeMB,
                 thumbnailSizeGrid: thumbnailSizeGrid,
                 thumbnailSizePreview: thumbnailSizePreview,
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
@@ -230,6 +235,7 @@ final class SettingsViewModel {
     func resetToDefaultsMemoryCache() async {
         await MainActor.run {
             self.memoryCacheSizeMB = 10000
+            self.gridCacheSizeMB = 400
         }
         await saveSettings()
     }
@@ -249,6 +255,7 @@ final class SettingsViewModel {
         await MainActor.run {
             SavedSettings(
                 memoryCacheSizeMB: self.memoryCacheSizeMB,
+                gridCacheSizeMB: self.gridCacheSizeMB,
                 thumbnailSizeGrid: self.thumbnailSizeGrid,
                 thumbnailSizePreview: self.thumbnailSizePreview,
                 thumbnailSizeFullSize: self.thumbnailSizeFullSize,
@@ -276,6 +283,7 @@ final class SettingsViewModel {
 
 struct SavedSettings: Codable {
     let memoryCacheSizeMB: Int
+    let gridCacheSizeMB: Int
 
     let thumbnailSizeGrid: Int
     let thumbnailSizePreview: Int
@@ -300,6 +308,7 @@ struct SavedSettings: Codable {
 
     init(
         memoryCacheSizeMB: Int,
+        gridCacheSizeMB: Int = 400,
         thumbnailSizeGrid: Int,
         thumbnailSizePreview: Int,
         thumbnailSizeFullSize: Int,
@@ -320,6 +329,7 @@ struct SavedSettings: Codable {
         focusMaskFeatherRadius: Float = 2.0,
     ) {
         self.memoryCacheSizeMB = memoryCacheSizeMB
+        self.gridCacheSizeMB = gridCacheSizeMB
         self.thumbnailSizeGrid = thumbnailSizeGrid
         self.thumbnailSizePreview = thumbnailSizePreview
         self.thumbnailSizeFullSize = thumbnailSizeFullSize
@@ -343,6 +353,7 @@ struct SavedSettings: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         memoryCacheSizeMB = try c.decode(Int.self, forKey: .memoryCacheSizeMB)
+        gridCacheSizeMB = (try? c.decode(Int.self, forKey: .gridCacheSizeMB)) ?? 400
         thumbnailSizeGrid = try c.decode(Int.self, forKey: .thumbnailSizeGrid)
         thumbnailSizePreview = try c.decode(Int.self, forKey: .thumbnailSizePreview)
         thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)

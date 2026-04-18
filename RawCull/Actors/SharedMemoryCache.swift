@@ -140,10 +140,12 @@ actor SharedMemoryCache {
         // This allows ~500+ images at ~18MB each with default 10GB allocation
         let totalCostLimit = memoryCacheSizeMB * 1024 * 1024
         let countLimit = 10000 // Very high so totalCostLimit is the real constraint
+        let gridTotalCostLimit = settings.gridCacheSizeMB * 1024 * 1024
 
         return CacheConfig(
             totalCostLimit: totalCostLimit,
             countLimit: countLimit,
+            gridTotalCostLimit: gridTotalCostLimit,
             costPerPixel: thumbnailCostPerPixel,
         )
     }
@@ -160,10 +162,12 @@ actor SharedMemoryCache {
             // countLimit is set very high (10000) so memory, not item count, limits the cache
             let totalCostLimit = memoryCacheSizeMB * 1024 * 1024
             let countLimit = 10000 // Very high so totalCostLimit is the real constraint
+            let gridTotalCostLimit = settings.gridCacheSizeMB * 1024 * 1024
 
             let config = CacheConfig(
                 totalCostLimit: totalCostLimit,
                 countLimit: countLimit,
+                gridTotalCostLimit: gridTotalCostLimit,
                 costPerPixel: thumbnailCostPerPixel,
             )
             applyConfig(config)
@@ -195,7 +199,7 @@ actor SharedMemoryCache {
         if let costPerPixel = config.costPerPixel {
             _costPerPixel = costPerPixel
         }
-        gridThumbnailCache.totalCostLimit = 400 * 1024 * 1024
+        gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
         gridThumbnailCache.countLimit = 2000
         gridThumbnailCache.evictsObjectsWithDiscardedContent = false
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
