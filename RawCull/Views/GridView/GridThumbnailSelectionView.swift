@@ -86,10 +86,6 @@ enum GridRatingFilter: Hashable {
 }
 
 struct GridThumbnailSelectionView: View {
-    private var settings: SettingsViewModel {
-        SettingsViewModel.shared
-    }
-
     @Environment(\.openWindow) private var openWindow
 
     @Bindable var viewModel: RawCullViewModel
@@ -451,26 +447,6 @@ extension GridThumbnailSelectionView {
                     .font(.caption)
                     .foregroundStyle(Color.secondary)
             }
-        }
-        ToolbarItem(placement: .status) {
-            Toggle(isOn: Binding(
-                get: { settings.showScoringBadge },
-                set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
-            )) {
-                Label("Score Badge", systemImage: "number.circle")
-            }
-            .toggleStyle(.button)
-            .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
-        }
-        ToolbarItem(placement: .status) {
-            Toggle(isOn: Binding(
-                get: { settings.showSaliencyBadge },
-                set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
-            )) {
-                Label("Saliency Badge", systemImage: "eye.circle")
-            }
-            .toggleStyle(.button)
-            .help("Show saliency badge on thumbnails")
         }
     }
 }
