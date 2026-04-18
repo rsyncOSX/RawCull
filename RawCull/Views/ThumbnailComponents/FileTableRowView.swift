@@ -3,17 +3,10 @@
 //  RawCull
 //
 
-import OSLog
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct FileTableRowView: View {
     @Bindable var viewModel: RawCullViewModel
-
-    @Binding var nsImage: NSImage?
-    @Binding var cgImage: CGImage?
-
-    var openWindow: (String) -> Void
 
     var body: some View {
         let filteredFiles = viewModel.filteredFiles.compactMap { file in
@@ -21,32 +14,65 @@ struct FileTableRowView: View {
         }
 
         VStack(alignment: .leading) {
+            HStack {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search", text: $viewModel.searchText)
+                        .textFieldStyle(.plain)
+                    if !viewModel.searchText.isEmpty {
+                        Button {
+                            viewModel.searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(nsColor: .textBackgroundColor)),
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1),
+                )
+
+                Picker("Filter", selection: $viewModel.ratingFilter) {
+                    Text("All").tag(RatingFilter.all)
+                    Text("✕ Rejected").foregroundStyle(.red).tag(RatingFilter.rejected)
+                    Text("Keep").tag(RatingFilter.keepers)
+                    ForEach(2 ... 5, id: \.self) { n in
+                        HStack(spacing: 2) {
+                            ForEach(0 ..< n, id: \.self) { _ in
+                                Image(systemName: "star.fill").font(.caption2)
+                            }
+                        }
+                        .tag(RatingFilter.stars(n))
+                    }
+                }
+                .pickerStyle(DefaultPickerStyle())
+                .labelsHidden()
+            }
+            .padding(.horizontal, 4)
+
             Table(
                 filteredFiles,
                 selection: $viewModel.selectedFileID,
                 sortOrder: $viewModel.sortOrder,
             ) {
-                TableColumn("", value: \.id) { file in
-                    Button(action: {
-                        handleToggleSelection(for: file)
-                    }, label: {
-                        Image(systemName: marktoggle(for: file) ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(.blue)
-                    })
-                    .buttonStyle(.plain)
-                }
-                .width(30)
-
                 TableColumn("Rating") { file in
-                    RatingView(
-                        rating: viewModel.getRating(for: file),
-                        onChange: { newRating in
-                            if !marktoggle(for: file) {
-                                handleToggleSelection(for: file)
-                            }
-                            viewModel.updateRating(for: file, rating: newRating)
-                        },
-                    )
+                    HStack(spacing: 2) {
+                        let rating = viewModel.getRating(for: file)
+                        ForEach(2 ... 5, id: \.self) { star in
+                            Image(systemName: star <= rating ? "star.fill" : "star")
+                                .foregroundStyle(star <= rating ? .yellow : .gray)
+                                .font(.system(size: 12))
+                        }
+                    }
                 }
                 .width(90)
 
@@ -79,65 +105,11 @@ struct FileTableRowView: View {
             if viewModel.selectedFileID != nil {
                 viewModel.previouslySelectedFileID = viewModel.selectedFileID
             }
-
-            if let index = viewModel.files.firstIndex(where: { $0.id == viewModel.selectedFileID }) {
-                let file = viewModel.files[index]
-                if viewModel.zoomCGImageWindowFocused || viewModel.zoomNSImageWindowFocused {
-                    viewModel.zoomExtractionTask?.cancel()
-                    viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
-                        file: file,
-                        useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                        setNSImage: { nsImage = $0 },
-                        setCGImage: { cgImage = $0 },
-                        openWindow: { _ in },
-                    )
-                }
+        }
+        .onChange(of: viewModel.searchText) { _, _ in
+            Task(priority: .background) {
+                await viewModel.handleSearchTextChange()
             }
-        }
-        .contextMenu(forSelectionType: FileItem.ID.self) { _ in
-        } primaryAction: { _ in
-            guard let selectedID = viewModel.selectedFileID,
-                  let file = viewModel.files.first(where: { $0.id == selectedID }) else { return }
-
-            viewModel.zoomExtractionTask?.cancel()
-            viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
-                file: file,
-                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                setNSImage: { nsImage = $0 },
-                setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id) },
-            )
-        }
-        .onKeyPress(.space) {
-            guard let selectedID = viewModel.selectedFileID,
-                  let file = viewModel.files.first(where: { $0.id == selectedID }) else { return .handled }
-
-            viewModel.zoomExtractionTask?.cancel()
-            viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
-                file: file,
-                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                setNSImage: { nsImage = $0 },
-                setCGImage: { cgImage = $0 },
-                openWindow: { id in openWindow(id) },
-            )
-            return .handled
-        }
-    }
-
-    // MARK: - Private Helpers
-
-    private func marktoggle(for file: FileItem) -> Bool {
-        if let index = viewModel.cullingModel.savedFiles.firstIndex(where: { $0.catalog == viewModel.selectedSource?.url }),
-           let filerecords = viewModel.cullingModel.savedFiles[index].filerecords {
-            return filerecords.contains { $0.fileName == file.name }
-        }
-        return false
-    }
-
-    private func handleToggleSelection(for file: FileItem) {
-        Task {
-            viewModel.selectFile(file)
-            await viewModel.toggleTag(for: file)
         }
     }
 }

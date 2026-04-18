@@ -106,11 +106,6 @@ struct RawCullMainView: View {
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")
-            .searchable(
-                text: $viewModel.searchText,
-                placement: .toolbar,
-                prompt: "Search in \(viewModel.selectedSource?.name ?? "catalog")...",
-            )
             .toolbar { toolbarContent }
             .alert(viewModel.alertTitle, isPresented: $viewModel.showingAlert) {
                 switch viewModel.alertType {
@@ -183,11 +178,6 @@ struct RawCullMainView: View {
         .onChange(of: viewModel.sortOrder) { _, _ in
             Task(priority: .background) {
                 await viewModel.handleSortOrderChange()
-            }
-        }
-        .onChange(of: viewModel.searchText) { _, _ in
-            Task(priority: .background) {
-                await viewModel.handleSearchTextChange()
             }
         }
         .overlay(alignment: .bottom) {

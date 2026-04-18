@@ -55,23 +55,6 @@ struct SidebarARWCatalogFileView: View {
                                 verticalimages.toggle()
                             }
 
-                            if !viewModel.files.isEmpty, verticalimages == false {
-                                Picker("Filter", selection: $viewModel.ratingFilter) {
-                                    Text("All").tag(RatingFilter.all)
-                                    Text("✕ Rejected").foregroundStyle(.red).tag(RatingFilter.rejected)
-                                    Text("Keep").tag(RatingFilter.keepers)
-                                    ForEach(2 ... 5, id: \.self) { n in
-                                        HStack(spacing: 2) {
-                                            ForEach(0 ..< n, id: \.self) { _ in
-                                                Image(systemName: "star.fill").font(.caption2)
-                                            }
-                                        }
-                                        .tag(RatingFilter.stars(n))
-                                    }
-                                }
-                                .pickerStyle(DefaultPickerStyle())
-                            }
-
                             if verticalimages {
                                 ConditionalGlassButton(
                                     systemImage: "arrow.counterclockwise",
@@ -96,10 +79,7 @@ struct SidebarARWCatalogFileView: View {
                                 ImageTableVerticalView(viewModel: viewModel)
                             } else {
                                 // This is the plain table view
-                                FileTableRowView(viewModel: viewModel,
-                                                 nsImage: $nsImage,
-                                                 cgImage: $cgImage,
-                                                 openWindow: { id in openWindow(id: id) })
+                                FileTableRowView(viewModel: viewModel)
                             }
                         }
                         .frame(width: verticalimages ? (thumbnailSizeGrid + 20) : 510)
