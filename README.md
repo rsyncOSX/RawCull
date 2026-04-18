@@ -1,4 +1,5 @@
 # RawCull
+
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
 RawCull is a macOS photo review and culling application for Sony ARW RAW files, built exclusively for Apple Silicon. It combines GPU-accelerated analysis — EXIF extraction, focus point detection, sharpness scoring, and saliency — to help you quickly identify your best shots.
