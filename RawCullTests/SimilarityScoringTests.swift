@@ -16,18 +16,6 @@ import Vision
 
 // MARK: - Helpers
 
-/// Create a minimal FileItem for testing.
-private func makeFile(name: String) -> FileItem {
-    FileItem(
-        url: URL(fileURLWithPath: "/tmp/\(name)"),
-        name: name,
-        size: 0,
-        dateModified: Date(),
-        exifData: nil,
-        afFocusNormalized: nil,
-    )
-}
-
 /// Build a small synthetic VNFeaturePrintObservation-like Data blob by
 /// running the request against a solid-color CGImage.
 /// Returns nil if Vision is unavailable (rare on macOS).

@@ -6,9 +6,6 @@ schemes:
 index_exclude:
 - RawCull/Model/ParametersRsync/SynchronizeConfiguration.swift 
 - RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
-- RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
+- RawCull/Model/ParametersRsync/PrepareOutputFromRsync.swift
 - RawCull/Extensions/extension+String+Date.swift
 - RawCull/Extensions/extension+Thread+Logger.swift
-- RawCull/RawCullTests/RawCullTestsDataRaceDetectionTests.swift
-- RawCull/RawCullTests/SharpnessScoringTests.swift
-- RawCull/RawCullTests/SimilarityScoringTests.swift

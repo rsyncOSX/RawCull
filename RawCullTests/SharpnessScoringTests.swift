@@ -55,13 +55,9 @@ private func decodeThumbnailSize(url: URL, maxPx: Int) -> (width: Int, height: I
 private struct ScoringResult {
     let filename: String
     let camera: String
-    let iso: Int
-    let aperture: Double?
     let score: Float?
     let saliencyDetected: Bool
     let saliencyLabel: String?
-    let thumbWidth: Int?
-    let thumbHeight: Int?
 }
 
 // MARK: - Test
@@ -177,13 +173,9 @@ struct SharpnessScoringTests {
             results.append(ScoringResult(
                 filename: name,
                 camera: camera,
-                iso: isoVal,
-                aperture: fNum?.doubleValue,
                 score: score,
                 saliencyDetected: saliencyDetected,
                 saliencyLabel: saliencyLabel,
-                thumbWidth: thumbSize?.width,
-                thumbHeight: thumbSize?.height,
             ))
         }
 
