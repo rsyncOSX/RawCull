@@ -509,23 +509,5 @@ extension GridThumbnailSelectionView {
             .help("Show scan statistics")
             .disabled(viewModel.files.isEmpty)
         }
-        ToolbarItem(placement: .status) {
-            HStack(spacing: 8) {
-                RatingFilterButtons(
-                    activeRating: { if case let .rating(n) = ratingFilter { return n }; return nil }(),
-                    onSelect: { rating in
-                        let next = GridRatingFilter.rating(rating)
-                        ratingFilter = ratingFilter == next ? .all : next
-                    },
-                    onClear: { ratingFilter = .all },
-                )
-
-                Text("P = picked, not rated")
-                    .font(.caption2)
-                    .foregroundStyle(Color.secondary)
-
-                Spacer()
-            }
-        }
     }
 }
