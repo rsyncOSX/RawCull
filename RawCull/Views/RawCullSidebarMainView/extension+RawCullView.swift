@@ -21,20 +21,6 @@ extension RawCullMainView {
         viewModel.hideInspector.toggle()
     }
 
-    func toggleshowvertical() {
-        showhorizontalthumbnailview.toggle()
-    }
-
-    func openGridThumbnailWindow() {
-        viewModel.ratingFilter = .all
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        gridthumbnailviewmodel.open(
-            cullingModel: viewModel.cullingModel,
-            selectedSource: viewModel.selectedSource,
-            filteredFiles: viewModel.filteredFiles,
-        )
-        openWindow(id: "grid-thumbnails-window")
-    }
 
     func handleToggleSelection(for file: FileItem) {
         Task {

@@ -14,12 +14,8 @@ struct RawCullMainView: View {
     @State private var memoryMonitorModel = MemoryViewModel(pressureThresholdFactor: 0.85)
     @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
 
-    // Kept for legacy binding sites that still expect these (e.g., the
-    // dead HorizontalMainThumbnailsListView code path). The loupe path no
-    // longer routes through them — it uses viewModel.zoomOverlay* state.
     @State private var cgImage: CGImage?
     @State private var nsImage: NSImage?
-    @State var showhorizontalthumbnailview: Bool = false
 
     var body: some View {
         ZStack {

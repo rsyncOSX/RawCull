@@ -269,3 +269,21 @@ struct ZoomOverlayView: View {
         withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) }
     }
 }
+
+extension CGImage {
+    func downscaled(toWidth maxWidth: Int) -> CGImage? {
+        guard width > maxWidth else { return self }
+        let scale = CGFloat(maxWidth) / CGFloat(width)
+        let newWidth = maxWidth
+        let newHeight = Int(CGFloat(height) * scale)
+        guard let context = CGContext(
+            data: nil, width: newWidth, height: newHeight,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+        ) else { return nil }
+        context.interpolationQuality = .medium
+        context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+        return context.makeImage()
+    }
+}

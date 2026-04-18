@@ -9,7 +9,7 @@ import Foundation
 /// grid's burst-section header so the header body does no scoring math
 /// on redraw.
 struct BestInGroupInfo: Equatable {
-    let fileID: UUID
+    // let fileID: UUID
     let fileName: String
     /// Percentage of `maxScore`, or nil when scores are missing or maxScore ≤ 0.
     let percent: Int?
@@ -80,6 +80,6 @@ extension RawCullViewModel {
         } else {
             nil
         }
-        return BestInGroupInfo(fileID: best.id, fileName: best.name, percent: percent)
+        return BestInGroupInfo(fileName: best.name, percent: percent)
     }
 }
