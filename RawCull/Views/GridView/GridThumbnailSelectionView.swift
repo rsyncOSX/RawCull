@@ -354,9 +354,9 @@ struct GridThumbnailSelectionView: View {
     /// any of these fields invalidate `visibleBurstGroups` and
     /// `bestInGroup`; unrelated mutations (hover, selection, progress text)
     /// do not.
-    // All stored properties are read via synthesized Hashable when the
-    // struct drives `.onChange(of: gridCacheKey)` above; Periphery does
-    // not see synthesized conformances as reads, hence the ignores.
+    /// All stored properties are read via synthesized Hashable when the
+    /// struct drives `.onChange(of: gridCacheKey)` above; Periphery does
+    /// not see synthesized conformances as reads, hence the ignores.
     private struct GridCacheKey: Hashable {
         // periphery:ignore
         let burstGroupsCount: Int

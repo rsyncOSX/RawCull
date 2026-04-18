@@ -12,7 +12,9 @@ import SwiftUI
 struct ZoomOverlayView: View {
     @Bindable var viewModel: RawCullViewModel
 
-    private var focusPoints: [FocusPoint]? { viewModel.getFocusPoints() }
+    private var focusPoints: [FocusPoint]? {
+        viewModel.getFocusPoints()
+    }
 
     @State private var focusMask: CGImage?
     @State private var currentScale: CGFloat = 1.0

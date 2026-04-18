@@ -20,7 +20,9 @@ enum MainViewMode: String, CaseIterable, Identifiable {
     case grid
     case ratedGrid
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 @Observable @MainActor
@@ -66,7 +68,7 @@ final class RawCullViewModel {
     var zoomCGImageWindowFocused: Bool = false
     var zoomNSImageWindowFocused: Bool = false
 
-    // Main content mode — drives which view fills the main window.
+    /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
 
     // In-window zoom overlay (replaces the old separate zoom windows).

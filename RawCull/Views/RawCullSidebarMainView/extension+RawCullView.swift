@@ -13,6 +13,7 @@ extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
             viewModel: viewModel,
+            columnVisibility: $columnVisibility,
             toggleInspector: toggleShowInspector,
         )
     }
@@ -20,7 +21,6 @@ extension RawCullMainView {
     func toggleShowInspector() {
         viewModel.hideInspector.toggle()
     }
-
 
     func handleToggleSelection(for file: FileItem) {
         Task {

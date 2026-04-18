@@ -12,7 +12,7 @@ struct RawCullMainView: View {
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var memoryMonitorModel = MemoryViewModel(pressureThresholdFactor: 0.85)
-    @State private var columnVisibility = NavigationSplitViewVisibility.doubleColumn
+    @State var columnVisibility = NavigationSplitViewVisibility.doubleColumn
 
     @State private var cgImage: CGImage?
     @State private var nsImage: NSImage?
@@ -23,8 +23,10 @@ struct RawCullMainView: View {
                 switch viewModel.mainViewMode {
                 case .loupe:
                     loupeSplit
+
                 case .grid:
                     gridSplit
+
                 case .ratedGrid:
                     ratedGridSplit
                 }
@@ -58,7 +60,6 @@ struct RawCullMainView: View {
 
     // MARK: - Loupe mode (3-column split)
 
-    @ViewBuilder
     private var loupeSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             ARWCatalogSidebarView(
@@ -133,6 +134,9 @@ struct RawCullMainView: View {
                 handleToggleSelection: handleToggleSelection,
                 abort: abort,
             )
+        }
+        .task {
+            columnVisibility = .doubleColumn
         }
         .sheet(isPresented: $viewModel.showSavedFiles) {
             SavedFilesView()
@@ -213,7 +217,6 @@ struct RawCullMainView: View {
 
     // MARK: - Grid mode (2-column split)
 
-    @ViewBuilder
     private var gridSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             ARWCatalogSidebarView(
@@ -241,11 +244,13 @@ struct RawCullMainView: View {
                 )
             }
         }
+        .task {
+            columnVisibility = .detailOnly
+        }
     }
 
     // MARK: - Rated grid mode (2-column split)
 
-    @ViewBuilder
     private var ratedGridSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             ARWCatalogSidebarView(
@@ -264,6 +269,9 @@ struct RawCullMainView: View {
             )
             .navigationTitle("Rated images")
             .toolbar { toolbarContent }
+        }
+        .task {
+            columnVisibility = .detailOnly
         }
     }
 
