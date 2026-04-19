@@ -304,12 +304,10 @@ struct GridThumbnailSelectionView: View {
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.zoomExtractionTask?.cancel()
-        viewModel.zoomExtractionTask = ZoomPreviewHandler.handle(
+        viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
             useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-            setNSImage: { nsImage = $0 },
-            setCGImage: { cgImage = $0 },
-            openWindow: { id in openWindow(id: id) },
+            viewModel: viewModel,
         )
     }
 

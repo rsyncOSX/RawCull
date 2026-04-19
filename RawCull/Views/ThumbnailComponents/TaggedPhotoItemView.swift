@@ -19,6 +19,7 @@ struct TaggedPhotoItemView: View {
     let photoURL: URL? // file URL — used only for thumbnail display
     let catalogURL: URL? // catalog (directory) URL — used for model lookups
     var onSelected: () -> Void = {}
+    var onDoubleSelected: () -> Void = {}
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -57,9 +58,9 @@ struct TaggedPhotoItemView: View {
                 }
             }
         }
-        .onTapGesture {
-            onSelected()
-        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { onDoubleSelected() }
+        .onTapGesture(count: 1) { onSelected() }
         .onDisappear {
             // Cancel loading when scrolled out of view
             if let url = photoURL {

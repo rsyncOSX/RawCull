@@ -35,6 +35,11 @@ struct RatedPhotoGridView: View {
                                         onPhotoSelected(file)
                                     }
                                 },
+                                onDoubleSelected: {
+                                    if let file = photoFile {
+                                        handleDoubleSelect(for: file)
+                                    }
+                                },
                             )
                         }
                     }
@@ -46,5 +51,15 @@ struct RatedPhotoGridView: View {
 
     var cullingModel: CullingModel {
         viewModel.cullingModel
+    }
+
+    private func handleDoubleSelect(for file: FileItem) {
+        viewModel.selectedFileID = file.id
+        viewModel.zoomExtractionTask?.cancel()
+        viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
+            file: file,
+            useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
+            viewModel: viewModel,
+        )
     }
 }
