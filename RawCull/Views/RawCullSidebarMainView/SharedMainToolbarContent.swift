@@ -11,7 +11,9 @@ struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
     let toggleInspector: () -> Void
 
-    private var settings: SettingsViewModel { SettingsViewModel.shared }
+    private var settings: SettingsViewModel {
+        SettingsViewModel.shared
+    }
 
     var body: some ToolbarContent {
         Group {
@@ -105,7 +107,6 @@ struct SharedMainToolbarContent: ToolbarContent {
                 .disabled(viewModel.selectedSource == nil)
             }
         }
-        
 
         // Trailing mode switcher — Loupe / Grid / Rated Grid.
         ToolbarItemGroup(placement: .automatic) {

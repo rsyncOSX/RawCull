@@ -29,7 +29,9 @@ enum ActiveSheet: String, Identifiable {
     case stats
     case scoringParams
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 @Observable @MainActor
