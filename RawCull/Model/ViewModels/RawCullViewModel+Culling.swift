@@ -176,12 +176,4 @@ extension RawCullViewModel {
         }
         rebuildRatingCache()
     }
-
-    func toggleTag(for file: FileItem) async {
-        await cullingModel.toggleSelectionSavedFiles(
-            in: file.url,
-            toggledfilename: file.name,
-        )
-        rebuildRatingCache()
-    }
 }
