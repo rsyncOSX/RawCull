@@ -25,7 +25,7 @@ struct RatedPhotoGridView: View {
                         ForEach(localfiles.sorted(), id: \.self) { photo in
                             let photoFileURL = viewModel.filteredFiles.first(where: { $0.name == photo })?.url
                             let photoFile = viewModel.filteredFiles.first(where: { $0.name == photo })
-                            TaggedPhotoItemView(
+                            RatedPhotoItemView(
                                 viewModel: viewModel,
                                 photo: photo,
                                 photoURL: photoFileURL,

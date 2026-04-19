@@ -1,5 +1,5 @@
 //
-//  TaggedPhotoItemView.swift
+//  RatedPhotoItemView.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 21/01/2026.
@@ -8,7 +8,7 @@
 import OSLog
 import SwiftUI
 
-struct TaggedPhotoItemView: View {
+struct RatedPhotoItemView: View {
     private var settings: SettingsViewModel {
         SettingsViewModel.shared
     }
