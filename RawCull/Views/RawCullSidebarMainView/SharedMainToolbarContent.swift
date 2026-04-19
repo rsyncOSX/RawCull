@@ -81,20 +81,6 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
 
             ToolbarItem(placement: .status) {
-                Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
-                    Label("Sharpness", systemImage: "arrow.up.arrow.down")
-                }
-                .disabled(viewModel.selectedSource == nil || viewModel.filteredFiles.isEmpty || viewModel.sharpnessModel.scores.isEmpty)
-                .labelStyle(.iconOnly)
-                .help("Sort thumbnails sharpest-first")
-                .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, _ in
-                    Task(priority: .background) {
-                        await viewModel.handleSortOrderChange()
-                    }
-                }
-            }
-
-            ToolbarItem(placement: .status) {
                 RatingFilterButtons(
                     activeRating: activeRatingInt,
                     onSelect: applyRatingFilter,
@@ -109,7 +95,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         }
 
         // Trailing mode switcher — Loupe / Grid / Rated Grid.
-        ToolbarItemGroup(placement: .automatic) {
+        ToolbarItemGroup(placement: .status) {
             Button {
                 viewModel.mainViewMode = .loupe
             } label: {
