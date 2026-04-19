@@ -45,10 +45,8 @@ struct ThumbnailImageView: View {
             guard url != nil || file != nil else { return }
             isLoading = true
             let loadedImage = await loadThumbnail()
-            await MainActor.run {
-                thumbnailImage = loadedImage
-                imageBinding?.wrappedValue = loadedImage
-            }
+            thumbnailImage = loadedImage
+            imageBinding?.wrappedValue = loadedImage
             isLoading = false
         }
     }

@@ -29,12 +29,10 @@ actor DiskCacheManager {
     func load(for sourceURL: URL) async -> NSImage? {
         let fileURL = cacheURL(for: sourceURL)
 
-        let data = await Task.detached(priority: .userInitiated) {
-            try? Data(contentsOf: fileURL)
+        return await Task.detached(priority: .userInitiated) {
+            guard let data = try? Data(contentsOf: fileURL) else { return nil }
+            return NSImage(data: data)
         }.value
-
-        guard let data else { return nil }
-        return NSImage(data: data)
     }
 
     // MARK: - Save
