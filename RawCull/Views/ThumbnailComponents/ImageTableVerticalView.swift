@@ -105,7 +105,6 @@ struct ImageTableVerticalView: View {
             }
         }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .vertical)
-        // .focusedSceneValue(\.tagimage, $viewModel.focustagimage)
     }
 
     // MARK: - Private Helpers

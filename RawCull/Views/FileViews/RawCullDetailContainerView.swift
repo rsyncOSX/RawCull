@@ -18,14 +18,7 @@ struct RawCullDetailContainerView: View {
         )
 
         // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
-        if viewModel.focustagimage == true {
-            TagImageFocusView(
-                focustagimage: $viewModel.focustagimage,
-                files: viewModel.files,
-                selectedFileID: selectedFileID,
-                handleToggleSelection: handleToggleSelection,
-            )
-        }
+
         if viewModel.focusaborttask {
             AbortTaskFocusView(
                 focusaborttask: $viewModel.focusaborttask,

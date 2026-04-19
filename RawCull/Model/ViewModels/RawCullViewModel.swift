@@ -63,7 +63,6 @@ final class RawCullViewModel {
     var scanning: Bool = true
     var showingAlert: Bool = false
 
-    var focustagimage: Bool = false
     var focusaborttask: Bool = false
     var focusExtractJPGs: Bool = false
 
