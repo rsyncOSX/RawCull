@@ -21,13 +21,6 @@ extension RawCullMainView {
         viewModel.hideInspector.toggle()
     }
 
-    func handleToggleSelection(for file: FileItem) {
-        Task {
-            viewModel.selectFile(file)
-            await viewModel.toggleTag(for: file)
-        }
-    }
-
     func handlePickerResult(_ result: Result<URL, Error>) {
         if case let .success(url) = result {
             if url.startAccessingSecurityScopedResource() {

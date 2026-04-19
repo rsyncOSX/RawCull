@@ -141,7 +141,6 @@ struct RawCullMainView: View {
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 selectedFileID: $viewModel.selectedFileID,
-                handleToggleSelection: handleToggleSelection,
                 abort: abort,
             )
         }

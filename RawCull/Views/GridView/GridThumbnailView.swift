@@ -40,12 +40,6 @@ struct GridThumbnailView: View {
         .onKeyPress(.rightArrow) { navigateToNext(); return .handled }
     }
 
-    private func handleToggleSelection(for file: FileItem) {
-        Task {
-            await viewModel.toggleTag(for: file)
-        }
-    }
-
     private func navigateToNext() {
         guard let current = viewModel.selectedFile,
               let index = sortedFiles.firstIndex(where: { $0.id == current.id }),

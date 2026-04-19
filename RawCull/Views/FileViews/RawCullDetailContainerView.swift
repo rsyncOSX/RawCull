@@ -5,7 +5,6 @@ struct RawCullDetailContainerView: View {
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
     @Binding var selectedFileID: FileItem.ID?
-    let handleToggleSelection: (FileItem) -> Void
     let abort: () -> Void
 
     var body: some View {

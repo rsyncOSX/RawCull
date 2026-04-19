@@ -86,8 +86,6 @@ enum GridRatingFilter: Hashable {
 }
 
 struct GridThumbnailSelectionView: View {
-    @Environment(\.openWindow) private var openWindow
-
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
