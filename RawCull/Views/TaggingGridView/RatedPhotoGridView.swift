@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TaggedPhotoHorisontalGridView: View {
+struct RatedPhotoGridView: View {
     @Bindable var viewModel: RawCullViewModel
     private var settings: SettingsViewModel {
         SettingsViewModel.shared
@@ -10,22 +10,8 @@ struct TaggedPhotoHorisontalGridView: View {
     var onPhotoSelected: (FileItem) -> Void = { _ in }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Button {
-                    viewModel.cullingModel.loadSavedFiles()
-                    viewModel.rebuildRatingCache()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .help("Reload rated images from disk")
-                .padding(.horizontal)
-                .padding(.vertical, 6)
-            }
-            .background(.bar)
-
+     
+            
             ScrollView {
                 LazyVGrid(
                     columns: [
@@ -58,7 +44,7 @@ struct TaggedPhotoHorisontalGridView: View {
                 }
                 .padding()
             }
-        }
+        
     }
 
     var cullingModel: CullingModel {

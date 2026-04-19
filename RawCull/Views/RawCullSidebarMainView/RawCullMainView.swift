@@ -256,7 +256,7 @@ struct RawCullMainView: View {
                 cullingModel: viewModel.cullingModel,
             )
         } detail: {
-            TaggedPhotoHorisontalGridView(
+            RatedPhotoGridView(
                 viewModel: viewModel,
                 catalogURL: viewModel.selectedSource?.url,
                 onPhotoSelected: { file in
