@@ -201,7 +201,7 @@ actor SharedMemoryCache {
             _costPerPixel = costPerPixel
         }
         gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
-        gridThumbnailCache.countLimit = 2000
+        gridThumbnailCache.countLimit = 3000
         gridThumbnailCache.evictsObjectsWithDiscardedContent = false
         gridThumbnailCache.delegate = CacheDelegate.shared
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
