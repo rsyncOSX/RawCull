@@ -86,7 +86,7 @@ struct CacheSettingsTab: View {
                                             get: { Double(settingsManager.gridCacheSizeMB) },
                                             set: { settingsManager.gridCacheSizeMB = Int($0) },
                                         ),
-                                        in: 400 ... 1000,
+                                        in: 400 ... 2000,
                                         step: 50,
                                     )
                                     .frame(height: 18)
@@ -303,8 +303,15 @@ struct CacheSettingsTab: View {
 
     private func gridDisplayValue(for megabytes: Int) -> String {
         let bytes = megabytes * 1024 * 1024
-        let s = settingsManager.thumbnailSizeGrid
-        let costPerImage = s * s * settingsManager.thumbnailCostPerPixel
+
+        if currentGridCacheCount > 0, currentGridCacheSize > 0 {
+            let avgCost = currentGridCacheSize / currentGridCacheCount
+            if avgCost > 0 { return String(max(1, bytes / avgCost)) }
+        }
+
+        let s = settingsManager.thumbnailSizeGrid * 2
+        let raw = s * s * settingsManager.thumbnailCostPerPixel
+        let costPerImage = Int(Double(raw) * 1.1)
         guard costPerImage > 0 else { return "0" }
         return String(max(1, bytes / costPerImage))
     }
