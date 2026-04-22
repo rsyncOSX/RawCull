@@ -20,7 +20,7 @@ struct RatedPhotoGridView: View {
                     spacing: 8,
                 ) {
                     ForEach(ratedFiles, id: \.id) { file in
-                        RatedPhotoItemView(
+                        RatedImageItemView(
                             viewModel: viewModel,
                             photo: file.name,
                             photoURL: file.url,

@@ -8,7 +8,7 @@
 import OSLog
 import SwiftUI
 
-struct RatedPhotoItemView: View {
+struct RatedImageItemView: View {
     private var settings: SettingsViewModel {
         SettingsViewModel.shared
     }
