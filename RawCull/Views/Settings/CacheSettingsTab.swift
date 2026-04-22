@@ -18,6 +18,7 @@ struct CacheSettingsTab: View {
     @State private var showSaveSettingsConfirmation = false
     @State private var currentDiskCacheSize: Int = 0
     @State private var currentGridCacheSize: Int = 0
+    @State private var currentGridCacheCount: Int = 0
     @State private var isLoadingDiskCacheSize = false
     @State private var isPruningDiskCache = false
 
@@ -76,7 +77,7 @@ struct CacheSettingsTab: View {
                                         Text("Grid cache (200px)")
                                             .font(.system(size: 10, weight: .medium))
                                         Spacer()
-                                        Text("Approx 200px thumbnails: " +
+                                        Text("Max capacity: ~" +
                                             gridDisplayValue(for: settingsManager.gridCacheSizeMB))
                                             .font(.system(size: 10, weight: .semibold, design: .rounded))
                                     }
@@ -123,6 +124,9 @@ struct CacheSettingsTab: View {
                                             Text(formatBytes(currentGridCacheSize))
                                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                             Text("/ \(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit))")
+                                                .font(.system(size: 12, weight: .regular))
+                                                .foregroundStyle(.secondary)
+                                            Text("· \(currentGridCacheCount) thumbnails")
                                                 .font(.system(size: 12, weight: .regular))
                                                 .foregroundStyle(.secondary)
                                         }
@@ -234,6 +238,22 @@ struct CacheSettingsTab: View {
                 await SharedMemoryCache.shared.refreshConfig()
                 cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
                 currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
+                currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
+            }
+            .task {
+                let (timerStream, continuation) = AsyncStream.makeStream(of: Void.self)
+                let producer = Task {
+                    while !Task.isCancelled {
+                        continuation.yield()
+                        try? await Task.sleep(for: .seconds(5))
+                    }
+                    continuation.finish()
+                }
+                continuation.onTermination = { _ in producer.cancel() }
+                for await _ in timerStream {
+                    currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
+                    currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
+                }
             }
             .task(id: settingsManager.thumbnailCostPerPixel) {
                 await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
@@ -253,9 +273,11 @@ struct CacheSettingsTab: View {
         Task {
             let diskSize = await SharedMemoryCache.shared.getDiskCacheSize()
             let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
+            let gridCount = SharedMemoryCache.shared.getGridCacheCount()
             await MainActor.run {
                 currentDiskCacheSize = diskSize
                 currentGridCacheSize = gridSize
+                currentGridCacheCount = gridCount
                 isLoadingDiskCacheSize = false
             }
         }

@@ -28,6 +28,7 @@ actor SharedMemoryCache {
     private var cacheDisk = 0
     /// Note: cacheEvictions is now tracked by CacheDelegate and read from there
     private let _gridCost = OSAllocatedUnfairLock(initialState: 0)
+    private let _gridCount = OSAllocatedUnfairLock(initialState: 0)
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -202,6 +203,7 @@ actor SharedMemoryCache {
         gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
         gridThumbnailCache.countLimit = 2000
         gridThumbnailCache.evictsObjectsWithDiscardedContent = false
+        gridThumbnailCache.delegate = CacheDelegate.shared
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
 
         /*
@@ -274,6 +276,8 @@ actor SharedMemoryCache {
             memoryCache.removeAllObjects()
             memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB minimum
             gridThumbnailCache.removeAllObjects()
+            _gridCost.withLock { $0 = 0 }
+            _gridCount.withLock { $0 = 0 }
             Task {
                 await fileHandlers?.memorypressurewarning(true)
             }
@@ -307,16 +311,27 @@ actor SharedMemoryCache {
 
     nonisolated func setGridObject(_ obj: DiscardableThumbnail, forKey key: NSURL, cost: Int) {
         gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
-        _gridCost.withLock { $0 = min($0 + cost, gridThumbnailCache.totalCostLimit) }
+        _gridCost.withLock { $0 += cost }
+        _gridCount.withLock { $0 += 1 }
     }
 
     nonisolated func removeAllGridObjects() {
         gridThumbnailCache.removeAllObjects()
         _gridCost.withLock { $0 = 0 }
+        _gridCount.withLock { $0 = 0 }
     }
 
     nonisolated func getGridCacheCurrentCost() -> Int {
         _gridCost.withLock { $0 }
+    }
+
+    nonisolated func getGridCacheCount() -> Int {
+        _gridCount.withLock { $0 }
+    }
+
+    nonisolated func gridEntryEvicted(cost: Int) {
+        _gridCost.withLock { $0 = max(0, $0 - cost) }
+        _gridCount.withLock { $0 = max(0, $0 - 1) }
     }
 
     /// For Cache monitor
@@ -356,6 +371,7 @@ actor SharedMemoryCache {
         cacheMemory = 0
         cacheDisk = 0
         _gridCost.withLock { $0 = 0 }
+        _gridCount.withLock { $0 = 0 }
         await CacheDelegate.shared.resetEvictionCount()
     }
 
