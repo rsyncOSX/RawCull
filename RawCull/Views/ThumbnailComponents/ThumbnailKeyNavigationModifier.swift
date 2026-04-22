@@ -15,6 +15,7 @@ enum ThumbnailNavigationAxis {
 struct ThumbnailKeyNavigationModifier: ViewModifier {
     let viewModel: RawCullViewModel
     let axis: ThumbnailNavigationAxis
+    let filesOverride: (() -> [FileItem])?
     @State private var keyMonitor: Any?
 
     func body(content: Content) -> some View {
@@ -24,8 +25,11 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                     guard !(NSApp.keyWindow?.firstResponder is NSText),
                           viewModel.selectedFile != nil else { return event }
 
-                    let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
                     let files: [FileItem] = {
+                        if let filesOverride {
+                            return filesOverride()
+                        }
+                        let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
                         if axis == .grid,
                            viewModel.similarityModel.burstModeActive,
                            !viewModel.similarityModel.burstGroups.isEmpty
@@ -153,7 +157,11 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
 }
 
 extension View {
-    func thumbnailKeyNavigation(viewModel: RawCullViewModel, axis: ThumbnailNavigationAxis) -> some View {
-        modifier(ThumbnailKeyNavigationModifier(viewModel: viewModel, axis: axis))
+    func thumbnailKeyNavigation(
+        viewModel: RawCullViewModel,
+        axis: ThumbnailNavigationAxis,
+        files: (() -> [FileItem])? = nil,
+    ) -> some View {
+        modifier(ThumbnailKeyNavigationModifier(viewModel: viewModel, axis: axis, filesOverride: files))
     }
 }

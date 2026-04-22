@@ -18,6 +18,8 @@ struct RatedPhotoItemView: View {
     let photo: String
     let photoURL: URL? // file URL — used only for thumbnail display
     let catalogURL: URL? // catalog (directory) URL — used for model lookups
+    var isSelected: Bool = false
+    var isMultiSelected: Bool = false
     var onSelected: () -> Void = {}
     var onDoubleSelected: () -> Void = {}
 
@@ -47,10 +49,29 @@ struct RatedPhotoItemView: View {
                     }
                 }
                 .background(setbackground() ? Color.blue.opacity(0.2) : Color.clear)
+                .overlay(alignment: .topTrailing) {
+                    if isMultiSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white, Color.teal)
+                            .padding(5)
+                            .shadow(radius: 2)
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
+                )
+                .shadow(
+                    color: isSelected ? Color.accentColor.opacity(0.65) : .clear,
+                    radius: isSelected ? 8 : 0,
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 4))
 
                 Text(photo)
                     .font(.caption)
                     .lineLimit(2)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
 
                 // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
                 if let color = ratingColor {
@@ -58,6 +79,15 @@ struct RatedPhotoItemView: View {
                 }
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(borderColor, lineWidth: borderWidth),
+        )
+        .shadow(
+            color: isSelected ? Color.accentColor.opacity(0.75) : .clear,
+            radius: isSelected ? 12 : 0,
+        )
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelected() }
         .onTapGesture(count: 1) { onSelected() }
@@ -67,6 +97,18 @@ struct RatedPhotoItemView: View {
                 Logger.process.debugMessageOnly("PhotoItemView (in GRID) onAppear - RELEASE thumbnail for \(url)")
             }
         }
+    }
+
+    private var borderColor: Color {
+        if isSelected { return Color.accentColor }
+        if isMultiSelected { return Color.teal }
+        return Color(white: 0.18)
+    }
+
+    private var borderWidth: CGFloat {
+        if isSelected { return 2.5 }
+        if isMultiSelected { return 2.0 }
+        return 1
     }
 
     private var ratingColor: Color? {
