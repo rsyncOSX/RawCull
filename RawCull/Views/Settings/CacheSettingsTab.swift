@@ -184,6 +184,7 @@ struct CacheSettingsTab: View {
                                 }
                             }
 
+/*
                             // Cache Limits Summary
                             SettingsCard {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -227,7 +228,9 @@ struct CacheSettingsTab: View {
                                     }
                                 }
                             }
+ */
                         }
+ 
                     }
                 }
             }
