@@ -23,6 +23,7 @@ struct CacheSettingsTab: View {
     @State private var isPruningDiskCache = false
 
     @State private var cacheConfig: CacheConfig?
+    @State private var numRawFilesSlider: Double = 2500
 
     var body: some View {
         VStack(spacing: 16) {
@@ -90,6 +91,53 @@ struct CacheSettingsTab: View {
                                         step: 50,
                                     )
                                     .frame(height: 18)
+                                }
+                            }
+
+                            // Estimator — display-only, not persisted
+                            SettingsCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Estimate for RAW files")
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Divider()
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "memorychip")
+                                                .font(.system(size: 10, weight: .medium))
+                                            Text("Memory")
+                                                .font(.system(size: 10, weight: .medium))
+                                            Spacer()
+                                            Text("Approx images in memory cache: \(estimatedMemCacheImages(for: Int(numRawFilesSlider)))")
+                                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                        }
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "square.grid.2x2")
+                                                .font(.system(size: 10, weight: .medium))
+                                            Text("Grid cache (200px)")
+                                                .font(.system(size: 10, weight: .medium))
+                                            Spacer()
+                                            Text("Max capacity: ~\(estimatedGridCacheImages(for: Int(numRawFilesSlider)))")
+                                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                        }
+                                        Slider(
+                                            value: $numRawFilesSlider,
+                                            in: 500 ... 5000,
+                                            step: 100,
+                                        )
+                                        .frame(height: 18)
+                                        .tint(isOverMemoryThreshold(for: Int(numRawFilesSlider)) ? .red : .accentColor)
+                                        HStack {
+                                            Text("\(Int(numRawFilesSlider)) files")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundStyle(.secondary)
+                                            Spacer()
+                                            if isOverMemoryThreshold(for: Int(numRawFilesSlider)) {
+                                                Label("Exceeds safe memory limit", systemImage: "exclamationmark.triangle")
+                                                    .font(.system(size: 10, weight: .medium))
+                                                    .foregroundStyle(.red)
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -304,16 +352,77 @@ struct CacheSettingsTab: View {
     private func gridDisplayValue(for megabytes: Int) -> String {
         let bytes = megabytes * 1024 * 1024
 
+        // Use 4 bytes/pixel (real RGBA) to show real-RAM capacity, not NSCache cost capacity.
+        // NSCache cost uses thumbnailCostPerPixel (e.g. 6) for conservative eviction; actual
+        // CGImage memory is always 4 bytes/pixel RGBA regardless of that setting.
         if currentGridCacheCount > 0, currentGridCacheSize > 0 {
-            let avgCost = currentGridCacheSize / currentGridCacheCount
-            if avgCost > 0 { return String(max(1, bytes / avgCost)) }
+            let avgNSCacheCost = currentGridCacheSize / currentGridCacheCount
+            let cacheCostPerPixel = settingsManager.thumbnailCostPerPixel
+            let realBytesPerThumb = cacheCostPerPixel > 0
+                ? max(1, Int(Double(avgNSCacheCost) * 4.0 / Double(cacheCostPerPixel)))
+                : avgNSCacheCost
+            return String(max(1, bytes / realBytesPerThumb))
         }
 
         let s = settingsManager.thumbnailSizeGrid * 2
-        let raw = s * s * settingsManager.thumbnailCostPerPixel
-        let costPerImage = Int(Double(raw) * 1.1)
+        let costPerImage = Int(Double(s * s * 4) * 1.1)  // 4 bytes/pixel actual RGBA + 10% overhead
         guard costPerImage > 0 else { return "0" }
         return String(max(1, bytes / costPerImage))
+    }
+
+    private func estimatedMemCacheImages(for numFiles: Int) -> Int {
+        let bytes = settingsManager.memoryCacheSizeMB * 1024 * 1024
+        let costPerImage = settingsManager.thumbnailSizePreview
+            * settingsManager.thumbnailSizePreview
+            * settingsManager.thumbnailCostPerPixel
+        guard costPerImage > 0 else { return 0 }
+        return min(numFiles, bytes / costPerImage)
+    }
+
+    private func estimatedGridCacheImages(for numFiles: Int) -> Int {
+        let bytes = settingsManager.gridCacheSizeMB * 1024 * 1024
+        let costPerImage: Int
+        if currentGridCacheCount > 0, currentGridCacheSize > 0 {
+            let avg = currentGridCacheSize / currentGridCacheCount
+            costPerImage = avg > 0 ? avg : 1
+        } else {
+            let s = 200 * 2
+            costPerImage = Int(Double(s * s * settingsManager.thumbnailCostPerPixel) * 1.1)
+        }
+        guard costPerImage > 0 else { return 0 }
+        return min(numFiles, bytes / costPerImage)
+    }
+
+    private func estimatedTotalBytes(for numFiles: Int) -> UInt64 {
+        let memImages = estimatedMemCacheImages(for: numFiles)
+        let gridImages = estimatedGridCacheImages(for: numFiles)
+        // Real RAM uses 4 bytes/pixel (RGBA CGImage). thumbnailCostPerPixel (e.g. 6) is
+        // intentionally conservative for NSCache eviction bookkeeping, not actual RAM.
+        let costPerPreview = settingsManager.thumbnailSizePreview
+            * settingsManager.thumbnailSizePreview
+            * 4
+        let costPerGrid: Int
+        if currentGridCacheCount > 0, currentGridCacheSize > 0 {
+            let avgNSCacheCost = currentGridCacheSize / currentGridCacheCount
+            let cacheCostPerPixel = settingsManager.thumbnailCostPerPixel
+            costPerGrid = cacheCostPerPixel > 0
+                ? max(1, Int(Double(avgNSCacheCost) * 4.0 / Double(cacheCostPerPixel)))
+                : avgNSCacheCost
+        } else {
+            let s = settingsManager.thumbnailSizeGrid * 2
+            costPerGrid = Int(Double(s * s * 4) * 1.1)
+        }
+        return UInt64(memImages * costPerPreview)
+            + UInt64(gridImages * costPerGrid)
+            + 107_374_182 // 100 MB app overhead
+    }
+
+    private func isOverMemoryThreshold(for numFiles: Int) -> Bool {
+        let physical = ProcessInfo.processInfo.physicalMemory
+        let threshold = UInt64(Double(physical) * 0.85)
+        let oneGB: UInt64 = 1_073_741_824
+        guard threshold > oneGB else { return true }
+        return estimatedTotalBytes(for: numFiles) >= threshold - oneGB
     }
 
     private func displayValue(for megabytes: Int) -> String {
