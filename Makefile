@@ -99,6 +99,13 @@ prepare-dmg:
 		"$(APP).$(VERSION).dmg" \
 		$(APP_PATH)
 	echo "✅ DMG created successfully"
+	@echo "Submitting DMG for notarization..."
+	xcrun notarytool submit --keychain-profile "RsyncUI" --wait "$(APP).$(VERSION).dmg"
+	
+	@echo "Stapling ticket to DMG..."
+	xcrun stapler staple "$(APP).$(VERSION).dmg"
+	
+	@echo "✅ DMG is now signed, notarized and stapled!"
 
 # --- HELPERS --- #
 clean:
