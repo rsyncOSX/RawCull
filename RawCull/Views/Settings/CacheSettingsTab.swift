@@ -389,8 +389,8 @@ struct CacheSettingsTab: View {
             let avg = currentGridCacheSize / currentGridCacheCount
             costPerImage = avg > 0 ? avg : 1
         } else {
-            let s = 200 * 2
-            costPerImage = Int(Double(s * s * settingsManager.thumbnailCostPerPixel) * 1.1)
+            let s = settingsManager.thumbnailSizeGrid * 2
+            costPerImage = Int(Double(s * s * 4) * 1.1)
         }
         guard costPerImage > 0 else { return 0 }
         return min(numFiles, bytes / costPerImage)
