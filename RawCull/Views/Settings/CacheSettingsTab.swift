@@ -66,6 +66,15 @@ struct CacheSettingsTab: View {
                                         step: 250,
                                     )
                                     .frame(height: 18)
+                                    HStack(spacing: 4) {
+                                        Text("Projected RawCull RAM: ~" +
+                                            formatBytes(Int(projectedRawCullMemoryBytes())) +
+                                            " · Physical: " +
+                                            formatBytes(Int(ProcessInfo.processInfo.physicalMemory)))
+                                            .font(.system(size: 10, weight: .regular))
+                                            .foregroundStyle(isProjectedOverPhysicalRAM() ? .red : .secondary)
+                                        Spacer()
+                                    }
                                 }
                             }
 
@@ -426,6 +435,32 @@ struct CacheSettingsTab: View {
         let oneGB: UInt64 = 1_073_741_824
         guard threshold > oneGB else { return true }
         return estimatedTotalBytes(for: numFiles) >= threshold - oneGB
+    }
+
+    // Empirically-calibrated projection: macOS caps RawCull at ~5.5 GB under
+    // memory pressure regardless of NSCache limits, and the app baseline (no
+    // caches populated) is ~100 MB. We interpolate between those anchors using
+    // each slider's fraction of its own range, weighted by the slider's range
+    // share of the combined payload.
+    private func projectedRawCullMemoryBytes() -> UInt64 {
+        let memMin = 5000.0, memMax = 20000.0
+        let gridMin = 400.0, gridMax = 2000.0
+        let memFrac = (Double(settingsManager.memoryCacheSizeMB) - memMin) / (memMax - memMin)
+        let gridFrac = (Double(settingsManager.gridCacheSizeMB) - gridMin) / (gridMax - gridMin)
+        let memRange = memMax - memMin
+        let gridRange = gridMax - gridMin
+        let totalRange = memRange + gridRange
+        let combined = memFrac * (memRange / totalRange) + gridFrac * (gridRange / totalRange)
+        let baselineMB = 100.0
+        let maxPayloadMB = 5400.0  // 5.5 GB total - 100 MB baseline
+        let clamped = min(1.0, max(0.0, combined))
+        let projectedMB = baselineMB + clamped * maxPayloadMB
+        return UInt64(projectedMB * 1024.0 * 1024.0)
+    }
+
+    private func isProjectedOverPhysicalRAM() -> Bool {
+        let physical = ProcessInfo.processInfo.physicalMemory
+        return projectedRawCullMemoryBytes() >= UInt64(Double(physical) * 0.85)
     }
 
     private func displayValue(for megabytes: Int) -> String {
