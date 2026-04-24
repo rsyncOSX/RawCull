@@ -10,6 +10,19 @@ using namespace metal;
 
 extern "C" {
     namespace coreimage {
+        // Per-pixel edge energy via a 3×3 discrete Laplacian.
+        //
+        // Stencil: laplace = 8·center − Σ(8 neighbours).  A high |laplace|
+        // indicates a strong second-derivative edge; a flat patch gives ~0.
+        //
+        // The channel-wise |laplace| is collapsed into a single scalar using
+        // the Rec. 601 luminance weighting (0.299, 0.587, 0.114) — the same
+        // weighting used by the histogram pass so "edge energy" stays
+        // perceptually consistent with "brightness".
+        //
+        // The scalar is packed into r/g/b with a=1 so downstream CIFilters
+        // (CIColorMatrix gain → CIColorThreshold → CIMorphology*) can read
+        // it from any channel without a format conversion.
         float4 focusLaplacian(sampler src) {
             float2 pos = src.coord();
 

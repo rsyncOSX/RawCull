@@ -18,6 +18,14 @@ actor DiskCacheManager {
         }
     }
 
+    /// Deterministic cache filename derived from the source file's path.
+    ///
+    /// Formula: `cacheDirectory / MD5(sourceURL.standardized.path.utf8).hex + ".jpg"`.
+    /// MD5 is used as a non-cryptographic filename hash — we only need a
+    /// fixed-width, filesystem-safe string with a vanishingly small collision
+    /// rate across one user's catalog. `CryptoKit.Insecure.MD5` makes the
+    /// "not-for-security" intent explicit. `standardized` resolves `..`/`.`
+    /// components so two URLs pointing at the same file always hash identically.
     private func cacheURL(for sourceURL: URL) -> URL {
         let standardizedPath = sourceURL.standardized.path
         let data = Data(standardizedPath.utf8)

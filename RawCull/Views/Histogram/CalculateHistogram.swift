@@ -5,7 +5,14 @@ import OSLog
 /// Make sure that the resource demanding calculation is computed on
 /// a background thread
 actor CalculateHistogram {
-    /// Calculates the luminance histogram and normalizes values to 0.0 - 1.0
+    /// Builds a 256-bin luminance histogram from an RGB(A) 8-bit-per-channel image.
+    ///
+    /// Per-pixel luminance uses the Rec. 601 weighting:
+    ///     Y = 0.299·R + 0.587·G + 0.114·B    (R,G,B in 0…255 → Y in 0…255)
+    /// Each pixel increments `bins[Int(Y)]`, so `bins[k]` is the raw pixel count
+    /// at luminance level `k`.  Before returning, the array is scaled by the
+    /// maximum bin value so the result is in `[0, 1]` — ready to be rendered
+    /// directly as bar heights in the histogram chart.
     @concurrent
     nonisolated func calculateHistogram(from image: CGImage) async -> [CGFloat] {
         Logger.process.debugThreadOnly("CalculateHistogram: calculateHistogram()")

@@ -61,6 +61,12 @@ final class SharpnessScoringModel {
     /// `scores` mutation via `didSet`.
     private(set) var maxScore: Float = 1.0
 
+    // Normalization denominator used by UI badges:
+    //   n <  2 → the lone score itself (or 1.0 as a safe default)
+    //   n < 10 → the raw max (too few samples for a stable percentile)
+    //   n ≥ 10 → the 90-th percentile, so a single outlier cannot compress
+    //            every other badge toward zero.
+    // 1e-6 floor prevents division-by-zero in the consumers.
     private func recomputeMaxScore() {
         guard scores.count >= 2 else {
             maxScore = scores.values.first ?? 1.0

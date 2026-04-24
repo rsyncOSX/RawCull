@@ -132,6 +132,15 @@ actor SharedMemoryCache {
 
     /// Helper to calculate configuration from settings.
     /// Nonisolated because it doesn't access actor state.
+    ///
+    /// Math:
+    ///   `totalCostLimit     = memoryCacheSizeMB · 1024 · 1024`  (MiB → bytes)
+    ///   `gridTotalCostLimit = gridCacheSizeMB   · 1024 · 1024`  (MiB → bytes)
+    /// `countLimit` is deliberately set to a very high value (10 000) so the
+    /// byte-budget is the binding constraint — NSCache applies `min(count, cost)`
+    /// and we want cost to do the evicting, not item count.
+    /// (The duplicate formula in `setCacheCostsFromSavedSettings` is intentional
+    /// — that path predates `calculateConfig`; both use the same expression.)
     func calculateConfig(from settings: SavedSettings) -> CacheConfig {
         let thumbnailCostPerPixel = settings.thumbnailCostPerPixel // 4 default
         let memoryCacheSizeMB = settings.memoryCacheSizeMB // 5000 MB default  - 20,000 MB max
@@ -246,6 +255,13 @@ actor SharedMemoryCache {
         // Logger.process.debugMessageOnly("SharedMemoryCache: Memory pressure monitoring started")
     }
 
+    /// Responds to kernel-reported memory-pressure transitions:
+    ///   • `.normal`    → reload the full `CacheConfig` from settings (restore caps).
+    ///   • `.warning`   → shrink both caches in place: `newCap = currentCap · 0.6`.
+    ///                    Existing entries are retained until NSCache evicts under
+    ///                    the lower cap, avoiding a full cache flush.
+    ///   • `.critical`  → `removeAllObjects()` on both caches and floor the main
+    ///                    cache at 50 MiB (50 · 1024 · 1024 bytes) until recovery.
     private func handleMemoryPressureEvent() {
         guard let source = memoryPressureSource else { return }
 

@@ -39,10 +39,15 @@ struct FocusPoint: Identifiable {
         y = CGFloat(parts[3])
     }
 
+    /// AF x-coordinate expressed as a fraction of the sensor width.
+    /// Formula: `x / sensorWidth` — in `[0, 1]` for well-formed values.
+    /// Lets overlays place the marker without knowing the preview's pixel size.
     var normalizedX: CGFloat {
         x / sensorWidth
     }
 
+    /// AF y-coordinate expressed as a fraction of the sensor height.
+    /// Formula: `y / sensorHeight` — same 0…1 convention as `normalizedX`.
     var normalizedY: CGFloat {
         y / sensorHeight
     }

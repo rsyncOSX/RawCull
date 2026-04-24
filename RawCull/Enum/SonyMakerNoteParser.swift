@@ -369,6 +369,29 @@ private struct TIFFParser {
         return readU32(at: valLoc).map(Int.init)
     }
 
+    /// Locates an IFD entry's value bytes within the file.
+    ///
+    /// A TIFF IFD is a `UInt16` count followed by `count` fixed-size 12-byte
+    /// entries laid out as:
+    ///
+    ///     [0..1]  tag       (UInt16)
+    ///     [2..3]  type      (UInt16, 1…13 — sizes below)
+    ///     [4..7]  count     (UInt32, elements)
+    ///     [8..11] value/ptr (UInt32 — see inline-vs-pointer rule)
+    ///
+    /// `sizes[type]` gives the number of bytes per element:
+    ///
+    ///     idx:    0  1  2  3  4  5  6  7  8  9  10 11 12 13
+    ///     type:   -  B  A  S  L  R  sB U  sS sL sR F  D  IFD
+    ///     bytes:  0  1  1  2  4  8  1  1  2  4  8  4  8  4
+    ///
+    ///     B=BYTE, A=ASCII, S=SHORT, L=LONG, R=RATIONAL, sB=SBYTE,
+    ///     U=UNDEFINED, sS=SSHORT, sL=SLONG, sR=SRATIONAL, F=FLOAT, D=DOUBLE.
+    ///
+    /// Inline-vs-pointer rule: if `count · sizes[type] ≤ 4` the value is
+    /// stored directly in the 4-byte value field (so `dataOffset = e + 8`).
+    /// Otherwise the value field is a `UInt32` file offset to the real bytes
+    /// elsewhere in the file.
     private nonisolated func tagDataRange(in ifdOffset: Int, tag: UInt16) -> (dataOffset: Int, byteCount: Int)? {
         guard ifdOffset + 2 <= data.count else { return nil }
         let entryCount = Int(readU16(at: ifdOffset))

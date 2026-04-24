@@ -242,6 +242,9 @@ final class SimilarityScoringModel {
                 // Apply a small saliency-subject mismatch penalty so images of a
                 // different subject type are ranked slightly lower, while keeping
                 // the visual embedding as the dominant signal.
+                //   d_out = d_visual + kSubjectMismatchPenalty    (0.10, additive
+                //   in VNFeaturePrintObservation distance space — typical d ≈ 0.3–1.2
+                //   between unrelated images, so +0.10 is meaningful but not dominant).
                 if let al = anchorLabel, let cl = saliencyInfo[id]?.subjectLabel, al != cl {
                     d += mismatchPenalty
                 }
@@ -325,6 +328,11 @@ final class SimilarityScoringModel {
                     continue
                 }
 
+                // Distance between the current frame and its immediate predecessor
+                // in the VNFeaturePrintObservation embedding space. Smaller d ⇒ more
+                // visually similar. `d >= threshold` closes the current group and
+                // starts a new one; lowering `burstSensitivity` produces tighter
+                // (more numerous, smaller) burst groups.
                 var d: Float = 0
                 let computed = (try? prevObs.computeDistance(&d, to: obs)) != nil
                 let startNewGroup = !computed || d >= threshold
