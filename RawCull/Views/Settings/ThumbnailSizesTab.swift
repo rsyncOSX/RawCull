@@ -166,14 +166,14 @@ struct ThumbnailSizesTab: View {
                             SettingsSliderRow(
                                 title: "Sharpening Amount",
                                 systemImage: "slider.horizontal.3",
-                                valueText: String(format: "%.2f", settingsManager.thumbnailSharpenAmount),
-                                description: "Unsharp mask intensity (radius held at 2.5).",
+                                valueText: String(format: "%.1f", settingsManager.thumbnailSharpenAmount),
+                                description: "0–1: subtle. 1–2: clearly visible. 2–3: aggressive (two-pass unsharp mask).",
                                 value: Binding<Double>(
                                     get: { Double(settingsManager.thumbnailSharpenAmount) },
                                     set: { settingsManager.thumbnailSharpenAmount = Float($0) },
                                 ),
-                                range: 0.0 ... 1.0,
-                                step: 0.05,
+                                range: 0.0 ... 3.0,
+                                step: 0.1,
                             )
                             .disabled(!settingsManager.enableThumbnailSharpening)
                         }

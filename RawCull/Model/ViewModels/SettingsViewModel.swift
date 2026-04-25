@@ -57,8 +57,9 @@ final class SettingsViewModel {
 
     /// Apply CIUnsharpMask to the zoom preview thumbnail at view time (default: false)
     var enableThumbnailSharpening: Bool = false
-    /// Unsharp mask intensity, 0.0–1.0 (default: 0.5). Radius is held at 2.5.
-    var thumbnailSharpenAmount: Float = 0.5
+    /// Unsharp mask amount, 0.0–3.0 (default: 1.5). Drives both intensity and radius;
+    /// values above 2.0 trigger a second sharpening pass for an aggressive look.
+    var thumbnailSharpenAmount: Float = 1.5
 
     /// Show sharpness score badge on thumbnails (default: false = hidden, for scroll performance)
     var showScoringBadge: Bool = false
@@ -328,7 +329,7 @@ struct SavedSettings: Codable {
         thumbnailCostPerPixel: Int,
         useThumbnailAsZoomPreview: Bool,
         enableThumbnailSharpening: Bool = false,
-        thumbnailSharpenAmount: Float = 0.5,
+        thumbnailSharpenAmount: Float = 1.5,
         showScoringBadge: Bool = false,
         showSaliencyBadge: Bool = false,
         scoringBorderInsetFraction: Float = 0.04,
@@ -377,7 +378,7 @@ struct SavedSettings: Codable {
         thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
         enableThumbnailSharpening = (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false
-        thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 0.5
+        thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.5
         showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
         showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
         scoringBorderInsetFraction = (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04
