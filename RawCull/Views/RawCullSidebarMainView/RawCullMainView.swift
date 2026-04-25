@@ -147,9 +147,6 @@ struct RawCullMainView: View {
         .task {
             columnVisibility = .doubleColumn
         }
-        .sheet(isPresented: $viewModel.showSavedFiles) {
-            SavedFilesView()
-        }
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
         .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
         .task {
