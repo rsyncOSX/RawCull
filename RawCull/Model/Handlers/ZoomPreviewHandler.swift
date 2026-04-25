@@ -19,6 +19,8 @@ enum ZoomPreviewHandler {
     ) -> Task<Void, Never> {
         if useThumbnailAsZoomPreview {
             return Task {
+                let settings = await SettingsViewModel.shared.asyncgetsettings()
+
                 await MainActor.run {
                     viewModel.zoomOverlayCGImage = nil
                     viewModel.zoomOverlayNSImage = nil
@@ -31,9 +33,14 @@ enum ZoomPreviewHandler {
 
                 guard !Task.isCancelled else { return }
 
+                let displayImage: CGImage? = {
+                    guard let cgThumb, settings.enableThumbnailSharpening else { return cgThumb }
+                    return ThumbnailSharpener.sharpen(cgThumb, amount: settings.thumbnailSharpenAmount) ?? cgThumb
+                }()
+
                 await MainActor.run {
-                    if let cgThumb {
-                        viewModel.zoomOverlayNSImage = NSImage(cgImage: cgThumb, size: .zero)
+                    if let displayImage {
+                        viewModel.zoomOverlayNSImage = NSImage(cgImage: displayImage, size: .zero)
                     }
                     viewModel.zoomOverlayVisible = true
                 }

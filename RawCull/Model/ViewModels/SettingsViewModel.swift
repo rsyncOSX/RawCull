@@ -55,6 +55,11 @@ final class SettingsViewModel {
     /// Use thumbnail as zoom preview (default: true)
     var useThumbnailAsZoomPreview: Bool = false
 
+    /// Apply CIUnsharpMask to the zoom preview thumbnail at view time (default: false)
+    var enableThumbnailSharpening: Bool = false
+    /// Unsharp mask intensity, 0.0–1.0 (default: 0.5). Radius is held at 2.5.
+    var thumbnailSharpenAmount: Float = 0.5
+
     /// Show sharpness score badge on thumbnails (default: false = hidden, for scroll performance)
     var showScoringBadge: Bool = false
     /// Show cyan saliency badge on thumbnails (default: false = hidden)
@@ -134,6 +139,8 @@ final class SettingsViewModel {
                 self.thumbnailSizeFullSize = savedSettings.thumbnailSizeFullSize
                 self.thumbnailCostPerPixel = savedSettings.thumbnailCostPerPixel
                 self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
+                self.enableThumbnailSharpening = savedSettings.enableThumbnailSharpening
+                self.thumbnailSharpenAmount = savedSettings.thumbnailSharpenAmount
                 self.showScoringBadge = savedSettings.showScoringBadge
                 self.showSaliencyBadge = savedSettings.showSaliencyBadge
                 self.scoringBorderInsetFraction = savedSettings.scoringBorderInsetFraction
@@ -171,6 +178,8 @@ final class SettingsViewModel {
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
                 thumbnailCostPerPixel: thumbnailCostPerPixel,
                 useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
+                enableThumbnailSharpening: enableThumbnailSharpening,
+                thumbnailSharpenAmount: thumbnailSharpenAmount,
                 showScoringBadge: showScoringBadge,
                 showSaliencyBadge: showSaliencyBadge,
                 scoringBorderInsetFraction: scoringBorderInsetFraction,
@@ -261,6 +270,8 @@ final class SettingsViewModel {
                 thumbnailSizeFullSize: self.thumbnailSizeFullSize,
                 thumbnailCostPerPixel: self.thumbnailCostPerPixel,
                 useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
+                enableThumbnailSharpening: self.enableThumbnailSharpening,
+                thumbnailSharpenAmount: self.thumbnailSharpenAmount,
                 showScoringBadge: self.showScoringBadge,
                 showSaliencyBadge: self.showSaliencyBadge,
                 scoringBorderInsetFraction: self.scoringBorderInsetFraction,
@@ -290,6 +301,8 @@ struct SavedSettings: Codable {
     let thumbnailSizeFullSize: Int
     let thumbnailCostPerPixel: Int
     let useThumbnailAsZoomPreview: Bool
+    let enableThumbnailSharpening: Bool
+    let thumbnailSharpenAmount: Float
     let showScoringBadge: Bool
     let showSaliencyBadge: Bool
 
@@ -314,6 +327,8 @@ struct SavedSettings: Codable {
         thumbnailSizeFullSize: Int,
         thumbnailCostPerPixel: Int,
         useThumbnailAsZoomPreview: Bool,
+        enableThumbnailSharpening: Bool = false,
+        thumbnailSharpenAmount: Float = 0.5,
         showScoringBadge: Bool = false,
         showSaliencyBadge: Bool = false,
         scoringBorderInsetFraction: Float = 0.04,
@@ -335,6 +350,8 @@ struct SavedSettings: Codable {
         self.thumbnailSizeFullSize = thumbnailSizeFullSize
         self.thumbnailCostPerPixel = thumbnailCostPerPixel
         self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
+        self.enableThumbnailSharpening = enableThumbnailSharpening
+        self.thumbnailSharpenAmount = thumbnailSharpenAmount
         self.showScoringBadge = showScoringBadge
         self.showSaliencyBadge = showSaliencyBadge
         self.scoringBorderInsetFraction = scoringBorderInsetFraction
@@ -359,6 +376,8 @@ struct SavedSettings: Codable {
         thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)
         thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
+        enableThumbnailSharpening = (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false
+        thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 0.5
         showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
         showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
         scoringBorderInsetFraction = (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04
