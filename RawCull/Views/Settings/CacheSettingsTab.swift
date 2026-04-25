@@ -192,52 +192,6 @@ struct CacheSettingsTab: View {
                                     }
                                 }
                             }
-
-                            /*
-                                                        // Cache Limits Summary
-                                                        SettingsCard {
-                                                            VStack(alignment: .leading, spacing: 8) {
-                                                                Text("Cache Limits")
-                                                                    .font(.system(size: 12, weight: .semibold))
-
-                                                                Divider()
-
-                                                                HStack(spacing: 16) {
-                                                                    VStack(alignment: .leading, spacing: 4) {
-                                                                        Text("Total Cost Limit")
-                                                                            .font(.system(size: 10, weight: .medium))
-                                                                            .foregroundStyle(.secondary)
-                                                                        Text(formatBytes(cacheConfig?.totalCostLimit ?? 0))
-                                                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                                                    }
-
-                                                                    Divider()
-
-                                                                    VStack(alignment: .leading, spacing: 4) {
-                                                                        Text("Count Limit")
-                                                                            .font(.system(size: 10, weight: .medium))
-                                                                            .foregroundStyle(.secondary)
-                                                                        if let countLimit = cacheConfig?.countLimit {
-                                                                            Text("\(String(countLimit))")
-                                                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                                                        }
-                                                                    }
-
-                                                                    Divider()
-
-                                                                    VStack(alignment: .leading, spacing: 4) {
-                                                                        Text("Cost Per Pixel")
-                                                                            .font(.system(size: 10, weight: .medium))
-                                                                            .foregroundStyle(.secondary)
-                                                                        if let costPerPixel = cacheConfig?.costPerPixel {
-                                                                            Text("\(String(costPerPixel)) bytes")
-                                                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                             */
                         }
                     }
                 }
