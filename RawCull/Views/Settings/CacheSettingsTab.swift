@@ -193,53 +193,52 @@ struct CacheSettingsTab: View {
                                 }
                             }
 
-/*
-                            // Cache Limits Summary
-                            SettingsCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Cache Limits")
-                                        .font(.system(size: 12, weight: .semibold))
+                            /*
+                                                        // Cache Limits Summary
+                                                        SettingsCard {
+                                                            VStack(alignment: .leading, spacing: 8) {
+                                                                Text("Cache Limits")
+                                                                    .font(.system(size: 12, weight: .semibold))
 
-                                    Divider()
+                                                                Divider()
 
-                                    HStack(spacing: 16) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Total Cost Limit")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            Text(formatBytes(cacheConfig?.totalCostLimit ?? 0))
-                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                        }
+                                                                HStack(spacing: 16) {
+                                                                    VStack(alignment: .leading, spacing: 4) {
+                                                                        Text("Total Cost Limit")
+                                                                            .font(.system(size: 10, weight: .medium))
+                                                                            .foregroundStyle(.secondary)
+                                                                        Text(formatBytes(cacheConfig?.totalCostLimit ?? 0))
+                                                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                                    }
 
-                                        Divider()
+                                                                    Divider()
 
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Count Limit")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            if let countLimit = cacheConfig?.countLimit {
-                                                Text("\(String(countLimit))")
-                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                            }
-                                        }
+                                                                    VStack(alignment: .leading, spacing: 4) {
+                                                                        Text("Count Limit")
+                                                                            .font(.system(size: 10, weight: .medium))
+                                                                            .foregroundStyle(.secondary)
+                                                                        if let countLimit = cacheConfig?.countLimit {
+                                                                            Text("\(String(countLimit))")
+                                                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                                        }
+                                                                    }
 
-                                        Divider()
+                                                                    Divider()
 
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Cost Per Pixel")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            if let costPerPixel = cacheConfig?.costPerPixel {
-                                                Text("\(String(costPerPixel)) bytes")
-                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
- */
+                                                                    VStack(alignment: .leading, spacing: 4) {
+                                                                        Text("Cost Per Pixel")
+                                                                            .font(.system(size: 10, weight: .medium))
+                                                                            .foregroundStyle(.secondary)
+                                                                        if let costPerPixel = cacheConfig?.costPerPixel {
+                                                                            Text("\(String(costPerPixel)) bytes")
+                                                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                             */
                         }
- 
                     }
                 }
             }
@@ -377,7 +376,7 @@ struct CacheSettingsTab: View {
         }
 
         let s = settingsManager.thumbnailSizeGrid * 2
-        let costPerImage = Int(Double(s * s * 4) * 1.1)  // 4 bytes/pixel actual RGBA + 10% overhead
+        let costPerImage = Int(Double(s * s * 4) * 1.1) // 4 bytes/pixel actual RGBA + 10% overhead
         guard costPerImage > 0 else { return "0" }
         return String(max(1, bytes / costPerImage))
     }
@@ -437,11 +436,11 @@ struct CacheSettingsTab: View {
         return estimatedTotalBytes(for: numFiles) >= threshold - oneGB
     }
 
-    // Empirically-calibrated projection: macOS caps RawCull at ~5.5 GB under
-    // memory pressure regardless of NSCache limits, and the app baseline (no
-    // caches populated) is ~100 MB. We interpolate between those anchors using
-    // each slider's fraction of its own range, weighted by the slider's range
-    // share of the combined payload.
+    /// Empirically-calibrated projection: macOS caps RawCull at ~5.5 GB under
+    /// memory pressure regardless of NSCache limits, and the app baseline (no
+    /// caches populated) is ~100 MB. We interpolate between those anchors using
+    /// each slider's fraction of its own range, weighted by the slider's range
+    /// share of the combined payload.
     private func projectedRawCullMemoryBytes() -> UInt64 {
         let memMin = 5000.0, memMax = 20000.0
         let gridMin = 400.0, gridMax = 2000.0
@@ -452,7 +451,7 @@ struct CacheSettingsTab: View {
         let totalRange = memRange + gridRange
         let combined = memFrac * (memRange / totalRange) + gridFrac * (gridRange / totalRange)
         let baselineMB = 100.0
-        let maxPayloadMB = 5400.0  // 5.5 GB total - 100 MB baseline
+        let maxPayloadMB = 5400.0 // 5.5 GB total - 100 MB baseline
         let clamped = min(1.0, max(0.0, combined))
         let projectedMB = baselineMB + clamped * maxPayloadMB
         return UInt64(projectedMB * 1024.0 * 1024.0)

@@ -71,10 +71,10 @@ final class MemoryViewModel {
         }
 
         /*
-        let message = "MemoryViewModel: updateMemoryStats() Total: \(formatBytes(total)), " +
-            "Used: \(formatBytes(used)), App: \(formatBytes(app))"
-        Logger.process.debugMessageOnly(message)
-         */
+         let message = "MemoryViewModel: updateMemoryStats() Total: \(formatBytes(total)), " +
+             "Used: \(formatBytes(used)), App: \(formatBytes(app))"
+         Logger.process.debugMessageOnly(message)
+          */
     }
 
     // MARK: - Private helpers
