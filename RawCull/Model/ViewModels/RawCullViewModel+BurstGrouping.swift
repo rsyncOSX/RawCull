@@ -69,6 +69,12 @@ extension RawCullViewModel {
 
     /// Compute the precomputed display info for a burst group's "best" frame.
     /// Returns nil when scores are empty or the group is empty.
+    ///
+    /// `percent` is `Int(min(score / maxScore, 1.0) · 100)` — i.e. the
+    /// best frame's sharpness as a percentage of the catalog-wide
+    /// normalization denominator (`SharpnessScoringModel.maxScore`, the
+    /// p90 of all scores for n ≥ 10). Clamped to `≤ 100` so a score that
+    /// happens to exceed the p90 doesn't render above 100 %.
     nonisolated static func bestInGroupInfo(
         files: [FileItem],
         scores: [UUID: Float],

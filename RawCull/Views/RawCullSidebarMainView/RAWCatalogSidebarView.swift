@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ARWCatalogSidebarView: View {
+struct RAWCatalogSidebarView: View {
     @Binding var sources: [ARWSourceCatalog]
     @Binding var selectedSource: ARWSourceCatalog?
     @Binding var isShowingPicker: Bool

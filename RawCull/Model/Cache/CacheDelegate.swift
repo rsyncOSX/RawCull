@@ -25,6 +25,7 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
             SharedMemoryCache.shared.gridEntryEvicted(cost: thumb.cost)
         }
     }
+
     /// Get current eviction count (thread-safe)
     func getEvictionCount() async -> Int {
         await evictionCounter.getCount()

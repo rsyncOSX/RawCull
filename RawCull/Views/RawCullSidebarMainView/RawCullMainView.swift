@@ -86,7 +86,7 @@ struct RawCullMainView: View {
 
     private var loupeSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            ARWCatalogSidebarView(
+            RAWCatalogSidebarView(
                 sources: $viewModel.sources,
                 selectedSource: $viewModel.selectedSource,
                 isShowingPicker: $viewModel.isShowingPicker,
@@ -223,7 +223,7 @@ struct RawCullMainView: View {
 
     private var gridSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            ARWCatalogSidebarView(
+            RAWCatalogSidebarView(
                 sources: $viewModel.sources,
                 selectedSource: $viewModel.selectedSource,
                 isShowingPicker: $viewModel.isShowingPicker,
@@ -248,7 +248,7 @@ struct RawCullMainView: View {
 
     private var ratedGridSplit: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            ARWCatalogSidebarView(
+            RAWCatalogSidebarView(
                 sources: $viewModel.sources,
                 selectedSource: $viewModel.selectedSource,
                 isShowingPicker: $viewModel.isShowingPicker,

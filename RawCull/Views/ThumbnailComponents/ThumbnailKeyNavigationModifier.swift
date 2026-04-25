@@ -32,8 +32,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
                         if axis == .grid,
                            viewModel.similarityModel.burstModeActive,
-                           !viewModel.similarityModel.burstGroups.isEmpty
-                        {
+                           !viewModel.similarityModel.burstGroups.isEmpty {
                             let visible = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, $0) })
                             return viewModel.similarityModel.burstGroups.flatMap { group in
                                 group.fileIDs.compactMap { visible[$0] }

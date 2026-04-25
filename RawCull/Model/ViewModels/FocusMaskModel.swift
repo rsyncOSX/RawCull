@@ -421,6 +421,24 @@ final class FocusMaskModel: @unchecked Sendable {
 
     // MARK: - Scalar scoring
 
+    /// Produces a single scalar sharpness score for an image.
+    ///
+    /// Pipeline:
+    /// 1. `buildAmplifiedLaplacian` → Gaussian pre-blur + Metal Laplacian + gain.
+    /// 2. Render to an RGBAf bitmap so each pixel's edge energy is a `Float` in `.r`.
+    /// 3. Collect three sample sets:
+    ///    * **full**: all pixels inside the border inset (Gaussian edge artefacts excluded).
+    ///    * **salient**: pixels inside the Vision attention bounding box (if any).
+    ///    * **AF**: pixels inside a square of half-size `afRegionRadius`
+    ///      centered on the camera's AF point (if any).
+    /// 4. Each set is reduced to a scalar via `robustTailScore` (p90–p97 band mean).
+    /// 5. Blend:  `score = (1 − w)·full + w·subject`,  where
+    ///    `subject = 0.6·AF + 0.4·saliency` (whichever are present) and
+    ///    `w = apertureHint.salientWeightOverride ?? config.salientWeight`.
+    /// 6. Penalties/bonuses on top of the blend:
+    ///    * silhouette penalty if >62 % of subject energy sits in its outer 12 % rim;
+    ///    * subject-size bonus `(1 + area · subjectSizeFactor)` for saliency-only;
+    ///    * soft aperture-aware blur gate `0.20…1.0` driven by subject micro-contrast σ.
     private nonisolated static func computeSharpnessScalar(
         from inputImage: CIImage,
         salientRegion: CGRect?,
@@ -666,6 +684,16 @@ final class FocusMaskModel: @unchecked Sendable {
         }
     }
 
+    /// Edge-energy pipeline shared by both the mask overlay and the scalar score:
+    /// 1. Gaussian pre-blur, radius = `preBlurRadius · isoFactor · resFactor · blurDamp`.
+    ///    * `isoFactor` ∈ [1.0, 2.2] — see `isoScalingFactor(iso:)`.
+    ///    * `resFactor = clamp(sqrt(max(width, 512) / 512), 1, 3)` — longer sides get
+    ///      proportionally more blur so edge detail is sampled at a comparable scale
+    ///      regardless of thumbnail resolution.
+    ///    * `blurDamp` is 0.8 for landscape apertures (deep DoF scenes), 1.0 otherwise.
+    ///    * Capped at 100 px to avoid pathological radii from malformed input.
+    /// 2. Metal `focusLaplacian` kernel → per-pixel 2nd-derivative energy.
+    /// 3. `CIColorMatrix` scales R/G/B by `energyMultiplier` (tuned by calibration).
     private nonisolated static func buildAmplifiedLaplacian(from image: CIImage, config: FocusDetectorConfig) -> CIImage? {
         let isoFactor = Self.isoScalingFactor(iso: config.iso)
         let imageWidth = Float(image.extent.width)
@@ -818,6 +846,21 @@ extension FocusMaskModel {
         return result
     }
 
+    /// Burst-based auto-calibration of `threshold` and `energyMultiplier`.
+    ///
+    /// Scores every file with `energyMultiplier = 1.0` (unit gain), collects the
+    /// resulting raw scores, sorts them, then derives:
+    ///
+    ///     gain      = clamp(targetP95AfterGain / p95, 0.5, 32.0)
+    ///     threshold = min(percentile(scores, thresholdPercentile) · gain, 1.0)
+    ///
+    /// The idea: after applying `gain`, the 95-th percentile of the catalog lands
+    /// at `targetP95AfterGain` (default 0.50), giving consistent mask contrast
+    /// across bright/dim or noisy/clean burst sets.  The threshold is placed at
+    /// the chosen percentile (default 90-th) of the *post-gain* distribution so
+    /// roughly the top 10 % of edges survive the threshold into the focus mask.
+    ///
+    /// Returns `nil` when fewer than `minSamples` files produced a usable score.
     nonisolated func calibrateFromBurstParallel(
         files: [(url: URL, iso: Int?)],
         baseConfig: FocusDetectorConfig,

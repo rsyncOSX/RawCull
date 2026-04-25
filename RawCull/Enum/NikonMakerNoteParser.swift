@@ -180,7 +180,12 @@ private struct NikonTIFFParser {
         guard v0 == 0x30, v1 >= 0x33, v1 <= 0x39,
               isASCIIDigit(v2), isASCIIDigit(v3) else { return nil }
 
-        // Z-series layout: widths/positions at 0x26..0x2C, each uint16 in innerLE.
+        // Z-series AFInfo2 layout (matches the file-level doc block):
+        //   0x26  AFImageWidth       (uint16)
+        //   0x28  AFImageHeight      (uint16)
+        //   0x2A  AFAreaXPosition    (uint16, centre of AF area, pixel coords)
+        //   0x2C  AFAreaYPosition    (uint16)
+        // Endianness is the inner TIFF's, which may differ from the outer file.
         let width = Int(readU16(at: afStart + 0x26, littleEndian: innerLE))
         let height = Int(readU16(at: afStart + 0x28, littleEndian: innerLE))
         let x = Int(readU16(at: afStart + 0x2A, littleEndian: innerLE))
@@ -313,6 +318,23 @@ private struct NikonTIFFParser {
     /// Nikon inner-TIFF offsets which are relative to the inner TIFF header).
     /// When `offsetBase` is nil, the stored offset is treated as absolute
     /// (matches Sony MakerNote ProcessExif behaviour).
+    ///
+    /// TIFF IFD entry layout (12 bytes):
+    ///
+    ///     [0..1]  tag        (UInt16)
+    ///     [2..3]  type       (UInt16 index into `sizes` below)
+    ///     [4..7]  count      (UInt32, elements)
+    ///     [8..11] value/ptr  (UInt32 — inline value if count·sizes[type] ≤ 4,
+    ///                         otherwise a file offset to the real bytes)
+    ///
+    /// `sizes` maps TIFF type index → bytes per element:
+    ///
+    ///     idx:    0  1  2  3  4  5  6  7  8  9  10 11 12 13
+    ///     type:   -  B  A  S  L  R  sB U  sS sL sR F  D  IFD
+    ///     bytes:  0  1  1  2  4  8  1  1  2  4  8  4  8  4
+    ///
+    /// Endianness of all reads follows the caller-provided `littleEndian` flag
+    /// (may differ between the outer file TIFF and the Nikon inner TIFF).
     private nonisolated func tagDataRange(
         in ifdOffset: Int,
         tag: UInt16,

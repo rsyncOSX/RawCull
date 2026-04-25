@@ -24,6 +24,7 @@ struct CacheSettingsTab: View {
 
     @State private var cacheConfig: CacheConfig?
     @State private var numRawFilesSlider: Double = 2500
+    @State private var memoryModel = MemoryViewModel()
 
     var body: some View {
         VStack(spacing: 16) {
@@ -73,6 +74,15 @@ struct CacheSettingsTab: View {
                                             formatBytes(Int(ProcessInfo.processInfo.physicalMemory)))
                                             .font(.system(size: 10, weight: .regular))
                                             .foregroundStyle(isProjectedOverPhysicalRAM() ? .red : .secondary)
+                                        Spacer()
+                                    }
+                                    HStack(spacing: 4) {
+                                        Text("Free: " +
+                                            formatBytes(Int(freeMemoryBytes())) +
+                                            " · Budget: " +
+                                            formatBytes(Int(freeMemoryBudgetBytes())))
+                                            .font(.system(size: 10, weight: .regular))
+                                            .foregroundStyle(.secondary)
                                         Spacer()
                                     }
                                 }
@@ -134,13 +144,13 @@ struct CacheSettingsTab: View {
                                             step: 100,
                                         )
                                         .frame(height: 18)
-                                        .tint(isOverMemoryThreshold(for: Int(numRawFilesSlider)) ? .red : .accentColor)
+                                        .tint(isOverFreeMemoryBudget() ? .red : .accentColor)
                                         HStack {
                                             Text("\(Int(numRawFilesSlider)) files")
                                                 .font(.system(size: 10, weight: .medium))
                                                 .foregroundStyle(.secondary)
                                             Spacer()
-                                            if isOverMemoryThreshold(for: Int(numRawFilesSlider)) {
+                                            if isOverFreeMemoryBudget() {
                                                 Label("Exceeds safe memory limit", systemImage: "exclamationmark.triangle")
                                                     .font(.system(size: 10, weight: .medium))
                                                     .foregroundStyle(.red)
@@ -192,54 +202,7 @@ struct CacheSettingsTab: View {
                                     }
                                 }
                             }
-
-/*
-                            // Cache Limits Summary
-                            SettingsCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Cache Limits")
-                                        .font(.system(size: 12, weight: .semibold))
-
-                                    Divider()
-
-                                    HStack(spacing: 16) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Total Cost Limit")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            Text(formatBytes(cacheConfig?.totalCostLimit ?? 0))
-                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                        }
-
-                                        Divider()
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Count Limit")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            if let countLimit = cacheConfig?.countLimit {
-                                                Text("\(String(countLimit))")
-                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                            }
-                                        }
-
-                                        Divider()
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Cost Per Pixel")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            if let costPerPixel = cacheConfig?.costPerPixel {
-                                                Text("\(String(costPerPixel)) bytes")
-                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
- */
                         }
- 
                     }
                 }
             }
@@ -315,6 +278,20 @@ struct CacheSettingsTab: View {
                     currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
                 }
             }
+            .task {
+                let (timerStream, continuation) = AsyncStream.makeStream(of: Void.self)
+                let producer = Task {
+                    while !Task.isCancelled {
+                        continuation.yield()
+                        try? await Task.sleep(for: .seconds(2))
+                    }
+                    continuation.finish()
+                }
+                continuation.onTermination = { _ in producer.cancel() }
+                for await _ in timerStream {
+                    await memoryModel.updateMemoryStats()
+                }
+            }
             .task(id: settingsManager.thumbnailCostPerPixel) {
                 await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
                 await SharedMemoryCache.shared.setCostPerPixel(settingsManager.thumbnailCostPerPixel)
@@ -377,7 +354,7 @@ struct CacheSettingsTab: View {
         }
 
         let s = settingsManager.thumbnailSizeGrid * 2
-        let costPerImage = Int(Double(s * s * 4) * 1.1)  // 4 bytes/pixel actual RGBA + 10% overhead
+        let costPerImage = Int(Double(s * s * 4) * 1.1) // 4 bytes/pixel actual RGBA + 10% overhead
         guard costPerImage > 0 else { return "0" }
         return String(max(1, bytes / costPerImage))
     }
@@ -405,43 +382,45 @@ struct CacheSettingsTab: View {
         return min(numFiles, bytes / costPerImage)
     }
 
-    private func estimatedTotalBytes(for numFiles: Int) -> UInt64 {
-        let memImages = estimatedMemCacheImages(for: numFiles)
-        let gridImages = estimatedGridCacheImages(for: numFiles)
-        // Real RAM uses 4 bytes/pixel (RGBA CGImage). thumbnailCostPerPixel (e.g. 6) is
-        // intentionally conservative for NSCache eviction bookkeeping, not actual RAM.
-        let costPerPreview = settingsManager.thumbnailSizePreview
-            * settingsManager.thumbnailSizePreview
-            * 4
-        let costPerGrid: Int
-        if currentGridCacheCount > 0, currentGridCacheSize > 0 {
-            let avgNSCacheCost = currentGridCacheSize / currentGridCacheCount
-            let cacheCostPerPixel = settingsManager.thumbnailCostPerPixel
-            costPerGrid = cacheCostPerPixel > 0
-                ? max(1, Int(Double(avgNSCacheCost) * 4.0 / Double(cacheCostPerPixel)))
-                : avgNSCacheCost
-        } else {
-            let s = settingsManager.thumbnailSizeGrid * 2
-            costPerGrid = Int(Double(s * s * 4) * 1.1)
-        }
-        return UInt64(memImages * costPerPreview)
-            + UInt64(gridImages * costPerGrid)
-            + 107_374_182 // 100 MB app overhead
-    }
-
-    private func isOverMemoryThreshold(for numFiles: Int) -> Bool {
+    /// Live free-memory budget: the calibrated `projectedRawCullMemoryBytes()`
+    /// plus what RawCull is already using must fit within
+    /// `physical × 0.85 − usedByOtherApps − 512 MB safety`.
+    /// Uses `MemoryViewModel`'s polled `usedMemory` / `appMemory` so the
+    /// threshold reflects what's actually free right now, not a static
+    /// fraction of physical RAM.
+    private func isOverFreeMemoryBudget() -> Bool {
         let physical = ProcessInfo.processInfo.physicalMemory
         let threshold = UInt64(Double(physical) * 0.85)
-        let oneGB: UInt64 = 1_073_741_824
-        guard threshold > oneGB else { return true }
-        return estimatedTotalBytes(for: numFiles) >= threshold - oneGB
+        let safetyBuffer: UInt64 = 512 * 1024 * 1024
+        let usedByOthers = memoryModel.usedMemory > memoryModel.appMemory
+            ? memoryModel.usedMemory - memoryModel.appMemory
+            : 0
+        guard threshold > usedByOthers + safetyBuffer else { return true }
+        let budget = threshold - usedByOthers - safetyBuffer
+        return projectedRawCullMemoryBytes() + memoryModel.appMemory >= budget
     }
 
-    // Empirically-calibrated projection: macOS caps RawCull at ~5.5 GB under
-    // memory pressure regardless of NSCache limits, and the app baseline (no
-    // caches populated) is ~100 MB. We interpolate between those anchors using
-    // each slider's fraction of its own range, weighted by the slider's range
-    // share of the combined payload.
+    private func freeMemoryBudgetBytes() -> UInt64 {
+        let physical = ProcessInfo.processInfo.physicalMemory
+        let threshold = UInt64(Double(physical) * 0.85)
+        let usedByOthers = memoryModel.usedMemory > memoryModel.appMemory
+            ? memoryModel.usedMemory - memoryModel.appMemory
+            : 0
+        return threshold > usedByOthers ? threshold - usedByOthers : 0
+    }
+
+    private func freeMemoryBytes() -> UInt64 {
+        let physical = ProcessInfo.processInfo.physicalMemory
+        return memoryModel.usedMemory < physical
+            ? physical - memoryModel.usedMemory
+            : 0
+    }
+
+    /// Empirically-calibrated projection: macOS caps RawCull at ~5.5 GB under
+    /// memory pressure regardless of NSCache limits, and the app baseline (no
+    /// caches populated) is ~100 MB. We interpolate between those anchors using
+    /// each slider's fraction of its own range, weighted by the slider's range
+    /// share of the combined payload.
     private func projectedRawCullMemoryBytes() -> UInt64 {
         let memMin = 5000.0, memMax = 20000.0
         let gridMin = 400.0, gridMax = 2000.0
@@ -452,15 +431,14 @@ struct CacheSettingsTab: View {
         let totalRange = memRange + gridRange
         let combined = memFrac * (memRange / totalRange) + gridFrac * (gridRange / totalRange)
         let baselineMB = 100.0
-        let maxPayloadMB = 5400.0  // 5.5 GB total - 100 MB baseline
+        let maxPayloadMB = 5400.0 // 5.5 GB total - 100 MB baseline
         let clamped = min(1.0, max(0.0, combined))
         let projectedMB = baselineMB + clamped * maxPayloadMB
         return UInt64(projectedMB * 1024.0 * 1024.0)
     }
 
     private func isProjectedOverPhysicalRAM() -> Bool {
-        let physical = ProcessInfo.processInfo.physicalMemory
-        return projectedRawCullMemoryBytes() >= UInt64(Double(physical) * 0.85)
+        isOverFreeMemoryBudget()
     }
 
     private func displayValue(for megabytes: Int) -> String {
