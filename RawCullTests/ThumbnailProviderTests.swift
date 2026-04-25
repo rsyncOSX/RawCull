@@ -38,8 +38,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Initializes with custom config`() async {
-        let testConfig = CacheConfig(totalCostLimit: 50000, countLimit: 3)
-        _ = RequestThumbnail(config: testConfig)
+        _ = RequestThumbnail()
         let stats = await SharedMemoryCache.shared.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
@@ -48,7 +47,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Cache hit rate calculates correctly`() async {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         // Simulate a hit and a miss
         // Note: We'd need access to storeInMemory to fully test this
@@ -61,7 +60,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Statistics reset after clear caches`() async {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         // Get initial stats
         var stats = await SharedMemoryCache.shared.getCacheStatistics()
@@ -77,8 +76,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Cache respects cost limit`() {
-        let testConfig = CacheConfig(totalCostLimit: 100_000, countLimit: 100)
-        _ = RequestThumbnail(config: testConfig)
+        _ = RequestThumbnail()
 
         // With a very small cost limit, items should be evicted
         // This tests the memory management
@@ -90,7 +88,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Thumbnail method handles missing files gracefully`() async {
-        let provider = RequestThumbnail(config: .testing)
+        let provider = RequestThumbnail()
         let missingURL = URL(fileURLWithPath: "/nonexistent/file.jpg")
 
         let result = await provider.requestThumbnail(for: missingURL, targetSize: 256)
@@ -102,7 +100,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Clear caches removes all cached items`() async {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         // Clear caches
         await SharedMemoryCache.shared.clearCaches()
@@ -131,7 +129,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Provider handles concurrent access safely`() async {
-        let provider = RequestThumbnail(config: .testing)
+        let provider = RequestThumbnail()
         let testURL = URL(fileURLWithPath: "/test/file.jpg")
 
         // Attempt concurrent reads on non-existent file
@@ -152,8 +150,8 @@ struct RequestThumbnailTests {
     func `Config production has correct limits`() {
         let config = CacheConfig.production
 
-        #expect(config.totalCostLimit == 200 * 2560 * 2560)
-        #expect(config.countLimit == 500)
+        #expect(config.totalCostLimit == 500 * 1024 * 1024)
+        #expect(config.countLimit == 1000)
     }
 
     @Test
@@ -168,7 +166,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Cache delegate is properly set`() {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         // Verify provider initializes without crashing
         // A full test would require exposing the delegate
@@ -180,7 +178,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Provider is actor-isolated for thread safety`() async {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         // Multiple concurrent accesses should not cause data races
         await withTaskGroup(of: Void.self) { group in
@@ -200,7 +198,7 @@ struct RequestThumbnailTests {
 struct RequestThumbnailPerformanceTests {
     @Test
     func `Statistics gathering is fast`() async {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         let startTime = Date()
         for _ in 0 ..< 1000 {
@@ -214,7 +212,7 @@ struct RequestThumbnailPerformanceTests {
 
     @Test
     func `Clear operation completes promptly`() async {
-        _ = RequestThumbnail(config: .testing)
+        _ = RequestThumbnail()
 
         let startTime = Date()
         await SharedMemoryCache.shared.clearCaches()
