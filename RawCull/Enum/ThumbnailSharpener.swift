@@ -7,46 +7,72 @@
 
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import Foundation
 
 enum ThumbnailSharpener {
     private nonisolated static let context = CIContext(options: [.useSoftwareRenderer: false])
 
-    /// Apply CIUnsharpMask aggressively enough to be visible on a 1616 px downsampled preview.
-    /// `amount` is the slider value (0.0–3.0). It drives both intensity AND radius so the
-    /// effect actually changes character as you crank it (not just a louder version of the same):
-    ///   - intensity = amount (CoreImage accepts > 1.0; values 1–3 give clearly visible sharpening)
-    ///   - radius scales 4.0 → 8.0 across the slider, so larger amounts also widen the edge halo
-    /// At very high `amount` the result is run through CIUnsharpMask twice, which is the only way
-    /// to get a really hard-edged "pop" out of a soft input.
-    /// Returns nil on failure so the caller can fall back to the unsharpened image.
-    nonisolated static func sharpen(_ image: CGImage, amount: Float) -> CGImage? {
-        guard amount > 0 else { return image }
-        let clamped = min(3.0, max(0, amount))
+    /// Build a sharpened preview from the demosaiced raw via `CIRAWFilter`.
+    ///
+    /// This bypasses Sony's embedded JPEG preview entirely. The embedded JPEG already has Sony's
+    /// in-camera sharpening baked in and JPEG quantization that has stripped most fine detail,
+    /// so an `unsharpMask` on it produces halos around existing edges instead of recovering
+    /// texture. Working off the demosaiced sensor data gives the sharpen stages something
+    /// real to act on.
+    ///
+    /// `amount` is the slider value (0.0–2.0) and drives both sharpen stages:
+    ///   - `unsharpMask` intensity = amount * 0.4 (radius held at 0.8 for micro-detail)
+    ///   - `sharpenLuminance` sharpness = amount * 0.3 (luminance edges only, halo-free)
+    ///
+    /// Returns nil when `CIRAWFilter` cannot decode the source (e.g. ARW 6.0 / RA16 from A7V),
+    /// so the caller can fall back to the cached embedded-JPEG thumbnail.
+    nonisolated static func sharpenedPreview(
+        from url: URL,
+        maxDimension: CGFloat,
+        amount: Float,
+    ) -> CGImage? {
+        guard let rawFilter = CIRAWFilter(imageURL: url) else { return nil }
 
-        let radius = 4.0 + (clamped / 3.0) * 4.0  // 4.0 → 8.0
-        let intensity = clamped                    // 0.0 → 3.0
+        rawFilter.sharpnessAmount = 0.0
+        rawFilter.detailAmount = 0.6
+        rawFilter.contrastAmount = 1.0
+        rawFilter.exposure = 0.0
+        rawFilter.neutralChromaticity = CGPoint(x: 0.3457, y: 0.3585)
 
-        var ci = CIImage(cgImage: image)
+        guard var ci = rawFilter.outputImage else { return nil }
+
+        let toneFilter = CIFilter.colorControls()
+        toneFilter.inputImage = ci
+        toneFilter.contrast = 1.05
+        toneFilter.saturation = 1.0
+        toneFilter.brightness = 0.0
+        if let toned = toneFilter.outputImage { ci = toned }
+
+        let nrFilter = CIFilter.noiseReduction()
+        nrFilter.inputImage = ci
+        nrFilter.noiseLevel = 0.02
+        nrFilter.sharpness = 0.4
+        if let denoised = nrFilter.outputImage { ci = denoised }
+
         let extent = ci.extent
-
-        let filter = CIFilter.unsharpMask()
-        filter.inputImage = ci
-        filter.radius = radius
-        filter.intensity = intensity
-        guard let firstPass = filter.outputImage else { return nil }
-        ci = firstPass
-
-        // Second pass kicks in above amount=2.0 for a visibly stronger result.
-        if clamped > 2.0 {
-            let secondFilter = CIFilter.unsharpMask()
-            secondFilter.inputImage = ci
-            secondFilter.radius = radius * 0.5
-            secondFilter.intensity = (clamped - 2.0)  // 0.0 → 1.0
-            if let secondPass = secondFilter.outputImage {
-                ci = secondPass
-            }
+        let scale = maxDimension / max(extent.width, extent.height)
+        if scale < 1.0 {
+            ci = ci.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         }
 
-        return context.createCGImage(ci, from: extent)
+        if amount > 0 {
+            let unsharp = CIFilter.unsharpMask()
+            unsharp.inputImage = ci
+            unsharp.radius = 0.8
+            unsharp.intensity = amount * 0.4
+            if let pass1 = unsharp.outputImage { ci = pass1 }
+
+            let luma = CIFilter.sharpenLuminance()
+            luma.inputImage = ci
+            luma.sharpness = amount * 0.3
+            if let pass2 = luma.outputImage { ci = pass2 }
+        }
+
+        return context.createCGImage(ci, from: ci.extent)
     }
 }

@@ -55,11 +55,13 @@ final class SettingsViewModel {
     /// Use thumbnail as zoom preview (default: true)
     var useThumbnailAsZoomPreview: Bool = false
 
-    /// Apply CIUnsharpMask to the zoom preview thumbnail at view time (default: false)
+    /// When enabled, bypasses the cached embedded-JPEG thumbnail and runs the zoom preview
+    /// through a CIRAWFilter pipeline (demosaiced raw → noise reduction → small-radius
+    /// unsharp + sharpenLuminance). See `ThumbnailSharpener.sharpenedPreview`. Default: false.
     var enableThumbnailSharpening: Bool = false
-    /// Unsharp mask amount, 0.0–3.0 (default: 1.5). Drives both intensity and radius;
-    /// values above 2.0 trigger a second sharpening pass for an aggressive look.
-    var thumbnailSharpenAmount: Float = 1.5
+    /// Sharpening amount for the CIRAWFilter preview pipeline, 0.0–2.0 (default: 1.0).
+    /// Drives `unsharpMask.intensity = amount * 0.4` and `sharpenLuminance.sharpness = amount * 0.3`.
+    var thumbnailSharpenAmount: Float = 1.0
 
     /// Show sharpness score badge on thumbnails (default: false = hidden, for scroll performance)
     var showScoringBadge: Bool = false
@@ -329,7 +331,7 @@ struct SavedSettings: Codable {
         thumbnailCostPerPixel: Int,
         useThumbnailAsZoomPreview: Bool,
         enableThumbnailSharpening: Bool = false,
-        thumbnailSharpenAmount: Float = 1.5,
+        thumbnailSharpenAmount: Float = 1.0,
         showScoringBadge: Bool = false,
         showSaliencyBadge: Bool = false,
         scoringBorderInsetFraction: Float = 0.04,
@@ -378,7 +380,7 @@ struct SavedSettings: Codable {
         thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
         enableThumbnailSharpening = (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false
-        thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.5
+        thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0
         showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
         showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
         scoringBorderInsetFraction = (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04

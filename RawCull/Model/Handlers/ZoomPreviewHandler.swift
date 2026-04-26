@@ -33,10 +33,18 @@ enum ZoomPreviewHandler {
 
                 guard !Task.isCancelled else { return }
 
-                let displayImage: CGImage? = {
-                    guard let cgThumb, settings.enableThumbnailSharpening else { return cgThumb }
-                    return ThumbnailSharpener.sharpen(cgThumb, amount: settings.thumbnailSharpenAmount) ?? cgThumb
-                }()
+                let displayImage: CGImage?
+                if settings.enableThumbnailSharpening {
+                    let url = file.url
+                    let size = CGFloat(thumbnailSizePreview)
+                    let amount = settings.thumbnailSharpenAmount
+                    let sharpened = await Task.detached(priority: .userInitiated) {
+                        ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount)
+                    }.value
+                    displayImage = sharpened ?? cgThumb
+                } else {
+                    displayImage = cgThumb
+                }
 
                 await MainActor.run {
                     if let displayImage {

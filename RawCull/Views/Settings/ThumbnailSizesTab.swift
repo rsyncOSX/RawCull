@@ -158,7 +158,7 @@ struct ThumbnailSizesTab: View {
                                     ),
                                 )
 
-                                Text("Applies an unsharp mask to the zoom thumbnail to compensate for downsampling softness.")
+                                Text("Renders the zoom preview from demosaiced raw via CIRAWFilter, then applies micro-detail sharpening.")
                                     .font(.system(size: 11, weight: .regular))
                                     .foregroundStyle(.secondary)
                             }
@@ -166,14 +166,14 @@ struct ThumbnailSizesTab: View {
                             SettingsSliderRow(
                                 title: "Sharpening Amount",
                                 systemImage: "slider.horizontal.3",
-                                valueText: String(format: "%.1f", settingsManager.thumbnailSharpenAmount),
-                                description: "0–1: subtle. 1–2: clearly visible. 2–3: aggressive (two-pass unsharp mask).",
+                                valueText: String(format: "%.2f", settingsManager.thumbnailSharpenAmount),
+                                description: "0–1: subtle. 1–2: pronounced. Operates on demosaiced raw, not the embedded JPEG.",
                                 value: Binding<Double>(
                                     get: { Double(settingsManager.thumbnailSharpenAmount) },
                                     set: { settingsManager.thumbnailSharpenAmount = Float($0) },
                                 ),
-                                range: 0.0 ... 3.0,
-                                step: 0.1,
+                                range: 0.0 ... 2.0,
+                                step: 0.05,
                             )
                             .disabled(!settingsManager.enableThumbnailSharpening)
                         }
