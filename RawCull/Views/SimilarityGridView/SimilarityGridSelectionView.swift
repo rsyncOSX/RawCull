@@ -1,8 +1,11 @@
 //
-//  GridThumbnailSelectionView.swift
+//  SimilarityGridSelectionView.swift
 //  RawCull
 //
-//  Created by Thomas Evensen on 13/02/2026.
+//  Similarity-focused grid. Header exposes only similarity indexing and
+//  burst grouping. A toolbar toggle (default ON) gates an automatic
+//  sharpness-scoring prerequisite that runs the first time any analysis
+//  action is invoked while scores are missing.
 //
 
 import AppKit
@@ -11,10 +14,6 @@ import SwiftUI
 
 // MARK: - BurstGroupHeaderView
 
-/// Renders a single burst-group section header. All sharpness math is done
-/// upstream (see `GridCache` in the grid view) and passed in as `best` so
-/// the header body never walks the group's files or reads `maxScore` during
-/// redraw.
 private struct BurstGroupHeaderView: View {
     let files: [FileItem]
     let best: BestInGroupInfo?
@@ -79,22 +78,20 @@ private struct BurstGroupHeaderView: View {
 
 // MARK: -
 
-enum GridRatingFilter: Hashable {
-    case all
-    case unrated
-    case rating(Int) // -1 = rejected, 0 = keepers, 2–5 = stars
-}
-
-struct GridThumbnailSelectionView: View {
+struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
-    @State private var sharpnessThreshold: Int = 50
+    @State private var autoSharpnessScoring: Bool = true
 
-    // ── Burst-mode render cache ──────────────────────────────────────────
-    // Recomputed only when `gridCacheKey` changes, so hover/selection
-    // invalidations do not rebuild these O(n) / O(m·k) structures.
+    // Debounced regroup task for the burst-sensitivity slider — mirrors
+    // SimilarityControlsView so dragging the slider collapses to a single
+    // regroup call ~200 ms after the drag stops.
+    @State private var pendingRegroupTask: Task<Void, Never>?
+
+    // Burst-mode render cache (same invalidation semantics as
+    // GridThumbnailSelectionView.gridCacheKey).
     @State private var visibleBurstGroups: [VisibleBurstGroup] = []
     @State private var bestInGroup: [Int: BestInGroupInfo] = [:]
     @State private var hasSharpnessScoresSnapshot: Bool = false
@@ -104,25 +101,15 @@ struct GridThumbnailSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header — Row 1: analysis tools, Row 2: culling/rating filters
-            // Row 1 — Analysis tools (sharpness hidden in burst mode)
+            // Header — similarity & burst controls only.
             HStack(spacing: 10) {
-                if !viewModel.similarityModel.burstModeActive {
-                    SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
-
-                    Divider().frame(height: 20)
-                }
-
-                // SimilarityControlsView(viewModel: viewModel)
-
+                similarityHeaderControls
                 Spacer()
             }
-
             .padding()
             .background(Color.gray.opacity(0.1))
 
             ZStack {
-                // Grid view
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVGrid(
@@ -132,7 +119,6 @@ struct GridThumbnailSelectionView: View {
                             spacing: 12,
                         ) {
                             if viewModel.similarityModel.burstModeActive {
-                                // ── Burst grouping mode ───────────────────────────
                                 ForEach(visibleBurstGroups) { vg in
                                     Section {
                                         ForEach(vg.files, id: \.id) { file in
@@ -155,7 +141,6 @@ struct GridThumbnailSelectionView: View {
                                     }
                                 }
                             } else {
-                                // ── Flat mode (default) ───────────────────────────
                                 ForEach(files, id: \.id) { file in
                                     ImageItemView(
                                         viewModel: viewModel,
@@ -177,7 +162,6 @@ struct GridThumbnailSelectionView: View {
                     }
                     .onAppear {
                         guard let id = viewModel.selectedFileID else { return }
-                        // Defer one runloop cycle so LazyVGrid has laid out before scrolling
                         Task { @MainActor in
                             proxy.scrollTo(id, anchor: .top)
                         }
@@ -190,7 +174,6 @@ struct GridThumbnailSelectionView: View {
                     }
                 }
 
-                // Progress view — shown during sharpness scoring
                 if viewModel.sharpnessModel.isScoring {
                     ProgressCount(
                         progress: Binding(
@@ -215,7 +198,6 @@ struct GridThumbnailSelectionView: View {
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
-                // Progress view — shown during burst grouping
                 if viewModel.similarityModel.isGrouping {
                     Text("Grouping bursts…")
                         .font(.subheadline)
@@ -231,7 +213,6 @@ struct GridThumbnailSelectionView: View {
                         .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
-                // Progress view — shown during similarity indexing
                 if viewModel.similarityModel.isIndexing {
                     ProgressCount(
                         progress: Binding(
@@ -274,6 +255,146 @@ struct GridThumbnailSelectionView: View {
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
     }
 
+    // MARK: - Inline similarity controls (with auto-scoring prerequisite)
+
+    @ViewBuilder
+    private var similarityHeaderControls: some View {
+        let hasEmbeddings = !viewModel.similarityModel.embeddings.isEmpty
+        let isIndexing = viewModel.similarityModel.isIndexing
+        let isGrouping = viewModel.similarityModel.isGrouping
+        let inBurstMode = viewModel.similarityModel.burstModeActive
+
+        if !inBurstMode {
+            Button {
+                runWithAutoScoring { await viewModel.indexSimilarity() }
+            } label: {
+                if isIndexing {
+                    Label("Indexing…", systemImage: "wand.and.sparkles")
+                } else if hasEmbeddings {
+                    Label("Re-index", systemImage: "wand.and.sparkles")
+                } else {
+                    Label("Index Similarity", systemImage: "wand.and.sparkles")
+                }
+            }
+            .font(.caption)
+            .disabled(isIndexing || viewModel.files.isEmpty)
+            .help("Compute visual feature embeddings for all images in this catalog")
+
+            if isIndexing {
+                Button(role: .cancel) {
+                    viewModel.similarityModel.cancelIndexing()
+                } label: {
+                    Label("Cancel", systemImage: "xmark.circle")
+                }
+                .font(.caption)
+                .tint(.red)
+                .help("Abort similarity indexing and discard partial results")
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+
+            if hasEmbeddings, !isIndexing {
+                Button {
+                    runWithAutoScoring { await viewModel.findSimilarToSelected() }
+                } label: {
+                    Label("Find Similar", systemImage: "photo.stack")
+                }
+                .font(.caption)
+                .disabled(viewModel.selectedFile == nil)
+                .help("Rank all images by visual similarity to the selected image")
+
+                if !viewModel.similarityModel.distances.isEmpty {
+                    Toggle(isOn: $viewModel.similarityModel.sortBySimilarity) {
+                        Label("Similarity", systemImage: "arrow.up.arrow.down")
+                    }
+                    .toggleStyle(.button)
+                    .font(.caption)
+                    .help("Sort thumbnails by similarity to selected image (most similar first)")
+                    .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, _ in
+                        Task(priority: .background) {
+                            await viewModel.handleSortOrderChange()
+                        }
+                    }
+                }
+
+                Divider().frame(height: 16)
+            }
+        }
+
+        if !isIndexing {
+            if inBurstMode {
+                HStack(spacing: 4) {
+                    Slider(
+                        value: $viewModel.similarityModel.burstSensitivity,
+                        in: 0.05 ... 0.60,
+                    )
+                    .frame(width: 70)
+                    .help("Burst sensitivity — lower = tighter groups, higher = similar scenes grouped together")
+                    .onChange(of: viewModel.similarityModel.burstSensitivity) { _, _ in
+                        pendingRegroupTask?.cancel()
+                        pendingRegroupTask = Task {
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                            if Task.isCancelled { return }
+                            await viewModel.reGroupBursts()
+                        }
+                    }
+                    Text(
+                        String(
+                            format: "%.2f · %d groups",
+                            viewModel.similarityModel.burstSensitivity,
+                            viewModel.similarityModel.burstGroups.count,
+                        ),
+                    )
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 84, alignment: .leading)
+                }
+
+                Button {
+                    viewModel.similarityModel.burstModeActive = false
+                } label: {
+                    Label("Exit Groups", systemImage: "xmark.circle")
+                }
+                .font(.caption)
+                .help("Return to flat grid view")
+            } else {
+                Button {
+                    runWithAutoScoring { await viewModel.indexAndGroupBursts() }
+                } label: {
+                    if isGrouping {
+                        Label("Grouping…", systemImage: "square.stack.3d.up")
+                    } else if hasEmbeddings {
+                        Label("Group Bursts", systemImage: "square.stack.3d.up")
+                    } else {
+                        Label("Index + Group Bursts", systemImage: "square.stack.3d.up")
+                    }
+                }
+                .font(.caption)
+                .disabled(isGrouping || viewModel.files.isEmpty)
+                .help(
+                    hasEmbeddings
+                        ? "Cluster consecutive similar frames into burst groups"
+                        : "Index all images then cluster into burst groups",
+                )
+            }
+        }
+    }
+
+    /// Runs `action` after first computing sharpness scores when the toggle
+    /// is on and scores are missing. Re-runs are skipped — `scoreFiles`
+    /// already guards `!isScoring` and `scores` is reset on each run, so
+    /// this is safe even if the user fires multiple buttons in quick
+    /// succession.
+    private func runWithAutoScoring(_ action: @escaping @MainActor () async -> Void) {
+        Task {
+            if autoSharpnessScoring, viewModel.sharpnessModel.scores.isEmpty {
+                await viewModel.calibrateAndScoreCurrentCatalog()
+            }
+            await action()
+        }
+    }
+
+    // MARK: - Selection handlers
+
     private func handleToggleSelection(for file: FileItem) {
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
@@ -311,19 +432,11 @@ struct GridThumbnailSelectionView: View {
 
     // MARK: - Burst grouping helpers
 
-    /// A burst group reduced to only the files currently visible (post rating-filter).
     private struct VisibleBurstGroup: Identifiable {
         let id: Int
         let files: [FileItem]
     }
 
-    /// Cheap content signature for the burst-mode render cache. Changes in
-    /// any of these fields invalidate `visibleBurstGroups` and
-    /// `bestInGroup`; unrelated mutations (hover, selection, progress text)
-    /// do not.
-    /// All stored properties are read via synthesized Hashable when the
-    /// struct drives `.onChange(of: gridCacheKey)` above; Periphery does
-    /// not see synthesized conformances as reads, hence the ignores.
     private struct GridCacheKey: Hashable {
         // periphery:ignore
         let burstGroupsCount: Int
@@ -360,9 +473,6 @@ struct GridThumbnailSelectionView: View {
         )
     }
 
-    /// Rebuild the burst-mode render cache. Reads `maxScore` exactly once
-    /// (it is an O(n log n) computed property) and walks each burst group
-    /// a single time for both the visible-filter and best-in-group passes.
     private func recomputeGridCache() {
         let currentFiles = files
         let lookup = Dictionary(uniqueKeysWithValues: currentFiles.map { ($0.id, $0) })
@@ -391,10 +501,6 @@ struct GridThumbnailSelectionView: View {
         hasSharpnessScoresSnapshot = !scores.isEmpty
     }
 
-    /// Builds the thumbnail cell for a file inside a burst group.
-    /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
-    /// simple enough for Swift's type-checker, while `isBestInGroup` is still an explicit
-    /// parameter of `ImageItemView` (guaranteeing SwiftUI re-renders the cell when it changes).
     private func burstCell(file: FileItem) -> some View {
         ImageItemView(
             viewModel: viewModel,
@@ -429,9 +535,17 @@ struct GridThumbnailSelectionView: View {
 
 // MARK: - Toolbar
 
-extension GridThumbnailSelectionView {
+extension SimilarityGridSelectionView {
     @ToolbarContentBuilder
     var gridToolbar: some ToolbarContent {
+        ToolbarItem(placement: .status) {
+            Toggle(isOn: $autoSharpnessScoring) {
+                Label("Auto Sharpness", systemImage: "scope")
+            }
+            .toggleStyle(.button)
+            .help("Auto-run sharpness scoring before similarity actions when scores are missing")
+        }
+
         if viewModel.selectedFileIDs.count > 1 {
             ToolbarItem(placement: .status) {
                 Text("\(viewModel.selectedFileIDs.count) selected — press a rating key to apply")

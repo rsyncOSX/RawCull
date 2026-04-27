@@ -1,13 +1,15 @@
 //
-//  GridThumbnailView.swift
+//  SimilarityGridView.swift
 //  RawCull
 //
-//  Created by Thomas Evensen on 13/02/2026.
+//  Similarity-focused alternative to GridThumbnailView. Hosts only similarity
+//  indexing and burst grouping; sharpness scoring runs as a silent
+//  prerequisite controlled by a toolbar toggle inside the selection view.
 //
 
 import SwiftUI
 
-struct GridThumbnailView: View {
+struct SimilarityGridView: View {
     @Bindable var viewModel: RawCullViewModel
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
@@ -15,10 +17,9 @@ struct GridThumbnailView: View {
     @Binding var cgImage: CGImage?
 
     var body: some View {
-        // let _ = Self._printChanges()
         Group {
             if gridthumbnailviewmodel.cullingModel != nil {
-                GridThumbnailSelectionView(
+                SimilarityGridSelectionView(
                     viewModel: viewModel,
                     nsImage: $nsImage,
                     cgImage: $cgImage,

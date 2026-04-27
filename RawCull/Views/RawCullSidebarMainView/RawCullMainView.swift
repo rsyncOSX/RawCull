@@ -27,6 +27,9 @@ struct RawCullMainView: View {
                 case .grid:
                     gridSplit
 
+                case .similarityGrid:
+                    similarityGridSplit
+
                 case .ratedGrid:
                     ratedGridSplit
                 }
@@ -72,12 +75,14 @@ struct RawCullMainView: View {
             )
         }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
-            if newMode == .grid {
+            if newMode == .grid || newMode == .similarityGrid {
                 gridthumbnailviewmodel.open(
                     cullingModel: viewModel.cullingModel,
                     selectedSource: viewModel.selectedSource,
                     filteredFiles: viewModel.filteredFiles,
                 )
+            } else {
+                gridthumbnailviewmodel.close()
             }
         }
     }
@@ -228,6 +233,31 @@ struct RawCullMainView: View {
             )
         } detail: {
             GridThumbnailView(
+                viewModel: viewModel,
+                nsImage: $nsImage,
+                cgImage: $cgImage,
+            )
+            .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
+                " (\(viewModel.filteredFiles.count) files)")
+            .toolbar { toolbarContent }
+        }
+        .task {
+            columnVisibility = .detailOnly
+        }
+    }
+
+    // MARK: - Similarity grid mode (2-column split)
+
+    private var similarityGridSplit: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            RAWCatalogSidebarView(
+                sources: $viewModel.sources,
+                selectedSource: $viewModel.selectedSource,
+                isShowingPicker: $viewModel.isShowingPicker,
+                cullingModel: viewModel.cullingModel,
+            )
+        } detail: {
+            SimilarityGridView(
                 viewModel: viewModel,
                 nsImage: $nsImage,
                 cgImage: $cgImage,

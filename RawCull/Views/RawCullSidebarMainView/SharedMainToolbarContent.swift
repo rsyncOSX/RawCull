@@ -116,6 +116,17 @@ struct SharedMainToolbarContent: ToolbarContent {
                 viewModel.creatingthumbnails)
 
             Button {
+                selectSimilarityGridMode()
+            } label: {
+                Label("Similarity", systemImage: "photo.stack")
+            }
+            .help("Similarity & burst grouping grid")
+            .disabled(viewModel.selectedSource == nil ||
+                viewModel.filteredFiles.isEmpty ||
+                viewModel.mainViewMode == .similarityGrid ||
+                viewModel.creatingthumbnails)
+
+            Button {
                 viewModel.mainViewMode = .ratedGrid
             } label: {
                 Label("Rated", systemImage: "star.square.fill")
@@ -150,6 +161,12 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.mainViewMode = .grid
+    }
+
+    private func selectSimilarityGridMode() {
+        viewModel.ratingFilter = .all
+        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        viewModel.mainViewMode = .similarityGrid
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {

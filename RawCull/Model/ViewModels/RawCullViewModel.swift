@@ -18,6 +18,7 @@ enum RatingFilter: Hashable {
 enum MainViewMode: String, CaseIterable, Identifiable {
     case loupe
     case grid
+    case similarityGrid
     case ratedGrid
 
     var id: String {
