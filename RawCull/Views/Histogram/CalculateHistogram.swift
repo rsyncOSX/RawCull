@@ -1,6 +1,6 @@
 import CoreGraphics
 import Foundation
-import OSLog
+// import OSLog
 
 /// Make sure that the resource demanding calculation is computed on
 /// a background thread
@@ -15,7 +15,7 @@ actor CalculateHistogram {
     /// directly as bar heights in the histogram chart.
     @concurrent
     nonisolated func calculateHistogram(from image: CGImage) async -> [CGFloat] {
-        Logger.process.debugThreadOnly("CalculateHistogram: calculateHistogram()")
+        // Logger.process.debugThreadOnly("CalculateHistogram: calculateHistogram()")
         let width = image.width
         let height = image.height
         // let totalPixels = width * height
