@@ -17,11 +17,11 @@ Install via Homebrew:
 brew tap rsyncOSX/cask && brew install --cask rawcull
 ```
 
-Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) or [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases). The GitHub version may appear a day or two ahead of the App Store release due to review timelines.
+Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) or [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases).
 
 ## Latest release
 
-v1.6.4 — April 24, 2026 — in active development
+v1.6.5 — April 26, 2026 — in active development
 
 ## Sony ARW compatibility
 
