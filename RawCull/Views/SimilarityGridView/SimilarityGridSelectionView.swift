@@ -377,6 +377,14 @@ struct SimilarityGridSelectionView: View {
                 )
             }
         }
+
+        // Spinner shown while calibrating is in progress
+        if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
+            HStack {
+                ProgressView()
+                Text("Calibrating sharpness scoring, please wait...")
+            }
+        }
     }
 
     /// Runs `action` after first computing sharpness scores when the toggle
