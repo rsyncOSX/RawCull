@@ -117,6 +117,7 @@ struct MainThumbnailImageView: View {
                                     focusMaskAvailable: focusMask != nil,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
+                                    useThumbnailSource: .constant(false),
                                     scale: viewModel.scale,
                                     canZoomOut: viewModel.scale > 0.5,
                                     canZoomIn: viewModel.scale < 4.0,

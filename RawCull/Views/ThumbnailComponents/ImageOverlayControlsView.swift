@@ -14,6 +14,11 @@ struct ImageOverlayControlsView: View {
     var hasFocusPoints: Bool
     @Binding var showFocusPoints: Bool
 
+    // MARK: - Image source toggle (zoom overlay only)
+
+    var showImageSourceToggle: Bool = false
+    @Binding var useThumbnailSource: Bool
+
     // MARK: - Zoom pill
 
     var scale: CGFloat
@@ -38,6 +43,11 @@ struct ImageOverlayControlsView: View {
                     showFocusPoints: $showFocusPoints,
                 )
                 .transition(.opacity)
+            }
+
+            if showImageSourceToggle {
+                ImageSourceToggleView(useThumbnailSource: $useThumbnailSource)
+                    .transition(.opacity)
             }
 
             HStack {

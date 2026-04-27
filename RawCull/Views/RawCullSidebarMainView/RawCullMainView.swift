@@ -65,15 +65,6 @@ struct RawCullMainView: View {
                 showcopytask: $viewModel.showcopyARWFilesView,
             )
         }
-        .onChange(of: viewModel.selectedFile) { _, newFile in
-            guard let file = newFile, viewModel.zoomOverlayVisible else { return }
-            viewModel.zoomExtractionTask?.cancel()
-            viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
-                file: file,
-                useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                viewModel: viewModel,
-            )
-        }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
                 gridthumbnailviewmodel.open(

@@ -23,6 +23,7 @@ struct ZoomOverlayView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
+    @State private var useThumbnailSource: Bool = false
     @State private var maskTask: Task<Void, Never>?
     @FocusState private var isImageFocused: Bool
 
@@ -76,6 +77,8 @@ struct ZoomOverlayView: View {
                         focusMaskAvailable: focusMask != nil,
                         hasFocusPoints: focusPoints != nil,
                         showFocusPoints: $showFocusPoints,
+                        showImageSourceToggle: true,
+                        useThumbnailSource: $useThumbnailSource,
                         scale: currentScale,
                         canZoomOut: currentScale > 0.5,
                         canZoomIn: currentScale < 5.0,
@@ -103,11 +106,19 @@ struct ZoomOverlayView: View {
             default: return .ignored
             }
         }
-        .onAppear { isImageFocused = true }
+        .onAppear {
+            isImageFocused = true
+            reload()
+        }
         .onDisappear {
             maskTask?.cancel()
             maskTask = nil
             focusMask = nil
+        }
+        .onChange(of: useThumbnailSource) { _, _ in reload() }
+        .onChange(of: viewModel.selectedFile) { _, _ in
+            guard viewModel.zoomOverlayVisible else { return }
+            reload()
         }
         .task(id: viewModel.zoomOverlayCGImage?.hashValue) {
             try? await Task.sleep(for: .milliseconds(300))
@@ -122,6 +133,18 @@ struct ZoomOverlayView: View {
                 await regenerateMaskFromCG()
             }
         }
+    }
+
+    // MARK: - Reload
+
+    private func reload() {
+        guard let file = viewModel.selectedFile else { return }
+        viewModel.zoomExtractionTask?.cancel()
+        viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
+            file: file,
+            useThumbnailAsZoomPreview: useThumbnailSource,
+            viewModel: viewModel,
+        )
     }
 
     // MARK: - Dismiss

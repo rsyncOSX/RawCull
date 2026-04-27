@@ -301,12 +301,7 @@ struct GridThumbnailSelectionView: View {
 
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
-        viewModel.zoomExtractionTask?.cancel()
-        viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
-            file: file,
-            useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-            viewModel: viewModel,
-        )
+        viewModel.zoomOverlayVisible = true
     }
 
     // MARK: - Burst grouping helpers

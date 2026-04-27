@@ -21,14 +21,8 @@ struct FileDetailView: View {
             .padding()
             .onTapGesture(count: 2) {
                 guard let selectedID = selectedFileID,
-                      let file = files.first(where: { $0.id == selectedID }) else { return }
-
-                viewModel.zoomExtractionTask?.cancel()
-                viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
-                    file: file,
-                    useThumbnailAsZoomPreview: viewModel.useThumbnailAsZoomPreview,
-                    viewModel: viewModel,
-                )
+                      files.contains(where: { $0.id == selectedID }) else { return }
+                viewModel.zoomOverlayVisible = true
             }
         } else {
             ZStack {
