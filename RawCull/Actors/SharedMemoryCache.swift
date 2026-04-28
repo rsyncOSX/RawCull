@@ -72,6 +72,22 @@ actor SharedMemoryCache {
     private let _pressureWarnings = OSAllocatedUnfairLock(initialState: 0)
     private let _pressureCriticals = OSAllocatedUnfairLock(initialState: 0)
     private let _pressureNormals = OSAllocatedUnfairLock(initialState: 0)
+
+    // MARK: - NSDiscardableContent visibility
+    //
+    // The `DiscardableThumbnail` wrapper adopts NSDiscardableContent so the OS
+    // can purge the underlying NSImage bitmap pages independently of the
+    // `DispatchSource.makeMemoryPressureSource` events we listen to. When that
+    // happens, `beginContentAccess()` returns false and `RequestThumbnail`'s
+    // branch A treats the lookup as a miss even though the wrapper is still
+    // in `memoryCache`. These counters quantify how often that occurs.
+    //
+    //   _discardCalls: discardContentIfPossible() invocations the wrapper
+    //                  actually honored (accessCount == 0 → isDiscarded true)
+    //   _discardedReadAttempts: beginContentAccess() calls that returned
+    //                  false because the wrapper had already been discarded
+    private let _discardCalls = OSAllocatedUnfairLock(initialState: 0)
+    private let _discardedReadAttempts = OSAllocatedUnfairLock(initialState: 0)
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -474,13 +490,31 @@ actor SharedMemoryCache {
         memoryCache.totalCostLimit
     }
 
+    // MARK: - Discard tracking
+
+    nonisolated func incrementDiscardCall() {
+        _discardCalls.withLock { $0 += 1 }
+    }
+
+    nonisolated func incrementDiscardedReadAttempt() {
+        _discardedReadAttempts.withLock { $0 += 1 }
+    }
+
+    nonisolated func getDiscardCallCount() -> Int {
+        _discardCalls.withLock { $0 }
+    }
+
+    nonisolated func getDiscardedReadAttemptCount() -> Int {
+        _discardedReadAttempts.withLock { $0 }
+    }
+
     /// For Cache monitor
     /// Get current cache statistics for monitoring
     func getCacheStatistics() async -> CacheStatistics {
         await ensureReady()
         let total = cacheMemory + cacheDisk
         let hitRate = total > 0 ? Double(cacheMemory) / Double(total) * 100 : 0
-        let evictions = await CacheDelegate.shared.getEvictionCount()
+        let evictions = CacheDelegate.shared.getEvictionCount()
         return CacheStatistics(
             hits: cacheMemory,
             misses: cacheDisk,
@@ -521,7 +555,9 @@ actor SharedMemoryCache {
         _pressureWarnings.withLock { $0 = 0 }
         _pressureCriticals.withLock { $0 = 0 }
         _pressureNormals.withLock { $0 = 0 }
-        await CacheDelegate.shared.resetEvictionCount()
+        _discardCalls.withLock { $0 = 0 }
+        _discardedReadAttempts.withLock { $0 = 0 }
+        CacheDelegate.shared.resetEvictionCount()
     }
 
     func updateCacheMemory() async {

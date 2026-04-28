@@ -53,11 +53,15 @@ final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sen
     }
 
     nonisolated func beginContentAccess() -> Bool {
-        state.withLock {
+        let granted: Bool = state.withLock {
             if $0.isDiscarded { return false }
             $0.accessCount += 1
             return true
         }
+        if !granted {
+            SharedMemoryCache.shared.incrementDiscardedReadAttempt()
+        }
+        return granted
     }
 
     nonisolated func endContentAccess() {
@@ -65,7 +69,16 @@ final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sen
     }
 
     nonisolated func discardContentIfPossible() {
-        state.withLock { if $0.accessCount == 0 { $0.isDiscarded = true } }
+        let flipped: Bool = state.withLock {
+            if $0.accessCount == 0, !$0.isDiscarded {
+                $0.isDiscarded = true
+                return true
+            }
+            return false
+        }
+        if flipped {
+            SharedMemoryCache.shared.incrementDiscardCall()
+        }
     }
 
     nonisolated func isContentDiscarded() -> Bool {

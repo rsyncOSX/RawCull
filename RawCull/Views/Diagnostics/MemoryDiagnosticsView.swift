@@ -112,6 +112,8 @@ struct MemoryDiagnosticsView: View {
             "live=\(e.liveLimitMB)MB",
             "warn=\(e.pressureWarns)",
             "crit=\(e.pressureCrits)",
+            "disc=\(e.discardCalls)",
+            "dread=\(e.discardedReads)",
         ]
         return fields.joined(separator: "  ")
     }
