@@ -23,7 +23,7 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
     }
 
     nonisolated func cache(_ cache: NSCache<AnyObject, AnyObject>, willEvictObject obj: Any) {
-        guard let thumb = obj as? DiscardableThumbnail else { return }
+        guard let thumb = obj as? CachedThumbnail else { return }
         if cache === SharedMemoryCache.shared.gridThumbnailCache {
             SharedMemoryCache.shared.gridEntryEvicted(cost: thumb.cost)
         } else if cache === SharedMemoryCache.shared.memoryCache {

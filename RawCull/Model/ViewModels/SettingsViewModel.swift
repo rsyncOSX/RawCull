@@ -51,7 +51,7 @@ final class SettingsViewModel {
     /// Full size thumbnail in pixels (default: 8700)
     var thumbnailSizeFullSize: Int = 8700
     /// Estimated cost per pixel for thumbnail (in bytes, default: 4 for RGBA).
-    /// `DiscardableThumbnail` already adds a 10% overhead buffer on top of this,
+    /// `CachedThumbnail` already adds a 10% overhead buffer on top of this,
     /// so 4 = decoded RGBA without double-counting wrapper overhead.
     var thumbnailCostPerPixel: Int = 4
     /// Use thumbnail as zoom preview (default: true)

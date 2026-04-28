@@ -55,9 +55,6 @@ final class MemoryDiagnosticsViewModel {
         let liveLimitMB: Int
         let pressureWarns: Int
         let pressureCrits: Int
-        // Round 3: NSDiscardableContent visibility.
-        let discardCalls: Int
-        let discardedReads: Int
     }
 
     private(set) var entries: [Entry] = []
@@ -118,8 +115,6 @@ final class MemoryDiagnosticsViewModel {
         let liveLimit = SharedMemoryCache.shared.getLiveTotalCostLimit()
         let warns = SharedMemoryCache.shared.getPressureWarningCount()
         let crits = SharedMemoryCache.shared.getPressureCriticalCount()
-        let discCalls = SharedMemoryCache.shared.getDiscardCallCount()
-        let discReads = SharedMemoryCache.shared.getDiscardedReadAttemptCount()
 
         let settings = SettingsViewModel.shared
         let projected = settings.projectedRawCullMemoryBytes()
@@ -154,8 +149,6 @@ final class MemoryDiagnosticsViewModel {
             liveLimitMB: liveLimit / (1024 * 1024),
             pressureWarns: warns,
             pressureCrits: crits,
-            discardCalls: discCalls,
-            discardedReads: discReads,
         )
         entries.append(entry)
     }
@@ -212,8 +205,6 @@ final class MemoryDiagnosticsViewModel {
         "live_limit_MB",
         "pressure_warns",
         "pressure_crits",
-        "discard_calls",
-        "discarded_reads",
     ].joined(separator: "\t")
 }
 
@@ -255,8 +246,6 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(liveLimitMB))
         fields.append(String(pressureWarns))
         fields.append(String(pressureCrits))
-        fields.append(String(discardCalls))
-        fields.append(String(discardedReads))
         return fields.joined(separator: "\t")
     }
 }

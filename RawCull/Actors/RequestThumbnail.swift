@@ -54,8 +54,7 @@ actor RequestThumbnail {
         SharedMemoryCache.shared.incrementDemandRequest()
 
         // A. Check RAM
-        if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
-            defer { wrapper.endContentAccess() }
+        if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl) {
             // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache (hits: \(cacheMemory))")
             await SharedMemoryCache.shared.updateCacheMemory()
             let nsImage = wrapper.image
@@ -138,7 +137,7 @@ actor RequestThumbnail {
         let nsUrl = url as NSURL
         guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
-        let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
+        let wrapper = CachedThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 }

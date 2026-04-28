@@ -69,9 +69,7 @@ actor ThumbnailLoader {
         // rated GRide View when scamnning in progress.
         if targetSize <= 200 {
             let nsUrl = file.url as NSURL
-            if let wrapper = SharedMemoryCache.shared.gridObject(forKey: nsUrl),
-               wrapper.beginContentAccess() {
-                defer { wrapper.endContentAccess() }
+            if let wrapper = SharedMemoryCache.shared.gridObject(forKey: nsUrl) {
                 return wrapper.image
             }
         }

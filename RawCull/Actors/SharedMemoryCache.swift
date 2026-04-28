@@ -73,21 +73,6 @@ actor SharedMemoryCache {
     private let _pressureCriticals = OSAllocatedUnfairLock(initialState: 0)
     private let _pressureNormals = OSAllocatedUnfairLock(initialState: 0)
 
-    // MARK: - NSDiscardableContent visibility
-    //
-    // The `DiscardableThumbnail` wrapper adopts NSDiscardableContent so the OS
-    // can purge the underlying NSImage bitmap pages independently of the
-    // `DispatchSource.makeMemoryPressureSource` events we listen to. When that
-    // happens, `beginContentAccess()` returns false and `RequestThumbnail`'s
-    // branch A treats the lookup as a miss even though the wrapper is still
-    // in `memoryCache`. These counters quantify how often that occurs.
-    //
-    //   _discardCalls: discardContentIfPossible() invocations the wrapper
-    //                  actually honored (accessCount == 0 → isDiscarded true)
-    //   _discardedReadAttempts: beginContentAccess() calls that returned
-    //                  false because the wrapper had already been discarded
-    private let _discardCalls = OSAllocatedUnfairLock(initialState: 0)
-    private let _discardedReadAttempts = OSAllocatedUnfairLock(initialState: 0)
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -121,11 +106,11 @@ actor SharedMemoryCache {
 
     /// NSCache is thread-safe, so we bypass the actor's serialization for direct access.
     /// This allows synchronous lookups: SharedMemoryCache.shared.object(...) (no await needed)
-    nonisolated(unsafe) let memoryCache = NSCache<NSURL, DiscardableThumbnail>()
+    nonisolated(unsafe) let memoryCache = NSCache<NSURL, CachedThumbnail>()
 
     /// Dedicated in-memory-only cache for grid-size (≤500px) thumbnails.
     /// Keyed by the same NSURL as memoryCache; never persisted to disk.
-    nonisolated(unsafe) let gridThumbnailCache = NSCache<NSURL, DiscardableThumbnail>()
+    nonisolated(unsafe) let gridThumbnailCache = NSCache<NSURL, CachedThumbnail>()
 
     // MARK: - Isolated State (Protected by Actor)
 
@@ -263,14 +248,16 @@ actor SharedMemoryCache {
     private func applyConfig(_ config: CacheConfig) {
         memoryCache.totalCostLimit = config.totalCostLimit
         memoryCache.countLimit = config.countLimit
-        memoryCache.evictsObjectsWithDiscardedContent = false
+        // `evictsObjectsWithDiscardedContent` only applies to NSDiscardableContent
+        // values; CachedThumbnail no longer adopts that protocol, so the setting
+        // would be a no-op. Eviction is driven by totalCostLimit / countLimit and
+        // the explicit `handleMemoryPressureEvent` handler.
         memoryCache.delegate = CacheDelegate.shared
         if let costPerPixel = config.costPerPixel {
             _costPerPixel = costPerPixel
         }
         gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
         gridThumbnailCache.countLimit = 3000
-        gridThumbnailCache.evictsObjectsWithDiscardedContent = false
         gridThumbnailCache.delegate = CacheDelegate.shared
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
 
@@ -377,11 +364,11 @@ actor SharedMemoryCache {
 
     // MARK: - Synchronous Accessors (Non-isolated)
 
-    nonisolated func object(forKey key: NSURL) -> DiscardableThumbnail? {
+    nonisolated func object(forKey key: NSURL) -> CachedThumbnail? {
         memoryCache.object(forKey: key)
     }
 
-    nonisolated func setObject(_ obj: DiscardableThumbnail, forKey key: NSURL, cost: Int) {
+    nonisolated func setObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
         memoryCache.setObject(obj, forKey: key, cost: cost)
         _memCost.withLock { $0 += cost }
         _memCount.withLock { $0 += 1 }
@@ -406,11 +393,11 @@ actor SharedMemoryCache {
         _memCount.withLock { $0 = max(0, $0 - 1) }
     }
 
-    nonisolated func gridObject(forKey key: NSURL) -> DiscardableThumbnail? {
+    nonisolated func gridObject(forKey key: NSURL) -> CachedThumbnail? {
         gridThumbnailCache.object(forKey: key)
     }
 
-    nonisolated func setGridObject(_ obj: DiscardableThumbnail, forKey key: NSURL, cost: Int) {
+    nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
         gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
         _gridCost.withLock { $0 += cost }
         _gridCount.withLock { $0 += 1 }
@@ -490,24 +477,6 @@ actor SharedMemoryCache {
         memoryCache.totalCostLimit
     }
 
-    // MARK: - Discard tracking
-
-    nonisolated func incrementDiscardCall() {
-        _discardCalls.withLock { $0 += 1 }
-    }
-
-    nonisolated func incrementDiscardedReadAttempt() {
-        _discardedReadAttempts.withLock { $0 += 1 }
-    }
-
-    nonisolated func getDiscardCallCount() -> Int {
-        _discardCalls.withLock { $0 }
-    }
-
-    nonisolated func getDiscardedReadAttemptCount() -> Int {
-        _discardedReadAttempts.withLock { $0 }
-    }
-
     /// For Cache monitor
     /// Get current cache statistics for monitoring
     func getCacheStatistics() async -> CacheStatistics {
@@ -555,8 +524,6 @@ actor SharedMemoryCache {
         _pressureWarnings.withLock { $0 = 0 }
         _pressureCriticals.withLock { $0 = 0 }
         _pressureNormals.withLock { $0 = 0 }
-        _discardCalls.withLock { $0 = 0 }
-        _discardedReadAttempts.withLock { $0 = 0 }
         CacheDelegate.shared.resetEvictionCount()
     }
 

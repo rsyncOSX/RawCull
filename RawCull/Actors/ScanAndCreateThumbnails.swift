@@ -138,8 +138,7 @@ actor ScanAndCreateThumbnails {
         if Task.isCancelled { return }
 
         // A. Check RAM
-        if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL), wrapper.beginContentAccess() {
-            defer { wrapper.endContentAccess() }
+        if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL) {
             storeInGridCache(wrapper.image, for: url)
             await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
@@ -258,7 +257,7 @@ actor ScanAndCreateThumbnails {
         let gridSize: CGFloat = 200
         guard let scaled = downscale(image, to: gridSize) else { return }
         let costPerPixel = getCostPerPixel()
-        let wrapper = DiscardableThumbnail(image: scaled, costPerPixel: costPerPixel)
+        let wrapper = CachedThumbnail(image: scaled, costPerPixel: costPerPixel)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 

@@ -1,25 +1,32 @@
 //
-//  DiscardableThumbnail.swift
+//  CachedThumbnail.swift
 //  RawCull
 //
 //  Created by Thomas Evensen on 23/01/2026.
 //
+//  Plain reference wrapper for `NSImage` thumbnails held in NSCache.
+//
+//  Originally `DiscardableThumbnail`, conforming to `NSDiscardableContent` so
+//  the OS could purge bitmap pages under memory pressure. Memory Diagnostics
+//  measurement (round 3) showed `NSCache` was using that conformance to evict
+//  wrappers aggressively at low utilization (~8% of the configured 30 GB
+//  cap) — every eviction paired 1:1 with a `discardContentIfPossible` call,
+//  collapsing the RAM hit rate to <5%. The wrapper now holds a plain
+//  reference so eviction is driven only by our explicit `totalCostLimit` /
+//  `countLimit` and the `handleMemoryPressureEvent` handler.
+//
 import AppKit
 import Foundation
-import os
 
-// import OSLog
-
-final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sendable {
+final class CachedThumbnail: NSObject, @unchecked Sendable {
     let image: NSImage
     nonisolated let cost: Int
     /// NSURL of the cached item, retained so `CacheDelegate` can identify the
     /// evicted key in `cache(_:willEvictObject:)` (which only receives the
-    /// value object). Used to populate `SharedMemoryCache.recentlyEvicted` for
-    /// boomerang-miss diagnostics. Optional for back-compat; nil disables
-    /// eviction tracking for that entry.
+    /// value object). Used to populate `SharedMemoryCache`'s recently-evicted
+    /// ring for boomerang-miss diagnostics. Optional for back-compat; nil
+    /// disables eviction tracking for that entry.
     nonisolated let url: NSURL?
-    private let state = OSAllocatedUnfairLock(initialState: (isDiscarded: false, accessCount: 0))
 
     nonisolated init(image: NSImage, costPerPixel: Int = 4, url: NSURL? = nil) {
         self.image = image
@@ -47,41 +54,6 @@ final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sen
         // Add overhead buffer (~10%) for NSImage wrapper and caching metadata
         cost = Int(Double(totalCost) * 1.1)
 
-        // Logger.process.debugMessageOnly( "DiscardableThumbnail: computed Cost \(cost) for image of \(image.size)",)
-
         super.init()
-    }
-
-    nonisolated func beginContentAccess() -> Bool {
-        let granted: Bool = state.withLock {
-            if $0.isDiscarded { return false }
-            $0.accessCount += 1
-            return true
-        }
-        if !granted {
-            SharedMemoryCache.shared.incrementDiscardedReadAttempt()
-        }
-        return granted
-    }
-
-    nonisolated func endContentAccess() {
-        state.withLock { $0.accessCount = max(0, $0.accessCount - 1) }
-    }
-
-    nonisolated func discardContentIfPossible() {
-        let flipped: Bool = state.withLock {
-            if $0.accessCount == 0, !$0.isDiscarded {
-                $0.isDiscarded = true
-                return true
-            }
-            return false
-        }
-        if flipped {
-            SharedMemoryCache.shared.incrementDiscardCall()
-        }
-    }
-
-    nonisolated func isContentDiscarded() -> Bool {
-        state.withLock { $0.isDiscarded }
     }
 }
