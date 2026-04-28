@@ -29,6 +29,14 @@ actor SharedMemoryCache {
     /// Note: cacheEvictions is now tracked by CacheDelegate and read from there
     private let _gridCost = OSAllocatedUnfairLock(initialState: 0)
     private let _gridCount = OSAllocatedUnfairLock(initialState: 0)
+    /// Manual count/cost tracking for the main `memoryCache`, mirroring the
+    /// grid-cache counters above. NSCache does not expose item count or current
+    /// total cost via its public API, so we maintain these alongside every
+    /// `setObject` / `removeAllObjects` / eviction-delegate call. Surfaced via
+    /// `getMemoryCacheCount()` / `getMemoryCacheCurrentCost()` for the Memory
+    /// Diagnostics console (and any future cache-monitor UI).
+    private let _memCost = OSAllocatedUnfairLock(initialState: 0)
+    private let _memCount = OSAllocatedUnfairLock(initialState: 0)
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -291,6 +299,8 @@ actor SharedMemoryCache {
             logMemoryPressure("CRITICAL: Memory pressure critical, clearing cache")
             memoryCache.removeAllObjects()
             memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB minimum
+            _memCost.withLock { $0 = 0 }
+            _memCount.withLock { $0 = 0 }
             gridThumbnailCache.removeAllObjects()
             _gridCost.withLock { $0 = 0 }
             _gridCount.withLock { $0 = 0 }
@@ -315,10 +325,27 @@ actor SharedMemoryCache {
 
     nonisolated func setObject(_ obj: DiscardableThumbnail, forKey key: NSURL, cost: Int) {
         memoryCache.setObject(obj, forKey: key, cost: cost)
+        _memCost.withLock { $0 += cost }
+        _memCount.withLock { $0 += 1 }
     }
 
     nonisolated func removeAllObjects() {
         memoryCache.removeAllObjects()
+        _memCost.withLock { $0 = 0 }
+        _memCount.withLock { $0 = 0 }
+    }
+
+    nonisolated func getMemoryCacheCurrentCost() -> Int {
+        _memCost.withLock { $0 }
+    }
+
+    nonisolated func getMemoryCacheCount() -> Int {
+        _memCount.withLock { $0 }
+    }
+
+    nonisolated func memEntryEvicted(cost: Int) {
+        _memCost.withLock { $0 = max(0, $0 - cost) }
+        _memCount.withLock { $0 = max(0, $0 - 1) }
     }
 
     nonisolated func gridObject(forKey key: NSURL) -> DiscardableThumbnail? {
@@ -386,6 +413,8 @@ actor SharedMemoryCache {
         // Reset statistics
         cacheMemory = 0
         cacheDisk = 0
+        _memCost.withLock { $0 = 0 }
+        _memCount.withLock { $0 = 0 }
         _gridCost.withLock { $0 = 0 }
         _gridCount.withLock { $0 = 0 }
         await CacheDelegate.shared.resetEvictionCount()

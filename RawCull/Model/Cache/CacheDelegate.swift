@@ -23,7 +23,10 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
         guard let thumb = obj as? DiscardableThumbnail else { return }
         if cache === SharedMemoryCache.shared.gridThumbnailCache {
             SharedMemoryCache.shared.gridEntryEvicted(cost: thumb.cost)
+        } else if cache === SharedMemoryCache.shared.memoryCache {
+            SharedMemoryCache.shared.memEntryEvicted(cost: thumb.cost)
         }
+        Task { await evictionCounter.increment() }
     }
 
     /// Get current eviction count (thread-safe)
@@ -41,12 +44,10 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
 private actor EvictionCounter {
     private var count = 0
 
-    /**
-     func increment() -> Int {
-         count += 1
-         return count
-     }
-     */
+    func increment() {
+        count += 1
+    }
+
     func getCount() -> Int {
         count
     }

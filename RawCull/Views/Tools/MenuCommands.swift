@@ -11,6 +11,7 @@ import SwiftUI
 struct MenuCommands: Commands {
     @FocusedBinding(\.aborttask) private var aborttask
     @FocusedBinding(\.extractJPGs) private var extractJPGs
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandMenu("Actions") {
@@ -19,6 +20,12 @@ struct MenuCommands: Commands {
             Divider()
 
             CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
+        }
+
+        CommandMenu("Diagnostics") {
+            Button("Memory Console") {
+                openWindow(id: "memory-diagnostics")
+            }
         }
     }
 }

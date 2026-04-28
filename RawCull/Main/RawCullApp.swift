@@ -48,6 +48,12 @@ struct RawCullApp: App {
             SettingsView()
                 .environment(viewModel)
         }
+
+        Window("Memory Console", id: "memory-diagnostics") {
+            MemoryDiagnosticsView()
+                .environment(viewModel)
+        }
+        .defaultSize(width: 720, height: 480)
     }
 
     private func performCleanupTask() {
