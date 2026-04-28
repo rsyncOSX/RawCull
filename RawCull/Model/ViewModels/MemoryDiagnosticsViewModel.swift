@@ -40,7 +40,15 @@ final class MemoryDiagnosticsViewModel {
         let cacheHits: Int
         let cacheMisses: Int
         let evictions: Int
+        // Layer-relative hit rate: RAM / (RAM + disk). Excludes cold
+        // extractions, so it's not a true cache hit rate. Kept for log
+        // continuity; new analyses should prefer `trueHitRatePct`.
         let hitRatePct: Double
+        let coldExtracts: Int
+        let demandTotal: Int
+        let boomerangMisses: Int
+        let trueHitRatePct: Double
+        let coldRatePct: Double
     }
 
     private(set) var entries: [Entry] = []
@@ -93,6 +101,11 @@ final class MemoryDiagnosticsViewModel {
         let memCost = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
         let gridItems = SharedMemoryCache.shared.getGridCacheCount()
         let gridCost = SharedMemoryCache.shared.getGridCacheCurrentCost()
+        let cold = SharedMemoryCache.shared.getColdExtractCount()
+        let demand = SharedMemoryCache.shared.getDemandRequestCount()
+        let boomerang = SharedMemoryCache.shared.getBoomerangMissCount()
+        let trueHitRate = demand > 0 ? Double(stats.hits) / Double(demand) * 100 : 0
+        let coldRate = demand > 0 ? Double(cold) / Double(demand) * 100 : 0
 
         let settings = SettingsViewModel.shared
         let projected = settings.projectedRawCullMemoryBytes()
@@ -119,6 +132,11 @@ final class MemoryDiagnosticsViewModel {
             cacheMisses: stats.misses,
             evictions: stats.evictions,
             hitRatePct: stats.hitRate,
+            coldExtracts: cold,
+            demandTotal: demand,
+            boomerangMisses: boomerang,
+            trueHitRatePct: trueHitRate,
+            coldRatePct: coldRate,
         )
         entries.append(entry)
     }
@@ -165,6 +183,13 @@ final class MemoryDiagnosticsViewModel {
         "cache_misses",
         "evictions",
         "hit_rate_pct",
+        // New columns appended at the end so positions of pre-existing
+        // columns stay stable for older log parsers / spreadsheets.
+        "cold_extracts",
+        "demand_total",
+        "boomerang_misses",
+        "true_hit_rate_pct",
+        "cold_rate_pct",
     ].joined(separator: "\t")
 }
 
@@ -177,7 +202,7 @@ extension MemoryDiagnosticsViewModel.Entry {
 
     func tsvRow() -> String {
         var fields: [String] = []
-        fields.reserveCapacity(20)
+        fields.reserveCapacity(25)
         fields.append(Self.isoFormatter.string(from: timestamp))
         fields.append(String(physicalMB))
         fields.append(String(usedMB))
@@ -198,6 +223,11 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(cacheMisses))
         fields.append(String(evictions))
         fields.append(String(format: "%.2f", hitRatePct))
+        fields.append(String(coldExtracts))
+        fields.append(String(demandTotal))
+        fields.append(String(boomerangMisses))
+        fields.append(String(format: "%.2f", trueHitRatePct))
+        fields.append(String(format: "%.2f", coldRatePct))
         return fields.joined(separator: "\t")
     }
 }

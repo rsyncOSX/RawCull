@@ -37,6 +37,28 @@ actor SharedMemoryCache {
     /// Diagnostics console (and any future cache-monitor UI).
     private let _memCost = OSAllocatedUnfairLock(initialState: 0)
     private let _memCount = OSAllocatedUnfairLock(initialState: 0)
+
+    // MARK: - Boomerang-miss diagnostics
+    //
+    // Three demand-traffic counters and a bounded FIFO of recently-evicted
+    // URLs from `memoryCache`, used by the Memory Diagnostics view to compute
+    // a true RAM hit rate (denominator = all demand requests, including cold
+    // extractions) and detect scan-vs-UI cache pollution.
+    //
+    //   _cacheCold:        successful branch C extractions in RequestThumbnail
+    //                      (not in RAM, not on disk → extracted from ARW source)
+    //   _demandRequests:   total calls into RequestThumbnail.resolveImage
+    //   _boomerangMisses:  branch B disk hits whose URL was just evicted from
+    //                      RAM (a re-request the cache was supposed to serve)
+    //
+    // The ring is capacity-bounded (~2000 keys, ≈2× current peak _memCount) so
+    // the boomerang signal reflects recent evictions only. Cleared on
+    // `clearCaches()` and on `.critical` memory pressure to avoid spurious
+    // hits after a wholesale flush.
+    private let _cacheCold = OSAllocatedUnfairLock(initialState: 0)
+    private let _demandRequests = OSAllocatedUnfairLock(initialState: 0)
+    private let _boomerangMisses = OSAllocatedUnfairLock(initialState: 0)
+    private let _evictedRing = OSAllocatedUnfairLock(initialState: EvictedRing())
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -304,6 +326,10 @@ actor SharedMemoryCache {
             gridThumbnailCache.removeAllObjects()
             _gridCost.withLock { $0 = 0 }
             _gridCount.withLock { $0 = 0 }
+            // Wholesale flush invalidates per-URL eviction tracking; otherwise
+            // every subsequent disk-fallback would falsely register as a
+            // boomerang. Demand counters intentionally NOT reset.
+            _evictedRing.withLock { $0.clear() }
             Task {
                 await fileHandlers?.memorypressurewarning(true)
             }
@@ -377,6 +403,40 @@ actor SharedMemoryCache {
         _gridCount.withLock { $0 = max(0, $0 - 1) }
     }
 
+    // MARK: - Boomerang-miss helpers
+
+    nonisolated func noteEviction(url: NSURL) {
+        _evictedRing.withLock { $0.note(url) }
+    }
+
+    nonisolated func wasRecentlyEvicted(url: NSURL) -> Bool {
+        _evictedRing.withLock { $0.contains(url) }
+    }
+
+    nonisolated func incrementColdExtract() {
+        _cacheCold.withLock { $0 += 1 }
+    }
+
+    nonisolated func incrementDemandRequest() {
+        _demandRequests.withLock { $0 += 1 }
+    }
+
+    nonisolated func incrementBoomerangMiss() {
+        _boomerangMisses.withLock { $0 += 1 }
+    }
+
+    nonisolated func getColdExtractCount() -> Int {
+        _cacheCold.withLock { $0 }
+    }
+
+    nonisolated func getDemandRequestCount() -> Int {
+        _demandRequests.withLock { $0 }
+    }
+
+    nonisolated func getBoomerangMissCount() -> Int {
+        _boomerangMisses.withLock { $0 }
+    }
+
     /// For Cache monitor
     /// Get current cache statistics for monitoring
     func getCacheStatistics() async -> CacheStatistics {
@@ -417,6 +477,10 @@ actor SharedMemoryCache {
         _memCount.withLock { $0 = 0 }
         _gridCost.withLock { $0 = 0 }
         _gridCount.withLock { $0 = 0 }
+        _cacheCold.withLock { $0 = 0 }
+        _demandRequests.withLock { $0 = 0 }
+        _boomerangMisses.withLock { $0 = 0 }
+        _evictedRing.withLock { $0.clear() }
         await CacheDelegate.shared.resetEvictionCount()
     }
 
@@ -428,5 +492,48 @@ actor SharedMemoryCache {
     func updateCacheDisk() async {
         cacheDisk += 1
         // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache (hits: \(cacheDisk))")
+    }
+}
+
+/// Bounded FIFO of recently-evicted NSURLs from the main `memoryCache`.
+/// Backing storage is a fixed-size array used as a ring (O(1) insert) plus a
+/// `Set` mirror for O(1) membership tests. Always accessed under
+/// `SharedMemoryCache._evictedRing`'s unfair lock — the struct itself
+/// performs no synchronization.
+///
+/// All members are `nonisolated` because the project sets
+/// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; this struct is constructed
+/// and mutated from the actor's own isolation domain (and from
+/// `CacheDelegate`'s nonisolated callback), neither of which is MainActor.
+fileprivate struct EvictedRing: Sendable {
+    nonisolated static let capacity = 2000
+
+    private var buffer: [NSURL?]
+    private var set: Set<NSURL>
+    private var cursor: Int
+
+    nonisolated init() {
+        buffer = Array(repeating: nil, count: Self.capacity)
+        set = Set(minimumCapacity: Self.capacity)
+        cursor = 0
+    }
+
+    nonisolated mutating func note(_ url: NSURL) {
+        if let old = buffer[cursor] {
+            set.remove(old)
+        }
+        buffer[cursor] = url
+        set.insert(url)
+        cursor = (cursor + 1) % Self.capacity
+    }
+
+    nonisolated func contains(_ url: NSURL) -> Bool {
+        set.contains(url)
+    }
+
+    nonisolated mutating func clear() {
+        for i in 0..<buffer.count { buffer[i] = nil }
+        set.removeAll(keepingCapacity: true)
+        cursor = 0
     }
 }

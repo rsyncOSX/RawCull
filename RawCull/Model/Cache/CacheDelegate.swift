@@ -25,6 +25,12 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
             SharedMemoryCache.shared.gridEntryEvicted(cost: thumb.cost)
         } else if cache === SharedMemoryCache.shared.memoryCache {
             SharedMemoryCache.shared.memEntryEvicted(cost: thumb.cost)
+            // Record the evicted URL so a subsequent disk-fallback for the
+            // same key can be classified as a boomerang miss in diagnostics.
+            // Grid-cache evictions are intentionally not tracked.
+            if let url = thumb.url {
+                SharedMemoryCache.shared.noteEviction(url: url)
+            }
         }
         Task { await evictionCounter.increment() }
     }

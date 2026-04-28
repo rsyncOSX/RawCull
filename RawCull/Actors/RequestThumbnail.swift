@@ -47,6 +47,11 @@ actor RequestThumbnail {
 
     private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
         let nsUrl = url as NSURL
+        // Demand counter: total UI-driven thumbnail requests. Forms the
+        // denominator for `true_hit_rate_pct` in Memory Diagnostics — unlike
+        // the existing layer-relative `hit_rate_pct`, this includes branch C
+        // (cold extractions) so the metric reflects real user-perceived hits.
+        SharedMemoryCache.shared.incrementDemandRequest()
 
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl), wrapper.beginContentAccess() {
@@ -59,6 +64,12 @@ actor RequestThumbnail {
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
+            // Boomerang detection: a disk hit on a key the main RAM cache
+            // recently evicted is the "scan polluted RAM, user paid disk cost
+            // to get it back" pattern we're trying to quantify.
+            if SharedMemoryCache.shared.wasRecentlyEvicted(url: nsUrl) {
+                SharedMemoryCache.shared.incrementBoomerangMiss()
+            }
             await storeInMemory(diskImage, for: url)
             // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache (hits: \(cacheDisk))")
             await SharedMemoryCache.shared.updateCacheDisk()
@@ -80,6 +91,11 @@ actor RequestThumbnail {
         )
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+        // Cold extraction: not in RAM, not on disk, decoded from ARW source.
+        // The third bucket of demand traffic — without it, the layer-relative
+        // hit rate (`hit_rate_pct`) is meaningless during a fresh scan because
+        // its denominator excludes this path entirely.
+        SharedMemoryCache.shared.incrementColdExtract()
 
         await storeInMemory(image, for: url)
 
@@ -122,7 +138,7 @@ actor RequestThumbnail {
         let nsUrl = url as NSURL
         guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
         let costPerPixel = await SharedMemoryCache.shared.costPerPixel
-        let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
+        let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 }

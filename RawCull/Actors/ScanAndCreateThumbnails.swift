@@ -250,7 +250,7 @@ actor ScanAndCreateThumbnails {
         let nsUrl = url as NSURL
         guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
         let costPerPixel = getCostPerPixel()
-        let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel)
+        let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 

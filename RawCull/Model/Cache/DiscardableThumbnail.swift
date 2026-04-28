@@ -13,10 +13,17 @@ import os
 final class DiscardableThumbnail: NSObject, NSDiscardableContent, @unchecked Sendable {
     let image: NSImage
     nonisolated let cost: Int
+    /// NSURL of the cached item, retained so `CacheDelegate` can identify the
+    /// evicted key in `cache(_:willEvictObject:)` (which only receives the
+    /// value object). Used to populate `SharedMemoryCache.recentlyEvicted` for
+    /// boomerang-miss diagnostics. Optional for back-compat; nil disables
+    /// eviction tracking for that entry.
+    nonisolated let url: NSURL?
     private let state = OSAllocatedUnfairLock(initialState: (isDiscarded: false, accessCount: 0))
 
-    nonisolated init(image: NSImage, costPerPixel: Int = 4) {
+    nonisolated init(image: NSImage, costPerPixel: Int = 4, url: NSURL? = nil) {
         self.image = image
+        self.url = url
 
         // Calculate cost based on actual pixel dimensions from all representations
         // This ensures NSCache accurately tracks RAM footprint for LRU eviction

@@ -87,6 +87,8 @@ struct MemoryDiagnosticsView: View {
     private func formatRow(_ e: MemoryDiagnosticsViewModel.Entry) -> String {
         let ts = Self.timestampFormatter.string(from: e.timestamp)
         let hitRate = String(format: "%.1f", e.hitRatePct)
+        let trueHit = String(format: "%.1f", e.trueHitRatePct)
+        let coldRate = String(format: "%.1f", e.coldRatePct)
         let fields: [String] = [
             ts,
             "app=\(e.appMB)MB",
@@ -102,6 +104,11 @@ struct MemoryDiagnosticsView: View {
             "miss=\(e.cacheMisses)",
             "evict=\(e.evictions)",
             "hit%=\(hitRate)",
+            "demand=\(e.demandTotal)",
+            "cold=\(e.coldExtracts)",
+            "boom=\(e.boomerangMisses)",
+            "true%=\(trueHit)",
+            "cold%=\(coldRate)",
         ]
         return fields.joined(separator: "  ")
     }
