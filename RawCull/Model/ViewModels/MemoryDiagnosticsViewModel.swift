@@ -14,6 +14,7 @@
 import AppKit
 import Foundation
 import Observation
+import OSLog
 
 @Observable
 @MainActor
@@ -58,6 +59,7 @@ final class MemoryDiagnosticsViewModel {
         guard !isLogging else { return }
         isLogging = true
         entries.removeAll()
+        Logger.process.debugMessageOnly("MemoryDiagnosticsViewModel STARTED")
 
         samplingTask = Task { [weak self, weak viewModel] in
             await self?.captureSample(viewModel: viewModel)
@@ -73,6 +75,7 @@ final class MemoryDiagnosticsViewModel {
         samplingTask?.cancel()
         samplingTask = nil
         isLogging = false
+        Logger.process.debugMessageOnly("MemoryDiagnosticsViewModel STOPPED")
     }
 
     private func captureSample(viewModel: RawCullViewModel?) async {
