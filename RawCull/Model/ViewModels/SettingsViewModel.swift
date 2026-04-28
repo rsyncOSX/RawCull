@@ -271,12 +271,11 @@ final class SettingsViewModel {
     /// Interpolates between baseline and a per-slider payload ceiling using
     /// each slider's fraction of its own range, weighted by the slider's
     /// range share of the combined payload. Calibration anchor: with
-    /// mem=20000 MB / grid=2000 MB, real process RSS measured ~5000 MB;
-    /// `maxPayloadMB = 8000` makes the formula reproduce that point and
-    /// extrapolate to ~8100 MB at the new mem=30000 ceiling. Used by both
-    /// the Cache settings tab and the Memory Diagnostics console (the console
-    /// logs this side-by-side with the real process RSS so the calibration
-    /// can be tuned against real usage).
+    /// `thumbnailCostPerPixel=4`, mem=30000 MB / grid=2000 MB, real process
+    /// RSS measured ~9330 MB peak; `maxPayloadMB = 9300` makes the formula
+    /// reproduce that ceiling. Used by both the Cache settings tab and the
+    /// Memory Diagnostics console (the console logs this side-by-side with
+    /// the real process RSS so the calibration can be tuned against real usage).
     func projectedRawCullMemoryBytes() -> UInt64 {
         let memMin = 5000.0, memMax = 30000.0
         let gridMin = 400.0, gridMax = 2000.0
@@ -287,7 +286,7 @@ final class SettingsViewModel {
         let totalRange = memRange + gridRange
         let combined = memFrac * (memRange / totalRange) + gridFrac * (gridRange / totalRange)
         let baselineMB = 100.0
-        let maxPayloadMB = 8000.0
+        let maxPayloadMB = 9300.0
         let clamped = min(1.0, max(0.0, combined))
         let projectedMB = baselineMB + clamped * maxPayloadMB
         return UInt64(projectedMB * 1024.0 * 1024.0)
