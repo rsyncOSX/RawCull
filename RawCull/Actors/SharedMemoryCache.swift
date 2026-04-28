@@ -466,10 +466,6 @@ actor SharedMemoryCache {
         _pressureCriticals.withLock { $0 }
     }
 
-    nonisolated func getPressureNormalCount() -> Int {
-        _pressureNormals.withLock { $0 }
-    }
-
     /// Live total-cost cap on `memoryCache`. Reads NSCache directly (the
     /// property is thread-safe), so it reflects in-flight pressure-handler
     /// shrinks before `.normal` has fired to restore the configured value.

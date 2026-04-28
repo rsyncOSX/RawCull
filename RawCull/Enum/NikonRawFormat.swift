@@ -13,7 +13,7 @@ import Foundation
 
 enum NikonRawFormat: RawFormat {
     nonisolated static let extensions: Set<String> = ["nef"]
-    nonisolated static let displayName: String = "Nikon NEF"
+    // nonisolated static let displayName: String = "Nikon NEF"
 
     // MARK: - Thumbnail
 

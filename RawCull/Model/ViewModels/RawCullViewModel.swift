@@ -141,10 +141,6 @@ final class RawCullViewModel {
 
     // MARK: - Computed
 
-    var useThumbnailAsZoomPreview: Bool {
-        SettingsViewModel.shared.useThumbnailAsZoomPreview
-    }
-
     var alertTitle: String {
         switch alertType {
         case .extractJPGs: "Extract JPGs"

@@ -13,7 +13,7 @@ import Foundation
 
 enum SonyRawFormat: RawFormat {
     nonisolated static let extensions: Set<String> = ["arw"]
-    nonisolated static let displayName: String = "Sony ARW"
+    // nonisolated static let displayName: String = "Sony ARW"
 
     nonisolated static func extractThumbnail(
         from url: URL,

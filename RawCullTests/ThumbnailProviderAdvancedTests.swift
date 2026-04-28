@@ -39,7 +39,7 @@ struct RequestThumbnailAdvancedMemoryTests {
     @Test
     func `Cost calculation accuracy`() {
         let image = createTestImage(width: 256, height: 256)
-        let thumbnail = DiscardableThumbnail(image: image)
+        let thumbnail = CachedThumbnail(image: image)
 
         // 256 * 256 * 4 bytes per pixel = 262,144 bytes
         // Plus 10% overhead = 288,358 bytes
@@ -172,47 +172,5 @@ struct RequestThumbnailConfigurationTests {
             let stats = await SharedMemoryCache.shared.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
-    }
-}
-
-@MainActor
-struct RequestThumbnailDiscardableContentTests {
-    @Test
-    func `DiscardableThumbnail tracks access correctly`() {
-        let image = createTestImage()
-        let thumbnail = DiscardableThumbnail(image: image)
-
-        // Begin access should succeed initially
-        let canAccess = thumbnail.beginContentAccess()
-        #expect(canAccess == true)
-
-        // End access
-        thumbnail.endContentAccess()
-    }
-
-    @Test
-    func `DiscardableThumbnail image property accessible`() {
-        let originalImage = createTestImage()
-        let thumbnail = DiscardableThumbnail(image: originalImage)
-
-        let canAccess = thumbnail.beginContentAccess()
-        #expect(canAccess == true)
-
-        let retrievedImage = thumbnail.image
-        #expect(retrievedImage.size == originalImage.size)
-
-        thumbnail.endContentAccess()
-    }
-
-    @Test
-    func `DiscardableThumbnail cost reflects size`() {
-        let smallImage = createTestImage(width: 50, height: 50)
-        let largeImage = createTestImage(width: 500, height: 500)
-
-        let smallThumbnail = DiscardableThumbnail(image: smallImage)
-        let largeThumbnail = DiscardableThumbnail(image: largeImage)
-
-        // Larger image should have higher cost
-        #expect(largeThumbnail.cost > smallThumbnail.cost)
     }
 }

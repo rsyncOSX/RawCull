@@ -18,7 +18,7 @@ protocol RawFormat: Sendable {
     nonisolated static var extensions: Set<String> { get }
 
     /// Human-readable label for UI, e.g. "Sony ARW", "Nikon NEF".
-    nonisolated static var displayName: String { get }
+    // nonisolated static var displayName: String { get }
 
     /// Embedded-JPEG-backed thumbnail. Must hop off the caller's thread internally.
     nonisolated static func extractThumbnail(

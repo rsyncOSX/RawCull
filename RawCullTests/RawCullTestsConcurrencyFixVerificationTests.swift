@@ -25,7 +25,7 @@ enum ConcurrencyFixVerificationTests {
                 for _ in 0 ..< 10000 {
                     group.addTask {
                         // Simulate cache eviction notification
-                        let cache = NSCache<NSString, DiscardableThumbnail>()
+                        let cache = NSCache<NSString, CachedThumbnail>()
                         cache.delegate = delegate
 
                         if let thumbnail = createTestThumbnail(size: 10) {
@@ -451,7 +451,7 @@ enum ConcurrencyFixVerificationTests {
 
 // MARK: - Helper Functions
 
-private func createTestThumbnail(size: Int) -> DiscardableThumbnail? {
+private func createTestThumbnail(size: Int) -> CachedThumbnail? {
     let image = NSImage(size: NSSize(width: size, height: size))
-    return DiscardableThumbnail(image: image)
+    return CachedThumbnail(image: image)
 }

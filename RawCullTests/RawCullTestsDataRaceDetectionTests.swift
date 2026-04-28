@@ -274,7 +274,7 @@ struct DataRaceDetectionTests {
 
         // Create many caches that will evict
         let caches = (0 ..< 100).map { _ in
-            NSCache<NSString, DiscardableThumbnail>()
+            NSCache<NSString, CachedThumbnail>()
         }
 
         for cache in caches {
@@ -400,7 +400,7 @@ struct DataRaceDetectionTests {
 
 // MARK: - Helper Functions
 
-private func createTestThumbnail(size: Int) -> DiscardableThumbnail? {
+private func createTestThumbnail(size: Int) -> CachedThumbnail? {
     let image = NSImage(size: NSSize(width: size, height: size))
-    return DiscardableThumbnail(image: image)
+    return CachedThumbnail(image: image)
 }

@@ -113,8 +113,6 @@ struct GridThumbnailSelectionView: View {
                     Divider().frame(height: 20)
                 }
 
-                // SimilarityControlsView(viewModel: viewModel)
-
                 Spacer()
             }
 

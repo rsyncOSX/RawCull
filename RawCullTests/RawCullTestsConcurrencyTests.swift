@@ -483,9 +483,9 @@ enum ConcurrencyTests {
 
 // MARK: - Helper Functions
 
-private func createTestThumbnail(size: Int) -> DiscardableThumbnail? {
+private func createTestThumbnail(size: Int) -> CachedThumbnail? {
     let image = NSImage(size: NSSize(width: size, height: size))
-    return DiscardableThumbnail(image: image)
+    return CachedThumbnail(image: image)
 }
 
 // MARK: - Test Tags
