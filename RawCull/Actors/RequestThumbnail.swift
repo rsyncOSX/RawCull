@@ -7,8 +7,7 @@
 
 import AppKit
 import Foundation
-
-// import OSLog
+import OSLog
 
 actor RequestThumbnail {
     static let shared = RequestThumbnail()
@@ -40,7 +39,7 @@ actor RequestThumbnail {
         do {
             return try await resolveImage(for: url, targetSize: targetSize)
         } catch {
-            // Logger.process.warning("Failed to resolve thumbnail: \(error)")
+            Logger.process.warning("Failed to resolve thumbnail: \(error)")
             return nil
         }
     }
@@ -55,7 +54,7 @@ actor RequestThumbnail {
 
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl) {
-            // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache (hits: \(cacheMemory))")
+            Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache)")
             await SharedMemoryCache.shared.updateCacheMemory()
             let nsImage = wrapper.image
             return try await nsImageToCGImage(nsImage)
@@ -70,7 +69,7 @@ actor RequestThumbnail {
                 SharedMemoryCache.shared.incrementBoomerangMiss()
             }
             await storeInMemory(diskImage, for: url)
-            // Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache (hits: \(cacheDisk))")
+            Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache)")
             await SharedMemoryCache.shared.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
         }
@@ -108,7 +107,7 @@ actor RequestThumbnail {
                 await dcache.save(jpegData, for: url)
             }
         } else {
-            // Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
+            Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
         }
 
         return cgImage

@@ -140,6 +140,7 @@ actor ScanAndCreateThumbnails {
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL) {
             storeInGridCache(wrapper.image, for: url)
+            storeInMemory(wrapper.image, for: url)
             await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -157,6 +158,7 @@ actor ScanAndCreateThumbnails {
             // is reserved for actual UI demand. Grid cache is still warmed —
             // grid views read from it directly.
             storeInGridCache(diskImage, for: url)
+            storeInMemory(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -186,7 +188,7 @@ actor ScanAndCreateThumbnails {
             // Disk JPEG is still saved below so RequestThumbnail's branch B
             // serves later UI requests, avoiding cold extraction.
             storeInGridCache(image, for: url)
-
+            storeInMemory(image, for: url)
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)
@@ -259,6 +261,14 @@ actor ScanAndCreateThumbnails {
         let costPerPixel = getCostPerPixel()
         let wrapper = CachedThumbnail(image: scaled, costPerPixel: costPerPixel)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+    }
+    
+    private func storeInMemory(_ image: NSImage, for url: URL) {
+        let nsUrl = url as NSURL
+        guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
+        let costPerPixel = getCostPerPixel()
+        let wrapper = CachedThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
+        SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 
     private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {
