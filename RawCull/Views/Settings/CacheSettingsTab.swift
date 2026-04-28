@@ -57,13 +57,13 @@ struct CacheSettingsTab: View {
                                             displayValue(for: settingsManager.memoryCacheSizeMB))
                                             .font(.system(size: 10, weight: .semibold, design: .rounded))
                                     }
-                                    // slider still uses the real internal values (5000–30000)
+                                    // slider still uses the real internal values (1000 ... 8000)
                                     Slider(
                                         value: Binding<Double>(
                                             get: { Double(settingsManager.memoryCacheSizeMB) },
                                             set: { settingsManager.memoryCacheSizeMB = Int($0) },
                                         ),
-                                        in: 5000 ... 30000,
+                                        in: 1000 ... 8000,
                                         step: 250,
                                     )
                                     .frame(height: 18)

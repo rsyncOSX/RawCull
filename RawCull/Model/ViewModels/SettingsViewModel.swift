@@ -36,8 +36,8 @@ final class SettingsViewModel {
 
     // MARK: - Memory Cache Settings
 
-    /// Maximum memory cache size in MB (default: 20000)
-    var memoryCacheSizeMB: Int = 20000
+    /// Maximum memory cache size in MB (default: 4000)
+    var memoryCacheSizeMB: Int = 4000
 
     /// Maximum grid (200px) memory cache size in MB (default: 400)
     var gridCacheSizeMB: Int = 400
@@ -271,13 +271,13 @@ final class SettingsViewModel {
     /// Interpolates between baseline and a per-slider payload ceiling using
     /// each slider's fraction of its own range, weighted by the slider's
     /// range share of the combined payload. Calibration anchor: with
-    /// `thumbnailCostPerPixel=4`, mem=30000 MB / grid=2000 MB, real process
+    /// `thumbnailCostPerPixel=4`, mem=8000 MB / grid=2000 MB, real process
     /// RSS measured ~9330 MB peak; `maxPayloadMB = 9300` makes the formula
     /// reproduce that ceiling. Used by both the Cache settings tab and the
     /// Memory Diagnostics console (the console logs this side-by-side with
     /// the real process RSS so the calibration can be tuned against real usage).
     func projectedRawCullMemoryBytes() -> UInt64 {
-        let memMin = 5000.0, memMax = 30000.0
+        let memMin = 1000.0, memMax = 8000.0
         let gridMin = 400.0, gridMax = 2000.0
         let memFrac = (Double(memoryCacheSizeMB) - memMin) / (memMax - memMin)
         let gridFrac = (Double(gridCacheSizeMB) - gridMin) / (gridMax - gridMin)

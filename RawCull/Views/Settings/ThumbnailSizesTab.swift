@@ -54,6 +54,7 @@ struct ThumbnailSizesTab: View {
                             step: 128,
                         )
 
+/*
                         // Cost Per Pixel
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -111,7 +112,7 @@ struct ThumbnailSizesTab: View {
                                 }
                             }
                         }
-
+*/
                         // Use Thumbnail as Zoom Preview Toggle
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Use Thumbnail for Zoom", systemImage: "magnifyingglass")
