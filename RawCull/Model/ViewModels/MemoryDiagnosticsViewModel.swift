@@ -189,7 +189,6 @@ final class MemoryDiagnosticsViewModel {
         "grid_items",
         "grid_cost_MB",
         "grid_limit_MB",
-        "projected_MB",
         "scanned_files",
         "cache_hits",
         "cache_misses",

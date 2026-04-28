@@ -154,14 +154,16 @@ actor ScanAndCreateThumbnails {
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
-            // Pre-admit the disk-loaded thumbnail to the full-res RAM cache.
-            // For catalogs that fit within `memoryCacheSizeMB`, this keeps
-            // subsequent UI demand on branch A and lowers the eviction rate
-            // observed in Memory Diagnostics. For catalogs that exceed the
-            // cap, boomerang misses re-emerge — the same trade-off that
-            // motivated the earlier removal.
+            // Intentionally NOT pre-admitting to the full-res RAM cache here.
+            // Memory Diagnostics on a 635-file catalog showed 100% of
+            // disk-fallbacks were boomerangs when this branch admitted: the
+            // freshly extracted full-res image (~44 MB) overflowed the cap,
+            // self-evicted, and was paid for again on the next demand at
+            // ~31 MB (the smaller disk-decoded size). Letting RequestThumbnail
+            // admit on demand instead lets items settle at their disk-loaded
+            // size, so a catalog that would not fit at full res still fits.
+            // Grid cache is still warmed — grid views read from it directly.
             storeInGridCache(diskImage, for: url)
-            storeInMemory(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
