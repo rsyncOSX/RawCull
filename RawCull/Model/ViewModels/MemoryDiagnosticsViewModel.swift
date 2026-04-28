@@ -49,6 +49,12 @@ final class MemoryDiagnosticsViewModel {
         let boomerangMisses: Int
         let trueHitRatePct: Double
         let coldRatePct: Double
+        // Pressure-flicker diagnostics: live cost cap on memoryCache (catches
+        // transient warning-driven shrinks) and cumulative event counts (catch
+        // events that fully resolved between 5 s ticks).
+        let liveLimitMB: Int
+        let pressureWarns: Int
+        let pressureCrits: Int
     }
 
     private(set) var entries: [Entry] = []
@@ -106,6 +112,9 @@ final class MemoryDiagnosticsViewModel {
         let boomerang = SharedMemoryCache.shared.getBoomerangMissCount()
         let trueHitRate = demand > 0 ? Double(stats.hits) / Double(demand) * 100 : 0
         let coldRate = demand > 0 ? Double(cold) / Double(demand) * 100 : 0
+        let liveLimit = SharedMemoryCache.shared.getLiveTotalCostLimit()
+        let warns = SharedMemoryCache.shared.getPressureWarningCount()
+        let crits = SharedMemoryCache.shared.getPressureCriticalCount()
 
         let settings = SettingsViewModel.shared
         let projected = settings.projectedRawCullMemoryBytes()
@@ -137,6 +146,9 @@ final class MemoryDiagnosticsViewModel {
             boomerangMisses: boomerang,
             trueHitRatePct: trueHitRate,
             coldRatePct: coldRate,
+            liveLimitMB: liveLimit / (1024 * 1024),
+            pressureWarns: warns,
+            pressureCrits: crits,
         )
         entries.append(entry)
     }
@@ -190,6 +202,9 @@ final class MemoryDiagnosticsViewModel {
         "boomerang_misses",
         "true_hit_rate_pct",
         "cold_rate_pct",
+        "live_limit_MB",
+        "pressure_warns",
+        "pressure_crits",
     ].joined(separator: "\t")
 }
 
@@ -228,6 +243,9 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(boomerangMisses))
         fields.append(String(format: "%.2f", trueHitRatePct))
         fields.append(String(format: "%.2f", coldRatePct))
+        fields.append(String(liveLimitMB))
+        fields.append(String(pressureWarns))
+        fields.append(String(pressureCrits))
         return fields.joined(separator: "\t")
     }
 }

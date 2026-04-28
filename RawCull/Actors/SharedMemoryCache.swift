@@ -59,6 +59,19 @@ actor SharedMemoryCache {
     private let _demandRequests = OSAllocatedUnfairLock(initialState: 0)
     private let _boomerangMisses = OSAllocatedUnfairLock(initialState: 0)
     private let _evictedRing = OSAllocatedUnfairLock(initialState: EvictedRing())
+
+    // MARK: - Pressure event counters
+    //
+    // Cumulative counts of memory-pressure transitions handled by
+    // `handleMemoryPressureEvent`. The 5-second diagnostics sampler can miss
+    // a `.warning → .normal` flicker — these counters can't, so a delta
+    // between TSV samples reveals events even when `pressure` reads "Normal"
+    // at both endpoints. `getLiveTotalCostLimit()` reads the NSCache's live
+    // cost cap so transient shrinks (the warning case multiplies the cap by
+    // 0.6 and waits for a `.normal` to restore it) become visible too.
+    private let _pressureWarnings = OSAllocatedUnfairLock(initialState: 0)
+    private let _pressureCriticals = OSAllocatedUnfairLock(initialState: 0)
+    private let _pressureNormals = OSAllocatedUnfairLock(initialState: 0)
     // For Cache monitor
 
     // MARK: - Memory pressure level
@@ -300,6 +313,7 @@ actor SharedMemoryCache {
         switch pressureLevel {
         case .normal:
             currentPressureLevel = .normal
+            _pressureNormals.withLock { $0 += 1 }
             logMemoryPressure("Normal memory pressure")
             Task {
                 await self.refreshConfig()
@@ -308,6 +322,7 @@ actor SharedMemoryCache {
 
         case .warning:
             currentPressureLevel = .warning
+            _pressureWarnings.withLock { $0 += 1 }
             logMemoryPressure("Warning: Memory pressure detected, reducing cache to 60%")
             let reducedCost = Int(Double(memoryCache.totalCostLimit) * 0.6)
             memoryCache.totalCostLimit = reducedCost
@@ -318,6 +333,7 @@ actor SharedMemoryCache {
 
         case .critical:
             currentPressureLevel = .critical
+            _pressureCriticals.withLock { $0 += 1 }
             logMemoryPressure("CRITICAL: Memory pressure critical, clearing cache")
             memoryCache.removeAllObjects()
             memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB minimum
@@ -437,6 +453,27 @@ actor SharedMemoryCache {
         _boomerangMisses.withLock { $0 }
     }
 
+    // MARK: - Pressure event getters
+
+    nonisolated func getPressureWarningCount() -> Int {
+        _pressureWarnings.withLock { $0 }
+    }
+
+    nonisolated func getPressureCriticalCount() -> Int {
+        _pressureCriticals.withLock { $0 }
+    }
+
+    nonisolated func getPressureNormalCount() -> Int {
+        _pressureNormals.withLock { $0 }
+    }
+
+    /// Live total-cost cap on `memoryCache`. Reads NSCache directly (the
+    /// property is thread-safe), so it reflects in-flight pressure-handler
+    /// shrinks before `.normal` has fired to restore the configured value.
+    nonisolated func getLiveTotalCostLimit() -> Int {
+        memoryCache.totalCostLimit
+    }
+
     /// For Cache monitor
     /// Get current cache statistics for monitoring
     func getCacheStatistics() async -> CacheStatistics {
@@ -481,6 +518,9 @@ actor SharedMemoryCache {
         _demandRequests.withLock { $0 = 0 }
         _boomerangMisses.withLock { $0 = 0 }
         _evictedRing.withLock { $0.clear() }
+        _pressureWarnings.withLock { $0 = 0 }
+        _pressureCriticals.withLock { $0 = 0 }
+        _pressureNormals.withLock { $0 = 0 }
         await CacheDelegate.shared.resetEvictionCount()
     }
 

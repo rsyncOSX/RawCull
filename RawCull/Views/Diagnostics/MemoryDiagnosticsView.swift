@@ -109,6 +109,9 @@ struct MemoryDiagnosticsView: View {
             "boom=\(e.boomerangMisses)",
             "true%=\(trueHit)",
             "cold%=\(coldRate)",
+            "live=\(e.liveLimitMB)MB",
+            "warn=\(e.pressureWarns)",
+            "crit=\(e.pressureCrits)",
         ]
         return fields.joined(separator: "  ")
     }
