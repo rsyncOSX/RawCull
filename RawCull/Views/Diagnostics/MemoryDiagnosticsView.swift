@@ -97,7 +97,7 @@ struct MemoryDiagnosticsView: View {
             "head=\(e.headroomMB)MB",
             "mem=\(e.memCostMB)/\(e.memLimitMB)MB(\(e.memItems))",
             "grid=\(e.gridCostMB)/\(e.gridLimitMB)MB(\(e.gridItems))",
-            "proj=\(e.projectedMB)MB",
+            // "proj=\(e.projectedMB)MB",
             "files=\(e.scannedFiles)",
             "press=\(e.pressure)",
             "hits=\(e.cacheHits)",

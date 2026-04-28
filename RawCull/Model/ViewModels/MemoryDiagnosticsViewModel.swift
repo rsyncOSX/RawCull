@@ -35,7 +35,7 @@ final class MemoryDiagnosticsViewModel {
         let gridItems: Int
         let gridCostMB: Int
         let gridLimitMB: Int
-        let projectedMB: Int
+        // let projectedMB: Int
         let scannedFiles: Int
         let cacheHits: Int
         let cacheMisses: Int
@@ -117,7 +117,7 @@ final class MemoryDiagnosticsViewModel {
         let crits = SharedMemoryCache.shared.getPressureCriticalCount()
 
         let settings = SettingsViewModel.shared
-        let projected = settings.projectedRawCullMemoryBytes()
+        // let projected = settings.projectedRawCullMemoryBytes()
         let scanned = viewModel?.files.count ?? 0
 
         let entry = Entry(
@@ -135,7 +135,7 @@ final class MemoryDiagnosticsViewModel {
             gridItems: gridItems,
             gridCostMB: gridCost / (1024 * 1024),
             gridLimitMB: settings.gridCacheSizeMB,
-            projectedMB: bytesToMB(projected),
+            // projectedMB: bytesToMB(projected),
             scannedFiles: scanned,
             cacheHits: stats.hits,
             cacheMisses: stats.misses,
@@ -232,7 +232,7 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(gridItems))
         fields.append(String(gridCostMB))
         fields.append(String(gridLimitMB))
-        fields.append(String(projectedMB))
+        // fields.append(String(projectedMB))
         fields.append(String(scannedFiles))
         fields.append(String(cacheHits))
         fields.append(String(cacheMisses))

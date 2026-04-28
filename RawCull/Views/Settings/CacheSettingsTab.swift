@@ -67,6 +67,7 @@ struct CacheSettingsTab: View {
                                         step: 250,
                                     )
                                     .frame(height: 18)
+                                    /*
                                     HStack(spacing: 4) {
                                         Text("Projected RawCull RAM: ~" +
                                             formatBytes(Int(projectedRawCullMemoryBytes())) +
@@ -76,13 +77,18 @@ struct CacheSettingsTab: View {
                                             .foregroundStyle(isProjectedOverPhysicalRAM() ? .red : .secondary)
                                         Spacer()
                                     }
+                                     */
                                     HStack(spacing: 4) {
                                         Text("Free: " +
-                                            formatBytes(Int(freeMemoryBytes())) +
+                                            formatBytes(Int(freeMemoryBytes())))
+                                        .font(.system(size: 10, weight: .regular))
+                                        .foregroundStyle(.secondary)
+                                             /*
                                             " · Budget: " +
                                             formatBytes(Int(freeMemoryBudgetBytes())))
                                             .font(.system(size: 10, weight: .regular))
                                             .foregroundStyle(.secondary)
+                                              */
                                         Spacer()
                                     }
                                 }
@@ -144,17 +150,19 @@ struct CacheSettingsTab: View {
                                             step: 100,
                                         )
                                         .frame(height: 18)
-                                        .tint(isOverFreeMemoryBudget() ? .red : .accentColor)
+                                        // .tint(isOverFreeMemoryBudget() ? .red : .accentColor)
                                         HStack {
                                             Text("\(Int(numRawFilesSlider)) files")
                                                 .font(.system(size: 10, weight: .medium))
                                                 .foregroundStyle(.secondary)
                                             Spacer()
+                                            /*
                                             if isOverFreeMemoryBudget() {
                                                 Label("Exceeds safe memory limit", systemImage: "exclamationmark.triangle")
                                                     .font(.system(size: 10, weight: .medium))
                                                     .foregroundStyle(.red)
                                             }
+                                             */
                                         }
                                     }
                                 }
@@ -382,6 +390,7 @@ struct CacheSettingsTab: View {
         return min(numFiles, bytes / costPerImage)
     }
 
+/*
     /// Live free-memory budget: the calibrated `projectedRawCullMemoryBytes()`
     /// must fit within `physical × 0.85 − usedByOtherApps − 512 MB safety`.
     /// `projectedRawCullMemoryBytes()` already represents RawCull's *total*
@@ -410,7 +419,7 @@ struct CacheSettingsTab: View {
             : 0
         return threshold > usedByOthers ? threshold - usedByOthers : 0
     }
-
+ */
     private func freeMemoryBytes() -> UInt64 {
         let physical = ProcessInfo.processInfo.physicalMemory
         return memoryModel.usedMemory < physical
@@ -418,6 +427,7 @@ struct CacheSettingsTab: View {
             : 0
     }
 
+/*
     /// Centralized in `SettingsViewModel.projectedRawCullMemoryBytes()` so the
     /// Memory Diagnostics console logs the same projection this tab displays.
     private func projectedRawCullMemoryBytes() -> UInt64 {
@@ -427,7 +437,8 @@ struct CacheSettingsTab: View {
     private func isProjectedOverPhysicalRAM() -> Bool {
         isOverFreeMemoryBudget()
     }
-
+ */
+    
     private func displayValue(for megabytes: Int) -> String {
         // Convert MB to bytes
         let bytes = megabytes * 1024 * 1024

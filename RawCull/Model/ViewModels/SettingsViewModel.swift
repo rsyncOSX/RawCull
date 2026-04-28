@@ -263,7 +263,8 @@ final class SettingsViewModel {
         }
         await saveSettings()
     }
-
+    
+/*
     // MARK: - Memory Projection
 
     /// Empirically-calibrated projection of RawCull's RAM payload from the two
@@ -291,7 +292,7 @@ final class SettingsViewModel {
         let projectedMB = baselineMB + clamped * maxPayloadMB
         return UInt64(projectedMB * 1024.0 * 1024.0)
     }
-
+*/
     /// Get a snapshot of current settings (safe to call from any context)
     nonisolated func asyncgetsettings() async -> SavedSettings {
         await MainActor.run {
