@@ -189,13 +189,17 @@ actor ScanAndCreateThumbnails {
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
-            // Pre-admit the freshly extracted thumbnail to the full-res RAM
-            // cache so the next demand request is a branch-A hit, with the
-            // same in-cap / over-cap trade-off described in branch B.
-            // Disk JPEG is also saved below so RequestThumbnail's branch B
-            // serves later UI requests, avoiding cold extraction.
+            // Intentionally NOT pre-admitting to the full-res RAM cache here
+            // — same reasoning as branch B. The freshly extracted image is
+            // ~44 MB; on an over-cap catalog (e.g. 635 files at the 20 GB
+            // cap), admitting all of them fills RAM and self-evicts ~180
+            // items during scan, then the user pays a 100% boomerang rate
+            // on first browse. Letting RequestThumbnail admit on demand
+            // means items settle at the smaller ~31 MB disk-decoded size,
+            // so the same catalog fits without evictions.
+            // Disk JPEG is still saved below so RequestThumbnail's branch B
+            // can serve UI requests without cold extraction.
             storeInGridCache(image, for: url)
-            storeInMemory(image, for: url)
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)

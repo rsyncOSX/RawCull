@@ -306,10 +306,6 @@ struct CacheSettingsTab: View {
                 await SharedMemoryCache.shared.refreshConfig()
                 cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
             }
-            .safeAreaInset(edge: .bottom) {
-                CacheStatisticsView()
-                    .padding()
-            }
         }
     }
 
