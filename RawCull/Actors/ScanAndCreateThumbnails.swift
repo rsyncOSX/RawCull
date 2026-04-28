@@ -152,7 +152,11 @@ actor ScanAndCreateThumbnails {
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
-            storeInMemoryCache(diskImage, for: url)
+            // Intentionally NOT pre-admitting to the full-res RAM cache here.
+            // Memory Diagnostics measured 98.6% of UI disk-fallbacks as
+            // boomerangs (scan-evicted items the user re-requested), so RAM
+            // is reserved for actual UI demand. Grid cache is still warmed —
+            // grid views read from it directly.
             storeInGridCache(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
@@ -179,7 +183,9 @@ actor ScanAndCreateThumbnails {
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
-            storeInMemoryCache(image, for: url)
+            // See branch B: full-res RAM admission is now UI-demand-only.
+            // Disk JPEG is still saved below so RequestThumbnail's branch B
+            // serves later UI requests, avoiding cold extraction.
             storeInGridCache(image, for: url)
 
             let newCount = incrementAndGetCount()
@@ -244,14 +250,6 @@ actor ScanAndCreateThumbnails {
     private func incrementAndGetCount() -> Int {
         successCount += 1
         return successCount
-    }
-
-    private func storeInMemoryCache(_ image: NSImage, for url: URL) {
-        let nsUrl = url as NSURL
-        guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
-        let costPerPixel = getCostPerPixel()
-        let wrapper = DiscardableThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
-        SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 
     private func storeInGridCache(_ image: NSImage, for url: URL) {
