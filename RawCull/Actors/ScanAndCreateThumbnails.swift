@@ -140,6 +140,8 @@ actor ScanAndCreateThumbnails {
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL) {
             storeInGridCache(wrapper.image, for: url)
+            // Defensive: wrapper was just read from RAM, so this is a no-op
+            // unless the entry was evicted between the read and this call.
             storeInMemory(wrapper.image, for: url)
             await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
@@ -152,11 +154,12 @@ actor ScanAndCreateThumbnails {
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
-            // Intentionally NOT pre-admitting to the full-res RAM cache here.
-            // Memory Diagnostics measured 98.6% of UI disk-fallbacks as
-            // boomerangs (scan-evicted items the user re-requested), so RAM
-            // is reserved for actual UI demand. Grid cache is still warmed —
-            // grid views read from it directly.
+            // Pre-admit the disk-loaded thumbnail to the full-res RAM cache.
+            // For catalogs that fit within `memoryCacheSizeMB`, this keeps
+            // subsequent UI demand on branch A and lowers the eviction rate
+            // observed in Memory Diagnostics. For catalogs that exceed the
+            // cap, boomerang misses re-emerge — the same trade-off that
+            // motivated the earlier removal.
             storeInGridCache(diskImage, for: url)
             storeInMemory(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
@@ -184,8 +187,10 @@ actor ScanAndCreateThumbnails {
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
-            // See branch B: full-res RAM admission is now UI-demand-only.
-            // Disk JPEG is still saved below so RequestThumbnail's branch B
+            // Pre-admit the freshly extracted thumbnail to the full-res RAM
+            // cache so the next demand request is a branch-A hit, with the
+            // same in-cap / over-cap trade-off described in branch B.
+            // Disk JPEG is also saved below so RequestThumbnail's branch B
             // serves later UI requests, avoiding cold extraction.
             storeInGridCache(image, for: url)
             storeInMemory(image, for: url)
