@@ -57,13 +57,13 @@ struct CacheSettingsTab: View {
                                             displayValue(for: settingsManager.memoryCacheSizeMB))
                                             .font(.system(size: 10, weight: .semibold, design: .rounded))
                                     }
-                                    // slider still uses the real internal values (3000–20000)
+                                    // slider still uses the real internal values (5000–30000)
                                     Slider(
                                         value: Binding<Double>(
                                             get: { Double(settingsManager.memoryCacheSizeMB) },
                                             set: { settingsManager.memoryCacheSizeMB = Int($0) },
                                         ),
-                                        in: 5000 ... 20000,
+                                        in: 5000 ... 30000,
                                         step: 250,
                                     )
                                     .frame(height: 18)
@@ -383,8 +383,10 @@ struct CacheSettingsTab: View {
     }
 
     /// Live free-memory budget: the calibrated `projectedRawCullMemoryBytes()`
-    /// plus what RawCull is already using must fit within
-    /// `physical × 0.85 − usedByOtherApps − 512 MB safety`.
+    /// must fit within `physical × 0.85 − usedByOtherApps − 512 MB safety`.
+    /// `projectedRawCullMemoryBytes()` already represents RawCull's *total*
+    /// expected RSS (baseline + caches), so we compare it directly against the
+    /// budget — adding `appMemory` on top would double-count RawCull.
     /// Uses `MemoryViewModel`'s polled `usedMemory` / `appMemory` so the
     /// threshold reflects what's actually free right now, not a static
     /// fraction of physical RAM.
@@ -397,7 +399,7 @@ struct CacheSettingsTab: View {
             : 0
         guard threshold > usedByOthers + safetyBuffer else { return true }
         let budget = threshold - usedByOthers - safetyBuffer
-        return projectedRawCullMemoryBytes() + memoryModel.appMemory >= budget
+        return projectedRawCullMemoryBytes() >= budget
     }
 
     private func freeMemoryBudgetBytes() -> UInt64 {
