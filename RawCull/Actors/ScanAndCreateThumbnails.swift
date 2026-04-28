@@ -273,7 +273,7 @@ actor ScanAndCreateThumbnails {
         let wrapper = CachedThumbnail(image: scaled, costPerPixel: costPerPixel)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
-    
+
     private func storeInMemory(_ image: NSImage, for url: URL) {
         let nsUrl = url as NSURL
         guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }

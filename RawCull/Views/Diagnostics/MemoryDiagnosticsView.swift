@@ -111,7 +111,7 @@ struct MemoryDiagnosticsView: View {
             "cold%=\(coldRate)",
             "live=\(e.liveLimitMB)MB",
             "warn=\(e.pressureWarns)",
-            "crit=\(e.pressureCrits)",
+            "crit=\(e.pressureCrits)"
         ]
         return fields.joined(separator: "  ")
     }

@@ -39,6 +39,7 @@ actor SharedMemoryCache {
     private let _memCount = OSAllocatedUnfairLock(initialState: 0)
 
     // MARK: - Boomerang-miss diagnostics
+
     //
     // Three demand-traffic counters and a bounded FIFO of recently-evicted
     // URLs from `memoryCache`, used by the Memory Diagnostics view to compute
@@ -61,6 +62,7 @@ actor SharedMemoryCache {
     private let _evictedRing = OSAllocatedUnfairLock(initialState: EvictedRing())
 
     // MARK: - Pressure event counters
+
     //
     // Cumulative counts of memory-pressure transitions handled by
     // `handleMemoryPressureEvent`. The 5-second diagnostics sampler can miss
@@ -544,7 +546,7 @@ actor SharedMemoryCache {
 /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; this struct is constructed
 /// and mutated from the actor's own isolation domain (and from
 /// `CacheDelegate`'s nonisolated callback), neither of which is MainActor.
-fileprivate struct EvictedRing: Sendable {
+private struct EvictedRing {
     nonisolated static let capacity = 2000
 
     private var buffer: [NSURL?]
@@ -571,7 +573,9 @@ fileprivate struct EvictedRing: Sendable {
     }
 
     nonisolated mutating func clear() {
-        for i in 0..<buffer.count { buffer[i] = nil }
+        for i in 0 ..< buffer.count {
+            buffer[i] = nil
+        }
         set.removeAll(keepingCapacity: true)
         cursor = 0
     }

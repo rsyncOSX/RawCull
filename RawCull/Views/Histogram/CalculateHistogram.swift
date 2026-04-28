@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+
 // import OSLog
 
 /// Make sure that the resource demanding calculation is computed on

@@ -54,65 +54,8 @@ struct ThumbnailSizesTab: View {
                             step: 128,
                         )
 
-/*
-                        // Cost Per Pixel
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Label("Quality/Memory Trade-off", systemImage: "function")
-                                    .font(.system(size: 12, weight: .medium))
-                                Spacer()
-                                Text("\(settingsManager.thumbnailCostPerPixel) bytes")
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            }
-                            Slider(
-                                value: Binding<Double>(
-                                    get: { Double(settingsManager.thumbnailCostPerPixel) },
-                                    set: { newValue in
-                                        let intValue = Int(newValue)
-                                        settingsManager.thumbnailCostPerPixel = intValue
-                                        Task {
-                                            await SharedMemoryCache.shared.setCostPerPixel(intValue)
-                                        }
-                                    },
-                                ),
-                                in: 4 ... 8,
-                                step: 1,
-                            )
-                            HStack(spacing: 8) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Lower values use less memory, at the cost of quality.")
-                                        .font(.system(size: 11, weight: .regular))
-                                        .foregroundStyle(.secondary)
-                                    Text("Higher values improve quality but use more memory.")
-                                        .font(.system(size: 11, weight: .regular))
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                // Calculate estimated costs
-                                let gridCost = (settingsManager.thumbnailSizeGrid *
-                                    settingsManager.thumbnailSizeGrid *
-                                    settingsManager.thumbnailCostPerPixel) / 1024
-                                let previewCost = (settingsManager.thumbnailSizePreview *
-                                    settingsManager.thumbnailSizePreview *
-                                    settingsManager.thumbnailCostPerPixel) / 1024
-                                let fullCost = (settingsManager.thumbnailSizeFullSize *
-                                    settingsManager.thumbnailSizeFullSize *
-                                    settingsManager.thumbnailCostPerPixel) / 1024
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Est. Grid: \(gridCost) KB")
-                                        .font(.system(size: 10, weight: .regular))
-                                        .foregroundStyle(.secondary)
-                                    Text("Est. Preview: \(previewCost) KB (\(previewCost / 1024) MB)")
-                                        .font(.system(size: 10, weight: .regular))
-                                        .foregroundStyle(.secondary)
-                                    Text("Est. Full: \(fullCost) KB (\(fullCost / 1024) MB)")
-                                        .font(.system(size: 10, weight: .regular))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-*/
+                        Divider()
+                        
                         // Use Thumbnail as Zoom Preview Toggle
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Use Thumbnail for Zoom", systemImage: "magnifyingglass")

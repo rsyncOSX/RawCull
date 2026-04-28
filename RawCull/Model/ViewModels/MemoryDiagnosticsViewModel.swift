@@ -19,7 +19,7 @@ import OSLog
 @Observable
 @MainActor
 final class MemoryDiagnosticsViewModel {
-    struct Entry: Identifiable, Sendable {
+    struct Entry: Identifiable {
         let id = UUID()
         let timestamp: Date
         let physicalMB: Int
@@ -203,7 +203,7 @@ final class MemoryDiagnosticsViewModel {
         "cold_rate_pct",
         "live_limit_MB",
         "pressure_warns",
-        "pressure_crits",
+        "pressure_crits"
     ].joined(separator: "\t")
 }
 

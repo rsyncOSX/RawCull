@@ -85,9 +85,9 @@ struct SimilarityGridSelectionView: View {
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var autoSharpnessScoring: Bool = true
 
-    // Debounced regroup task for the burst-sensitivity slider — mirrors
-    // SimilarityControlsView so dragging the slider collapses to a single
-    // regroup call ~200 ms after the drag stops.
+    /// Debounced regroup task for the burst-sensitivity slider — mirrors
+    /// SimilarityControlsView so dragging the slider collapses to a single
+    /// regroup call ~200 ms after the drag stops.
     @State private var pendingRegroupTask: Task<Void, Never>?
 
     // Burst-mode render cache (same invalidation semantics as

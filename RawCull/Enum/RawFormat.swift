@@ -17,7 +17,7 @@ protocol RawFormat: Sendable {
     /// Lowercased file extensions, no leading dot. e.g. `["arw"]`, `["nef"]`.
     nonisolated static var extensions: Set<String> { get }
 
-    /// Human-readable label for UI, e.g. "Sony ARW", "Nikon NEF".
+    // Human-readable label for UI, e.g. "Sony ARW", "Nikon NEF".
     // nonisolated static var displayName: String { get }
 
     /// Embedded-JPEG-backed thumbnail. Must hop off the caller's thread internally.
