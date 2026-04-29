@@ -28,7 +28,7 @@ final class CachedThumbnail: NSObject, @unchecked Sendable {
     /// disables eviction tracking for that entry.
     nonisolated let url: NSURL?
 
-    nonisolated init(image: NSImage, costPerPixel: Int = 4, url: NSURL? = nil) {
+    nonisolated init(image: NSImage, url: NSURL? = nil) {
         self.image = image
         self.url = url
 
@@ -36,7 +36,8 @@ final class CachedThumbnail: NSObject, @unchecked Sendable {
         // This ensures NSCache accurately tracks RAM footprint for LRU eviction
         var totalCost = 0
 
-        // Sum up all representations' pixel costs (using configured bytes per pixel)
+        // Sum up all representations' pixel costs (using the project-wide RGBA constant)
+        let costPerPixel = SharedMemoryCache.shared.costPerPixel
         for rep in image.representations {
             let pixelCost = rep.pixelsWide * rep.pixelsHigh * costPerPixel
             totalCost += pixelCost

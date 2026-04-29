@@ -88,7 +88,7 @@ struct DataRaceDetectionTests {
         await withTaskGroup(of: Int.self) { group in
             for _ in 0 ..< 1000 {
                 group.addTask {
-                    await cache.costPerPixel
+                    cache.costPerPixel
                 }
             }
 
@@ -215,7 +215,6 @@ struct DataRaceDetectionTests {
             thumbnailSizeGrid: 100,
             thumbnailSizePreview: 1024,
             thumbnailSizeFullSize: 8700,
-            thumbnailCostPerPixel: 4,
             useThumbnailAsZoomPreview: false,
         )
 
@@ -250,7 +249,6 @@ struct DataRaceDetectionTests {
         let config = CacheConfig(
             totalCostLimit: 1_000_000,
             countLimit: 100,
-            costPerPixel: 4,
         )
 
         await withTaskGroup(of: Void.self) { group in

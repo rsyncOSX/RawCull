@@ -68,7 +68,7 @@ actor RequestThumbnail {
             if SharedMemoryCache.shared.wasRecentlyEvicted(url: nsUrl) {
                 SharedMemoryCache.shared.incrementBoomerangMiss()
             }
-            await storeInMemory(diskImage, for: url)
+            storeInMemory(diskImage, for: url)
             Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache)")
             await SharedMemoryCache.shared.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
@@ -77,7 +77,7 @@ actor RequestThumbnail {
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        let costPerPixel = await SharedMemoryCache.shared.costPerPixel
+        let costPerPixel = SharedMemoryCache.shared.costPerPixel
 
         guard let format = RawFormatRegistry.format(for: url) else {
             throw ThumbnailError.invalidSource
@@ -95,7 +95,7 @@ actor RequestThumbnail {
         // its denominator excludes this path entirely.
         SharedMemoryCache.shared.incrementColdExtract()
 
-        await storeInMemory(image, for: url)
+        storeInMemory(image, for: url)
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
@@ -132,11 +132,10 @@ actor RequestThumbnail {
         }.value
     }
 
-    private func storeInMemory(_ image: NSImage, for url: URL) async {
+    private func storeInMemory(_ image: NSImage, for url: URL) {
         let nsUrl = url as NSURL
         guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
-        let costPerPixel = await SharedMemoryCache.shared.costPerPixel
-        let wrapper = CachedThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
+        let wrapper = CachedThumbnail(image: image, url: nsUrl)
         SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 }

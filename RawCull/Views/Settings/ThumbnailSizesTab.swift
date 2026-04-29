@@ -55,7 +55,7 @@ struct ThumbnailSizesTab: View {
                         )
 
                         Divider()
-                        
+
                         // Use Thumbnail as Zoom Preview Toggle
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Use Thumbnail for Zoom", systemImage: "magnifyingglass")
@@ -138,12 +138,6 @@ struct ThumbnailSizesTab: View {
                     onReset: { Task { await settingsManager.resetToDefaultsThumbnails() } },
                     onSave: { Task { await settingsManager.saveSettings() } },
                 )
-            }
-        }
-        .onAppear {
-            // Initialize ThumbnailProvider with saved cost per pixel setting
-            Task {
-                await SharedMemoryCache.shared.setCostPerPixel(settingsManager.thumbnailCostPerPixel)
             }
         }
     }

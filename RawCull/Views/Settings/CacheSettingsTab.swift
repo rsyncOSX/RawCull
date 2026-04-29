@@ -67,28 +67,13 @@ struct CacheSettingsTab: View {
                                         step: 250,
                                     )
                                     .frame(height: 18)
-                                    /*
-                                     HStack(spacing: 4) {
-                                         Text("Projected RawCull RAM: ~" +
-                                             formatBytes(Int(projectedRawCullMemoryBytes())) +
-                                             " · Physical: " +
-                                             formatBytes(Int(ProcessInfo.processInfo.physicalMemory)))
-                                             .font(.system(size: 10, weight: .regular))
-                                             .foregroundStyle(isProjectedOverPhysicalRAM() ? .red : .secondary)
-                                         Spacer()
-                                     }
-                                      */
+
                                     HStack(spacing: 4) {
                                         Text("Free: " +
                                             formatBytes(Int(freeMemoryBytes())))
                                             .font(.system(size: 10, weight: .regular))
                                             .foregroundStyle(.secondary)
-                                        /*
-                                         " · Budget: " +
-                                         formatBytes(Int(freeMemoryBudgetBytes())))
-                                         .font(.system(size: 10, weight: .regular))
-                                         .foregroundStyle(.secondary)
-                                           */
+
                                         Spacer()
                                     }
                                 }
@@ -252,10 +237,6 @@ struct CacheSettingsTab: View {
             }
             .onAppear(perform: refreshDiskCacheSize)
             .task {
-                // Initialize ThumbnailProvider with saved cost per pixel setting
-                // The ThumbnailProvider.init get the saved settings an update cost by
-                // setCacheCostsFromSavedSettings()
-                await SharedMemoryCache.shared.setCostPerPixel(settingsManager.thumbnailCostPerPixel)
                 await SharedMemoryCache.shared.refreshConfig()
                 cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
             }
@@ -300,12 +281,6 @@ struct CacheSettingsTab: View {
                     await memoryModel.updateMemoryStats()
                 }
             }
-            .task(id: settingsManager.thumbnailCostPerPixel) {
-                await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
-                await SharedMemoryCache.shared.setCostPerPixel(settingsManager.thumbnailCostPerPixel)
-                await SharedMemoryCache.shared.refreshConfig()
-                cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
-            }
         }
     }
 
@@ -345,20 +320,13 @@ struct CacheSettingsTab: View {
     private func gridDisplayValue(for megabytes: Int) -> String {
         let bytes = megabytes * 1024 * 1024
 
-        // Use 4 bytes/pixel (real RGBA) to show real-RAM capacity, not NSCache cost capacity.
-        // NSCache cost uses thumbnailCostPerPixel (e.g. 6) for conservative eviction; actual
-        // CGImage memory is always 4 bytes/pixel RGBA regardless of that setting.
         if currentGridCacheCount > 0, currentGridCacheSize > 0 {
-            let avgNSCacheCost = currentGridCacheSize / currentGridCacheCount
-            let cacheCostPerPixel = settingsManager.thumbnailCostPerPixel
-            let realBytesPerThumb = cacheCostPerPixel > 0
-                ? max(1, Int(Double(avgNSCacheCost) * 4.0 / Double(cacheCostPerPixel)))
-                : avgNSCacheCost
-            return String(max(1, bytes / realBytesPerThumb))
+            let avgNSCacheCost = max(1, currentGridCacheSize / currentGridCacheCount)
+            return String(max(1, bytes / avgNSCacheCost))
         }
 
         let s = settingsManager.thumbnailSizeGrid * 2
-        let costPerImage = Int(Double(s * s * 4) * 1.1) // 4 bytes/pixel actual RGBA + 10% overhead
+        let costPerImage = Int(Double(s * s * SharedMemoryCache.shared.costPerPixel) * 1.1)
         guard costPerImage > 0 else { return "0" }
         return String(max(1, bytes / costPerImage))
     }
@@ -367,7 +335,7 @@ struct CacheSettingsTab: View {
         let bytes = settingsManager.memoryCacheSizeMB * 1024 * 1024
         let costPerImage = settingsManager.thumbnailSizePreview
             * settingsManager.thumbnailSizePreview
-            * settingsManager.thumbnailCostPerPixel
+            * SharedMemoryCache.shared.costPerPixel
         guard costPerImage > 0 else { return 0 }
         return min(numFiles, bytes / costPerImage)
     }
@@ -386,54 +354,12 @@ struct CacheSettingsTab: View {
         return min(numFiles, bytes / costPerImage)
     }
 
-    /**
-        /// Live free-memory budget: the calibrated `projectedRawCullMemoryBytes()`
-        /// must fit within `physical × 0.85 − usedByOtherApps − 512 MB safety`.
-        /// `projectedRawCullMemoryBytes()` already represents RawCull's *total*
-        /// expected RSS (baseline + caches), so we compare it directly against the
-        /// budget — adding `appMemory` on top would double-count RawCull.
-        /// Uses `MemoryViewModel`'s polled `usedMemory` / `appMemory` so the
-        /// threshold reflects what's actually free right now, not a static
-        /// fraction of physical RAM.
-        private func isOverFreeMemoryBudget() -> Bool {
-            let physical = ProcessInfo.processInfo.physicalMemory
-            let threshold = UInt64(Double(physical) * 0.85)
-            let safetyBuffer: UInt64 = 512 * 1024 * 1024
-            let usedByOthers = memoryModel.usedMemory > memoryModel.appMemory
-                ? memoryModel.usedMemory - memoryModel.appMemory
-                : 0
-            guard threshold > usedByOthers + safetyBuffer else { return true }
-            let budget = threshold - usedByOthers - safetyBuffer
-            return projectedRawCullMemoryBytes() >= budget
-        }
-
-        private func freeMemoryBudgetBytes() -> UInt64 {
-            let physical = ProcessInfo.processInfo.physicalMemory
-            let threshold = UInt64(Double(physical) * 0.85)
-            let usedByOthers = memoryModel.usedMemory > memoryModel.appMemory
-                ? memoryModel.usedMemory - memoryModel.appMemory
-                : 0
-            return threshold > usedByOthers ? threshold - usedByOthers : 0
-        }
-     */
     private func freeMemoryBytes() -> UInt64 {
         let physical = ProcessInfo.processInfo.physicalMemory
         return memoryModel.usedMemory < physical
             ? physical - memoryModel.usedMemory
             : 0
     }
-
-    /*
-        /// Centralized in `SettingsViewModel.projectedRawCullMemoryBytes()` so the
-        /// Memory Diagnostics console logs the same projection this tab displays.
-        private func projectedRawCullMemoryBytes() -> UInt64 {
-            settingsManager.projectedRawCullMemoryBytes()
-        }
-
-        private func isProjectedOverPhysicalRAM() -> Bool {
-            isOverFreeMemoryBudget()
-        }
-     */
 
     private func displayValue(for megabytes: Int) -> String {
         // Convert MB to bytes
@@ -443,7 +369,7 @@ struct CacheSettingsTab: View {
         // Cost per image = thumbnail_size × thumbnail_size × costPerPixel
         // Use the preview size setting (user-configurable)
         let thumbnailSize = settingsManager.thumbnailSizePreview
-        let costPerPixel = settingsManager.thumbnailCostPerPixel
+        let costPerPixel = SharedMemoryCache.shared.costPerPixel
         let costPerImage = thumbnailSize * thumbnailSize * costPerPixel
 
         if costPerImage > 0 {

@@ -113,7 +113,7 @@ enum ConcurrencyTests {
             }
 
             // Verify cache is properly configured (only once)
-            let costPerPixel = await cache.costPerPixel
+            let costPerPixel = cache.costPerPixel
             #expect(costPerPixel > 0, "Cache should be configured with valid cost per pixel")
         }
 
@@ -338,7 +338,6 @@ enum ConcurrencyTests {
                 thumbnailSizeGrid: 100,
                 thumbnailSizePreview: 1024,
                 thumbnailSizeFullSize: 8700,
-                thumbnailCostPerPixel: 4,
                 useThumbnailAsZoomPreview: false,
             )
 
@@ -365,7 +364,6 @@ enum ConcurrencyTests {
             let config = CacheConfig(
                 totalCostLimit: 5000 * 1024 * 1024,
                 countLimit: 10000,
-                costPerPixel: 4,
             )
 
             // Pass to actor

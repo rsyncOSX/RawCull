@@ -29,9 +29,6 @@ actor ScanAndCreateThumbnails {
     private var savedSettings: SavedSettings?
     private var setupTask: Task<Void, Never>?
 
-    /// Cached cost-per-pixel; cleared when settings change via `getCacheCostsAfterSettingsUpdate`.
-    private var cachedCostPerPixel: Int?
-
     /// Timestamp of the last completed item, used for rolling ETA calculation.
     private var lastItemTime: Date?
 
@@ -69,17 +66,6 @@ actor ScanAndCreateThumbnails {
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
-    }
-
-    // MARK: - Settings / Cost
-
-    private func getCostPerPixel() -> Int {
-        if let cached = cachedCostPerPixel {
-            return cached
-        }
-        let cost = savedSettings?.thumbnailCostPerPixel ?? 4
-        cachedCostPerPixel = cost
-        return cost
     }
 
     // MARK: - Preload
@@ -140,9 +126,9 @@ actor ScanAndCreateThumbnails {
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL) {
             storeInGridCache(wrapper.image, for: url)
-            // Defensive: wrapper was just read from RAM, so this is a no-op
-            // unless the entry was evicted between the read and this call.
-            storeInMemory(wrapper.image, for: url)
+            // Do not re-admit to memoryCache: object(forKey:) already touched
+            // LRU, and scan-order admission would compete with UI-driven LRU
+            // ordering (the scan/UI cache-pollution pattern).
             await SharedMemoryCache.shared.updateCacheMemory()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -154,11 +140,11 @@ actor ScanAndCreateThumbnails {
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
-            // Disk-decoded size matches what RequestThumbnail would admit on
-            // demand, so warming the mem cache here costs no extra eviction
-            // churn. Branch C (cold extract) still skips mem admission.
+            // Mirror to the grid cache only. Leaving memoryCache admission to
+            // RequestThumbnail (its branch B promotes on user-driven hits)
+            // keeps LRU ordering aligned with UI traffic and prevents
+            // scan-driven evictions from boomeranging UI-active items.
             storeInGridCache(diskImage, for: url)
-            storeInMemory(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -171,7 +157,7 @@ actor ScanAndCreateThumbnails {
             if Task.isCancelled { return }
             notifyExtractionNeeded()
 
-            let costPerPixel = await SharedMemoryCache.shared.costPerPixel
+            let costPerPixel = SharedMemoryCache.shared.costPerPixel
 
             guard let format = RawFormatRegistry.format(for: url) else { return }
             let cgImage = try await format.extractThumbnail(
@@ -184,15 +170,13 @@ actor ScanAndCreateThumbnails {
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
-            // Intentionally NOT pre-admitting to the full-res RAM cache here.
-            // The freshly extracted image is ~44 MB; on an over-cap catalog
-            // (e.g. 635 files at the 20 GB cap), admitting all of them fills
-            // RAM and self-evicts ~180 items during scan, then the user pays
-            // a 100% boomerang rate on first browse. Letting RequestThumbnail
-            // admit on demand means items settle at the smaller ~31 MB
-            // disk-decoded size, so the same catalog fits without evictions.
-            // Disk JPEG is still saved below so RequestThumbnail's branch B
-            // can serve UI requests without cold extraction.
+            // Invariant (uniform across branches A/B/C): scan never admits to
+            // memoryCache. RequestThumbnail is the only admitter, so LRU
+            // ordering tracks UI traffic. On an over-cap catalog (e.g. 635
+            // files at the 20 GB cap), scan-side admission would self-evict
+            // ~180 items and the user would pay a near-100% boomerang rate
+            // on first browse. The disk JPEG saved below lets RequestThumbnail
+            // branch B serve subsequent UI requests without cold extraction.
             storeInGridCache(image, for: url)
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -263,17 +247,8 @@ actor ScanAndCreateThumbnails {
         guard SharedMemoryCache.shared.gridObject(forKey: nsUrl) == nil else { return }
         let gridSize: CGFloat = 200
         guard let scaled = downscale(image, to: gridSize) else { return }
-        let costPerPixel = getCostPerPixel()
-        let wrapper = CachedThumbnail(image: scaled, costPerPixel: costPerPixel)
+        let wrapper = CachedThumbnail(image: scaled)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
-    }
-
-    private func storeInMemory(_ image: NSImage, for url: URL) {
-        let nsUrl = url as NSURL
-        guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
-        let costPerPixel = getCostPerPixel()
-        let wrapper = CachedThumbnail(image: image, costPerPixel: costPerPixel, url: nsUrl)
-        SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 
     private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {

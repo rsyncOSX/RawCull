@@ -114,9 +114,14 @@ actor SharedMemoryCache {
     /// Keyed by the same NSURL as memoryCache; never persisted to disk.
     nonisolated(unsafe) let gridThumbnailCache = NSCache<NSURL, CachedThumbnail>()
 
+    /// Bytes per pixel used by `CachedThumbnail` to compute NSCache cost.
+    /// Fixed at 4 (RGBA) — NSImage representations are always sRGB RGBA in
+    /// this app, so the cost calculation has no reason to vary at runtime.
+    /// `nonisolated let` lets call sites read it without `await`.
+    nonisolated let costPerPixel: Int = 4
+
     // MARK: - Isolated State (Protected by Actor)
 
-    private var _costPerPixel: Int = 4
     private var memoryPressureSource: DispatchSourceMemoryPressure?
 
     // MARK: - Get settings
@@ -125,12 +130,6 @@ actor SharedMemoryCache {
 
     /// Only using the memory pressure warning
     private var fileHandlers: FileHandlers?
-
-    /// Public access to the current cost per pixel setting.
-    /// Since this is isolated state, reading it requires 'await'.
-    var costPerPixel: Int {
-        _costPerPixel
-    }
 
     init(diskCache: DiskCacheManager? = nil) {
         self.diskCache = diskCache ?? DiskCacheManager()
@@ -188,7 +187,6 @@ actor SharedMemoryCache {
     /// (The duplicate formula in `setCacheCostsFromSavedSettings` is intentional
     /// — that path predates `calculateConfig`; both use the same expression.)
     func calculateConfig(from settings: SavedSettings) -> CacheConfig {
-        let thumbnailCostPerPixel = settings.thumbnailCostPerPixel // 4 default
         let memoryCacheSizeMB = settings.memoryCacheSizeMB // 5000 MB default  - 20,000 MB max
 
         // totalCostLimit is the PRIMARY memory constraint (based on allocated MB)
@@ -202,7 +200,6 @@ actor SharedMemoryCache {
             totalCostLimit: totalCostLimit,
             countLimit: countLimit,
             gridTotalCostLimit: gridTotalCostLimit,
-            costPerPixel: thumbnailCostPerPixel,
         )
     }
 
@@ -211,7 +208,6 @@ actor SharedMemoryCache {
     func setCacheCostsFromSavedSettings() async {
         savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         if let settings = savedSettings {
-            let thumbnailCostPerPixel = settings.thumbnailCostPerPixel // 4 default (RGBA bytes per pixel)
             let memoryCacheSizeMB = settings.memoryCacheSizeMB // 500MB default
 
             // totalCostLimit is the PRIMARY memory constraint (based on allocated MB)
@@ -224,7 +220,6 @@ actor SharedMemoryCache {
                 totalCostLimit: totalCostLimit,
                 countLimit: countLimit,
                 gridTotalCostLimit: gridTotalCostLimit,
-                costPerPixel: thumbnailCostPerPixel,
             )
             applyConfig(config)
         }
@@ -233,11 +228,6 @@ actor SharedMemoryCache {
     func getCacheCostsAfterSettingsUpdate() async -> CacheConfig? {
         guard let settings = savedSettings else { return nil }
         return calculateConfig(from: settings)
-    }
-
-    func setCostPerPixel(_ cost: Int) {
-        _costPerPixel = cost
-        // Logger.process.debugMessageOnly("SharedMemoryCache: setCostPerPixel(\(cost)) called (Local override only)",)
     }
 
     /// In SharedMemoryCache
@@ -255,9 +245,6 @@ actor SharedMemoryCache {
         // would be a no-op. Eviction is driven by totalCostLimit / countLimit and
         // the explicit `handleMemoryPressureEvent` handler.
         memoryCache.delegate = CacheDelegate.shared
-        if let costPerPixel = config.costPerPixel {
-            _costPerPixel = costPerPixel
-        }
         gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
         gridThumbnailCache.countLimit = 3000
         gridThumbnailCache.delegate = CacheDelegate.shared

@@ -50,10 +50,6 @@ final class SettingsViewModel {
     var thumbnailSizePreview: Int = 1616
     /// Full size thumbnail in pixels (default: 8700)
     var thumbnailSizeFullSize: Int = 8700
-    /// Estimated cost per pixel for thumbnail (in bytes, default: 4 for RGBA).
-    /// `CachedThumbnail` already adds a 10% overhead buffer on top of this,
-    /// so 4 = decoded RGBA without double-counting wrapper overhead.
-    var thumbnailCostPerPixel: Int = 4
     /// Use thumbnail as zoom preview (default: true)
     var useThumbnailAsZoomPreview: Bool = false
 
@@ -142,7 +138,6 @@ final class SettingsViewModel {
                 self.thumbnailSizeGrid = savedSettings.thumbnailSizeGrid
                 self.thumbnailSizePreview = savedSettings.thumbnailSizePreview
                 self.thumbnailSizeFullSize = savedSettings.thumbnailSizeFullSize
-                self.thumbnailCostPerPixel = savedSettings.thumbnailCostPerPixel
                 self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
                 self.enableThumbnailSharpening = savedSettings.enableThumbnailSharpening
                 self.thumbnailSharpenAmount = savedSettings.thumbnailSharpenAmount
@@ -181,7 +176,6 @@ final class SettingsViewModel {
                 thumbnailSizeGrid: thumbnailSizeGrid,
                 thumbnailSizePreview: thumbnailSizePreview,
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
-                thumbnailCostPerPixel: thumbnailCostPerPixel,
                 useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
                 enableThumbnailSharpening: enableThumbnailSharpening,
                 thumbnailSharpenAmount: thumbnailSharpenAmount,
@@ -259,7 +253,6 @@ final class SettingsViewModel {
             self.thumbnailSizeGrid = 200
             self.thumbnailSizePreview = 1616
             self.thumbnailSizeFullSize = 8700
-            self.thumbnailCostPerPixel = 4
         }
         await saveSettings()
     }
@@ -302,7 +295,6 @@ final class SettingsViewModel {
                 thumbnailSizeGrid: self.thumbnailSizeGrid,
                 thumbnailSizePreview: self.thumbnailSizePreview,
                 thumbnailSizeFullSize: self.thumbnailSizeFullSize,
-                thumbnailCostPerPixel: self.thumbnailCostPerPixel,
                 useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
                 enableThumbnailSharpening: self.enableThumbnailSharpening,
                 thumbnailSharpenAmount: self.thumbnailSharpenAmount,
@@ -333,7 +325,6 @@ struct SavedSettings: Codable {
     let thumbnailSizeGrid: Int
     let thumbnailSizePreview: Int
     let thumbnailSizeFullSize: Int
-    let thumbnailCostPerPixel: Int
     let useThumbnailAsZoomPreview: Bool
     let enableThumbnailSharpening: Bool
     let thumbnailSharpenAmount: Float
@@ -359,7 +350,6 @@ struct SavedSettings: Codable {
         thumbnailSizeGrid: Int,
         thumbnailSizePreview: Int,
         thumbnailSizeFullSize: Int,
-        thumbnailCostPerPixel: Int,
         useThumbnailAsZoomPreview: Bool,
         enableThumbnailSharpening: Bool = false,
         thumbnailSharpenAmount: Float = 1.0,
@@ -382,7 +372,6 @@ struct SavedSettings: Codable {
         self.thumbnailSizeGrid = thumbnailSizeGrid
         self.thumbnailSizePreview = thumbnailSizePreview
         self.thumbnailSizeFullSize = thumbnailSizeFullSize
-        self.thumbnailCostPerPixel = thumbnailCostPerPixel
         self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
         self.enableThumbnailSharpening = enableThumbnailSharpening
         self.thumbnailSharpenAmount = thumbnailSharpenAmount
@@ -408,7 +397,6 @@ struct SavedSettings: Codable {
         thumbnailSizeGrid = try c.decode(Int.self, forKey: .thumbnailSizeGrid)
         thumbnailSizePreview = try c.decode(Int.self, forKey: .thumbnailSizePreview)
         thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)
-        thumbnailCostPerPixel = try c.decode(Int.self, forKey: .thumbnailCostPerPixel)
         useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
         enableThumbnailSharpening = (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false
         thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0
