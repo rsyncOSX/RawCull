@@ -50,8 +50,6 @@ final class SettingsViewModel {
     var thumbnailSizePreview: Int = 1616
     /// Full size thumbnail in pixels (default: 8700)
     var thumbnailSizeFullSize: Int = 8700
-    /// Use thumbnail as zoom preview (default: true)
-    var useThumbnailAsZoomPreview: Bool = false
 
     /// When enabled, bypasses the cached embedded-JPEG thumbnail and runs the zoom preview
     /// through a CIRAWFilter pipeline (demosaiced raw → noise reduction → small-radius
@@ -138,7 +136,6 @@ final class SettingsViewModel {
                 self.thumbnailSizeGrid = savedSettings.thumbnailSizeGrid
                 self.thumbnailSizePreview = savedSettings.thumbnailSizePreview
                 self.thumbnailSizeFullSize = savedSettings.thumbnailSizeFullSize
-                self.useThumbnailAsZoomPreview = savedSettings.useThumbnailAsZoomPreview
                 self.enableThumbnailSharpening = savedSettings.enableThumbnailSharpening
                 self.thumbnailSharpenAmount = savedSettings.thumbnailSharpenAmount
                 self.showScoringBadge = savedSettings.showScoringBadge
@@ -176,7 +173,6 @@ final class SettingsViewModel {
                 thumbnailSizeGrid: thumbnailSizeGrid,
                 thumbnailSizePreview: thumbnailSizePreview,
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
-                useThumbnailAsZoomPreview: useThumbnailAsZoomPreview,
                 enableThumbnailSharpening: enableThumbnailSharpening,
                 thumbnailSharpenAmount: thumbnailSharpenAmount,
                 showScoringBadge: showScoringBadge,
@@ -295,7 +291,6 @@ final class SettingsViewModel {
                 thumbnailSizeGrid: self.thumbnailSizeGrid,
                 thumbnailSizePreview: self.thumbnailSizePreview,
                 thumbnailSizeFullSize: self.thumbnailSizeFullSize,
-                useThumbnailAsZoomPreview: self.useThumbnailAsZoomPreview,
                 enableThumbnailSharpening: self.enableThumbnailSharpening,
                 thumbnailSharpenAmount: self.thumbnailSharpenAmount,
                 showScoringBadge: self.showScoringBadge,
@@ -325,7 +320,6 @@ struct SavedSettings: Codable {
     let thumbnailSizeGrid: Int
     let thumbnailSizePreview: Int
     let thumbnailSizeFullSize: Int
-    let useThumbnailAsZoomPreview: Bool
     let enableThumbnailSharpening: Bool
     let thumbnailSharpenAmount: Float
     let showScoringBadge: Bool
@@ -350,7 +344,6 @@ struct SavedSettings: Codable {
         thumbnailSizeGrid: Int,
         thumbnailSizePreview: Int,
         thumbnailSizeFullSize: Int,
-        useThumbnailAsZoomPreview: Bool,
         enableThumbnailSharpening: Bool = false,
         thumbnailSharpenAmount: Float = 1.0,
         showScoringBadge: Bool = false,
@@ -372,7 +365,6 @@ struct SavedSettings: Codable {
         self.thumbnailSizeGrid = thumbnailSizeGrid
         self.thumbnailSizePreview = thumbnailSizePreview
         self.thumbnailSizeFullSize = thumbnailSizeFullSize
-        self.useThumbnailAsZoomPreview = useThumbnailAsZoomPreview
         self.enableThumbnailSharpening = enableThumbnailSharpening
         self.thumbnailSharpenAmount = thumbnailSharpenAmount
         self.showScoringBadge = showScoringBadge
@@ -397,7 +389,6 @@ struct SavedSettings: Codable {
         thumbnailSizeGrid = try c.decode(Int.self, forKey: .thumbnailSizeGrid)
         thumbnailSizePreview = try c.decode(Int.self, forKey: .thumbnailSizePreview)
         thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)
-        useThumbnailAsZoomPreview = try c.decode(Bool.self, forKey: .useThumbnailAsZoomPreview)
         enableThumbnailSharpening = (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false
         thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0
         showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false

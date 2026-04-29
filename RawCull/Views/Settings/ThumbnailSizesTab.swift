@@ -56,36 +56,7 @@ struct ThumbnailSizesTab: View {
 
                         Divider()
 
-                        // Use Thumbnail as Zoom Preview Toggle
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Use Thumbnail for Zoom", systemImage: "magnifyingglass")
-                                .font(.system(size: 12, weight: .medium))
-
-                            HStack {
-                                ToggleViewDefault(
-                                    text: "",
-                                    binding: Binding<Bool>(
-                                        get: { settingsManager.useThumbnailAsZoomPreview },
-                                        set: { newValue in
-                                            settingsManager.useThumbnailAsZoomPreview = newValue
-                                            Task { await settingsManager.saveSettings() }
-                                        },
-                                    ),
-                                )
-
-                                Text("When disabled, extracts the embedded JPG from the RAW file for zoom.")
-                                    .font(.system(size: 11, weight: .regular))
-                                    .foregroundStyle(.secondary)
-
-                                Text("When enabled, uses the thumbnail as the zoom preview.")
-                                    .font(.system(size: 11, weight: .regular))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
                         // Sharpen Zoom Preview Toggle + Amount slider
-                        // Only meaningful when useThumbnailAsZoomPreview is on — the
-                        // extracted-JPG path is already at full embedded resolution.
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Sharpen Zoom Preview", systemImage: "wand.and.stars")
                                 .font(.system(size: 12, weight: .medium))
@@ -121,8 +92,6 @@ struct ThumbnailSizesTab: View {
                             )
                             .disabled(!settingsManager.enableThumbnailSharpening)
                         }
-                        .disabled(!settingsManager.useThumbnailAsZoomPreview)
-                        .opacity(settingsManager.useThumbnailAsZoomPreview ? 1.0 : 0.5)
                     }
                 }
             }

@@ -338,7 +338,6 @@ enum ConcurrencyTests {
                 thumbnailSizeGrid: 100,
                 thumbnailSizePreview: 1024,
                 thumbnailSizeFullSize: 8700,
-                useThumbnailAsZoomPreview: false,
             )
 
             // Pass across isolation domains

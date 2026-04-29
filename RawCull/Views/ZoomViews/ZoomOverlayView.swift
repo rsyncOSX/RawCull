@@ -23,7 +23,7 @@ struct ZoomOverlayView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
-    @State private var useThumbnailSource: Bool = false
+    @State private var useThumbnailSource: Bool = true
     @State private var maskTask: Task<Void, Never>?
     @FocusState private var isImageFocused: Bool
 
