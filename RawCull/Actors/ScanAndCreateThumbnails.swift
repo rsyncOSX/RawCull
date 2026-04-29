@@ -154,16 +154,11 @@ actor ScanAndCreateThumbnails {
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
-            // Intentionally NOT pre-admitting to the full-res RAM cache here.
-            // Memory Diagnostics on a 635-file catalog showed 100% of
-            // disk-fallbacks were boomerangs when this branch admitted: the
-            // freshly extracted full-res image (~44 MB) overflowed the cap,
-            // self-evicted, and was paid for again on the next demand at
-            // ~31 MB (the smaller disk-decoded size). Letting RequestThumbnail
-            // admit on demand instead lets items settle at their disk-loaded
-            // size, so a catalog that would not fit at full res still fits.
-            // Grid cache is still warmed — grid views read from it directly.
+            // Disk-decoded size matches what RequestThumbnail would admit on
+            // demand, so warming the mem cache here costs no extra eviction
+            // churn. Branch C (cold extract) still skips mem admission.
             storeInGridCache(diskImage, for: url)
+            storeInMemory(diskImage, for: url)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -189,14 +184,13 @@ actor ScanAndCreateThumbnails {
 
             let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
 
-            // Intentionally NOT pre-admitting to the full-res RAM cache here
-            // — same reasoning as branch B. The freshly extracted image is
-            // ~44 MB; on an over-cap catalog (e.g. 635 files at the 20 GB
-            // cap), admitting all of them fills RAM and self-evicts ~180
-            // items during scan, then the user pays a 100% boomerang rate
-            // on first browse. Letting RequestThumbnail admit on demand
-            // means items settle at the smaller ~31 MB disk-decoded size,
-            // so the same catalog fits without evictions.
+            // Intentionally NOT pre-admitting to the full-res RAM cache here.
+            // The freshly extracted image is ~44 MB; on an over-cap catalog
+            // (e.g. 635 files at the 20 GB cap), admitting all of them fills
+            // RAM and self-evicts ~180 items during scan, then the user pays
+            // a 100% boomerang rate on first browse. Letting RequestThumbnail
+            // admit on demand means items settle at the smaller ~31 MB
+            // disk-decoded size, so the same catalog fits without evictions.
             // Disk JPEG is still saved below so RequestThumbnail's branch B
             // can serve UI requests without cold extraction.
             storeInGridCache(image, for: url)
