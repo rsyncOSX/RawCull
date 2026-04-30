@@ -99,10 +99,11 @@ struct ZoomOverlayView: View {
         .focusable()
         .focused($isImageFocused)
         .focusEffectDisabled(true)
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJ")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
             case "-": decreaseZoom(); return .handled
+            case "j", "J": useThumbnailSource.toggle(); return .handled
             default: return .ignored
             }
         }
