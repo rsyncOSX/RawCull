@@ -55,6 +55,14 @@ final class MemoryDiagnosticsViewModel {
         let liveLimitMB: Int
         let pressureWarns: Int
         let pressureCrits: Int
+        // Per-cache eviction breakdown. The `evictions` column above is the
+        // sum of these three. Split out to identify whether a non-zero
+        // eviction count under headroom is coming from `memoryCache`,
+        // `gridThumbnailCache`, or an unrecognized cache (silent-fallthrough
+        // signal — should always be 0 if the delegate's `===` checks match).
+        let memEvictions: Int
+        let gridEvictions: Int
+        let unkEvictions: Int
     }
 
     private(set) var entries: [Entry] = []
@@ -115,6 +123,9 @@ final class MemoryDiagnosticsViewModel {
         let liveLimit = SharedMemoryCache.shared.getLiveTotalCostLimit()
         let warns = SharedMemoryCache.shared.getPressureWarningCount()
         let crits = SharedMemoryCache.shared.getPressureCriticalCount()
+        let memEvicts = CacheDelegate.shared.getMemEvictionCount()
+        let gridEvicts = CacheDelegate.shared.getGridEvictionCount()
+        let unkEvicts = CacheDelegate.shared.getUnknownEvictionCount()
 
         let settings = SettingsViewModel.shared
         // let projected = settings.projectedRawCullMemoryBytes()
@@ -149,6 +160,9 @@ final class MemoryDiagnosticsViewModel {
             liveLimitMB: liveLimit / (1024 * 1024),
             pressureWarns: warns,
             pressureCrits: crits,
+            memEvictions: memEvicts,
+            gridEvictions: gridEvicts,
+            unkEvictions: unkEvicts,
         )
         entries.append(entry)
     }
@@ -203,7 +217,10 @@ final class MemoryDiagnosticsViewModel {
         "cold_rate_pct",
         "live_limit_MB",
         "pressure_warns",
-        "pressure_crits"
+        "pressure_crits",
+        "mem_evictions",
+        "grid_evictions",
+        "unk_evictions"
     ].joined(separator: "\t")
 }
 
@@ -245,6 +262,9 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(liveLimitMB))
         fields.append(String(pressureWarns))
         fields.append(String(pressureCrits))
+        fields.append(String(memEvictions))
+        fields.append(String(gridEvictions))
+        fields.append(String(unkEvictions))
         return fields.joined(separator: "\t")
     }
 }

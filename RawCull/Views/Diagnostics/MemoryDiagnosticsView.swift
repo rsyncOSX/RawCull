@@ -102,7 +102,7 @@ struct MemoryDiagnosticsView: View {
             "press=\(e.pressure)",
             "hits=\(e.cacheHits)",
             "miss=\(e.cacheMisses)",
-            "evict=\(e.evictions)",
+            "evict=\(e.evictions)(m=\(e.memEvictions)/g=\(e.gridEvictions)/u=\(e.unkEvictions))",
             "hit%=\(hitRate)",
             "demand=\(e.demandTotal)",
             "cold=\(e.coldExtracts)",
