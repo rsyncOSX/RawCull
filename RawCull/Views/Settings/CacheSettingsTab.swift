@@ -19,6 +19,8 @@ struct CacheSettingsTab: View {
     @State private var currentDiskCacheSize: Int = 0
     @State private var currentGridCacheSize: Int = 0
     @State private var currentGridCacheCount: Int = 0
+    @State private var currentMemCacheSize: Int = 0
+    @State private var currentMemCacheCount: Int = 0
     @State private var isLoadingDiskCacheSize = false
     @State private var isPruningDiskCache = false
 
@@ -244,6 +246,8 @@ struct CacheSettingsTab: View {
                 await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
                 await SharedMemoryCache.shared.refreshConfig()
                 cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
+                currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
+                currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
                 // await updateImageCapacity()
             }
             .task(id: settingsManager.gridCacheSizeMB) {
@@ -265,6 +269,8 @@ struct CacheSettingsTab: View {
                 for await _ in timerStream {
                     currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
                     currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
+                    currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
+                    currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
                 }
             }
             .task {
@@ -290,10 +296,14 @@ struct CacheSettingsTab: View {
             let diskSize = await SharedMemoryCache.shared.getDiskCacheSize()
             let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
             let gridCount = SharedMemoryCache.shared.getGridCacheCount()
+            let memSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
+            let memCount = SharedMemoryCache.shared.getMemoryCacheCount()
             await MainActor.run {
                 currentDiskCacheSize = diskSize
                 currentGridCacheSize = gridSize
                 currentGridCacheCount = gridCount
+                currentMemCacheSize = memSize
+                currentMemCacheCount = memCount
                 isLoadingDiskCacheSize = false
             }
         }
@@ -333,9 +343,15 @@ struct CacheSettingsTab: View {
 
     private func estimatedMemCacheImages(for numFiles: Int) -> Int {
         let bytes = settingsManager.memoryCacheSizeMB * 1024 * 1024
-        let costPerImage = settingsManager.thumbnailSizePreview
-            * settingsManager.thumbnailSizePreview
-            * SharedMemoryCache.shared.costPerPixel
+        let costPerImage: Int
+        if currentMemCacheCount > 0, currentMemCacheSize > 0 {
+            let avg = currentMemCacheSize / currentMemCacheCount
+            costPerImage = avg > 0 ? avg : 1
+        } else {
+            costPerImage = settingsManager.thumbnailSizePreview
+                * settingsManager.thumbnailSizePreview
+                * SharedMemoryCache.shared.costPerPixel
+        }
         guard costPerImage > 0 else { return 0 }
         return min(numFiles, bytes / costPerImage)
     }
@@ -362,28 +378,17 @@ struct CacheSettingsTab: View {
     }
 
     private func displayValue(for megabytes: Int) -> String {
-        // Convert MB to bytes
         let bytes = megabytes * 1024 * 1024
 
-        // Calculate actual image capacity based on bytes and cost per image
-        // Cost per image = thumbnail_size × thumbnail_size × costPerPixel
-        // Use the preview size setting (user-configurable)
+        if currentMemCacheCount > 0, currentMemCacheSize > 0 {
+            let avgNSCacheCost = max(1, currentMemCacheSize / currentMemCacheCount)
+            return String(max(1, bytes / avgNSCacheCost))
+        }
+
         let thumbnailSize = settingsManager.thumbnailSizePreview
         let costPerPixel = SharedMemoryCache.shared.costPerPixel
         let costPerImage = thumbnailSize * thumbnailSize * costPerPixel
-
-        if costPerImage > 0 {
-            let calculatedCapacity = bytes / costPerImage
-            let imageCapacity = max(1, Int(calculatedCapacity))
-            Logger.process.debugMessageOnly(
-                "Image capacity: ~\(imageCapacity) images, " +
-                    "\(settingsManager.memoryCacheSizeMB) MB, " +
-                    "\(thumbnailSize)×\(thumbnailSize) size, " +
-                    "\(costPerImage) bytes/image",
-            )
-            return String(imageCapacity)
-        }
-
-        return "0"
+        guard costPerImage > 0 else { return "0" }
+        return String(max(1, bytes / costPerImage))
     }
 }
