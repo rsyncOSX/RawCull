@@ -10,6 +10,8 @@ import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
 enum ZoomPreviewHandler {
+    private static let fullSizeCache = FullSizeJPGDiskCache()
+
     @discardableResult
     static func handleOverlay(
         file: FileItem,
@@ -71,6 +73,16 @@ enum ZoomPreviewHandler {
 
                     guard !Task.isCancelled else { return }
 
+                    if let cached = await fullSizeCache.load(for: file.url) {
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            viewModel.zoomOverlayCGImage = cached
+                        }
+                        return
+                    }
+
+                    guard !Task.isCancelled else { return }
+
                     if let format = RawFormatRegistry.format(for: file.url) {
                         let extracted = await format.extractFullJPEG(from: file.url, fullSize: false)
 
@@ -79,6 +91,9 @@ enum ZoomPreviewHandler {
                         if let extracted {
                             await MainActor.run {
                                 viewModel.zoomOverlayCGImage = extracted
+                            }
+                            if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
+                                await fullSizeCache.save(jpegData, for: file.url)
                             }
                         }
                     }
