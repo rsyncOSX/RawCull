@@ -21,7 +21,7 @@ Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6
 
 ## Latest release
 
-v1.6.9 — April 30, 2026 — in active development
+v1.7.0 — May 6, 2026 — in active development
 
 ## Sony ARW compatibility
 
