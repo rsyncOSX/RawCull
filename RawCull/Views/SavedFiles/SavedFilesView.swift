@@ -53,12 +53,9 @@ struct SavedFilesView: View {
         .frame(minWidth: 820, minHeight: 500)
         .alert("Reset Saved Files", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
-                viewModel.cullingModel.savedFiles.removeAll()
+                viewModel.cullingModel.resetAllSavedFiles()
                 selectedCatalog = nil
                 selectedRecord = nil
-                Task {
-                    await WriteSavedFilesJSON.write(viewModel.cullingModel.savedFiles)
-                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {

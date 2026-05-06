@@ -10,6 +10,8 @@ import Foundation
 import OSLog
 
 actor WriteSavedFilesJSON {
+    private static let shared = WriteSavedFilesJSON()
+
     private let fileName = "savedfiles.json"
     private var savePath: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -19,7 +21,7 @@ actor WriteSavedFilesJSON {
     /// Write saved files to persistent storage.
     static func write(_ savedFiles: [SavedFiles]?) async {
         guard let savedFiles else { return }
-        await WriteSavedFilesJSON().performWrite(savedFiles)
+        await shared.performWrite(savedFiles)
     }
 
     private init() {}

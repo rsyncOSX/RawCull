@@ -15,55 +15,26 @@ extension RawCullViewModel {
         // an empty dict means the run was cancelled, so skip the write.
         if !sharpnessModel.scores.isEmpty {
             persistScoringResultsInMemory()
-            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
         }
         await handleSortOrderChange()
     }
 
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
-    /// without writing to disk. Caller is responsible for the WriteSavedFilesJSON call.
+    /// and lets the culling store coalesce persistence with other culling changes.
     func persistScoringResultsInMemory() {
         guard let catalog = selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo
-        let date = Date().en_string_from_date()
 
-        // Ensure a catalog entry exists
-        if cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) == nil {
-            guard let firstFile = files.first(where: { scores[$0.id] != nil }) else { return }
-            cullingModel.savedFiles.append(SavedFiles(
-                catalog: catalog,
-                dateStart: date,
-                filerecord: FileRecord(
-                    fileName: firstFile.name,
-                    dateTagged: nil,
-                    dateCopied: nil,
-                    rating: nil,
-                    sharpnessScore: scores[firstFile.id],
-                    saliencySubject: saliency[firstFile.id]?.subjectLabel,
-                ),
-            ))
+        let results = files.compactMap { file -> CullingScoringResult? in
+            guard let score = scores[file.id] else { return nil }
+            return CullingScoringResult(
+                fileName: file.name,
+                score: score,
+                saliencySubject: saliency[file.id]?.subjectLabel,
+            )
         }
-
-        guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
-
-        for file in files {
-            guard let score = scores[file.id] else { continue }
-            let subjectLabel = saliency[file.id]?.subjectLabel
-            if let recordIndex = cullingModel.savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-                cullingModel.savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessScore = score
-                cullingModel.savedFiles[catalogIndex].filerecords?[recordIndex].saliencySubject = subjectLabel
-            } else {
-                var newRecord = FileRecord(fileName: file.name, dateTagged: nil, dateCopied: nil, rating: nil)
-                newRecord.sharpnessScore = score
-                newRecord.saliencySubject = subjectLabel
-                if cullingModel.savedFiles[catalogIndex].filerecords == nil {
-                    cullingModel.savedFiles[catalogIndex].filerecords = [newRecord]
-                } else {
-                    cullingModel.savedFiles[catalogIndex].filerecords?.append(newRecord)
-                }
-            }
-        }
+        cullingModel.mergeScoringResults(results, in: catalog)
     }
 
     func loadPersistedScoringandSaliency() {

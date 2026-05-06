@@ -7,7 +7,7 @@ import Foundation
 
 extension RawCullViewModel {
     /// Rebuilds the O(1) rating and tagged-names caches from the current catalog entry.
-    /// Must be called after any mutation of cullingModel.savedFiles.
+    /// Must be called after any culling store mutation that affects ratings.
     func rebuildRatingCache() {
         guard let catalog = selectedSource?.url,
               let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }),
@@ -57,123 +57,27 @@ extension RawCullViewModel {
     }
 
     func updateRating(for file: FileItem, rating: Int) {
-        Task {
-            guard let selectedSource else { return }
-            let catalog = selectedSource.url
-
-            if let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) {
-                if let recordIndex = cullingModel.savedFiles[index].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-                    // Update existing record
-                    cullingModel.savedFiles[index].filerecords?[recordIndex].rating = rating
-                } else {
-                    // Create a new record — file has not been tagged yet
-                    let newRecord = FileRecord(
-                        fileName: file.name,
-                        dateTagged: Date().en_string_from_date(),
-                        dateCopied: nil,
-                        rating: rating,
-                    )
-                    if cullingModel.savedFiles[index].filerecords == nil {
-                        cullingModel.savedFiles[index].filerecords = [newRecord]
-                    } else {
-                        cullingModel.savedFiles[index].filerecords?.append(newRecord)
-                    }
-                }
-            } else {
-                // No catalog entry yet — create one
-                let newRecord = FileRecord(
-                    fileName: file.name,
-                    dateTagged: Date().en_string_from_date(),
-                    dateCopied: nil,
-                    rating: rating,
-                )
-                cullingModel.savedFiles.append(SavedFiles(
-                    catalog: catalog,
-                    dateStart: Date().en_string_from_date(),
-                    filerecord: newRecord,
-                ))
-            }
-            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
-            rebuildRatingCache()
-        }
+        guard let selectedSource else { return }
+        cullingModel.updateRating(fileName: file.name, rating: rating, in: selectedSource.url)
+        rebuildRatingCache()
     }
 
     func updateRating(for files: [FileItem], rating: Int) {
-        Task {
-            guard let selectedSource else { return }
-            let catalog = selectedSource.url
-            let date = Date().en_string_from_date()
-
-            if cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) == nil {
-                guard let first = files.first else { return }
-                cullingModel.savedFiles.append(SavedFiles(
-                    catalog: catalog,
-                    dateStart: date,
-                    filerecord: FileRecord(fileName: first.name, dateTagged: date, dateCopied: nil, rating: rating),
-                ))
-            }
-
-            guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
-
-            for file in files {
-                if let recordIndex = cullingModel.savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-                    cullingModel.savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
-                } else {
-                    let newRecord = FileRecord(fileName: file.name, dateTagged: date, dateCopied: nil, rating: rating)
-                    if cullingModel.savedFiles[catalogIndex].filerecords == nil {
-                        cullingModel.savedFiles[catalogIndex].filerecords = [newRecord]
-                    } else {
-                        cullingModel.savedFiles[catalogIndex].filerecords?.append(newRecord)
-                    }
-                }
-            }
-            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
-            rebuildRatingCache()
-        }
+        guard let selectedSource else { return }
+        cullingModel.updateRatings(fileNames: files.map(\.name), rating: rating, in: selectedSource.url)
+        rebuildRatingCache()
     }
 
     func applySharpnessThreshold(_ thresholdPercent: Int) {
         let maxScore = sharpnessModel.maxScore
         guard maxScore > 0, let selectedSource else { return }
-        let catalog = selectedSource.url
-        let date = Date().en_string_from_date()
-
-        // Ensure a catalog entry exists — created from the first scored file if needed
-        if cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) == nil {
-            guard let firstFile = filteredFiles.first(where: { sharpnessModel.scores[$0.id] != nil }),
-                  let firstScore = sharpnessModel.scores[firstFile.id]
-            else { return }
-            let normalised = Int((firstScore / maxScore) * 100)
-            cullingModel.savedFiles.append(SavedFiles(
-                catalog: catalog,
-                dateStart: date,
-                filerecord: FileRecord(fileName: firstFile.name, dateTagged: date, dateCopied: nil, rating: normalised >= thresholdPercent ? 0 : -1),
-            ))
-        }
-
-        guard let catalogIndex = cullingModel.savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
-
-        // Mutate all records in-memory, then write once
-        for file in filteredFiles {
-            guard let score = sharpnessModel.scores[file.id] else { continue }
+        let ratingsByFileName = filteredFiles.reduce(into: [String: Int]()) { ratings, file in
+            guard let score = sharpnessModel.scores[file.id] else { return }
             let normalised = Int((score / maxScore) * 100)
-            let rating = normalised >= thresholdPercent ? 0 : -1
-
-            if let recordIndex = cullingModel.savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == file.name }) {
-                cullingModel.savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
-            } else {
-                let newRecord = FileRecord(fileName: file.name, dateTagged: date, dateCopied: nil, rating: rating)
-                if cullingModel.savedFiles[catalogIndex].filerecords == nil {
-                    cullingModel.savedFiles[catalogIndex].filerecords = [newRecord]
-                } else {
-                    cullingModel.savedFiles[catalogIndex].filerecords?.append(newRecord)
-                }
-            }
+            ratings[file.name] = normalised >= thresholdPercent ? 0 : -1
         }
 
-        Task {
-            await WriteSavedFilesJSON.write(cullingModel.savedFiles)
-        }
+        cullingModel.applyRatings(ratingsByFileName, in: selectedSource.url)
         rebuildRatingCache()
     }
 }
