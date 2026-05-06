@@ -23,6 +23,7 @@ actor SharedMemoryCache {
     /// 1. Isolated State
     /// Removed private memory cache - now using SharedMemoryCache.shared
     private let diskCache: DiskCacheManager
+    private let fullSizeJPGCache: FullSizeJPGDiskCache
     // Cache statistics for monitoring (Actor specific, not shared)
     private var cacheMemory = 0
     private var cacheDisk = 0
@@ -133,8 +134,15 @@ actor SharedMemoryCache {
 
     init(diskCache: DiskCacheManager? = nil) {
         self.diskCache = diskCache ?? DiskCacheManager()
+        fullSizeJPGCache = FullSizeJPGDiskCache()
         // Logger.process.debugMessageOnly("SharedMemoryCache: init() complete")
     }
+
+    /// Exposed so `ZoomPreviewHandler` can reuse the singleton actor for
+    /// `load`/`save` without creating its own instance — keeps a single
+    /// owner of the cache directory and lets the Cache settings tab call
+    /// into the same actor for size/prune.
+    nonisolated var fullSizeJPGDiskCache: FullSizeJPGDiskCache { fullSizeJPGCache }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
@@ -485,6 +493,14 @@ actor SharedMemoryCache {
         await diskCache.pruneCache(maxAgeInDays: maxAgeInDays)
     }
 
+    func getFullSizeJPGCacheSize() async -> Int {
+        await fullSizeJPGCache.getDiskCacheSize()
+    }
+
+    func pruneFullSizeJPGCache(maxAgeInDays: Int = 30) async {
+        await fullSizeJPGCache.pruneCache(maxAgeInDays: maxAgeInDays)
+    }
+
     func clearCaches() async {
         // let hitRate = cacheMemory + cacheDisk > 0 ? Double(cacheMemory) / Double(cacheMemory + cacheDisk) * 100 : 0
         // let hitRateStr = String(format: "%.1f", hitRate)
@@ -494,6 +510,7 @@ actor SharedMemoryCache {
         SharedMemoryCache.shared.removeAllGridObjects()
 
         await diskCache.pruneCache(maxAgeInDays: 0)
+        await fullSizeJPGCache.pruneCache(maxAgeInDays: 0)
 
         // Reset statistics
         cacheMemory = 0

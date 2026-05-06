@@ -10,7 +10,9 @@ import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
 enum ZoomPreviewHandler {
-    private static let fullSizeCache = FullSizeJPGDiskCache()
+    private static var fullSizeCache: FullSizeJPGDiskCache {
+        SharedMemoryCache.shared.fullSizeJPGDiskCache
+    }
 
     @discardableResult
     static func handleOverlay(

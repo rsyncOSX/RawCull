@@ -15,14 +15,17 @@ struct CacheSettingsTab: View {
 
     @State private var showResetConfirmation = false
     @State private var showPruneConfirmation = false
+    @State private var showPruneJPGConfirmation = false
     @State private var showSaveSettingsConfirmation = false
     @State private var currentDiskCacheSize: Int = 0
+    @State private var currentFullSizeJPGCacheSize: Int = 0
     @State private var currentGridCacheSize: Int = 0
     @State private var currentGridCacheCount: Int = 0
     @State private var currentMemCacheSize: Int = 0
     @State private var currentMemCacheCount: Int = 0
     @State private var isLoadingDiskCacheSize = false
     @State private var isPruningDiskCache = false
+    @State private var isPruningJPGCache = false
 
     @State private var cacheConfig: CacheConfig?
     @State private var numRawFilesSlider: Double = 2500
@@ -179,6 +182,19 @@ struct CacheSettingsTab: View {
 
                                     HStack(spacing: 8) {
                                         HStack(spacing: 4) {
+                                            Image(systemName: "internaldrive")
+                                                .font(.system(size: 12, weight: .medium))
+                                            Text("Full-size JPG cache: ")
+                                                .font(.system(size: 12, weight: .medium))
+                                            Text(formatBytes(currentFullSizeJPGCacheSize))
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        }
+
+                                        Spacer()
+                                    }
+
+                                    HStack(spacing: 8) {
+                                        HStack(spacing: 4) {
                                             Image(systemName: "memorychip")
                                                 .font(.system(size: 12, weight: .medium))
                                             Text("Grid cache (200px): ")
@@ -233,6 +249,29 @@ struct CacheSettingsTab: View {
                         },
                         message: {
                             Text("Are you sure you want to prune the disk cache?")
+                        },
+                    )
+
+                    // Prune Full-size JPG Cache Button
+                    Button(
+                        action: { showPruneJPGConfirmation = true },
+                        label: {
+                            Label("Prune JPG Cache", systemImage: "trash")
+                                .font(.system(size: 12, weight: .medium))
+                        },
+                    )
+                    .buttonStyle(RefinedGlassButtonStyle())
+                    .confirmationDialog(
+                        "Prune JPG Cache",
+                        isPresented: $showPruneJPGConfirmation,
+                        actions: {
+                            Button("Prune", role: .destructive) {
+                                pruneJPGCache()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        },
+                        message: {
+                            Text("Are you sure you want to prune the full-size JPG cache?")
                         },
                     )
                 }
@@ -294,12 +333,14 @@ struct CacheSettingsTab: View {
         isLoadingDiskCacheSize = true
         Task {
             let diskSize = await SharedMemoryCache.shared.getDiskCacheSize()
+            let jpgSize = await SharedMemoryCache.shared.getFullSizeJPGCacheSize()
             let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
             let gridCount = SharedMemoryCache.shared.getGridCacheCount()
             let memSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
             let memCount = SharedMemoryCache.shared.getMemoryCacheCount()
             await MainActor.run {
                 currentDiskCacheSize = diskSize
+                currentFullSizeJPGCacheSize = jpgSize
                 currentGridCacheSize = gridSize
                 currentGridCacheCount = gridCount
                 currentMemCacheSize = memSize
@@ -318,6 +359,18 @@ struct CacheSettingsTab: View {
             await MainActor.run {
                 currentDiskCacheSize = size
                 isPruningDiskCache = false
+            }
+        }
+    }
+
+    private func pruneJPGCache() {
+        isPruningJPGCache = true
+        Task {
+            await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
+            let size = await SharedMemoryCache.shared.getFullSizeJPGCacheSize()
+            await MainActor.run {
+                currentFullSizeJPGCacheSize = size
+                isPruningJPGCache = false
             }
         }
     }
