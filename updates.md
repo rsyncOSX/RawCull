@@ -16,7 +16,7 @@ The `.task(id: selectedSource)` starts an unstructured nested `Task`, so SwiftUI
 
 **Recommendation:** Store a single catalog-load task on the view model, cancel it before each new load, and check that the URL still matches before committing results.
 
-### Finding 2: Rating writes are fire-and-forget and can persist out of order
+### Finding 2: Rating writes are fire-and-forget and can persist out of order (DONE)
 
 **File:** `RawCull/Model/ViewModels/RawCullViewModel+Culling.swift`  
 **Lines:** 59-132  
@@ -36,7 +36,7 @@ Rapid keyboard culling creates independent `Task` writes. Because each task muta
 
 **Recommendation:** Track and await a shared scoring task, or disable analysis actions while calibration/scoring is active.
 
-### Finding 4: Grid and similarity grid duplicate most of their rendering/culling logic
+### Finding 4: Grid and similarity grid duplicate most of their rendering/culling logic  (DONE)
 
 **File:** `RawCull/Views/GridView/GridThumbnailSelectionView.swift`  
 **Lines:** 18-420  
