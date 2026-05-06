@@ -6,7 +6,7 @@ Short version: the app already has a strong core for culling, thumbnailing, shar
 
 ## Review Findings
 
-### Finding 1: Source changes can leave old scan/preload work racing the new catalog
+### Finding 1: Source changes can leave old scan/preload work racing the new catalog (DONE)
 
 **File:** `RawCull/Views/RawCullSidebarMainView/RawCullMainView.swift`  
 **Lines:** 166-175  

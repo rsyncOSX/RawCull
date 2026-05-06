@@ -164,15 +164,7 @@ struct RawCullMainView: View {
             handlePickerResult(result)
         }
         .task(id: viewModel.selectedSource) {
-            guard viewModel.currentselectedSource != viewModel.selectedSource else { return }
-            viewModel.currentselectedSource = viewModel.selectedSource
-
-            Task(priority: .background) {
-                if let url = viewModel.selectedSource?.url {
-                    viewModel.scanning.toggle()
-                    await viewModel.handleSourceChange(url: url)
-                }
-            }
+            viewModel.startCatalogLoad(for: viewModel.selectedSource)
         }
         .onChange(of: viewModel.sortOrder) { _, _ in
             Task(priority: .background) {

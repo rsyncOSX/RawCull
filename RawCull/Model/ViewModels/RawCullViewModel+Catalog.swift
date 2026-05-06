@@ -6,7 +6,45 @@
 import OSLog
 
 extension RawCullViewModel {
+    func startCatalogLoad(for source: ARWSourceCatalog?) {
+        guard currentselectedSource != source else { return }
+        currentselectedSource = source
+
+        cancelCatalogLoad()
+
+        guard let url = source?.url else {
+            activeCatalogLoadURL = nil
+            return
+        }
+
+        activeCatalogLoadURL = url
+        catalogLoadTask = Task(priority: .background) {
+            await self.handleSourceChange(url: url)
+        }
+    }
+
+    func cancelCatalogLoad() {
+        catalogLoadTask?.cancel()
+        catalogLoadTask = nil
+        activeCatalogLoadURL = nil
+
+        preloadTask?.cancel()
+        preloadTask = nil
+
+        if let actor = currentScanAndCreateThumbnailsActor {
+            Task { await actor.cancelPreload() }
+        }
+        currentScanAndCreateThumbnailsActor = nil
+
+        sharpnessModel.reset()
+        similarityModel.reset()
+
+        creatingthumbnails = false
+        scanning = false
+    }
+
     func handleSourceChange(url: URL) async {
+        guard isActiveCatalogLoad(url) else { return }
         scanning = true
 
         // Discard sharpness data and filters from the previous catalog
@@ -15,14 +53,20 @@ extension RawCullViewModel {
         ratingFilter = .all
 
         let scan = ScanFiles()
+        let onProgress = countingScannedFiles
 
-        files = await scan.scanFiles(
+        let scannedFiles = await scan.scanFiles(
             url: url,
-            onProgress: countingScannedFiles,
+            onProgress: { [weak self] count in
+                guard let self, self.isActiveCatalogLoad(url) else { return }
+                onProgress?(count)
+            },
         )
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
         // Map raw decoded data → FocusPointsModel here on @MainActor
         if let raw = await scan.decodedFocusPoints {
+            guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
             focusPoints = raw.map {
                 FocusPointsModel(sourceFile: $0.sourceFile, focusLocations: [$0.focusLocation])
             }
@@ -30,21 +74,30 @@ extension RawCullViewModel {
             focusPoints = nil
         }
 
-        Logger.process.debugMessageOnly("Finished scanning! Total files: \(files.count)")
+        Logger.process.debugMessageOnly("Finished scanning! Total files: \(scannedFiles.count)")
 
-        filteredFiles = await applyFilters(to: ScanFiles.sortFiles(
-            files,
+        let sortedFiles = await ScanFiles.sortFiles(
+            scannedFiles,
             by: sortOrder,
             searchText: searchText,
-        ))
+        )
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+
+        files = scannedFiles
+        filteredFiles = applyFilters(to: sortedFiles)
 
         guard !files.isEmpty else {
             scanning = false
+            if activeCatalogLoadURL == url {
+                catalogLoadTask = nil
+                activeCatalogLoadURL = nil
+            }
             return
         }
 
         scanning = false
         cullingModel.loadSavedFiles()
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
         sharpnessModel.applyPreloadedScores(
@@ -54,20 +107,35 @@ extension RawCullViewModel {
         )
 
         if !processedURLs.contains(url) {
-            processedURLs.insert(url)
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             let thumbnailSizePreview = settingsmanager.thumbnailSizePreview
 
             let handlers = CreateFileHandlers().createFileHandlers(
-                fileHandler: fileHandler,
-                maxfilesHandler: maxfilesHandler,
-                estimatedTimeHandler: estimatedTimeHandler,
-                memorypressurewarning: memorypressurewarning,
-                onExtractionNeeded: extractionNeeded,
+                fileHandler: { [weak self] update in
+                    guard let self, self.isActiveCatalogLoad(url) else { return }
+                    self.fileHandler(update)
+                },
+                maxfilesHandler: { [weak self] maxfiles in
+                    guard let self, self.isActiveCatalogLoad(url) else { return }
+                    self.maxfilesHandler(maxfiles)
+                },
+                estimatedTimeHandler: { [weak self] seconds in
+                    guard let self, self.isActiveCatalogLoad(url) else { return }
+                    self.estimatedTimeHandler(seconds)
+                },
+                memorypressurewarning: { [weak self] warning in
+                    guard let self, self.isActiveCatalogLoad(url) else { return }
+                    self.memorypressurewarning(warning)
+                },
+                onExtractionNeeded: { [weak self] in
+                    guard let self, self.isActiveCatalogLoad(url) else { return }
+                    self.extractionNeeded()
+                },
             )
 
             let scanAndCreateThumbnails = ScanAndCreateThumbnails()
             await scanAndCreateThumbnails.setFileHandlers(handlers)
+            guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
             currentScanAndCreateThumbnailsActor = scanAndCreateThumbnails
 
             preloadTask = Task {
@@ -78,8 +146,15 @@ extension RawCullViewModel {
             }
 
             await preloadTask?.value
+            guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+            processedURLs.insert(url)
             creatingthumbnails = false
             currentScanAndCreateThumbnailsActor = nil
+        }
+
+        if activeCatalogLoadURL == url {
+            catalogLoadTask = nil
+            activeCatalogLoadURL = nil
         }
     }
 
@@ -100,6 +175,10 @@ extension RawCullViewModel {
     }
 
     // MARK: - Helpers
+
+    func isActiveCatalogLoad(_ url: URL) -> Bool {
+        activeCatalogLoadURL == url && selectedSource?.url == url
+    }
 
     /// Applies the active rating filter, aperture filter, and sharpness sort to a pre-sorted
     /// file list. When similarity mode is active, similarity sort runs last and takes precedence

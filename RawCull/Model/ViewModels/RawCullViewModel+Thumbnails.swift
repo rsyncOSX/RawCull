@@ -48,12 +48,7 @@ extension RawCullViewModel {
     func abort() {
         Logger.process.debugMessageOnly("Abort scanning")
 
-        preloadTask?.cancel()
-        preloadTask = nil
-        if let actor = currentScanAndCreateThumbnailsActor {
-            Task { await actor.cancelPreload() }
-        }
-        currentScanAndCreateThumbnailsActor = nil
+        cancelCatalogLoad()
 
         if let actor = currentExtractAndSaveJPGsActor {
             Task { await actor.cancelExtractJPGSTask() }

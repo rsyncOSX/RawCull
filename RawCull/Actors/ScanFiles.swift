@@ -63,15 +63,20 @@ actor ScanFiles {
             // Single-pass: extract EXIF and Sony MakerNote focus point in the same task per file,
             // eliminating the second file-open pass that extractNativeFocusPoints() previously required.
             let pairs: [(FileItem, DecodeFocusPoints?)] = await withTaskGroup(
-                of: (FileItem, DecodeFocusPoints?).self,
+                of: (FileItem, DecodeFocusPoints?)?.self,
             ) { group in
                 for fileURL in contents {
+                    if Task.isCancelled {
+                        group.cancelAll()
+                        break
+                    }
                     guard let format = RawFormatRegistry.format(for: fileURL) else { continue }
                     discoveredCount += 1
                     let progress = onProgress
                     let count = discoveredCount
                     Task { @MainActor in progress?(count) }
                     group.addTask {
+                        guard !Task.isCancelled else { return nil }
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
                         let exifData = self.extractExifData(from: fileURL, format: format)
                         let focusStr = format.focusLocation(from: fileURL)
@@ -91,10 +96,18 @@ actor ScanFiles {
                 }
                 var collected: [(FileItem, DecodeFocusPoints?)] = []
                 for await pair in group {
-                    collected.append(pair)
+                    guard !Task.isCancelled else {
+                        group.cancelAll()
+                        break
+                    }
+                    if let pair {
+                        collected.append(pair)
+                    }
                 }
                 return collected
             }
+
+            guard !Task.isCancelled else { return [] }
 
             let result = pairs.map(\.0)
             let nativePoints = pairs.compactMap(\.1)
