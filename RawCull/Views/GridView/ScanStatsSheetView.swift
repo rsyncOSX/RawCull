@@ -28,108 +28,141 @@ struct ScanStatsSheetView: View {
 
             Divider()
 
-            Form {
-                // MARK: Catalog
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    cullingStatusSection
 
-                Section("Catalog") {
-                    if let catalog = viewModel.selectedSource {
-                        LabeledContent("Name", value: catalog.name)
-                    }
-                    LabeledContent("Files scanned", value: "\(viewModel.files.count) RAW")
-                    LabeledContent("Total size", value: totalSize)
-                    if let range = dateRange {
-                        LabeledContent("Date range", value: range)
-                    }
-                    if let cameras = uniqueCameras {
-                        LabeledContent("Camera", value: cameras)
-                    }
-                    if let lenses = uniqueLenses {
-                        LabeledContent("Lens", value: lenses)
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        catalogSummarySection
+                        Divider()
+                        sharpnessSummarySection
                     }
                 }
+                .padding(20)
+            }
+        }
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
+    }
 
-                // MARK: Culling
+    // MARK: Primary summary
 
-                Section("Culling Status") {
-                    let s = cullingStats
-                    let total = s.total
+    private var cullingStatusSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Culling Status")
+                .font(.headline)
 
-                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 5) {
-                        // Header
-                        GridRow {
-                            Text("Status")
-                                .gridColumnAlignment(.leading)
-                            Text("Count")
-                                .gridColumnAlignment(.trailing)
-                            Text("%")
-                                .gridColumnAlignment(.trailing)
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            let s = cullingStats
+            let total = s.total
 
-                        Divider().gridCellUnsizedAxes(.horizontal)
-
-                        statRow("✕  Rejected", color: .red, count: s.rejected, total: total)
-                        statRow("P  Kept", color: .accentColor, count: s.kept, total: total)
-                        statRow("★2", color: .yellow, count: s.r2, total: total)
-                        statRow("★3", color: .green, count: s.r3, total: total)
-                        statRow("★4", color: .blue, count: s.r4, total: total)
-                        statRow("★5", color: .purple, count: s.r5, total: total)
-                        statRow("—  Unrated", color: .secondary, count: s.unrated, total: total)
-
-                        Divider().gridCellUnsizedAxes(.horizontal)
-
-                        GridRow {
-                            Text("Total")
-                                .fontWeight(.semibold)
-                                .gridColumnAlignment(.leading)
-                            Text("\(total)")
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
-                                .gridColumnAlignment(.trailing)
-                            Text("100%")
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
-                                .gridColumnAlignment(.trailing)
-                                .opacity(total > 0 ? 1 : 0)
-                        }
-                    }
-                    .font(.callout.monospacedDigit())
-                    .padding(.vertical, 4)
-
-                    // Picked-but-unrated nudge
-                    let allPicked = s.kept + s.r2 + s.r3 + s.r4 + s.r5
-                    if allPicked > 0 {
-                        let needRating = s.kept
-                        Text(needRating == 0
-                            ? "All \(allPicked) picked images have a star rating"
-                            : "\(needRating) of \(allPicked) picked images still need a star rating")
-                            .font(.caption)
-                            .foregroundStyle(needRating == 0 ? Color.secondary : Color.orange)
-                    }
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 7) {
+                GridRow {
+                    Text("Status")
+                        .gridColumnAlignment(.leading)
+                    Text("Count")
+                        .gridColumnAlignment(.trailing)
+                    Text("%")
+                        .gridColumnAlignment(.trailing)
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-                // MARK: Sharpness
+                Divider().gridCellUnsizedAxes(.horizontal)
 
-                if !viewModel.sharpnessModel.scores.isEmpty {
-                    Section("Sharpness Scoring") {
-                        let scores = Array(viewModel.sharpnessModel.scores.values)
-                        let scored = scores.count
-                        let total = viewModel.files.count
-                        let mean = scores.reduce(0, +) / Float(scores.count)
-                        let minScore = scores.min() ?? 0
-                        let maxScore = scores.max() ?? 0
+                statRow("✕  Rejected", color: .red, count: s.rejected, total: total)
+                statRow("P  Kept", color: .accentColor, count: s.kept, total: total)
+                statRow("★2", color: .yellow, count: s.r2, total: total)
+                statRow("★3", color: .green, count: s.r3, total: total)
+                statRow("★4", color: .blue, count: s.r4, total: total)
+                statRow("★5", color: .purple, count: s.r5, total: total)
+                statRow("—  Unrated", color: .secondary, count: s.unrated, total: total)
 
-                        LabeledContent("Scored", value: "\(scored) of \(total)")
-                        LabeledContent("Mean score", value: String(format: "%.1f", mean))
-                        LabeledContent("Range", value: String(format: "%.1f – %.1f", minScore, maxScore))
-                    }
+                Divider().gridCellUnsizedAxes(.horizontal)
+
+                GridRow {
+                    Text("Total")
+                        .fontWeight(.semibold)
+                        .gridColumnAlignment(.leading)
+                    Text("\(total)")
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .gridColumnAlignment(.trailing)
+                    Text("100%")
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .gridColumnAlignment(.trailing)
+                        .opacity(total > 0 ? 1 : 0)
                 }
             }
-            .formStyle(.grouped)
+            .font(.body.monospacedDigit())
+
+            let allPicked = s.kept + s.r2 + s.r3 + s.r4 + s.r5
+            if allPicked > 0 {
+                let needRating = s.kept
+                Text(needRating == 0
+                    ? "All \(allPicked) picked images have a star rating"
+                    : "\(needRating) of \(allPicked) picked images still need a star rating")
+                    .font(.caption)
+                    .foregroundStyle(needRating == 0 ? Color.secondary : Color.orange)
+            }
         }
-        .frame(width: 440)
-        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: Minor summaries
+
+    private var catalogSummarySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Catalog")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
+                if let catalog = viewModel.selectedSource {
+                    minorInfoRow("Name", catalog.name)
+                }
+                minorInfoRow("Files scanned", "\(viewModel.files.count) RAW")
+                minorInfoRow("Total size", totalSize)
+                if let range = dateRange {
+                    minorInfoRow("Date range", range)
+                }
+                if let cameras = uniqueCameras {
+                    minorInfoRow("Camera", cameras)
+                }
+                if let lenses = uniqueLenses {
+                    minorInfoRow("Lens", lenses)
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private var sharpnessSummarySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Sharpness Scoring")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
+                let scores = Array(viewModel.sharpnessModel.scores.values)
+                if scores.isEmpty {
+                    minorInfoRow("Status", "Not scored")
+                    minorInfoRow("Scored", "0 of \(viewModel.files.count)")
+                } else {
+                    let scored = scores.count
+                    let total = viewModel.files.count
+                    let mean = scores.reduce(0, +) / Float(scores.count)
+                    let minScore = scores.min() ?? 0
+                    let maxScore = scores.max() ?? 0
+
+                    minorInfoRow("Scored", "\(scored) of \(total)")
+                    minorInfoRow("Mean score", String(format: "%.1f", mean))
+                    minorInfoRow("Range", String(format: "%.1f – %.1f", minScore, maxScore))
+                }
+            }
+            .font(.caption)
+        }
     }
 
     // MARK: Grid row builder
@@ -146,6 +179,18 @@ struct ScanStatsSheetView: View {
                 .monospacedDigit()
                 .foregroundStyle(count == 0 ? Color.secondary.opacity(0.5) : Color.secondary)
                 .gridColumnAlignment(.trailing)
+        }
+    }
+
+    private func minorInfoRow(_ label: String, _ value: String) -> some View {
+        GridRow {
+            Text(label)
+                .foregroundStyle(.secondary)
+                .gridColumnAlignment(.leading)
+            Text(value)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .gridColumnAlignment(.leading)
         }
     }
 

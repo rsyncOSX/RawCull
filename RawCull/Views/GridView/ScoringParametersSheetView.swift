@@ -73,15 +73,6 @@ struct ScoringParametersSheetView: View {
                     Text("Runs an additional Vision classification pass to label each thumbnail with the detected subject (e.g. \"animal\", \"bird\"). Adds ~10–20% to scoring time. Disable for faster re-scores when the badge label is not needed.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-
-                    let settings = Bindable(SettingsViewModel.shared)
-                    Toggle("Show saliency label on thumbnails", isOn: settings.showSaliencyBadge)
-                        .onChange(of: SettingsViewModel.shared.showSaliencyBadge) { _, _ in
-                            Task { await SettingsViewModel.shared.saveSettings() }
-                        }
-                    Text("Displays the detected subject category as a cyan badge on each thumbnail. Hidden by default.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
 
                 Section("Subject Weighting") {
