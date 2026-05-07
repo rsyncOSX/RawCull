@@ -23,6 +23,8 @@ struct BurstGroup: Identifiable {
 /// 0 = ignore subject mismatch, 1 = equal weight with visual distance.
 /// Keep small so the visual embedding remains the dominant signal.
 private let kSubjectMismatchPenalty: Float = 0.10
+private let kMinimumSamplesBeforeEstimation = 10
+private let kEstimationWindowSize = 10
 
 // MARK: - Model
 
@@ -120,7 +122,6 @@ final class SimilarityScoringModel {
         indexingTotal = toIndex.count
 
         let thumbSize = thumbnailMaxPixelSize
-        let startTime = Date()
         var iterator = toIndex.makeIterator()
         var active = 0
         let maxConcurrent = 4
@@ -139,6 +140,8 @@ final class SimilarityScoringModel {
 
                 var localEmbeddings: [UUID: Data] = [:]
                 var completedCount = 0
+                var completionTimes: [TimeInterval] = []
+                var lastCompletionTime: Date?
 
                 for await (id, data) in group {
                     active -= 1
@@ -148,13 +151,17 @@ final class SimilarityScoringModel {
                     completedCount += 1
                     self.indexingProgress = completedCount
 
-                    let elapsed = Date().timeIntervalSince(startTime)
-                    if completedCount > 0, elapsed > 0 {
-                        let rate = Double(completedCount) / elapsed
-                        if rate > 0 {
-                            let remaining = toIndex.count - completedCount
-                            self.indexingEstimatedSeconds = max(0, Int(Double(remaining) / rate))
-                        }
+                    let now = Date()
+                    if let lastCompletionTime {
+                        completionTimes.append(now.timeIntervalSince(lastCompletionTime))
+                    }
+                    lastCompletionTime = now
+
+                    if completedCount >= kMinimumSamplesBeforeEstimation, !completionTimes.isEmpty {
+                        let recentTimes = completionTimes.suffix(min(kEstimationWindowSize, completionTimes.count))
+                        let avgSecondsPerCompletion = recentTimes.reduce(0, +) / Double(recentTimes.count)
+                        let remainingItems = toIndex.count - completedCount
+                        self.indexingEstimatedSeconds = Swift.max(0, Int(avgSecondsPerCompletion * Double(remainingItems)))
                     }
 
                     if let file = iterator.next() {

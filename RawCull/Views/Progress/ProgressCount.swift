@@ -10,14 +10,15 @@ import SwiftUI
 struct ProgressCount: View {
     @Binding var progress: Double
     @Binding var estimatedSeconds: Int // seconds to completion
+    @State private var displayedEstimatedSeconds = 0
     let max: Double
     let statusText: String
 
     private var formattedTime: String {
-        if estimatedSeconds < 60 {
-            "\(estimatedSeconds)s"
+        if displayedEstimatedSeconds < 60 {
+            "\(displayedEstimatedSeconds)s"
         } else {
-            "\(estimatedSeconds / 60)m \(estimatedSeconds % 60)s"
+            "\(displayedEstimatedSeconds / 60)m \(displayedEstimatedSeconds % 60)s"
         }
     }
 
@@ -60,7 +61,7 @@ struct ProgressCount: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                Text("Estimated time to completion: \(formattedTime)")
+                Text("Estimated time left: \(formattedTime)")
                     .font(.body)
                     .foregroundStyle(.primary)
             }
@@ -71,5 +72,19 @@ struct ProgressCount: View {
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
         .cornerRadius(6)
         .animation(.default, value: progress)
+        .onAppear {
+            updateDisplayedEstimatedSeconds(estimatedSeconds)
+        }
+        .onChange(of: estimatedSeconds) { _, newValue in
+            updateDisplayedEstimatedSeconds(newValue)
+        }
+    }
+
+    private func updateDisplayedEstimatedSeconds(_ newValue: Int) {
+        let clampedValue = Swift.max(0, newValue)
+
+        if clampedValue == 0 || displayedEstimatedSeconds == 0 || clampedValue <= displayedEstimatedSeconds {
+            displayedEstimatedSeconds = clampedValue
+        }
     }
 }

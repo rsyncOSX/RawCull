@@ -85,6 +85,9 @@ final class SharpnessScoringModel {
     private var _scoringTask: Task<Void, Never>?
     var isCalibratingSharpnessScoring: Bool = false
 
+    private static let minimumSamplesBeforeEstimation = 10
+    private static let estimationWindowSize = 10
+
     init() {
         // Default mode for wildlife
         focusMaskModel.config = .birdsInFlight
@@ -143,7 +146,6 @@ final class SharpnessScoringModel {
         let model = focusMaskModel
         let config = focusMaskModel.config
         let thumbSize = thumbnailMaxPixelSize
-        let startTime = Date()
         var iterator = files.makeIterator()
         var active = 0
         let maxConcurrent = 6
@@ -175,6 +177,8 @@ final class SharpnessScoringModel {
                 var localScores: [UUID: Float] = [:]
                 var localSaliency: [UUID: SaliencyInfo] = [:]
                 var completedCount = 0
+                var completionTimes: [TimeInterval] = []
+                var lastCompletionTime: Date?
 
                 for await (id, score, saliency) in group {
                     active -= 1
@@ -185,10 +189,17 @@ final class SharpnessScoringModel {
                     completedCount += 1
 
                     self.scoringProgress = completedCount
-                    let elapsed = Date().timeIntervalSince(startTime)
-                    if completedCount > 0, elapsed > 0 {
-                        let rate = Double(completedCount) / elapsed
-                        self.scoringEstimatedSeconds = max(0, Int(Double(files.count - completedCount) / rate))
+                    let now = Date()
+                    if let lastCompletionTime {
+                        completionTimes.append(now.timeIntervalSince(lastCompletionTime))
+                    }
+                    lastCompletionTime = now
+
+                    if completedCount >= Self.minimumSamplesBeforeEstimation, !completionTimes.isEmpty {
+                        let recentTimes = completionTimes.suffix(min(Self.estimationWindowSize, completionTimes.count))
+                        let avgSecondsPerCompletion = recentTimes.reduce(0, +) / Double(recentTimes.count)
+                        let remainingItems = files.count - completedCount
+                        self.scoringEstimatedSeconds = Swift.max(0, Int(avgSecondsPerCompletion * Double(remainingItems)))
                     }
 
                     if let file = iterator.next() {

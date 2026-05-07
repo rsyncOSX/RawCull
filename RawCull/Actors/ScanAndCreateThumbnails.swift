@@ -227,9 +227,9 @@ actor ScanAndCreateThumbnails {
 
         if itemsProcessed >= Self.minimumSamplesBeforeEstimation, !processingTimes.isEmpty {
             let recentTimes = processingTimes.suffix(min(10, processingTimes.count))
-            let avgTimePerItem = recentTimes.reduce(0, +) / Double(recentTimes.count)
+            let avgSecondsPerCompletion = recentTimes.reduce(0, +) / Double(recentTimes.count)
             let remainingItems = totalFilesToProcess - itemsProcessed
-            let estimatedSeconds = Int(avgTimePerItem * Double(remainingItems))
+            let estimatedSeconds = Int(avgSecondsPerCompletion * Double(remainingItems))
             let handler = fileHandlers?.estimatedTimeHandler
             Task { @MainActor in handler?(estimatedSeconds) }
         }
