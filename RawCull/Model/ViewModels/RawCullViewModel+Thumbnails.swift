@@ -26,6 +26,44 @@ extension RawCullViewModel {
         creatingthumbnails = true
     }
 
+    func startScanAndExtractJPGs() {
+        guard currentScanAndExtractJPGsActor == nil,
+              currentScanAndCreateThumbnailsActor == nil,
+              currentExtractAndSaveJPGsActor == nil,
+              !files.isEmpty
+        else { return }
+
+        jpgCacheWarmTask?.cancel()
+
+        progress = 0
+        max = Double(files.count)
+        estimatedSeconds = 0
+        creatingthumbnails = true
+
+        let handlers = CreateFileHandlers().createFileHandlers(
+            fileHandler: fileHandler,
+            maxfilesHandler: maxfilesHandler,
+            estimatedTimeHandler: estimatedTimeHandler,
+            memorypressurewarning: { _ in },
+            onExtractionNeeded: {},
+        )
+
+        let actor = ScanAndExtractJPGs(urls: files.map(\.url))
+        currentScanAndExtractJPGsActor = actor
+
+        jpgCacheWarmTask = Task(priority: .background) {
+            await actor.setFileHandlers(handlers)
+            await actor.extractCatalogJPGs()
+
+            await MainActor.run {
+                guard self.currentScanAndExtractJPGsActor === actor else { return }
+                self.currentScanAndExtractJPGsActor = nil
+                self.jpgCacheWarmTask = nil
+                self.creatingthumbnails = false
+            }
+        }
+    }
+
     func applyStoredScoringSettings() async {
         // Wait for the initial settings load to complete before reading.
         // Without this, we may race with the fire-and-forget Task in SettingsViewModel.init()
@@ -54,6 +92,14 @@ extension RawCullViewModel {
             Task { await actor.cancelExtractJPGSTask() }
         }
         currentExtractAndSaveJPGsActor = nil
+
+        jpgCacheWarmTask?.cancel()
+        jpgCacheWarmTask = nil
+
+        if let actor = currentScanAndExtractJPGsActor {
+            Task { await actor.cancelExtraction() }
+        }
+        currentScanAndExtractJPGsActor = nil
 
         creatingthumbnails = false
     }

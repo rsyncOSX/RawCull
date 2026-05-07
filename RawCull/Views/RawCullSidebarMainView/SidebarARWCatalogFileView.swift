@@ -67,6 +67,20 @@ struct SidebarARWCatalogFileView: View {
                                 }
                                 .disabled(viewModel.creatingthumbnails)
                             }
+
+                            ConditionalGlassButton(
+                                systemImage: "photo.badge.arrow.down",
+                                text: "Cache JPGs",
+                                helpText: "Cache extracted JPG previews for this catalog",
+                                style: .softCapsule,
+                            ) {
+                                viewModel.startScanAndExtractJPGs()
+                            }
+                            .disabled(
+                                selectedSource == nil ||
+                                    files.isEmpty ||
+                                    viewModel.creatingthumbnails
+                            )
                         }
                         .padding()
 
@@ -89,7 +103,7 @@ struct SidebarARWCatalogFileView: View {
                             ProgressCount(progress: $progress,
                                           estimatedSeconds: $viewModel.estimatedSeconds,
                                           max: Double(max),
-                                          statusText: viewModel.currentScanAndCreateThumbnailsActor != nil ? "Creating Thumbnails" : "Extracting JPGs")
+                                          statusText: progressStatusText)
                         }
                     }
 
@@ -128,5 +142,15 @@ struct SidebarARWCatalogFileView: View {
 
     var thumbnailSizeGrid: CGFloat {
         CGFloat(settings.thumbnailSizeGrid)
+    }
+
+    private var progressStatusText: String {
+        if viewModel.currentScanAndCreateThumbnailsActor != nil {
+            return "Creating Thumbnails"
+        }
+        if viewModel.currentScanAndExtractJPGsActor != nil {
+            return "Caching JPGs"
+        }
+        return "Extracting JPGs"
     }
 }

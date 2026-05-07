@@ -134,7 +134,9 @@ final class RawCullViewModel {
 
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
     var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
+    var currentScanAndExtractJPGsActor: ScanAndExtractJPGs?
     var preloadTask: Task<Void, Never>?
+    @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.

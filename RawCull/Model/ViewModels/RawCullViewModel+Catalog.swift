@@ -31,10 +31,18 @@ extension RawCullViewModel {
         preloadTask?.cancel()
         preloadTask = nil
 
+        jpgCacheWarmTask?.cancel()
+        jpgCacheWarmTask = nil
+
         if let actor = currentScanAndCreateThumbnailsActor {
             Task { await actor.cancelPreload() }
         }
         currentScanAndCreateThumbnailsActor = nil
+
+        if let actor = currentScanAndExtractJPGsActor {
+            Task { await actor.cancelExtraction() }
+        }
+        currentScanAndExtractJPGsActor = nil
 
         sharpnessModel.reset()
         similarityModel.reset()

@@ -26,6 +26,14 @@ actor FullSizeJPGDiskCache {
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
     }
 
+    func contains(for sourceURL: URL) async -> Bool {
+        let fileURL = cacheURL(for: sourceURL)
+
+        return await Task.detached(priority: .utility) {
+            FileManager.default.fileExists(atPath: fileURL.path)
+        }.value
+    }
+
     /// Loads a cached full-size JPEG as a `CGImage`.
     /// Uses `kCGImageSourceShouldCache: false` and `CGImageSourceRemoveCacheAtIndex`
     /// to prevent ImageIO from retaining the decoded ~188 MB pixel buffer in its
