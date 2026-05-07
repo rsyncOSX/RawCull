@@ -142,7 +142,9 @@ actor SharedMemoryCache {
     /// `load`/`save` without creating its own instance — keeps a single
     /// owner of the cache directory and lets the Cache settings tab call
     /// into the same actor for size/prune.
-    nonisolated var fullSizeJPGDiskCache: FullSizeJPGDiskCache { fullSizeJPGCache }
+    nonisolated var fullSizeJPGDiskCache: FullSizeJPGDiskCache {
+        fullSizeJPGCache
+    }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers

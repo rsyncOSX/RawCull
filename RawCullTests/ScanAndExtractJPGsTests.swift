@@ -44,7 +44,7 @@ struct ScanAndExtractJPGsTests {
         let snapshot = await MainActor.run {
             (
                 maxFiles: recorder.maxFiles,
-                progressUpdates: recorder.progressUpdates
+                progressUpdates: recorder.progressUpdates,
             )
         }
 

@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import OSLog
 
-struct CullingScoringResult: Sendable {
+struct CullingScoringResult {
     let fileName: String
     let score: Float
     let saliencySubject: String?

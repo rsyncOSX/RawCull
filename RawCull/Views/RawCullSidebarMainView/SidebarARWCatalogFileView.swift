@@ -79,7 +79,7 @@ struct SidebarARWCatalogFileView: View {
                             .disabled(
                                 selectedSource == nil ||
                                     files.isEmpty ||
-                                    viewModel.creatingthumbnails
+                                    viewModel.creatingthumbnails,
                             )
                         }
                         .padding()

@@ -47,7 +47,7 @@ import Foundation
  ....
  */
 
-struct SavedFiles: Identifiable, Codable, Sendable {
+struct SavedFiles: Identifiable, Codable {
     var id = UUID()
     var catalog: URL?
     var dateStart: String?
@@ -89,7 +89,7 @@ extension SavedFiles: Hashable, Equatable {
     }
 }
 
-struct FileRecord: Identifiable, Codable, Sendable {
+struct FileRecord: Identifiable, Codable {
     var id = UUID()
     var fileName: String?
     var dateTagged: String?
