@@ -17,17 +17,18 @@ The default isolation setting is the dominant architectural constraint: types ar
 
 The model layer has a generally coherent actor-per-concern design. UI-owned state is mostly kept in `@Observable @MainActor` view models, while scanning, thumbnail extraction, disk caches, and persistence have dedicated actors or detached work for blocking I/O. The code also shows good intent around Swift 6 boundaries: many helpers are explicitly `nonisolated`, settings are snapshotted into `SavedSettings`, and non-Sendable image objects are often encoded to `Data` before crossing actor/task boundaries.
 
-The main risks are concentrated in five areas:
+Latest commit update: the image export path was partially refactored after the initial review. `@preconcurrency` imports were removed from the touched image extraction/saving files, and sidecar JPEG export now encodes `CGImage` to `Data` before calling the save actor.
 
-1. `@preconcurrency` imports were present in model code, despite the project rule forbidding them.
-2. Some continuation/GCD bridges do not propagate cancellation and can continue heavy ImageIO work after caller cancellation.
-3. The cache layer uses `nonisolated(unsafe)` and `@unchecked Sendable` in ways that are defensible for `NSCache`, but the invariants are not enforced consistently enough to make future edits safe.
-4. Several long-lived or fire-and-forget tasks are unstructured, making ownership, cancellation, and completion ordering harder to reason about.
-5. Some synchronous file I/O still runs on MainActor-isolated paths.
+The remaining risks are concentrated in four areas:
+
+1. Some continuation/GCD bridges do not propagate cancellation and can continue heavy ImageIO work after caller cancellation.
+2. The cache layer uses `nonisolated(unsafe)` and `@unchecked Sendable` in ways that are defensible for `NSCache`, but the invariants are not enforced consistently enough to make future edits safe.
+3. Several long-lived or fire-and-forget tasks are unstructured, making ownership, cancellation, and completion ordering harder to reason about.
+4. Some synchronous file I/O still runs on MainActor-isolated paths.
 
 ## Findings
 
-### High: `@preconcurrency` imports bypass strict concurrency in model code
+### Resolved: image export no longer relies on `@preconcurrency` or cross-actor `CGImage` saves
 
 Files:
 
@@ -39,14 +40,14 @@ The repository instructions explicitly say not to introduce `@preconcurrency` im
 
 That matters most in image model code because ImageIO/CoreGraphics objects are large, reference-backed framework values whose thread-safety and lifetime rules are not expressed as simple Swift `Sendable` guarantees. The safer design is to keep `CGImage` local to the task or actor that decoded it, convert it into immutable `Data`, and send that `Data` across actor/task boundaries for persistence or caching. `Data` is the stable value boundary; `CGImage` is the local decode/rendering product.
 
-Before the refactor, the most concerning case was `SaveJPGImage.save(image:originalURL:)`. The method was `@concurrent nonisolated`, accepted a `CGImage`, and wrote it directly with ImageIO. That made the actor mostly cosmetic: the work did not use actor isolation, and the non-Sendable image crossed into a concurrently executing function under a suppressed import.
+Current state:
 
-Recommendation:
+- `SaveJPGImage` now uses regular `import ImageIO` and exposes `save(_ jpegData:originalURL:)`, so the actor receives `Data` instead of `CGImage`.
+- `SaveJPGImage.jpegData(from:)` is a `nonisolated static` helper intended to run before crossing into the save actor.
+- `ExtractAndSaveJPGs.processSingleExtraction(_:)` now extracts the `CGImage`, checks cancellation, encodes to `Data`, and then calls `SaveJPGImage().save(...)`.
+- `JPGSonyARWExtractor` and `JPGNikonNEFExtractor` now import `CoreGraphics` instead of `@preconcurrency import AppKit`.
 
-- Remove `@preconcurrency` imports.
-- Replace `SaveJPGImage.save(image:originalURL:)` with a data-oriented API, matching the safer pattern already used by `DiskCacheManager.save(_ jpegData:for:)` and `FullSizeJPGDiskCache.save(_ jpegData:for:)`.
-- Encode `CGImage` to `Data` in the same isolation domain that produced it, then send `Data` across actor/task boundaries.
-- If an unsafe exception remains necessary, document the specific framework type, ownership invariant, and removal plan next to the code.
+Residual note: `SaveJPGImage.jpegData(from:)` still uses ImageIO with a local `CGImage`, which is acceptable only because the caller keeps encoding in the same task that received the decoded image. Avoid reintroducing an async actor/task boundary that accepts `CGImage` directly.
 
 ### High: Continuation-based extractors ignore cancellation
 
@@ -170,7 +171,7 @@ Recommendation:
 - Snapshot `SavedFiles` on MainActor, then encode/write in `Task.detached` or inside a persistence actor that performs blocking work off the main executor.
 - Keep `CullingModel` as the MainActor owner of selection state, but make persistence a separate service.
 
-### Medium: Full-JPEG extraction has inconsistent safety compared with thumbnail disk caching
+### Resolved: sidecar full-JPEG export now matches the data boundary used by disk caches
 
 Files:
 
@@ -179,12 +180,12 @@ Files:
 - `RawCull/Actors/ScanAndExtractJPGs.swift:105`
 - `RawCull/Actors/FullSizeJPGDiskCache.swift:58`
 
-`ScanAndExtractJPGs` uses the safer path: extract `CGImage`, encode to `Data`, then save via `FullSizeJPGDiskCache`. `ExtractAndSaveJPGs` should follow the same boundary for sidecar exports: extract `CGImage`, encode to `Data` before crossing to the save actor, then write the sidecar JPEG from that `Data`.
+`ScanAndExtractJPGs` uses the safer path: extract `CGImage`, encode to `Data`, then save via `FullSizeJPGDiskCache`. The latest commits bring `ExtractAndSaveJPGs` into the same shape for sidecar exports: it now extracts `CGImage`, encodes to `Data` before crossing to the save actor, then writes the sidecar JPEG from that `Data`.
 
-Recommendation:
+Remaining cleanup:
 
-- Keep `SaveJPGImage` data-oriented, or remove it and route sidecar exports through a common JPEG persistence service.
-- Route both extraction paths through `FullSizeJPGDiskCache.jpegData(from:)` or a common JPEG persistence service.
+- Consider sharing one JPEG encoding helper between `SaveJPGImage` and `FullSizeJPGDiskCache` so export and disk-cache quality/options cannot drift.
+- Keep `SaveJPGImage` data-oriented; do not add back a `save(image:originalURL:)` overload.
 
 ### Medium: MainActor tasks sometimes do background waiting before UI mutation
 
@@ -227,7 +228,8 @@ Recommendation:
 
 - `RawCullViewModel`, `SharpnessScoringModel`, `SimilarityScoringModel`, `CullingModel`, and diagnostics models keep UI-owned state on MainActor.
 - `SavedSettings` gives actors a Sendable-style value snapshot instead of reading mutable settings directly.
-- `DiskCacheManager` and `FullSizeJPGDiskCache` accept `Data`, avoiding non-Sendable image transfer for saves.
+- `DiskCacheManager`, `FullSizeJPGDiskCache`, and `SaveJPGImage` accept `Data`, avoiding non-Sendable image transfer for saves.
+- The latest image-save refactor removed `@preconcurrency` imports from the touched ImageIO/AppKit paths and replaced the sidecar export save boundary with `Data`.
 - `ScanFiles.sortFiles` uses `@concurrent nonisolated`, which is appropriate for CPU-bound sorting/filtering under default MainActor isolation.
 - `SimilarityScoringModel` snapshots dictionaries before detached work and archives Vision observations to `Data`, reducing non-Sendable lifetime issues.
 - `FocusMaskModel.computeSharpnessScore` snapshots `CIContext` and config before detached processing.
@@ -235,14 +237,13 @@ Recommendation:
 
 ## Recommended Fix Order
 
-1. Remove `@preconcurrency` from model code and replace `SaveJPGImage` with a `Data`-based save path.
-2. Add cancellation-aware extraction wrappers for Sony/Nikon thumbnail and full-JPEG extraction.
-3. Fix `ThumbnailLoader.acquireSlot()` cancellation semantics and add tests.
-4. Replace `currentPressureLevel nonisolated(unsafe)` with a lock-backed getter or actor-isolated async getter.
-5. Harden `SharedMemoryCache` counter accounting against replacement and add cache accounting tests.
-6. Split `FocusMaskModel` into observable MainActor state plus a pure nonisolated engine, or document and constrain its unchecked-sendable invariant.
-7. Move saved-files read/write file I/O off MainActor.
-8. Make all observable model types explicitly `@MainActor` unless they are deliberately nonisolated.
+1. Add cancellation-aware extraction wrappers for Sony/Nikon thumbnail and full-JPEG extraction.
+2. Fix `ThumbnailLoader.acquireSlot()` cancellation semantics and add tests.
+3. Replace `currentPressureLevel nonisolated(unsafe)` with a lock-backed getter or actor-isolated async getter.
+4. Harden `SharedMemoryCache` counter accounting against replacement and add cache accounting tests.
+5. Split `FocusMaskModel` into observable MainActor state plus a pure nonisolated engine, or document and constrain its unchecked-sendable invariant.
+6. Move saved-files read/write file I/O off MainActor.
+7. Make all observable model types explicitly `@MainActor` unless they are deliberately nonisolated.
 
 ## Suggested Tests
 
@@ -254,4 +255,4 @@ Recommendation:
 
 ## Bottom Line
 
-The model layer is close to a solid Swift 6 concurrency design, but it still has a few escape hatches that undermine the safety story. The highest-value cleanup is to remove `@preconcurrency`, standardize image persistence around `Data`, and make cancellation/accounting behavior explicit in the loader and cache layers.
+The model layer is close to a solid Swift 6 concurrency design, and the latest commits resolved the most direct image-persistence escape hatch by removing `@preconcurrency` from the touched paths and standardizing sidecar saves around `Data`. The highest-value remaining cleanup is to make cancellation/accounting behavior explicit in the extraction, loader, and cache layers.
