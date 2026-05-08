@@ -9,7 +9,7 @@
 //  image index). Mirrors the shape of `JPGSonyARWExtractor`.
 //
 
-@preconcurrency import AppKit
+import CoreGraphics
 import Foundation
 import ImageIO
 import OSLog

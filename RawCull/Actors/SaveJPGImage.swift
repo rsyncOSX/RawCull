@@ -6,24 +6,42 @@
 //
 
 import Foundation
-@preconcurrency import ImageIO
+import ImageIO
 import OSLog
 import UniformTypeIdentifiers
 
 actor SaveJPGImage {
-    /// Saves the extracted CGImage to disk as a JPEG.
+    /// Saves pre-encoded JPEG data next to the source RAW file.
     /// - Parameters:
-    ///   - image: The CGImage to save.
+    ///   - jpegData: JPEG data encoded by the caller before crossing actor boundaries.
     ///   - originalURL: The URL of the source ARW file (used to generate the filename).
-    @concurrent
-    nonisolated func save(image: CGImage, originalURL: URL) async {
+    func save(_ jpegData: Data, originalURL: URL) async {
         let outputURL = originalURL.deletingPathExtension().appendingPathExtension("jpg")
 
         Logger.process.info("ExtractEmbeddedPreview: Attempting to save to \(outputURL.path)")
 
-        guard let destination = CGImageDestinationCreateWithURL(outputURL as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
-            Logger.process.error("ExtractEmbeddedPreview: Failed to create image destination at \(outputURL.path)")
-            return
+        await Task.detached(priority: .background) {
+            do {
+                try jpegData.write(to: outputURL, options: .atomic)
+                Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
+            } catch {
+                Logger.process.error("ExtractEmbeddedPreview: Failed to write JPEG at \(outputURL.path): \(error)")
+            }
+        }.value
+    }
+
+    /// Encodes a `CGImage` to JPEG data at export quality.
+    /// Call this before sending the result to the save actor so `CGImage` does not
+    /// cross actor/task boundaries.
+    nonisolated static func jpegData(from image: CGImage) -> Data? {
+        let mutableData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            mutableData,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil,
+        ) else {
+            return nil
         }
 
         let options: [CFString: Any] = [
@@ -31,13 +49,7 @@ actor SaveJPGImage {
         ]
 
         CGImageDestinationAddImage(destination, image, options as CFDictionary)
-        let success = CGImageDestinationFinalize(destination)
-
-        if success {
-            // Log the actual output size for verification
-            Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output Dimensions: \(image.width)x\(image.height)")
-        } else {
-            Logger.process.error("ExtractEmbeddedPreview: Failed to finalize image writing")
-        }
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return mutableData as Data
     }
 }

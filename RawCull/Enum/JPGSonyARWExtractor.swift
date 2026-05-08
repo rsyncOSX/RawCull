@@ -5,7 +5,7 @@
 //  Created by Thomas Evensen on 20/02/2026.
 //
 
-@preconcurrency import AppKit
+import CoreGraphics
 import Foundation
 import ImageIO
 import OSLog

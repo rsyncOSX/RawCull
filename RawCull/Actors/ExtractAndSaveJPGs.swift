@@ -86,7 +86,9 @@ actor ExtractAndSaveJPGs {
         if let cgImage = await format.extractFullJPEG(from: url, fullSize: false) {
             if Task.isCancelled { return } // ← NEW: critical one
 
-            await SaveJPGImage().save(image: cgImage, originalURL: url)
+            guard let jpegData = SaveJPGImage.jpegData(from: cgImage) else { return }
+
+            await SaveJPGImage().save(jpegData, originalURL: url)
 
             let newCount = incrementAndGetCount()
             await fileHandlers?.fileHandler(newCount)

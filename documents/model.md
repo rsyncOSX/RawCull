@@ -19,7 +19,7 @@ The model layer has a generally coherent actor-per-concern design. UI-owned stat
 
 The main risks are concentrated in five areas:
 
-1. `@preconcurrency` imports are still present in model code, despite the project rule forbidding them.
+1. `@preconcurrency` imports were present in model code, despite the project rule forbidding them.
 2. Some continuation/GCD bridges do not propagate cancellation and can continue heavy ImageIO work after caller cancellation.
 3. The cache layer uses `nonisolated(unsafe)` and `@unchecked Sendable` in ways that are defensible for `NSCache`, but the invariants are not enforced consistently enough to make future edits safe.
 4. Several long-lived or fire-and-forget tasks are unstructured, making ownership, cancellation, and completion ordering harder to reason about.
@@ -35,9 +35,11 @@ Files:
 - `RawCull/Enum/JPGSonyARWExtractor.swift:8`
 - `RawCull/Enum/JPGNikonNEFExtractor.swift:12`
 
-The repository instructions explicitly say not to introduce `@preconcurrency` imports or silence concurrency errors without understanding the isolation model. These imports suppress concurrency checking for frameworks used in image extraction and saving, exactly where the code crosses actor/task boundaries with `CGImage`, `ImageIO`, and GCD.
+The repository instructions explicitly say not to introduce `@preconcurrency` imports or silence concurrency errors without understanding the isolation model. `@preconcurrency import` tells Swift to treat declarations from that module as if they came from an older, concurrency-unannotated world. That can be useful as a temporary migration bridge for third-party code, but in this project it weakens the main safety mechanism Swift 6 is supposed to provide: the compiler can no longer fully warn when non-Sendable framework objects are moved through async, actor, or task boundaries.
 
-The most concerning case is `SaveJPGImage.save(image:originalURL:)` at `RawCull/Actors/SaveJPGImage.swift:18`. The method is `@concurrent nonisolated`, accepts a `CGImage`, and writes it directly with ImageIO. That makes the actor mostly cosmetic: the work does not use actor isolation, and the non-Sendable image crosses into a concurrently executing function under a suppressed import.
+That matters most in image model code because ImageIO/CoreGraphics objects are large, reference-backed framework values whose thread-safety and lifetime rules are not expressed as simple Swift `Sendable` guarantees. The safer design is to keep `CGImage` local to the task or actor that decoded it, convert it into immutable `Data`, and send that `Data` across actor/task boundaries for persistence or caching. `Data` is the stable value boundary; `CGImage` is the local decode/rendering product.
+
+Before the refactor, the most concerning case was `SaveJPGImage.save(image:originalURL:)`. The method was `@concurrent nonisolated`, accepted a `CGImage`, and wrote it directly with ImageIO. That made the actor mostly cosmetic: the work did not use actor isolation, and the non-Sendable image crossed into a concurrently executing function under a suppressed import.
 
 Recommendation:
 
@@ -177,11 +179,11 @@ Files:
 - `RawCull/Actors/ScanAndExtractJPGs.swift:105`
 - `RawCull/Actors/FullSizeJPGDiskCache.swift:58`
 
-`ScanAndExtractJPGs` uses the safer path: extract `CGImage`, encode to `Data`, then save via `FullSizeJPGDiskCache`. `ExtractAndSaveJPGs` uses `SaveJPGImage().save(image:originalURL:)`, sending `CGImage` into a nonisolated concurrent method with `@preconcurrency import ImageIO`.
+`ScanAndExtractJPGs` uses the safer path: extract `CGImage`, encode to `Data`, then save via `FullSizeJPGDiskCache`. `ExtractAndSaveJPGs` should follow the same boundary for sidecar exports: extract `CGImage`, encode to `Data` before crossing to the save actor, then write the sidecar JPEG from that `Data`.
 
 Recommendation:
 
-- Remove `SaveJPGImage` or rewrite it to accept JPEG `Data`.
+- Keep `SaveJPGImage` data-oriented, or remove it and route sidecar exports through a common JPEG persistence service.
 - Route both extraction paths through `FullSizeJPGDiskCache.jpegData(from:)` or a common JPEG persistence service.
 
 ### Medium: MainActor tasks sometimes do background waiting before UI mutation
