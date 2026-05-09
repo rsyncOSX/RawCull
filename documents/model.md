@@ -245,6 +245,54 @@ Recommendation:
 6. Move saved-files read/write file I/O off MainActor.
 7. Make all observable model types explicitly `@MainActor` unless they are deliberately nonisolated.
 
+## Open Items Moved From Functionality Review
+
+Verified on 2026-05-09 while cleaning up `documents/updates.md`.
+
+### Medium: Auto sharpness prerequisite can still be bypassed by concurrent actions
+
+Files:
+
+- `RawCull/Views/SimilarityGridView/SimilarityGridSelectionView.swift:179`
+- `RawCull/Model/ViewModels/SharpnessScoringModel.swift:135`
+
+`runWithAutoScoring` still starts an unstructured task and only checks whether `sharpnessModel.scores` is empty before calling `calibrateAndScoreCurrentCatalog()`. `SharpnessScoringModel.scoreFiles(_:)` still returns immediately when `isScoring` is already true. If a second similarity or burst action is triggered while scoring is active, that action can continue without awaiting the in-flight scoring pass.
+
+Recommendation:
+
+- Track a shared calibration/scoring task and await it from every auto-scored action.
+- Alternatively, disable similarity and burst actions while calibration or scoring is active.
+- Update the comment above `runWithAutoScoring` after fixing this; it currently describes the unsafe behavior as safe.
+
+### Low: Local grid rating filters are implemented but not exposed
+
+File:
+
+- `RawCull/Views/CullingGrid/CullingGridView.swift:24`
+
+`CullingGridView` owns a local `GridRatingFilter` with `all`, `unrated`, and per-rating cases, and the grid uses it when building `files`. No visible UI currently mutates that local state, so the filter path is stranded. The app still has the shared `RawCullViewModel.ratingFilter` path in `applyFilters(to:)`, which means there are two rating-filter mechanisms with only one exposed to users.
+
+Recommendation:
+
+- Either expose the local grid filter in the shared grid header/toolbar, or remove `GridRatingFilter` from `CullingGridView` and rely on `RawCullViewModel.ratingFilter`.
+
+### Workflow backlog
+
+These functionality items from `updates.md` remain open:
+
+1. Undo/redo for ratings and group actions.
+2. XMP sidecars, Finder tags, or Lightroom/Capture One compatible export paths.
+3. 2-up/4-up compare mode for adjacent or similar burst frames.
+4. First-class hide rejected / show unreviewed workflow states.
+5. Session summary/export report with culling counts, copy results, failed files, and score-threshold actions.
+
+### Remaining refactor backlog
+
+The completed functionality refactors are catalog loading lifecycle, coalesced culling persistence, and shared grid extraction. The remaining items are:
+
+1. Move filtering/sorting into a pure `FileListPipeline` so the view model, grid, keyboard navigation, and tests share the same ordering rules.
+2. Add tests around rating persistence order, catalog switching cancellation, burst "Keep Best", and filter/sort combinations.
+
 ## Suggested Tests
 
 - `ThumbnailLoader` cancellation test: saturate all slots, enqueue waiters, cancel waiters, then assert later requests are not stuck and concurrency never exceeds the limit.
