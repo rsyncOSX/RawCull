@@ -97,7 +97,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         // Trailing mode switcher — Loupe / Grid / Rated Grid.
         ToolbarItemGroup(placement: .status) {
             Button {
-                viewModel.mainViewMode = .loupe
+                viewModel.selectMainViewMode(.loupe)
             } label: {
                 Label("Loupe", systemImage: "rectangle.center.inset.filled")
             }
@@ -127,7 +127,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                 viewModel.creatingthumbnails)
 
             Button {
-                viewModel.mainViewMode = .ratedGrid
+                viewModel.selectMainViewMode(.ratedGrid)
             } label: {
                 Label("Rated", systemImage: "star.square.fill")
             }
@@ -160,13 +160,13 @@ struct SharedMainToolbarContent: ToolbarContent {
     private func selectGridMode() {
         viewModel.ratingFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        viewModel.mainViewMode = .grid
+        viewModel.selectMainViewMode(.grid)
     }
 
     private func selectSimilarityGridMode() {
         viewModel.ratingFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
-        viewModel.mainViewMode = .similarityGrid
+        viewModel.selectMainViewMode(.similarityGrid)
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {

@@ -171,6 +171,13 @@ final class RawCullViewModel {
 
     // MARK: - File Selection
 
+    func selectMainViewMode(_ mode: MainViewMode) {
+        if mode != .similarityGrid {
+            similarityModel.burstModeActive = false
+        }
+        mainViewMode = mode
+    }
+
     func selectFile(_ file: FileItem) {
         selectedFileID = file.id
     }
