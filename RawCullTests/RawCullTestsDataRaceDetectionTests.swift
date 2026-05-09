@@ -29,8 +29,7 @@ struct DataRaceDetectionTests {
         await withTaskGroup(of: SharedMemoryCache.MemoryPressureLevel.self) { group in
             for _ in 0 ..< 100 {
                 group.addTask {
-                    // This is marked nonisolated(unsafe) but only written from DispatchSource
-                    // Multiple reads should be safe
+                    // Pressure level reads are nonisolated but lock-backed.
                     cache.currentPressureLevel
                 }
             }
@@ -302,8 +301,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `Memory pressure level updates don't race`() async {
-        // This tests that writes to currentPressureLevel (from DispatchSource)
-        // and reads (from anywhere) don't race
+        // This tests that lock-backed pressure level reads can be sampled concurrently.
 
         let cache = SharedMemoryCache.shared
 

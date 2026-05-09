@@ -81,8 +81,6 @@ actor SharedMemoryCache {
     // MARK: - Memory pressure level
 
     /// The kernel-reported memory pressure level.
-    /// nonisolated(unsafe) so MemoryViewModel can read it synchronously on the main actor
-    /// without an await. Only ever written from the DispatchSource event handler.
     enum MemoryPressureLevel {
         case normal, warning, critical
 
@@ -103,7 +101,17 @@ actor SharedMemoryCache {
         }
     }
 
-    private(set) nonisolated(unsafe) var currentPressureLevel: MemoryPressureLevel = .normal
+    /// Synchronously readable because every read and write goes through this lock.
+    private let _currentPressureLevel = OSAllocatedUnfairLock(initialState: MemoryPressureLevel.normal)
+
+    /// Exposes the latest pressure level without an actor hop for UI sampling and diagnostics.
+    nonisolated var currentPressureLevel: MemoryPressureLevel {
+        _currentPressureLevel.withLock { $0 }
+    }
+
+    private func setCurrentPressureLevel(_ level: MemoryPressureLevel) {
+        _currentPressureLevel.withLock { $0 = level }
+    }
 
     // MARK: - Non-Isolated State (Thread-Safe by design)
 
@@ -314,7 +322,7 @@ actor SharedMemoryCache {
 
         switch pressureLevel {
         case .normal:
-            currentPressureLevel = .normal
+            setCurrentPressureLevel(.normal)
             _pressureNormals.withLock { $0 += 1 }
             logMemoryPressure("Normal memory pressure")
             Task {
@@ -323,7 +331,7 @@ actor SharedMemoryCache {
             }
 
         case .warning:
-            currentPressureLevel = .warning
+            setCurrentPressureLevel(.warning)
             _pressureWarnings.withLock { $0 += 1 }
             logMemoryPressure("Warning: Memory pressure detected, reducing cache to 60%")
             let reducedCost = Int(Double(memoryCache.totalCostLimit) * 0.6)
@@ -334,7 +342,7 @@ actor SharedMemoryCache {
             }
 
         case .critical:
-            currentPressureLevel = .critical
+            setCurrentPressureLevel(.critical)
             _pressureCriticals.withLock { $0 += 1 }
             logMemoryPressure("CRITICAL: Memory pressure critical, clearing cache")
             memoryCache.removeAllObjects()
