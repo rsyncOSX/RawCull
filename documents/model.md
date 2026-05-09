@@ -28,7 +28,7 @@ The remaining risks are concentrated in four areas:
 
 ## Findings
 
-### Resolved: image export no longer relies on `@preconcurrency` or cross-actor `CGImage` saves
+### ✅  image export no longer relies on `@preconcurrency` or cross-actor `CGImage` saves
 
 Files:
 
@@ -83,7 +83,7 @@ Recommendation:
 - Only increment `activeTasks` when a slot is actually granted.
 - Keep continuation entries in a small struct with an explicit state, or replace the custom limiter with an actor-owned async semaphore that has tested cancellation semantics.
 
-### High: `SharedMemoryCache.currentPressureLevel` is a non-atomic unsafe cross-thread property
+### ✅ High: `SharedMemoryCache.currentPressureLevel` is a non-atomic unsafe cross-thread property
 
 File: `RawCull/Actors/SharedMemoryCache.swift:106`
 
