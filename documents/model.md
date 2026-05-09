@@ -112,7 +112,7 @@ Recommendation:
 - Consider making these methods the only write surface and keeping the raw `NSCache` properties less visible.
 - Add thread-safety tests for replacement, eviction, `removeAll`, warning pressure, and critical pressure.
 
-### Medium: `@unchecked Sendable` wrappers need tighter invariants
+### ✅ Medium: `@unchecked Sendable` wrappers need tighter invariants
 
 Files:
 

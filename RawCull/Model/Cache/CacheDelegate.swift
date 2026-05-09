@@ -11,6 +11,11 @@ import os
 import OSLog
 
 /// Delegate to track NSCache evictions for monitoring memory pressure.
+///
+/// Sendability invariant: `NSCache` may invoke delegate callbacks from
+/// arbitrary threads. Every mutable field in this delegate is protected by an
+/// `OSAllocatedUnfairLock`, and callback work must remain nonisolated and
+/// thread-safe.
 final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
     nonisolated static let shared = CacheDelegate()
 

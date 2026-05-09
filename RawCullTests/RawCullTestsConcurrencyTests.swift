@@ -100,6 +100,40 @@ enum ConcurrencyTests {
         }
 
         @Test
+        func `Replacing memory cache key preserves manual counters`() async {
+            let cache = SharedMemoryCache.shared
+            cache.removeAllObjects()
+            defer { cache.removeAllObjects() }
+
+            let key = URL(fileURLWithPath: "/tmp/replacement-main-cache.jpg") as NSURL
+            let first = createTestThumbnail(size: 10)!
+            let second = createTestThumbnail(size: 20)!
+
+            cache.setObject(first, forKey: key, cost: first.cost)
+            cache.setObject(second, forKey: key, cost: second.cost)
+
+            #expect(cache.getMemoryCacheCount() == 1)
+            #expect(cache.getMemoryCacheCurrentCost() == second.cost)
+        }
+
+        @Test
+        func `Replacing grid cache key preserves manual counters`() async {
+            let cache = SharedMemoryCache.shared
+            cache.removeAllGridObjects()
+            defer { cache.removeAllGridObjects() }
+
+            let key = URL(fileURLWithPath: "/tmp/replacement-grid-cache.jpg") as NSURL
+            let first = createTestThumbnail(size: 10)!
+            let second = createTestThumbnail(size: 20)!
+
+            cache.setGridObject(first, forKey: key, cost: first.cost)
+            cache.setGridObject(second, forKey: key, cost: second.cost)
+
+            #expect(cache.getGridCacheCount() == 1)
+            #expect(cache.getGridCacheCurrentCost() == second.cost)
+        }
+
+        @Test
         func `ensureReady prevents duplicate initialization`() async {
             let cache = SharedMemoryCache.shared
 

@@ -9,12 +9,12 @@ import Vision
 
 /// Saliency detection result: whether a salient region was found and, if Vision
 /// classification succeeded, what the dominant subject is.
-struct SaliencyInfo {
+struct SaliencyInfo: Sendable {
     /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
     let subjectLabel: String?
 }
 
-struct FocusDetectorConfig {
+struct FocusDetectorConfig: Sendable {
     /// Aperture-derived tuning hint. Wide-aperture shots have a narrow focus plane
     /// and deserve a stricter blur gate; landscape-aperture shots have deep DoF and
     /// should not be pre-blurred as aggressively nor weighted so heavily toward the
@@ -22,7 +22,7 @@ struct FocusDetectorConfig {
     /// Explicit nonisolated conformance — default-isolation=MainActor would otherwise
     /// make the synthesized Equatable.== main-isolated and unusable from the
     /// nonisolated scoring statics.
-    enum ApertureHint: Equatable {
+    enum ApertureHint: Equatable, Sendable {
         case wide // ≤ f/5.6
         case mid // f/5.6–f/8
         case landscape // ≥ f/8
@@ -146,7 +146,7 @@ extension FocusDetectorConfig: Equatable {
 
 extension FocusDetectorConfig {
     /// Birds-in-flight preset.
-    static var birdsInFlight: FocusDetectorConfig {
+    nonisolated static var birdsInFlight: FocusDetectorConfig {
         var c = FocusDetectorConfig()
         c.preBlurRadius = 2.2
         c.threshold = 0.46
@@ -176,37 +176,27 @@ private nonisolated let _focusMagnitudeKernel: CIKernel? = {
     }
 }()
 
-@Observable
-final class FocusMaskModel: @unchecked Sendable {
-    var config = FocusDetectorConfig()
-
+/// Immutable background engine for focus-mask rendering and sharpness scoring.
+/// The engine is `@unchecked Sendable` because Core Image's `CIContext`
+/// sendability is not fully expressed in Swift's type system. The invariant is
+/// that the engine has no mutable model/UI state; callers pass immutable config
+/// snapshots into every operation.
+struct FocusMaskEngine: @unchecked Sendable {
     private nonisolated let context = CIContext(options: [
         .workingColorSpace: NSNull(),
         .workingFormat: CIFormat.RGBAf
     ])
 
+    nonisolated init() {}
+
     // MARK: - Public API
 
-    func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
-        guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
-        let originalSize = nsImage.size
+    nonisolated func generateFocusMask(
+        from cgImage: CGImage,
+        scale: CGFloat,
+        config: FocusDetectorConfig,
+    ) async -> CGImage? {
         let context = self.context
-        let config = self.config
-
-        return await Task.detached(priority: .userInitiated) {
-            guard let result = Self.buildFocusMask(
-                from: CIImage(cgImage: cgImage),
-                scale: scale,
-                context: context,
-                config: config,
-            ) else { return nil }
-            return NSImage(cgImage: result, size: originalSize)
-        }.value
-    }
-
-    func generateFocusMask(from cgImage: CGImage, scale: CGFloat) async -> CGImage? {
-        let context = self.context
-        let config = self.config
 
         return await Task.detached(priority: .userInitiated) {
             Self.buildFocusMask(
@@ -803,15 +793,69 @@ final class FocusMaskModel: @unchecked Sendable {
     }
 }
 
-extension FocusMaskModel {
-    struct FocusCalibrationResult {
-        let threshold: Float
-        let energyMultiplier: Float
-        let sampleCount: Int
-        let p50: Float
-        let p90: Float
-        let p95: Float
-        let p99: Float
+struct FocusCalibrationResult: Sendable {
+    let threshold: Float
+    let energyMultiplier: Float
+    let sampleCount: Int
+    let p50: Float
+    let p90: Float
+    let p95: Float
+    let p99: Float
+}
+
+@Observable @MainActor
+final class FocusMaskModel {
+    var config = FocusDetectorConfig()
+
+    private nonisolated let engine = FocusMaskEngine()
+
+    func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
+        guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let originalSize = nsImage.size
+        let config = self.config
+
+        guard let result = await engine.generateFocusMask(
+            from: cgImage,
+            scale: scale,
+            config: config,
+        ) else { return nil }
+
+        return NSImage(cgImage: result, size: originalSize)
+    }
+
+    func generateFocusMask(from cgImage: CGImage, scale: CGFloat) async -> CGImage? {
+        let config = self.config
+        return await engine.generateFocusMask(
+            from: cgImage,
+            scale: scale,
+            config: config,
+        )
+    }
+
+    nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
+        FocusMaskEngine.robustTailScore(samples)
+    }
+
+    nonisolated static func microContrast(_ samples: [Float]) -> Float {
+        FocusMaskEngine.microContrast(samples)
+    }
+
+    nonisolated static func isoScalingFactor(iso: Int) -> Float {
+        FocusMaskEngine.isoScalingFactor(iso: iso)
+    }
+
+    nonisolated func computeSharpnessScore(
+        fromRawURL url: URL,
+        config: FocusDetectorConfig,
+        thumbnailMaxPixelSize: Int = 512,
+        afPoint: CGPoint? = nil,
+    ) async -> (score: Float?, saliency: SaliencyInfo?) {
+        await engine.computeSharpnessScore(
+            fromRawURL: url,
+            config: config,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            afPoint: afPoint,
+        )
     }
 
     @MainActor
@@ -832,7 +876,7 @@ extension FocusMaskModel {
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
         let base = config
-        guard let result = await calibrateFromBurstParallel(
+        guard let result = await engine.calibrateFromBurstParallel(
             files: files,
             baseConfig: base,
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
@@ -845,7 +889,9 @@ extension FocusMaskModel {
         applyCalibration(result)
         return result
     }
+}
 
+extension FocusMaskEngine {
     /// Burst-based auto-calibration of `threshold` and `energyMultiplier`.
     ///
     /// Scores every file with `energyMultiplier = 1.0` (unit gain), collects the
@@ -890,7 +936,7 @@ extension FocusMaskModel {
                     fileConfig.energyMultiplier = 1.0
                     fileConfig.iso = entry.iso ?? 400
                     fileConfig.enableSubjectClassification = false
-                    let result = await self.computeSharpnessScore(
+                    let result = await computeSharpnessScore(
                         fromRawURL: entry.url,
                         config: fileConfig,
                         thumbnailMaxPixelSize: tSize,
@@ -911,7 +957,7 @@ extension FocusMaskModel {
                         fileConfig.energyMultiplier = 1.0
                         fileConfig.iso = entry.iso ?? 400
                         fileConfig.enableSubjectClassification = false
-                        let result = await self.computeSharpnessScore(
+                        let result = await computeSharpnessScore(
                             fromRawURL: entry.url,
                             config: fileConfig,
                             thumbnailMaxPixelSize: tSize,

@@ -18,6 +18,10 @@
 import AppKit
 import Foundation
 
+/// Sendability invariant: the wrapped `NSImage` must be fully constructed
+/// before insertion into cache and treated as immutable afterward. Cache
+/// consumers may read the image, but must not mutate representations or draw
+/// into it after it crosses a concurrency boundary.
 final class CachedThumbnail: NSObject, @unchecked Sendable {
     let image: NSImage
     nonisolated let cost: Int

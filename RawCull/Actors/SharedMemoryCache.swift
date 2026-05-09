@@ -376,6 +376,10 @@ actor SharedMemoryCache {
     }
 
     nonisolated func setObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
+        if let existing = memoryCache.object(forKey: key) {
+            _memCost.withLock { $0 = max(0, $0 - existing.cost) }
+            _memCount.withLock { $0 = max(0, $0 - 1) }
+        }
         memoryCache.setObject(obj, forKey: key, cost: cost)
         _memCost.withLock { $0 += cost }
         _memCount.withLock { $0 += 1 }
@@ -405,6 +409,10 @@ actor SharedMemoryCache {
     }
 
     nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
+        if let existing = gridThumbnailCache.object(forKey: key) {
+            _gridCost.withLock { $0 = max(0, $0 - existing.cost) }
+            _gridCount.withLock { $0 = max(0, $0 - 1) }
+        }
         gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
         _gridCost.withLock { $0 += cost }
         _gridCount.withLock { $0 += 1 }

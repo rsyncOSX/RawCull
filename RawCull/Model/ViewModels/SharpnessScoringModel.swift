@@ -143,7 +143,7 @@ final class SharpnessScoringModel {
         scores = [:]
         saliencyInfo = [:]
 
-        let model = focusMaskModel
+        let engine = FocusMaskEngine()
         let config = focusMaskModel.config
         let thumbSize = thumbnailMaxPixelSize
         var iterator = files.makeIterator()
@@ -163,7 +163,7 @@ final class SharpnessScoringModel {
                         var fileConfig = config
                         fileConfig.iso = iso
                         fileConfig.apertureHint = hint
-                        let result = await model.computeSharpnessScore(
+                        let result = await engine.computeSharpnessScore(
                             fromRawURL: url,
                             config: fileConfig,
                             thumbnailMaxPixelSize: thumbSize,
@@ -213,7 +213,7 @@ final class SharpnessScoringModel {
                             var fileConfig = config
                             fileConfig.iso = iso
                             fileConfig.apertureHint = hint
-                            let result = await model.computeSharpnessScore(
+                            let result = await engine.computeSharpnessScore(
                                 fromRawURL: url,
                                 config: fileConfig,
                                 thumbnailMaxPixelSize: thumbSize,
