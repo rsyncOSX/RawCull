@@ -20,6 +20,7 @@ enum MainViewMode: String, CaseIterable, Identifiable {
     case grid
     case similarityGrid
     case ratedGrid
+    case comparisonGrid
 
     var id: String {
         rawValue
@@ -79,6 +80,7 @@ final class RawCullViewModel {
 
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
+    var comparisonFileIDs: [FileItem.ID] = []
 
     // In-window zoom overlay (replaces the old separate zoom windows).
     var zoomOverlayVisible: Bool = false

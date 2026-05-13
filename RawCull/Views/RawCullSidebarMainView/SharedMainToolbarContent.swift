@@ -81,6 +81,16 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
 
             ToolbarItem(placement: .status) {
+                Button(action: selectComparisonGridMode) {
+                    Label("Compare", systemImage: "rectangle.split.2x1")
+                }
+                .help("Compare selected thumbnails")
+                .disabled(viewModel.selectedFileIDs.count <= 1 ||
+                    viewModel.selectedSource == nil ||
+                    viewModel.creatingthumbnails)
+            }
+
+            ToolbarItem(placement: .status) {
                 RatingFilterButtons(
                     activeRating: activeRatingInt,
                     onSelect: applyRatingFilter,
@@ -167,6 +177,15 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = .all
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.similarityGrid)
+    }
+
+    private func selectComparisonGridMode() {
+        let selectedIDs = viewModel.selectedFileIDs
+        let orderedIDs = viewModel.filteredFiles
+            .filter { selectedIDs.contains($0.id) }
+            .map(\.id)
+        viewModel.comparisonFileIDs = Array(orderedIDs.prefix(4))
+        viewModel.selectMainViewMode(.comparisonGrid)
     }
 
     private func showGridtaggedThumbnailWindow() -> Bool {

@@ -32,6 +32,9 @@ struct RawCullMainView: View {
 
                 case .ratedGrid:
                     ratedGridSplit
+
+                case .comparisonGrid:
+                    comparisonGridSplit
                 }
             }
 
@@ -274,6 +277,26 @@ struct RawCullMainView: View {
             )
             .navigationTitle("Rated images")
             .toolbar { toolbarContent }
+        }
+        .task {
+            columnVisibility = .detailOnly
+        }
+    }
+
+    // MARK: - Comparison grid mode (2-column split)
+
+    private var comparisonGridSplit: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            RAWCatalogSidebarView(
+                sources: $viewModel.sources,
+                selectedSource: $viewModel.selectedSource,
+                isShowingPicker: $viewModel.isShowingPicker,
+                cullingModel: viewModel.cullingModel,
+            )
+        } detail: {
+            ComparisonGridView(viewModel: viewModel)
+                .navigationTitle("Compare images")
+                .toolbar { toolbarContent }
         }
         .task {
             columnVisibility = .detailOnly
