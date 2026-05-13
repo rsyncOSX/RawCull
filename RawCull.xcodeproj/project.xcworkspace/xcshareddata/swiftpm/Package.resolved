@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/DecodeEncodeGeneric.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "b5ecbbbe1b244191efec1532a979f6ae342d6617"
+        "revision" : "b5ecbbbe1b244191efec1532a979f6ae342d6617",
+        "version" : "1.0.0"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/ParseRsyncOutput",
       "state" : {
-        "branch" : "main",
-        "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847"
+        "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847",
+        "version" : "1.0.0"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RsyncAnalyse",
       "state" : {
-        "branch" : "main",
-        "revision" : "8afefa663c62b78386fdacefa7b8c4b1c07e9457"
+        "revision" : "1e26aac6fd08b3ff858da4cf1983e7d6daa39f19",
+        "version" : "1.0.0"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RsyncArguments",
       "state" : {
-        "branch" : "main",
-        "revision" : "0ff6518136c208dfbecc1a918f045048ca79853d"
+        "revision" : "0ff6518136c208dfbecc1a918f045048ca79853d",
+        "version" : "1.0.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RsyncProcessStreaming",
       "state" : {
-        "branch" : "main",
-        "revision" : "70d6dc8fd275861ccef1215b4e183d8970ae9544"
+        "revision" : "dd86f012b352888fd146e0b6e103740dc237f740",
+        "version" : "1.0.0"
       }
     }
   ],
