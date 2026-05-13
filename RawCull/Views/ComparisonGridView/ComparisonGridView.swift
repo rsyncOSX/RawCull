@@ -11,6 +11,7 @@ struct ComparisonGridView: View {
     @State private var showFocusMask = false
     @State private var showFocusPoints = false
     @State private var useThumbnailSource = false
+    @State private var columnCount = 1
     @FocusState private var isFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
@@ -87,9 +88,18 @@ struct ComparisonGridView: View {
                 }
             }
         }
+        .onGeometryChange(for: Int.self) { proxy in
+            columnCount(for: proxy.size)
+        } action: { newColumnCount in
+            columnCount = newColumnCount
+        }
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
+        .onKeyPress(.leftArrow) { navigate(.left); return .handled }
+        .onKeyPress(.rightArrow) { navigate(.right); return .handled }
+        .onKeyPress(.upArrow) { navigate(.up); return .handled }
+        .onKeyPress(.downArrow) { navigate(.down); return .handled }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tT")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
@@ -177,11 +187,14 @@ struct ComparisonGridView: View {
     }
 
     private func columns(for size: CGSize) -> [GridItem] {
-        let columnCount = size.width >= 1200 ? 2 : 1
         return Array(
             repeating: GridItem(.flexible(minimum: 320), spacing: 12),
-            count: columnCount,
+            count: columnCount(for: size),
         )
+    }
+
+    private func columnCount(for size: CGSize) -> Int {
+        size.width >= 1200 ? 2 : 1
     }
 
     private func loadImages() async {
@@ -257,6 +270,20 @@ struct ComparisonGridView: View {
         guard let file = selectedComparisonFile else { return .ignored }
         viewModel.updateRating(for: file, rating: rating)
         return .handled
+    }
+
+    private func navigate(_ direction: ComparisonGridNavigationDirection) {
+        guard let selectedID = viewModel.selectedFileID,
+              let currentIndex = files.firstIndex(where: { $0.id == selectedID }),
+              let destinationIndex = ComparisonGridNavigation.destinationIndex(
+                from: currentIndex,
+                itemCount: files.count,
+                columnCount: columnCount,
+                direction: direction,
+              )
+        else { return }
+
+        viewModel.selectedFileID = files[destinationIndex].id
     }
 
     private func toggleZoom() {
