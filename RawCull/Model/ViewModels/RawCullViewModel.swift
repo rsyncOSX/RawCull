@@ -5,6 +5,7 @@ import OSLog
 
 enum AlertType {
     case extractJPGs
+    case createJPGDiskCache
     case clearRatedFiles
 }
 
@@ -150,6 +151,7 @@ final class RawCullViewModel {
     var alertTitle: String {
         switch alertType {
         case .extractJPGs: "Extract JPGs"
+        case .createJPGDiskCache: "Create JPG Disk Cache"
         case .clearRatedFiles: "Clear Rated Images"
         case .none: ""
         }
@@ -158,6 +160,10 @@ final class RawCullViewModel {
     var alertMessage: String {
         switch alertType {
         case .extractJPGs: "Are you sure you want to extract JPG images from ARW files?"
+
+        case .createJPGDiskCache:
+            "RawCull will create missing extracted JPG preview cache images for \(files.count) RAW files in this catalog. Existing cached images will be skipped."
+
         case .clearRatedFiles: "Are you sure you want to clear all rated images?"
         case .none: ""
         }

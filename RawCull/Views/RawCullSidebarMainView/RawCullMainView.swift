@@ -115,6 +115,12 @@ struct RawCullMainView: View {
                     }
                     .frame(width: 100)
 
+                case .createJPGDiskCache:
+                    Button("Create Cache") {
+                        viewModel.startScanAndExtractJPGs()
+                    }
+                    .frame(width: 100)
+
                 case .clearRatedFiles:
                     Button("Clear", role: .destructive) {
                         if let url = viewModel.selectedSource?.url {

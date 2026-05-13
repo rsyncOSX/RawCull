@@ -74,7 +74,8 @@ struct SidebarARWCatalogFileView: View {
                                 helpText: "Cache extracted JPG previews for this catalog",
                                 style: .softCapsule,
                             ) {
-                                viewModel.startScanAndExtractJPGs()
+                                viewModel.alertType = .createJPGDiskCache
+                                viewModel.showingAlert = true
                             }
                             .disabled(
                                 selectedSource == nil ||
