@@ -56,6 +56,8 @@ struct ImageOverlayControlsView: View {
                 } label: {
                     Image(systemName: "minus")
                         .font(.system(size: 12))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Circle())
                 }
                 .disabled(!canZoomOut)
                 .help("Zoom out")
@@ -74,6 +76,8 @@ struct ImageOverlayControlsView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 12))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Circle())
                 }
                 .disabled(!canZoomIn)
                 .help("Zoom in")
