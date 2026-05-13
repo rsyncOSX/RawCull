@@ -34,7 +34,10 @@ struct ComparisonGridView: View {
                                     showFocusMask: showFocusMask,
                                     showFocusPoints: showFocusPoints,
                                     markerSize: viewModel.focusPointMarkerSize,
+                                    isSelected: viewModel.selectedFileID == file.id,
+                                    rating: ratingDisplay(for: file),
                                     zoomPanGesture: zoomPanGesture,
+                                    onSelect: { viewModel.selectedFileID = file.id },
                                     onToggleZoom: toggleZoom,
                                 )
                                 .aspectRatio(3 / 2, contentMode: .fit)
@@ -46,21 +49,33 @@ struct ComparisonGridView: View {
                     VStack {
                         Spacer()
 
-                        ImageOverlayControlsView(
-                            showFocusMask: $showFocusMask,
-                            focusMaskAvailable: focusMaskAvailable,
-                            hasFocusPoints: hasFocusPoints,
-                            showFocusPoints: $showFocusPoints,
-                            showImageSourceToggle: true,
-                            useThumbnailSource: $useThumbnailSource,
-                            scale: scale,
-                            canZoomOut: scale > 0.5,
-                            canZoomIn: scale < 5.0,
-                            canReset: scale != 1.0 || offset != .zero,
-                            onZoomOut: decreaseZoom,
-                            onZoomReset: { withAnimation(.spring()) { resetToFit() } },
-                            onZoomIn: increaseZoom,
-                        )
+                        VStack(spacing: 8) {
+                            if let selectedComparisonFile {
+                                RatingActionBarView(
+                                    currentRating: ratingDisplay(for: selectedComparisonFile),
+                                    onSelect: { rating in
+                                        viewModel.updateRating(for: selectedComparisonFile, rating: rating)
+                                    },
+                                )
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            }
+
+                            ImageOverlayControlsView(
+                                showFocusMask: $showFocusMask,
+                                focusMaskAvailable: focusMaskAvailable,
+                                hasFocusPoints: hasFocusPoints,
+                                showFocusPoints: $showFocusPoints,
+                                showImageSourceToggle: true,
+                                useThumbnailSource: $useThumbnailSource,
+                                scale: scale,
+                                canZoomOut: scale > 0.5,
+                                canZoomIn: scale < 5.0,
+                                canReset: scale != 1.0 || offset != .zero,
+                                onZoomOut: decreaseZoom,
+                                onZoomReset: { withAnimation(.spring()) { resetToFit() } },
+                                onZoomIn: increaseZoom,
+                            )
+                        }
                         .padding(.bottom, 14)
                     }
                 } else {
@@ -86,9 +101,14 @@ struct ComparisonGridView: View {
         .onAppear {
             isFocused = true
             resetToFit()
+            selectFirstComparisonFileIfNeeded()
         }
         .task(id: loadKey) {
+            selectFirstComparisonFileIfNeeded()
             await loadImages()
+        }
+        .onChange(of: viewModel.comparisonFileIDs) { _, _ in
+            selectFirstComparisonFileIfNeeded()
         }
         .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             Task {
@@ -103,6 +123,11 @@ struct ComparisonGridView: View {
             .filter { selected.contains($0.id) }
             .prefix(4)
             .map { $0 }
+    }
+
+    private var selectedComparisonFile: FileItem? {
+        guard let selectedID = viewModel.selectedFileID else { return nil }
+        return files.first { $0.id == selectedID }
     }
 
     private var loadKey: String {
@@ -203,6 +228,22 @@ struct ComparisonGridView: View {
         guard let points = viewModel.focusPoints?.filter({ $0.sourceFile == file.name }),
               points.count == 1 else { return nil }
         return points[0].focusPoints
+    }
+
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: viewModel.getRating(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
+    }
+
+    private func selectFirstComparisonFileIfNeeded() {
+        guard !files.isEmpty else { return }
+        if let selectedID = viewModel.selectedFileID,
+           files.contains(where: { $0.id == selectedID }) {
+            return
+        }
+        viewModel.selectedFileID = files[0].id
     }
 
     private func toggleZoom() {

@@ -9,7 +9,10 @@ struct ComparisonImagePaneView: View {
     let showFocusMask: Bool
     let showFocusPoints: Bool
     let markerSize: CGFloat
+    let isSelected: Bool
+    let rating: RatingDisplay
     let zoomPanGesture: AnyGesture<Void>
+    let onSelect: () -> Void
     let onToggleZoom: () -> Void
 
     var body: some View {
@@ -36,6 +39,7 @@ struct ComparisonImagePaneView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
+                        CurrentRatingBadgeView(rating: rating)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -49,9 +53,18 @@ struct ComparisonImagePaneView: View {
             .clipShape(.rect(cornerRadius: 8))
             .contentShape(Rectangle())
             .gesture(zoomPanGesture)
+            .onTapGesture(count: 1, perform: onSelect)
             .onTapGesture(count: 2, perform: onToggleZoom)
         }
         .background(Color(nsColor: .textBackgroundColor))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
+        )
+        .shadow(
+            color: isSelected ? Color.accentColor.opacity(0.55) : .clear,
+            radius: isSelected ? 10 : 0,
+        )
         .clipShape(.rect(cornerRadius: 8))
     }
 

@@ -54,7 +54,29 @@ struct ZoomOverlayView: View {
 
             VStack {
                 HStack {
+                    if let selectedFile = viewModel.selectedFile {
+                        CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
+                            .padding()
+                    }
+
                     Spacer()
+
+                    navigationButton(
+                        "chevron.left.circle",
+                        help: "Previous image",
+                        isDisabled: !canNavigatePrevious,
+                    ) {
+                        navigateSelection(by: -1)
+                    }
+
+                    navigationButton(
+                        "chevron.right.circle",
+                        help: "Next image",
+                        isDisabled: !canNavigateNext,
+                    ) {
+                        navigateSelection(by: 1)
+                    }
+
                     toolbarButton("xmark.circle") { dismiss() }
                 }
 
@@ -145,6 +167,43 @@ struct ZoomOverlayView: View {
             file: file,
             useThumbnailAsZoomPreview: useThumbnailSource,
             viewModel: viewModel,
+        )
+    }
+
+    private var orderedZoomFiles: [FileItem] {
+        let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
+        return viewModel.sharpnessModel.sortBySharpness
+            ? filtered
+            : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private var currentZoomIndex: Int? {
+        guard let selectedFile = viewModel.selectedFile else { return nil }
+        return orderedZoomFiles.firstIndex { $0.id == selectedFile.id }
+    }
+
+    private var canNavigatePrevious: Bool {
+        guard let currentZoomIndex else { return false }
+        return currentZoomIndex > 0
+    }
+
+    private var canNavigateNext: Bool {
+        guard let currentZoomIndex else { return false }
+        return currentZoomIndex + 1 < orderedZoomFiles.count
+    }
+
+    private func navigateSelection(by delta: Int) {
+        guard let currentZoomIndex else { return }
+        let newIndex = currentZoomIndex + delta
+        guard orderedZoomFiles.indices.contains(newIndex) else { return }
+        resetToFit()
+        viewModel.selectedFileID = orderedZoomFiles[newIndex].id
+    }
+
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: viewModel.getRating(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
         )
     }
 
@@ -275,6 +334,28 @@ struct ZoomOverlayView: View {
         .buttonStyle(.plain)
         .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
         .padding()
+    }
+
+    private func navigationButton(
+        _ icon: String,
+        help: String,
+        isDisabled: Bool,
+        action: @escaping () -> Void,
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundStyle(isDisabled ? .white.opacity(0.35) : .white)
+                .frame(width: 30, height: 30)
+                .background(Material.regularMaterial)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .help(help)
+        .shadow(color: .black.opacity(isDisabled ? 0 : 0.4), radius: 8, x: 0, y: 2)
+        .padding(.vertical)
+        .padding(.trailing, 2)
     }
 
     // MARK: - Zoom helpers
