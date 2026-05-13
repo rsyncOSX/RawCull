@@ -9,12 +9,12 @@ import Vision
 
 /// Saliency detection result: whether a salient region was found and, if Vision
 /// classification succeeded, what the dominant subject is.
-struct SaliencyInfo: Sendable {
+struct SaliencyInfo {
     /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
     let subjectLabel: String?
 }
 
-struct FocusDetectorConfig: Sendable {
+struct FocusDetectorConfig {
     /// Aperture-derived tuning hint. Wide-aperture shots have a narrow focus plane
     /// and deserve a stricter blur gate; landscape-aperture shots have deep DoF and
     /// should not be pre-blurred as aggressively nor weighted so heavily toward the
@@ -22,7 +22,7 @@ struct FocusDetectorConfig: Sendable {
     /// Explicit nonisolated conformance — default-isolation=MainActor would otherwise
     /// make the synthesized Equatable.== main-isolated and unusable from the
     /// nonisolated scoring statics.
-    enum ApertureHint: Equatable, Sendable {
+    enum ApertureHint: Equatable {
         case wide // ≤ f/5.6
         case mid // f/5.6–f/8
         case landscape // ≥ f/8
@@ -793,7 +793,7 @@ struct FocusMaskEngine: @unchecked Sendable {
     }
 }
 
-struct FocusCalibrationResult: Sendable {
+struct FocusCalibrationResult {
     let threshold: Float
     let energyMultiplier: Float
     let sampleCount: Int

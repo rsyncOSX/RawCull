@@ -10,10 +10,13 @@ enum RatingDisplay {
         switch rating {
         case -1:
             self = .rejected
+
         case 0 where isExplicit:
             self = .keeper
+
         case 2 ... 5:
             self = .stars(rating)
+
         default:
             self = .unrated
         }
@@ -59,12 +62,15 @@ struct CurrentRatingBadgeView: View {
             case .stars:
                 Image(systemName: "star.fill")
                     .font(.system(size: 10, weight: .semibold))
+
             case .rejected:
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .semibold))
+
             case .keeper:
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .semibold))
+
             case .unrated:
                 Image(systemName: "circle")
                     .font(.system(size: 9, weight: .semibold))
@@ -91,7 +97,7 @@ struct RatingActionBarView: View {
         (2, "2", .yellow),
         (3, "3", .green),
         (4, "4", .blue),
-        (5, "5", .purple),
+        (5, "5", .purple)
     ]
 
     var body: some View {
@@ -122,8 +128,10 @@ struct RatingActionBarView: View {
         switch (currentRating, rating) {
         case (.rejected, -1), (.keeper, 0):
             true
+
         case let (.stars(current), rating):
             current == rating
+
         default:
             false
         }

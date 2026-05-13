@@ -90,11 +90,18 @@ struct ComparisonGridView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJ")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tT")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
             case "-": decreaseZoom(); return .handled
             case "j", "J": useThumbnailSource.toggle(); return .handled
+            case "x", "X": return applyRating(-1)
+            case "p", "P", "0": return applyRating(0)
+            case "1", "2": return applyRating(2)
+            case "3": return applyRating(3)
+            case "4": return applyRating(4)
+            case "5": return applyRating(5)
+            case "t", "T": return applyRating(3)
             default: return .ignored
             }
         }
@@ -170,7 +177,7 @@ struct ComparisonGridView: View {
     }
 
     private func columns(for size: CGSize) -> [GridItem] {
-        let columnCount = size.width >= 1_200 ? 2 : 1
+        let columnCount = size.width >= 1200 ? 2 : 1
         return Array(
             repeating: GridItem(.flexible(minimum: 320), spacing: 12),
             count: columnCount,
@@ -244,6 +251,12 @@ struct ComparisonGridView: View {
             return
         }
         viewModel.selectedFileID = files[0].id
+    }
+
+    private func applyRating(_ rating: Int) -> KeyPress.Result {
+        guard let file = selectedComparisonFile else { return .ignored }
+        viewModel.updateRating(for: file, rating: rating)
+        return .handled
     }
 
     private func toggleZoom() {
