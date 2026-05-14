@@ -110,7 +110,7 @@ struct CancellableImageIOWorkTests {
             group.addTask {
                 await extraction()
             }
-            return await group.next()
+            return await group.next() ?? nil
         }
     }
 
