@@ -13,9 +13,15 @@ import OSLog
 actor ThumbnailLoader {
     static let shared = ThumbnailLoader()
 
+    private enum SlotAcquisition {
+        case granted
+        case cancelled
+    }
+
     private let maxConcurrent = 6
     private var activeTasks = 0
-    private var pendingContinuations: [(id: UUID, continuation: CheckedContinuation<Void, Never>)] = []
+    private var maxObservedActiveTasks = 0
+    private var pendingContinuations: [(id: UUID, continuation: CheckedContinuation<SlotAcquisition, Never>)] = []
     private var cachedSettings: SavedSettings?
 
     /// Cached settings so we don't hammer the settings actor
@@ -26,18 +32,24 @@ actor ThumbnailLoader {
         return settings
     }
 
-    private func acquireSlot() async {
+    private func acquireSlot() async -> SlotAcquisition {
+        guard !Task.isCancelled else { return .cancelled }
+
         if activeTasks < maxConcurrent {
             activeTasks += 1
-            return
+            maxObservedActiveTasks = max(maxObservedActiveTasks, activeTasks)
+            return .granted
         }
 
         let id = UUID()
-        await withTaskCancellationHandler {
+        return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
+                if Task.isCancelled {
+                    continuation.resume(returning: .cancelled)
+                    return
+                }
                 pendingContinuations.append((id: id, continuation: continuation))
             }
-            activeTasks += 1
         } onCancel: {
             Task {
                 await self.removeAndResumePendingContinuation(id: id)
@@ -48,16 +60,20 @@ actor ThumbnailLoader {
     private func removeAndResumePendingContinuation(id: UUID) {
         if let index = pendingContinuations.firstIndex(where: { $0.id == id }) {
             let entry = pendingContinuations.remove(at: index)
-            entry.continuation.resume()
+            entry.continuation.resume(returning: .cancelled)
         }
     }
 
     private func releaseSlot() {
-        activeTasks -= 1
         if let next = pendingContinuations.first {
             pendingContinuations.removeFirst()
-            next.continuation.resume()
+            // Transfer this real slot directly to the next waiter. Keeping activeTasks
+            // unchanged prevents a new caller from over-admitting before the waiter resumes.
+            next.continuation.resume(returning: .granted)
+            return
         }
+
+        activeTasks = max(activeTasks - 1, 0)
     }
 
     func thumbnailLoader(file: FileItem, targetSize: Int) async -> NSImage? {
@@ -74,7 +90,8 @@ actor ThumbnailLoader {
             }
         }
 
-        await acquireSlot()
+        let acquisition = await acquireSlot()
+        guard acquisition == .granted else { return nil }
         defer { releaseSlot() }
 
         guard !Task.isCancelled else { return nil }
@@ -93,16 +110,35 @@ actor ThumbnailLoader {
         return nil
     }
 
-    /// Unblocks all continuations that are waiting for a concurrency slot.
-    ///
-    /// **Caller responsibility:** cancel the outer `Task`s that called `thumbnailLoader(file:)`
-    /// *before* calling this method. Only cancelled tasks will hit the `Task.isCancelled`
-    /// guard and return `nil` early; tasks whose outer `Task` is still live will proceed to
-    /// load the thumbnail after being unblocked.
+    /// Unblocks all continuations that are waiting for a concurrency slot as cancelled.
     func cancelAll() {
         for entry in pendingContinuations {
-            entry.continuation.resume()
+            entry.continuation.resume(returning: .cancelled)
         }
         pendingContinuations.removeAll()
     }
+
+    #if DEBUG
+        func slotSnapshotForTesting() -> (
+            activeTasks: Int,
+            pendingContinuations: Int,
+            maxConcurrent: Int,
+            maxObservedActiveTasks: Int,
+        ) {
+            (
+                activeTasks: activeTasks,
+                pendingContinuations: pendingContinuations.count,
+                maxConcurrent: maxConcurrent,
+                maxObservedActiveTasks: maxObservedActiveTasks,
+            )
+        }
+
+        func acquireSlotForTesting() async -> Bool {
+            await acquireSlot() == .granted
+        }
+
+        func releaseSlotForTesting() {
+            releaseSlot()
+        }
+    #endif
 }

@@ -81,7 +81,7 @@ private final class WorkState<Success: Sendable>: @unchecked Sendable {
     nonisolated func setContinuation(_ continuation: CheckedContinuation<Success, any Error>) {
         let resultToResume = state.withLock { state in
             if state.didResume {
-                return Optional<Result<Success, any Error>>.none
+                return Result<Success, any Error>?.none
             }
 
             if let pendingResult = state.pendingResult {
@@ -102,7 +102,7 @@ private final class WorkState<Success: Sendable>: @unchecked Sendable {
     nonisolated func resume(with result: Result<Success, any Error>) {
         let continuationToResume = state.withLock { state in
             if state.didResume {
-                return Optional<CheckedContinuation<Success, any Error>>.none
+                return CheckedContinuation<Success, any Error>?.none
             }
 
             if let continuation = state.continuation {

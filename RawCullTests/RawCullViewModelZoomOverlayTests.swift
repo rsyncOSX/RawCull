@@ -1,6 +1,6 @@
-@testable import RawCull
 import AppKit
 import CoreGraphics
+@testable import RawCull
 import Testing
 
 @Suite("RawCullViewModel zoom overlay")
