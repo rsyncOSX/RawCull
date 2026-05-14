@@ -187,7 +187,7 @@ struct ComparisonGridView: View {
     }
 
     private func columns(for size: CGSize) -> [GridItem] {
-        return Array(
+        Array(
             repeating: GridItem(.flexible(minimum: 320), spacing: 12),
             count: columnCount(for: size),
         )
@@ -276,10 +276,10 @@ struct ComparisonGridView: View {
         guard let selectedID = viewModel.selectedFileID,
               let currentIndex = files.firstIndex(where: { $0.id == selectedID }),
               let destinationIndex = ComparisonGridNavigation.destinationIndex(
-                from: currentIndex,
-                itemCount: files.count,
-                columnCount: columnCount,
-                direction: direction,
+                  from: currentIndex,
+                  itemCount: files.count,
+                  columnCount: columnCount,
+                  direction: direction,
               )
         else { return }
 

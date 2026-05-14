@@ -165,6 +165,7 @@ final class RawCullViewModel {
             "RawCull will create missing extracted JPG preview cache images for \(files.count) RAW files in this catalog. Existing cached images will be skipped."
 
         case .clearRatedFiles: "Are you sure you want to clear all rated images?"
+
         case .none: ""
         }
     }

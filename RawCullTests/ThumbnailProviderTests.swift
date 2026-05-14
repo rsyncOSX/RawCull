@@ -29,8 +29,8 @@ struct RequestThumbnailTests {
 
     @Test
     func `Initializes with production config by default`() async {
-        _ = RequestThumbnail()
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let cache = await makeIsolatedCache(config: .production)
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hitRate == 0)
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
@@ -38,8 +38,8 @@ struct RequestThumbnailTests {
 
     @Test
     func `Initializes with custom config`() async {
-        _ = RequestThumbnail()
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let cache = await makeIsolatedCache()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
 
@@ -47,12 +47,12 @@ struct RequestThumbnailTests {
 
     @Test
     func `Cache hit rate calculates correctly`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         // Simulate a hit and a miss
         // Note: We'd need access to storeInMemory to fully test this
         // For now, we test the statistics gathering
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         let expectedHitRate = 0.0 // Initially no hits or misses
 
         #expect(stats.hitRate == expectedHitRate)
@@ -60,16 +60,16 @@ struct RequestThumbnailTests {
 
     @Test
     func `Statistics reset after clear caches`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         // Get initial stats
-        var stats = await SharedMemoryCache.shared.getCacheStatistics()
+        var stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
 
         // Clear and verify
-        await SharedMemoryCache.shared.clearCaches()
-        stats = await SharedMemoryCache.shared.getCacheStatistics()
+        await cache.clearCaches()
+        stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
     }
@@ -88,7 +88,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Thumbnail method handles missing files gracefully`() async {
-        let provider = RequestThumbnail()
+        let (provider, _) = await makeIsolatedThumbnailProvider()
         let missingURL = URL(fileURLWithPath: "/nonexistent/file.jpg")
 
         let result = await provider.requestThumbnail(for: missingURL, targetSize: 256)
@@ -100,13 +100,13 @@ struct RequestThumbnailTests {
 
     @Test
     func `Clear caches removes all cached items`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         // Clear caches
-        await SharedMemoryCache.shared.clearCaches()
+        await cache.clearCaches()
 
         // Verify statistics are reset
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
         #expect(stats.evictions == 0)
@@ -129,7 +129,7 @@ struct RequestThumbnailTests {
 
     @Test
     func `Provider handles concurrent access safely`() async {
-        let provider = RequestThumbnail()
+        let (provider, _) = await makeIsolatedThumbnailProvider()
         let testURL = URL(fileURLWithPath: "/test/file.jpg")
 
         // Attempt concurrent reads on non-existent file
@@ -178,13 +178,13 @@ struct RequestThumbnailTests {
 
     @Test
     func `Provider is actor-isolated for thread safety`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         // Multiple concurrent accesses should not cause data races
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 5 {
                 group.addTask {
-                    let stats = await SharedMemoryCache.shared.getCacheStatistics()
+                    let stats = await cache.getCacheStatistics()
                     #expect(stats.hitRate >= 0)
                 }
             }
@@ -198,11 +198,11 @@ struct RequestThumbnailTests {
 struct RequestThumbnailPerformanceTests {
     @Test
     func `Statistics gathering is fast`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         let startTime = Date()
         for _ in 0 ..< 1000 {
-            _ = await SharedMemoryCache.shared.getCacheStatistics()
+            _ = await cache.getCacheStatistics()
         }
         let duration = Date().timeIntervalSince(startTime)
 
@@ -212,10 +212,10 @@ struct RequestThumbnailPerformanceTests {
 
     @Test
     func `Clear operation completes promptly`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         let startTime = Date()
-        await SharedMemoryCache.shared.clearCaches()
+        await cache.clearCaches()
         let duration = Date().timeIntervalSince(startTime)
 
         // Should complete quickly even with empty cache

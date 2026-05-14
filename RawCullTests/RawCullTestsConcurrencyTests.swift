@@ -70,7 +70,7 @@ enum ConcurrencyTests {
     struct SharedMemoryCacheTests {
         @Test
         func `SharedMemoryCache handles concurrent access safely`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             // Create test URLs
             let urls = (0 ..< 100).map { index in
@@ -100,8 +100,8 @@ enum ConcurrencyTests {
         }
 
         @Test
-        func `Replacing memory cache key preserves manual counters`() throws {
-            let cache = SharedMemoryCache.shared
+        func `Replacing memory cache key preserves manual counters`() async throws {
+            let cache = await makeIsolatedCache()
             cache.removeAllObjects()
             defer { cache.removeAllObjects() }
 
@@ -117,8 +117,8 @@ enum ConcurrencyTests {
         }
 
         @Test
-        func `Replacing grid cache key preserves manual counters`() throws {
-            let cache = SharedMemoryCache.shared
+        func `Replacing grid cache key preserves manual counters`() async throws {
+            let cache = await makeIsolatedCache()
             cache.removeAllGridObjects()
             defer { cache.removeAllGridObjects() }
 
@@ -135,7 +135,7 @@ enum ConcurrencyTests {
 
         @Test
         func `ensureReady prevents duplicate initialization`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             // Call ensureReady concurrently 100 times
             await withTaskGroup(of: Void.self) { group in
@@ -153,7 +153,7 @@ enum ConcurrencyTests {
 
         @Test
         func `Cache statistics are thread-safe`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
             await cache.ensureReady()
 
             // Concurrent statistics updates
@@ -189,7 +189,7 @@ enum ConcurrencyTests {
     struct SettingsViewModelTests {
         @Test
         func `SettingsViewModel handles concurrent reads safely`() async {
-            let viewModel = await SettingsViewModel.shared
+            let viewModel = await makeIsolatedSettingsViewModel()
 
             // Load settings first
             await viewModel.loadSettings()
@@ -225,7 +225,7 @@ enum ConcurrencyTests {
 
         @Test
         func `Settings save and load are atomic`() async {
-            let viewModel = await SettingsViewModel.shared
+            let viewModel = await makeIsolatedSettingsViewModel()
 
             // Set known values
             await MainActor.run {
@@ -339,7 +339,7 @@ enum ConcurrencyTests {
 
         @Test
         func `Actors maintain isolation under load`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             // Heavy concurrent load
             await withTaskGroup(of: Void.self) { group in
@@ -400,7 +400,8 @@ enum ConcurrencyTests {
             )
 
             // Pass to actor
-            await SharedMemoryCache.shared.ensureReady(config: config)
+            let cache = await makeIsolatedCache(config: config)
+            await cache.ensureReady(config: config)
 
             #expect(true, "CacheConfig successfully crossed isolation boundary")
         }
@@ -436,7 +437,7 @@ enum ConcurrencyTests {
             .timeLimit(.minutes(1)),
         )
         func `No race in settings read/write`() async {
-            let viewModel = await SettingsViewModel.shared
+            let viewModel = await makeIsolatedSettingsViewModel()
 
             await withTaskGroup(of: Void.self) { group in
                 // Concurrent reads
@@ -465,7 +466,7 @@ enum ConcurrencyTests {
     struct PerformanceTests {
         @Test
         func `Cache lookup performance under concurrent load`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             // Populate cache
             let urls = (0 ..< 100).map { URL(fileURLWithPath: "/tmp/test\(Int($0)).jpg") as NSURL }
@@ -495,7 +496,7 @@ enum ConcurrencyTests {
 
         @Test
         func `Actor serialization doesn't create bottleneck`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             let startTime = ContinuousClock.now
 

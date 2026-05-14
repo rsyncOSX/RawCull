@@ -127,7 +127,7 @@ enum ConcurrencyFixVerificationTests {
 
     struct SharedMemoryCacheDispatchSourceTests {
         @Test
-        func `Memory pressure handler doesn't use unnecessary Task.detached`() async throws {
+        func `Memory pressure handler doesn't use unnecessary Task.detached`() async {
             // The fix removes Task.detached in favor of direct Task
             // This test verifies the pattern works correctly
 
@@ -145,7 +145,7 @@ enum ConcurrencyFixVerificationTests {
 
             let state = HandlerState()
 
-            let simulateHandler: @Sendable () -> Void = {
+            let simulateHandler: @Sendable () -> Task<Void, Never> = {
                 Task {
                     // This is the fixed pattern: direct Task instead of Task.detached
                     try? await Task.sleep(for: .milliseconds(1))
@@ -153,10 +153,7 @@ enum ConcurrencyFixVerificationTests {
                 }
             }
 
-            simulateHandler()
-
-            // Give the Task time to execute
-            try await Task.sleep(for: .milliseconds(50))
+            await simulateHandler().value
 
             let handlerCalled = await state.wasCalled()
             #expect(handlerCalled, "Handler should execute via direct Task")
@@ -202,7 +199,7 @@ enum ConcurrencyFixVerificationTests {
     struct SettingsViewModelMainActorTests {
         @Test
         func `asyncgetsettings properly isolates to MainActor`() async {
-            let viewModel = await SettingsViewModel.shared
+            let viewModel = await makeIsolatedSettingsViewModel()
 
             // Set some values on MainActor
             await MainActor.run {
@@ -222,7 +219,7 @@ enum ConcurrencyFixVerificationTests {
 
         @Test
         func `Concurrent reads don't cause data races`() async {
-            let viewModel = await SettingsViewModel.shared
+            let viewModel = await makeIsolatedSettingsViewModel()
 
             await MainActor.run {
                 viewModel.memoryCacheSizeMB = 5000
@@ -255,7 +252,7 @@ enum ConcurrencyFixVerificationTests {
         @Test
         func `ensureReady prevents duplicate initialization`() async {
             // The fix stores setupTask immediately to prevent race
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             // Use an actor for async-safe counting
             actor Counter {
@@ -290,7 +287,7 @@ enum ConcurrencyFixVerificationTests {
 
         @Test(.timeLimit(.minutes(1)))
         func `Rapid concurrent ensureReady calls are safe`() async {
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
 
             // Stress test: 1000 concurrent calls
             let startTime = ContinuousClock.now
@@ -373,9 +370,9 @@ enum ConcurrencyFixVerificationTests {
         )
         func `All concurrency fixes work harmoniously under load`() async {
             // Test all fixed components together
-            let cache = SharedMemoryCache.shared
+            let cache = await makeIsolatedCache()
             let delegate = CacheDelegate.shared
-            let settings = await SettingsViewModel.shared
+            let settings = await makeIsolatedSettingsViewModel()
             let memory = await MemoryViewModel()
 
             await withTaskGroup(of: Void.self) { group in
@@ -428,17 +425,17 @@ enum ConcurrencyFixVerificationTests {
         )
         func `No deadlocks under maximum concurrent load`() async {
             // This test would timeout if there were deadlocks
+            let cache = await makeIsolatedCache()
+            let settings = await makeIsolatedSettingsViewModel()
 
             await withTaskGroup(of: Void.self) { group in
                 for _ in 0 ..< 1000 {
                     group.addTask {
-                        let cache = SharedMemoryCache.shared
                         await cache.ensureReady()
 
                         let delegate = CacheDelegate.shared
                         _ = await delegate.getEvictionCount()
 
-                        let settings = await SettingsViewModel.shared
                         _ = await settings.asyncgetsettings()
                     }
                 }

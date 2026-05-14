@@ -7,10 +7,15 @@ import UniformTypeIdentifiers
 actor FullSizeJPGDiskCache {
     let cacheDirectory: URL
 
-    init() {
-        let paths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
-        let folder = paths[0].appendingPathComponent("no.blogspot.RawCull/FullsizeJPGs")
-        cacheDirectory = folder
+    init(cacheDirectory: URL? = nil) {
+        let folder: URL
+        if let cacheDirectory {
+            folder = cacheDirectory
+        } else {
+            let paths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+            folder = paths[0].appendingPathComponent("no.blogspot.RawCull/FullsizeJPGs")
+        }
+        self.cacheDirectory = folder
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         } catch {

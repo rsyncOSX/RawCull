@@ -1,5 +1,5 @@
-import Testing
 @testable import RawCull
+import Testing
 
 @Suite("Comparison grid navigation")
 struct ComparisonGridNavigationTests {
@@ -8,7 +8,7 @@ struct ComparisonGridNavigationTests {
             (ComparisonGridNavigationDirection.left, 1),
             (ComparisonGridNavigationDirection.up, 1),
             (ComparisonGridNavigationDirection.right, 3),
-            (ComparisonGridNavigationDirection.down, 3),
+            (ComparisonGridNavigationDirection.down, 3)
         ],
     )
     func `one column arrows move previous or next`(
@@ -30,7 +30,7 @@ struct ComparisonGridNavigationTests {
             (1, ComparisonGridNavigationDirection.left, 0),
             (0, ComparisonGridNavigationDirection.right, 1),
             (2, ComparisonGridNavigationDirection.up, 0),
-            (1, ComparisonGridNavigationDirection.down, 3),
+            (1, ComparisonGridNavigationDirection.down, 3)
         ],
     )
     func `two column arrows select directional neighbors`(
@@ -55,7 +55,7 @@ struct ComparisonGridNavigationTests {
             (0, 4, ComparisonGridNavigationDirection.up),
             (2, 4, ComparisonGridNavigationDirection.down),
             (2, 3, ComparisonGridNavigationDirection.right),
-            (1, 3, ComparisonGridNavigationDirection.down),
+            (1, 3, ComparisonGridNavigationDirection.down)
         ],
     )
     func `two column arrows stop without a valid neighbor`(

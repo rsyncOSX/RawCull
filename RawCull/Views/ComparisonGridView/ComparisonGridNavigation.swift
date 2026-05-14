@@ -1,4 +1,4 @@
-enum ComparisonGridNavigationDirection: Sendable {
+enum ComparisonGridNavigationDirection {
     case left
     case right
     case up
@@ -29,10 +29,13 @@ enum ComparisonGridNavigation {
         let destination = switch direction {
         case .left:
             currentIndex % columns == 0 ? nil : currentIndex - 1
+
         case .right:
             currentIndex % columns == columns - 1 ? nil : currentIndex + 1
+
         case .up:
             currentIndex - columns
+
         case .down:
             currentIndex + columns
         }
@@ -43,7 +46,7 @@ enum ComparisonGridNavigation {
         return destination
     }
 
-    nonisolated private static func singleColumnDestination(
+    private nonisolated static func singleColumnDestination(
         from currentIndex: Int,
         itemCount: Int,
         direction: ComparisonGridNavigationDirection,
@@ -51,6 +54,7 @@ enum ComparisonGridNavigation {
         let destination = switch direction {
         case .left, .up:
             currentIndex - 1
+
         case .right, .down:
             currentIndex + 1
         }

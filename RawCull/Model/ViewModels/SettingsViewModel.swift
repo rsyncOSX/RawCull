@@ -20,12 +20,15 @@ final class SettingsViewModel {
     /// Retained so callers can `await ensureLoaded()` before reading settings.
     @ObservationIgnored private var loadTask: Task<Void, Never>?
 
-    private init() {
+    init(settingsFileURL: URL? = nil, loadOnInit: Bool = true) {
         // Phase 1: all stored properties must be set before self can be captured.
+        self.settingsFileURL = settingsFileURL
         loadTask = nil
         // Phase 2: self is now fully initialized — safe to capture in the Task closure.
-        loadTask = Task {
-            await self.loadSettings()
+        if loadOnInit {
+            loadTask = Task {
+                await self.loadSettings()
+            }
         }
     }
 
@@ -95,8 +98,12 @@ final class SettingsViewModel {
     // MARK: - Private Properties
 
     private let settingsFileName = "settings.json"
+    private let settingsFileURL: URL?
 
     private var settingsURL: URL {
+        if let settingsFileURL {
+            return settingsFileURL
+        }
         let appSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let appFolder = appSupport.appendingPathComponent("RawCull", isDirectory: true)

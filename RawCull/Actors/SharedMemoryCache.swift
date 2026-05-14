@@ -24,6 +24,7 @@ actor SharedMemoryCache {
     /// Removed private memory cache - now using SharedMemoryCache.shared
     private let diskCache: DiskCacheManager
     private let fullSizeJPGCache: FullSizeJPGDiskCache
+    private let tracksEvictions: Bool
     // Cache statistics for monitoring (Actor specific, not shared)
     private var cacheMemory = 0
     private var cacheDisk = 0
@@ -140,9 +141,14 @@ actor SharedMemoryCache {
     /// Only using the memory pressure warning
     private var fileHandlers: FileHandlers?
 
-    init(diskCache: DiskCacheManager? = nil) {
+    init(
+        diskCache: DiskCacheManager? = nil,
+        fullSizeJPGCache: FullSizeJPGDiskCache? = nil,
+        tracksEvictions: Bool = true,
+    ) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        fullSizeJPGCache = FullSizeJPGDiskCache()
+        self.fullSizeJPGCache = fullSizeJPGCache ?? FullSizeJPGDiskCache()
+        self.tracksEvictions = tracksEvictions
         // Logger.process.debugMessageOnly("SharedMemoryCache: init() complete")
     }
 
@@ -162,6 +168,12 @@ actor SharedMemoryCache {
 
     /// Ensures settings are loaded and cache is configured before use.
     func ensureReady(config: CacheConfig? = nil) async {
+        if let config, setupTask != nil {
+            await setupTask?.value
+            applyConfig(config)
+            return
+        }
+
         // If setup is already in progress (or done), just await it
         if let task = setupTask {
             return await task.value
@@ -262,10 +274,10 @@ actor SharedMemoryCache {
         // values; CachedThumbnail no longer adopts that protocol, so the setting
         // would be a no-op. Eviction is driven by totalCostLimit / countLimit and
         // the explicit `handleMemoryPressureEvent` handler.
-        memoryCache.delegate = CacheDelegate.shared
+        memoryCache.delegate = tracksEvictions ? CacheDelegate.shared : nil
         gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
         gridThumbnailCache.countLimit = 3000
-        gridThumbnailCache.delegate = CacheDelegate.shared
+        gridThumbnailCache.delegate = tracksEvictions ? CacheDelegate.shared : nil
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
 
         /*
@@ -524,8 +536,8 @@ actor SharedMemoryCache {
         // let hitRateStr = String(format: "%.1f", hitRate)
         // Logger.process.info("Cache Statistics - Hits: \(self.cacheMemory), Misses: \(self.cacheDisk), Hit Rate: \(hitRateStr)%")
 
-        SharedMemoryCache.shared.removeAllObjects()
-        SharedMemoryCache.shared.removeAllGridObjects()
+        removeAllObjects()
+        removeAllGridObjects()
 
         await diskCache.pruneCache(maxAgeInDays: 0)
         await fullSizeJPGCache.pruneCache(maxAgeInDays: 0)
@@ -546,6 +558,23 @@ actor SharedMemoryCache {
         _pressureNormals.withLock { $0 = 0 }
         CacheDelegate.shared.resetEvictionCount()
     }
+
+    #if DEBUG
+        func resetForTesting(config: CacheConfig? = nil) async {
+            setupTask = nil
+            savedSettings = nil
+            fileHandlers = nil
+            if memoryPressureSource != nil {
+                memoryPressureSource?.cancel()
+                memoryPressureSource = nil
+            }
+            await clearCaches()
+            if let config {
+                applyConfig(config)
+                setupTask = Task {}
+            }
+        }
+    #endif
 
     func updateCacheMemory() async {
         cacheMemory += 1

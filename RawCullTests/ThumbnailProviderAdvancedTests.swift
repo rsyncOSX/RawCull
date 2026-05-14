@@ -16,22 +16,22 @@ import Testing
 struct RequestThumbnailAdvancedMemoryTests {
     @Test
     func `Small cost limit triggers rapid evictions`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
-        let initialStats = await SharedMemoryCache.shared.getCacheStatistics()
+        let initialStats = await cache.getCacheStatistics()
         #expect(initialStats.evictions == 0)
 
         // After clear, evictions should still be tracked
-        await SharedMemoryCache.shared.clearCaches()
-        let finalStats = await SharedMemoryCache.shared.getCacheStatistics()
+        await cache.clearCaches()
+        let finalStats = await cache.getCacheStatistics()
         #expect(finalStats.evictions == 0) // Cleared
     }
 
     @Test
     func `Very small count limit prevents accumulation`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
     }
@@ -53,22 +53,22 @@ struct RequestThumbnailAdvancedMemoryTests {
 struct RequestThumbnailStressTests {
     @Test
     func `Handles rapid sequential operations`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         for _ in 0 ..< 100 {
-            let stats = await SharedMemoryCache.shared.getCacheStatistics()
+            let stats = await cache.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
     }
 
     @Test
     func `Handles many concurrent statistics calls`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 50 {
                 group.addTask {
-                    let stats = await SharedMemoryCache.shared.getCacheStatistics()
+                    let stats = await cache.getCacheStatistics()
                     #expect(stats.hits >= 0)
                 }
             }
@@ -77,23 +77,23 @@ struct RequestThumbnailStressTests {
 
     @Test
     func `Clear during concurrent operations`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
-        async let clearTask: () = SharedMemoryCache.shared.clearCaches()
-        async let statsTask = SharedMemoryCache.shared.getCacheStatistics()
+        async let clearTask: () = cache.clearCaches()
+        async let statsTask = cache.getCacheStatistics()
 
         _ = await (clearTask, statsTask)
     }
 
     @Test
     func `Multiple rapid clear operations`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache()
 
         for _ in 0 ..< 10 {
-            await SharedMemoryCache.shared.clearCaches()
+            await cache.clearCaches()
         }
 
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
     }
 }
@@ -103,32 +103,32 @@ struct RequestThumbnailEdgeCaseTests {
     @Test
     func `Config with zero cost limit`() async {
         // Edge case: what happens with totalCostLimit = 0?
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache(config: CacheConfig(totalCostLimit: 0, countLimit: 5))
 
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
 
     @Test
     func `Config with zero count limit`() async {
         // Edge case: what happens with countLimit = 0?
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache(config: CacheConfig(totalCostLimit: 100_000, countLimit: 0))
 
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hitRate == 0)
     }
 
     @Test
     func `Very large cache configuration`() async {
-        _ = RequestThumbnail()
+        let cache = await makeIsolatedCache(config: CacheConfig(totalCostLimit: 50_000_000, countLimit: 1000))
 
-        let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        let stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
     }
 
     @Test
     func `Thumbnail with extreme URL paths`() async {
-        let provider = RequestThumbnail()
+        let (provider, _) = await makeIsolatedThumbnailProvider()
 
         let veryLongPath = URL(fileURLWithPath: String(repeating: "/path", count: 100))
         let result = await provider.requestThumbnail(for: veryLongPath, targetSize: 256)
@@ -167,9 +167,9 @@ struct RequestThumbnailConfigurationTests {
             CacheConfig(totalCostLimit: 1_000_000, countLimit: 100)
         ]
 
-        for _ in customConfigs {
-            _ = RequestThumbnail()
-            let stats = await SharedMemoryCache.shared.getCacheStatistics()
+        for config in customConfigs {
+            let cache = await makeIsolatedCache(config: config)
+            let stats = await cache.getCacheStatistics()
             #expect(stats.hitRate >= 0)
         }
     }

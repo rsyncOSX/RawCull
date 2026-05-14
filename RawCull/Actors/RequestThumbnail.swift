@@ -14,11 +14,14 @@ actor RequestThumbnail {
 
     private var setupTask: Task<Void, Never>?
     private let diskCache: DiskCacheManager
+    private let memoryCache: SharedMemoryCache
 
     init(
         diskCache: DiskCacheManager? = nil,
+        memoryCache: SharedMemoryCache = .shared,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
+        self.memoryCache = memoryCache
     }
 
     private func ensureReady() async {
@@ -27,7 +30,7 @@ actor RequestThumbnail {
         }
 
         let newTask = Task {
-            await SharedMemoryCache.shared.ensureReady()
+            await memoryCache.ensureReady()
         }
 
         setupTask = newTask
@@ -50,12 +53,12 @@ actor RequestThumbnail {
         // denominator for `true_hit_rate_pct` in Memory Diagnostics — unlike
         // the existing layer-relative `hit_rate_pct`, this includes branch C
         // (cold extractions) so the metric reflects real user-perceived hits.
-        SharedMemoryCache.shared.incrementDemandRequest()
+        memoryCache.incrementDemandRequest()
 
         // A. Check RAM
-        if let wrapper = SharedMemoryCache.shared.object(forKey: nsUrl) {
+        if let wrapper = memoryCache.object(forKey: nsUrl) {
             Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache)")
-            await SharedMemoryCache.shared.updateCacheMemory()
+            await memoryCache.updateCacheMemory()
             let nsImage = wrapper.image
             return try await nsImageToCGImage(nsImage)
         }
@@ -65,19 +68,19 @@ actor RequestThumbnail {
             // Boomerang detection: a disk hit on a key the main RAM cache
             // recently evicted is the "scan polluted RAM, user paid disk cost
             // to get it back" pattern we're trying to quantify.
-            if SharedMemoryCache.shared.wasRecentlyEvicted(url: nsUrl) {
-                SharedMemoryCache.shared.incrementBoomerangMiss()
+            if memoryCache.wasRecentlyEvicted(url: nsUrl) {
+                memoryCache.incrementBoomerangMiss()
             }
             storeInMemory(diskImage, for: url)
             Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache)")
-            await SharedMemoryCache.shared.updateCacheDisk()
+            await memoryCache.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
         }
 
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        let costPerPixel = SharedMemoryCache.shared.costPerPixel
+        let costPerPixel = memoryCache.costPerPixel
 
         guard let format = RawFormatRegistry.format(for: url) else {
             throw ThumbnailError.invalidSource
@@ -93,7 +96,7 @@ actor RequestThumbnail {
         // The third bucket of demand traffic — without it, the layer-relative
         // hit rate (`hit_rate_pct`) is meaningless during a fresh scan because
         // its denominator excludes this path entirely.
-        SharedMemoryCache.shared.incrementColdExtract()
+        memoryCache.incrementColdExtract()
 
         storeInMemory(image, for: url)
 
@@ -134,8 +137,8 @@ actor RequestThumbnail {
 
     private func storeInMemory(_ image: NSImage, for url: URL) {
         let nsUrl = url as NSURL
-        guard SharedMemoryCache.shared.object(forKey: nsUrl) == nil else { return }
+        guard memoryCache.object(forKey: nsUrl) == nil else { return }
         let wrapper = CachedThumbnail(image: image, url: nsUrl)
-        SharedMemoryCache.shared.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+        memoryCache.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
     }
 }

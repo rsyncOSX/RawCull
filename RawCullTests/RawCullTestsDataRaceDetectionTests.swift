@@ -46,7 +46,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `No data race in NSCache access through SharedMemoryCache`() async {
-        let cache = SharedMemoryCache.shared
+        let cache = await makeIsolatedCache()
 
         let urls = (0 ..< 100).map { URL(fileURLWithPath: "/tmp/test\(Int($0)).jpg") as NSURL }
 
@@ -81,7 +81,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `Actor state is never accessed concurrently`() async {
-        let cache = SharedMemoryCache.shared
+        let cache = await makeIsolatedCache()
 
         // These calls are serialized by the actor
         await withTaskGroup(of: Int.self) { group in
@@ -103,7 +103,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `Actor prevents concurrent mutation of setupTask`() async {
-        let cache = SharedMemoryCache.shared
+        let cache = await makeIsolatedCache()
 
         // Multiple concurrent calls - actor ensures no concurrent mutation
         await withTaskGroup(of: Void.self) { group in
@@ -121,7 +121,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `SettingsViewModel @Observable properties protected by MainActor`() async {
-        let viewModel = await SettingsViewModel.shared
+        let viewModel = await makeIsolatedSettingsViewModel()
 
         // All accesses through MainActor
         await withTaskGroup(of: Int.self) { group in
@@ -147,7 +147,11 @@ struct DataRaceDetectionTests {
 
     @Test
     func `asyncgetsettings creates isolated snapshot`() async {
-        let viewModel = await SettingsViewModel.shared
+        let viewModel = await makeIsolatedSettingsViewModel()
+
+        await MainActor.run {
+            viewModel.memoryCacheSizeMB = 5000
+        }
 
         // Take snapshot
         let snapshot1 = await viewModel.asyncgetsettings()
@@ -248,12 +252,13 @@ struct DataRaceDetectionTests {
             totalCostLimit: 1_000_000,
             countLimit: 100,
         )
+        let cache = await makeIsolatedCache(config: config)
 
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 100 {
                 group.addTask {
                     // Pass to actor (crosses isolation boundary)
-                    await SharedMemoryCache.shared.ensureReady(config: config)
+                    await cache.ensureReady(config: config)
                 }
             }
         }
@@ -327,7 +332,7 @@ struct DataRaceDetectionTests {
 
     @Test
     func `Cancelled tasks don't leave inconsistent state`() async {
-        let cache = SharedMemoryCache.shared
+        let cache = await makeIsolatedCache()
 
         // Create and immediately cancel many tasks
         let tasks = (0 ..< 100).map { _ in
@@ -361,9 +366,9 @@ struct DataRaceDetectionTests {
         .tags(.performance),
     )
     func `Extreme concurrent load reveals no data races`() async {
-        let cache = SharedMemoryCache.shared
+        let cache = await makeIsolatedCache()
         let delegate = CacheDelegate.shared
-        let settings = await SettingsViewModel.shared
+        let settings = await makeIsolatedSettingsViewModel()
 
         // Maximum concurrent operations
         await withTaskGroup(of: Void.self) { group in
