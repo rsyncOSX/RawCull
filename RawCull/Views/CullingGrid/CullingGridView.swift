@@ -283,7 +283,7 @@ struct CullingGridView<Header: View>: View {
             }
             viewModel.selectedFileID = file.id
         } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
-            let ids = files.map(\.id)
+            let ids = visibleSelectionIDs
             if let from = ids.firstIndex(of: anchorID),
                let to = ids.firstIndex(of: file.id) {
                 let range = from <= to ? from ... to : to ... from
@@ -298,6 +298,15 @@ struct CullingGridView<Header: View>: View {
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
         viewModel.zoomOverlayVisible = true
+    }
+
+    private var visibleSelectionIDs: [FileItem.ID] {
+        if viewModel.similarityModel.burstModeActive {
+            return visibleBurstGroups.flatMap { group in
+                group.files.map(\.id)
+            }
+        }
+        return files.map(\.id)
     }
 
     // MARK: - Burst grouping helpers
