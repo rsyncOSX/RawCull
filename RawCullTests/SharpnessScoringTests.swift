@@ -250,9 +250,128 @@ struct SharpnessScoringTests {
         #expect(abs(model.maxScore - 0.90) < 0.001,
                 "p90 anchor for 10 evenly-spaced scores should be 0.90")
     }
+
+    @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
+    @MainActor
+    func `concurrent scoreFiles call awaits in flight scoring`() async throws {
+        let gate = SharpnessScoringGate()
+        let completion = SharpnessScoringCompletionProbe()
+        let model = SharpnessScoringModel { _, _, _, _ in
+            await gate.markStarted()
+            await gate.waitUntilReleased()
+            return (score: 0.75, saliency: nil)
+        }
+        let files = [makeSharpnessTestFile()]
+
+        let first = Task { await model.scoreFiles(files) }
+        try await gate.waitForStartedCount(1)
+
+        let second = Task {
+            await model.scoreFiles(files)
+            await completion.markCompleted(
+                sortBySharpness: model.sortBySharpness,
+                scoringTotal: model.scoringTotal,
+            )
+        }
+
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(await completion.isCompleted == false)
+
+        await gate.release()
+        await first.value
+        await second.value
+
+        #expect(await completion.isCompleted)
+        #expect(await completion.completedAfterSort)
+        #expect(await completion.completedAfterProgressReset)
+        #expect(model.scores[files[0].id] == 0.75)
+        #expect(model.sortBySharpness)
+        #expect(model.scoringProgress == 0)
+        #expect(model.scoringTotal == 0)
+    }
 }
 
 // MARK: - Numeric helper unit tests
+
+private func makeSharpnessTestFile() -> FileItem {
+    let url = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("rawcull-sharpness-\(UUID().uuidString)")
+        .appendingPathExtension("arw")
+
+    return FileItem(
+        url: url,
+        name: url.lastPathComponent,
+        size: 1,
+        dateModified: Date(),
+        exifData: nil,
+        afFocusNormalized: nil,
+    )
+}
+
+private actor SharpnessScoringGate {
+    private var startedCount = 0
+    private var released = false
+    private var startedWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func markStarted() {
+        startedCount += 1
+        var remainingWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+        for waiter in startedWaiters {
+            if startedCount >= waiter.0 {
+                waiter.1.resume()
+            } else {
+                remainingWaiters.append(waiter)
+            }
+        }
+        startedWaiters = remainingWaiters
+    }
+
+    func waitForStartedCount(_ count: Int) async throws {
+        if startedCount >= count { return }
+        await withCheckedContinuation { continuation in
+            startedWaiters.append((count, continuation))
+        }
+    }
+
+    func waitUntilReleased() async {
+        if released { return }
+        await withCheckedContinuation { continuation in
+            releaseWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        released = true
+        let waiters = releaseWaiters
+        releaseWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+}
+
+private actor SharpnessScoringCompletionProbe {
+    private var completed = false
+    private var observedSortBySharpness = false
+    private var observedScoringTotal = Int.max
+
+    var isCompleted: Bool {
+        completed
+    }
+
+    var completedAfterSort: Bool {
+        observedSortBySharpness
+    }
+
+    var completedAfterProgressReset: Bool {
+        observedScoringTotal == 0
+    }
+
+    func markCompleted(sortBySharpness: Bool, scoringTotal: Int) {
+        completed = true
+        observedSortBySharpness = sortBySharpness
+        observedScoringTotal = scoringTotal
+    }
+}
 
 @Suite("FocusMaskModel numeric helpers")
 struct FocusNumericHelperTests {

@@ -32,6 +32,13 @@ enum ApertureFilter: String, CaseIterable, Identifiable {
 
 @Observable @MainActor
 final class SharpnessScoringModel {
+    typealias SharpnessScoreComputer = @Sendable (
+        URL,
+        FocusDetectorConfig,
+        Int,
+        CGPoint?
+    ) async -> (score: Float?, saliency: SaliencyInfo?)
+
     /// Sharpness scores keyed by FileItem.id. Wholesale-replaced at the end
     /// of a scoring run; incremental inserts happen only when loading
     /// persisted scores. `didSet` refreshes `maxScore` so read sites in view
@@ -83,12 +90,14 @@ final class SharpnessScoringModel {
     }
 
     private var _scoringTask: Task<Void, Never>?
+    @ObservationIgnored private let scoreComputerOverride: SharpnessScoreComputer?
     var isCalibratingSharpnessScoring: Bool = false
 
     private static let minimumSamplesBeforeEstimation = 10
     private static let estimationWindowSize = 10
 
-    init() {
+    init(scoreComputerOverride: SharpnessScoreComputer? = nil) {
+        self.scoreComputerOverride = scoreComputerOverride
         // Default mode for wildlife
         focusMaskModel.config = .birdsInFlight
     }
@@ -133,9 +142,14 @@ final class SharpnessScoringModel {
     }
 
     func scoreFiles(_ files: [FileItem]) async {
-        guard !isScoring, !files.isEmpty else { return }
+        guard !files.isEmpty else { return }
+
+        if let existingTask = _scoringTask {
+            await existingTask.value
+            return
+        }
+
         isScoring = true
-        defer { isScoring = false }
 
         scoringProgress = 0
         scoringTotal = files.count
@@ -146,11 +160,17 @@ final class SharpnessScoringModel {
         let engine = FocusMaskEngine()
         let config = focusMaskModel.config
         let thumbSize = thumbnailMaxPixelSize
+        let scoreComputerOverride = scoreComputerOverride
         var iterator = files.makeIterator()
         var active = 0
         let maxConcurrent = 6
 
         let workTask = Task {
+            defer {
+                self._scoringTask = nil
+                self.isScoring = false
+            }
+
             await withTaskGroup(of: (UUID, Float?, SaliencyInfo?).self) { group in
                 while active < maxConcurrent, let file = iterator.next() {
                     let url = file.url
@@ -163,12 +183,16 @@ final class SharpnessScoringModel {
                         var fileConfig = config
                         fileConfig.iso = iso
                         fileConfig.apertureHint = hint
-                        let result = await engine.computeSharpnessScore(
-                            fromRawURL: url,
-                            config: fileConfig,
-                            thumbnailMaxPixelSize: thumbSize,
-                            afPoint: afPoint,
-                        )
+                        let result = if let scoreComputerOverride {
+                            await scoreComputerOverride(url, fileConfig, thumbSize, afPoint)
+                        } else {
+                            await engine.computeSharpnessScore(
+                                fromRawURL: url,
+                                config: fileConfig,
+                                thumbnailMaxPixelSize: thumbSize,
+                                afPoint: afPoint,
+                            )
+                        }
                         return (id, result.score, result.saliency)
                     }
                     active += 1
@@ -213,12 +237,16 @@ final class SharpnessScoringModel {
                             var fileConfig = config
                             fileConfig.iso = iso
                             fileConfig.apertureHint = hint
-                            let result = await engine.computeSharpnessScore(
-                                fromRawURL: url,
-                                config: fileConfig,
-                                thumbnailMaxPixelSize: thumbSize,
-                                afPoint: afPoint,
-                            )
+                            let result = if let scoreComputerOverride {
+                                await scoreComputerOverride(url, fileConfig, thumbSize, afPoint)
+                            } else {
+                                await engine.computeSharpnessScore(
+                                    fromRawURL: url,
+                                    config: fileConfig,
+                                    thumbnailMaxPixelSize: thumbSize,
+                                    afPoint: afPoint,
+                                )
+                            }
                             return (id, result.score, result.saliency)
                         }
                         active += 1
@@ -229,17 +257,17 @@ final class SharpnessScoringModel {
                 self.scores = localScores
                 self.saliencyInfo = localSaliency
             }
+
+            guard !Task.isCancelled else { return }
+
+            self.sortBySharpness = true
+            self.scoringProgress = 0
+            self.scoringTotal = 0
+            self.scoringEstimatedSeconds = 0
         }
 
         _scoringTask = workTask
         await workTask.value
-        _scoringTask = nil
-        guard !workTask.isCancelled else { return }
-
-        sortBySharpness = true
-        scoringProgress = 0
-        scoringTotal = 0
-        scoringEstimatedSeconds = 0
     }
 
     func applyPreloadedScores(

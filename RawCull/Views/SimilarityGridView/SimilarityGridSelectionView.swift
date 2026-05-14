@@ -172,10 +172,9 @@ struct SimilarityGridSelectionView: View {
     }
 
     /// Runs `action` after first computing sharpness scores when the toggle
-    /// is on and scores are missing. Re-runs are skipped — `scoreFiles`
-    /// already guards `!isScoring` and `scores` is reset on each run, so
-    /// this is safe even if the user fires multiple buttons in quick
-    /// succession.
+    /// is on and scores are missing. If scoring is already in flight,
+    /// `scoreFiles` awaits the existing task, so rapid actions cannot bypass
+    /// the prerequisite.
     private func runWithAutoScoring(_ action: @escaping @MainActor () async -> Void) {
         Task {
             if autoSharpnessScoring, viewModel.sharpnessModel.scores.isEmpty {
