@@ -11,7 +11,7 @@ import OSLog
 // Observable settings manager for app configuration
 // Persists settings to JSON in Application Support directory
 
-@Observable
+@Observable @MainActor
 final class SettingsViewModel {
     @MainActor static let shared = SettingsViewModel()
 

@@ -9,7 +9,7 @@ import Foundation
 import Observation
 import OSLog
 
-@Observable
+@Observable @MainActor
 final class MemoryViewModel {
     var totalMemory: UInt64 = 0
     var usedMemory: UInt64 = 0
