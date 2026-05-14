@@ -178,9 +178,18 @@ final class RawCullViewModel {
         offset = .zero
     }
 
+    func closeZoomOverlay() {
+        zoomExtractionTask?.cancel()
+        zoomExtractionTask = nil
+        zoomOverlayVisible = false
+        zoomOverlayCGImage = nil
+        zoomOverlayNSImage = nil
+    }
+
     // MARK: - File Selection
 
     func selectMainViewMode(_ mode: MainViewMode) {
+        closeZoomOverlay()
         if mode != .similarityGrid {
             similarityModel.burstModeActive = false
         }

@@ -210,11 +210,7 @@ struct ZoomOverlayView: View {
     // MARK: - Dismiss
 
     private func dismiss() {
-        viewModel.zoomExtractionTask?.cancel()
-        viewModel.zoomExtractionTask = nil
-        viewModel.zoomOverlayVisible = false
-        viewModel.zoomOverlayCGImage = nil
-        viewModel.zoomOverlayNSImage = nil
+        viewModel.closeZoomOverlay()
         resetToFit()
         focusMask = nil
     }
