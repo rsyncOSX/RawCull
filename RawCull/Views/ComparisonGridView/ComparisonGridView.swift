@@ -193,7 +193,7 @@ struct ComparisonGridView: View {
         )
     }
 
-    private func columnCount(for size: CGSize) -> Int {
+    private nonisolated func columnCount(for size: CGSize) -> Int {
         size.width >= 1200 ? 2 : 1
     }
 
