@@ -5,12 +5,65 @@ BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
 SIGNING_IDENTITY = "93M47F4H9T"
+TEST_DESTINATION = platform=macOS
+XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
+SMOKE_ONLY_TESTING = \
+	'-only-testing:RawCullTests/SimpleVerificationTest/`Swift Testing is available`()' \
+	'-only-testing:RawCullTests/SimpleVerificationTest/`Basic arithmetic`()' \
+	'-only-testing:RawCullTests/SimpleVerificationTest/`Async test works`()' \
+	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`one column arrows move previous or next`(direction:expectedIndex:)' \
+	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`two column arrows select directional neighbors`(currentIndex:direction:expectedIndex:)' \
+	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`two column arrows stop without a valid neighbor`(currentIndex:itemCount:direction:)' \
+	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`invalid current index returns nil`(currentIndex:)' \
+	'-only-testing:RawCullTests/SimilarityDistanceOrderingTests/`rankSimilar returns nearest image first`()' \
+	'-only-testing:RawCullTests/SimilarityDistanceOrderingTests/`anchor is excluded from distances`()' \
+	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`rankSimilar with unknown anchor clears state`()' \
+	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`indexFiles with empty array leaves model unchanged`()' \
+	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`initial sortBySimilarity is false`()' \
+	'-only-testing:RawCullTests/SimilaritySubjectMismatchTests/`subject mismatch increases distance`()' \
+	'-only-testing:RawCullTests/SimilarityCancellationTests/`cancelIndexing resets progress state`()' \
+	'-only-testing:RawCullTests/SimilarityCancellationTests/`reset clears all similarity state`()' \
+	'-only-testing:RawCullTests/SharpnessScoringTests/`max score small set uses maximum not minimum`()' \
+	'-only-testing:RawCullTests/SharpnessScoringTests/`max score large set uses P 90`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score empty returns nil`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score uniform returns zero`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score dense edges scores higher than sparse`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score dense edges full density factor`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score sparse edges scores low`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score is scale proportional`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast empty returns zero`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast uniform returns zero`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast ignores non finite`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast alternating known variance`()' \
+	'-only-testing:RawCullTests/ApertureHintTests/`nil aperture maps to mid`()' \
+	'-only-testing:RawCullTests/ApertureHintTests/`wide boundary is inclusive at 5 point 6`()' \
+	'-only-testing:RawCullTests/ApertureHintTests/`landscape boundary is inclusive at f 8`()' \
+	'-only-testing:RawCullTests/ApertureHintTests/`landscape has widest gate window and lowest threshold`()' \
+	'-only-testing:RawCullTests/ApertureHintTests/`only landscape overrides salient weight and damps blur`()' \
+	'-only-testing:RawCullTests/ApertureHintTests/`blur gate span is positive for every hint`()' \
+	'-only-testing:RawCullTests/ISOScalingTests/`below 800 is flat at 1 point 0`()' \
+	'-only-testing:RawCullTests/ISOScalingTests/`mid range ramps to 1 point 6 at 3200`()' \
+	'-only-testing:RawCullTests/ISOScalingTests/`high range caps at 2 point 2`()' \
+	'-only-testing:RawCullTests/ISOScalingTests/`monotonically non decreasing across range`()' \
+	'-only-testing:RawCullTests/ISOScalingTests/`high ISO is less aggressive than old sqrt formula`()'
+PERFORMANCE_ONLY_TESTING = \
+	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
 
 # Default target is release build
 build: clean archive sign-app notarize staple prepare-dmg open
 
 # Debug build - skips notarization and signing
 debug: clean archive-debug open-debug
+
+# Test targets
+test-smoke:
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke $(SMOKE_ONLY_TESTING)
+
+test-full:
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
+
+test-performance:
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance $(PERFORMANCE_ONLY_TESTING)
 
 # --- MAIN WORKFLOW FUNCTIONS --- #
 archive: clean
@@ -133,4 +186,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug
+.PHONY: build debug test-smoke test-full test-performance archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug

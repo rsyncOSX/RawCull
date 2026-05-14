@@ -318,21 +318,19 @@ Test Isolation Guarantees:
 ### Example 1: Quick Pre-Commit Check
 ```bash
 # Run smoke tests only (30 seconds)
-xcodebuild test -scheme RawCull -testFilter smoke
+make test-smoke
 ```
 
 ### Example 2: Full CI Pipeline
 ```bash
 # Run all tests with TSan (5 minutes)
-xcodebuild test -scheme RawCull \
-  -destination 'platform=macOS' \
-  -enableThreadSanitizer YES
+make test-full
 ```
 
 ### Example 3: Nightly Performance
 ```bash
 # Run performance benchmarks (10 minutes)
-xcodebuild test -scheme RawCull -testFilter performance
+make test-performance
 ```
 
 ## Success Metrics

@@ -37,13 +37,13 @@ Tests use the **Swift Testing framework** (not XCTest), with tags: `@Tag.critica
 
 ```bash
 # Quick smoke tests (~30s)
-xcodebuild test -scheme RawCull -testFilter smoke
+make test-smoke
 
 # Full suite with Thread Sanitizer (~5 min)
-xcodebuild test -scheme RawCull -destination 'platform=macOS' -enableThreadSanitizer YES
+make test-full
 
 # Performance benchmarks (~10 min)
-xcodebuild test -scheme RawCull -testFilter performance
+make test-performance
 ```
 
 See `RawCullTests/TEST_ARCHITECTURE.md` for test architecture detail.

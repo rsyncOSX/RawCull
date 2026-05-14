@@ -1,0 +1,29 @@
+{
+  "configurations" : [
+    {
+      "id" : "7D0F7D3F-F882-4E50-907C-79F77B262AA5",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:RawCull.xcodeproj",
+      "identifier" : "E90B07A12F1E58EA00A95D4A",
+      "name" : "RawCull"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:RawCull.xcodeproj",
+        "identifier" : "E95355DC2F33B70A006C2851",
+        "name" : "RawCullTests"
+      }
+    }
+  ],
+  "version" : 1
+}
