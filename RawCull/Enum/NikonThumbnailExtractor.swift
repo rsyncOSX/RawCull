@@ -20,23 +20,13 @@ enum NikonThumbnailExtractor {
         maxDimension: CGFloat,
         qualityCost: Int = 4,
     ) async throws -> CGImage {
-        // We MUST explicitly hop off the current thread.
-        // Since we are an enum and static, we have no isolation of our own.
-        // If we don't do this, we run on the caller's thread (the Actor), causing serialization.
-
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let image = try Self.extractSync(
-                        from: url,
-                        maxDimension: maxDimension,
-                        qualityCost: qualityCost,
-                    )
-                    continuation.resume(returning: image)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+        try await CancellableImageIOWork.run(qos: .userInitiated) { token in
+            try Self.extractSync(
+                from: url,
+                maxDimension: maxDimension,
+                qualityCost: qualityCost,
+                cancellationToken: token,
+            )
         }
     }
 
@@ -46,7 +36,10 @@ enum NikonThumbnailExtractor {
         from url: URL,
         maxDimension: CGFloat,
         qualityCost: Int,
+        cancellationToken: ImageIOCancellationToken,
     ) throws -> CGImage {
+        try cancellationToken.checkCancellation()
+
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
             throw ThumbnailError.invalidSource
@@ -59,9 +52,12 @@ enum NikonThumbnailExtractor {
             kCGImageSourceShouldCacheImmediately: true
         ]
 
+        try cancellationToken.checkCancellation()
         guard let raw = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary) else {
             throw ThumbnailError.generationFailed
         }
+
+        try cancellationToken.checkCancellation()
         return try rerender(raw, qualityCost: qualityCost)
     }
 

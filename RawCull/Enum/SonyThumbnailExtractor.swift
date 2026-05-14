@@ -20,23 +20,13 @@ enum SonyThumbnailExtractor {
         maxDimension: CGFloat,
         qualityCost: Int = 4,
     ) async throws -> CGImage {
-        // We MUST explicitly hop off the current thread.
-        // Since we are an enum and static, we have no isolation of our own.
-        // If we don't do this, we run on the caller's thread (the Actor), causing serialization.
-
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let image = try Self.extractSync(
-                        from: url,
-                        maxDimension: maxDimension,
-                        qualityCost: qualityCost,
-                    )
-                    continuation.resume(returning: image)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+        try await CancellableImageIOWork.run(qos: .userInitiated) { token in
+            try Self.extractSync(
+                from: url,
+                maxDimension: maxDimension,
+                qualityCost: qualityCost,
+                cancellationToken: token,
+            )
         }
     }
 
@@ -46,7 +36,10 @@ enum SonyThumbnailExtractor {
         from url: URL,
         maxDimension: CGFloat,
         qualityCost: Int,
+        cancellationToken: ImageIOCancellationToken,
     ) throws -> CGImage {
+        try cancellationToken.checkCancellation()
+
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
@@ -66,13 +59,21 @@ enum SonyThumbnailExtractor {
         ]
 
         // ImageIO path: works for A1, A1 II, A7R V. Falls back for ARW 6.0 (A7V / RA16).
-        let rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
-            ?? Self.binaryFallbackThumbnail(from: url, maxDimension: maxDimension)
+        try cancellationToken.checkCancellation()
+        var rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+        if rawThumbnail == nil {
+            rawThumbnail = try Self.binaryFallbackThumbnail(
+                from: url,
+                maxDimension: maxDimension,
+                cancellationToken: cancellationToken,
+            )
+        }
 
         guard let rawThumbnail else {
             throw ThumbnailError.generationFailed
         }
 
+        try cancellationToken.checkCancellation()
         return try rerender(rawThumbnail, qualityCost: qualityCost)
     }
 
@@ -82,10 +83,17 @@ enum SonyThumbnailExtractor {
     private nonisolated static func binaryFallbackThumbnail(
         from url: URL,
         maxDimension: CGFloat,
-    ) -> CGImage? {
+        cancellationToken: ImageIOCancellationToken,
+    ) throws -> CGImage? {
+        try cancellationToken.checkCancellation()
+
         guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
-              let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
-              let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
+              let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG
+        else { return nil }
+
+        try cancellationToken.checkCancellation()
+
+        guard let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
               let src = CGImageSourceCreateWithData(data as CFData, nil)
         else { return nil }
 
@@ -95,6 +103,8 @@ enum SonyThumbnailExtractor {
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
             kCGImageSourceShouldCacheImmediately: true
         ]
+
+        try cancellationToken.checkCancellation()
         return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
     }
 

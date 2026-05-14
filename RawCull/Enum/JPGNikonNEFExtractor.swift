@@ -21,69 +21,90 @@ enum JPGNikonNEFExtractor {
     ) async -> CGImage? {
         let maxThumbnailSize: CGFloat = fullSize ? 8640 : 4320
 
-        return await withCheckedContinuation { (continuation: CheckedContinuation<CGImage?, Never>) in
-            DispatchQueue.global(qos: .utility).async {
-                let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-                guard let imageSource = CGImageSourceCreateWithURL(nefURL as CFURL, sourceOptions) else {
-                    Logger.process.warning("JPGNikonNEFExtractor: failed to create image source")
-                    continuation.resume(returning: nil)
-                    return
-                }
+        return await CancellableImageIOWork.runReturningNilOnCancellation(qos: .utility) { token in
+            try Self.extractSync(
+                from: nefURL,
+                fullSize: fullSize,
+                maxThumbnailSize: maxThumbnailSize,
+                cancellationToken: token,
+            )
+        }
+    }
 
-                let imageCount = CGImageSourceGetCount(imageSource)
-                var targetIndex: Int = -1
-                var targetWidth = 0
+    private nonisolated static func extractSync(
+        from nefURL: URL,
+        fullSize: Bool,
+        maxThumbnailSize: CGFloat,
+        cancellationToken: ImageIOCancellationToken,
+    ) throws -> CGImage? {
+        try cancellationToken.checkCancellation()
 
-                // 1. Find the LARGEST embedded JPEG across all sub-images.
-                for index in 0 ..< imageCount {
-                    guard let properties = CGImageSourceCopyPropertiesAtIndex(
-                        imageSource, index, nil,
-                    ) as? [CFString: Any] else { continue }
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(nefURL as CFURL, sourceOptions) else {
+            Logger.process.warning("JPGNikonNEFExtractor: failed to create image source")
+            return nil
+        }
 
-                    let hasJFIF = (properties[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
-                    let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
-                    let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
-                    let isJPEG = hasJFIF || (compression == 6)
+        let imageCount = CGImageSourceGetCount(imageSource)
+        var targetIndex: Int = -1
+        var targetWidth = 0
 
-                    if let width = getWidth(from: properties), isJPEG, width > targetWidth {
-                        targetWidth = width
-                        targetIndex = index
-                    }
-                }
+        // 1. Find the LARGEST embedded JPEG across all sub-images.
+        for index in 0 ..< imageCount {
+            try cancellationToken.checkCancellation()
 
-                var imageIOResult: CGImage?
-                if targetIndex != -1 {
-                    let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
-                    if requiresDownsampling {
-                        let options: [CFString: Any] = [
-                            kCGImageSourceCreateThumbnailFromImageAlways: true,
-                            kCGImageSourceCreateThumbnailWithTransform: true,
-                            kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
-                        ]
-                        imageIOResult = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
-                    } else {
-                        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-                        imageIOResult = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions)
-                    }
-                }
+            guard let properties = CGImageSourceCopyPropertiesAtIndex(
+                imageSource, index, nil,
+            ) as? [CFString: Any] else { continue }
 
-                for i in 0 ..< imageCount {
-                    CGImageSourceRemoveCacheAtIndex(imageSource, i)
-                }
+            let hasJFIF = (properties[kCGImagePropertyJFIFDictionary] as? [CFString: Any]) != nil
+            let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+            let compression = tiffDict?[kCGImagePropertyTIFFCompression] as? Int
+            let isJPEG = hasJFIF || (compression == 6)
 
-                let finalResult: CGImage?
-                if imageIOResult == nil {
-                    finalResult = Self.binaryFallbackJPEG(from: nefURL, fullSize: fullSize, maxSize: maxThumbnailSize)
-                    if finalResult == nil {
-                        Logger.process.warning("JPGNikonNEFExtractor: binary fallback also failed for \(nefURL.lastPathComponent)")
-                    }
-                } else {
-                    finalResult = imageIOResult
-                }
-
-                continuation.resume(returning: finalResult)
+            if let width = getWidth(from: properties), isJPEG, width > targetWidth {
+                targetWidth = width
+                targetIndex = index
             }
         }
+
+        var imageIOResult: CGImage?
+        if targetIndex != -1 {
+            let requiresDownsampling = CGFloat(targetWidth) > maxThumbnailSize
+            try cancellationToken.checkCancellation()
+            if requiresDownsampling {
+                let options: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: Int(maxThumbnailSize)
+                ]
+                imageIOResult = CGImageSourceCreateThumbnailAtIndex(imageSource, targetIndex, options as CFDictionary)
+            } else {
+                let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+                imageIOResult = CGImageSourceCreateImageAtIndex(imageSource, targetIndex, decodeOptions)
+            }
+        }
+
+        for i in 0 ..< imageCount {
+            try cancellationToken.checkCancellation()
+            CGImageSourceRemoveCacheAtIndex(imageSource, i)
+        }
+
+        if let imageIOResult {
+            return imageIOResult
+        }
+
+        try cancellationToken.checkCancellation()
+        let fallback = try Self.binaryFallbackJPEG(
+            from: nefURL,
+            fullSize: fullSize,
+            maxSize: maxThumbnailSize,
+            cancellationToken: cancellationToken,
+        )
+        if fallback == nil {
+            Logger.process.warning("JPGNikonNEFExtractor: binary fallback also failed for \(nefURL.lastPathComponent)")
+        }
+        return fallback
     }
 
     /// Binary fallback: walks the NEF's TIFF SubIFDs via `NikonMakerNoteParser`,
@@ -94,7 +115,10 @@ enum JPGNikonNEFExtractor {
         from url: URL,
         fullSize: Bool,
         maxSize: CGFloat,
-    ) -> CGImage? {
+        cancellationToken: ImageIOCancellationToken,
+    ) throws -> CGImage? {
+        try cancellationToken.checkCancellation()
+
         guard let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) else { return nil }
 
         // For full-size export prefer the full-res SubIFD JPEG; for thumbnails
@@ -103,8 +127,12 @@ enum JPGNikonNEFExtractor {
             ? (locations.preview ?? locations.ifd1JPEG)
             : (locations.ifd1JPEG ?? locations.preview)
 
-        guard let loc,
-              let data = NikonMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
+        guard let loc
+        else { return nil }
+
+        try cancellationToken.checkCancellation()
+
+        guard let data = NikonMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
               let src = CGImageSourceCreateWithData(data as CFData, nil)
         else { return nil }
 
@@ -113,6 +141,8 @@ enum JPGNikonNEFExtractor {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: Int(maxSize)
         ]
+
+        try cancellationToken.checkCancellation()
         return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
             ?? CGImageSourceCreateImageAtIndex(src, 0, nil)
     }
