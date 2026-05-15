@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
 enum ZoomPreviewHandler {
-    private static var fullSizeCache: FullSizeJPGDiskCache {
+    private nonisolated static var fullSizeCache: FullSizeJPGDiskCache {
         SharedMemoryCache.shared.fullSizeJPGDiskCache
     }
 
@@ -58,45 +58,57 @@ enum ZoomPreviewHandler {
                 }
             }
         } else {
-            let filejpg = file.url.deletingPathExtension().appendingPathExtension(SupportedFileType.jpg.rawValue)
-            if let cgImage = loadCGImage(from: filejpg) {
-                viewModel.zoomOverlayCGImage = nil
-                viewModel.zoomOverlayNSImage = nil
-                viewModel.zoomOverlayCGImage = cgImage
-                viewModel.zoomOverlayVisible = true
-                return Task {}
-            } else {
-                return Task {
+            let rawURL = file.url
+            let sidecarJPGURL = rawURL
+                .deletingPathExtension()
+                .appendingPathExtension(SupportedFileType.jpg.rawValue)
+
+            return Task {
+                await MainActor.run {
+                    viewModel.zoomOverlayNSImage = nil
+                    viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayVisible = true
+                }
+
+                guard !Task.isCancelled else { return }
+
+                let sidecarImage = await Task.detached(priority: .userInitiated) {
+                    loadCGImage(from: sidecarJPGURL)
+                }.value
+
+                guard !Task.isCancelled else { return }
+
+                if let sidecarImage {
                     await MainActor.run {
-                        viewModel.zoomOverlayNSImage = nil
-                        viewModel.zoomOverlayCGImage = nil
-                        viewModel.zoomOverlayVisible = true
+                        guard !Task.isCancelled else { return }
+                        viewModel.zoomOverlayCGImage = sidecarImage
                     }
+                    return
+                }
+
+                if let cached = await fullSizeCache.load(for: rawURL) {
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        guard !Task.isCancelled else { return }
+                        viewModel.zoomOverlayCGImage = cached
+                    }
+                    return
+                }
+
+                guard !Task.isCancelled else { return }
+
+                if let format = RawFormatRegistry.format(for: rawURL) {
+                    let extracted = await format.extractFullJPEG(from: rawURL, fullSize: false)
 
                     guard !Task.isCancelled else { return }
 
-                    if let cached = await fullSizeCache.load(for: file.url) {
-                        guard !Task.isCancelled else { return }
+                    if let extracted {
                         await MainActor.run {
-                            viewModel.zoomOverlayCGImage = cached
+                            guard !Task.isCancelled else { return }
+                            viewModel.zoomOverlayCGImage = extracted
                         }
-                        return
-                    }
-
-                    guard !Task.isCancelled else { return }
-
-                    if let format = RawFormatRegistry.format(for: file.url) {
-                        let extracted = await format.extractFullJPEG(from: file.url, fullSize: false)
-
-                        guard !Task.isCancelled else { return }
-
-                        if let extracted {
-                            await MainActor.run {
-                                viewModel.zoomOverlayCGImage = extracted
-                            }
-                            if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-                                await fullSizeCache.save(jpegData, for: file.url)
-                            }
+                        if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
+                            await fullSizeCache.save(jpegData, for: rawURL)
                         }
                     }
                 }
@@ -104,7 +116,7 @@ enum ZoomPreviewHandler {
         }
     }
 
-    private static func loadCGImage(from url: URL) -> CGImage? {
+    private nonisolated static func loadCGImage(from url: URL) -> CGImage? {
         // Disable source-level AND decode-level ImageIO caching. Without this, ImageIO
         // retains the decoded pixel buffer (~188 MB for a 50 MP JPEG) in a process-level
         // cache that is NOT subject to ARC — setting cgImage = nil in onDisappear does not
