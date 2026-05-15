@@ -106,9 +106,18 @@ final class RawCullViewModel {
     /// Similarity scoring model — Vision feature-print embeddings and distance ranking.
     var similarityModel = SimilarityScoringModel()
 
-    /// URLs for which startAccessingSecurityScopedResource() has been called.
-    /// Stopped in deinit to pair every start with a stop.
-    @ObservationIgnored private var securityScopedURLs: Set<URL> = []
+    /// Currently selected catalog for which startAccessingSecurityScopedResource()
+    /// has succeeded. Access is scoped to the active catalog, not every catalog
+    /// ever added to the sidebar.
+    @ObservationIgnored private var activeSecurityScopedURL: URL?
+
+    @ObservationIgnored var startSecurityScopedResource: @MainActor (URL) -> Bool = {
+        $0.startAccessingSecurityScopedResource()
+    }
+
+    @ObservationIgnored var stopSecurityScopedResource: @MainActor (URL) -> Void = {
+        $0.stopAccessingSecurityScopedResource()
+    }
 
     /// URLs whose thumbnails have already been preloaded — skip on revisit.
     @ObservationIgnored var processedURLs: Set<URL> = []
@@ -214,15 +223,41 @@ final class RawCullViewModel {
 
     // MARK: - Security-scoped resource lifecycle
 
-    /// Call after a successful startAccessingSecurityScopedResource() so the
-    /// ViewModel can pair every start with a stop.
-    func trackSecurityScopedAccess(for url: URL) {
-        securityScopedURLs.insert(url)
+    /// Starts access for the active catalog, stopping any previously active
+    /// catalog first. Re-selecting the same active catalog is a no-op.
+    @discardableResult
+    func startSecurityScopedAccess(for url: URL) -> Bool {
+        if activeSecurityScopedURL == url {
+            return true
+        }
+
+        stopActiveSecurityScopedAccess()
+
+        guard startSecurityScopedResource(url) else {
+            return false
+        }
+
+        activeSecurityScopedURL = url
+        return true
     }
 
-    deinit {
-        for url in securityScopedURLs {
-            url.stopAccessingSecurityScopedResource()
-        }
+    func hasActiveSecurityScopedAccess(for url: URL) -> Bool {
+        activeSecurityScopedURL == url
+    }
+
+    func stopSecurityScopedAccess(for url: URL) {
+        guard activeSecurityScopedURL == url else { return }
+        stopSecurityScopedResource(url)
+        activeSecurityScopedURL = nil
+    }
+
+    func stopActiveSecurityScopedAccess() {
+        guard let url = activeSecurityScopedURL else { return }
+        stopSecurityScopedResource(url)
+        activeSecurityScopedURL = nil
+    }
+
+    isolated deinit {
+        stopActiveSecurityScopedAccess()
     }
 }

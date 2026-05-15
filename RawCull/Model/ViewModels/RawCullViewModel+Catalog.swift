@@ -7,13 +7,22 @@ import OSLog
 
 extension RawCullViewModel {
     func startCatalogLoad(for source: ARWSourceCatalog?) {
-        guard currentselectedSource != source else { return }
-        currentselectedSource = source
+        if let url = source?.url,
+           currentselectedSource == source,
+           hasActiveSecurityScopedAccess(for: url) {
+            return
+        }
 
         cancelCatalogLoad()
+        currentselectedSource = source
 
         guard let url = source?.url else {
             activeCatalogLoadURL = nil
+            return
+        }
+
+        guard startSecurityScopedAccess(for: url) else {
+            scanning = false
             return
         }
 
@@ -27,6 +36,8 @@ extension RawCullViewModel {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
         activeCatalogLoadURL = nil
+        currentselectedSource = nil
+        stopActiveSecurityScopedAccess()
 
         preloadTask?.cancel()
         preloadTask = nil

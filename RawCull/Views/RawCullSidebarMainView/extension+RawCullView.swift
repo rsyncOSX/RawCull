@@ -23,14 +23,9 @@ extension RawCullMainView {
 
     func handlePickerResult(_ result: Result<URL, Error>) {
         if case let .success(url) = result {
-            if url.startAccessingSecurityScopedResource() {
-                // Track so stopAccessingSecurityScopedResource() is called
-                // when the source is removed or the app terminates.
-                viewModel.trackSecurityScopedAccess(for: url)
-                let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
-                viewModel.sources.append(source)
-                viewModel.selectedSource = source
-            }
+            let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
+            viewModel.sources.append(source)
+            viewModel.selectedSource = source
         }
     }
 

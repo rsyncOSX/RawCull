@@ -58,5 +58,6 @@ struct RawCullApp: App {
 
     private func performCleanupTask() {
         Logger.process.debugMessageOnly("RawCullApp: performCleanupTask(), shutting down, doing clean up")
+        viewModel.stopActiveSecurityScopedAccess()
     }
 }
