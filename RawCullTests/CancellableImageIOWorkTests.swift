@@ -110,7 +110,8 @@ struct CancellableImageIOWorkTests {
             group.addTask {
                 await extraction()
             }
-            return await group.next()
+            guard let result = await group.next() else { return nil }
+            return result
         }
     }
 
