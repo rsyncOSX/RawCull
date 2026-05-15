@@ -19,12 +19,17 @@ struct RequestThumbnailAdvancedMemoryTests {
         let cache = await makeIsolatedCache()
 
         let initialStats = await cache.getCacheStatistics()
-        #expect(initialStats.evictions == 0)
+        #expect(initialStats.hits == 0)
+        #expect(initialStats.misses == 0)
+        #expect(cache.getMemoryCacheCount() == 0)
+        #expect(cache.getGridCacheCount() == 0)
 
-        // After clear, evictions should still be tracked
         await cache.clearCaches()
         let finalStats = await cache.getCacheStatistics()
-        #expect(finalStats.evictions == 0) // Cleared
+        #expect(finalStats.hits == 0)
+        #expect(finalStats.misses == 0)
+        #expect(cache.getMemoryCacheCount() == 0)
+        #expect(cache.getGridCacheCount() == 0)
     }
 
     @Test

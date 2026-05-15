@@ -36,7 +36,7 @@ final class SharpnessScoringModel {
         URL,
         FocusDetectorConfig,
         Int,
-        CGPoint?
+        CGPoint?,
     ) async -> (score: Float?, saliency: SaliencyInfo?)
 
     /// Sharpness scores keyed by FileItem.id. Wholesale-replaced at the end

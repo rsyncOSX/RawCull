@@ -62,7 +62,10 @@ struct CustomMemoryLimitTests {
         await cache.clearCaches()
 
         let stats = await cache.getCacheStatistics()
-        #expect(stats.evictions == 0) // No evictions yet
+        #expect(stats.hits == 0)
+        #expect(stats.misses == 0)
+        #expect(cache.getMemoryCacheCount() == 0)
+        #expect(cache.getGridCacheCount() == 0)
     }
 
     /// Example 4: Test with custom cost-heavy scenario
@@ -141,19 +144,18 @@ struct EvictionMonitoringTests {
     func `Eviction statistics collection`() async {
         let cache = await makeIsolatedCache()
 
-        // Initial state
         let initialStats = await cache.getCacheStatistics()
-        let initialEvictions = initialStats.evictions
-        print("Initial evictions: \(initialEvictions)")
+        print("Initial cache stats: \(initialStats)")
 
-        // After operations
         await cache.clearCaches()
 
         let finalStats = await cache.getCacheStatistics()
-        let finalEvictions = finalStats.evictions
-        print("Final evictions: \(finalEvictions)")
+        print("Final cache stats: \(finalStats)")
 
-        #expect(finalEvictions >= initialEvictions)
+        #expect(finalStats.hits == 0)
+        #expect(finalStats.misses == 0)
+        #expect(cache.getMemoryCacheCount() == 0)
+        #expect(cache.getGridCacheCount() == 0)
     }
 
     /// Track hit/miss ratio

@@ -109,7 +109,8 @@ struct RequestThumbnailTests {
         let stats = await cache.getCacheStatistics()
         #expect(stats.hits == 0)
         #expect(stats.misses == 0)
-        #expect(stats.evictions == 0)
+        #expect(cache.getMemoryCacheCount() == 0)
+        #expect(cache.getGridCacheCount() == 0)
     }
 
     // MARK: - Preload Catalog Tests
