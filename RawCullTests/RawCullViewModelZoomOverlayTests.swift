@@ -7,6 +7,37 @@ import Testing
 struct RawCullViewModelZoomOverlayTests {
     @MainActor
     @Test
+    func `opening zoom overlay from loupe uses vertical navigation`() {
+        let viewModel = RawCullViewModel()
+        viewModel.selectMainViewMode(.loupe)
+
+        viewModel.openZoomOverlay()
+
+        #expect(viewModel.zoomOverlayVisible == true)
+        #expect(viewModel.zoomOverlayNavigationAxis == .vertical)
+    }
+
+    @MainActor
+    @Test(arguments: [
+        MainViewMode.grid,
+        MainViewMode.similarityGrid,
+        MainViewMode.ratedGrid,
+        MainViewMode.comparisonGrid
+    ])
+    func `opening zoom overlay from non loupe modes uses horizontal navigation`(
+        mode: MainViewMode,
+    ) {
+        let viewModel = RawCullViewModel()
+        viewModel.selectMainViewMode(mode)
+
+        viewModel.openZoomOverlay()
+
+        #expect(viewModel.zoomOverlayVisible == true)
+        #expect(viewModel.zoomOverlayNavigationAxis == .horizontal)
+    }
+
+    @MainActor
+    @Test
     func `selecting main view mode closes zoom overlay`() throws {
         for mode in MainViewMode.allCases {
             let viewModel = RawCullViewModel()

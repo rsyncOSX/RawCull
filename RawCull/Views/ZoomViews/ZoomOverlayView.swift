@@ -62,16 +62,16 @@ struct ZoomOverlayView: View {
                     Spacer()
 
                     navigationButton(
-                        "chevron.left.circle",
-                        help: "Previous image",
+                        previousNavigationIcon,
+                        help: previousNavigationHelp,
                         isDisabled: !canNavigatePrevious,
                     ) {
                         navigateSelection(by: -1)
                     }
 
                     navigationButton(
-                        "chevron.right.circle",
-                        help: "Next image",
+                        nextNavigationIcon,
+                        help: nextNavigationHelp,
                         isDisabled: !canNavigateNext,
                     ) {
                         navigateSelection(by: 1)
@@ -180,6 +180,26 @@ struct ZoomOverlayView: View {
     private var currentZoomIndex: Int? {
         guard let selectedFile = viewModel.selectedFile else { return nil }
         return orderedZoomFiles.firstIndex { $0.id == selectedFile.id }
+    }
+
+    private var usesVerticalNavigation: Bool {
+        viewModel.zoomOverlayNavigationAxis == .vertical
+    }
+
+    private var previousNavigationIcon: String {
+        usesVerticalNavigation ? "chevron.up.circle" : "chevron.left.circle"
+    }
+
+    private var nextNavigationIcon: String {
+        usesVerticalNavigation ? "chevron.down.circle" : "chevron.right.circle"
+    }
+
+    private var previousNavigationHelp: String {
+        usesVerticalNavigation ? "Previous image (Up)" : "Previous image"
+    }
+
+    private var nextNavigationHelp: String {
+        usesVerticalNavigation ? "Next image (Down)" : "Next image"
     }
 
     private var canNavigatePrevious: Bool {

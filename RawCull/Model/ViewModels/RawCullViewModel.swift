@@ -28,6 +28,11 @@ enum MainViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum ZoomOverlayNavigationAxis: Equatable {
+    case vertical
+    case horizontal
+}
+
 enum ActiveSheet: String, Identifiable {
     case stats
     case scoringParams
@@ -85,6 +90,7 @@ final class RawCullViewModel {
 
     // In-window zoom overlay (replaces the old separate zoom windows).
     var zoomOverlayVisible: Bool = false
+    var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
     var zoomOverlayCGImage: CGImage?
     var zoomOverlayNSImage: NSImage?
 
@@ -185,6 +191,11 @@ final class RawCullViewModel {
         scale = 1.0
         lastScale = 1.0
         offset = .zero
+    }
+
+    func openZoomOverlay() {
+        zoomOverlayNavigationAxis = mainViewMode == .loupe ? .vertical : .horizontal
+        zoomOverlayVisible = true
     }
 
     func closeZoomOverlay() {

@@ -297,7 +297,7 @@ struct CullingGridView<Header: View>: View {
 
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
-        viewModel.zoomOverlayVisible = true
+        viewModel.openZoomOverlay()
     }
 
     private var visibleSelectionIDs: [FileItem.ID] {
