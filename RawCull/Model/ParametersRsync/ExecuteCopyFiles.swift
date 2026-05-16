@@ -39,6 +39,8 @@ final class ExecuteCopyFiles {
     // Security-scoped URL references
     private var sourceAccessedURL: URL?
     private var destAccessedURL: URL?
+    private var didCleanUp = false
+    private var isClosing = false
 
     /// Callback
     var onCompletion: ((CopyDataResult) -> Void)?
@@ -74,14 +76,19 @@ final class ExecuteCopyFiles {
         let updateparamter = "--update"
         arguments.append(updateparamter)
 
-        guard let sourceURL = getAccessedURL(fromBookmarkKey: "sourceBookmark", fallbackPath: fallbacksource),
-              let destURL = getAccessedURL(fromBookmarkKey: "destBookmark", fallbackPath: fallbackdest)
-        else {
+        guard let sourceURL = getAccessedURL(fromBookmarkKey: "sourceBookmark", fallbackPath: fallbacksource) else {
             Logger.process.errorMessageOnly("Failed to access folders")
             return
         }
 
         self.sourceAccessedURL = sourceURL
+
+        guard let destURL = getAccessedURL(fromBookmarkKey: "destBookmark", fallbackPath: fallbackdest) else {
+            Logger.process.errorMessageOnly("Failed to access folders")
+            cleanup()
+            return
+        }
+
         self.destAccessedURL = destURL
 
         arguments.append(sourceURL.path + "/")
@@ -123,9 +130,7 @@ final class ExecuteCopyFiles {
             activeStreamingProcess = process
         } catch {
             Logger.process.errorMessageOnly(": executeProcess failed: \(error)")
-            Task { @MainActor in
-                self.cleanup()
-            }
+            cleanup()
         }
     }
 
@@ -148,10 +153,15 @@ final class ExecuteCopyFiles {
         self.progressContinuation = continuation
     }
 
-    deinit {
+    isolated deinit {
         Logger.process.debugMessageOnly("ExecuteCopyFiles: DEINIT")
-        // Note: Can't call async cleanup in deinit, but the URLs will be released
-        // when the properties are deallocated
+        cleanup()
+    }
+
+    func close() {
+        isClosing = true
+        activeStreamingProcess?.cancel()
+        cleanup()
     }
 
     private func setupStreamingHandlers() {
@@ -173,6 +183,11 @@ final class ExecuteCopyFiles {
     }
 
     private func handleProcessTermination(stringoutputfromrsync: [String]?, hiddenID _: Int?) async {
+        guard !isClosing else {
+            cleanup()
+            return
+        }
+
         // Create view output asynchronously
         let viewOutput = await ActorCreateOutputforView().createOutputForView(stringoutputfromrsync)
 
@@ -193,7 +208,10 @@ final class ExecuteCopyFiles {
     }
 
     private func cleanup() {
-        progressContinuation?.finish() // <-- add this
+        guard didCleanUp == false else { return }
+        didCleanUp = true
+
+        progressContinuation?.finish()
         progressContinuation = nil
         progressStream = nil
 

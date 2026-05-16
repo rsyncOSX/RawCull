@@ -31,7 +31,7 @@ struct CreateStreamingHandlers {
             updateProcess: { _ in },
             propagateError: { _ in },
             checkForErrorInRsyncOutput: false,
-            environment: ["": ""],
+            environment: nil,
         )
     }
 }

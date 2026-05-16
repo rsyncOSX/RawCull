@@ -61,7 +61,10 @@ struct CopyFilesView: View {
         .frame(width: 560, height: 400)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Close") { dismiss() }
+                Button("Close") {
+                    closeExecutionManager()
+                    dismiss()
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Copy") {
@@ -77,6 +80,9 @@ struct CopyFilesView: View {
         .task(id: selectedSource) {
             guard let selectedSource else { return }
             sourcecatalog = selectedSource.url.path
+        }
+        .onDisappear {
+            closeExecutionManager()
         }
     }
 
@@ -151,5 +157,11 @@ struct CopyFilesView: View {
 
         executionManager = nil
         showResult = true
+    }
+
+    private func closeExecutionManager() {
+        executionManager?.close()
+        executionManager = nil
+        copyFilesinProgress = false
     }
 }
