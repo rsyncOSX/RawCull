@@ -245,12 +245,6 @@ final class RawCullViewModel {
         activeSecurityScopedURL == url
     }
 
-    func stopSecurityScopedAccess(for url: URL) {
-        guard activeSecurityScopedURL == url else { return }
-        stopSecurityScopedResource(url)
-        activeSecurityScopedURL = nil
-    }
-
     func stopActiveSecurityScopedAccess() {
         guard let url = activeSecurityScopedURL else { return }
         stopSecurityScopedResource(url)

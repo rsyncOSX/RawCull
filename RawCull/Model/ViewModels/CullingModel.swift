@@ -113,12 +113,6 @@ final class CullingModel {
         scheduleSave()
     }
 
-    func saveImmediately() async {
-        saveTask?.cancel()
-        saveTask = nil
-        await saveHandler(savedFiles)
-    }
-
     private func scheduleSave() {
         let snapshot = savedFiles
         let delay = saveDelayNanoseconds
