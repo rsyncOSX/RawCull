@@ -157,7 +157,9 @@ final class ExecuteCopyFiles {
     private func setupStreamingHandlers() {
         streamingHandlers = CreateStreamingHandlers().createHandlers(
             fileHandler: { [weak self] count in
-                self?.progressContinuation?.yield(count)
+                Task { @MainActor in
+                    self?.progressContinuation?.yield(count)
+                }
             },
             processTermination: { [weak self] output, hiddenID in
                 Task { @MainActor in
