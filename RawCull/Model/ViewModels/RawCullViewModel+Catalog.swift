@@ -144,7 +144,7 @@ extension RawCullViewModel {
                 },
                 memorypressurewarning: { [weak self] warning in
                     guard let self, self.isActiveCatalogLoad(url) else { return }
-                    self.memorypressurewarning(warning)
+                    self.setMemoryPressureWarning(warning)
                 },
                 onExtractionNeeded: { [weak self] in
                     guard let self, self.isActiveCatalogLoad(url) else { return }

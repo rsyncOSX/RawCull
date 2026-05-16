@@ -122,7 +122,7 @@ final class RawCullViewModel {
     /// URLs whose thumbnails have already been preloaded — skip on revisit.
     @ObservationIgnored var processedURLs: Set<URL> = []
 
-    var memorypressurewarning: Bool = false
+    var memoryPressureWarning: Bool = false
     var softMemoryWarning: Bool = false
 
     /// O(1) lookup: filename → rating for the current source catalog.

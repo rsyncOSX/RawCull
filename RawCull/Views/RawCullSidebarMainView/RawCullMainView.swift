@@ -159,7 +159,7 @@ struct RawCullMainView: View {
                 fileHandler: { _ in },
                 maxfilesHandler: { _ in },
                 estimatedTimeHandler: { _ in },
-                memorypressurewarning: viewModel.memorypressurewarning,
+                memorypressurewarning: viewModel.setMemoryPressureWarning,
                 onExtractionNeeded: {},
             )
             await SharedMemoryCache.shared.setFileHandlers(handlers)
@@ -181,7 +181,7 @@ struct RawCullMainView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if viewModel.memorypressurewarning {
+            if viewModel.memoryPressureWarning {
                 MemoryWarningLabelView(
                     style: .full,
                     memoryWarningOpacity: $memoryWarningOpacity,
@@ -206,7 +206,7 @@ struct RawCullMainView: View {
                 }
             }
         }
-        .onChange(of: viewModel.memorypressurewarning) { _, newValue in
+        .onChange(of: viewModel.memoryPressureWarning) { _, newValue in
             if newValue {
                 startMemoryWarningFlash()
             }

@@ -18,8 +18,8 @@ extension RawCullViewModel {
         estimatedSeconds = seconds
     }
 
-    func memorypressurewarning(_ warning: Bool) {
-        memorypressurewarning = warning
+    func setMemoryPressureWarning(_ warning: Bool) {
+        memoryPressureWarning = warning
     }
 
     func extractionNeeded() {
