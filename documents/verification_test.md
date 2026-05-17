@@ -90,11 +90,16 @@
 
 ---
 
-## Tests That Do Not Need to Exist
+## Out of Scope for Unit Tests
+
+These areas are intentionally excluded from the Swift Testing unit target. They
+should not be added as low-value tests unless the code gains meaningful
+branching, state transitions, or business logic. Behavior-focused view-model
+tests remain in scope; pure SwiftUI layout/rendering tests do not.
 
 | Area | Reason |
 |------|--------|
-| All 66+ SwiftUI Views | Pure layout, no business logic; validated through UI testing |
+| Pure SwiftUI view rendering/layout | No business logic; validate through UI testing if needed |
 | `RawCullApp` entry point | SwiftUI `@main`; not testable in isolation |
 | `SonyThumbnailExtractor` / `NikonThumbnailExtractor` full pipeline | Requires real hardware-produced ARW/NEF files; cancellation IS tested in `CancellableImageIOWorkTests` |
 | `FocusMaskModel.generateFocusMask` / `computeSharpnessScore` full pipeline | Requires real CGImage + Metal compute; the numeric primitives (`robustTailScore`, `microContrast`, `isoScalingFactor`, `ApertureHint`) are fully tested |
@@ -114,4 +119,4 @@
 | Well-covered | Parsers (Sony + Nikon), cache concurrency, scoring math, similarity, zoom/nav state, thread safety |
 | Partially covered | `SonyMakerNoteParser` (missing JPEG locations), `ScanAndExtractJPGs` (1 test only), `RequestThumbnail` (no disk layer) |
 | Should be added | `ScanFiles.sortFiles`, `RawCullViewModel+Culling` logic, `CullingModel` persistence, `DiskCacheManager`/`FullSizeJPGDiskCache`, `ScanAndCreateThumbnails` admission invariant |
-| Intentionally not covered | All Views, App entry, full image pipelines requiring real RAW files, trivial wrappers |
+| Intentionally not covered | Pure view rendering/layout, App entry, full image pipelines requiring real RAW files, trivial wrappers |

@@ -20,6 +20,10 @@ real application behavior, not test-framework setup checks.
   assertions against production APIs.
 - Shared state tests should use isolated temporary caches/settings unless they are
   deliberately exercising the singleton under Thread Sanitizer.
+- Unit tests should target parser, math, cache, concurrency, persistence, and
+  view-model behavior. Pure SwiftUI rendering/layout, the `RawCullApp` entry
+  point, simple display-only models, and live process integrations belong outside
+  this unit target unless they gain meaningful business logic.
 
 ## Current Focus Areas
 
