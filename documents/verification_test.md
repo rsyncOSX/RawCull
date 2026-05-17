@@ -11,9 +11,7 @@
 | `ThumbnailProviderTests` | `RequestThumbnail` cache stats, missing-file nil return, clear/reset, preload; `CacheConfig` limits; `CachedThumbnail.cost` formula | — |
 | `ThumbnailLoaderConcurrencyTests` | Slot saturation, cancelled waiter doesn't consume a slot, FIFO grant, `cancelAll` drains queue | `.threadSafety` |
 | `CancellableImageIOWorkTests` | Cancelled tasks: Sony/Nikon thumbnail throws `CancellationError`, Sony/Nikon JPEG extraction returns nil, pre-decode phase gate | `.critical` |
-| `ComparisonGridNavigationTests` | Arrow-key navigation in 1-column/2-column grids, boundary clamping, invalid index returns nil | — |
 | `RawCullViewModelSecurityScopeTests` | Security-scoped URL acquire/release lifecycle, duplicate-start guard, idempotent stop, failed-start cleanup | `.smoke` |
-| `RawCullViewModelZoomOverlayTests` | Zoom overlay nav-axis selection (loupe vs. other modes), mode-switch closes overlay, burst mode state | `.smoke` |
 | `RawCullTestsConcurrencyTests` | `SharedMemoryCache` counter coherency (memory + grid + disk hits), `SettingsViewModel` round-trip JSON, `MemoryViewModel` stats update | `.smoke` |
 | `RawCullTestsDataRaceDetectionTests` | TSan-oriented: concurrent pressure reads, concurrent cache reads+writes (memory + grid), diagnostic counter coherency, 10k-op extreme load | `.threadSafety`, `.performance` |
 | `ScanAndExtractJPGsTests` | Unsupported-format files are counted as processed (progress accounting) | — |
@@ -89,34 +87,3 @@
 **What's missing:** `format(for:)` (extension → RawFormat conformer lookup) and `allExtensions` are not tested. This is a thin registry but is the entry point for all format dispatch; wrong extension registration would silently ignore files.
 
 ---
-
-## Out of Scope for Unit Tests
-
-These areas are intentionally excluded from the Swift Testing unit target. They
-should not be added as low-value tests unless the code gains meaningful
-branching, state transitions, or business logic. Behavior-focused view-model
-tests remain in scope; pure SwiftUI layout/rendering tests do not.
-
-| Area | Reason |
-|------|--------|
-| Pure SwiftUI view rendering/layout | No business logic; validate through UI testing if needed |
-| `RawCullApp` entry point | SwiftUI `@main`; not testable in isolation |
-| `SonyThumbnailExtractor` / `NikonThumbnailExtractor` full pipeline | Requires real hardware-produced ARW/NEF files; cancellation IS tested in `CancellableImageIOWorkTests` |
-| `FocusMaskModel.generateFocusMask` / `computeSharpnessScore` full pipeline | Requires real CGImage + Metal compute; the numeric primitives (`robustTailScore`, `microContrast`, `isoScalingFactor`, `ApertureHint`) are fully tested |
-| `DiscoverFiles` | Trivial `FileManager.enumerator` wrapper, no branching, no state |
-| `SaveJPGImage` | Straightforward async file write; marginal logic |
-| `ExecuteCopyFiles` / rsync integration | Requires live rsync process — belongs in a separate integration test target |
-| `GridThumbnailViewModel` | Pure UI state holder, no business logic |
-| `MemoryDiagnosticsViewModel` | Aggregates cache diagnostics for display only; counters are tested in `RawCullTestsConcurrencyTests` |
-| `FocusPointsModel` | Immutable value type with two trivial computed properties; implicitly validated by parser tests |
-
----
-
-## Summary
-
-| Status | Notes |
-|--------|-------|
-| Well-covered | Parsers (Sony + Nikon), cache concurrency, scoring math, similarity, zoom/nav state, thread safety |
-| Partially covered | `SonyMakerNoteParser` (missing JPEG locations), `ScanAndExtractJPGs` (1 test only), `RequestThumbnail` (no disk layer) |
-| Should be added | `ScanFiles.sortFiles`, `RawCullViewModel+Culling` logic, `CullingModel` persistence, `DiskCacheManager`/`FullSizeJPGDiskCache`, `ScanAndCreateThumbnails` admission invariant |
-| Intentionally not covered | Pure view rendering/layout, App entry, full image pipelines requiring real RAW files, trivial wrappers |
