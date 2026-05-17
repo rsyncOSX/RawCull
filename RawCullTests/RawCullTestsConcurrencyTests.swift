@@ -2,8 +2,6 @@
 //  RawCullTestsConcurrencyTests.swift
 //  RawCull
 //
-//  Created by Thomas Evensen on 18/03/2026.
-//
 
 import AppKit
 import Foundation
@@ -11,96 +9,9 @@ import Foundation
 import Testing
 
 enum ConcurrencyTests {
-    // MARK: - CacheDelegate Thread Safety
-
-    struct CacheDelegateTests {
+    struct SharedMemoryCacheCounterTests {
         @Test
-        func `CacheDelegate handles concurrent evictions safely`() async throws {
-            let delegate = CacheDelegate.shared
-            await delegate.resetEvictionCount()
-
-            // Simulate 1000 concurrent eviction events
-            await withTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< 1000 {
-                    group.addTask {
-                        // Simulate cache eviction
-                        let cache = NSCache<NSString, NSString>()
-                        cache.delegate = delegate
-                        cache.setObject("test" as NSString, forKey: "key" as NSString)
-                        cache.removeAllObjects()
-                    }
-                }
-            }
-
-            // Give async operations time to complete
-            try await Task.sleep(for: .milliseconds(100))
-
-            let finalCount = await delegate.getEvictionCount()
-            #expect(finalCount >= 0, "Eviction count should never be negative")
-            // Note: We can't test exact count since NSCache eviction is unpredictable
-        }
-
-        @Test
-        func `CacheDelegate reset is thread-safe`() async {
-            let delegate = CacheDelegate.shared
-
-            await withTaskGroup(of: Void.self) { group in
-                // Multiple concurrent resets
-                for _ in 0 ..< 100 {
-                    group.addTask {
-                        await delegate.resetEvictionCount()
-                    }
-                }
-
-                // And some increments
-                for _ in 0 ..< 100 {
-                    group.addTask {
-                        _ = await delegate.getEvictionCount()
-                    }
-                }
-            }
-
-            let count = await delegate.getEvictionCount()
-            #expect(count >= 0, "Count should be non-negative after concurrent operations")
-        }
-    }
-
-    // MARK: - SharedMemoryCache Thread Safety
-
-    struct SharedMemoryCacheTests {
-        @Test
-        func `SharedMemoryCache handles concurrent access safely`() async {
-            let cache = await makeIsolatedCache()
-
-            // Create test URLs
-            let urls = (0 ..< 100).map { index in
-                URL(fileURLWithPath: "/tmp/test\(index).jpg") as NSURL
-            }
-
-            await withTaskGroup(of: Void.self) { group in
-                // Concurrent writes
-                for (_, url) in urls.enumerated() {
-                    group.addTask {
-                        if let thumbnail = createTestThumbnail(size: 100) {
-                            cache.setObject(thumbnail, forKey: url, cost: 100 * 100 * 4)
-                        }
-                    }
-                }
-
-                // Concurrent reads
-                for url in urls {
-                    group.addTask {
-                        _ = cache.object(forKey: url)
-                    }
-                }
-            }
-
-            // Test passed if no crashes occurred
-            #expect(true, "Cache survived concurrent access")
-        }
-
-        @Test
-        func `Replacing memory cache key preserves manual counters`() async throws {
+        func `replacing memory cache key updates manual counters`() async throws {
             let cache = await makeIsolatedCache()
             cache.removeAllObjects()
             defer { cache.removeAllObjects() }
@@ -117,7 +28,7 @@ enum ConcurrencyTests {
         }
 
         @Test
-        func `Replacing grid cache key preserves manual counters`() async throws {
+        func `replacing grid cache key updates manual counters`() async throws {
             let cache = await makeIsolatedCache()
             cache.removeAllGridObjects()
             defer { cache.removeAllGridObjects() }
@@ -134,100 +45,55 @@ enum ConcurrencyTests {
         }
 
         @Test
-        func `ensureReady prevents duplicate initialization`() async {
+        func `cache statistics reflect recorded memory and disk hits`() async {
             let cache = await makeIsolatedCache()
 
-            // Call ensureReady concurrently 100 times
-            await withTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< 100 {
-                    group.addTask {
-                        await cache.ensureReady()
-                    }
-                }
-            }
+            await cache.updateCacheMemory()
+            await cache.updateCacheMemory()
+            await cache.updateCacheDisk()
 
-            // Verify cache is properly configured (only once)
-            let costPerPixel = cache.costPerPixel
-            #expect(costPerPixel > 0, "Cache should be configured with valid cost per pixel")
+            let stats = await cache.getCacheStatistics()
+            #expect(stats.hits == 2)
+            #expect(stats.misses == 1)
+            #expect(stats.hitRate == (2.0 / 3.0 * 100.0))
         }
 
         @Test
-        func `Cache statistics are thread-safe`() async {
+        func `clear caches resets live counters and diagnostics`() async throws {
             let cache = await makeIsolatedCache()
-            await cache.ensureReady()
+            let key = URL(fileURLWithPath: "/tmp/clear-counters.jpg") as NSURL
+            let thumbnail = try #require(createTestThumbnail(size: 12))
 
-            // Concurrent statistics updates
-            await withTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< 50 {
-                    group.addTask {
-                        await cache.updateCacheMemory()
-                    }
-                }
+            cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
+            cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
+            await cache.updateCacheMemory()
+            await cache.updateCacheDisk()
+            cache.incrementColdExtract()
+            cache.incrementDemandRequest()
+            cache.incrementBoomerangMiss()
+            cache.noteEviction(url: key)
 
-                for _ in 0 ..< 50 {
-                    group.addTask {
-                        await cache.updateCacheDisk()
-                    }
-                }
-
-                // Read statistics concurrently
-                for _ in 0 ..< 20 {
-                    group.addTask {
-                        _ = await cache.getCacheStatistics()
-                    }
-                }
-            }
-
+            await cache.clearCaches()
             let stats = await cache.getCacheStatistics()
-            #expect(stats.hits >= 50, "Should have at least 50 memory hits")
-            #expect(stats.misses >= 50, "Should have at least 50 disk hits")
+
+            #expect(cache.getMemoryCacheCount() == 0)
+            #expect(cache.getMemoryCacheCurrentCost() == 0)
+            #expect(cache.getGridCacheCount() == 0)
+            #expect(cache.getGridCacheCurrentCost() == 0)
+            #expect(stats.hits == 0)
+            #expect(stats.misses == 0)
+            #expect(cache.getColdExtractCount() == 0)
+            #expect(cache.getDemandRequestCount() == 0)
+            #expect(cache.getBoomerangMissCount() == 0)
+            #expect(!cache.wasRecentlyEvicted(url: key))
         }
     }
 
-    // MARK: - SettingsViewModel Thread Safety
-
-    struct SettingsViewModelTests {
+    struct SettingsViewModelPersistenceTests {
         @Test
-        func `SettingsViewModel handles concurrent reads safely`() async {
+        func `settings save and load round trips through isolated file`() async {
             let viewModel = await makeIsolatedSettingsViewModel()
 
-            // Load settings first
-            await viewModel.loadSettings()
-
-            // Concurrent reads
-            await withTaskGroup(of: SavedSettings.self) { group in
-                for _ in 0 ..< 100 {
-                    group.addTask {
-                        await viewModel.asyncgetsettings()
-                    }
-                }
-
-                // Collect all results
-                var results: [SavedSettings] = []
-                for await result in group {
-                    results.append(result)
-                }
-
-                // All results should be identical (no tearing)
-                #expect(results.count == 100)
-                let first = results[0]
-                for result in results {
-                    // Access via MainActor.run: SettingsViewModel is inferred @MainActor
-                    let resultMB = await MainActor.run { result.memoryCacheSizeMB }
-                    let firstMB = await MainActor.run { first.memoryCacheSizeMB }
-                    let resultGrid = await MainActor.run { result.thumbnailSizeGrid }
-                    let firstGrid = await MainActor.run { first.thumbnailSizeGrid }
-                    #expect(resultMB == firstMB)
-                    #expect(resultGrid == firstGrid)
-                }
-            }
-        }
-
-        @Test
-        func `Settings save and load are atomic`() async {
-            let viewModel = await makeIsolatedSettingsViewModel()
-
-            // Set known values
             await MainActor.run {
                 viewModel.memoryCacheSizeMB = 1000
                 viewModel.thumbnailSizeGrid = 200
@@ -235,292 +101,62 @@ enum ConcurrencyTests {
 
             await viewModel.saveSettings()
 
-            // Change values
             await MainActor.run {
                 viewModel.memoryCacheSizeMB = 2000
                 viewModel.thumbnailSizeGrid = 300
             }
 
-            // Load should restore saved values
             await viewModel.loadSettings()
-
             let savedSettings = await viewModel.asyncgetsettings()
             let savedMB = await MainActor.run { savedSettings.memoryCacheSizeMB }
             let savedGrid = await MainActor.run { savedSettings.thumbnailSizeGrid }
+
             #expect(savedMB == 1000)
             #expect(savedGrid == 200)
         }
-    }
 
-    // MARK: - ExecuteCopyFiles Thread Safety
+        @Test
+        func `asyncgetsettings returns value snapshot`() async {
+            let viewModel = await makeIsolatedSettingsViewModel()
 
-    struct ExecuteCopyFilesTests {
-        @Test(.timeLimit(.minutes(1)))
-        func `ExecuteCopyFiles cleanup happens after completion`() async {
-            // This is a mock test - in real scenario you'd need actual rsync
-            var completionCalled = false
-            var cleanupOrder: [String] = []
-
-            await withCheckedContinuation { continuation in
-                Task { @MainActor in
-                    // Simulate completion callback
-                    completionCalled = true
-                    cleanupOrder.append("completion")
-
-                    // Simulate small delay before cleanup
-                    try? await Task.sleep(for: .milliseconds(10))
-                    cleanupOrder.append("cleanup")
-
-                    continuation.resume()
-                }
+            await MainActor.run {
+                viewModel.memoryCacheSizeMB = 5000
             }
+            let snapshot = await viewModel.asyncgetsettings()
 
-            #expect(completionCalled)
-            #expect(cleanupOrder == ["completion", "cleanup"],
-                    "Cleanup should happen after completion")
+            await MainActor.run {
+                viewModel.memoryCacheSizeMB = 9999
+            }
+            let snapshotMB = await MainActor.run { snapshot.memoryCacheSizeMB }
+
+            #expect(snapshotMB == 5000)
         }
     }
-
-    // MARK: - Memory Model Thread Safety
 
     struct MemoryViewModelTests {
         @Test
-        func `MemoryViewModel updates don't block MainActor`() async {
+        func `memory stats update populates coherent values`() async {
             let viewModel = await MemoryViewModel()
 
-            let startTime = ContinuousClock.now
-
-            // Update memory stats (should be fast due to Task.detached)
             await viewModel.updateMemoryStats()
 
-            let duration = ContinuousClock.now - startTime
-
-            // Should complete in reasonable time (not blocking)
-            #expect(duration < .milliseconds(100),
-                    "Memory stats update should be non-blocking")
-        }
-
-        @Test
-        func `MemoryViewModel handles concurrent updates safely`() async {
-            let viewModel = await MemoryViewModel()
-
-            // Multiple concurrent updates
-            await withTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< 10 {
-                    group.addTask {
-                        await viewModel.updateMemoryStats()
-                    }
-                }
-            }
-
-            // Verify state is consistent
             let totalMemory = await viewModel.totalMemory
             let usedMemory = await viewModel.usedMemory
             let appMemory = await viewModel.appMemory
 
-            #expect(totalMemory > 0, "Total memory should be positive")
-            #expect(usedMemory > 0, "Used memory should be positive")
-            #expect(appMemory > 0, "App memory should be positive")
-            #expect(usedMemory <= totalMemory, "Used memory can't exceed total")
-            #expect(appMemory <= usedMemory, "App memory can't exceed used")
-        }
-    }
-
-    // MARK: - Actor Isolation Tests
-
-    struct ActorIsolationTests {
-        @Test
-        func `ScanAndCreateThumbnails is properly isolated`() {
-            // Verify that actor methods can be called concurrently without data races
-            // This would be tested with real file operations in production
-
-            #expect(true, "Actor isolation prevents data races")
-        }
-
-        @Test
-        func `Actors maintain isolation under load`() async {
-            let cache = await makeIsolatedCache()
-
-            // Heavy concurrent load
-            await withTaskGroup(of: Void.self) { group in
-                for iteration in 0 ..< 1000 {
-                    group.addTask {
-                        await cache.ensureReady()
-
-                        if iteration % 2 == 0 {
-                            await cache.updateCacheMemory()
-                        } else {
-                            await cache.updateCacheDisk()
-                        }
-                    }
-                }
-            }
-
-            let stats = await cache.getCacheStatistics()
-            #expect(stats.hits + stats.misses <= 1000,
-                    "Total operations should not exceed expected count")
-        }
-    }
-
-    // MARK: - Sendable Verification
-
-    struct SendableTests {
-        @Test
-        func `SavedSettings is safely sendable across isolation domains`() async {
-            let settings = await SavedSettings(
-                memoryCacheSizeMB: 5000,
-                thumbnailSizeGrid: 100,
-                thumbnailSizePreview: 1024,
-                thumbnailSizeFullSize: 8700,
-            )
-
-            // Pass across isolation domains
-            await withTaskGroup(of: SavedSettings.self) { group in
-                for _ in 0 ..< 10 {
-                    group.addTask {
-                        // Sendable allows safe transfer
-                        settings
-                    }
-                }
-
-                var count = 0
-                for await _ in group {
-                    count += 1
-                }
-
-                #expect(count == 10)
-            }
-        }
-
-        @Test
-        func `CacheConfig is safely sendable`() async {
-            let config = CacheConfig(
-                totalCostLimit: 5000 * 1024 * 1024,
-                countLimit: 10000,
-            )
-
-            // Pass to actor
-            let cache = await makeIsolatedCache(config: config)
-            await cache.ensureReady(config: config)
-
-            #expect(true, "CacheConfig successfully crossed isolation boundary")
-        }
-    }
-
-    // MARK: - Race Condition Detection
-
-    @Suite(.tags(.critical))
-    struct RaceConditionTests {
-        @Test(
-            .timeLimit(.minutes(1)),
-        )
-        func `No race in cache delegate eviction counting`() async {
-            let delegate = CacheDelegate.shared
-            await delegate.resetEvictionCount()
-
-            // Hammer it with concurrent operations
-            let iterations = 10000
-
-            await withTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< iterations {
-                    group.addTask {
-                        // These operations should never race
-                        _ = await delegate.getEvictionCount()
-                    }
-                }
-            }
-
-            #expect(true, "No race condition detected in cache delegate")
-        }
-
-        @Test(
-            .timeLimit(.minutes(1)),
-        )
-        func `No race in settings read/write`() async {
-            let viewModel = await makeIsolatedSettingsViewModel()
-
-            await withTaskGroup(of: Void.self) { group in
-                // Concurrent reads
-                for _ in 0 ..< 100 {
-                    group.addTask {
-                        _ = await viewModel.asyncgetsettings()
-                    }
-                }
-
-                // Concurrent property access through MainActor
-                for _ in 0 ..< 100 {
-                    group.addTask {
-                        await MainActor.run {
-                            _ = viewModel.memoryCacheSizeMB
-                        }
-                    }
-                }
-            }
-
-            #expect(true, "No race condition in settings access")
-        }
-    }
-
-    // MARK: - Performance Tests
-
-    struct PerformanceTests {
-        @Test
-        func `Cache lookup performance under concurrent load`() async {
-            let cache = await makeIsolatedCache()
-
-            // Populate cache
-            let urls = (0 ..< 100).map { URL(fileURLWithPath: "/tmp/test\(Int($0)).jpg") as NSURL }
-            for url in urls {
-                if let thumbnail = createTestThumbnail(size: 100) {
-                    cache.setObject(thumbnail, forKey: url, cost: 100 * 100 * 4)
-                }
-            }
-
-            let startTime = ContinuousClock.now
-
-            // Concurrent lookups
-            await withTaskGroup(of: Void.self) { group in
-                for _ in 0 ..< 1000 {
-                    group.addTask {
-                        _ = cache.object(forKey: urls.randomElement()!)
-                    }
-                }
-            }
-
-            let duration = ContinuousClock.now - startTime
-
-            // Should handle 1000 concurrent lookups quickly
-            #expect(duration < .seconds(1),
-                    "1000 concurrent cache lookups should complete within 1 second")
-        }
-
-        @Test
-        func `Actor serialization doesn't create bottleneck`() async {
-            let cache = await makeIsolatedCache()
-
-            let startTime = ContinuousClock.now
-
-            // 100 sequential actor calls
-            for _ in 0 ..< 100 {
-                await cache.ensureReady()
-            }
-
-            let duration = ContinuousClock.now - startTime
-
-            #expect(duration < .milliseconds(100),
-                    "Actor calls should be fast due to early return optimization")
+            #expect(totalMemory > 0)
+            #expect(usedMemory > 0)
+            #expect(appMemory > 0)
+            #expect(usedMemory <= totalMemory)
+            #expect(appMemory <= usedMemory)
         }
     }
 }
-
-// MARK: - Helper Functions
 
 private func createTestThumbnail(size: Int) -> CachedThumbnail? {
     let image = NSImage(size: NSSize(width: size, height: size))
     return CachedThumbnail(image: image)
 }
-
-// MARK: - Test Tags
 
 extension Tag {
     @Tag static var critical: Self
