@@ -16,7 +16,7 @@ struct FocusMaskControlsView: View {
             }
             .buttonStyle(.plain)
             .disabled(!focusMaskAvailable)
-            .help(showFocusMask ? "Hide focus mask" : "Show focus mask")
+            .help(showFocusMask ? "Hide focus map" : "Show likely in-focus edges")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)

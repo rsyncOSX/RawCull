@@ -44,10 +44,10 @@ struct SharedMainToolbarContent: ToolbarContent {
                     get: { settings.showScoringBadge },
                     set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
                 )) {
-                    Label("Score Badge", systemImage: "number.circle")
+                    Label("Sharpness Label", systemImage: "scope")
                 }
                 .toggleStyle(.button)
-                .help("Show sharpness score badge on thumbnails (disable for smoother scrolling)")
+                .help("Show simple sharpness labels on thumbnails")
             }
 
             ToolbarItem(placement: .status) {

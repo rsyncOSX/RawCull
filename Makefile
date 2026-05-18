@@ -18,6 +18,8 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/SimilarityCancellationTests/`reset clears all similarity state`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`max score small set uses maximum not minimum`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`max score large set uses P 90`()' \
+	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label maps threshold boundaries`()' \
+	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label clamps and handles invalid denominator`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score empty returns nil`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score uniform returns zero`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score dense edges scores higher than sparse`()' \

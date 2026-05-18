@@ -42,6 +42,21 @@ struct SharpnessScoringTests {
                 "p90 anchor for 10 evenly-spaced scores should be 0.90")
     }
 
+    @Test(.tags(.smoke))
+    func `sharpness label maps threshold boundaries`() {
+        #expect(SharpnessLabel(score: 0.85, maxScore: 1.0) == .sharp)
+        #expect(SharpnessLabel(score: 0.65, maxScore: 1.0) == .good)
+        #expect(SharpnessLabel(score: 0.35, maxScore: 1.0) == .check)
+        #expect(SharpnessLabel(score: 0.349, maxScore: 1.0) == .soft)
+    }
+
+    @Test(.tags(.smoke))
+    func `sharpness label clamps and handles invalid denominator`() {
+        #expect(SharpnessLabel(score: 1.4, maxScore: 1.0) == .sharp)
+        #expect(SharpnessLabel(score: 0.5, maxScore: 0.0) == .soft)
+        #expect(SharpnessLabel(score: 0.5, maxScore: .nan) == .soft)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     @MainActor
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {

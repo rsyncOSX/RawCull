@@ -10,35 +10,90 @@ import SwiftUI
 
 // MARK: - Sharpness Badge
 
+enum SharpnessLabel {
+    case sharp
+    case good
+    case check
+    case soft
+
+    nonisolated init(score: Float, maxScore: Float) {
+        guard maxScore > 0, score.isFinite, maxScore.isFinite else {
+            self = .soft
+            return
+        }
+
+        let normalized = min(max(score / maxScore, 0), 1)
+        switch normalized {
+        case 0.85...:
+            self = .sharp
+
+        case 0.65...:
+            self = .good
+
+        case 0.35...:
+            self = .check
+
+        default:
+            self = .soft
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .sharp: "Sharp"
+        case .good: "Good"
+        case .check: "Check"
+        case .soft: "Soft"
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .sharp: "High relative sharpness"
+        case .good: "Likely usable sharpness"
+        case .check: "Review before keeping"
+        case .soft: "Likely soft"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .sharp, .good: .green
+        case .check: .yellow
+        case .soft: .red
+        }
+    }
+}
+
+extension SharpnessLabel: Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.sharp, .sharp), (.good, .good), (.check, .check), (.soft, .soft):
+            true
+        default:
+            false
+        }
+    }
+}
+
 struct SharpnessBadgeView: View {
     let score: Float
     let maxScore: Float
 
-    /// 0–1, where 1 = sharpest image in the current set
-    private var normalized: Float {
-        guard maxScore > 0 else { return 0 }
-        return min(score / maxScore, 1.0)
-    }
-
-    private var label: String {
-        String(format: "%.0f", normalized * 100)
-    }
-
-    private var badgeColor: Color {
-        switch normalized {
-        case 0.65...: .green
-        case 0.35...: .yellow
-        default: .red
-        }
+    private var label: SharpnessLabel {
+        SharpnessLabel(score: score, maxScore: maxScore)
     }
 
     var body: some View {
-        Text(label)
+        Text(label.title)
             .font(.system(size: 9, weight: .semibold, design: .monospaced))
             .foregroundStyle(.white)
             .padding(.horizontal, 4)
             .padding(.vertical, 2)
-            .background(badgeColor.opacity(0.80), in: RoundedRectangle(cornerRadius: 3))
+            .background(label.color.opacity(0.80), in: RoundedRectangle(cornerRadius: 3))
+            .help(label.helpText)
+            .accessibilityLabel("Sharpness")
+            .accessibilityValue(label.title)
     }
 }
 
@@ -118,7 +173,7 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-                // Score + saliency badges — bottom-left corner, gated by settings toggles
+                // Sharpness + saliency badges — bottom-left corner, gated by settings toggles
                 .overlay(alignment: .bottomLeading) {
                     let hasScore = settings.showScoringBadge && viewModel.sharpnessModel.scores[file.id] != nil
                     let hasSaliency = settings.showSaliencyBadge && viewModel.sharpnessModel.saliencyInfo[file.id] != nil
