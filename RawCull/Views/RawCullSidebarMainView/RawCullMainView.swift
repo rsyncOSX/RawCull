@@ -2,7 +2,7 @@ import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension KeyPath<FileItem, String>: @unchecked @retroactive Sendable {}
+extension KeyPath: @unchecked @retroactive Sendable where Root == FileItem {}
 
 struct RawCullMainView: View {
     @Environment(\.openWindow) var openWindow

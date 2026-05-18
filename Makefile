@@ -8,10 +8,6 @@ SIGNING_IDENTITY = "93M47F4H9T"
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
 SMOKE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`one column arrows move previous or next`(direction:expectedIndex:)' \
-	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`two column arrows select directional neighbors`(currentIndex:direction:expectedIndex:)' \
-	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`two column arrows stop without a valid neighbor`(currentIndex:itemCount:direction:)' \
-	'-only-testing:RawCullTests/ComparisonGridNavigationTests/`invalid current index returns nil`(currentIndex:)' \
 	'-only-testing:RawCullTests/SimilarityDistanceOrderingTests/`rankSimilar returns nearest image first`()' \
 	'-only-testing:RawCullTests/SimilarityDistanceOrderingTests/`anchor is excluded from distances`()' \
 	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`rankSimilar with unknown anchor clears state`()' \

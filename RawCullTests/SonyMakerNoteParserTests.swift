@@ -101,6 +101,70 @@ private func makeSyntheticARW(
     return url
 }
 
+/// Writes a synthetic TIFF-like ARW with Sony-style embedded JPEG pointers:
+/// IFD0 preview via StripOffsets/StripByteCounts, IFD1 thumbnail via
+/// JPEGInterchangeFormat/JPEGInterchangeFormatLength, and IFD2 full JPEG via
+/// StripOffsets/StripByteCounts.
+private func makeSyntheticARWWithEmbeddedJPEGs() throws -> (url: URL, thumbnail: [UInt8], preview: [UInt8], full: [UInt8]) {
+    let thumbnail: [UInt8] = [0xFF, 0xD8, 0x01, 0x02, 0xFF, 0xD9]
+    let preview: [UInt8] = [0xFF, 0xD8, 0x10, 0x20, 0x30, 0xFF, 0xD9]
+    let full: [UInt8] = [0xFF, 0xD8, 0xAA, 0xBB, 0xCC, 0xDD, 0xFF, 0xD9]
+
+    let ifd0Offset = 0x08
+    let ifd0EntryCount = 2
+    let ifd0Size = 2 + ifd0EntryCount * 12 + 4
+    let ifd1Offset = ifd0Offset + ifd0Size
+    let ifd1EntryCount = 2
+    let ifd1Size = 2 + ifd1EntryCount * 12 + 4
+    let ifd2Offset = ifd1Offset + ifd1Size
+    let ifd2EntryCount = 2
+    let ifd2Size = 2 + ifd2EntryCount * 12 + 4
+    let previewOffset = ifd2Offset + ifd2Size
+    let thumbnailOffset = previewOffset + preview.count
+    let fullOffset = thumbnailOffset + thumbnail.count
+
+    func le16(_ v: UInt16) -> [UInt8] {
+        [UInt8(v & 0xFF), UInt8(v >> 8)]
+    }
+    func le32(_ v: UInt32) -> [UInt8] {
+        [UInt8(v & 0xFF), UInt8((v >> 8) & 0xFF), UInt8((v >> 16) & 0xFF), UInt8(v >> 24)]
+    }
+    func ifdEntry(tag: UInt16, type: UInt16, count: UInt32, value: UInt32) -> [UInt8] {
+        le16(tag) + le16(type) + le32(count) + le32(value)
+    }
+
+    var bytes: [UInt8] = []
+    bytes += [0x49, 0x49, 0x2A, 0x00]
+    bytes += le32(UInt32(ifd0Offset))
+
+    bytes += le16(UInt16(ifd0EntryCount))
+    bytes += ifdEntry(tag: 0x0111, type: 4, count: 1, value: UInt32(previewOffset))
+    bytes += ifdEntry(tag: 0x0117, type: 4, count: 1, value: UInt32(preview.count))
+    bytes += le32(UInt32(ifd1Offset))
+
+    bytes += le16(UInt16(ifd1EntryCount))
+    bytes += ifdEntry(tag: 0x0201, type: 4, count: 1, value: UInt32(thumbnailOffset))
+    bytes += ifdEntry(tag: 0x0202, type: 4, count: 1, value: UInt32(thumbnail.count))
+    bytes += le32(UInt32(ifd2Offset))
+
+    bytes += le16(UInt16(ifd2EntryCount))
+    bytes += ifdEntry(tag: 0x0111, type: 4, count: 1, value: UInt32(fullOffset))
+    bytes += ifdEntry(tag: 0x0117, type: 4, count: 1, value: UInt32(full.count))
+    bytes += le32(0)
+
+    precondition(bytes.count == previewOffset)
+    bytes += preview
+    precondition(bytes.count == thumbnailOffset)
+    bytes += thumbnail
+    precondition(bytes.count == fullOffset)
+    bytes += full
+
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString + ".arw")
+    try Data(bytes).write(to: url)
+    return (url, thumbnail, preview, full)
+}
+
 // MARK: - Tests
 
 struct SonyMakerNoteParserTests {
@@ -193,5 +257,41 @@ struct SonyMakerNoteParserTests {
         defer { try? FileManager.default.removeItem(at: url) }
 
         #expect(SonyMakerNoteParser.focusLocation(from: url) == nil)
+    }
+}
+
+@MainActor
+struct SonyEmbeddedJPEGLocatorTests {
+    @Test
+    func `Finds thumbnail preview and full JPEG locations through IFD chain`() throws {
+        let fixture = try makeSyntheticARWWithEmbeddedJPEGs()
+        defer { try? FileManager.default.removeItem(at: fixture.url) }
+
+        let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: fixture.url)
+
+        #expect(locations?.thumbnail?.length == fixture.thumbnail.count)
+        #expect(locations?.preview?.length == fixture.preview.count)
+        #expect(locations?.fullJPEG?.length == fixture.full.count)
+    }
+
+    @Test
+    func `readEmbeddedJPEGData round-trips preview bytes`() throws {
+        let fixture = try makeSyntheticARWWithEmbeddedJPEGs()
+        defer { try? FileManager.default.removeItem(at: fixture.url) }
+
+        let location = try #require(SonyMakerNoteParser.embeddedJPEGLocations(from: fixture.url)?.preview)
+        let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: location, from: fixture.url)
+
+        #expect(data == Data(fixture.preview))
+    }
+
+    @Test
+    func `Returns nil locations for non TIFF data`() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".arw")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]).write(to: url)
+
+        #expect(SonyMakerNoteParser.embeddedJPEGLocations(from: url) == nil)
     }
 }
