@@ -684,3 +684,425 @@ The minimum solid version should include:
 The most important quality principle is conservatism: RawCull should be bold in helping the user find the best frame, but cautious about rejecting images when the evidence is weak.
 
 If implemented to this bar, this feature gives RawCull a real differentiated advantage over multi-platform culling apps: it combines Apple-native RAW access, Vision similarity, Core Image / Metal sharpness analysis, Sony AF-point parsing, and a native macOS workflow into a specialized culling assistant rather than a generic image browser.
+
+---
+
+## Document Mockup: How Intelligent Burst Culling Should Work
+
+This mockup describes the user-facing workflow before any implementation details. It is intentionally document-based so the interaction model can be reviewed, adjusted, and tested against real culling habits before building production UI.
+
+The core experience should feel like this:
+
+> RawCull finds repeated burst sequences, recommends the strongest frame, explains the evidence, and gives the photographer fast reversible choices.
+
+The user should never feel that RawCull is secretly deleting or rejecting images. Analysis creates suggestions. The user applies decisions.
+
+### Mockup Goals
+
+- Show burst groups directly where the user already reviews images.
+- Make the recommended frame obvious without hiding alternatives.
+- Explain recommendations in short, photographic language.
+- Make high-confidence decisions fast.
+- Push low-confidence decisions toward manual review.
+- Keep all actions reversible through the normal rating model.
+- Avoid a separate wizard or modal-heavy flow.
+
+### End-To-End User Journey
+
+```mermaid
+flowchart LR
+    A["Open catalog"] --> B["Run intelligent burst analysis"]
+    B --> C["RawCull groups similar consecutive frames"]
+    C --> D["Grid shows group headers, recommendations, and confidence"]
+    D --> E{"User decision"}
+    E --> F["Keep Best"]
+    E --> G["Keep Top 2"]
+    E --> H["Compare"]
+    E --> I["Review Later"]
+    F --> J["Winner rated, weaker frames rejected"]
+    G --> K["Top two kept, weaker frames rejected"]
+    H --> L["Focused comparison with overlays and evidence"]
+    I --> M["Group remains unchanged and flagged"]
+    J --> N["Undo available"]
+    K --> N
+    L --> E
+```
+
+### Main Interaction States
+
+#### State 1: Before Analysis
+
+The user has opened a catalog. The similarity or culling grid behaves as it does today, but the toolbar offers a clear analysis entry point.
+
+```text
++--------------------------------------------------------------------------------+
+| RawCull                                      [Analyze Bursts] [Similarity] [...] |
++--------------------------------------------------------------------------------+
+| Sidebar               | Grid                                                     |
+|                       |                                                          |
+| Catalog               |  DSC01201   DSC01202   DSC01203   DSC01204              |
+| - 2026-05-18 Shoot    |  [thumb]    [thumb]    [thumb]    [thumb]               |
+|                       |                                                          |
+| Filters               |  DSC01205   DSC01206   DSC01207   DSC01208              |
+| - All ratings         |  [thumb]    [thumb]    [thumb]    [thumb]               |
++--------------------------------------------------------------------------------+
+```
+
+Expected user action:
+
+- Click **Analyze Bursts** when they want RawCull to find repeated sequences.
+- Continue normal manual culling if they do not want assistance.
+
+Design notes:
+
+- The button should be compact and toolbar-native.
+- It should not imply irreversible automation.
+- A tooltip can clarify: "Group burst sequences and recommend best frames."
+
+#### State 2: Analysis In Progress
+
+RawCull shows progress without blocking normal orientation in the app. The user can cancel safely.
+
+```text
++--------------------------------------------------------------------------------+
+| RawCull                         Analyzing bursts... 248 / 1000 [Cancel]         |
++--------------------------------------------------------------------------------+
+| Sidebar               | Grid                                                     |
+|                       |                                                          |
+| Catalog               |  DSC01201   DSC01202   DSC01203   DSC01204              |
+| - 2026-05-18 Shoot    |  [thumb]    [thumb]    [thumb]    [thumb]               |
+|                       |                                                          |
+| Analysis              |  Current step: Sharpness scoring                         |
+| Similarity  done      |  Next step: Grouping                                     |
+| Sharpness   running   |                                                          |
+| Grouping    waiting   |                                                          |
++--------------------------------------------------------------------------------+
+```
+
+Expected user action:
+
+- Wait for analysis to complete.
+- Cancel if the catalog is wrong or the user wants to change filters/settings.
+
+Design notes:
+
+- The progress state should say what is happening in plain language.
+- Cancellation should leave already-loaded catalog state intact.
+- If partial results are available, RawCull may show them, but should clearly label the run as incomplete.
+
+#### State 3: Burst Groups In The Grid
+
+After analysis, the grid becomes group-aware. Group headers summarize size, confidence, and the recommended action.
+
+```text
++--------------------------------------------------------------------------------+
+| RawCull                         Burst Groups: 42 groups  [Exit Groups] [...]    |
++--------------------------------------------------------------------------------+
+| Sidebar               | Grid                                                     |
+|                       |                                                          |
+| Burst Review          |  Burst 12  | 8 frames | High confidence | Best: DSC01234 |
+| - All groups          |  Reasons: Sharpest | AF aligned | Subject stable         |
+| - High confidence     |  [Keep Best] [Keep Top 2] [Compare] [Review]             |
+| - Needs review        |                                                          |
+|                       |  DSC01231   DSC01232   DSC01233   DSC01234   DSC01235    |
+|                       |  [thumb]    [thumb]    [thumb]    [BEST]    [thumb]     |
+|                       |                                                          |
+|                       |  Burst 13  | 5 frames | Medium confidence | Top 2 close  |
+|                       |  Reasons: Best is sharper | Second frame close           |
+|                       |  [Compare Top 2] [Keep Top 2] [Review]                  |
+|                       |                                                          |
+|                       |  DSC01241   DSC01242   DSC01243   DSC01244   DSC01245    |
+|                       |  [thumb]    [BEST]    [2ND]     [thumb]    [thumb]      |
++--------------------------------------------------------------------------------+
+```
+
+Expected user action:
+
+- For high-confidence groups, use **Keep Best** when the recommendation looks correct.
+- For medium-confidence groups, use **Compare** or **Keep Top 2**.
+- For low-confidence groups, use **Review** and leave ratings unchanged.
+
+Design notes:
+
+- The recommended frame should be visually obvious but not overwhelming.
+- Confidence should change the primary action:
+  - High confidence: **Keep Best**.
+  - Medium confidence: **Compare Top 2**.
+  - Low confidence: **Review**.
+- Reason text must be short. Good examples:
+  - "Sharpest in group"
+  - "AF point near focused region"
+  - "Subject stable"
+  - "Second frame close"
+  - "Exposure changed; review"
+
+#### State 4: Best Frame Thumbnail Treatment
+
+Each thumbnail keeps the normal image-first layout, with small overlays for ranking and rating status.
+
+```text
++-----------------------+
+| BEST        High       |
+|                       |
+|        thumbnail       |
+|                       |
+| DSC01234.ARW           |
+| Score 92 | AF aligned  |
++-----------------------+
+```
+
+For a second-place candidate:
+
+```text
++-----------------------+
+| 2ND         Close      |
+|                       |
+|        thumbnail       |
+|                       |
+| DSC01233.ARW           |
+| Score 88 | sharper pose|
++-----------------------+
+```
+
+For a rejected-after-action frame:
+
+```text
++-----------------------+
+| Rejected              |
+|                       |
+|        thumbnail       |
+|                       |
+| DSC01231.ARW           |
+| Undo available         |
++-----------------------+
+```
+
+Expected user action:
+
+- Click a thumbnail to select it as usual.
+- Use existing rating controls for manual overrides.
+- Double-click or press the compare shortcut to enter focused comparison.
+
+Design notes:
+
+- Thumbnail overlays should not cover the subject.
+- "BEST" and "2ND" are enough for scanability.
+- Full evidence belongs in the group header or comparison panel, not on every thumbnail.
+
+#### State 5: Focused Group Comparison
+
+The comparison view should show the top candidates, synchronized zoom, overlays, and a concise evidence panel.
+
+```text
++--------------------------------------------------------------------------------+
+| Burst 12 Comparison                 [Focus Mask] [AF Points] [JPEG/RAW Preview] |
++--------------------------------------------------------------------------------+
+|                                                                                |
+|  DSC01234.ARW - Recommended                  DSC01233.ARW - Second             |
+| +----------------------------------+        +----------------------------------+ |
+| |                                  |        |                                  | |
+| |           image pane              |        |           image pane              | |
+| |      focus mask / AF overlay      |        |      focus mask / AF overlay      | |
+| |                                  |        |                                  | |
+| +----------------------------------+        +----------------------------------+ |
+|  Score 92 | Sharpness 95 | AF good          Score 88 | Sharpness 89 | AF ok     |
+|                                                                                |
+| Evidence                                                                       |
+| - Recommended frame is the sharpest in the group.                              |
+| - AF point is close to the focused region.                                     |
+| - Second frame is close enough to review before rejecting.                     |
+|                                                                                |
+| [Keep Best] [Keep Top 2] [Mark Review] [Back To Group]                         |
++--------------------------------------------------------------------------------+
+```
+
+Expected user action:
+
+- Toggle focus mask and AF points to inspect the recommendation.
+- Zoom/pan to inspect eyes, subject detail, or motion blur.
+- Apply **Keep Best**, **Keep Top 2**, or **Mark Review**.
+
+Design notes:
+
+- This view should reuse the existing comparison behavior where possible.
+- The evidence panel should explain only the current group.
+- The best candidate should be first, but the user must be able to select another winner.
+
+#### State 6: Low-Confidence Group
+
+Low-confidence groups must not push the user toward one-click rejection.
+
+```text
++--------------------------------------------------------------------------------+
+| Burst 18  | 4 frames | Low confidence | Review recommended                     |
+| Reasons: Exposure changed | Focus evidence unclear | Best and second are close   |
+| [Compare] [Mark Review]                                                             |
+|                                                                                |
+| DSC01310     DSC01311     DSC01312     DSC01313                                |
+| [thumb]      [BEST?]      [2ND?]       [thumb]                                  |
++--------------------------------------------------------------------------------+
+```
+
+Expected user action:
+
+- Compare manually.
+- Mark the group for later review.
+- Rate images manually if the recommendation is not useful.
+
+Design notes:
+
+- Avoid showing **Keep Best** as the primary action for low confidence.
+- A tentative badge such as "BEST?" is safer than "BEST".
+- Reason text should make the uncertainty clear.
+
+#### State 7: Decision Applied
+
+When the user applies an action, RawCull updates ratings but keeps the result reversible.
+
+```text
++--------------------------------------------------------------------------------+
+| Burst 12  | Decision applied: kept DSC01234, rejected 7 weaker frames [Undo]    |
+| Reasons: Sharpest | AF aligned | Subject stable                                |
+|                                                                                |
+| DSC01231     DSC01232     DSC01233     DSC01234     DSC01235                   |
+| [reject]     [reject]     [reject]     [keeper]     [reject]                   |
++--------------------------------------------------------------------------------+
+```
+
+Expected user action:
+
+- Continue to the next group.
+- Undo immediately if the action was wrong.
+- Manually adjust ratings if needed.
+
+Design notes:
+
+- Ratings remain the source of truth.
+- The app should not create hidden reject state outside the existing rating model.
+- Undo should be nearby after bulk actions.
+
+### Proposed Keyboard Model
+
+The feature should support keyboard-first review because burst culling is repetitive.
+
+```text
+Right Arrow      Next frame or next group item
+Left Arrow       Previous frame or previous group item
+Return           Compare selected group
+B                Keep Best for high-confidence group
+2                Keep Top 2
+R                Mark Review
+U                Undo last burst action
+Esc              Exit comparison or exit group mode
+F                Toggle focus mask in comparison
+A                Toggle AF points in comparison
+```
+
+Keyboard shortcuts should be discoverable in menus and tooltips, but the UI should not rely on the user memorizing them.
+
+### Confidence-Driven UI Behavior
+
+The same data should produce different UI emphasis depending on confidence:
+
+| Confidence | Primary UI action | Secondary actions | Auto-reject allowed? |
+|---|---|---|---|
+| High | Keep Best | Compare, Keep Top 2, Review | Only after explicit click |
+| Medium | Compare Top 2 | Keep Top 2, Keep Best, Review | Only after explicit click |
+| Low | Review | Compare | No |
+
+This keeps RawCull helpful without becoming reckless.
+
+### Recommendation Explanation Pattern
+
+Each recommendation should fit into a small evidence model:
+
+```text
+Recommended: DSC01234.ARW
+Confidence: High
+
+Why:
+- Sharpest in group.
+- AF point is near the focused region.
+- Subject position is stable across the burst.
+
+Caution:
+- Second frame is close, but not sharper.
+```
+
+For low confidence:
+
+```text
+Recommended: DSC01311.ARW
+Confidence: Low
+
+Why:
+- Slightly sharper than nearby frames.
+
+Caution:
+- Exposure changes inside the group.
+- AF evidence is missing.
+- Best and second-best scores are close.
+```
+
+### Minimal Fake Data For A SwiftUI Prototype
+
+The first interactive prototype can use fake data. It does not need ImageIO, Vision, or real sharpness scoring.
+
+```swift
+struct MockBurstGroup: Identifiable, Equatable {
+    let id: Int
+    var title: String
+    var confidence: MockBurstConfidence
+    var recommendedFileName: String
+    var secondFileName: String?
+    var reasons: [String]
+    var caution: String?
+    var frames: [MockBurstFrame]
+}
+
+struct MockBurstFrame: Identifiable, Equatable {
+    let id: UUID
+    var fileName: String
+    var rank: Int?
+    var score: Int
+    var rating: Int
+    var isRejected: Bool
+}
+
+enum MockBurstConfidence: String {
+    case high = "High"
+    case medium = "Medium"
+    case low = "Low"
+}
+```
+
+Recommended prototype behavior:
+
+- Render three groups: high confidence, medium confidence, and low confidence.
+- Make **Keep Best**, **Keep Top 2**, **Compare**, **Review**, and **Undo** clickable.
+- Use placeholder thumbnails or existing sample images.
+- Do not connect to real ratings until the interaction feels correct.
+
+### What To Validate With The Mockup
+
+Before production implementation, use this mockup to answer these questions:
+
+- Does the user immediately understand which frame RawCull recommends?
+- Is the confidence level visible without feeling noisy?
+- Are the reasons short enough to scan during real culling?
+- Does **Keep Best** feel safe only when confidence is high?
+- Does the comparison view make uncertainty easier to resolve?
+- Can the user recover from a wrong bulk action quickly?
+- Does the workflow still feel like RawCull, not a separate app inside RawCull?
+
+### First Buildable Slice
+
+The smallest useful prototype should include:
+
+1. A fake burst-review grid with group headers.
+2. Best and second-best badges.
+3. Confidence-specific actions.
+4. A fake comparison state for the top two candidates.
+5. A reversible mock decision state.
+
+That slice is enough to test the workflow before connecting it to real `BurstAnalysisResult`, real ratings, and the existing comparison grid.
