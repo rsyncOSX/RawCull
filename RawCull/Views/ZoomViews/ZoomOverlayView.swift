@@ -55,7 +55,10 @@ struct ZoomOverlayView: View {
             VStack {
                 HStack {
                     if let selectedFile = viewModel.selectedFile {
-                        CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
+                        HStack(spacing: 6) {
+                            CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
+                            zoomAnalysisBadges(for: selectedFile)
+                        }
                             .padding()
                     }
 
@@ -225,6 +228,27 @@ struct ZoomOverlayView: View {
             rating: viewModel.getRating(for: file),
             isExplicit: viewModel.taggedNamesCache.contains(file.name),
         )
+    }
+
+    @ViewBuilder
+    private func zoomAnalysisBadges(for file: FileItem) -> some View {
+        let settings = SettingsViewModel.shared
+        let score = viewModel.sharpnessModel.scores[file.id]
+
+        if settings.showScoringBadge, let score {
+            SharpnessBadgeView(
+                score: score,
+                maxScore: viewModel.sharpnessModel.maxScore,
+            )
+        }
+
+        if settings.showSaliencyBadge {
+            if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
+                SaliencyBadgeView(info: saliency)
+            } else if score != nil {
+                NoSubjectBadgeView()
+            }
+        }
     }
 
     // MARK: - Dismiss
