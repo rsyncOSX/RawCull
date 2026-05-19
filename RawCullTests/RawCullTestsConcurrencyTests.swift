@@ -96,6 +96,7 @@ enum ConcurrencyTests {
 
             await MainActor.run {
                 viewModel.memoryCacheSizeMB = 1000
+                viewModel.gridCacheSizeMB = 1500
                 viewModel.thumbnailSizeGrid = 200
             }
 
@@ -103,16 +104,49 @@ enum ConcurrencyTests {
 
             await MainActor.run {
                 viewModel.memoryCacheSizeMB = 2000
+                viewModel.gridCacheSizeMB = 400
                 viewModel.thumbnailSizeGrid = 300
             }
 
             await viewModel.loadSettings()
             let savedSettings = await viewModel.asyncgetsettings()
             let savedMB = await MainActor.run { savedSettings.memoryCacheSizeMB }
+            let savedGridCache = await MainActor.run { savedSettings.gridCacheSizeMB }
             let savedGrid = await MainActor.run { savedSettings.thumbnailSizeGrid }
 
             #expect(savedMB == 1000)
+            #expect(savedGridCache == 1500)
             #expect(savedGrid == 200)
+        }
+
+        @Test
+        func `save during initial load preserves persisted grid cache size`() async throws {
+            let url = makeIsolatedSettingsURL()
+            let data = Data("""
+            {
+              "gridCacheSizeMB" : 1750,
+              "memoryCacheSizeMB" : 7000,
+              "thumbnailSizeFullSize" : 8700,
+              "thumbnailSizeGrid" : 240,
+              "thumbnailSizePreview" : 1664
+            }
+            """.utf8)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true,
+            )
+            try data.write(to: url, options: .atomic)
+
+            let viewModel = await MainActor.run {
+                SettingsViewModel(settingsFileURL: url, loadOnInit: true)
+            }
+
+            await viewModel.saveSettings()
+            await viewModel.loadSettings()
+            let savedSettings = await viewModel.asyncgetsettings()
+            let savedGridCache = await MainActor.run { savedSettings.gridCacheSizeMB }
+
+            #expect(savedGridCache == 1750)
         }
 
         @Test

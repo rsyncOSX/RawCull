@@ -8,29 +8,42 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @State private var settingsLoaded = false
+
     var body: some View {
-        TabView {
-            CacheSettingsTab()
-                .tabItem {
-                    Label("Cache", systemImage: "memorychip.fill")
-                }
+        Group {
+            if settingsLoaded {
+                TabView {
+                    CacheSettingsTab()
+                        .tabItem {
+                            Label("Cache", systemImage: "memorychip.fill")
+                        }
 
-            ThumbnailSizesTab()
-                .tabItem {
-                    Label("Thumbnails", systemImage: "photo.fill")
-                }
+                    ThumbnailSizesTab()
+                        .tabItem {
+                            Label("Thumbnails", systemImage: "photo.fill")
+                        }
 
-            FocusSettingsTab()
-                .tabItem {
-                    Label("Focus", systemImage: "viewfinder.circle")
-                }
+                    FocusSettingsTab()
+                        .tabItem {
+                            Label("Focus", systemImage: "viewfinder.circle")
+                        }
 
-            MemoryTab()
-                .tabItem {
-                    Label("Memory", systemImage: "rectangle.compress.vertical")
+                    MemoryTab()
+                        .tabItem {
+                            Label("Memory", systemImage: "rectangle.compress.vertical")
+                        }
                 }
+            } else {
+                ProgressView("Loading Settings...")
+                    .controlSize(.small)
+            }
         }
         .padding(20)
         .frame(width: 500, height: 550)
+        .task {
+            await SettingsViewModel.shared.ensureLoaded()
+            settingsLoaded = true
+        }
     }
 }

@@ -226,8 +226,8 @@ struct CacheSettingsTab: View {
                     showSaveConfirmation: $showSaveSettingsConfirmation,
                     resetMessage: "Are you sure you want to reset all settings to their default values?",
                     saveMessage: "Save Settings to disk?",
-                    onReset: { Task { await settingsManager.resetToDefaultsMemoryCache() } },
-                    onSave: { Task { await settingsManager.saveSettings() } },
+                    onReset: { Task { await resetCacheSettings() } },
+                    onSave: { Task { await saveCacheSettings() } },
                 ) {
                     // Prune Disk Cache Button
                     Button(
@@ -373,6 +373,26 @@ struct CacheSettingsTab: View {
                 isPruningJPGCache = false
             }
         }
+    }
+
+    private func saveCacheSettings() async {
+        await settingsManager.saveSettings()
+        await refreshCacheLimits()
+    }
+
+    private func resetCacheSettings() async {
+        await settingsManager.resetToDefaultsMemoryCache()
+        await refreshCacheLimits()
+    }
+
+    private func refreshCacheLimits() async {
+        await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
+        await SharedMemoryCache.shared.refreshConfig()
+        cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
+        currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
+        currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
+        currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
+        currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
     }
 
     private func formatBytes(_ bytes: Int) -> String {

@@ -168,6 +168,8 @@ final class SettingsViewModel {
 
     /// Save settings to JSON file. Encodes on the MainActor then writes on a background thread.
     func saveSettings() async {
+        await ensureLoaded()
+
         do {
             validateSettings()
 

@@ -35,15 +35,18 @@ func makeIsolatedThumbnailProvider(
 
 @MainActor
 func makeIsolatedSettingsViewModel(name: String = #function) -> SettingsViewModel {
+    SettingsViewModel(settingsFileURL: makeIsolatedSettingsURL(name: name), loadOnInit: false)
+}
+
+func makeIsolatedSettingsURL(name: String = #function) -> URL {
     let safeName = name
         .replacingOccurrences(of: "`", with: "")
         .replacingOccurrences(of: " ", with: "-")
         .replacingOccurrences(of: "()", with: "")
-    let url = FileManager.default.temporaryDirectory
+    return FileManager.default.temporaryDirectory
         .appendingPathComponent("RawCullTests", isDirectory: true)
         .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
         .appendingPathComponent("settings.json")
-    return SettingsViewModel(settingsFileURL: url, loadOnInit: false)
 }
 
 func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
