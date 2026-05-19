@@ -15,6 +15,7 @@ struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var autoSharpnessScoring: Bool = true
+    @State private var analyzeBurstsRequested: Bool = false
 
     /// Debounced regroup task for the burst-sensitivity slider — mirrors
     /// SimilarityControlsView so dragging the slider collapses to a single
@@ -46,6 +47,7 @@ struct SimilarityGridSelectionView: View {
         let hasEmbeddings = !viewModel.similarityModel.embeddings.isEmpty
         let isIndexing = viewModel.similarityModel.isIndexing
         let isGrouping = viewModel.similarityModel.isGrouping
+        let burstAnalysisIsBusy = analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
         let inBurstMode = viewModel.similarityModel.burstModeActive
 
         if !inBurstMode {
@@ -61,7 +63,7 @@ struct SimilarityGridSelectionView: View {
                 }
             }
             .font(.caption)
-            .disabled(isIndexing || viewModel.files.isEmpty)
+            .disabled(isIndexing || burstAnalysisIsBusy || viewModel.files.isEmpty)
             .help("Compute visual feature embeddings for all images in this catalog")
 
             if isIndexing {
@@ -142,7 +144,9 @@ struct SimilarityGridSelectionView: View {
                 .help("Return to flat grid view")
             } else {
                 Button {
+                    analyzeBurstsRequested = true
                     Task {
+                        defer { analyzeBurstsRequested = false }
                         await viewModel.analyzeBursts()
                     }
                 } label: {
@@ -155,7 +159,7 @@ struct SimilarityGridSelectionView: View {
                     }
                 }
                 .font(.caption)
-                .disabled(isGrouping || viewModel.burstAnalysisProgress.isRunning || viewModel.files.isEmpty)
+                .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
                 .help("Group burst sequences and recommend best frames")
             }
         }
