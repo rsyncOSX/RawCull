@@ -160,7 +160,32 @@ struct BurstRankingEngineTests {
 @Suite("Burst ViewModel actions")
 struct BurstViewModelActionTests {
     @Test(.tags(.critical))
-    func `keep best keep top two review and undo use rating policy`() {
+    func `back from burst comparison restores active grouped burst view`() {
+        let viewModel = RawCullViewModel()
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        viewModel.files = files
+        viewModel.filteredFiles = files
+        viewModel.similarityModel.burstModeActive = true
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
+        viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
+
+        viewModel.compareBurstGroup(files)
+        #expect(viewModel.mainViewMode == .comparisonGrid)
+        #expect(viewModel.similarityModel.burstModeActive == false)
+        #expect(viewModel.activeBurstComparisonGroupID == 0)
+
+        viewModel.returnToActiveBurstGroupView()
+        #expect(viewModel.mainViewMode == .similarityGrid)
+        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.activeBurstComparisonGroupID == nil)
+    }
+
+    @Test(.tags(.critical))
+    func `keep best keep top two and undo use rating policy`() {
         let viewModel = RawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [
@@ -205,10 +230,6 @@ struct BurstViewModelActionTests {
         #expect(viewModel.getRating(for: files[1]) == 3)
         #expect(viewModel.getRating(for: files[2]) == 2)
         #expect(viewModel.getRating(for: files[0]) == -1)
-
-        viewModel.markBurstGroupForReview(files)
-        #expect(viewModel.burstReviewStates[0] == .markedForReview)
-        #expect(viewModel.getRating(for: files[1]) == 3)
     }
 }
 
@@ -234,12 +255,12 @@ struct BurstAnalysisCacheTests {
             groups: [BurstGroup(id: 0, fileIDs: files.map(\.id))],
             boundaryEvidence: [],
             results: [],
-            reviewStates: [0: .markedForReview],
+            reviewStates: [0: .decisionApplied],
         )
 
         await cache.save(snapshot, catalog: catalog)
         let loaded = await cache.load(catalog: catalog, files: files, thumbnailMaxPixelSize: 512)
-        #expect(loaded?.reviewStates[0] == .markedForReview)
+        #expect(loaded?.reviewStates[0] == .decisionApplied)
 
         let changed = [burstTestFile("a.ARW", seconds: 0, size: 999), files[1]]
         let invalid = await cache.load(catalog: catalog, files: changed, thumbnailMaxPixelSize: 512)

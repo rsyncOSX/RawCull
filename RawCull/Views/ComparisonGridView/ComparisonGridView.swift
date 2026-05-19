@@ -52,11 +52,7 @@ struct ComparisonGridView: View {
                                 files: files,
                                 onKeepBest: { viewModel.keepBestInGroup(from: files) },
                                 onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: files) },
-                                onReview: { viewModel.markBurstGroupForReview(files) },
-                                onBack: {
-                                    viewModel.selectMainViewMode(.similarityGrid)
-                                    viewModel.activeBurstComparisonGroupID = nil
-                                },
+                                onBack: viewModel.returnToActiveBurstGroupView,
                             )
                             .padding(.horizontal, 12)
                             .padding(.bottom, 90)
@@ -118,13 +114,12 @@ struct ComparisonGridView: View {
         .onKeyPress(.downArrow) { navigate(.down); return .handled }
         .onKeyPress(.escape) {
             if viewModel.activeBurstComparisonGroupID != nil {
-                viewModel.activeBurstComparisonGroupID = nil
-                viewModel.selectMainViewMode(.similarityGrid)
+                viewModel.returnToActiveBurstGroupView()
                 return .handled
             }
             return .ignored
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tTfFaAbBrrR")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tTfFaAbB")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
             case "-": decreaseZoom(); return .handled
@@ -132,7 +127,6 @@ struct ComparisonGridView: View {
             case "f", "F": showFocusMask.toggle(); return .handled
             case "a", "A": showFocusPoints.toggle(); return .handled
             case "b", "B": return applyBurstKeepBest()
-            case "r", "R": return applyBurstReview()
             case "x", "X": return applyRating(-1)
             case "p", "P", "0": return applyRating(0)
             case "1", "2": return applyRating(2)
@@ -311,12 +305,6 @@ struct ComparisonGridView: View {
         return .handled
     }
 
-    private func applyBurstReview() -> KeyPress.Result {
-        guard viewModel.activeBurstComparisonGroupID != nil, !files.isEmpty else { return .ignored }
-        viewModel.markBurstGroupForReview(files)
-        return .handled
-    }
-
     private func navigate(_ direction: ComparisonGridNavigationDirection) {
         guard let selectedID = viewModel.selectedFileID,
               let currentIndex = files.firstIndex(where: { $0.id == selectedID }),
@@ -371,7 +359,6 @@ private struct BurstComparisonEvidenceView: View {
     let files: [FileItem]
     let onKeepBest: () -> Void
     let onKeepTopTwo: () -> Void
-    let onReview: () -> Void
     let onBack: () -> Void
 
     var body: some View {
@@ -412,7 +399,6 @@ private struct BurstComparisonEvidenceView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(.green)
                     Button("Keep Top 2", action: onKeepTopTwo)
-                    Button("Mark Review", action: onReview)
                 }
                 .controlSize(.small)
             }

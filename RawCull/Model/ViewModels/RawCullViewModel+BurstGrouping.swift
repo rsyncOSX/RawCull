@@ -139,21 +139,6 @@ extension RawCullViewModel {
         markDecisionApplied(groupID: groupID)
     }
 
-    func markBurstGroupForReview(_ groupFiles: [FileItem]) {
-        guard !groupFiles.isEmpty else { return }
-        let groupID = groupID(for: groupFiles)
-        burstReviewStates[groupID] = .markedForReview
-        if var result = burstAnalysisResults[groupID] {
-            result.reviewState = .markedForReview
-            burstAnalysisResults[groupID] = result
-        }
-        guard let catalog = selectedSource?.url else { return }
-        let sorted = burstOrderedFiles
-        Task {
-            await saveBurstAnalysisCache(catalog: catalog, files: sorted)
-        }
-    }
-
     func compareBurstGroup(_ groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
@@ -162,6 +147,13 @@ extension RawCullViewModel {
         comparisonFileIDs = Array(rankedIDs.prefix(4))
         selectedFileID = comparisonFileIDs.first
         selectMainViewMode(.comparisonGrid)
+    }
+
+    func returnToActiveBurstGroupView() {
+        closeZoomOverlay()
+        activeBurstComparisonGroupID = nil
+        mainViewMode = .similarityGrid
+        similarityModel.burstModeActive = true
     }
 
     func undoLastBurstAction() {

@@ -52,8 +52,18 @@ enum BurstDecisionConfidence: String, Codable, Equatable {
 
 enum BurstReviewState: String, Codable, Equatable {
     case none
-    case markedForReview
     case decisionApplied
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = Self(rawValue: rawValue) ?? .none
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 struct BurstCandidateScore: Codable, Equatable {

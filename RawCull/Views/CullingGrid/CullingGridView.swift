@@ -91,14 +91,11 @@ private struct BurstGroupHeaderView: View {
             keepBestButton(prominent: true)
             compareButton(title: "Compare")
             keepTopTwoButton(prominent: false)
-            reviewButton(prominent: false)
         } else if confidence == .medium {
             compareButton(title: "Compare Top 2", prominent: true)
             keepTopTwoButton(prominent: false)
             keepBestButton(prominent: false)
-            reviewButton(prominent: false)
         } else {
-            reviewButton(prominent: true)
             compareButton(title: "Compare")
         }
 
@@ -165,23 +162,6 @@ private struct BurstGroupHeaderView: View {
                 .font(.caption)
                 .controlSize(.mini)
                 .help("Compare the top burst candidates")
-        }
-    }
-
-    @ViewBuilder
-    private func reviewButton(prominent: Bool) -> some View {
-        if prominent {
-            Button("Review") { viewModel.markBurstGroupForReview(files) }
-                .buttonStyle(.borderedProminent)
-                .font(.caption)
-                .controlSize(.mini)
-                .help("Mark this group for manual review without changing ratings")
-        } else {
-            Button("Review") { viewModel.markBurstGroupForReview(files) }
-                .buttonStyle(.bordered)
-                .font(.caption)
-                .controlSize(.mini)
-                .help("Mark this group for manual review without changing ratings")
         }
     }
 
@@ -565,10 +545,6 @@ struct CullingGridView<Header: View>: View {
 
         case "2":
             viewModel.keepTopTwoInGroup(from: groupFiles)
-            return .handled
-
-        case "R", "r":
-            viewModel.markBurstGroupForReview(groupFiles)
             return .handled
 
         case "U", "u":
