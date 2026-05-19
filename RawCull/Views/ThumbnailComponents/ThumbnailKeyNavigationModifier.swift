@@ -23,6 +23,8 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
             .onAppear {
                 keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     guard !(NSApp.keyWindow?.firstResponder is NSText),
+                          viewModel.mainViewMode != .comparisonGrid,
+                          !viewModel.zoomOverlayVisible,
                           viewModel.selectedFile != nil else { return event }
 
                     let files: [FileItem] = {

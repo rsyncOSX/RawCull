@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ComparisonGridView: View {
@@ -12,6 +13,7 @@ struct ComparisonGridView: View {
     @State private var showFocusPoints = false
     @State private var useThumbnailSource = false
     @State private var columnCount = 1
+    @State private var keyMonitor: Any?
     @FocusState private var isFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
@@ -77,6 +79,7 @@ struct ComparisonGridView: View {
                                 focusMaskAvailable: focusMaskAvailable,
                                 hasFocusPoints: hasFocusPoints,
                                 showFocusPoints: $showFocusPoints,
+                                showShortcutHints: true,
                                 showImageSourceToggle: true,
                                 useThumbnailSource: $useThumbnailSource,
                                 scale: scale,
@@ -138,8 +141,12 @@ struct ComparisonGridView: View {
         }
         .onAppear {
             isFocused = true
+            installKeyMonitor()
             resetToFit()
             selectFirstComparisonFileIfNeeded()
+        }
+        .onDisappear {
+            removeKeyMonitor()
         }
         .task(id: loadKey) {
             selectFirstComparisonFileIfNeeded()
@@ -302,6 +309,99 @@ struct ComparisonGridView: View {
         guard viewModel.activeBurstComparisonGroupID != nil, !files.isEmpty else { return .ignored }
         viewModel.keepBestInGroup(from: files)
         return .handled
+    }
+
+    private func installKeyMonitor() {
+        removeKeyMonitor()
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard viewModel.mainViewMode == .comparisonGrid,
+                  !viewModel.zoomOverlayVisible,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+
+            return handleKeyEvent(event) == .handled ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
+        switch event.keyCode {
+        case 123:
+            navigate(.left)
+            return .handled
+
+        case 124:
+            navigate(.right)
+            return .handled
+
+        case 125:
+            navigate(.down)
+            return .handled
+
+        case 126:
+            navigate(.up)
+            return .handled
+
+        case 53:
+            if viewModel.activeBurstComparisonGroupID != nil {
+                viewModel.returnToActiveBurstGroupView()
+                return .handled
+            }
+            return .ignored
+
+        case 24:
+            increaseZoom()
+            return .handled
+
+        case 27:
+            decreaseZoom()
+            return .handled
+
+        case 38:
+            useThumbnailSource.toggle()
+            return .handled
+
+        case 3:
+            showFocusMask.toggle()
+            return .handled
+
+        case 0:
+            showFocusPoints.toggle()
+            return .handled
+
+        case 11:
+            return applyBurstKeepBest()
+
+        case 7:
+            return applyRating(-1)
+
+        case 35, 29:
+            return applyRating(0)
+
+        case 18, 19:
+            return applyRating(2)
+
+        case 20:
+            return applyRating(3)
+
+        case 21:
+            return applyRating(4)
+
+        case 23:
+            return applyRating(5)
+
+        case 17:
+            return applyRating(3)
+
+        default:
+            return .ignored
+        }
     }
 
     private func navigate(_ direction: ComparisonGridNavigationDirection) {

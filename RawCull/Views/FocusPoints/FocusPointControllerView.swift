@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FocusPointControllerView: View {
     @Binding var showFocusPoints: Bool
+    var shortcutLabel: String?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -15,6 +16,13 @@ struct FocusPointControllerView: View {
             }
             .buttonStyle(.plain)
             .help(showFocusPoints ? "Hide focus points" : "Show focus points")
+
+            if let shortcutLabel {
+                Text(shortcutLabel)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)

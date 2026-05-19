@@ -3,6 +3,7 @@ import SwiftUI
 struct FocusMaskControlsView: View {
     @Binding var showFocusMask: Bool
     var focusMaskAvailable: Bool
+    var shortcutLabel: String?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -17,6 +18,13 @@ struct FocusMaskControlsView: View {
             .buttonStyle(.plain)
             .disabled(!focusMaskAvailable)
             .help(showFocusMask ? "Hide focus map" : "Show likely in-focus edges")
+
+            if let shortcutLabel {
+                Text(shortcutLabel)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)

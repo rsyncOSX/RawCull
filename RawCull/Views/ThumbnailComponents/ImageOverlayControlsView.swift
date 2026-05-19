@@ -13,6 +13,7 @@ struct ImageOverlayControlsView: View {
 
     var hasFocusPoints: Bool
     @Binding var showFocusPoints: Bool
+    var showShortcutHints: Bool = false
 
     // MARK: - Image source toggle (zoom overlay only)
 
@@ -36,11 +37,13 @@ struct ImageOverlayControlsView: View {
             FocusMaskControlsView(
                 showFocusMask: $showFocusMask,
                 focusMaskAvailable: focusMaskAvailable,
+                shortcutLabel: showShortcutHints ? "F" : nil,
             )
 
             if hasFocusPoints {
                 FocusPointControllerView(
                     showFocusPoints: $showFocusPoints,
+                    shortcutLabel: showShortcutHints ? "A" : nil,
                 )
                 .transition(.opacity)
             }
