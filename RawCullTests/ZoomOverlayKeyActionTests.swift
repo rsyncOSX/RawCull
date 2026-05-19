@@ -72,6 +72,16 @@ struct ZoomOverlayKeyActionTests {
             keyCode: 0,
             navigationAxis: .horizontal,
         ) == .toggleThumbnailSource)
+        #expect(ZoomOverlayKeyAction.resolve(
+            characters: "F",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == .toggleFocusMask)
+        #expect(ZoomOverlayKeyAction.resolve(
+            characters: "a",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == .toggleFocusPoints)
     }
 
     @Test(.tags(.smoke))

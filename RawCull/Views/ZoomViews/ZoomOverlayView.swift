@@ -17,6 +17,8 @@ enum ZoomOverlayKeyAction: Equatable {
     case zoomIn
     case zoomOut
     case toggleThumbnailSource
+    case toggleFocusMask
+    case toggleFocusPoints
     case rating(Int)
 
     nonisolated static func resolve(
@@ -53,6 +55,12 @@ enum ZoomOverlayKeyAction: Equatable {
 
         case "j", "J":
             .toggleThumbnailSource
+
+        case "f", "F":
+            .toggleFocusMask
+
+        case "a", "A":
+            .toggleFocusPoints
 
         case "x", "X":
             .rating(-1)
@@ -181,6 +189,7 @@ struct ZoomOverlayView: View {
                         focusMaskAvailable: focusMask != nil,
                         hasFocusPoints: focusPoints != nil,
                         showFocusPoints: $showFocusPoints,
+                        showShortcutHints: true,
                         showImageSourceToggle: true,
                         useThumbnailSource: $useThumbnailSource,
                         scale: currentScale,
@@ -235,7 +244,7 @@ struct ZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFaAxXpP012345tT")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -387,6 +396,14 @@ struct ZoomOverlayView: View {
 
         case .toggleThumbnailSource:
             useThumbnailSource.toggle()
+            return .handled
+
+        case .toggleFocusMask:
+            showFocusMask.toggle()
+            return .handled
+
+        case .toggleFocusPoints:
+            showFocusPoints.toggle()
             return .handled
 
         case let .rating(rating):
