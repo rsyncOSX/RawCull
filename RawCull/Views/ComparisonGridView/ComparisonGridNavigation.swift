@@ -64,3 +64,84 @@ enum ComparisonGridNavigation {
         return destination
     }
 }
+
+enum ComparisonGridKeyAction: Equatable {
+    case navigate(ComparisonGridNavigationDirection)
+    case escape
+    case zoomIn
+    case zoomOut
+    case toggleThumbnailSource
+    case toggleFocusMask
+    case toggleFocusPoints
+    case keepBest
+    case rating(Int)
+
+    nonisolated static func resolve(characters: String?, keyCode: UInt16) -> ComparisonGridKeyAction? {
+        if let action = action(for: characters) {
+            return action
+        }
+
+        return switch keyCode {
+        case 123:
+            .navigate(.left)
+
+        case 124:
+            .navigate(.right)
+
+        case 125:
+            .navigate(.down)
+
+        case 126:
+            .navigate(.up)
+
+        case 53:
+            .escape
+
+        default:
+            nil
+        }
+    }
+
+    private nonisolated static func action(for characters: String?) -> ComparisonGridKeyAction? {
+        switch characters {
+        case "+":
+            .zoomIn
+
+        case "-":
+            .zoomOut
+
+        case "j", "J":
+            .toggleThumbnailSource
+
+        case "f", "F":
+            .toggleFocusMask
+
+        case "a", "A":
+            .toggleFocusPoints
+
+        case "b", "B":
+            .keepBest
+
+        case "x", "X":
+            .rating(-1)
+
+        case "p", "P", "0":
+            .rating(0)
+
+        case "1", "2":
+            .rating(2)
+
+        case "3", "t", "T":
+            .rating(3)
+
+        case "4":
+            .rating(4)
+
+        case "5":
+            .rating(5)
+
+        default:
+            nil
+        }
+    }
+}

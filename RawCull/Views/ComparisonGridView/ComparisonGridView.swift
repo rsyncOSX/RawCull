@@ -331,76 +331,48 @@ struct ComparisonGridView: View {
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
-        switch event.keyCode {
-        case 123:
-            navigate(.left)
+        guard let action = ComparisonGridKeyAction.resolve(
+            characters: event.characters,
+            keyCode: event.keyCode,
+        ) else { return .ignored }
+
+        switch action {
+        case let .navigate(direction):
+            navigate(direction)
             return .handled
 
-        case 124:
-            navigate(.right)
-            return .handled
-
-        case 125:
-            navigate(.down)
-            return .handled
-
-        case 126:
-            navigate(.up)
-            return .handled
-
-        case 53:
+        case .escape:
             if viewModel.activeBurstComparisonGroupID != nil {
                 viewModel.returnToActiveBurstGroupView()
                 return .handled
             }
             return .ignored
 
-        case 24:
+        case .zoomIn:
             increaseZoom()
             return .handled
 
-        case 27:
+        case .zoomOut:
             decreaseZoom()
             return .handled
 
-        case 38:
+        case .toggleThumbnailSource:
             useThumbnailSource.toggle()
             return .handled
 
-        case 3:
+        case .toggleFocusMask:
             showFocusMask.toggle()
             return .handled
 
-        case 0:
+        case .toggleFocusPoints:
             showFocusPoints.toggle()
             return .handled
 
-        case 11:
+        case .keepBest:
             return applyBurstKeepBest()
 
-        case 7:
-            return applyRating(-1)
-
-        case 35, 29:
-            return applyRating(0)
-
-        case 18, 19:
-            return applyRating(2)
-
-        case 20:
-            return applyRating(3)
-
-        case 21:
-            return applyRating(4)
-
-        case 23:
-            return applyRating(5)
-
-        case 17:
-            return applyRating(3)
-
-        default:
-            return .ignored
+        case let .rating(rating):
+            return applyRating(rating)
         }
     }
 
