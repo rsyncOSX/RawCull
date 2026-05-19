@@ -49,7 +49,6 @@ struct ComparisonGridView: View {
                         if let burstComparisonResult {
                             BurstComparisonEvidenceView(
                                 result: burstComparisonResult,
-                                files: files,
                                 onKeepBest: { viewModel.keepBestInGroup(from: files) },
                                 onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: files) },
                                 onBack: viewModel.returnToActiveBurstGroupView,
@@ -356,7 +355,6 @@ struct ComparisonGridView: View {
 
 private struct BurstComparisonEvidenceView: View {
     let result: BurstAnalysisResult
-    let files: [FileItem]
     let onKeepBest: () -> Void
     let onKeepTopTwo: () -> Void
     let onBack: () -> Void

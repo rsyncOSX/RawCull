@@ -844,20 +844,6 @@ final class FocusMaskModel {
         FocusMaskEngine.isoScalingFactor(iso: iso)
     }
 
-    nonisolated func computeSharpnessScore(
-        fromRawURL url: URL,
-        config: FocusDetectorConfig,
-        thumbnailMaxPixelSize: Int = 512,
-        afPoint: CGPoint? = nil,
-    ) async -> (score: Float?, saliency: SaliencyInfo?) {
-        await engine.computeSharpnessScore(
-            fromRawURL: url,
-            config: config,
-            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-            afPoint: afPoint,
-        )
-    }
-
     @MainActor
     func applyCalibration(_ result: FocusCalibrationResult) {
         var cfg = config

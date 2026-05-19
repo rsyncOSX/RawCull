@@ -43,9 +43,7 @@ extension RawCullViewModel {
         if sharpnessModel.scores.isEmpty {
             burstAnalysisProgress = BurstAnalysisProgress(
                 step: .scoringSharpness,
-                completed: sharpnessModel.scoringProgress,
                 total: sorted.count,
-                estimatedSeconds: sharpnessModel.scoringEstimatedSeconds,
             )
             await calibrateAndScoreCurrentCatalog()
         }
@@ -54,9 +52,7 @@ extension RawCullViewModel {
         if similarityModel.embeddings.count < sorted.count {
             burstAnalysisProgress = BurstAnalysisProgress(
                 step: .indexingSimilarity,
-                completed: similarityModel.indexingProgress,
                 total: sorted.count,
-                estimatedSeconds: similarityModel.indexingEstimatedSeconds,
             )
             await similarityModel.indexFiles(sorted)
         }
@@ -73,15 +69,6 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress(step: .savingCache)
         await saveBurstAnalysisCache(catalog: catalog, files: sorted)
         burstAnalysisProgress = BurstAnalysisProgress()
-    }
-
-    /// Index all files (skipping already-indexed ones) then run burst clustering.
-    func indexAndGroupBursts() async {
-        await similarityModel.indexFiles(files)
-        guard !Task.isCancelled else { return }
-        let sorted = burstOrderedFiles
-        await similarityModel.groupBursts(files: sorted)
-        recomputeBurstRankings(files: sorted)
     }
 
     // MARK: - Re-clustering on threshold change
@@ -341,7 +328,6 @@ extension RawCullViewModel {
                 recommendedFileID: result.recommendedFileID.map(remap),
                 secondBestFileID: result.secondBestFileID.map(remap),
                 confidence: result.confidence,
-                boundaryEvidence: evidence.filter { Set(result.fileIDs.map(remap)).contains($0.previousID) },
                 reviewState: result.reviewState,
                 isSafeForOneClickCulling: result.isSafeForOneClickCulling,
                 reasons: result.reasons,

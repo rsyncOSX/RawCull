@@ -379,10 +379,6 @@ final class SimilarityScoringModel {
         burstModeActive = !snapshot.groups.isEmpty
     }
 
-    func adjacentDistancesSnapshot() -> [String: Float] {
-        _adjacentDistanceCache
-    }
-
     // MARK: - Static helpers (nonisolated, used from detached tasks)
 
     /// Decode a thumbnail from a Sony ARW file and compute a Vision feature print.

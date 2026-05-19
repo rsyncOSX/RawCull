@@ -16,10 +16,6 @@ private actor SavedFilesRecorder {
         }
         return snapshots
     }
-
-    func latest() -> [SavedFiles]? {
-        snapshots.last
-    }
 }
 
 private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -> FileItem {

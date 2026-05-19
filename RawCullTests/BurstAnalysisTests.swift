@@ -210,7 +210,6 @@ struct BurstViewModelActionTests {
             recommendedFileID: files[1].id,
             secondBestFileID: files[2].id,
             confidence: .high,
-            boundaryEvidence: [],
             reviewState: .none,
             isSafeForOneClickCulling: true,
             reasons: [],

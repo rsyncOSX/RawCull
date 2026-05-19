@@ -92,7 +92,6 @@ enum BurstRankingEngine {
             recommendedFileID: best?.fileID,
             secondBestFileID: second?.fileID,
             confidence: confidence,
-            boundaryEvidence: groupEvidence,
             reviewState: reviewState,
             isSafeForOneClickCulling: confidence == .high,
             reasons: reasons,

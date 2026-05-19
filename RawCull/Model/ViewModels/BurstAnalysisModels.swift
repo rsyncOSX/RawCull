@@ -10,14 +10,7 @@ struct BurstGroupingConfig: Codable, Equatable {
     nonisolated static let algorithmVersion = 1
 }
 
-struct BurstPairKey: Codable, Equatable {
-    let previousID: UUID
-    let currentID: UUID
-
-    nonisolated var cacheKey: String {
-        Self.cacheKey(previousID: previousID, currentID: currentID)
-    }
-
+enum BurstPairKey {
     nonisolated static func cacheKey(previousID: UUID, currentID: UUID) -> String {
         "\(previousID.uuidString)|\(currentID.uuidString)"
     }
@@ -89,7 +82,6 @@ struct BurstAnalysisResult: Codable, Equatable, Identifiable {
     var recommendedFileID: UUID?
     var secondBestFileID: UUID?
     var confidence: BurstDecisionConfidence
-    var boundaryEvidence: [BurstBoundaryEvidence]
     var reviewState: BurstReviewState
     var isSafeForOneClickCulling: Bool
     var reasons: [String]
@@ -108,9 +100,7 @@ enum BurstAnalysisStep: String, Codable, Equatable {
 
 struct BurstAnalysisProgress: Codable, Equatable {
     var step: BurstAnalysisStep = .idle
-    var completed: Int = 0
     var total: Int = 0
-    var estimatedSeconds: Int = 0
 
     var isRunning: Bool {
         step != .idle
