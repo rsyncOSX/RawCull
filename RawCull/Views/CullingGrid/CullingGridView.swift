@@ -31,51 +31,45 @@ enum GridRatingFilter: Hashable {
 private struct BurstGroupHeaderView: View {
     let files: [FileItem]
     let best: BestInGroupInfo?
+    let analysis: BurstAnalysisResult?
     let hasSharpnessScores: Bool
     @Bindable var viewModel: RawCullViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Label("Burst · \(files.count) frames", systemImage: "square.stack.3d.up")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
+                if let analysis {
+                    ConfidenceBadgeView(confidence: analysis.confidence)
+                }
+
                 if let best {
-                    if let pct = best.percent {
-                        Text("Best: \(best.fileName) (\(pct)%)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Best: \(best.fileName)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(bestLabel(best))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Button("Keep Best") {
-                    viewModel.keepBestInGroup(from: files)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .font(.caption)
-                .controlSize(.mini)
-                .disabled(!hasSharpnessScores)
-                .help(
-                    hasSharpnessScores
-                        ? "Rate sharpest frame ★★★ and reject all others"
-                        : "Run sharpness scoring first to identify the best frame",
-                )
+                actionButtons
+            }
 
-                Button("Reject All") {
-                    viewModel.updateRating(for: files, rating: -1)
+            if let analysis {
+                HStack(spacing: 6) {
+                    ForEach(Array(analysis.reasons.prefix(3)), id: \.self) { reason in
+                        Text(reason)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(Array(analysis.cautions.prefix(2)), id: \.self) { caution in
+                        Text(caution)
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
                 }
-                .font(.caption)
-                .controlSize(.mini)
-                .foregroundStyle(.red)
-                .help("Reject all frames in this burst group")
             }
 
             if !hasSharpnessScores {
@@ -87,6 +81,136 @@ private struct BurstGroupHeaderView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        let confidence = analysis?.confidence ?? .low
+
+        if confidence == .high {
+            keepBestButton(prominent: true)
+            compareButton(title: "Compare")
+            keepTopTwoButton(prominent: false)
+            reviewButton(prominent: false)
+        } else if confidence == .medium {
+            compareButton(title: "Compare Top 2", prominent: true)
+            keepTopTwoButton(prominent: false)
+            keepBestButton(prominent: false)
+            reviewButton(prominent: false)
+        } else {
+            reviewButton(prominent: true)
+            compareButton(title: "Compare")
+        }
+
+        if viewModel.lastBurstUndoEntry?.groupID == analysis?.groupID {
+            Button("Undo") {
+                viewModel.undoLastBurstAction()
+            }
+            .font(.caption)
+            .controlSize(.mini)
+            .help("Undo the last burst action")
+        }
+    }
+
+    @ViewBuilder
+    private func keepBestButton(prominent: Bool) -> some View {
+        if prominent {
+            Button("Keep Best") { viewModel.keepBestInGroup(from: files) }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .font(.caption)
+                .controlSize(.mini)
+                .disabled(!hasSharpnessScores)
+                .help(hasSharpnessScores ? "Rate best frame ★★★ and reject all others" : "Run analysis first")
+        } else {
+            Button("Keep Best") { viewModel.keepBestInGroup(from: files) }
+                .buttonStyle(.bordered)
+                .font(.caption)
+                .controlSize(.mini)
+                .disabled(!hasSharpnessScores)
+                .help(hasSharpnessScores ? "Rate best frame ★★★ and reject all others" : "Run analysis first")
+        }
+    }
+
+    @ViewBuilder
+    private func keepTopTwoButton(prominent: Bool = false) -> some View {
+        if prominent {
+            Button("Keep Top 2") { viewModel.keepTopTwoInGroup(from: files) }
+                .buttonStyle(.borderedProminent)
+                .font(.caption)
+                .controlSize(.mini)
+                .disabled(!hasSharpnessScores)
+                .help("Rate best frame ★★★, second frame ★★, and reject all others")
+        } else {
+            Button("Keep Top 2") { viewModel.keepTopTwoInGroup(from: files) }
+                .buttonStyle(.bordered)
+                .font(.caption)
+                .controlSize(.mini)
+                .disabled(!hasSharpnessScores)
+                .help("Rate best frame ★★★, second frame ★★, and reject all others")
+        }
+    }
+
+    @ViewBuilder
+    private func compareButton(title: String, prominent: Bool = false) -> some View {
+        if prominent {
+            Button(title) { viewModel.compareBurstGroup(files) }
+                .buttonStyle(.borderedProminent)
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Compare the top burst candidates")
+        } else {
+            Button(title) { viewModel.compareBurstGroup(files) }
+                .buttonStyle(.bordered)
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Compare the top burst candidates")
+        }
+    }
+
+    @ViewBuilder
+    private func reviewButton(prominent: Bool) -> some View {
+        if prominent {
+            Button("Review") { viewModel.markBurstGroupForReview(files) }
+                .buttonStyle(.borderedProminent)
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Mark this group for manual review without changing ratings")
+        } else {
+            Button("Review") { viewModel.markBurstGroupForReview(files) }
+                .buttonStyle(.bordered)
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Mark this group for manual review without changing ratings")
+        }
+    }
+
+    private func bestLabel(_ best: BestInGroupInfo) -> String {
+        if let pct = best.percent {
+            return "Best: \(best.fileName) (\(pct)%)"
+        }
+        return "Best: \(best.fileName)"
+    }
+}
+
+private struct ConfidenceBadgeView: View {
+    let confidence: BurstDecisionConfidence
+
+    var body: some View {
+        Text(confidence.title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
+    }
+
+    private var color: Color {
+        switch confidence {
+        case .high: .green
+        case .medium: .orange
+        case .low: .gray
+        }
     }
 }
 
@@ -141,6 +265,7 @@ struct CullingGridView<Header: View>: View {
                                             BurstGroupHeaderView(
                                                 files: vg.files,
                                                 best: bestInGroup[vg.id],
+                                                analysis: viewModel.burstAnalysisResult(for: vg.id),
                                                 hasSharpnessScores: hasSharpnessScoresSnapshot,
                                                 viewModel: viewModel,
                                             )
@@ -209,20 +334,24 @@ struct CullingGridView<Header: View>: View {
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
-                // Progress view — shown during burst grouping
-                if viewModel.similarityModel.isGrouping {
-                    Text("Grouping bursts…")
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 14)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.primary.opacity(0.12), lineWidth: 1),
-                        )
-                        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+                // Progress view — shown during indeterminate burst work
+                if viewModel.similarityModel.isGrouping || indeterminateBurstAnalysisRunning {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .fixedSize()
+                        Text(viewModel.burstAnalysisProgress.statusText)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
+                    )
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                    .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
 
                 // Progress view — shown during similarity indexing
@@ -258,6 +387,16 @@ struct CullingGridView<Header: View>: View {
         .animation(.easeInOut(duration: 0.15), value: viewModel.similarityModel.burstModeActive)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .toolbar { sharedSelectionStatusToolbar }
+        .onKeyPress(characters: CharacterSet(charactersIn: "\rBb2RrUu")) { press in
+            handleBurstKeyPress(press.characters)
+        }
+        .onKeyPress(.escape) {
+            if viewModel.similarityModel.burstModeActive {
+                viewModel.similarityModel.burstModeActive = false
+                return .handled
+            }
+            return .ignored
+        }
         .task(id: viewModel.selectedSource) {
             viewModel.selectedFileIDs = []
             await ThumbnailLoader.shared.cancelAll()
@@ -266,6 +405,10 @@ struct CullingGridView<Header: View>: View {
             recomputeGridCache()
         }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
+    }
+
+    private var indeterminateBurstAnalysisRunning: Bool {
+        viewModel.burstAnalysisProgress.isRunning && !viewModel.burstAnalysisProgress.isCountBased
     }
 
     // MARK: - Selection handlers
@@ -404,6 +547,39 @@ struct CullingGridView<Header: View>: View {
             onSelect: { handleToggleSelection(for: file) },
             onDoubleSelect: { handleDoubleSelect(for: file) },
         )
+    }
+
+    private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
+        guard viewModel.similarityModel.burstModeActive,
+              let groupFiles = currentBurstGroupFiles
+        else { return .ignored }
+
+        switch characters {
+        case "\r":
+            viewModel.compareBurstGroup(groupFiles)
+            return .handled
+        case "B", "b":
+            viewModel.keepBestInGroup(from: groupFiles)
+            return .handled
+        case "2":
+            viewModel.keepTopTwoInGroup(from: groupFiles)
+            return .handled
+        case "R", "r":
+            viewModel.markBurstGroupForReview(groupFiles)
+            return .handled
+        case "U", "u":
+            viewModel.undoLastBurstAction()
+            return .handled
+        default:
+            return .ignored
+        }
+    }
+
+    private var currentBurstGroupFiles: [FileItem]? {
+        guard let selectedID = viewModel.selectedFileID,
+              let groupID = viewModel.similarityModel.burstGroupLookup[selectedID]
+        else { return nil }
+        return visibleBurstGroups.first { $0.id == groupID }?.files
     }
 
     // MARK: - Rating filter

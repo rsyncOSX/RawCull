@@ -45,6 +45,22 @@ struct ComparisonGridView: View {
                             }
                         }
                         .padding(12)
+
+                        if let burstComparisonResult {
+                            BurstComparisonEvidenceView(
+                                result: burstComparisonResult,
+                                files: files,
+                                onKeepBest: { viewModel.keepBestInGroup(from: files) },
+                                onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: files) },
+                                onReview: { viewModel.markBurstGroupForReview(files) },
+                                onBack: {
+                                    viewModel.selectMainViewMode(.similarityGrid)
+                                    viewModel.activeBurstComparisonGroupID = nil
+                                },
+                            )
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 90)
+                        }
                     }
 
                     VStack {
@@ -100,11 +116,23 @@ struct ComparisonGridView: View {
         .onKeyPress(.rightArrow) { navigate(.right); return .handled }
         .onKeyPress(.upArrow) { navigate(.up); return .handled }
         .onKeyPress(.downArrow) { navigate(.down); return .handled }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tT")) { press in
+        .onKeyPress(.escape) {
+            if viewModel.activeBurstComparisonGroupID != nil {
+                viewModel.activeBurstComparisonGroupID = nil
+                viewModel.selectMainViewMode(.similarityGrid)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tTfFaAbBrrR")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
             case "-": decreaseZoom(); return .handled
             case "j", "J": useThumbnailSource.toggle(); return .handled
+            case "f", "F": showFocusMask.toggle(); return .handled
+            case "a", "A": showFocusPoints.toggle(); return .handled
+            case "b", "B": return applyBurstKeepBest()
+            case "r", "R": return applyBurstReview()
             case "x", "X": return applyRating(-1)
             case "p", "P", "0": return applyRating(0)
             case "1", "2": return applyRating(2)
@@ -145,6 +173,11 @@ struct ComparisonGridView: View {
     private var selectedComparisonFile: FileItem? {
         guard let selectedID = viewModel.selectedFileID else { return nil }
         return files.first { $0.id == selectedID }
+    }
+
+    private var burstComparisonResult: BurstAnalysisResult? {
+        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
+        return viewModel.burstAnalysisResult(for: groupID)
     }
 
     private var loadKey: String {
@@ -272,6 +305,18 @@ struct ComparisonGridView: View {
         return .handled
     }
 
+    private func applyBurstKeepBest() -> KeyPress.Result {
+        guard viewModel.activeBurstComparisonGroupID != nil, !files.isEmpty else { return .ignored }
+        viewModel.keepBestInGroup(from: files)
+        return .handled
+    }
+
+    private func applyBurstReview() -> KeyPress.Result {
+        guard viewModel.activeBurstComparisonGroupID != nil, !files.isEmpty else { return .ignored }
+        viewModel.markBurstGroupForReview(files)
+        return .handled
+    }
+
     private func navigate(_ direction: ComparisonGridNavigationDirection) {
         guard let selectedID = viewModel.selectedFileID,
               let currentIndex = files.firstIndex(where: { $0.id == selectedID }),
@@ -318,5 +363,61 @@ struct ComparisonGridView: View {
             scale = max(0.5, scale - 0.4)
             lastScale = scale
         }
+    }
+}
+
+private struct BurstComparisonEvidenceView: View {
+    let result: BurstAnalysisResult
+    let files: [FileItem]
+    let onKeepBest: () -> Void
+    let onKeepTopTwo: () -> Void
+    let onReview: () -> Void
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Burst \(result.groupID + 1) Comparison")
+                    .font(.headline)
+                Text(result.confidence.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Back To Group", action: onBack)
+                    .controlSize(.small)
+            }
+
+            HStack(alignment: .top, spacing: 24) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Evidence")
+                        .font(.caption.weight(.semibold))
+                    ForEach(result.reasons, id: \.self) { reason in
+                        Text(reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Caution")
+                        .font(.caption.weight(.semibold))
+                    ForEach(result.cautions, id: \.self) { caution in
+                        Text(caution)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                Spacer()
+                HStack(spacing: 8) {
+                    Button("Keep Best", action: onKeepBest)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    Button("Keep Top 2", action: onKeepTopTwo)
+                    Button("Mark Review", action: onReview)
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 }

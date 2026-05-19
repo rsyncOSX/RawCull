@@ -12,7 +12,7 @@ import Vision
 // MARK: - BurstGroup
 
 /// A burst group: a sequence of consecutive frames that are visually similar.
-struct BurstGroup: Identifiable {
+struct BurstGroup: Codable, Equatable, Identifiable, Sendable {
     let id: Int
     let fileIDs: [UUID] // sequential (name-sorted) order
 }
@@ -68,12 +68,16 @@ final class SimilarityScoringModel {
     var burstModeActive: Bool = false
     /// True while groupBursts() is running.
     var isGrouping: Bool = false
+    /// Per-boundary evidence from the latest burst grouping run.
+    var burstBoundaryEvidence: [BurstBoundaryEvidence] = []
 
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<Void, Never>?
-    @ObservationIgnored private var _groupingTask: Task<[[UUID]]?, Never>?
+    @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration: Int = 0
+    @ObservationIgnored private var _adjacentDistanceCache: [String: Float] = [:]
+    @ObservationIgnored private var _adjacentDistanceCacheSignature: Int = 0
 
     // MARK: - Public API
 
@@ -87,9 +91,12 @@ final class SimilarityScoringModel {
         sortBySimilarity = false
         burstGroups = []
         burstGroupLookup = [:]
+        burstBoundaryEvidence = []
         burstModeActive = false
         isGrouping = false
         _groupingGeneration = 0
+        _adjacentDistanceCache = [:]
+        _adjacentDistanceCacheSignature = 0
     }
 
     func cancelIndexing() {
@@ -289,6 +296,7 @@ final class SimilarityScoringModel {
             _groupingTask = nil
             burstGroups = []
             burstGroupLookup = [:]
+            burstBoundaryEvidence = []
             burstModeActive = true
             return
         }
@@ -302,61 +310,26 @@ final class SimilarityScoringModel {
 
         let threshold = burstSensitivity
         let snapshot = embeddings // [UUID: Data], Sendable
-        let fileIDs = files.map(\.id)
+        let config = BurstGroupingConfig(visualDistanceThreshold: threshold)
+        let signature = cacheSignature(fileIDs: files.map(\.id), embeddingsCount: snapshot.count)
+        let cachedAdjacentDistances = _adjacentDistanceCacheSignature == signature ? _adjacentDistanceCache : [:]
 
-        let work = Task.detached(priority: .userInitiated) { () -> [[UUID]]? in
-            var observations: [UUID: VNFeaturePrintObservation] = [:]
-            var unarchiveCount = 0
-            for (id, data) in snapshot {
-                if let obs = try? NSKeyedUnarchiver.unarchivedObject(
-                    ofClass: VNFeaturePrintObservation.self,
-                    from: data,
-                ) {
-                    observations[id] = obs
-                }
-                unarchiveCount &+= 1
-                if unarchiveCount & 0x3F == 0, Task.isCancelled { return nil }
-            }
-
-            var groups: [[UUID]] = []
-            var current: [UUID] = []
-
-            for (i, id) in fileIDs.enumerated() {
-                if i & 0x3F == 0, Task.isCancelled { return nil }
-                if i == 0 {
-                    current.append(id)
-                    continue
-                }
-                let prevID = fileIDs[i - 1]
-
-                guard let obs = observations[id], let prevObs = observations[prevID] else {
-                    groups.append(current)
-                    current = [id]
-                    continue
-                }
-
-                // Distance between the current frame and its immediate predecessor
-                // in the VNFeaturePrintObservation embedding space. Smaller d ⇒ more
-                // visually similar. `d >= threshold` closes the current group and
-                // starts a new one; lowering `burstSensitivity` produces tighter
-                // (more numerous, smaller) burst groups.
-                var d: Float = 0
-                let computed = (try? prevObs.computeDistance(&d, to: obs)) != nil
-                let startNewGroup = !computed || d >= threshold
-
-                if startNewGroup {
-                    groups.append(current)
-                    current = [id]
-                } else {
-                    current.append(id)
-                }
-            }
-            if !current.isEmpty { groups.append(current) }
-            return groups
+        let work = Task.detached(priority: .userInitiated) { () -> BurstGroupingOutput? in
+            let adjacentDistances = Self.computeAdjacentDistances(
+                files: files,
+                embeddings: snapshot,
+                cached: cachedAdjacentDistances,
+            )
+            guard !Task.isCancelled else { return nil }
+            return BurstGroupingEngine.group(
+                files: files,
+                adjacentDistances: adjacentDistances,
+                config: config,
+            )
         }
         _groupingTask = work
 
-        let rawGroups = await work.value
+        let output = await work.value
 
         // Drop our handle only if we're still the current job.
         if _groupingTask == work { _groupingTask = nil }
@@ -367,18 +340,47 @@ final class SimilarityScoringModel {
         guard _groupingGeneration == myGeneration else { return }
         isGrouping = false
 
-        guard let rawGroups else { return }
+        guard let output else { return }
 
         var lookup: [UUID: Int] = [:]
-        burstGroups = rawGroups.enumerated().map { i, ids in
-            for id in ids {
-                lookup[id] = i
+        for group in output.groups {
+            for id in group.fileIDs {
+                lookup[id] = group.id
             }
-            return BurstGroup(id: i, fileIDs: ids)
         }
+        burstGroups = output.groups
         burstGroupLookup = lookup
+        burstBoundaryEvidence = output.boundaryEvidence
+        _adjacentDistanceCache = Dictionary(
+            uniqueKeysWithValues: output.boundaryEvidence.compactMap { evidence in
+                guard let distance = evidence.visualDistance else { return nil }
+                return (BurstPairKey.cacheKey(previousID: evidence.previousID, currentID: evidence.currentID), distance)
+            },
+        )
+        _adjacentDistanceCacheSignature = signature
         burstModeActive = true
         Logger.process.debugMessageOnly("SimilarityScoringModel: \(burstGroups.count) burst groups from \(files.count) files (threshold \(threshold))")
+    }
+
+    func applyCachedBurstAnalysis(_ snapshot: BurstAnalysisCacheSnapshot) {
+        embeddings = snapshot.embeddings
+        burstGroups = snapshot.groups
+        burstBoundaryEvidence = snapshot.boundaryEvidence
+        burstGroupLookup = Dictionary(uniqueKeysWithValues: snapshot.groups.flatMap { group in
+            group.fileIDs.map { ($0, group.id) }
+        })
+        _adjacentDistanceCache = Dictionary(
+            uniqueKeysWithValues: snapshot.boundaryEvidence.compactMap { evidence in
+                guard let distance = evidence.visualDistance else { return nil }
+                return (BurstPairKey.cacheKey(previousID: evidence.previousID, currentID: evidence.currentID), distance)
+            },
+        )
+        _adjacentDistanceCacheSignature = 0
+        burstModeActive = !snapshot.groups.isEmpty
+    }
+
+    func adjacentDistancesSnapshot() -> [String: Float] {
+        _adjacentDistanceCache
     }
 
     // MARK: - Static helpers (nonisolated, used from detached tasks)
@@ -409,6 +411,60 @@ final class SimilarityScoringModel {
             guard let obs = request.results?.first as? VNFeaturePrintObservation else { return nil }
             return try? NSKeyedArchiver.archivedData(withRootObject: obs, requiringSecureCoding: true)
         }.value
+    }
+
+    nonisolated static func computeAdjacentDistances(
+        files: [FileItem],
+        embeddings: [UUID: Data],
+        cached: [String: Float] = [:],
+    ) -> [String: Float] {
+        guard files.count > 1 else { return [:] }
+
+        var distances = cached
+        var observations: [UUID: VNFeaturePrintObservation] = [:]
+
+        for index in files.indices.dropFirst() {
+            if index & 0x3F == 0, Task.isCancelled { return distances }
+            let previousID = files[index - 1].id
+            let currentID = files[index].id
+            let key = BurstPairKey.cacheKey(previousID: previousID, currentID: currentID)
+            if distances[key] != nil { continue }
+
+            guard let previous = observation(for: previousID, embeddings: embeddings, observations: &observations),
+                  let current = observation(for: currentID, embeddings: embeddings, observations: &observations)
+            else { continue }
+
+            var distance: Float = 0
+            guard (try? previous.computeDistance(&distance, to: current)) != nil else { continue }
+            distances[key] = distance
+        }
+
+        return distances
+    }
+
+    private nonisolated static func observation(
+        for id: UUID,
+        embeddings: [UUID: Data],
+        observations: inout [UUID: VNFeaturePrintObservation],
+    ) -> VNFeaturePrintObservation? {
+        if let observation = observations[id] { return observation }
+        guard let data = embeddings[id],
+              let observation = try? NSKeyedUnarchiver.unarchivedObject(
+                  ofClass: VNFeaturePrintObservation.self,
+                  from: data,
+              )
+        else { return nil }
+        observations[id] = observation
+        return observation
+    }
+
+    private nonisolated func cacheSignature(fileIDs: [UUID], embeddingsCount: Int) -> Int {
+        var hasher = Hasher()
+        hasher.combine(embeddingsCount)
+        for id in fileIDs {
+            hasher.combine(id)
+        }
+        return hasher.finalize()
     }
 
     /// Decode an embedded thumbnail from a Sony ARW via CGImageSource.

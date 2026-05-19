@@ -142,23 +142,21 @@ struct SimilarityGridSelectionView: View {
                 .help("Return to flat grid view")
             } else {
                 Button {
-                    runWithAutoScoring { await viewModel.indexAndGroupBursts() }
+                    Task {
+                        await viewModel.analyzeBursts()
+                    }
                 } label: {
                     if isGrouping {
                         Label("Grouping…", systemImage: "square.stack.3d.up")
                     } else if hasEmbeddings {
-                        Label("Group Bursts", systemImage: "square.stack.3d.up")
+                        Label("Analyze Bursts", systemImage: "square.stack.3d.up")
                     } else {
-                        Label("Index + Group Bursts", systemImage: "square.stack.3d.up")
+                        Label("Analyze Bursts", systemImage: "square.stack.3d.up")
                     }
                 }
                 .font(.caption)
-                .disabled(isGrouping || viewModel.files.isEmpty)
-                .help(
-                    hasEmbeddings
-                        ? "Cluster consecutive similar frames into burst groups"
-                        : "Index all images then cluster into burst groups",
-                )
+                .disabled(isGrouping || viewModel.burstAnalysisProgress.isRunning || viewModel.files.isEmpty)
+                .help("Group burst sequences and recommend best frames")
             }
         }
 

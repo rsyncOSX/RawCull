@@ -146,6 +146,67 @@ struct PickedBadgeView: View {
     }
 }
 
+// MARK: - Burst Candidate Badge
+
+struct BurstCandidateBadgeView: View {
+    let candidate: BurstCandidateScore
+    let analysis: BurstAnalysisResult
+    let rating: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(rankTitle)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(rankColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+
+            if rating == -1 {
+                statusBadge("Rejected", color: .red)
+            } else if rating == 3 {
+                statusBadge("Keeper", color: .green)
+            } else if rating == 2 {
+                statusBadge("Top 2", color: .green)
+            }
+        }
+        .help("Burst score \(Int(candidate.overallScore * 100))")
+    }
+
+    private func statusBadge(_ title: String, color: Color) -> some View {
+        Text(title)
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+    }
+
+    private var rankTitle: String {
+        if analysis.recommendedFileID == candidate.fileID {
+            return analysis.confidence == .low ? "BEST?" : "BEST"
+        }
+        if analysis.secondBestFileID == candidate.fileID {
+            return "2ND"
+        }
+        return "Score \(Int(candidate.overallScore * 100))"
+    }
+
+    private var rankColor: Color {
+        if analysis.recommendedFileID == candidate.fileID {
+            switch analysis.confidence {
+            case .high: return .green
+            case .medium: return .orange
+            case .low: return .gray
+            }
+        }
+        if analysis.secondBestFileID == candidate.fileID {
+            return .blue
+        }
+        return .black
+    }
+}
+
 // MARK: - ImageItemView
 
 struct ImageItemView: View {
@@ -207,6 +268,19 @@ struct ImageItemView: View {
                             .foregroundStyle(.white, Color.teal)
                             .padding(5)
                             .shadow(radius: 2)
+                    }
+                }
+                // Burst recommendation badge — top-left corner
+                .overlay(alignment: .topLeading) {
+                    if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
+                       let analysis = viewModel.burstAnalysisResult(for: groupID),
+                       let candidate = viewModel.burstCandidate(for: file) {
+                        BurstCandidateBadgeView(
+                            candidate: candidate,
+                            analysis: analysis,
+                            rating: viewModel.getRating(for: file),
+                        )
+                        .padding(5)
                     }
                 }
                 // Picked badge (rating == 0) — top-right corner

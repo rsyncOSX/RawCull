@@ -112,6 +112,13 @@ final class RawCullViewModel {
     /// Similarity scoring model — Vision feature-print embeddings and distance ranking.
     var similarityModel = SimilarityScoringModel()
 
+    /// Intelligent burst culling analysis state.
+    var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
+    var burstAnalysisProgress = BurstAnalysisProgress()
+    var burstReviewStates: [Int: BurstReviewState] = [:]
+    var activeBurstComparisonGroupID: Int?
+    var lastBurstUndoEntry: BurstUndoEntry?
+
     /// Currently selected catalog for which startAccessingSecurityScopedResource()
     /// has succeeded. Access is scoped to the active catalog, not every catalog
     /// ever added to the sidebar.
@@ -160,6 +167,8 @@ final class RawCullViewModel {
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
+    @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
+    @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
 
     // MARK: - Computed
 

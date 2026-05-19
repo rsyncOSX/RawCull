@@ -9,7 +9,7 @@ import Vision
 
 /// Saliency detection result: whether a salient region was found and, if Vision
 /// classification succeeded, what the dominant subject is.
-struct SaliencyInfo {
+struct SaliencyInfo: Codable, Equatable, Sendable {
     /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
     let subjectLabel: String?
 }
