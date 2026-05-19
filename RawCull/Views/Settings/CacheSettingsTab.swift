@@ -28,7 +28,6 @@ struct CacheSettingsTab: View {
     @State private var isPruningJPGCache = false
 
     @State private var cacheConfig: CacheConfig?
-    @State private var numRawFilesSlider: Double = 2500
     @State private var memoryModel = MemoryViewModel()
 
     var body: some View {
@@ -106,55 +105,6 @@ struct CacheSettingsTab: View {
                                         step: 50,
                                     )
                                     .frame(height: 18)
-                                }
-                            }
-
-                            // Estimator — display-only, not persisted
-                            SettingsCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Estimate for RAW files")
-                                        .font(.system(size: 12, weight: .semibold))
-                                    Divider()
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "memorychip")
-                                                .font(.system(size: 10, weight: .medium))
-                                            Text("Memory")
-                                                .font(.system(size: 10, weight: .medium))
-                                            Spacer()
-                                            Text("Approx images in memory cache: \(estimatedMemCacheImages(for: Int(numRawFilesSlider)))")
-                                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                        }
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "square.grid.2x2")
-                                                .font(.system(size: 10, weight: .medium))
-                                            Text("Grid cache (200px)")
-                                                .font(.system(size: 10, weight: .medium))
-                                            Spacer()
-                                            Text("Max capacity: ~\(estimatedGridCacheImages(for: Int(numRawFilesSlider)))")
-                                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                        }
-                                        Slider(
-                                            value: $numRawFilesSlider,
-                                            in: 500 ... 5000,
-                                            step: 100,
-                                        )
-                                        .frame(height: 18)
-                                        // .tint(isOverFreeMemoryBudget() ? .red : .accentColor)
-                                        HStack {
-                                            Text("\(Int(numRawFilesSlider)) files")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(.secondary)
-                                            Spacer()
-                                            /*
-                                             if isOverFreeMemoryBudget() {
-                                                 Label("Exceeds safe memory limit", systemImage: "exclamationmark.triangle")
-                                                     .font(.system(size: 10, weight: .medium))
-                                                     .foregroundStyle(.red)
-                                             }
-                                              */
-                                        }
-                                    }
                                 }
                             }
 
@@ -412,35 +362,6 @@ struct CacheSettingsTab: View {
         let costPerImage = Int(Double(s * s * SharedMemoryCache.shared.costPerPixel) * 1.1)
         guard costPerImage > 0 else { return "0" }
         return String(max(1, bytes / costPerImage))
-    }
-
-    private func estimatedMemCacheImages(for numFiles: Int) -> Int {
-        let bytes = settingsManager.memoryCacheSizeMB * 1024 * 1024
-        let costPerImage: Int
-        if currentMemCacheCount > 0, currentMemCacheSize > 0 {
-            let avg = currentMemCacheSize / currentMemCacheCount
-            costPerImage = avg > 0 ? avg : 1
-        } else {
-            costPerImage = settingsManager.thumbnailSizePreview
-                * settingsManager.thumbnailSizePreview
-                * SharedMemoryCache.shared.costPerPixel
-        }
-        guard costPerImage > 0 else { return 0 }
-        return min(numFiles, bytes / costPerImage)
-    }
-
-    private func estimatedGridCacheImages(for numFiles: Int) -> Int {
-        let bytes = settingsManager.gridCacheSizeMB * 1024 * 1024
-        let costPerImage: Int
-        if currentGridCacheCount > 0, currentGridCacheSize > 0 {
-            let avg = currentGridCacheSize / currentGridCacheCount
-            costPerImage = avg > 0 ? avg : 1
-        } else {
-            let s = settingsManager.thumbnailSizeGrid * 2
-            costPerImage = Int(Double(s * s * 4) * 1.1)
-        }
-        guard costPerImage > 0 else { return 0 }
-        return min(numFiles, bytes / costPerImage)
     }
 
     private func freeMemoryBytes() -> UInt64 {
