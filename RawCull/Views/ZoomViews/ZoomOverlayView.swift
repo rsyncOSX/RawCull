@@ -7,7 +7,76 @@
 //  via Escape, the close button, or a second double-tap.
 //
 
+import AppKit
 import SwiftUI
+
+enum ZoomOverlayKeyAction: Equatable {
+    case navigatePrevious
+    case navigateNext
+    case escape
+    case zoomIn
+    case zoomOut
+    case toggleThumbnailSource
+    case rating(Int)
+
+    nonisolated static func resolve(
+        characters: String?,
+        keyCode: UInt16,
+        navigationAxis: ZoomOverlayNavigationAxis,
+    ) -> ZoomOverlayKeyAction? {
+        if let action = action(for: characters) {
+            return action
+        }
+
+        return switch (navigationAxis, keyCode) {
+        case (.horizontal, 123), (.vertical, 126):
+            .navigatePrevious
+
+        case (.horizontal, 124), (.vertical, 125):
+            .navigateNext
+
+        case (_, 53):
+            .escape
+
+        default:
+            nil
+        }
+    }
+
+    private nonisolated static func action(for characters: String?) -> ZoomOverlayKeyAction? {
+        switch characters {
+        case "+":
+            .zoomIn
+
+        case "-":
+            .zoomOut
+
+        case "j", "J":
+            .toggleThumbnailSource
+
+        case "x", "X":
+            .rating(-1)
+
+        case "p", "P", "0":
+            .rating(0)
+
+        case "1", "2":
+            .rating(2)
+
+        case "3", "t", "T":
+            .rating(3)
+
+        case "4":
+            .rating(4)
+
+        case "5":
+            .rating(5)
+
+        default:
+            nil
+        }
+    }
+}
 
 struct ZoomOverlayView: View {
     @Bindable var viewModel: RawCullViewModel
@@ -25,6 +94,7 @@ struct ZoomOverlayView: View {
     @State private var showFocusPoints: Bool = false
     @State private var useThumbnailSource: Bool = true
     @State private var maskTask: Task<Void, Never>?
+    @State private var keyMonitor: Any?
     @FocusState private var isImageFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
@@ -86,6 +156,15 @@ struct ZoomOverlayView: View {
                 Spacer()
 
                 VStack(spacing: 8) {
+                    if let selectedFile = viewModel.selectedFile {
+                        RatingActionBarView(
+                            currentRating: ratingDisplay(for: selectedFile),
+                            onSelect: { rating in
+                                viewModel.updateRating(for: selectedFile, rating: rating)
+                            },
+                        )
+                    }
+
                     Text(currentScale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
                         .font(.caption).foregroundStyle(.white.opacity(0.5))
 
@@ -124,19 +203,52 @@ struct ZoomOverlayView: View {
         .focusable()
         .focused($isImageFocused)
         .focusEffectDisabled(true)
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJ")) { press in
-            switch press.characters {
-            case "+": increaseZoom(); return .handled
-            case "-": decreaseZoom(); return .handled
-            case "j", "J": useThumbnailSource.toggle(); return .handled
-            default: return .ignored
-            }
+        .onKeyPress(.leftArrow) {
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 123,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
+        }
+        .onKeyPress(.rightArrow) {
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 124,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
+        }
+        .onKeyPress(.upArrow) {
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 126,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
+        }
+        .onKeyPress(.downArrow) {
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: nil,
+                keyCode: 125,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
+        }
+        .onKeyPress(.escape) {
+            dismiss()
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tT")) { press in
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: press.characters,
+                keyCode: 0,
+                navigationAxis: viewModel.zoomOverlayNavigationAxis,
+            ))
         }
         .onAppear {
             isImageFocused = true
+            installKeyMonitor()
             reload()
         }
         .onDisappear {
+            removeKeyMonitor()
             maskTask?.cancel()
             maskTask = nil
             focusMask = nil
@@ -221,6 +333,71 @@ struct ZoomOverlayView: View {
         guard orderedZoomFiles.indices.contains(newIndex) else { return }
         resetToFit()
         viewModel.selectedFileID = orderedZoomFiles[newIndex].id
+    }
+
+    private func installKeyMonitor() {
+        removeKeyMonitor()
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard viewModel.zoomOverlayVisible,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+
+            return handleKeyEvent(event) == .handled ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
+        handleKeyAction(ZoomOverlayKeyAction.resolve(
+            characters: event.characters,
+            keyCode: event.keyCode,
+            navigationAxis: viewModel.zoomOverlayNavigationAxis,
+        ))
+    }
+
+    private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
+        guard let action else { return .ignored }
+
+        switch action {
+        case .navigatePrevious:
+            navigateSelection(by: -1)
+            return .handled
+
+        case .navigateNext:
+            navigateSelection(by: 1)
+            return .handled
+
+        case .escape:
+            dismiss()
+            return .handled
+
+        case .zoomIn:
+            increaseZoom()
+            return .handled
+
+        case .zoomOut:
+            decreaseZoom()
+            return .handled
+
+        case .toggleThumbnailSource:
+            useThumbnailSource.toggle()
+            return .handled
+
+        case let .rating(rating):
+            return applyRating(rating)
+        }
+    }
+
+    private func applyRating(_ rating: Int) -> KeyPress.Result {
+        guard let selectedFile = viewModel.selectedFile else { return .ignored }
+        viewModel.updateRating(for: selectedFile, rating: rating)
+        return .handled
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
