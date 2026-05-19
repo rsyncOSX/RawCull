@@ -19,12 +19,27 @@ import OSLog
 @MainActor
 final class ReadSavedFilesJSON {
     private let fileName = "savedfiles.json"
+    private let savedFilesURL: URL?
+
     private var savePath: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(fileName)
+        if let savedFilesURL {
+            return savedFilesURL
+        }
+        let appSupport = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let appFolder = appSupport.appendingPathComponent("RawCull", isDirectory: true)
+        return appFolder.appendingPathComponent(fileName)
+    }
+
+    init(savedFilesURL: URL? = nil) {
+        self.savedFilesURL = savedFilesURL
     }
 
     func readjsonfilesavedfiles() -> [SavedFiles]? {
+        guard FileManager.default.fileExists(atPath: savePath.path) else {
+            return nil
+        }
+
         let decodeimport = DecodeGeneric()
         do {
             let data = try

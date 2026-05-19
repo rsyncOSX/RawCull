@@ -45,3 +45,16 @@ func makeIsolatedSettingsViewModel(name: String = #function) -> SettingsViewMode
         .appendingPathComponent("settings.json")
     return SettingsViewModel(settingsFileURL: url, loadOnInit: false)
 }
+
+func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
+    let safeName = name
+        .replacingOccurrences(of: "`", with: "")
+        .replacingOccurrences(of: " ", with: "-")
+        .replacingOccurrences(of: "()", with: "")
+    return FileManager.default.temporaryDirectory
+        .appendingPathComponent("RawCullTests", isDirectory: true)
+        .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("Application Support", isDirectory: true)
+        .appendingPathComponent("RawCull", isDirectory: true)
+        .appendingPathComponent("savedfiles.json")
+}

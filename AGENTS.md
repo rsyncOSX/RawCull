@@ -100,7 +100,7 @@ Four SwiftUI `Scene`s defined in `RawCullApp`: main navigation window, Settings 
 
 ### Persistence
 
-- Tagged selections and ratings: JSON at `~/Documents/` or Application Support via `ReadSavedFilesJSON`/`WriteSavedFilesJSON`
+- Tagged selections and ratings: JSON at `~/Library/Application Support/RawCull/savedfiles.json` via `ReadSavedFilesJSON`/`WriteSavedFilesJSON`
 - Settings: JSON at `~/Library/Application Support/RawCull/settings.json`
 - Thumbnail disk cache: `~/Library/Caches/no.blogspot.RawCull/Thumbnails/`
 
