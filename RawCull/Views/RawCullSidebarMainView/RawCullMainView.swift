@@ -213,100 +213,52 @@ struct RawCullMainView: View {
         }
     }
 
-    // MARK: - Grid mode (2-column split)
+    // MARK: - Grid mode
 
     private var gridSplit: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            RAWCatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
-                cullingModel: viewModel.cullingModel,
-            )
-        } detail: {
-            GridThumbnailView(
-                viewModel: viewModel,
-                nsImage: $nsImage,
-                cgImage: $cgImage,
-            )
-            .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-                " (\(viewModel.filteredFiles.count) files)")
-            .toolbar { toolbarContent }
-        }
-        .task {
-            columnVisibility = .detailOnly
-        }
+        GridThumbnailView(
+            viewModel: viewModel,
+            nsImage: $nsImage,
+            cgImage: $cgImage,
+        )
+        .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
+            " (\(viewModel.filteredFiles.count) files)")
+        .toolbar { toolbarContent }
     }
 
-    // MARK: - Similarity grid mode (2-column split)
+    // MARK: - Similarity grid mode
 
     private var similarityGridSplit: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            RAWCatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
-                cullingModel: viewModel.cullingModel,
-            )
-        } detail: {
-            SimilarityGridView(
-                viewModel: viewModel,
-                nsImage: $nsImage,
-                cgImage: $cgImage,
-            )
-            .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
-                " (\(viewModel.filteredFiles.count) files)")
-            .toolbar { toolbarContent }
-        }
-        .task {
-            columnVisibility = .detailOnly
-        }
+        SimilarityGridView(
+            viewModel: viewModel,
+            nsImage: $nsImage,
+            cgImage: $cgImage,
+        )
+        .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
+            " (\(viewModel.filteredFiles.count) files)")
+        .toolbar { toolbarContent }
     }
 
-    // MARK: - Rated grid mode (2-column split)
+    // MARK: - Rated grid mode
 
     private var ratedGridSplit: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            RAWCatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
-                cullingModel: viewModel.cullingModel,
-            )
-        } detail: {
-            RatedPhotoGridView(
-                viewModel: viewModel,
-                catalogURL: viewModel.selectedSource?.url,
-                onPhotoSelected: { file in
-                    viewModel.selectedFileID = file.id
-                },
-            )
-            .navigationTitle("Rated images")
-            .toolbar { toolbarContent }
-        }
-        .task {
-            columnVisibility = .detailOnly
-        }
+        RatedPhotoGridView(
+            viewModel: viewModel,
+            catalogURL: viewModel.selectedSource?.url,
+            onPhotoSelected: { file in
+                viewModel.selectedFileID = file.id
+            },
+        )
+        .navigationTitle("Rated images")
+        .toolbar { toolbarContent }
     }
 
-    // MARK: - Comparison grid mode (2-column split)
+    // MARK: - Comparison grid mode
 
     private var comparisonGridSplit: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            RAWCatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
-                cullingModel: viewModel.cullingModel,
-            )
-        } detail: {
-            ComparisonGridView(viewModel: viewModel)
-                .navigationTitle("Compare images")
-                .toolbar { toolbarContent }
-        }
-        .task {
-            columnVisibility = .detailOnly
-        }
+        ComparisonGridView(viewModel: viewModel)
+            .navigationTitle("Compare images")
+            .toolbar { toolbarContent }
     }
 
     // MARK: - Actions
