@@ -1,6 +1,6 @@
 import Foundation
 
-struct BurstAnalysisCacheSnapshot: Codable, Equatable, Sendable {
+struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var schemaVersion: Int
     var algorithmVersion: Int
     var catalogPath: String
@@ -15,7 +15,7 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable, Sendable {
     var reviewStates: [Int: BurstReviewState]
 }
 
-struct BurstAnalysisCacheFile: Codable, Equatable, Sendable {
+struct BurstAnalysisCacheFile: Codable, Equatable {
     var id: UUID
     var path: String
     var size: Int64

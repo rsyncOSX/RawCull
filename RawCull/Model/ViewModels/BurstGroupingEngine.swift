@@ -1,6 +1,6 @@
 import Foundation
 
-struct BurstGroupingOutput: Equatable, Sendable {
+struct BurstGroupingOutput: Equatable {
     let groups: [BurstGroup]
     let boundaryEvidence: [BurstBoundaryEvidence]
 }

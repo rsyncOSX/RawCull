@@ -25,7 +25,7 @@ extension RawCullViewModel {
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
 
         burstAnalysisTask?.cancel()
-        burstAnalysisTask = Task { }
+        burstAnalysisTask = Task {}
 
         let sorted = burstOrderedFiles
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)

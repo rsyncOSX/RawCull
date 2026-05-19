@@ -558,18 +558,23 @@ struct CullingGridView<Header: View>: View {
         case "\r":
             viewModel.compareBurstGroup(groupFiles)
             return .handled
+
         case "B", "b":
             viewModel.keepBestInGroup(from: groupFiles)
             return .handled
+
         case "2":
             viewModel.keepTopTwoInGroup(from: groupFiles)
             return .handled
+
         case "R", "r":
             viewModel.markBurstGroupForReview(groupFiles)
             return .handled
+
         case "U", "u":
             viewModel.undoLastBurstAction()
             return .handled
+
         default:
             return .ignored
         }

@@ -44,11 +44,11 @@ struct BurstGroupingEngineTests {
         let files = [
             burstTestFile("a.ARW", seconds: 0),
             burstTestFile("b.ARW", seconds: 0.4),
-            burstTestFile("c.ARW", seconds: 0.8),
+            burstTestFile("c.ARW", seconds: 0.8)
         ]
         let distances = [
             BurstPairKey.cacheKey(previousID: files[0].id, currentID: files[1].id): Float(0.10),
-            BurstPairKey.cacheKey(previousID: files[1].id, currentID: files[2].id): Float(0.12),
+            BurstPairKey.cacheKey(previousID: files[1].id, currentID: files[2].id): Float(0.12)
         ]
 
         let output = BurstGroupingEngine.group(
@@ -66,10 +66,10 @@ struct BurstGroupingEngineTests {
         let files = [
             burstTestFile("a.ARW", seconds: 0),
             burstTestFile("b.ARW", seconds: 0.4),
-            burstTestFile("c.ARW", seconds: 0.8),
+            burstTestFile("c.ARW", seconds: 0.8)
         ]
         let distances = [
-            BurstPairKey.cacheKey(previousID: files[0].id, currentID: files[1].id): Float(0.35),
+            BurstPairKey.cacheKey(previousID: files[0].id, currentID: files[1].id): Float(0.35)
         ]
 
         let output = BurstGroupingEngine.group(
@@ -86,10 +86,10 @@ struct BurstGroupingEngineTests {
     func `splits on time gap and metadata changes`() {
         let files = [
             burstTestFile("a.ARW", seconds: 0, iso: 400),
-            burstTestFile("b.ARW", seconds: 4.0, iso: 800),
+            burstTestFile("b.ARW", seconds: 4.0, iso: 800)
         ]
         let distances = [
-            BurstPairKey.cacheKey(previousID: files[0].id, currentID: files[1].id): Float(0.10),
+            BurstPairKey.cacheKey(previousID: files[0].id, currentID: files[1].id): Float(0.10)
         ]
 
         let output = BurstGroupingEngine.group(
@@ -111,12 +111,12 @@ struct BurstRankingEngineTests {
         let files = [
             burstTestFile("a.ARW", seconds: 0),
             burstTestFile("b.ARW", seconds: 0.3),
-            burstTestFile("c.ARW", seconds: 0.6),
+            burstTestFile("c.ARW", seconds: 0.6)
         ]
         let group = BurstGroup(id: 0, fileIDs: files.map(\.id))
         let evidence = [
             BurstBoundaryEvidence(previousID: files[0].id, currentID: files[1].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: []),
-            BurstBoundaryEvidence(previousID: files[1].id, currentID: files[2].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: []),
+            BurstBoundaryEvidence(previousID: files[1].id, currentID: files[2].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: [])
         ]
 
         let result = BurstRankingEngine.rankGroup(
@@ -138,7 +138,7 @@ struct BurstRankingEngineTests {
         let files = [
             burstTestFile("a.ARW", seconds: 0),
             burstTestFile("b.ARW", seconds: 0.3),
-            burstTestFile("c.ARW", seconds: 0.6),
+            burstTestFile("c.ARW", seconds: 0.6)
         ]
         let group = BurstGroup(id: 0, fileIDs: files.map(\.id))
 
@@ -166,7 +166,7 @@ struct BurstViewModelActionTests {
         let files = [
             burstTestFile("a.ARW", seconds: 0),
             burstTestFile("b.ARW", seconds: 0.3),
-            burstTestFile("c.ARW", seconds: 0.6),
+            burstTestFile("c.ARW", seconds: 0.6)
         ]
         viewModel.selectedSource = catalog
         viewModel.files = files
@@ -180,7 +180,7 @@ struct BurstViewModelActionTests {
             candidates: [
                 BurstCandidateScore(fileID: files[1].id, overallScore: 0.9, sharpnessComponent: 0.9, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: []),
                 BurstCandidateScore(fileID: files[2].id, overallScore: 0.7, sharpnessComponent: 0.7, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: []),
-                BurstCandidateScore(fileID: files[0].id, overallScore: 0.2, sharpnessComponent: 0.2, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: []),
+                BurstCandidateScore(fileID: files[0].id, overallScore: 0.2, sharpnessComponent: 0.2, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: [])
             ],
             recommendedFileID: files[1].id,
             secondBestFileID: files[2].id,

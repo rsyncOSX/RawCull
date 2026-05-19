@@ -152,7 +152,7 @@ struct RawCullViewModelCullingTests {
         let star = makeCullingTestFile("star.ARW")
         viewModel.ratingCache = [
             rejected.name: -1,
-            star.name: 4,
+            star.name: 4
         ]
 
         viewModel.ratingFilter = .rejected
@@ -174,12 +174,12 @@ struct RawCullViewModelCullingTests {
         let files = [
             makeCullingTestFile("two.ARW"),
             makeCullingTestFile("four.ARW"),
-            makeCullingTestFile("unrated.ARW"),
+            makeCullingTestFile("unrated.ARW")
         ]
         viewModel.filteredFiles = files
         viewModel.ratingCache = [
             "two.ARW": 2,
-            "four.ARW": 4,
+            "four.ARW": 4
         ]
 
         #expect(viewModel.extractRatedfilenames(3) == ["four.ARW"])
@@ -210,7 +210,7 @@ struct RawCullViewModelCullingTests {
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         viewModel.sharpnessModel.scores = [
             sharp.id: 100,
-            soft.id: 40,
+            soft.id: 40
         ]
 
         viewModel.applySharpnessThreshold(50)

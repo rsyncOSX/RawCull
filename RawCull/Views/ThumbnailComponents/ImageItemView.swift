@@ -70,6 +70,7 @@ extension SharpnessLabel: Equatable {
         switch (lhs, rhs) {
         case (.sharp, .sharp), (.good, .good), (.check, .check), (.soft, .soft):
             true
+
         default:
             false
         }

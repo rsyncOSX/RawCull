@@ -1,6 +1,6 @@
 import Foundation
 
-struct BurstGroupingConfig: Codable, Equatable, Sendable {
+struct BurstGroupingConfig: Codable, Equatable {
     var visualDistanceThreshold: Float = 0.25
     var maxTimeGapSeconds: Double = 2.0
     var requireSameCamera: Bool = true
@@ -10,7 +10,7 @@ struct BurstGroupingConfig: Codable, Equatable, Sendable {
     nonisolated static let algorithmVersion = 1
 }
 
-struct BurstPairKey: Codable, Equatable, Sendable {
+struct BurstPairKey: Codable, Equatable {
     let previousID: UUID
     let currentID: UUID
 
@@ -23,7 +23,7 @@ struct BurstPairKey: Codable, Equatable, Sendable {
     }
 }
 
-struct BurstBoundaryEvidence: Codable, Equatable, Sendable {
+struct BurstBoundaryEvidence: Codable, Equatable {
     var previousID: UUID
     var currentID: UUID
     var visualDistance: Float?
@@ -36,7 +36,7 @@ struct BurstBoundaryEvidence: Codable, Equatable, Sendable {
     var reasons: [String]
 }
 
-enum BurstDecisionConfidence: String, Codable, Equatable, Sendable {
+enum BurstDecisionConfidence: String, Codable, Equatable {
     case high
     case medium
     case low
@@ -50,13 +50,13 @@ enum BurstDecisionConfidence: String, Codable, Equatable, Sendable {
     }
 }
 
-enum BurstReviewState: String, Codable, Equatable, Sendable {
+enum BurstReviewState: String, Codable, Equatable {
     case none
     case markedForReview
     case decisionApplied
 }
 
-struct BurstCandidateScore: Codable, Equatable, Sendable {
+struct BurstCandidateScore: Codable, Equatable {
     var fileID: UUID
     var overallScore: Float
     var sharpnessComponent: Float
@@ -68,8 +68,11 @@ struct BurstCandidateScore: Codable, Equatable, Sendable {
     var cautions: [String]
 }
 
-struct BurstAnalysisResult: Codable, Equatable, Identifiable, Sendable {
-    var id: Int { groupID }
+struct BurstAnalysisResult: Codable, Equatable, Identifiable {
+    var id: Int {
+        groupID
+    }
+
     var groupID: Int
     var fileIDs: [UUID]
     var candidates: [BurstCandidateScore]
@@ -83,7 +86,7 @@ struct BurstAnalysisResult: Codable, Equatable, Identifiable, Sendable {
     var cautions: [String]
 }
 
-enum BurstAnalysisStep: String, Codable, Equatable, Sendable {
+enum BurstAnalysisStep: String, Codable, Equatable {
     case idle
     case loadingCache
     case scoringSharpness
@@ -93,7 +96,7 @@ enum BurstAnalysisStep: String, Codable, Equatable, Sendable {
     case savingCache
 }
 
-struct BurstAnalysisProgress: Codable, Equatable, Sendable {
+struct BurstAnalysisProgress: Codable, Equatable {
     var step: BurstAnalysisStep = .idle
     var completed: Int = 0
     var total: Int = 0

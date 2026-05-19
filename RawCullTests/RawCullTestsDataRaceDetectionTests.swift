@@ -35,7 +35,7 @@ struct DataRaceDetectionTests {
     }
 
     @Test
-    func `memory cache supports concurrent nonisolated reads and writes`() async throws {
+    func `memory cache supports concurrent nonisolated reads and writes`() async {
         let cache = await makeIsolatedCache()
         let urls = (0 ..< 100).map { index in
             URL(fileURLWithPath: "/tmp/rawcull-cache-race-\(index).jpg") as NSURL
@@ -98,8 +98,10 @@ struct DataRaceDetectionTests {
                     switch index % 3 {
                     case 0:
                         cache.incrementColdExtract()
+
                     case 1:
                         cache.incrementDemandRequest()
+
                     default:
                         cache.incrementBoomerangMiss()
                     }
@@ -127,10 +129,13 @@ struct DataRaceDetectionTests {
                     switch index % 4 {
                     case 0:
                         await cache.ensureReady()
+
                     case 1:
                         await cache.updateCacheMemory()
+
                     case 2:
                         _ = await delegate.getEvictionCount()
+
                     default:
                         _ = await settings.asyncgetsettings()
                     }

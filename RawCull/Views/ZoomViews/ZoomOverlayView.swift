@@ -59,7 +59,7 @@ struct ZoomOverlayView: View {
                             CurrentRatingBadgeView(rating: ratingDisplay(for: selectedFile))
                             zoomAnalysisBadges(for: selectedFile)
                         }
-                            .padding()
+                        .padding()
                     }
 
                     Spacer()

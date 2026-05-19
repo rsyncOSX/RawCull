@@ -24,16 +24,16 @@ private func fileNames(_ files: [FileItem]) -> [String] {
 
 @MainActor
 struct ScanFilesSortTests {
-    private let old = Date(timeIntervalSince1970: 1_000)
-    private let middle = Date(timeIntervalSince1970: 2_000)
-    private let recent = Date(timeIntervalSince1970: 3_000)
+    private let old = Date(timeIntervalSince1970: 1000)
+    private let middle = Date(timeIntervalSince1970: 2000)
+    private let recent = Date(timeIntervalSince1970: 3000)
 
     @Test
     func `sortFiles sorts by name ascending`() async {
         let files = [
             makeSortTestFile(name: "B.ARW", size: 10, date: middle),
             makeSortTestFile(name: "a.ARW", size: 20, date: old),
-            makeSortTestFile(name: "C.NEF", size: 30, date: recent),
+            makeSortTestFile(name: "C.NEF", size: 30, date: recent)
         ]
 
         let sorted = await ScanFiles.sortFiles(
@@ -50,7 +50,7 @@ struct ScanFilesSortTests {
         let files = [
             makeSortTestFile(name: "old.ARW", size: 10, date: old),
             makeSortTestFile(name: "recent.ARW", size: 20, date: recent),
-            makeSortTestFile(name: "middle.ARW", size: 30, date: middle),
+            makeSortTestFile(name: "middle.ARW", size: 30, date: middle)
         ]
 
         let sorted = await ScanFiles.sortFiles(
@@ -67,7 +67,7 @@ struct ScanFilesSortTests {
         let files = [
             makeSortTestFile(name: "large.ARW", size: 300, date: old),
             makeSortTestFile(name: "small.ARW", size: 100, date: middle),
-            makeSortTestFile(name: "medium.ARW", size: 200, date: recent),
+            makeSortTestFile(name: "medium.ARW", size: 200, date: recent)
         ]
 
         let sorted = await ScanFiles.sortFiles(
@@ -84,7 +84,7 @@ struct ScanFilesSortTests {
         let files = [
             makeSortTestFile(name: "zebra.NEF", size: 30, date: old),
             makeSortTestFile(name: "Alpha.ARW", size: 10, date: recent),
-            makeSortTestFile(name: "beta.arw", size: 20, date: middle),
+            makeSortTestFile(name: "beta.arw", size: 20, date: middle)
         ]
 
         let sorted = await ScanFiles.sortFiles(
@@ -101,7 +101,7 @@ struct ScanFilesSortTests {
         let files = [
             makeSortTestFile(name: "bird-close.ARW", size: 10, date: old),
             makeSortTestFile(name: "landscape.NEF", size: 20, date: middle),
-            makeSortTestFile(name: "bird-wide.NEF", size: 30, date: recent),
+            makeSortTestFile(name: "bird-wide.NEF", size: 30, date: recent)
         ]
 
         let sorted = await ScanFiles.sortFiles(
