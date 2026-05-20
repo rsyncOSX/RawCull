@@ -40,13 +40,26 @@ enum SonyThumbnailExtractor {
     ) throws -> CGImage {
         try cancellationToken.checkCancellation()
 
+        // Prefer Sony's embedded JPEG preview. Newer RA16-backed ARW files can
+        // make ImageIO initialize the unsupported raw decoder even when we only
+        // need a thumbnail, which prints err=-50 noise to the console.
+        if let embeddedThumbnail = try binaryFallbackThumbnail(
+            from: url,
+            maxDimension: maxDimension,
+            cancellationToken: cancellationToken,
+        ) {
+            try cancellationToken.checkCancellation()
+            return try rerender(embeddedThumbnail, qualityCost: qualityCost)
+        }
+
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
             throw ThumbnailError.invalidSource
         }
 
-        // Use the embedded JPEG preview that all Sony ARW files contain in IFD0.
+        // Last resort: ask ImageIO for a thumbnail if the binary locator could
+        // not find an embedded JPEG in this file.
         // kCGImageSourceCreateThumbnailFromImageAlways forces ImageIO to synthesize
         // a thumbnail from the full RAW data (RA16 on A7V), which fails with err=-50.
         // kCGImageSourceCreateThumbnailFromImageIfAbsent uses the embedded preview
@@ -58,16 +71,8 @@ enum SonyThumbnailExtractor {
             kCGImageSourceShouldCacheImmediately: true
         ]
 
-        // ImageIO path: works for A1, A1 II, A7R V. Falls back for ARW 6.0 (A7V / RA16).
         try cancellationToken.checkCancellation()
-        var rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
-        if rawThumbnail == nil {
-            rawThumbnail = try Self.binaryFallbackThumbnail(
-                from: url,
-                maxDimension: maxDimension,
-                cancellationToken: cancellationToken,
-            )
-        }
+        let rawThumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
 
         guard let rawThumbnail else {
             throw ThumbnailError.generationFailed

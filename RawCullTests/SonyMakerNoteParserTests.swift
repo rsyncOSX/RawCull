@@ -15,8 +15,10 @@
 //
 
 import Foundation
+import ImageIO
 @testable import RawCull
 import Testing
+import UniformTypeIdentifiers
 
 // MARK: - Binary builder
 
@@ -165,6 +167,123 @@ private func makeSyntheticARWWithEmbeddedJPEGs() throws -> (url: URL, thumbnail:
     return (url, thumbnail, preview, full)
 }
 
+/// Writes a synthetic A7R VI-style TIFF-like ARW using the offsets from the
+/// ExifTool scan shape:
+/// IFD0 PreviewImageStart/Length, IFD1 ThumbnailOffset/Length, and IFD2
+/// JpgFromRawStart/Length. The tag ids underneath those ExifTool names are
+/// the standard TIFF/JPEG pointer pairs RawCull parses.
+private func makeSyntheticA7RVIARWWithEmbeddedJPEGs() throws -> (url: URL, thumbnail: [UInt8], preview: [UInt8], full: [UInt8]) {
+    let thumbnail = try makeSyntheticJPEGData(width: 16, height: 12, red: 0.1, green: 0.2, blue: 0.8)
+    let preview = try makeSyntheticJPEGData(width: 48, height: 32, red: 0.8, green: 0.1, blue: 0.2)
+    let full = try makeSyntheticJPEGData(width: 96, height: 64, red: 0.2, green: 0.8, blue: 0.1)
+
+    let ifd0Offset = 0x08
+    let ifd0EntryCount = 3
+    let ifd0Size = 2 + ifd0EntryCount * 12 + 4
+    let ifd1Offset = ifd0Offset + ifd0Size
+    let ifd1EntryCount = 2
+    let ifd1Size = 2 + ifd1EntryCount * 12 + 4
+    let rawSubIFDOffset = ifd1Offset + ifd1Size
+    let rawSubIFDEntryCount = 2
+    let rawSubIFDSize = 2 + rawSubIFDEntryCount * 12 + 4
+    let ifd2Offset = rawSubIFDOffset + rawSubIFDSize
+    let ifd2EntryCount = 2
+    let ifd2Size = 2 + ifd2EntryCount * 12 + 4
+    let subIFDArrayOffset = ifd2Offset + ifd2Size
+    let thumbnailOffset = 44062
+    let previewOffset = 204_962
+    let fullOffset = 499_712
+
+    func le16(_ v: UInt16) -> [UInt8] {
+        [UInt8(v & 0xFF), UInt8(v >> 8)]
+    }
+    func le32(_ v: UInt32) -> [UInt8] {
+        [UInt8(v & 0xFF), UInt8((v >> 8) & 0xFF), UInt8((v >> 16) & 0xFF), UInt8(v >> 24)]
+    }
+    func ifdEntry(tag: UInt16, type: UInt16, count: UInt32, value: UInt32) -> [UInt8] {
+        le16(tag) + le16(type) + le32(count) + le32(value)
+    }
+    func pad(_ bytes: inout [UInt8], to offset: Int) {
+        precondition(bytes.count <= offset)
+        bytes += Array(repeating: 0, count: offset - bytes.count)
+    }
+
+    var bytes: [UInt8] = []
+    bytes += [0x49, 0x49, 0x2A, 0x00]
+    bytes += le32(UInt32(ifd0Offset))
+
+    bytes += le16(UInt16(ifd0EntryCount))
+    bytes += ifdEntry(tag: 0x0111, type: 4, count: 1, value: UInt32(previewOffset))
+    bytes += ifdEntry(tag: 0x0117, type: 4, count: 1, value: UInt32(preview.count))
+    bytes += ifdEntry(tag: 0x014A, type: 4, count: 2, value: UInt32(subIFDArrayOffset))
+    bytes += le32(UInt32(ifd1Offset))
+
+    bytes += le16(UInt16(ifd1EntryCount))
+    bytes += ifdEntry(tag: 0x0201, type: 4, count: 1, value: UInt32(thumbnailOffset))
+    bytes += ifdEntry(tag: 0x0202, type: 4, count: 1, value: UInt32(thumbnail.count))
+    bytes += le32(0)
+
+    // Raw SubIFD: contains raw strip pointers, not an embedded JPEG. The parser
+    // must ignore this and continue to the JPEG SubIFD in the SubIFD array.
+    bytes += le16(UInt16(rawSubIFDEntryCount))
+    bytes += ifdEntry(tag: 0x0111, type: 4, count: 1, value: 4_796_416)
+    bytes += ifdEntry(tag: 0x0117, type: 4, count: 1, value: 75_583_328)
+    bytes += le32(0)
+
+    bytes += le16(UInt16(ifd2EntryCount))
+    bytes += ifdEntry(tag: 0x0201, type: 4, count: 1, value: UInt32(fullOffset))
+    bytes += ifdEntry(tag: 0x0202, type: 4, count: 1, value: UInt32(full.count))
+    bytes += le32(0)
+
+    bytes += le32(UInt32(rawSubIFDOffset))
+    bytes += le32(UInt32(ifd2Offset))
+
+    pad(&bytes, to: thumbnailOffset)
+    bytes += thumbnail
+    pad(&bytes, to: previewOffset)
+    bytes += preview
+    pad(&bytes, to: fullOffset)
+    bytes += full
+
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString + ".arw")
+    try Data(bytes).write(to: url)
+    return (url, thumbnail, preview, full)
+}
+
+private func makeSyntheticJPEGData(
+    width: Int,
+    height: Int,
+    red: CGFloat,
+    green: CGFloat,
+    blue: CGFloat,
+) throws -> [UInt8] {
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let context = try #require(CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+    ))
+    context.setFillColor(CGColor(red: red, green: green, blue: blue, alpha: 1.0))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let image = try #require(context.makeImage())
+
+    let data = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(
+        data,
+        UTType.jpeg.identifier as CFString,
+        1,
+        nil,
+    ))
+    CGImageDestinationAddImage(destination, image, nil)
+    try #require(CGImageDestinationFinalize(destination))
+    return [UInt8](data as Data)
+}
+
 // MARK: - Tests
 
 struct SonyMakerNoteParserTests {
@@ -283,6 +402,49 @@ struct SonyEmbeddedJPEGLocatorTests {
         let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: location, from: fixture.url)
 
         #expect(data == Data(fixture.preview))
+    }
+
+    @Test
+    func `Finds A7R VI preview thumbnail and JPG from raw locations`() throws {
+        let fixture = try makeSyntheticA7RVIARWWithEmbeddedJPEGs()
+        defer { try? FileManager.default.removeItem(at: fixture.url) }
+
+        let locations = try #require(SonyMakerNoteParser.embeddedJPEGLocations(from: fixture.url))
+
+        #expect(locations.thumbnail?.offset == 44062)
+        #expect(locations.thumbnail?.length == fixture.thumbnail.count)
+        #expect(locations.preview?.offset == 204_962)
+        #expect(locations.preview?.length == fixture.preview.count)
+        #expect(locations.fullJPEG?.offset == 499_712)
+        #expect(locations.fullJPEG?.length == fixture.full.count)
+    }
+
+    @Test
+    func `Sony thumbnail extraction decodes A7R VI embedded preview before raw ImageIO`() async throws {
+        let fixture = try makeSyntheticA7RVIARWWithEmbeddedJPEGs()
+        defer { try? FileManager.default.removeItem(at: fixture.url) }
+
+        let thumbnail = try await SonyThumbnailExtractor.extractSonyThumbnail(
+            from: fixture.url,
+            maxDimension: 64,
+        )
+
+        #expect(thumbnail.width == 48)
+        #expect(thumbnail.height == 32)
+    }
+
+    @Test
+    func `Sony JPG extraction decodes A7R VI JPG from raw before raw ImageIO`() async throws {
+        let fixture = try makeSyntheticA7RVIARWWithEmbeddedJPEGs()
+        defer { try? FileManager.default.removeItem(at: fixture.url) }
+
+        let extracted = try #require(await JPGSonyARWExtractor.jpgSonyARWExtractor(
+            from: fixture.url,
+            fullSize: false,
+        ))
+
+        #expect(extracted.width == 96)
+        #expect(extracted.height == 64)
     }
 
     @Test

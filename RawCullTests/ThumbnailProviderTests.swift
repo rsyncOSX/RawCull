@@ -44,6 +44,24 @@ struct RequestThumbnailTests {
         #expect(stats.misses == 0)
     }
 
+    @Test(.tags(.critical))
+    func `cancelled thumbnail request returns nil without surfacing failure`() async {
+        let (provider, _) = await makeIsolatedThumbnailProvider()
+        let missingRaw = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("rawcull-cancel-\(UUID().uuidString)")
+            .appendingPathExtension("arw")
+
+        let result = await withTaskGroup(of: CGImage?.self) { group in
+            group.cancelAll()
+            group.addTask {
+                await provider.requestThumbnail(for: missingRaw, targetSize: 256)
+            }
+            return await group.next()
+        }
+
+        #expect(result == nil)
+    }
+
     @Test
     func `clear caches removes cached items and resets statistics`() async {
         let cache = await makeIsolatedCache()

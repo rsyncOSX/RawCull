@@ -385,8 +385,8 @@ final class SimilarityScoringModel {
     /// Returns the archived Data for the VNFeaturePrintObservation, or nil on failure.
     nonisolated static func computeEmbedding(url: URL, maxPixelSize: Int) async -> Data? {
         await Task.detached(priority: .userInitiated) {
-            guard let cgImage = decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
-                ?? decodeBinaryFallback(at: url, maxPixelSize: maxPixelSize)
+            guard let cgImage = decodeBinaryFallback(at: url, maxPixelSize: maxPixelSize)
+                ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
             else {
                 Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
                 return nil

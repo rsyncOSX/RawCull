@@ -35,6 +35,18 @@ enum JPGSonyARWExtractor {
     ) throws -> CGImage? {
         try cancellationToken.checkCancellation()
 
+        // Prefer Sony's embedded JPG pointers. On A7R VI / RA16 files, scanning
+        // ImageIO subimages can initialize the unsupported raw decoder before we
+        // ever ask for the embedded JPG, producing err=-50 and sometimes nil.
+        if let fallback = try binaryFallbackJPEG(
+            from: arwURL,
+            fullSize: fullSize,
+            maxSize: maxThumbnailSize,
+            cancellationToken: cancellationToken,
+        ) {
+            return fallback
+        }
+
         // kCGImageSourceShouldCache: false on the SOURCE prevents ImageIO from
         // building a process-level cache for the ARW file itself. Without this,
         // calling CGImageSourceCopyPropertiesAtIndex on the RA16 RAW sensor
@@ -116,9 +128,8 @@ enum JPGSonyARWExtractor {
             CGImageSourceRemoveCacheAtIndex(imageSource, i)
         }
 
-        // Binary fallback for ARW 6.0 (RA16 decoder unsupported on this macOS version).
-        // Reads the embedded full-resolution JPEG directly from the raw file bytes,
-        // bypassing the RA16 decoder entirely.
+        // Binary fallback for unusual ARW layouts where the first binary pass
+        // could not locate an embedded JPEG but ImageIO also failed.
         if let imageIOResult {
             return imageIOResult
         }
@@ -149,10 +160,12 @@ enum JPGSonyARWExtractor {
 
         guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) else { return nil }
 
-        // For full-size export prefer the full JPEG; for thumbnails prefer the smaller preview.
+        // Extracted JPG / zoom uses the largest embedded JPEG. `fullSize == false`
+        // still downscales it to `maxSize`; it should not fall back to the small
+        // camera preview unless the full JPEG is absent.
         let loc = fullSize
             ? (locations.fullJPEG ?? locations.preview ?? locations.thumbnail)
-            : (locations.preview ?? locations.fullJPEG ?? locations.thumbnail)
+            : (locations.fullJPEG ?? locations.preview ?? locations.thumbnail)
 
         guard let loc
         else { return nil }

@@ -77,13 +77,14 @@ enum SonyMakerNoteParser {
     }
 
     /// Parses the TIFF IFD chain and returns the absolute file offsets of the three
-    /// embedded JPEGs present in all Sony ARW files. Reads the first 64 KB on the fast
-    /// path; falls back to a full-file read when IFD structures fall outside that range
-    /// (e.g. ILCE-9M3 stores TIFF metadata near EOF).
+    /// embedded JPEGs present in all Sony ARW files. Reads the first 512 KB on the fast
+    /// path; A7R VI stores the large JpgFromRaw IFD around 145 KB, while this still avoids
+    /// reading the whole raw. Falls back to a full-file read when IFD structures fall
+    /// outside that range (e.g. ILCE-9M3 stores TIFF metadata near EOF).
     nonisolated static func embeddedJPEGLocations(from url: URL) -> EmbeddedJPEGLocations? {
         guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? fh.close() }
-        guard let data = try? fh.read(upToCount: 65536),
+        guard let data = try? fh.read(upToCount: 512 * 1024),
               let parser = TIFFParser(data: data)
         else { return nil }
         let initial = parser.parseEmbeddedJPEGLocations()
@@ -177,20 +178,29 @@ private struct TIFFParser {
         // IFD1: tiny thumbnail via JPEGInterchangeFormat (0x0201) + Length (0x0202).
         let thumbnail: Loc? = locateJPEG(in: ifd1, offTag: 0x0201, lenTag: 0x0202)
 
+        // Newer Sony bodies can expose the large "JpgFromRaw" IFD through
+        // IFD0's SubIFD array instead of the next-IFD chain. Use only the
+        // JPEGInterchangeFormat tags here so we don't mistake a raw SubIFD's
+        // StripOffsets/StripByteCounts for an embedded JPEG.
+        let subIFDFullJPEG = subIFDOffsets(in: ifd0, tag: 0x014A)
+            .compactMap { locateJPEG(in: $0, offTag: 0x0201, lenTag: 0x0202) }
+            .max { $0.length < $1.length }
+
         // Walk IFD chain: IFD1 → IFD2
         guard ifd1 + 2 <= data.count else {
-            return .init(thumbnail: thumbnail, preview: preview)
+            return .init(thumbnail: thumbnail, preview: preview, fullJPEG: subIFDFullJPEG)
         }
         let ifd1Count = Int(readU16(at: ifd1))
         let ifd2Ptr = ifd1 + 2 + ifd1Count * 12
         guard let ifd2Raw = readU32(at: ifd2Ptr), ifd2Raw > 0 else {
-            return .init(thumbnail: thumbnail, preview: preview)
+            return .init(thumbnail: thumbnail, preview: preview, fullJPEG: subIFDFullJPEG)
         }
         let ifd2 = Int(ifd2Raw)
 
         // IFD2: full-resolution JPEG via StripOffsets (0x0111) + StripByteCounts (0x0117).
-        let fullJPEG: Loc? = locateJPEG(in: ifd2, offTag: 0x0111, lenTag: 0x0117)
+        let chainFullJPEG: Loc? = locateJPEG(in: ifd2, offTag: 0x0111, lenTag: 0x0117)
             ?? locateJPEG(in: ifd2, offTag: 0x0201, lenTag: 0x0202)
+        let fullJPEG = subIFDFullJPEG ?? chainFullJPEG
 
         return .init(thumbnail: thumbnail, preview: preview, fullJPEG: fullJPEG)
     }
@@ -210,6 +220,14 @@ private struct TIFFParser {
     private nonisolated func subIFDOffset(in ifdOffset: Int, tag: UInt16) -> Int? {
         guard let (valLoc, _) = tagDataRange(in: ifdOffset, tag: tag) else { return nil }
         return readU32(at: valLoc).map(Int.init)
+    }
+
+    private nonisolated func subIFDOffsets(in ifdOffset: Int, tag: UInt16) -> [Int] {
+        guard let (valLoc, byteCount) = tagDataRange(in: ifdOffset, tag: tag),
+              byteCount >= 4 else { return [] }
+        return stride(from: 0, to: byteCount, by: 4).compactMap { offset in
+            readU32(at: valLoc + offset).map(Int.init)
+        }
     }
 
     /// Locates an IFD entry's value bytes within the file.

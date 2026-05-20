@@ -5,6 +5,7 @@ import OSLog
 import UniformTypeIdentifiers
 
 actor FullSizeJPGDiskCache {
+    private static let cacheKeyVersion = "v2-jpgfromraw"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -25,7 +26,7 @@ actor FullSizeJPGDiskCache {
 
     private func cacheURL(for sourceURL: URL) -> URL {
         let standardizedPath = sourceURL.standardized.path
-        let data = Data(standardizedPath.utf8)
+        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)".utf8)
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")

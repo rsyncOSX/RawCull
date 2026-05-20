@@ -41,6 +41,8 @@ actor RequestThumbnail {
         await ensureReady()
         do {
             return try await resolveImage(for: url, targetSize: targetSize)
+        } catch is CancellationError {
+            return nil
         } catch {
             Logger.process.warning("Failed to resolve thumbnail: \(error)")
             return nil

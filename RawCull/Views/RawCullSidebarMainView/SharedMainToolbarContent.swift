@@ -113,7 +113,7 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
             .help("Loupe view")
             .disabled(viewModel.mainViewMode == .loupe)
-            
+
             Button {
                 selectSimilarityGridMode()
             } label: {
