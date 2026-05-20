@@ -38,8 +38,8 @@ import Foundation
 /// Used as a binary fallback when ImageIO does not expose the preview JPEG as
 /// a sub-image index (the common case for NEF, where the full-res preview
 /// lives inside a SubIFD chain rather than at a top-level image index).
-struct NEFEmbeddedJPEGLocations {
-    struct Location {
+struct NEFEmbeddedJPEGLocations: Sendable {
+    struct Location: Sendable {
         let offset: Int
         let length: Int
     }
@@ -79,6 +79,65 @@ enum NikonMakerNoteParser {
         return "\(result.width) \(result.height) \(result.x) \(result.y)"
     }
 
+    /// Verbose variant for the Loupe diagnostics log. Keeps the production
+    /// `focusLocation(from:)` API unchanged while exposing the stage that failed.
+    nonisolated static func focusLocationDiagnostics(from url: URL) -> RawParserDiagnostics<String> {
+        var trace: [String] = []
+        guard let fh = try? FileHandle(forReadingFrom: url) else {
+            let failure = "could not open file for reading"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        defer { try? fh.close() }
+
+        guard let data = try? fh.read(upToCount: 4 * 1024 * 1024) else {
+            let failure = "could not read 4 MB fast-path window"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: opened file")
+        trace.append("trace: fast-path read bytes=\(data.count)")
+
+        if let parser = NikonTIFFParser(data: data) {
+            let parsed = parser.parseAFFocusLocationDiagnostic()
+            trace.append(contentsOf: parsed.trace)
+            if let result = parsed.value {
+                return .init(
+                    value: "\(result.width) \(result.height) \(result.x) \(result.y)",
+                    trace: trace,
+                    failure: nil,
+                )
+            }
+            trace.append("ERROR: fast-path focus parse failed: \(parsed.failure ?? "unknown parser failure")")
+        } else {
+            trace.append("ERROR: invalid TIFF header in fast-path window")
+        }
+
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max), full.count > data.count else {
+            let failure = "full-file retry unavailable or not larger than fast-path window"
+            trace.append("ERROR: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        trace.append("trace: slow-path full-file read bytes=\(full.count)")
+
+        guard let parser = NikonTIFFParser(data: full) else {
+            let failure = "invalid TIFF header in full-file retry"
+            trace.append("ERROR: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        let parsed = parser.parseAFFocusLocationDiagnostic()
+        trace.append(contentsOf: parsed.trace)
+        guard let result = parsed.value else {
+            let failure = parsed.failure ?? "unknown Nikon focus parser failure"
+            trace.append("ERROR: slow-path focus parse failed: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        return .init(
+            value: "\(result.width) \(result.height) \(result.x) \(result.y)",
+            trace: trace,
+            failure: nil,
+        )
+    }
+
     /// Walks the NEF's TIFF IFD structures and returns absolute file offsets for
     /// the embedded JPEG(s). Fast path reads the first 1 MB (enough to cover
     /// IFD0/SubIFDs on all tested Z-series bodies); slow path re-reads the full
@@ -99,6 +158,60 @@ enum NikonMakerNoteParser {
               let fullParser = NikonTIFFParser(data: full)
         else { return initial }
         return fullParser.parseEmbeddedJPEGLocations()
+    }
+
+    /// Verbose variant for the Loupe diagnostics log. Reports which TIFF/IFD
+    /// stages were checked before an embedded JPEG lookup succeeded or failed.
+    nonisolated static func embeddedJPEGLocationsDiagnostics(from url: URL) -> RawParserDiagnostics<NEFEmbeddedJPEGLocations> {
+        var trace: [String] = []
+        guard let fh = try? FileHandle(forReadingFrom: url) else {
+            let failure = "could not open file for reading"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        defer { try? fh.close() }
+
+        guard let data = try? fh.read(upToCount: 1024 * 1024) else {
+            let failure = "could not read 1 MB embedded-JPEG fast-path window"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: opened file")
+        trace.append("trace: embedded-JPEG fast-path read bytes=\(data.count)")
+
+        guard let parser = NikonTIFFParser(data: data) else {
+            let failure = "invalid TIFF header in embedded-JPEG fast-path window"
+            trace.append("ERROR: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        let initial = parser.parseEmbeddedJPEGLocationsDiagnostic()
+        trace.append(contentsOf: initial.trace)
+        if let locations = initial.value, locations.preview != nil || locations.ifd1JPEG != nil {
+            return .init(value: locations, trace: trace, failure: nil)
+        }
+
+        trace.append("ERROR: fast-path embedded JPEG parse found no JPEG offsets")
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max), full.count > data.count else {
+            let locations = initial.value ?? .init()
+            let failure = "full-file retry unavailable; no JPEG offsets found"
+            trace.append("ERROR: \(failure)")
+            return .init(value: locations, trace: trace, failure: failure)
+        }
+        trace.append("trace: embedded-JPEG slow-path full-file read bytes=\(full.count)")
+
+        guard let fullParser = NikonTIFFParser(data: full) else {
+            let failure = "invalid TIFF header in embedded-JPEG full-file retry"
+            trace.append("ERROR: \(failure)")
+            return .init(value: initial.value, trace: trace, failure: failure)
+        }
+        let parsed = fullParser.parseEmbeddedJPEGLocationsDiagnostic()
+        trace.append(contentsOf: parsed.trace)
+        let locations = parsed.value ?? .init()
+        if locations.preview == nil, locations.ifd1JPEG == nil {
+            let failure = parsed.failure ?? "no JPEG offsets found"
+            trace.append("ERROR: slow-path embedded JPEG parse failed: \(failure)")
+            return .init(value: locations, trace: trace, failure: failure)
+        }
+        return .init(value: locations, trace: trace, failure: nil)
     }
 
     /// Reads raw bytes for an embedded JPEG from the file at the given absolute offset.
@@ -200,6 +313,104 @@ private struct NikonTIFFParser {
         return (width, height, x, y)
     }
 
+    nonisolated func parseAFFocusLocationDiagnostic() -> RawParserDiagnostics<(width: Int, height: Int, x: Int, y: Int)> {
+        var trace: [String] = []
+        guard let ifd0 = readU32(at: 4, littleEndian: le).map(Int.init) else {
+            return .init(value: nil, trace: ["ERROR: missing IFD0 offset at TIFF header byte 4"], failure: "missing IFD0 offset")
+        }
+        trace.append("trace: TIFF header valid byteOrder=\(le ? "II/little" : "MM/big") ifd0=\(ifd0)")
+        guard ifd0 + 2 <= data.count else {
+            let failure = "IFD0 offset \(ifd0) outside data size \(data.count)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+
+        guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769, littleEndian: le) else {
+            let failure = "missing ExifIFD tag 0x8769 in IFD0"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: ExifIFD tag 0x8769 found offset=\(exifIFD)")
+
+        guard let (mnOffset, mnSize) = tagDataRange(in: exifIFD, tag: 0x927C, littleEndian: le) else {
+            let failure = "missing MakerNote tag 0x927C in ExifIFD"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        guard mnSize >= 18, mnOffset + 18 <= data.count else {
+            let failure = "MakerNote tag 0x927C too short or outside data offset=\(mnOffset) bytes=\(mnSize)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: MakerNote tag 0x927C found offset=\(mnOffset) bytes=\(mnSize)")
+
+        let sig: [UInt8] = [0x4E, 0x69, 0x6B, 0x6F, 0x6E, 0x00]
+        for (i, b) in sig.enumerated() where data[mnOffset + i] != b {
+            let failure = "Nikon Type-3 signature missing at MakerNote offset \(mnOffset)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: Nikon Type-3 signature found")
+
+        let innerTIFF = mnOffset + 10
+        guard innerTIFF + 8 <= data.count else {
+            let failure = "Nikon inner TIFF header outside data at offset \(innerTIFF)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+
+        let innerLE: Bool
+        let ib0 = data[innerTIFF], ib1 = data[innerTIFF + 1]
+        if ib0 == 0x49, ib1 == 0x49 {
+            innerLE = true
+        } else if ib0 == 0x4D, ib1 == 0x4D {
+            innerLE = false
+        } else {
+            let failure = "invalid Nikon inner TIFF byte order at offset \(innerTIFF)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: Nikon inner TIFF header valid byteOrder=\(innerLE ? "II/little" : "MM/big")")
+
+        guard let ifdRelRaw = readU32(at: innerTIFF + 4, littleEndian: innerLE) else {
+            let failure = "missing Nikon inner IFD0 relative offset"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        let nikonIFD = innerTIFF + Int(ifdRelRaw)
+        trace.append("trace: Nikon inner IFD offset=\(nikonIFD) relative=\(ifdRelRaw)")
+
+        guard let (afRel, afSize) = tagDataRange(in: nikonIFD, tag: 0x00B7, littleEndian: innerLE, offsetBase: innerTIFF) else {
+            let failure = "missing AFInfo2 tag 0x00B7 in Nikon IFD"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        guard afSize >= 0x38 else {
+            let failure = "AFInfo2 tag 0x00B7 too short: \(afSize) bytes"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        let afStart = afRel
+        guard afStart + 0x32 <= data.count else {
+            let failure = "AFInfo2 data outside file at offset \(afStart)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: AFInfo2 tag 0x00B7 found offset=\(afStart) bytes=\(afSize)")
+
+        let v0 = data[afStart + 0]
+        let v1 = data[afStart + 1]
+        let v2 = data[afStart + 2]
+        let v3 = data[afStart + 3]
+        let version = String(bytes: [v0, v1, v2, v3], encoding: .ascii) ?? "non-ascii"
+        guard v0 == 0x30, v1 >= 0x33, v1 <= 0x39, isASCIIDigit(v2), isASCIIDigit(v3) else {
+            let failure = "unsupported AFInfoVersion \(version)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: AFInfoVersion \(version) accepted")
+
+        let width = Int(readU16(at: afStart + 0x26, littleEndian: innerLE))
+        let height = Int(readU16(at: afStart + 0x28, littleEndian: innerLE))
+        let x = Int(readU16(at: afStart + 0x2A, littleEndian: innerLE))
+        let y = Int(readU16(at: afStart + 0x2C, littleEndian: innerLE))
+        trace.append("trace: AFInfo2 values width=\(width) height=\(height) x=\(x) y=\(y)")
+
+        guard width >= 2000, height >= 1000, x >= 0, y >= 0, x <= width, y <= height, x > 0 || y > 0 else {
+            let failure = "AFInfo2 values failed sanity gate"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        return .init(value: (width, height, x, y), trace: trace, failure: nil)
+    }
+
     // MARK: - Embedded JPEG locations
 
     /// Walks IFD0 → SubIFDs (tag 0x014A) → picks the largest SubIFD whose
@@ -240,6 +451,52 @@ private struct NikonTIFFParser {
         }
 
         return .init(preview: best, ifd1JPEG: ifd1JPEG)
+    }
+
+    nonisolated func parseEmbeddedJPEGLocationsDiagnostic() -> RawParserDiagnostics<NEFEmbeddedJPEGLocations> {
+        var trace: [String] = []
+        guard let ifd0Raw = readU32(at: 4, littleEndian: le) else {
+            return .init(value: nil, trace: ["ERROR: missing IFD0 offset at TIFF header byte 4"], failure: "missing IFD0 offset")
+        }
+        let ifd0 = Int(ifd0Raw)
+        trace.append("trace: TIFF header valid byteOrder=\(le ? "II/little" : "MM/big") ifd0=\(ifd0)")
+        guard ifd0 + 2 <= data.count else {
+            let failure = "IFD0 offset \(ifd0) outside data size \(data.count)"
+            return .init(value: .init(), trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+
+        let subIFDOffsets = readSubIFDOffsets(in: ifd0, tag: 0x014A, littleEndian: le)
+        trace.append("trace: IFD0 SubIFD tag 0x014A offsets count=\(subIFDOffsets.count)")
+        var best: NEFEmbeddedJPEGLocations.Location?
+        for sub in subIFDOffsets {
+            let loc = jpegLocation(in: sub, littleEndian: le)
+            trace.append(loc == nil
+                ? "trace: SubIFD offset=\(sub) did not contain JPEG location"
+                : "trace: SubIFD offset=\(sub) JPEG location found")
+            if let loc, best == nil || loc.length > (best?.length ?? 0) {
+                best = loc
+            }
+        }
+
+        var ifd1JPEG: NEFEmbeddedJPEGLocations.Location?
+        let ifd0Count = Int(readU16(at: ifd0, littleEndian: le))
+        let nextIFDPtr = ifd0 + 2 + ifd0Count * 12
+        if let ifd1Raw = readU32(at: nextIFDPtr, littleEndian: le), ifd1Raw > 0 {
+            let ifd1 = Int(ifd1Raw)
+            trace.append("trace: IFD1 pointer found offset=\(ifd1)")
+            ifd1JPEG = locateJPEG(in: ifd1, offTag: 0x0201, lenTag: 0x0202, littleEndian: le)
+                ?? locateJPEG(in: ifd1, offTag: 0x0111, lenTag: 0x0117, littleEndian: le)
+            trace.append(ifd1JPEG == nil ? "trace: IFD1 JPEG tags not found" : "trace: IFD1 JPEG found")
+        } else {
+            trace.append("trace: IFD1 pointer missing")
+        }
+
+        let locations = NEFEmbeddedJPEGLocations(preview: best, ifd1JPEG: ifd1JPEG)
+        let failure = locations.preview == nil && locations.ifd1JPEG == nil ? "no JPEG offsets found" : nil
+        if let failure {
+            trace.append("ERROR: \(failure)")
+        }
+        return .init(value: locations, trace: trace, failure: failure)
     }
 
     /// Resolves the list of SubIFD offsets stored under `tag` in the IFD at

@@ -103,6 +103,19 @@ private func makeSyntheticARW(
     return url
 }
 
+private func makeSyntheticTIFFWithEmptyIFD0(extension ext: String = "arw") throws -> URL {
+    var bytes: [UInt8] = []
+    bytes += [0x49, 0x49, 0x2A, 0x00]
+    bytes += [0x08, 0x00, 0x00, 0x00]
+    bytes += [0x00, 0x00] // IFD0 entry count = 0
+    bytes += [0x00, 0x00, 0x00, 0x00] // next IFD = 0
+
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString + ".\(ext)")
+    try Data(bytes).write(to: url)
+    return url
+}
+
 /// Writes a synthetic TIFF-like ARW with Sony-style embedded JPEG pointers:
 /// IFD0 preview via StripOffsets/StripByteCounts, IFD1 thumbnail via
 /// JPEGInterchangeFormat/JPEGInterchangeFormatLength, and IFD2 full JPEG via
@@ -362,6 +375,31 @@ struct SonyMakerNoteParserTests {
     }
 
     @Test
+    func `Focus diagnostics report invalid TIFF header`() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".arw")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try Data([0x00, 0x00, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00]).write(to: url)
+
+        let diagnostics = SonyMakerNoteParser.focusLocationDiagnostics(from: url)
+
+        #expect(diagnostics.value == nil)
+        #expect(diagnostics.trace.contains { $0.contains("invalid TIFF header") })
+    }
+
+    @Test
+    func `Focus diagnostics report missing ExifIFD stage`() throws {
+        let url = try makeSyntheticTIFFWithEmptyIFD0()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let diagnostics = SonyMakerNoteParser.focusLocationDiagnostics(from: url)
+
+        #expect(diagnostics.value == nil)
+        #expect(diagnostics.trace.contains { $0.contains("missing ExifIFD tag 0x8769") })
+    }
+
+    @Test
     func `Returns nil when focus coordinates are all zero`() throws {
         // x=0, y=0 is rejected as unset
         let url = try makeSyntheticARW(x: 0, y: 0)
@@ -455,5 +493,17 @@ struct SonyEmbeddedJPEGLocatorTests {
         try Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]).write(to: url)
 
         #expect(SonyMakerNoteParser.embeddedJPEGLocations(from: url) == nil)
+    }
+
+    @Test
+    func `Embedded JPEG diagnostics report checked IFD stages when no offsets exist`() throws {
+        let url = try makeSyntheticARW()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let diagnostics = SonyMakerNoteParser.embeddedJPEGLocationsDiagnostics(from: url)
+
+        #expect(diagnostics.trace.contains { $0.contains("IFD0 preview JPEG tags not found") })
+        #expect(diagnostics.trace.contains { $0.contains("no JPEG offsets found") })
+        #expect(diagnostics.failure != nil)
     }
 }

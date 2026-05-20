@@ -83,6 +83,8 @@ struct RawFileDiagnosticsTests {
 
         #expect(log.contains("name: \(url.lastPathComponent)"))
         #expect(log.contains("format: Sony ARW"))
+        #expect(log.contains("PARSER TRACE"))
+        #expect(log.contains("parser: Sony embedded JPEG locations"))
         #expect(log.contains("sony.thumbnail: offset="))
         #expect(log.contains("sony.preview: offset="))
         #expect(log.contains("sony.fullJPEG: offset="))

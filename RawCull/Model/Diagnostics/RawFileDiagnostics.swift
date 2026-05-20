@@ -30,8 +30,7 @@ enum RawFileDiagnostics {
         logger.line("format: \(formatName(format))")
         logExif(file.exifData, to: &logger)
         logImageIO(for: file.url, using: format, to: &logger)
-        logEmbeddedJPEGLocations(for: file.url, using: format, to: &logger)
-        logFocusLocation(for: file.url, using: format, to: &logger)
+        logParserDiagnostics(for: file.url, using: format, to: &logger)
         return logger.output
     }
 
@@ -112,55 +111,58 @@ enum RawFileDiagnostics {
         }
     }
 
-    private static func logEmbeddedJPEGLocations(
+    private static func logParserDiagnostics(
         for url: URL,
         using format: any RawFormat.Type,
         to logger: inout RawFileDiagnosticLogger,
     ) {
         logger.line("")
-        logger.line("EMBEDDED JPEG LOCATIONS")
+        logger.line("PARSER TRACE")
 
         switch format {
         case is SonyRawFormat.Type:
-            guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) else {
-                logger.error("Sony embedded JPEG parser could not read TIFF structure")
-                return
-            }
+            let jpeg = SonyMakerNoteParser.embeddedJPEGLocationsDiagnostics(from: url)
+            logger.line("parser: Sony embedded JPEG locations")
+            logger.lines(jpeg.trace)
+            let locations = jpeg.value ?? .init()
             logLocation("sony.thumbnail", locations.thumbnail, to: &logger)
             logLocation("sony.preview", locations.preview, to: &logger)
             logLocation("sony.fullJPEG", locations.fullJPEG, to: &logger)
-            if locations.thumbnail == nil, locations.preview == nil, locations.fullJPEG == nil {
-                logger.error("Sony embedded JPEG parser found no JPEG offsets")
+            if let failure = jpeg.failure { logger.error("Sony embedded JPEG parser: \(failure)") }
+
+            let focus = SonyMakerNoteParser.focusLocationDiagnostics(from: url)
+            logger.line("")
+            logger.line("parser: Sony AF focus location")
+            logger.lines(focus.trace)
+            if let value = focus.value {
+                logger.line("focusLocation: \(value)")
+            } else {
+                logger.error("Sony AF focus parser: \(focus.failure ?? "unknown failure")")
+                logger.line("focusLocation: not found")
             }
 
         case is NikonRawFormat.Type:
-            guard let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) else {
-                logger.error("Nikon embedded JPEG parser could not read TIFF structure")
-                return
-            }
+            let jpeg = NikonMakerNoteParser.embeddedJPEGLocationsDiagnostics(from: url)
+            logger.line("parser: Nikon embedded JPEG locations")
+            logger.lines(jpeg.trace)
+            let locations = jpeg.value ?? .init()
             logLocation("nikon.preview", locations.preview, to: &logger)
             logLocation("nikon.ifd1JPEG", locations.ifd1JPEG, to: &logger)
-            if locations.preview == nil, locations.ifd1JPEG == nil {
-                logger.error("Nikon embedded JPEG parser found no JPEG offsets")
+            if let failure = jpeg.failure { logger.error("Nikon embedded JPEG parser: \(failure)") }
+
+            let focus = NikonMakerNoteParser.focusLocationDiagnostics(from: url)
+            logger.line("")
+            logger.line("parser: Nikon AF focus location")
+            logger.lines(focus.trace)
+            if let value = focus.value {
+                logger.line("focusLocation: \(value)")
+            } else {
+                logger.error("Nikon AF focus parser: \(focus.failure ?? "unknown failure")")
+                logger.line("focusLocation: not found")
             }
 
         default:
             logger.error("no embedded JPEG locator registered for \(formatName(format))")
-        }
-    }
-
-    private static func logFocusLocation(
-        for url: URL,
-        using format: any RawFormat.Type,
-        to logger: inout RawFileDiagnosticLogger,
-    ) {
-        logger.line("")
-        logger.line("AF FOCUS LOCATION")
-        if let focus = format.focusLocation(from: url) {
-            logger.line("focusLocation: \(focus)")
-        } else {
-            logger.error("AF focus parser returned nil")
-            logger.line("focusLocation: not found")
         }
     }
 
@@ -222,6 +224,10 @@ private struct RawFileDiagnosticLogger {
 
     mutating func line(_ value: String) {
         lines.append(value)
+    }
+
+    mutating func lines(_ values: [String]) {
+        lines.append(contentsOf: values)
     }
 
     mutating func error(_ value: String) {

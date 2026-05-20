@@ -178,12 +178,34 @@ struct NikonMakerNoteParserTests {
     }
 
     @Test
+    func `Focus diagnostics report missing Nikon signature`() throws {
+        let url = try makeSyntheticNEF(nikonSignature: false)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let diagnostics = NikonMakerNoteParser.focusLocationDiagnostics(from: url)
+
+        #expect(diagnostics.value == nil)
+        #expect(diagnostics.trace.contains { $0.contains("Nikon Type-3 signature missing") })
+    }
+
+    @Test
     func `Returns nil for AFInfoVersion 0100 (pre-Z layout not supported)`() throws {
         // Second digit < '3' → rejected.
         let url = try makeSyntheticNEF(afVersion: (0x30, 0x31, 0x30, 0x30))
         defer { try? FileManager.default.removeItem(at: url) }
 
         #expect(NikonMakerNoteParser.focusLocation(from: url) == nil)
+    }
+
+    @Test
+    func `Focus diagnostics report unsupported AFInfo version`() throws {
+        let url = try makeSyntheticNEF(afVersion: (0x30, 0x31, 0x30, 0x30))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let diagnostics = NikonMakerNoteParser.focusLocationDiagnostics(from: url)
+
+        #expect(diagnostics.value == nil)
+        #expect(diagnostics.trace.contains { $0.contains("unsupported AFInfoVersion 0100") })
     }
 
     @Test

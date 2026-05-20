@@ -33,8 +33,8 @@ import Foundation
 /// Used as a fallback when the macOS RA16 decoder cannot handle the file
 /// (e.g. ARW 6.0 from newer bodies such as A7V / ILCE-7RM6 returns err=-50
 /// from CGImageSourceCreateThumbnailAtIndex).
-struct EmbeddedJPEGLocations {
-    struct Location {
+struct EmbeddedJPEGLocations: Sendable {
+    struct Location: Sendable {
         let offset: Int
         let length: Int
     }
@@ -78,6 +78,65 @@ enum SonyMakerNoteParser {
         return "\(result.width) \(result.height) \(result.x) \(result.y)"
     }
 
+    /// Verbose variant for the Loupe diagnostics log. Keeps the production
+    /// `focusLocation(from:)` API unchanged while exposing the stage that failed.
+    nonisolated static func focusLocationDiagnostics(from url: URL) -> RawParserDiagnostics<String> {
+        var trace: [String] = []
+        guard let fh = try? FileHandle(forReadingFrom: url) else {
+            let failure = "could not open file for reading"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        defer { try? fh.close() }
+
+        guard let data = try? fh.read(upToCount: 4 * 1024 * 1024) else {
+            let failure = "could not read 4 MB fast-path window"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: opened file")
+        trace.append("trace: fast-path read bytes=\(data.count)")
+
+        if let parser = TIFFParser(data: data) {
+            let parsed = parser.parseSonyFocusLocationDiagnostic()
+            trace.append(contentsOf: parsed.trace)
+            if let result = parsed.value {
+                return .init(
+                    value: "\(result.width) \(result.height) \(result.x) \(result.y)",
+                    trace: trace,
+                    failure: nil,
+                )
+            }
+            trace.append("ERROR: fast-path focus parse failed: \(parsed.failure ?? "unknown parser failure")")
+        } else {
+            trace.append("ERROR: invalid TIFF header in fast-path window")
+        }
+
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max), full.count > data.count else {
+            let failure = "full-file retry unavailable or not larger than fast-path window"
+            trace.append("ERROR: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        trace.append("trace: slow-path full-file read bytes=\(full.count)")
+
+        guard let parser = TIFFParser(data: full) else {
+            let failure = "invalid TIFF header in full-file retry"
+            trace.append("ERROR: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        let parsed = parser.parseSonyFocusLocationDiagnostic()
+        trace.append(contentsOf: parsed.trace)
+        guard let result = parsed.value else {
+            let failure = parsed.failure ?? "unknown Sony focus parser failure"
+            trace.append("ERROR: slow-path focus parse failed: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+        return .init(
+            value: "\(result.width) \(result.height) \(result.x) \(result.y)",
+            trace: trace,
+            failure: nil,
+        )
+    }
+
     /// Parses the TIFF IFD chain and returns the absolute file offsets of the three
     /// embedded JPEGs present in all Sony ARW files. Reads the first 512 KB on the fast
     /// path; A7R VI / ILCE-7RM6 stores the large JpgFromRaw IFD around 145 KB,
@@ -102,6 +161,62 @@ enum SonyMakerNoteParser {
               let fullParser = TIFFParser(data: full)
         else { return initial }
         return fullParser.parseEmbeddedJPEGLocations()
+    }
+
+    /// Verbose variant for the Loupe diagnostics log. Reports which TIFF/IFD
+    /// stages were checked before an embedded JPEG lookup succeeded or failed.
+    nonisolated static func embeddedJPEGLocationsDiagnostics(from url: URL) -> RawParserDiagnostics<EmbeddedJPEGLocations> {
+        var trace: [String] = []
+        guard let fh = try? FileHandle(forReadingFrom: url) else {
+            let failure = "could not open file for reading"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        defer { try? fh.close() }
+
+        guard let data = try? fh.read(upToCount: 512 * 1024) else {
+            let failure = "could not read 512 KB embedded-JPEG fast-path window"
+            return .init(value: nil, trace: ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: opened file")
+        trace.append("trace: embedded-JPEG fast-path read bytes=\(data.count)")
+
+        guard let parser = TIFFParser(data: data) else {
+            let failure = "invalid TIFF header in embedded-JPEG fast-path window"
+            trace.append("ERROR: \(failure)")
+            return .init(value: nil, trace: trace, failure: failure)
+        }
+
+        let initial = parser.parseEmbeddedJPEGLocationsDiagnostic()
+        trace.append(contentsOf: initial.trace)
+        if let locations = initial.value,
+           locations.thumbnail != nil || locations.preview != nil || locations.fullJPEG != nil {
+            return .init(value: locations, trace: trace, failure: nil)
+        }
+
+        trace.append("ERROR: fast-path embedded JPEG parse found no JPEG offsets")
+        try? fh.seek(toOffset: 0)
+        guard let full = try? fh.read(upToCount: Int.max), full.count > data.count else {
+            let locations = initial.value ?? .init()
+            let failure = "full-file retry unavailable; no JPEG offsets found"
+            trace.append("ERROR: \(failure)")
+            return .init(value: locations, trace: trace, failure: failure)
+        }
+        trace.append("trace: embedded-JPEG slow-path full-file read bytes=\(full.count)")
+
+        guard let fullParser = TIFFParser(data: full) else {
+            let failure = "invalid TIFF header in embedded-JPEG full-file retry"
+            trace.append("ERROR: \(failure)")
+            return .init(value: initial.value, trace: trace, failure: failure)
+        }
+        let parsed = fullParser.parseEmbeddedJPEGLocationsDiagnostic()
+        trace.append(contentsOf: parsed.trace)
+        let locations = parsed.value ?? .init()
+        if locations.thumbnail == nil, locations.preview == nil, locations.fullJPEG == nil {
+            let failure = parsed.failure ?? "no JPEG offsets found"
+            trace.append("ERROR: slow-path embedded JPEG parse failed: \(failure)")
+            return .init(value: locations, trace: trace, failure: failure)
+        }
+        return .init(value: locations, trace: trace, failure: nil)
     }
 
     /// Reads raw bytes for an embedded JPEG from the file at the given absolute offset.
@@ -152,6 +267,64 @@ private struct TIFFParser {
         guard width > 0, height > 0, x > 0 || y > 0 else { return nil }
 
         return (width, height, x, y)
+    }
+
+    nonisolated func parseSonyFocusLocationDiagnostic() -> RawParserDiagnostics<(width: Int, height: Int, x: Int, y: Int)> {
+        var trace: [String] = []
+        guard let ifd0 = readU32(at: 4).map(Int.init) else {
+            return .init(value: nil, trace: ["ERROR: missing IFD0 offset at TIFF header byte 4"], failure: "missing IFD0 offset")
+        }
+        trace.append("trace: TIFF header valid byteOrder=\(le ? "II/little" : "MM/big") ifd0=\(ifd0)")
+        guard ifd0 + 2 <= data.count else {
+            let failure = "IFD0 offset \(ifd0) outside data size \(data.count)"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+
+        guard let exifIFD = subIFDOffset(in: ifd0, tag: 0x8769) else {
+            let failure = "missing ExifIFD tag 0x8769 in IFD0"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: ExifIFD tag 0x8769 found offset=\(exifIFD)")
+
+        guard let (mnOffset, mnSize) = tagDataRange(in: exifIFD, tag: 0x927C) else {
+            let failure = "missing MakerNote tag 0x927C in ExifIFD"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: MakerNote tag 0x927C found offset=\(mnOffset) bytes=\(mnSize)")
+
+        let ifdStart = sonyIFDStart(at: mnOffset)
+        trace.append(ifdStart == mnOffset
+            ? "trace: SONY DSC header not present; MakerNote IFD starts at \(ifdStart)"
+            : "trace: SONY DSC header detected; MakerNote IFD starts at \(ifdStart)")
+
+        let tag2027 = tagDataRange(in: ifdStart, tag: 0x2027)
+        let flTag: UInt16 = tag2027 != nil ? 0x2027 : 0x204A
+        if tag2027 != nil {
+            trace.append("trace: FocusLocation tag 0x2027 found")
+        } else {
+            trace.append("trace: FocusLocation tag 0x2027 missing; checking 0x204A")
+        }
+
+        guard let (flOffset, flSize) = tagDataRange(in: ifdStart, tag: flTag) else {
+            let failure = "missing FocusLocation tag 0x\(String(flTag, radix: 16, uppercase: true))"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        guard flSize >= 8 else {
+            let failure = "FocusLocation tag 0x\(String(flTag, radix: 16, uppercase: true)) too short: \(flSize) bytes"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        trace.append("trace: FocusLocation tag 0x\(String(flTag, radix: 16, uppercase: true)) dataOffset=\(flOffset) bytes=\(flSize)")
+
+        let width = Int(readU16(at: flOffset + 0))
+        let height = Int(readU16(at: flOffset + 2))
+        let x = Int(readU16(at: flOffset + 4))
+        let y = Int(readU16(at: flOffset + 6))
+        trace.append("trace: FocusLocation values width=\(width) height=\(height) x=\(x) y=\(y)")
+        guard width > 0, height > 0, x > 0 || y > 0 else {
+            let failure = "FocusLocation values failed sanity gate"
+            return .init(value: nil, trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+        return .init(value: (width, height, x, y), trace: trace, failure: nil)
     }
 
     // MARK: Embedded JPEG locations
@@ -205,6 +378,70 @@ private struct TIFFParser {
         let fullJPEG = subIFDFullJPEG ?? chainFullJPEG
 
         return .init(thumbnail: thumbnail, preview: preview, fullJPEG: fullJPEG)
+    }
+
+    nonisolated func parseEmbeddedJPEGLocationsDiagnostic() -> RawParserDiagnostics<EmbeddedJPEGLocations> {
+        var trace: [String] = []
+        guard let ifd0Raw = readU32(at: 4) else {
+            return .init(value: nil, trace: ["ERROR: missing IFD0 offset at TIFF header byte 4"], failure: "missing IFD0 offset")
+        }
+        let ifd0 = Int(ifd0Raw)
+        trace.append("trace: TIFF header valid byteOrder=\(le ? "II/little" : "MM/big") ifd0=\(ifd0)")
+        guard ifd0 + 2 <= data.count else {
+            let failure = "IFD0 offset \(ifd0) outside data size \(data.count)"
+            return .init(value: .init(), trace: trace + ["ERROR: \(failure)"], failure: failure)
+        }
+
+        let preview = locateJPEG(in: ifd0, offTag: 0x0111, lenTag: 0x0117)
+            ?? locateJPEG(in: ifd0, offTag: 0x0201, lenTag: 0x0202)
+        trace.append(preview == nil ? "trace: IFD0 preview JPEG tags not found" : "trace: IFD0 preview JPEG found")
+
+        let ifd0Count = Int(readU16(at: ifd0))
+        let ifd1Ptr = ifd0 + 2 + ifd0Count * 12
+        guard let ifd1Raw = readU32(at: ifd1Ptr), ifd1Raw > 0 else {
+            let locations = EmbeddedJPEGLocations(preview: preview)
+            let failure = preview == nil ? "IFD1 pointer missing and no preview JPEG found" : nil
+            if let failure {
+                trace.append("ERROR: \(failure)")
+            }
+            return .init(value: locations, trace: trace, failure: failure)
+        }
+        let ifd1 = Int(ifd1Raw)
+        trace.append("trace: IFD1 pointer found offset=\(ifd1)")
+
+        let thumbnail = locateJPEG(in: ifd1, offTag: 0x0201, lenTag: 0x0202)
+        trace.append(thumbnail == nil ? "trace: IFD1 thumbnail JPEG tags not found" : "trace: IFD1 thumbnail JPEG found")
+
+        let subIFDs = subIFDOffsets(in: ifd0, tag: 0x014A)
+        trace.append("trace: IFD0 SubIFD tag 0x014A offsets count=\(subIFDs.count)")
+        let subIFDFullJPEG = subIFDs
+            .compactMap { locateJPEG(in: $0, offTag: 0x0201, lenTag: 0x0202) }
+            .max { $0.length < $1.length }
+        trace.append(subIFDFullJPEG == nil ? "trace: SubIFD JpgFromRaw JPEG not found" : "trace: SubIFD JpgFromRaw JPEG found")
+
+        let ifd1Count = Int(readU16(at: ifd1))
+        let ifd2Ptr = ifd1 + 2 + ifd1Count * 12
+        guard let ifd2Raw = readU32(at: ifd2Ptr), ifd2Raw > 0 else {
+            let locations = EmbeddedJPEGLocations(thumbnail: thumbnail, preview: preview, fullJPEG: subIFDFullJPEG)
+            let failure = locations.thumbnail == nil && locations.preview == nil && locations.fullJPEG == nil ? "IFD2 pointer missing and no JPEG offsets found" : nil
+            if let failure {
+                trace.append("ERROR: \(failure)")
+            }
+            return .init(value: locations, trace: trace, failure: failure)
+        }
+        let ifd2 = Int(ifd2Raw)
+        trace.append("trace: IFD2 pointer found offset=\(ifd2)")
+
+        let chainFullJPEG = locateJPEG(in: ifd2, offTag: 0x0111, lenTag: 0x0117)
+            ?? locateJPEG(in: ifd2, offTag: 0x0201, lenTag: 0x0202)
+        trace.append(chainFullJPEG == nil ? "trace: IFD2 full JPEG tags not found" : "trace: IFD2 full JPEG found")
+        let fullJPEG = subIFDFullJPEG ?? chainFullJPEG
+        let locations = EmbeddedJPEGLocations(thumbnail: thumbnail, preview: preview, fullJPEG: fullJPEG)
+        let failure = locations.thumbnail == nil && locations.preview == nil && locations.fullJPEG == nil ? "no JPEG offsets found" : nil
+        if let failure {
+            trace.append("ERROR: \(failure)")
+        }
+        return .init(value: locations, trace: trace, failure: failure)
     }
 
     /// Returns a Location by reading two LONG tags from an IFD: one for the file offset,
