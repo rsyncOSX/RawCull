@@ -113,6 +113,17 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
             .help("Loupe view")
             .disabled(viewModel.mainViewMode == .loupe)
+            
+            Button {
+                selectSimilarityGridMode()
+            } label: {
+                Label("Similarity", systemImage: "photo.stack")
+            }
+            .help("Similarity & burst grouping grid")
+            .disabled(viewModel.selectedSource == nil ||
+                viewModel.filteredFiles.isEmpty ||
+                viewModel.mainViewMode == .similarityGrid ||
+                viewModel.creatingthumbnails)
 
             Button {
                 selectGridMode()
@@ -123,17 +134,6 @@ struct SharedMainToolbarContent: ToolbarContent {
             .disabled(viewModel.selectedSource == nil ||
                 viewModel.filteredFiles.isEmpty ||
                 viewModel.mainViewMode == .grid ||
-                viewModel.creatingthumbnails)
-
-            Button {
-                selectSimilarityGridMode()
-            } label: {
-                Label("Similarity", systemImage: "photo.stack")
-            }
-            .help("Similarity & burst grouping grid")
-            .disabled(viewModel.selectedSource == nil ||
-                viewModel.filteredFiles.isEmpty ||
-                viewModel.mainViewMode == .similarityGrid ||
                 viewModel.creatingthumbnails)
 
             Button {
