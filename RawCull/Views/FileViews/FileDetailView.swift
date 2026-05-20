@@ -10,7 +10,25 @@ struct FileDetailView: View {
 
     let file: FileItem?
 
+    @State private var showRawDiagnostics = false
+    @State private var rawDiagnosticsLog = ""
+
     var body: some View {
+        content
+            .background(rawDiagnosticsShortcut)
+            .sheet(isPresented: $showRawDiagnostics) {
+                RawFileDiagnosticsView(log: rawDiagnosticsLog) {
+                    showRawDiagnostics = false
+                }
+            }
+    }
+
+    var files: [FileItem] {
+        viewModel.files
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let file {
             VStack(spacing: 20) {
                 MainThumbnailImageView(
@@ -25,48 +43,61 @@ struct FileDetailView: View {
                 viewModel.openZoomOverlay()
             }
         } else {
-            ZStack {
-                Color(red: 0.118, green: 0.106, blue: 0.094)
-                    .ignoresSafeArea()
-                RadialGradient(
-                    colors: [Color(red: 0.71, green: 0.55, blue: 0.39).opacity(0.10), .clear],
-                    center: UnitPoint(x: 0.3, y: 0.4),
-                    startRadius: 0,
-                    endRadius: 400,
-                )
-                .ignoresSafeArea()
-                RadialGradient(
-                    colors: [Color(red: 0.31, green: 0.39, blue: 0.55).opacity(0.08), .clear],
-                    center: UnitPoint(x: 0.75, y: 0.7),
-                    startRadius: 0,
-                    endRadius: 380,
-                )
-                .ignoresSafeArea()
-                grainOverlay
-                    .ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 72, height: 72)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .padding(.bottom, 22)
-
-                    Text("Ready when you are.")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.85))
-                        .padding(.bottom, 7)
-
-                    Text("Select a photo to begin culling.")
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(.secondary.opacity(0.7))
-                }
-            }
+            emptyState
         }
     }
 
-    var files: [FileItem] {
-        viewModel.files
+    private var rawDiagnosticsShortcut: some View {
+        Button("RAW Diagnostics") {
+            guard let file else { return }
+            rawDiagnosticsLog = RawFileDiagnostics.log(for: file)
+            showRawDiagnostics = true
+        }
+        .keyboardShortcut("i", modifiers: [.command])
+        .disabled(file == nil)
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
+    }
+
+    private var emptyState: some View {
+        ZStack {
+            Color(red: 0.118, green: 0.106, blue: 0.094)
+                .ignoresSafeArea()
+            RadialGradient(
+                colors: [Color(red: 0.71, green: 0.55, blue: 0.39).opacity(0.10), .clear],
+                center: UnitPoint(x: 0.3, y: 0.4),
+                startRadius: 0,
+                endRadius: 400,
+            )
+            .ignoresSafeArea()
+            RadialGradient(
+                colors: [Color(red: 0.31, green: 0.39, blue: 0.55).opacity(0.08), .clear],
+                center: UnitPoint(x: 0.75, y: 0.7),
+                startRadius: 0,
+                endRadius: 380,
+            )
+            .ignoresSafeArea()
+            grainOverlay
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.bottom, 22)
+
+                Text("Ready when you are.")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .padding(.bottom, 7)
+
+                Text("Select a photo to begin culling.")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.secondary.opacity(0.7))
+            }
+        }
     }
 
     var grainOverlay: some View {
