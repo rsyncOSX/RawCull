@@ -33,8 +33,8 @@ import Foundation
 /// Used as a fallback when the macOS RA16 decoder cannot handle the file
 /// (e.g. ARW 6.0 from newer bodies such as A7V / ILCE-7RM6 returns err=-50
 /// from CGImageSourceCreateThumbnailAtIndex).
-struct EmbeddedJPEGLocations: Sendable {
-    struct Location: Sendable {
+struct EmbeddedJPEGLocations {
+    struct Location {
         let offset: Int
         let length: Int
     }

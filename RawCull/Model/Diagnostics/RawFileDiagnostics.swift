@@ -44,8 +44,10 @@ enum RawFileDiagnostics {
         switch format {
         case is SonyRawFormat.Type:
             "Sony ARW"
+
         case is NikonRawFormat.Type:
             "Nikon NEF"
+
         default:
             String(describing: format)
         }

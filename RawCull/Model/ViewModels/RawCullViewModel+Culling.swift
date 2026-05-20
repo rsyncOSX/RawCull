@@ -68,6 +68,15 @@ extension RawCullViewModel {
         rebuildRatingCache()
     }
 
+    func clearCurrentCatalogCullingState() {
+        guard let selectedSource else { return }
+        cullingModel.resetSavedFiles(in: selectedSource.url)
+        ratingCache = [:]
+        taggedNamesCache = []
+        sharpnessModel.reset()
+        similarityModel.reset()
+    }
+
     func applySharpnessThreshold(_ thresholdPercent: Int) {
         let maxScore = sharpnessModel.maxScore
         guard maxScore > 0, let selectedSource else { return }

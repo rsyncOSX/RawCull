@@ -34,7 +34,7 @@ final class CullingModel {
 
     func resetSavedFiles(in catalog: URL) {
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
-            savedFiles[index].filerecords = nil
+            savedFiles[index].filerecords = []
             scheduleSave()
         }
     }
@@ -132,6 +132,9 @@ final class CullingModel {
 
     private func ensureCatalog(_ catalog: URL, dateStart: String?) -> Int {
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
+            if savedFiles[index].filerecords == nil {
+                savedFiles[index].filerecords = []
+            }
             return index
         }
 

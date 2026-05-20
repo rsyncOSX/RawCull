@@ -38,8 +38,8 @@ import Foundation
 /// Used as a binary fallback when ImageIO does not expose the preview JPEG as
 /// a sub-image index (the common case for NEF, where the full-res preview
 /// lives inside a SubIFD chain rather than at a top-level image index).
-struct NEFEmbeddedJPEGLocations: Sendable {
-    struct Location: Sendable {
+struct NEFEmbeddedJPEGLocations {
+    struct Location {
         let offset: Int
         let length: Int
     }

@@ -123,13 +123,7 @@ struct RawCullMainView: View {
 
                 case .clearRatedFiles:
                     Button("Clear", role: .destructive) {
-                        if let url = viewModel.selectedSource?.url {
-                            viewModel.ratingCache = [:]
-                            viewModel.taggedNamesCache = []
-                            viewModel.sharpnessModel.reset()
-                            viewModel.similarityModel.reset()
-                            viewModel.cullingModel.resetSavedFiles(in: url)
-                        }
+                        viewModel.clearCurrentCatalogCullingState()
                     }
                     .frame(width: 100)
 

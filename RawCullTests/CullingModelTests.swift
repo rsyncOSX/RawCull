@@ -120,7 +120,26 @@ struct CullingModelTests {
         _ = await recorder.waitForSnapshotCount(1)
 
         #expect(model.countSelectedFiles(in: catalog) == 0)
-        #expect(model.savedFiles.first?.filerecords == nil)
+        #expect(model.savedFiles.first?.filerecords == [])
+    }
+
+    @Test
+    func `updateRating recreates records after reset leaves empty catalog`() async {
+        let recorder = SavedFilesRecorder()
+        let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
+            await recorder.record(savedFiles)
+        }
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
+        model.resetSavedFiles(in: catalog)
+        model.updateRating(fileName: "two.ARW", rating: 5, in: catalog)
+        _ = await recorder.waitForSnapshotCount(1)
+
+        let records = model.savedFiles.first?.filerecords ?? []
+        #expect(records.count == 1)
+        #expect(records.first?.fileName == "two.ARW")
+        #expect(records.first?.rating == 5)
     }
 }
 
@@ -295,6 +314,27 @@ struct RawCullViewModelCullingTests {
         viewModel.updateRating(for: files, rating: 5)
 
         #expect(viewModel.ratingCache == ["one.ARW": 5, "two.ARW": 5])
+    }
+
+    @Test
+    func `clearCurrentCatalogCullingState allows rating same catalog again`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let first = makeCullingTestFile("one.ARW")
+        let second = makeCullingTestFile("two.ARW")
+        viewModel.selectedSource = catalog
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRating(for: first, rating: 3)
+        viewModel.clearCurrentCatalogCullingState()
+        viewModel.updateRating(for: second, rating: 5)
+
+        let records = viewModel.cullingModel.savedFiles.first?.filerecords ?? []
+        #expect(records.count == 1)
+        #expect(records.first?.fileName == "two.ARW")
+        #expect(records.first?.rating == 5)
+        #expect(viewModel.ratingCache == ["two.ARW": 5])
+        #expect(viewModel.taggedNamesCache == ["two.ARW"])
     }
 
     @Test
