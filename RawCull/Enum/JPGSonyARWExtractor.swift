@@ -35,9 +35,10 @@ enum JPGSonyARWExtractor {
     ) throws -> CGImage? {
         try cancellationToken.checkCancellation()
 
-        // Prefer Sony's embedded JPG pointers. On A7R VI / RA16 files, scanning
-        // ImageIO subimages can initialize the unsupported raw decoder before we
-        // ever ask for the embedded JPG, producing err=-50 and sometimes nil.
+        // Prefer Sony's embedded JPG pointers. On RA16-backed files such as
+        // A7R VI / ILCE-7RM6, scanning ImageIO subimages can initialize the
+        // unsupported raw decoder before we ever ask for the embedded JPG,
+        // producing err=-50 and sometimes nil.
         if let fallback = try binaryFallbackJPEG(
             from: arwURL,
             fullSize: fullSize,
@@ -147,9 +148,10 @@ enum JPGSonyARWExtractor {
         return fallback
     }
 
-    /// Binary fallback for ARW 6.0 files (e.g. Sony A7V) where the macOS RA16 decoder
-    /// cannot decode the file. Extracts an embedded JPEG directly from the raw file bytes
-    /// and decodes it as a plain JPEG, bypassing the RA16 path.
+    /// Binary fallback for ARW 6.0 files (e.g. Sony A7V / A7R VI / ILCE-7RM6)
+    /// where the macOS RA16 decoder cannot decode the file. Extracts an embedded
+    /// JPEG directly from the raw file bytes and decodes it as a plain JPEG,
+    /// bypassing the RA16 path.
     private nonisolated static func binaryFallbackJPEG(
         from url: URL,
         fullSize: Bool,

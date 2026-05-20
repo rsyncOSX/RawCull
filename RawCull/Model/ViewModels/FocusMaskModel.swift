@@ -257,7 +257,8 @@ struct FocusMaskEngine: @unchecked Sendable {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
     }
 
-    /// Binary fallback for ARW 6.0 (RA16) files where CGImageSourceCreateThumbnailAtIndex
+    /// Binary fallback for ARW 6.0 (RA16) files from newer Sony bodies
+    /// (A7V, A7R VI / ILCE-7RM6) where CGImageSourceCreateThumbnailAtIndex
     /// returns nil. Reads the embedded JPEG directly from the file bytes via
     /// SonyMakerNoteParser, bypassing the RA16 decoder entirely. Sony-only:
     /// other vendors (e.g. Nikon NEF) don't need this path and would hit a

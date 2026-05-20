@@ -40,9 +40,10 @@ enum SonyThumbnailExtractor {
     ) throws -> CGImage {
         try cancellationToken.checkCancellation()
 
-        // Prefer Sony's embedded JPEG preview. Newer RA16-backed ARW files can
-        // make ImageIO initialize the unsupported raw decoder even when we only
-        // need a thumbnail, which prints err=-50 noise to the console.
+        // Prefer Sony's embedded JPEG preview. Newer RA16-backed ARW files
+        // (A7V, A7R VI / ILCE-7RM6) can make ImageIO initialize the unsupported
+        // raw decoder even when we only need a thumbnail, which prints err=-50
+        // noise to the console.
         if let embeddedThumbnail = try binaryFallbackThumbnail(
             from: url,
             maxDimension: maxDimension,
@@ -61,7 +62,7 @@ enum SonyThumbnailExtractor {
         // Last resort: ask ImageIO for a thumbnail if the binary locator could
         // not find an embedded JPEG in this file.
         // kCGImageSourceCreateThumbnailFromImageAlways forces ImageIO to synthesize
-        // a thumbnail from the full RAW data (RA16 on A7V), which fails with err=-50.
+        // a thumbnail from the full RAW data (RA16 on A7V / A7R VI), which fails with err=-50.
         // kCGImageSourceCreateThumbnailFromImageIfAbsent uses the embedded preview
         // when one exists — which it always does in ARW — and only synthesizes if not.
         let thumbOptions: [CFString: Any] = [
@@ -82,7 +83,8 @@ enum SonyThumbnailExtractor {
         return try rerender(rawThumbnail, qualityCost: qualityCost)
     }
 
-    /// Binary fallback for ARW 6.0 files where the macOS RA16 decoder returns err=-50.
+    /// Binary fallback for ARW 6.0 files (A7V, A7R VI / ILCE-7RM6) where the
+    /// macOS RA16 decoder returns err=-50.
     /// Reads the embedded preview JPEG directly from the file without going through ImageIO's
     /// raw decoder, then asks ImageIO to thumbnail the extracted JPEG bytes.
     private nonisolated static func binaryFallbackThumbnail(

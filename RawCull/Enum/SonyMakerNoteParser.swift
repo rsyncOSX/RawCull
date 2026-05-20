@@ -3,8 +3,9 @@
 //  RawCull
 //
 //  Parses Sony ARW raw files to extract AF focus location natively,
-//  without requiring exiftool. Supports ILCE-1, ILCE-1M2, ILCE-7M5, ILCE-7RM5,
-//  and ILCE-9M3 (A9 III stores TIFF metadata near EOF; requires full-file read).
+//  without requiring exiftool. Supports ILCE-1, ILCE-1M2, ILCE-7M5,
+//  ILCE-7RM5, ILCE-7RM6, and ILCE-9M3 (A9 III stores TIFF metadata near EOF;
+//  requires full-file read).
 //
 //  Technical background
 //  ─────────────────────
@@ -30,7 +31,8 @@ import Foundation
 
 /// Absolute file offsets for the three JPEG images embedded in every Sony ARW.
 /// Used as a fallback when the macOS RA16 decoder cannot handle the file
-/// (e.g. ARW 6.0 from the A7V returns err=-50 from CGImageSourceCreateThumbnailAtIndex).
+/// (e.g. ARW 6.0 from newer bodies such as A7V / ILCE-7RM6 returns err=-50
+/// from CGImageSourceCreateThumbnailAtIndex).
 struct EmbeddedJPEGLocations {
     struct Location {
         let offset: Int
@@ -60,7 +62,7 @@ enum SonyMakerNoteParser {
         defer { try? fh.close() }
 
         // Fast path: read only the first 4 MB. Most Sony bodies (A1, A1 II, A7 V,
-        // A7R V) store MakerNote metadata well within this range.
+        // A7R V, A7R VI / ILCE-7RM6) store MakerNote metadata well within this range.
         guard let data = try? fh.read(upToCount: 4 * 1024 * 1024) else { return nil }
         if let result = TIFFParser(data: data)?.parseSonyFocusLocation() {
             return "\(result.width) \(result.height) \(result.x) \(result.y)"
@@ -78,8 +80,8 @@ enum SonyMakerNoteParser {
 
     /// Parses the TIFF IFD chain and returns the absolute file offsets of the three
     /// embedded JPEGs present in all Sony ARW files. Reads the first 512 KB on the fast
-    /// path; A7R VI stores the large JpgFromRaw IFD around 145 KB, while this still avoids
-    /// reading the whole raw. Falls back to a full-file read when IFD structures fall
+    /// path; A7R VI / ILCE-7RM6 stores the large JpgFromRaw IFD around 145 KB,
+    /// while this still avoids reading the whole raw. Falls back to a full-file read when IFD structures fall
     /// outside that range (e.g. ILCE-9M3 stores TIFF metadata near EOF).
     nonisolated static func embeddedJPEGLocations(from url: URL) -> EmbeddedJPEGLocations? {
         guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
@@ -89,7 +91,7 @@ enum SonyMakerNoteParser {
         else { return nil }
         let initial = parser.parseEmbeddedJPEGLocations()
 
-        // If the fast path found nothing, IFD0 likely falls beyond the 64 KB window.
+        // If the fast path found nothing, IFD0 likely falls beyond the 512 KB window.
         // Re-read the full file (ILCE-9M3 slow-path, mirrors focusLocation behaviour).
         guard initial.thumbnail == nil, initial.preview == nil, initial.fullJPEG == nil else {
             return initial

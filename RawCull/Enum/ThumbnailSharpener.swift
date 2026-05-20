@@ -24,8 +24,9 @@ enum ThumbnailSharpener {
     ///   - `unsharpMask` intensity = amount * 0.4 (radius held at 0.8 for micro-detail)
     ///   - `sharpenLuminance` sharpness = amount * 0.3 (luminance edges only, halo-free)
     ///
-    /// Returns nil when `CIRAWFilter` cannot decode the source (e.g. ARW 6.0 / RA16 from A7V),
-    /// so the caller can fall back to the cached embedded-JPEG thumbnail.
+    /// Returns nil when `CIRAWFilter` cannot decode the source (e.g. ARW 6.0 /
+    /// RA16 from A7V or A7R VI / ILCE-7RM6), so the caller can fall back to the
+    /// cached embedded-JPEG thumbnail.
     nonisolated static func sharpenedPreview(
         from url: URL,
         maxDimension: CGFloat,
