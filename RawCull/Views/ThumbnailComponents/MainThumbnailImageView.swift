@@ -18,11 +18,12 @@ struct MainThumbnailImageView: View {
     // Focus mask state
     @State private var focusMask: NSImage?
     @State private var showFocusMask: Bool = false
+    @State private var isGeneratingFocusMask = false
+    @State private var focusMaskSourceURL: URL?
     @State private var maskTask: Task<Void, Never>?
     @FocusState private var isImageFocused: Bool
 
     var body: some View {
-        @Bindable var vm = viewModel
         ZStack {
             if let thumbnailSizePreview {
                 VStack {
@@ -114,7 +115,7 @@ struct MainThumbnailImageView: View {
 
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
-                                    focusMaskAvailable: focusMask != nil,
+                                    focusMaskAvailable: image != nil,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
                                     useThumbnailSource: .constant(false),
@@ -167,27 +168,72 @@ struct MainThumbnailImageView: View {
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             thumbnailSizePreview = settingsmanager.thumbnailSizePreview
         }
-        .task(id: image) {
-            if let image {
-                let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
-                await MainActor.run { self.focusMask = mask }
+        .onChange(of: showFocusMask) { _, newValue in
+            if newValue {
+                generateFocusMaskIfNeeded()
+            } else if isGeneratingFocusMask {
+                maskTask?.cancel()
+                maskTask = nil
+                isGeneratingFocusMask = false
             }
         }
         .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
+            focusMask = nil
+            focusMaskSourceURL = nil
+            guard showFocusMask else {
+                isGeneratingFocusMask = false
+                maskTask = nil
+                return
+            }
             maskTask = Task {
+                isGeneratingFocusMask = true
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
                 await regenerateMask()
+                isGeneratingFocusMask = false
             }
+        }
+        .onChange(of: url) { _, _ in
+            resetFocusMaskState()
+        }
+        .onDisappear {
+            maskTask?.cancel()
+            maskTask = nil
+            isGeneratingFocusMask = false
         }
     }
 
     // MARK: - Regenerate Mask
 
+    private func generateFocusMaskIfNeeded() {
+        guard focusMaskSourceURL != url || focusMask == nil else { return }
+        guard image != nil, !isGeneratingFocusMask else { return }
+
+        maskTask?.cancel()
+        maskTask = Task {
+            isGeneratingFocusMask = true
+            await regenerateMask()
+            isGeneratingFocusMask = false
+        }
+    }
+
     private func regenerateMask() async {
         guard let image else { return }
         let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
-        await MainActor.run { self.focusMask = mask }
+        guard !Task.isCancelled else { return }
+        await MainActor.run {
+            self.focusMask = mask
+            self.focusMaskSourceURL = url
+        }
+    }
+
+    private func resetFocusMaskState() {
+        maskTask?.cancel()
+        maskTask = nil
+        focusMask = nil
+        focusMaskSourceURL = nil
+        showFocusMask = false
+        isGeneratingFocusMask = false
     }
 }

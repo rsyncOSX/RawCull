@@ -340,7 +340,7 @@ struct ZoomOverlayView: View {
         guard let currentZoomIndex else { return }
         let newIndex = currentZoomIndex + delta
         guard orderedZoomFiles.indices.contains(newIndex) else { return }
-        resetToFit()
+        recenterForNavigatedImage()
         viewModel.selectedFileID = orderedZoomFiles[newIndex].id
     }
 
@@ -596,6 +596,11 @@ struct ZoomOverlayView: View {
 
     private func resetToFit() {
         currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero
+    }
+
+    private func recenterForNavigatedImage() {
+        offset = .zero
+        lastOffset = .zero
     }
 
     private func zoomToTarget() {

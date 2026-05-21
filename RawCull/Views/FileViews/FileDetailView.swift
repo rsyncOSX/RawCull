@@ -14,6 +14,10 @@ struct FileDetailView: View {
     @State private var rawDiagnosticsLog = ""
 
     var body: some View {
+        #if DEBUG
+        let _ = Self._logChanges()
+        #endif
+
         content
             .background(rawDiagnosticsShortcut)
             .sheet(isPresented: $showRawDiagnostics) {
