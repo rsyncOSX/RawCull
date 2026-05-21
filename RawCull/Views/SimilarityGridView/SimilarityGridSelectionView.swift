@@ -142,6 +142,19 @@ struct SimilarityGridSelectionView: View {
                 }
                 .font(.caption)
                 .help("Return to flat grid view")
+
+                Button {
+                    analyzeBurstsRequested = true
+                    Task {
+                        defer { analyzeBurstsRequested = false }
+                        await viewModel.reindexBurstAnalysis()
+                    }
+                } label: {
+                    Label("Re-index", systemImage: "arrow.clockwise")
+                }
+                .font(.caption)
+                .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
+                .help("Delete saved burst analysis for this catalog and recompute from scratch")
             } else {
                 Button {
                     analyzeBurstsRequested = true

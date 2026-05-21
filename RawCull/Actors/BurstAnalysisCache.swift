@@ -69,6 +69,16 @@ actor BurstAnalysisCache {
         }
     }
 
+    func delete(catalog: URL) async {
+        let url = cacheURL(for: catalog)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            return
+        }
+    }
+
     private func isValid(
         _ snapshot: BurstAnalysisCacheSnapshot,
         catalog: URL,

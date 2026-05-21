@@ -15,7 +15,7 @@ struct FileDetailView: View {
 
     var body: some View {
         #if DEBUG
-        let _ = Self._logChanges()
+            _ = Self._logChanges()
         #endif
 
         content

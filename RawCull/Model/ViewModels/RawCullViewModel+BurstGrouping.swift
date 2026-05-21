@@ -71,6 +71,16 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress()
     }
 
+    /// Clear loaded burst analysis artifacts, delete the saved burst cache for
+    /// the current catalog, and run a fresh analysis pass.
+    func reindexBurstAnalysis() async {
+        guard let catalog = selectedSource?.url, !files.isEmpty else { return }
+
+        clearLoadedBurstAnalysisForReindex()
+        await burstAnalysisCache.delete(catalog: catalog)
+        await analyzeBursts()
+    }
+
     // MARK: - Re-clustering on threshold change
 
     /// Re-run burst clustering with the current sensitivity threshold.
@@ -247,6 +257,19 @@ extension RawCullViewModel {
         )
         burstReviewStates = snapshot.reviewStates
         burstAnalysisResults = Dictionary(uniqueKeysWithValues: snapshot.results.map { ($0.groupID, $0) })
+    }
+
+    func clearLoadedBurstAnalysisForReindex() {
+        burstAnalysisTask?.cancel()
+        burstAnalysisTask = nil
+        burstAnalysisProgress = BurstAnalysisProgress()
+        burstAnalysisResults = [:]
+        burstReviewStates = [:]
+        activeBurstComparisonGroupID = nil
+        lastBurstUndoEntry = nil
+        comparisonFileIDs = []
+        sharpnessModel.cancelScoring()
+        similarityModel.reset()
     }
 
     private func saveBurstAnalysisCache(catalog: URL, files: [FileItem]) async {

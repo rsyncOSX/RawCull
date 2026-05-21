@@ -230,6 +230,74 @@ struct BurstViewModelActionTests {
         #expect(viewModel.getRating(for: files[2]) == 2)
         #expect(viewModel.getRating(for: files[0]) == -1)
     }
+
+    @Test(.tags(.critical))
+    func `clear loaded burst analysis for reindex discards stale analysis state`() {
+        let viewModel = RawCullViewModel()
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3)
+        ]
+        viewModel.files = files
+        viewModel.filteredFiles = files
+        viewModel.comparisonFileIDs = files.map(\.id)
+        viewModel.activeBurstComparisonGroupID = 0
+        viewModel.lastBurstUndoEntry = BurstUndoEntry(groupID: 0, previousRatingsByFileName: ["a.ARW": 3])
+        viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
+        viewModel.burstReviewStates = [0: .decisionApplied]
+        viewModel.burstAnalysisResults[0] = BurstAnalysisResult(
+            groupID: 0,
+            fileIDs: files.map(\.id),
+            candidates: [],
+            recommendedFileID: files[0].id,
+            secondBestFileID: files[1].id,
+            confidence: .high,
+            reviewState: .decisionApplied,
+            isSafeForOneClickCulling: true,
+            reasons: [],
+            cautions: [],
+        )
+        viewModel.sharpnessModel.scores = [files[0].id: 0.9]
+        viewModel.sharpnessModel.saliencyInfo = [files[0].id: SaliencyInfo(subjectLabel: "bird")]
+        viewModel.sharpnessModel.sortBySharpness = true
+        viewModel.similarityModel.embeddings = [files[0].id: Data([1])]
+        viewModel.similarityModel.distances = [files[1].id: 0.2]
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
+        viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
+        viewModel.similarityModel.burstBoundaryEvidence = [
+            BurstBoundaryEvidence(
+                previousID: files[0].id,
+                currentID: files[1].id,
+                visualDistance: 0.2,
+                timeGapSeconds: 0.3,
+                focalLengthDelta: 0,
+                exposureChanged: false,
+                cameraChanged: false,
+                lensChanged: false,
+                startsNewGroup: false,
+                reasons: [],
+            )
+        ]
+        viewModel.similarityModel.burstModeActive = true
+
+        viewModel.clearLoadedBurstAnalysisForReindex()
+
+        #expect(viewModel.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstReviewStates.isEmpty)
+        #expect(viewModel.activeBurstComparisonGroupID == nil)
+        #expect(viewModel.lastBurstUndoEntry == nil)
+        #expect(viewModel.comparisonFileIDs.isEmpty)
+        #expect(viewModel.burstAnalysisProgress == BurstAnalysisProgress())
+        #expect(viewModel.sharpnessModel.scores.isEmpty)
+        #expect(viewModel.sharpnessModel.saliencyInfo.isEmpty)
+        #expect(viewModel.sharpnessModel.sortBySharpness == false)
+        #expect(viewModel.similarityModel.embeddings.isEmpty)
+        #expect(viewModel.similarityModel.distances.isEmpty)
+        #expect(viewModel.similarityModel.burstGroups.isEmpty)
+        #expect(viewModel.similarityModel.burstGroupLookup.isEmpty)
+        #expect(viewModel.similarityModel.burstBoundaryEvidence.isEmpty)
+        #expect(viewModel.similarityModel.burstModeActive == false)
+    }
 }
 
 @Suite("BurstAnalysisCache")
@@ -261,6 +329,11 @@ struct BurstAnalysisCacheTests {
         let loaded = await cache.load(catalog: catalog, files: files, thumbnailMaxPixelSize: 512)
         #expect(loaded?.reviewStates[0] == .decisionApplied)
 
+        await cache.delete(catalog: catalog)
+        let deleted = await cache.load(catalog: catalog, files: files, thumbnailMaxPixelSize: 512)
+        #expect(deleted == nil)
+
+        await cache.save(snapshot, catalog: catalog)
         let changed = [burstTestFile("a.ARW", seconds: 0, size: 999), files[1]]
         let invalid = await cache.load(catalog: catalog, files: changed, thumbnailMaxPixelSize: 512)
         #expect(invalid == nil)
