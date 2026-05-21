@@ -59,7 +59,7 @@ actor RequestThumbnail {
 
         // A. Check RAM
         if let wrapper = memoryCache.object(forKey: nsUrl) {
-            Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheMemory() - found in RAM Cache)")
+            Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache)")
             await memoryCache.updateCacheMemory()
             let nsImage = wrapper.image
             return try await nsImageToCGImage(nsImage)
@@ -74,7 +74,7 @@ actor RequestThumbnail {
                 memoryCache.incrementBoomerangMiss()
             }
             storeInMemory(diskImage, for: url)
-            Logger.process.debugThreadOnly("SharedMemoryCache: updateCacheDisk() - found in Disk Cache)")
+            Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in Disk Cache)")
             await memoryCache.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
         }
