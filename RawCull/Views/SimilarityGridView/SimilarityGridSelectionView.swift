@@ -150,7 +150,7 @@ struct SimilarityGridSelectionView: View {
                         await viewModel.reindexBurstAnalysis()
                     }
                 } label: {
-                    Label("Re-index", systemImage: "arrow.clockwise")
+                    Label("Reanalyze Bursts", systemImage: "arrow.clockwise")
                 }
                 .font(.caption)
                 .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
