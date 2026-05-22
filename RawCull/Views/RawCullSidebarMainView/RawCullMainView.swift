@@ -59,6 +59,14 @@ struct RawCullMainView: View {
         .sheet(isPresented: $viewModel.showSavedFiles) {
             SavedFilesView()
         }
+        .sheet(isPresented: $viewModel.showReviewQueue) {
+            ReviewQueueView(viewModel: viewModel)
+        }
+        .sheet(item: $viewModel.rawDiagnosticsPresentation) { presentation in
+            RawFileDiagnosticsView(log: presentation.log) {
+                viewModel.rawDiagnosticsPresentation = nil
+            }
+        }
         .sheet(isPresented: $viewModel.showcopyARWFilesView) {
             CopyARWFilesView(
                 viewModel: viewModel,

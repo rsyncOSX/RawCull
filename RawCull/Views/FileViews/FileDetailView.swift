@@ -10,17 +10,9 @@ struct FileDetailView: View {
 
     let file: FileItem?
 
-    @State private var showRawDiagnostics = false
-    @State private var rawDiagnosticsLog = ""
-
     var body: some View {
         content
             .background(rawDiagnosticsShortcut)
-            .sheet(isPresented: $showRawDiagnostics) {
-                RawFileDiagnosticsView(log: rawDiagnosticsLog) {
-                    showRawDiagnostics = false
-                }
-            }
     }
 
     var files: [FileItem] {
@@ -50,8 +42,7 @@ struct FileDetailView: View {
     private var rawDiagnosticsShortcut: some View {
         Button("RAW Diagnostics") {
             guard let file else { return }
-            rawDiagnosticsLog = RawFileDiagnostics.log(for: file)
-            showRawDiagnostics = true
+            viewModel.presentRawDiagnostics(for: file)
         }
         .keyboardShortcut("i", modifiers: [.command])
         .disabled(file == nil)

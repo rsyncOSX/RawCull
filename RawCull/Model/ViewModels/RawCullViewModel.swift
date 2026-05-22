@@ -42,6 +42,11 @@ enum ActiveSheet: String, Identifiable {
     }
 }
 
+struct RawDiagnosticsPresentation: Identifiable {
+    let id = UUID()
+    let log: String
+}
+
 @Observable @MainActor
 final class RawCullViewModel {
     /// Remember previous selected source to avoid a new rescan of
@@ -153,6 +158,19 @@ final class RawCullViewModel {
     /// Sheet currently presented from the main window toolbar
     /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
     var activeSheet: ActiveSheet?
+
+    var showReviewQueue: Bool = false
+    var showResolvedReviewQueueItems: Bool = false
+    var selectedReviewQueueCategory: ReviewQueueCategory?
+    var reviewQueueItems: [ReviewQueueItem] = []
+    var reviewQueueDiagnosticIssues: [RawFileDiagnosticIssue] = []
+    var reviewQueueSharpnessExpected: Bool = false
+    var lastCopyOutputLines: [String] = []
+    var rawDiagnosticsPresentation: RawDiagnosticsPresentation?
+
+    var reviewQueueOpenAttentionCount: Int {
+        reviewQueueItems.filter(\.isOpenAttentionItem).count
+    }
 
     /// Closure to count scanning files
     var countingScannedFiles: (@Sendable (Int) -> Void)?

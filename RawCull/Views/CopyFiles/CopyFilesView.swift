@@ -155,6 +155,7 @@ struct CopyFilesView: View {
             remotedatanumbers?.outputfromrsync = viewOutput
         }
 
+        viewModel.recordCopyResult(outputLines: result.output)
         executionManager = nil
         showResult = true
     }
