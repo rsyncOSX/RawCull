@@ -36,7 +36,6 @@ final class CullingModel {
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
             savedFiles[index].filerecords = []
             savedFiles[index].burstWinnerOverrides = []
-            savedFiles[index].reviewQueueStates = []
             scheduleSave()
         }
     }
@@ -157,51 +156,6 @@ final class CullingModel {
         let pruned = original.filter { validFileNames.contains($0.winnerFileName) }
         guard pruned.count != original.count else { return }
         savedFiles[index].burstWinnerOverrides = pruned
-        scheduleSave()
-    }
-
-    func reviewQueueStates(in catalog: URL) -> [ReviewQueueItemState] {
-        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return [] }
-        return savedFiles[index].reviewQueueStates ?? []
-    }
-
-    func updateReviewQueueState(_ state: ReviewQueueItemState, in catalog: URL) {
-        let date = Date().en_string_from_date()
-        let catalogIndex = ensureCatalog(catalog, dateStart: date)
-        if savedFiles[catalogIndex].reviewQueueStates == nil {
-            savedFiles[catalogIndex].reviewQueueStates = []
-        }
-        if let stateIndex = savedFiles[catalogIndex].reviewQueueStates?.firstIndex(where: { $0.fingerprint == state.fingerprint }) {
-            savedFiles[catalogIndex].reviewQueueStates?[stateIndex] = state
-        } else {
-            savedFiles[catalogIndex].reviewQueueStates?.append(state)
-        }
-        scheduleSave()
-    }
-
-    func reopenReviewQueueState(fingerprint: String, in catalog: URL) {
-        updateReviewQueueState(
-            ReviewQueueItemState(
-                fingerprint: fingerprint,
-                resolutionState: .open,
-                resolvedAt: nil,
-            ),
-            in: catalog,
-        )
-    }
-
-    func clearReviewQueueStates(in catalog: URL) {
-        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
-        savedFiles[index].reviewQueueStates = []
-        scheduleSave()
-    }
-
-    func pruneReviewQueueStates(validFingerprints: Set<String>, in catalog: URL) {
-        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
-        let original = savedFiles[index].reviewQueueStates ?? []
-        let pruned = original.filter { validFingerprints.contains($0.fingerprint) }
-        guard pruned.count != original.count else { return }
-        savedFiles[index].reviewQueueStates = pruned
         scheduleSave()
     }
 

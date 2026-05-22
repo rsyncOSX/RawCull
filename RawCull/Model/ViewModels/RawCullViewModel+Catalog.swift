@@ -57,10 +57,6 @@ extension RawCullViewModel {
 
         sharpnessModel.reset()
         similarityModel.reset()
-        reviewQueueItems = []
-        reviewQueueDiagnosticIssues = []
-        reviewQueueSharpnessExpected = false
-        lastCopyOutputLines = []
 
         creatingthumbnails = false
         scanning = false
@@ -128,8 +124,6 @@ extension RawCullViewModel {
             preloadedScores: sharpnessModel.scores,
             preloadedSaliency: sharpnessModel.saliencyInfo,
         )
-        reviewQueueSharpnessExpected = !sharpnessModel.scores.isEmpty
-        refreshReviewQueueDiagnostics()
 
         if !processedURLs.contains(url) {
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()

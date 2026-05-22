@@ -37,7 +37,6 @@ extension RawCullViewModel {
         ) {
             applyCachedBurstAnalysis(remapCachedSnapshot(snapshot, to: sorted))
             burstAnalysisProgress = BurstAnalysisProgress()
-            rebuildReviewQueue()
             return
         }
 
@@ -71,7 +70,6 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress(step: .savingCache)
         await saveBurstAnalysisCache(catalog: catalog, files: sorted)
         burstAnalysisProgress = BurstAnalysisProgress()
-        rebuildReviewQueue()
     }
 
     /// Clear loaded burst analysis artifacts, delete the saved burst cache for
@@ -94,7 +92,6 @@ extension RawCullViewModel {
         guard !Task.isCancelled else { return }
         await similarityModel.groupBursts(files: sorted)
         recomputeBurstRankings(files: sorted)
-        rebuildReviewQueue()
     }
 
     // MARK: - User actions
@@ -115,7 +112,6 @@ extension RawCullViewModel {
             updateRating(for: others, rating: -1)
         }
         markDecisionApplied(groupID: groupID)
-        rebuildReviewQueue()
     }
 
     func setManualBurstWinner(_ winner: FileItem, in groupFiles: [FileItem]) {
@@ -132,12 +128,10 @@ extension RawCullViewModel {
         cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
         updateRating(for: winner, rating: 3)
         applyManualWinnerOverrides(files: files)
-        rebuildReviewQueue()
     }
 
     func reapplyManualBurstWinnerOverridesForCurrentGroups() {
         applyManualWinnerOverrides(files: files)
-        rebuildReviewQueue()
     }
 
     /// Rate the recommended frame at ★★★, second best at ★★, and reject others.
@@ -162,7 +156,6 @@ extension RawCullViewModel {
             updateRating(for: others, rating: -1)
         }
         markDecisionApplied(groupID: groupID)
-        rebuildReviewQueue()
     }
 
     func compareBurstGroup(_ groupFiles: [FileItem]) {
@@ -193,7 +186,6 @@ extension RawCullViewModel {
             result.reviewState = burstReviewStates[entry.groupID] ?? .none
             burstAnalysisResults[entry.groupID] = result
         }
-        rebuildReviewQueue()
     }
 
     // MARK: - Shared pure helpers
@@ -348,7 +340,6 @@ extension RawCullViewModel {
         comparisonFileIDs = []
         sharpnessModel.cancelScoring()
         similarityModel.reset()
-        rebuildReviewQueue()
     }
 
     private func saveBurstAnalysisCache(catalog: URL, files: [FileItem]) async {

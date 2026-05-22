@@ -159,18 +159,7 @@ final class RawCullViewModel {
     /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
     var activeSheet: ActiveSheet?
 
-    var showReviewQueue: Bool = false
-    var showResolvedReviewQueueItems: Bool = false
-    var selectedReviewQueueCategory: ReviewQueueCategory?
-    var reviewQueueItems: [ReviewQueueItem] = []
-    var reviewQueueDiagnosticIssues: [RawFileDiagnosticIssue] = []
-    var reviewQueueSharpnessExpected: Bool = false
-    var lastCopyOutputLines: [String] = []
     var rawDiagnosticsPresentation: RawDiagnosticsPresentation?
-
-    var reviewQueueOpenAttentionCount: Int {
-        reviewQueueItems.filter(\.isOpenAttentionItem).count
-    }
 
     /// Closure to count scanning files
     var countingScannedFiles: (@Sendable (Int) -> Void)?
@@ -186,8 +175,6 @@ final class RawCullViewModel {
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
     @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
-    @ObservationIgnored var reviewQueueRebuildTask: Task<Void, Never>?
-    @ObservationIgnored var reviewQueueRebuildGeneration: Int = 0
     @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
 
     // MARK: - Computed

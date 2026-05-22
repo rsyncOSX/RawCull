@@ -12,14 +12,12 @@ struct DecodeSavedFiles: Codable {
     let dateStart: String?
     var filerecords: [DecodeFileRecord]?
     var burstWinnerOverrides: [BurstWinnerOverride]?
-    var reviewQueueStates: [ReviewQueueItemState]?
 
     enum CodingKeys: String, CodingKey {
         case catalog
         case dateStart
         case filerecords
         case burstWinnerOverrides
-        case reviewQueueStates
     }
 
     init(from decoder: Decoder) throws {
@@ -28,7 +26,6 @@ struct DecodeSavedFiles: Codable {
         dateStart = try values.decodeIfPresent(String.self, forKey: .dateStart)
         filerecords = try values.decodeIfPresent([DecodeFileRecord].self, forKey: .filerecords)
         burstWinnerOverrides = try values.decodeIfPresent([BurstWinnerOverride].self, forKey: .burstWinnerOverrides)
-        reviewQueueStates = try values.decodeIfPresent([ReviewQueueItemState].self, forKey: .reviewQueueStates)
     }
 }
 

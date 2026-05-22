@@ -26,24 +26,6 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
 
             ToolbarItem(placement: .status) {
-                Button(action: openReviewQueue) {
-                    Label("Review Queue", systemImage: "list.bullet.clipboard")
-                        .overlay(alignment: .topTrailing) {
-                            if viewModel.reviewQueueOpenAttentionCount > 0 {
-                                Text("\(viewModel.reviewQueueOpenAttentionCount)")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 4)
-                                    .background(.red, in: Capsule())
-                                    .offset(x: 8, y: -8)
-                            }
-                        }
-                }
-                .disabled(viewModel.selectedSource == nil)
-                .help("Open review queue")
-            }
-
-            ToolbarItem(placement: .status) {
                 Button(action: toggleshowsavedfiles) {
                     Label("Saved Files", systemImage: "square.and.arrow.down")
                 }
@@ -183,11 +165,6 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func toggleshowsavedfiles() {
         viewModel.showSavedFiles.toggle()
-    }
-
-    private func openReviewQueue() {
-        viewModel.refreshReviewQueueDiagnostics()
-        viewModel.showReviewQueue = true
     }
 
     private func selectGridMode() {

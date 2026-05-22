@@ -75,11 +75,6 @@ extension RawCullViewModel {
         taggedNamesCache = []
         sharpnessModel.reset()
         similarityModel.reset()
-        reviewQueueDiagnosticIssues = []
-        reviewQueueSharpnessExpected = false
-        lastCopyOutputLines = []
-        cullingModel.clearReviewQueueStates(in: selectedSource.url)
-        rebuildReviewQueue()
     }
 
     func applySharpnessThreshold(_ thresholdPercent: Int) {
@@ -93,6 +88,5 @@ extension RawCullViewModel {
 
         cullingModel.applyRatings(ratingsByFileName, in: selectedSource.url)
         rebuildRatingCache()
-        rebuildReviewQueue()
     }
 }

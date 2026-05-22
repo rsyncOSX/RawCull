@@ -15,8 +15,6 @@ extension RawCullViewModel {
         // an empty dict means the run was cancelled, so skip the write.
         if !sharpnessModel.scores.isEmpty {
             persistScoringResultsInMemory()
-            reviewQueueSharpnessExpected = true
-            rebuildReviewQueue()
         }
         await handleSortOrderChange()
     }
@@ -56,6 +54,5 @@ extension RawCullViewModel {
                 sharpnessModel.saliencyInfo[file.id] = SaliencyInfo(subjectLabel: subjectLabel)
             }
         }
-        reviewQueueSharpnessExpected = !sharpnessModel.scores.isEmpty
     }
 }
