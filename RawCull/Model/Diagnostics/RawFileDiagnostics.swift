@@ -215,7 +215,6 @@ enum RawFileDiagnostics {
     private static func string(_ value: Double?) -> String {
         value.map { "\($0)" } ?? "nil"
     }
-
 }
 
 private struct RawFileDiagnosticLogger {

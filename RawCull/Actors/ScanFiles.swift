@@ -10,7 +10,7 @@ import ImageIO
 
 // import OSLog
 
-struct ExifMetadata: Hashable, Sendable {
+struct ExifMetadata: Hashable {
     let shutterSpeed: String?
     let focalLength: String?
     let aperture: String? // formatted display string, e.g. "ƒ/5.6"
