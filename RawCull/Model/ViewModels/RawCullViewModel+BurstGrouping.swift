@@ -9,7 +9,6 @@ import Foundation
 /// grid's burst-section header so the header body does no scoring math
 /// on redraw.
 struct BestInGroupInfo: Equatable {
-    let fileID: UUID
     let fileName: String
     /// Percentage of `maxScore`, or nil when scores are missing or maxScore ≤ 0.
     let percent: Int?
@@ -121,9 +120,7 @@ extension RawCullViewModel {
 
         let override = BurstWinnerOverride(
             winnerFileName: winner.name,
-            winnerFileID: winner.id,
             memberFileNames: groupFiles.map(\.name),
-            dateApplied: Date().en_string_from_date(),
         )
         cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
         updateRating(for: winner, rating: 3)
@@ -229,7 +226,6 @@ extension RawCullViewModel {
             nil
         }
         return BestInGroupInfo(
-            fileID: file.id,
             fileName: file.name,
             percent: percent,
             isManualWinner: isManualWinner,

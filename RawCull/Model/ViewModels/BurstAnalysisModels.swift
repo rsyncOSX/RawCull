@@ -43,56 +43,32 @@ enum BurstDecisionConfidence: String, Codable, Equatable {
     }
 }
 
-enum BurstWinnerOverrideSource: String, Codable, Equatable {
-    case manualWinner
-}
-
 struct BurstWinnerOverride: Codable, Equatable, Identifiable {
     var id: UUID
     var winnerFileName: String
-    var winnerFileID: UUID?
     var memberFileNames: [String]
-    var source: BurstWinnerOverrideSource
-    var dateApplied: String?
-    var rankingAlgorithmVersion: Int
 
     init(
         id: UUID = UUID(),
         winnerFileName: String,
-        winnerFileID: UUID?,
         memberFileNames: [String],
-        source: BurstWinnerOverrideSource = .manualWinner,
-        dateApplied: String? = nil,
-        rankingAlgorithmVersion: Int = BurstGroupingConfig.algorithmVersion,
     ) {
         self.id = id
         self.winnerFileName = winnerFileName
-        self.winnerFileID = winnerFileID
         self.memberFileNames = memberFileNames
-        self.source = source
-        self.dateApplied = dateApplied
-        self.rankingAlgorithmVersion = rankingAlgorithmVersion
     }
 
     enum CodingKeys: String, CodingKey {
         case id
         case winnerFileName
-        case winnerFileID
         case memberFileNames
-        case source
-        case dateApplied
-        case rankingAlgorithmVersion
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         winnerFileName = try values.decode(String.self, forKey: .winnerFileName)
-        winnerFileID = try values.decodeIfPresent(UUID.self, forKey: .winnerFileID)
         memberFileNames = try values.decodeIfPresent([String].self, forKey: .memberFileNames) ?? []
-        source = try values.decodeIfPresent(BurstWinnerOverrideSource.self, forKey: .source) ?? .manualWinner
-        dateApplied = try values.decodeIfPresent(String.self, forKey: .dateApplied)
-        rankingAlgorithmVersion = try values.decodeIfPresent(Int.self, forKey: .rankingAlgorithmVersion) ?? 0
     }
 }
 

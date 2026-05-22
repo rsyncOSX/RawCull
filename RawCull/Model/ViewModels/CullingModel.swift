@@ -142,14 +142,6 @@ final class CullingModel {
             .last { groupNames.contains($0.winnerFileName) }
     }
 
-    func removeBurstWinnerOverride(id: UUID, in catalog: URL) {
-        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }),
-              savedFiles[index].burstWinnerOverrides?.contains(where: { $0.id == id }) == true
-        else { return }
-        savedFiles[index].burstWinnerOverrides?.removeAll { $0.id == id }
-        scheduleSave()
-    }
-
     func pruneStaleBurstOverrides(validFileNames: Set<String>, in catalog: URL) {
         guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
         let original = savedFiles[index].burstWinnerOverrides ?? []

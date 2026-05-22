@@ -300,9 +300,7 @@ struct BurstViewModelActionTests {
         viewModel.cullingModel.upsertBurstWinnerOverride(
             BurstWinnerOverride(
                 winnerFileName: "c.ARW",
-                winnerFileID: files[2].id,
                 memberFileNames: files.map(\.name),
-                dateApplied: "19 May 2026 12:00",
             ),
             in: catalog.url,
         )

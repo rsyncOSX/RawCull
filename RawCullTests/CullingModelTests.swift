@@ -121,15 +121,11 @@ struct CullingModelTests {
         ]
         let first = BurstWinnerOverride(
             winnerFileName: "two.ARW",
-            winnerFileID: files[1].id,
             memberFileNames: files.map(\.name),
-            dateApplied: "19 May 2026 12:00",
         )
         let replacement = BurstWinnerOverride(
             winnerFileName: "three.ARW",
-            winnerFileID: files[2].id,
             memberFileNames: files.map(\.name),
-            dateApplied: "19 May 2026 12:01",
         )
 
         model.upsertBurstWinnerOverride(first, in: catalog)
@@ -229,9 +225,7 @@ struct SavedFilesJSONTests {
     func `saved files JSON round trips burst winner overrides`() throws {
         let override = BurstWinnerOverride(
             winnerFileName: "winner.ARW",
-            winnerFileID: UUID(),
             memberFileNames: ["one.ARW", "winner.ARW"],
-            dateApplied: "19 May 2026 12:00",
         )
         var saved = SavedFiles(
             catalog: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
