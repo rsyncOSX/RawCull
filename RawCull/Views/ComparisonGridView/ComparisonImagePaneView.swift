@@ -11,6 +11,9 @@ struct ComparisonImagePaneView: View {
     let markerSize: CGFloat
     let isSelected: Bool
     let rating: RatingDisplay
+    let burstAnalysis: BurstAnalysisResult?
+    let burstCandidate: BurstCandidateScore?
+    let burstRating: Int
     let zoomPanGesture: AnyGesture<Void>
     let onSelect: () -> Void
     let onToggleZoom: () -> Void
@@ -28,7 +31,19 @@ struct ComparisonImagePaneView: View {
                 }
 
                 VStack {
-                    HStack {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .top) {
+                            if let burstAnalysis, let burstCandidate {
+                                BurstCandidateBadgeView(
+                                    candidate: burstCandidate,
+                                    analysis: burstAnalysis,
+                                    rating: burstRating,
+                                )
+                            }
+                            Spacer()
+                            CurrentRatingBadgeView(rating: rating)
+                        }
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(file.name)
                                 .font(.headline)
@@ -38,8 +53,6 @@ struct ComparisonImagePaneView: View {
                                 .lineLimit(1)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        CurrentRatingBadgeView(rating: rating)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)

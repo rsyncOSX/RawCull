@@ -28,6 +28,7 @@ struct ComparisonGridView: View {
                     ScrollView {
                         LazyVGrid(columns: columns(for: geo.size), spacing: 12) {
                             ForEach(files) { file in
+                                let burstAnalysis = burstComparisonResult
                                 ComparisonImagePaneView(
                                     file: file,
                                     state: imageStates[file.id],
@@ -39,6 +40,9 @@ struct ComparisonGridView: View {
                                     markerSize: viewModel.focusPointMarkerSize,
                                     isSelected: viewModel.selectedFileID == file.id,
                                     rating: ratingDisplay(for: file),
+                                    burstAnalysis: burstAnalysis,
+                                    burstCandidate: burstCandidate(for: file, in: burstAnalysis),
+                                    burstRating: viewModel.getRating(for: file),
                                     zoomPanGesture: zoomPanGesture,
                                     onSelect: { viewModel.selectedFileID = file.id },
                                     onToggleZoom: toggleZoom,
@@ -292,6 +296,16 @@ struct ComparisonGridView: View {
             rating: viewModel.getRating(for: file),
             isExplicit: viewModel.taggedNamesCache.contains(file.name),
         )
+    }
+
+    private func burstCandidate(
+        for file: FileItem,
+        in analysis: BurstAnalysisResult?,
+    ) -> BurstCandidateScore? {
+        guard let analysis,
+              analysis.fileIDs.contains(file.id)
+        else { return nil }
+        return analysis.candidates.first { $0.fileID == file.id }
     }
 
     private func selectFirstComparisonFileIfNeeded() {
