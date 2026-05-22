@@ -52,6 +52,7 @@ struct SavedFiles: Identifiable, Codable {
     var catalog: URL?
     var dateStart: String?
     var filerecords: [FileRecord]?
+    var burstWinnerOverrides: [BurstWinnerOverride]?
 
     /// Used when reading JSON data from store
     init(_ data: DecodeSavedFiles) {
@@ -67,6 +68,7 @@ struct SavedFiles: Identifiable, Codable {
                 saliencySubject: record.saliencySubject,
             )
         }
+        burstWinnerOverrides = data.burstWinnerOverrides
     }
 
     /// Create a new record
@@ -74,6 +76,7 @@ struct SavedFiles: Identifiable, Codable {
         self.catalog = catalog
         self.dateStart = dateStart
         self.filerecords = [filerecord]
+        burstWinnerOverrides = nil
     }
 }
 

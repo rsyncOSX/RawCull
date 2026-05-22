@@ -184,6 +184,14 @@ struct BurstCandidateBadgeView: View {
     }
 
     private var rankTitle: String {
+        if analysis.reviewState == .manualWinnerOverride,
+           analysis.recommendedFileID == candidate.fileID {
+            return "MANUAL"
+        }
+        if analysis.reviewState == .manualWinnerOverride,
+           analysis.candidates.first?.fileID == candidate.fileID {
+            return "AUTO BEST"
+        }
         if analysis.recommendedFileID == candidate.fileID {
             return analysis.confidence == .low ? "BEST?" : "BEST"
         }
@@ -194,6 +202,14 @@ struct BurstCandidateBadgeView: View {
     }
 
     private var rankColor: Color {
+        if analysis.reviewState == .manualWinnerOverride,
+           analysis.recommendedFileID == candidate.fileID {
+            return .orange
+        }
+        if analysis.reviewState == .manualWinnerOverride,
+           analysis.candidates.first?.fileID == candidate.fileID {
+            return .green
+        }
         if analysis.recommendedFileID == candidate.fileID {
             switch analysis.confidence {
             case .high: return .green

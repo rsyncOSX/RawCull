@@ -35,6 +35,7 @@ final class CullingModel {
     func resetSavedFiles(in catalog: URL) {
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
             savedFiles[index].filerecords = []
+            savedFiles[index].burstWinnerOverrides = []
             scheduleSave()
         }
     }
@@ -110,6 +111,51 @@ final class CullingModel {
                 updateSaliencySubject: true,
             )
         }
+        scheduleSave()
+    }
+
+    func upsertBurstWinnerOverride(_ override: BurstWinnerOverride, in catalog: URL) {
+        let date = Date().en_string_from_date()
+        let catalogIndex = ensureCatalog(catalog, dateStart: date)
+        let newMembership = Set(override.memberFileNames)
+
+        if savedFiles[catalogIndex].burstWinnerOverrides == nil {
+            savedFiles[catalogIndex].burstWinnerOverrides = []
+        }
+
+        savedFiles[catalogIndex].burstWinnerOverrides?.removeAll { existing in
+            existing.winnerFileName == override.winnerFileName ||
+                Set(existing.memberFileNames) == newMembership
+        }
+        savedFiles[catalogIndex].burstWinnerOverrides?.append(override)
+        scheduleSave()
+    }
+
+    func burstWinnerOverrides(in catalog: URL) -> [BurstWinnerOverride] {
+        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return [] }
+        return savedFiles[index].burstWinnerOverrides ?? []
+    }
+
+    func overrideWinner(for groupFiles: [FileItem], in catalog: URL) -> BurstWinnerOverride? {
+        let groupNames = Set(groupFiles.map(\.name))
+        return burstWinnerOverrides(in: catalog)
+            .last { groupNames.contains($0.winnerFileName) }
+    }
+
+    func removeBurstWinnerOverride(id: UUID, in catalog: URL) {
+        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }),
+              savedFiles[index].burstWinnerOverrides?.contains(where: { $0.id == id }) == true
+        else { return }
+        savedFiles[index].burstWinnerOverrides?.removeAll { $0.id == id }
+        scheduleSave()
+    }
+
+    func pruneStaleBurstOverrides(validFileNames: Set<String>, in catalog: URL) {
+        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
+        let original = savedFiles[index].burstWinnerOverrides ?? []
+        let pruned = original.filter { validFileNames.contains($0.winnerFileName) }
+        guard pruned.count != original.count else { return }
+        savedFiles[index].burstWinnerOverrides = pruned
         scheduleSave()
     }
 

@@ -51,8 +51,12 @@ struct ComparisonGridView: View {
                         if let burstComparisonResult {
                             BurstComparisonEvidenceView(
                                 result: burstComparisonResult,
+                                selectedFile: selectedComparisonFile,
                                 onKeepBest: { viewModel.keepBestInGroup(from: files) },
                                 onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: files) },
+                                onSetManualWinner: { file in
+                                    viewModel.setManualBurstWinner(file, in: files)
+                                },
                                 onBack: viewModel.returnToActiveBurstGroupView,
                             )
                             .padding(.horizontal, 12)
@@ -427,8 +431,10 @@ struct ComparisonGridView: View {
 
 private struct BurstComparisonEvidenceView: View {
     let result: BurstAnalysisResult
+    let selectedFile: FileItem?
     let onKeepBest: () -> Void
     let onKeepTopTwo: () -> Void
+    let onSetManualWinner: (FileItem) -> Void
     let onBack: () -> Void
 
     var body: some View {
@@ -439,6 +445,11 @@ private struct BurstComparisonEvidenceView: View {
                 Text(result.confidence.title)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
+                if result.reviewState == .manualWinnerOverride {
+                    Text("Manual winner active")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
                 Spacer()
                 Button("Back To Group", action: onBack)
                     .controlSize(.small)
@@ -465,6 +476,13 @@ private struct BurstComparisonEvidenceView: View {
                 }
                 Spacer()
                 HStack(spacing: 8) {
+                    Button("Set Manual Winner") {
+                        if let selectedFile {
+                            onSetManualWinner(selectedFile)
+                        }
+                    }
+                    .disabled(!selectedFileIsInResult)
+                    .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
                     Button("Keep Best", action: onKeepBest)
                         .buttonStyle(.borderedProminent)
                         .tint(.green)
@@ -475,5 +493,10 @@ private struct BurstComparisonEvidenceView: View {
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var selectedFileIsInResult: Bool {
+        guard let selectedFile else { return false }
+        return result.fileIDs.contains(selectedFile.id)
     }
 }

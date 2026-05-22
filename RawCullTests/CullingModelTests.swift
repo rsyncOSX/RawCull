@@ -108,6 +108,42 @@ struct CullingModelTests {
     }
 
     @Test
+    func `burst winner overrides upsert match and prune by catalog`() async {
+        let recorder = SavedFilesRecorder()
+        let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
+            await recorder.record(savedFiles)
+        }
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let files = [
+            makeCullingTestFile("one.ARW"),
+            makeCullingTestFile("two.ARW"),
+            makeCullingTestFile("three.ARW")
+        ]
+        let first = BurstWinnerOverride(
+            winnerFileName: "two.ARW",
+            winnerFileID: files[1].id,
+            memberFileNames: files.map(\.name),
+            dateApplied: "19 May 2026 12:00",
+        )
+        let replacement = BurstWinnerOverride(
+            winnerFileName: "three.ARW",
+            winnerFileID: files[2].id,
+            memberFileNames: files.map(\.name),
+            dateApplied: "19 May 2026 12:01",
+        )
+
+        model.upsertBurstWinnerOverride(first, in: catalog)
+        model.upsertBurstWinnerOverride(replacement, in: catalog)
+        _ = await recorder.waitForSnapshotCount(1)
+
+        #expect(model.burstWinnerOverrides(in: catalog).map(\.winnerFileName) == ["three.ARW"])
+        #expect(model.overrideWinner(for: files, in: catalog)?.winnerFileName == "three.ARW")
+
+        model.pruneStaleBurstOverrides(validFileNames: ["one.ARW", "two.ARW"], in: catalog)
+        #expect(model.burstWinnerOverrides(in: catalog).isEmpty)
+    }
+
+    @Test
     func `resetSavedFiles clears records for catalog`() async {
         let recorder = SavedFilesRecorder()
         let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
@@ -167,6 +203,48 @@ struct SavedFilesJSONTests {
         #expect(decoded.first?.catalog == catalog)
         #expect(decoded.first?.filerecords?.first?.fileName == "one.ARW")
         #expect(decoded.first?.filerecords?.first?.rating == 4)
+    }
+
+    @Test
+    func `older saved files JSON without burst overrides decodes`() throws {
+        let json = """
+        [{
+          "catalog": "file:///tmp/catalog/",
+          "dateStart": "19 May 2026 12:00",
+          "filerecords": [{
+            "fileName": "one.ARW",
+            "rating": 3
+          }]
+        }]
+        """
+        let decoded = try JSONDecoder().decode([DecodeSavedFiles].self, from: Data(json.utf8))
+        let saved = try #require(decoded.first.map(SavedFiles.init))
+
+        #expect(saved.catalog == URL(string: "file:///tmp/catalog/"))
+        #expect(saved.filerecords?.first?.fileName == "one.ARW")
+        #expect(saved.burstWinnerOverrides == nil)
+    }
+
+    @Test
+    func `saved files JSON round trips burst winner overrides`() throws {
+        let override = BurstWinnerOverride(
+            winnerFileName: "winner.ARW",
+            winnerFileID: UUID(),
+            memberFileNames: ["one.ARW", "winner.ARW"],
+            dateApplied: "19 May 2026 12:00",
+        )
+        var saved = SavedFiles(
+            catalog: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+            dateStart: "19 May 2026 12:00",
+            filerecord: FileRecord(fileName: "winner.ARW", dateTagged: nil, dateCopied: nil, rating: 3),
+        )
+        saved.burstWinnerOverrides = [override]
+
+        let data = try JSONEncoder().encode([saved])
+        let decoded = try JSONDecoder().decode([DecodeSavedFiles].self, from: data)
+        let restored = try #require(decoded.first.map(SavedFiles.init))
+
+        #expect(restored.burstWinnerOverrides == [override])
     }
 
     @Test

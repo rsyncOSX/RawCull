@@ -232,6 +232,119 @@ struct BurstViewModelActionTests {
     }
 
     @Test(.tags(.critical))
+    func `manual burst winner overrides keep best and survives undo`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.filteredFiles = files
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
+        viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
+        viewModel.burstAnalysisResults[0] = BurstAnalysisResult(
+            groupID: 0,
+            fileIDs: files.map(\.id),
+            candidates: [
+                BurstCandidateScore(fileID: files[1].id, overallScore: 0.9, sharpnessComponent: 0.9, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: []),
+                BurstCandidateScore(fileID: files[2].id, overallScore: 0.7, sharpnessComponent: 0.7, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: []),
+                BurstCandidateScore(fileID: files[0].id, overallScore: 0.2, sharpnessComponent: 0.2, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .high, reasons: [], cautions: [])
+            ],
+            recommendedFileID: files[1].id,
+            secondBestFileID: files[2].id,
+            confidence: .high,
+            reviewState: .none,
+            isSafeForOneClickCulling: true,
+            reasons: [],
+            cautions: [],
+        )
+
+        viewModel.setManualBurstWinner(files[2], in: files)
+        #expect(viewModel.burstAnalysisResults[0]?.recommendedFileID == files[2].id)
+        #expect(viewModel.burstAnalysisResults[0]?.secondBestFileID == files[1].id)
+        #expect(viewModel.burstAnalysisResults[0]?.reviewState == .manualWinnerOverride)
+
+        viewModel.keepBestInGroup(from: files)
+        #expect(viewModel.getRating(for: files[2]) == 3)
+        #expect(viewModel.getRating(for: files[0]) == -1)
+        #expect(viewModel.getRating(for: files[1]) == -1)
+        #expect(viewModel.burstAnalysisResults[0]?.reviewState == .manualWinnerOverride)
+
+        viewModel.undoLastBurstAction()
+        #expect(viewModel.getRating(for: files[2]) == 0)
+        #expect(viewModel.cullingModel.burstWinnerOverrides(in: catalog.url).first?.winnerFileName == "c.ARW")
+    }
+
+    @Test(.tags(.critical))
+    func `manual burst winner reattaches to regrouped winner group`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.filteredFiles = files
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.cullingModel.upsertBurstWinnerOverride(
+            BurstWinnerOverride(
+                winnerFileName: "c.ARW",
+                winnerFileID: files[2].id,
+                memberFileNames: files.map(\.name),
+                dateApplied: "19 May 2026 12:00",
+            ),
+            in: catalog.url,
+        )
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 0, fileIDs: [files[0].id, files[1].id]),
+            BurstGroup(id: 1, fileIDs: [files[2].id])
+        ]
+        viewModel.similarityModel.burstGroupLookup = [
+            files[0].id: 0,
+            files[1].id: 0,
+            files[2].id: 1
+        ]
+        viewModel.burstAnalysisResults[0] = BurstAnalysisResult(
+            groupID: 0,
+            fileIDs: [files[0].id, files[1].id],
+            candidates: [],
+            recommendedFileID: files[1].id,
+            secondBestFileID: files[0].id,
+            confidence: .medium,
+            reviewState: .none,
+            isSafeForOneClickCulling: false,
+            reasons: [],
+            cautions: [],
+        )
+        viewModel.burstAnalysisResults[1] = BurstAnalysisResult(
+            groupID: 1,
+            fileIDs: [files[2].id],
+            candidates: [
+                BurstCandidateScore(fileID: files[2].id, overallScore: 0.4, sharpnessComponent: 0.4, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .low, reasons: [], cautions: [])
+            ],
+            recommendedFileID: nil,
+            secondBestFileID: nil,
+            confidence: .low,
+            reviewState: .none,
+            isSafeForOneClickCulling: false,
+            reasons: [],
+            cautions: [],
+        )
+
+        viewModel.reapplyManualBurstWinnerOverridesForCurrentGroups()
+
+        #expect(viewModel.burstAnalysisResults[0]?.reviewState == BurstReviewState.none)
+        #expect(viewModel.burstAnalysisResults[1]?.recommendedFileID == files[2].id)
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState == .manualWinnerOverride)
+    }
+
+    @Test(.tags(.critical))
     func `clear loaded burst analysis for reindex discards stale analysis state`() {
         let viewModel = RawCullViewModel()
         let files = [

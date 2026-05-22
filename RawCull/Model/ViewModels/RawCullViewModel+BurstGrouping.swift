@@ -9,10 +9,11 @@ import Foundation
 /// grid's burst-section header so the header body does no scoring math
 /// on redraw.
 struct BestInGroupInfo: Equatable {
-    /// let fileID: UUID
+    let fileID: UUID
     let fileName: String
     /// Percentage of `maxScore`, or nil when scores are missing or maxScore ≤ 0.
     let percent: Int?
+    let isManualWinner: Bool
 }
 
 extension RawCullViewModel {
@@ -99,7 +100,8 @@ extension RawCullViewModel {
     func keepBestInGroup(from groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
-        let best = burstAnalysisResults[groupID]?.recommendedFileID
+        let best = manualOverrideWinner(in: groupFiles)?.file
+            ?? burstAnalysisResults[groupID]?.recommendedFileID
             .flatMap { id in groupFiles.first { $0.id == id } }
             ?? Self.sharpestFile(in: groupFiles, scores: sharpnessModel.scores)
             ?? groupFiles[0]
@@ -110,6 +112,25 @@ extension RawCullViewModel {
             updateRating(for: others, rating: -1)
         }
         markDecisionApplied(groupID: groupID)
+    }
+
+    func setManualBurstWinner(_ winner: FileItem, in groupFiles: [FileItem]) {
+        guard let selectedSource,
+              groupFiles.contains(where: { $0.id == winner.id })
+        else { return }
+
+        let override = BurstWinnerOverride(
+            winnerFileName: winner.name,
+            winnerFileID: winner.id,
+            memberFileNames: groupFiles.map(\.name),
+            dateApplied: Date().en_string_from_date(),
+        )
+        cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
+        applyManualWinnerOverrides(files: files)
+    }
+
+    func reapplyManualBurstWinnerOverridesForCurrentGroups() {
+        applyManualWinnerOverrides(files: files)
     }
 
     /// Rate the recommended frame at ★★★, second best at ★★, and reject others.
@@ -192,12 +213,26 @@ extension RawCullViewModel {
         maxScore: Float,
     ) -> BestInGroupInfo? {
         guard !scores.isEmpty, let best = sharpestFile(in: files, scores: scores) else { return nil }
-        let percent: Int? = if let score = scores[best.id], maxScore > 0 {
+        return bestInGroupInfo(file: best, scores: scores, maxScore: maxScore, isManualWinner: false)
+    }
+
+    nonisolated static func bestInGroupInfo(
+        file: FileItem,
+        scores: [UUID: Float],
+        maxScore: Float,
+        isManualWinner: Bool,
+    ) -> BestInGroupInfo {
+        let percent: Int? = if let score = scores[file.id], maxScore > 0 {
             Int(min(score / maxScore, 1.0) * 100)
         } else {
             nil
         }
-        return BestInGroupInfo(fileName: best.name, percent: percent)
+        return BestInGroupInfo(
+            fileID: file.id,
+            fileName: file.name,
+            percent: percent,
+            isManualWinner: isManualWinner,
+        )
     }
 
     func burstAnalysisResult(for groupID: Int) -> BurstAnalysisResult? {
@@ -227,10 +262,39 @@ extension RawCullViewModel {
             reviewStates: burstReviewStates,
         )
         burstAnalysisResults = Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) })
+        applyManualWinnerOverrides(files: files)
     }
 
     private func groupID(for groupFiles: [FileItem]) -> Int {
         groupFiles.lazy.compactMap { self.similarityModel.burstGroupLookup[$0.id] }.first ?? -1
+    }
+
+    func manualOverrideWinner(in groupFiles: [FileItem]) -> (file: FileItem, override: BurstWinnerOverride)? {
+        guard let selectedSource,
+              let override = cullingModel.overrideWinner(for: groupFiles, in: selectedSource.url),
+              let file = groupFiles.first(where: { $0.name == override.winnerFileName })
+        else { return nil }
+        return (file, override)
+    }
+
+    private func applyManualWinnerOverrides(files: [FileItem]) {
+        guard let selectedSource else { return }
+        cullingModel.pruneStaleBurstOverrides(
+            validFileNames: Set(files.map(\.name)),
+            in: selectedSource.url,
+        )
+
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        for group in similarityModel.burstGroups {
+            let groupFiles = group.fileIDs.compactMap { filesByID[$0] }
+            guard let winner = manualOverrideWinner(in: groupFiles)?.file else { continue }
+            burstReviewStates[group.id] = .manualWinnerOverride
+            guard var result = burstAnalysisResults[group.id] else { continue }
+            result.recommendedFileID = winner.id
+            result.secondBestFileID = result.candidates.first { $0.fileID != winner.id }?.fileID
+            result.reviewState = .manualWinnerOverride
+            burstAnalysisResults[group.id] = result
+        }
     }
 
     private func captureUndo(groupID: Int, files: [FileItem]) {
@@ -241,6 +305,10 @@ extension RawCullViewModel {
     }
 
     private func markDecisionApplied(groupID: Int) {
+        if burstAnalysisResults[groupID]?.reviewState == .manualWinnerOverride {
+            burstReviewStates[groupID] = .manualWinnerOverride
+            return
+        }
         burstReviewStates[groupID] = .decisionApplied
         if var result = burstAnalysisResults[groupID] {
             result.reviewState = .decisionApplied
@@ -257,6 +325,7 @@ extension RawCullViewModel {
         )
         burstReviewStates = snapshot.reviewStates
         burstAnalysisResults = Dictionary(uniqueKeysWithValues: snapshot.results.map { ($0.groupID, $0) })
+        applyManualWinnerOverrides(files: files)
     }
 
     func clearLoadedBurstAnalysisForReindex() {

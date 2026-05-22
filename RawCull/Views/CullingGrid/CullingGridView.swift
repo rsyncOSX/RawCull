@@ -166,10 +166,11 @@ private struct BurstGroupHeaderView: View {
     }
 
     private func bestLabel(_ best: BestInGroupInfo) -> String {
+        let prefix = best.isManualWinner ? "Manual winner" : "Best"
         if let pct = best.percent {
-            return "Best: \(best.fileName) (\(pct)%)"
+            return "\(prefix): \(best.fileName) (\(pct)%)"
         }
-        return "Best: \(best.fileName)"
+        return "\(prefix): \(best.fileName)"
     }
 }
 
@@ -470,6 +471,10 @@ struct CullingGridView<Header: View>: View {
         for g in groups {
             structureHasher.combine(g.id)
             structureHasher.combine(g.fileIDs.count)
+            if let result = viewModel.burstAnalysisResults[g.id] {
+                structureHasher.combine(result.recommendedFileID)
+                structureHasher.combine(result.reviewState.rawValue)
+            }
         }
         let currentFiles = files
         return GridCacheKey(
@@ -500,7 +505,17 @@ struct CullingGridView<Header: View>: View {
             let visible = group.fileIDs.compactMap { lookup[$0] }
             guard !visible.isEmpty else { continue }
             newVisible.append(VisibleBurstGroup(id: group.id, files: visible))
-            if let info = RawCullViewModel.bestInGroupInfo(
+            if let result = viewModel.burstAnalysisResults[group.id],
+               result.reviewState == .manualWinnerOverride,
+               let winnerID = result.recommendedFileID,
+               let winner = visible.first(where: { $0.id == winnerID }) {
+                newBest[group.id] = RawCullViewModel.bestInGroupInfo(
+                    file: winner,
+                    scores: scores,
+                    maxScore: maxScore,
+                    isManualWinner: true,
+                )
+            } else if let info = RawCullViewModel.bestInGroupInfo(
                 files: visible,
                 scores: scores,
                 maxScore: maxScore,
