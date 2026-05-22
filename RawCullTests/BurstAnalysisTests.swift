@@ -264,6 +264,9 @@ struct BurstViewModelActionTests {
         )
 
         viewModel.setManualBurstWinner(files[2], in: files)
+        #expect(viewModel.getRating(for: files[2]) == 3)
+        #expect(viewModel.getRating(for: files[0]) == 0)
+        #expect(viewModel.getRating(for: files[1]) == 0)
         #expect(viewModel.burstAnalysisResults[0]?.recommendedFileID == files[2].id)
         #expect(viewModel.burstAnalysisResults[0]?.secondBestFileID == files[1].id)
         #expect(viewModel.burstAnalysisResults[0]?.reviewState == .manualWinnerOverride)
@@ -275,7 +278,9 @@ struct BurstViewModelActionTests {
         #expect(viewModel.burstAnalysisResults[0]?.reviewState == .manualWinnerOverride)
 
         viewModel.undoLastBurstAction()
-        #expect(viewModel.getRating(for: files[2]) == 0)
+        #expect(viewModel.getRating(for: files[0]) == 0)
+        #expect(viewModel.getRating(for: files[1]) == 0)
+        #expect(viewModel.getRating(for: files[2]) == 3)
         #expect(viewModel.cullingModel.burstWinnerOverrides(in: catalog.url).first?.winnerFileName == "c.ARW")
     }
 

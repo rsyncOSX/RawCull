@@ -126,6 +126,7 @@ extension RawCullViewModel {
             dateApplied: Date().en_string_from_date(),
         )
         cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
+        updateRating(for: winner, rating: 3)
         applyManualWinnerOverrides(files: files)
     }
 
