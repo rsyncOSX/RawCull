@@ -1,6 +1,6 @@
 import Foundation
 
-enum ReviewQueueCategory: String, CaseIterable, Codable, Identifiable {
+nonisolated enum ReviewQueueCategory: String, CaseIterable, Codable, Identifiable, Sendable {
     case burst
     case sharpness
     case parser
@@ -26,7 +26,7 @@ enum ReviewQueueCategory: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-enum ReviewQueueSeverity: String, Codable, Comparable {
+nonisolated enum ReviewQueueSeverity: String, Codable, Comparable, Sendable {
     case info
     case warning
     case blocking
@@ -44,14 +44,14 @@ enum ReviewQueueSeverity: String, Codable, Comparable {
     }
 }
 
-enum ReviewQueueResolutionState: String, Codable {
+nonisolated enum ReviewQueueResolutionState: String, Codable, Sendable {
     case open
     case resolved
     case ignored
     case stale
 }
 
-enum ReviewQueueSource: String, Codable {
+nonisolated enum ReviewQueueSource: String, Codable, Sendable {
     case burstAnalysis
     case sharpnessScoring
     case rawDiagnostics
@@ -59,7 +59,7 @@ enum ReviewQueueSource: String, Codable {
     case catalogHealth
 }
 
-struct ReviewQueueItem: Identifiable, Codable, Equatable, Hashable {
+nonisolated struct ReviewQueueItem: Identifiable, Codable, Equatable, Hashable, Sendable {
     var id: String {
         fingerprint
     }
@@ -84,7 +84,7 @@ struct ReviewQueueItem: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
-struct ReviewQueueItemState: Identifiable, Codable, Equatable, Hashable {
+nonisolated struct ReviewQueueItemState: Identifiable, Codable, Equatable, Hashable, Sendable {
     var id: String {
         fingerprint
     }
@@ -94,7 +94,7 @@ struct ReviewQueueItemState: Identifiable, Codable, Equatable, Hashable {
     var resolvedAt: Date?
 }
 
-enum ReviewQueueFingerprint {
+nonisolated enum ReviewQueueFingerprint {
     static func make(
         catalog: URL?,
         category: ReviewQueueCategory,
@@ -118,7 +118,7 @@ enum ReviewQueueFingerprint {
     }
 }
 
-struct RawFileDiagnosticIssue: Identifiable, Equatable, Hashable {
+nonisolated struct RawFileDiagnosticIssue: Identifiable, Equatable, Hashable, Sendable {
     var id: String {
         "\(category.rawValue)|\(fileName)|\(message)"
     }

@@ -12,7 +12,7 @@ import Vision
 // MARK: - BurstGroup
 
 /// A burst group: a sequence of consecutive frames that are visually similar.
-struct BurstGroup: Codable, Equatable, Identifiable {
+struct BurstGroup: Codable, Equatable, Identifiable, Sendable {
     let id: Int
     let fileIDs: [UUID] // sequential (name-sorted) order
 }

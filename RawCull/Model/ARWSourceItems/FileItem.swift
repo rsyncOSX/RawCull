@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
  dateModified = 2025-04-01 06:09:43 UTC
  */
 
-struct FileItem: Identifiable, Hashable {
+struct FileItem: Identifiable, Hashable, Sendable {
     let id = UUID()
     let url: URL
     let name: String
@@ -40,7 +40,7 @@ struct FileItem: Identifiable, Hashable {
  url = "file:///Users/thomas/Pictures_raw/2025/1_apr_2025/": NSURL
  */
 
-struct ARWSourceCatalog: Identifiable, Hashable {
+struct ARWSourceCatalog: Identifiable, Hashable, Sendable {
     let id = UUID()
     let name: String
     let url: URL

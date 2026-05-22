@@ -1,7 +1,7 @@
 import Foundation
 
-struct ReviewQueueBuilder {
-    struct Input {
+nonisolated struct ReviewQueueBuilder: Sendable {
+    struct Input: Sendable {
         var catalog: URL?
         var files: [FileItem]
         var burstGroups: [BurstGroup]
@@ -15,7 +15,7 @@ struct ReviewQueueBuilder {
         var createdAt: Date = .init()
     }
 
-    func build(input: Input) -> [ReviewQueueItem] {
+    nonisolated func build(input: Input) -> [ReviewQueueItem] {
         let filesByID = Dictionary(uniqueKeysWithValues: input.files.map { ($0.id, $0) })
         let groupsByID = Dictionary(uniqueKeysWithValues: input.burstGroups.map { ($0.id, $0) })
         let stateByFingerprint = Dictionary(uniqueKeysWithValues: input.persistedStates.map { ($0.fingerprint, $0) })

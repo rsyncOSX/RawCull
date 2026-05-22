@@ -20,6 +20,9 @@ extension RawCullViewModel {
 
     func rebuildReviewQueue() {
         guard let catalog = selectedSource?.url else {
+            reviewQueueRebuildTask?.cancel()
+            reviewQueueRebuildTask = nil
+            reviewQueueRebuildGeneration += 1
             reviewQueueItems = []
             return
         }
@@ -37,12 +40,26 @@ extension RawCullViewModel {
             copyOutput: lastCopyOutputLines,
             persistedStates: persistedStates,
         )
-        let items = ReviewQueueBuilder().build(input: input)
-        reviewQueueItems = items
-        cullingModel.pruneReviewQueueStates(
-            validFingerprints: Set(items.map(\.fingerprint)),
-            in: catalog,
-        )
+
+        reviewQueueRebuildTask?.cancel()
+        reviewQueueRebuildGeneration += 1
+        let generation = reviewQueueRebuildGeneration
+        reviewQueueRebuildTask = Task.detached(priority: .userInitiated) { [weak self, input, catalog, generation] in
+            let items = ReviewQueueBuilder().build(input: input)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { [weak self, items, catalog, generation] in
+                guard let self,
+                      self.reviewQueueRebuildGeneration == generation,
+                      self.selectedSource?.url == catalog
+                else { return }
+                self.reviewQueueItems = items
+                self.cullingModel.pruneReviewQueueStates(
+                    validFingerprints: Set(items.map(\.fingerprint)),
+                    in: catalog,
+                )
+                self.reviewQueueRebuildTask = nil
+            }
+        }
     }
 
     func resolveReviewQueueItem(_ item: ReviewQueueItem) {
