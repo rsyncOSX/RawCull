@@ -500,7 +500,6 @@ struct FocusMaskEngine: @unchecked Sendable {
         let fullScore: Float?
         let salientScore: Float?
         let afScore: Float?
-        let effectiveSubjectScore: Float?
         let subjectMicro: Float
     }
 
@@ -793,7 +792,6 @@ struct FocusMaskEngine: @unchecked Sendable {
             fullScore: fullScore,
             salientScore: salientScore,
             afScore: afScore,
-            effectiveSubjectScore: effectiveSubjectScore,
             subjectMicro: subjectMicro,
         )
     }
@@ -967,15 +965,6 @@ final class FocusMaskModel {
         ) else { return nil }
 
         return NSImage(cgImage: result, size: originalSize)
-    }
-
-    func generateFocusMask(from cgImage: CGImage, scale: CGFloat) async -> CGImage? {
-        let config = self.config
-        return await engine.generateFocusMask(
-            from: cgImage,
-            scale: scale,
-            config: config,
-        )
     }
 
     func generateFocusMaskWithBreakdown(
