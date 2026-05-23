@@ -440,7 +440,36 @@ struct SharpnessComparisonSummaryTests {
         ))
 
         #expect(context.rankTitle == "#2 of 3 in subject sharpness")
-        #expect(context.deltaTitle == "Subject -12 · Global +3")
+        #expect(context.deltaParts == [
+            SharpnessComparisonDeltaPart(label: "Subject", value: -12),
+            SharpnessComparisonDeltaPart(label: "Global", value: 3),
+        ])
+        #expect(context.deltaParts.map(\.title) == ["Subject -12", "Global +3"])
+    }
+
+    @Test(.tags(.smoke))
+    func `zero winner delta keeps neutral comparison value`() throws {
+        let winnerID = UUID()
+        let tiedID = UUID()
+        let breakdowns = [
+            winnerID: comparisonBreakdown(global: 0.55, subject: 0.55),
+            tiedID: comparisonBreakdown(global: 0.55, subject: 0.55)
+        ]
+
+        let context = try #require(SharpnessComparisonSummary.context(
+            for: tiedID,
+            fileIDs: [winnerID, tiedID],
+            scores: [winnerID: 0.55, tiedID: 0.55],
+            breakdowns: breakdowns,
+            winnerID: winnerID,
+        ))
+
+        #expect(context.rankTitle.hasSuffix("of 2 in subject sharpness"))
+        #expect(context.deltaParts == [
+            SharpnessComparisonDeltaPart(label: "Subject", value: 0),
+            SharpnessComparisonDeltaPart(label: "Global", value: 0),
+        ])
+        #expect(context.deltaParts.map(\.title) == ["Subject 0", "Global 0"])
     }
 
     @Test(.tags(.smoke))
@@ -457,7 +486,7 @@ struct SharpnessComparisonSummaryTests {
         ))
 
         #expect(context.rankTitle == "#1 of 2 in sharpness")
-        #expect(context.deltaTitle == nil)
+        #expect(context.deltaParts.isEmpty)
     }
 }
 

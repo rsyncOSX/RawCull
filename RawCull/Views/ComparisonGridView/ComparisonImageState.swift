@@ -11,7 +11,19 @@ struct ComparisonImageState: Identifiable {
 
 struct SharpnessComparisonContext: Equatable {
     var rankTitle: String
-    var deltaTitle: String?
+    var deltaParts: [SharpnessComparisonDeltaPart]
+}
+
+struct SharpnessComparisonDeltaPart: Equatable, Identifiable {
+    var label: String
+    var value: Int
+
+    var id: String { label }
+    var title: String { "\(label) \(formattedValue)" }
+
+    private var formattedValue: String {
+        value > 0 ? "+\(value)" : "\(value)"
+    }
 }
 
 enum SharpnessComparisonSummary {
@@ -38,18 +50,20 @@ enum SharpnessComparisonSummary {
               let current = breakdowns[fileID],
               let reference = breakdowns[winnerID]
         else {
-            return SharpnessComparisonContext(rankTitle: rankTitle, deltaTitle: nil)
+            return SharpnessComparisonContext(rankTitle: rankTitle, deltaParts: [])
         }
 
         let subjectDelta = componentDelta(current.subjectScore, reference.subjectScore)
         let globalDelta = componentDelta(current.globalScore, reference.globalScore)
-        let deltaTitle = [subjectDelta.map { "Subject \($0)" }, globalDelta.map { "Global \($0)" }]
+        let deltaParts = [
+            subjectDelta.map { SharpnessComparisonDeltaPart(label: "Subject", value: $0) },
+            globalDelta.map { SharpnessComparisonDeltaPart(label: "Global", value: $0) },
+        ]
             .compactMap { $0 }
-            .joined(separator: " · ")
 
         return SharpnessComparisonContext(
             rankTitle: rankTitle,
-            deltaTitle: deltaTitle.isEmpty ? nil : deltaTitle,
+            deltaParts: deltaParts,
         )
     }
 
@@ -61,9 +75,8 @@ enum SharpnessComparisonSummary {
         breakdowns[fileID]?.subjectScore ?? scores[fileID] ?? 0
     }
 
-    private nonisolated static func componentDelta(_ current: Float?, _ reference: Float?) -> String? {
+    private nonisolated static func componentDelta(_ current: Float?, _ reference: Float?) -> Int? {
         guard let current, let reference else { return nil }
-        let value = Int(((current - reference) * 100).rounded())
-        return value >= 0 ? "+\(value)" : "\(value)"
+        return Int(((current - reference) * 100).rounded())
     }
 }

@@ -45,30 +45,23 @@ struct ComparisonImagePaneView: View {
                             CurrentRatingBadgeView(rating: rating)
                         }
 
-                        if let sharpnessContext {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(sharpnessContext.rankTitle)
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(.white)
-                                if let deltaTitle = sharpnessContext.deltaTitle {
-                                    Text(deltaTitle)
-                                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
+                        HStack(alignment: .center, spacing: 8) {
+                            if let sharpnessContext {
+                                sharpnessBadge(for: sharpnessContext)
+                                    .fixedSize(horizontal: true, vertical: false)
                             }
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 3)
-                            .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
-                        }
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(file.name)
-                                .font(.headline)
-                                .lineLimit(1)
-                            Text(file.url.deletingLastPathComponent().path())
-                                .font(.caption)
-                                .lineLimit(1)
-                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(file.name)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                Text(file.url.deletingLastPathComponent().path())
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .layoutPriority(1)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -96,6 +89,38 @@ struct ComparisonImagePaneView: View {
             radius: isSelected ? 10 : 0,
         )
         .clipShape(.rect(cornerRadius: 8))
+    }
+
+    private func deltaStyle(for value: Int) -> Color {
+        if value > 0 { return .green }
+        if value < 0 { return .red }
+        return .white.opacity(0.8)
+    }
+
+    private func sharpnessBadge(for context: SharpnessComparisonContext) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(context.rankTitle)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            if !context.deltaParts.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(Array(context.deltaParts.enumerated()), id: \.element.id) { index, part in
+                        if index > 0 {
+                            Text("·")
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
+                        Text(part.title)
+                            .foregroundStyle(deltaStyle(for: part.value))
+                    }
+                }
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
     }
 
     @ViewBuilder
