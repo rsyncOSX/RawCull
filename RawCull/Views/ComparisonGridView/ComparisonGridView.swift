@@ -12,118 +12,110 @@ struct ComparisonGridView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask = false
     @State private var showFocusPoints = false
-    @State private var useThumbnailSource = false
     @State private var finalistFocusActive = false
-    @State private var columnCount = 1
     @State private var keyMonitor: Any?
     @FocusState private var isFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
+    private let columnCount = 1
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color(nsColor: .windowBackgroundColor)
-                    .ignoresSafeArea()
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
 
-                if files.count > 1 {
-                    ScrollView {
-                        LazyVGrid(columns: columns(for: geo.size), spacing: 12) {
-                            ForEach(files) { file in
-                                let burstAnalysis = burstComparisonResult
-                                ComparisonImagePaneView(
-                                    file: file,
-                                    state: imageStates[file.id],
-                                    focusPoints: focusPoints(for: file),
-                                    scale: scale,
-                                    offset: offset,
-                                    showFocusMask: showFocusMask,
-                                    showFocusPoints: showFocusPoints,
-                                    markerSize: viewModel.focusPointMarkerSize,
-                                    isSelected: viewModel.selectedFileID == file.id,
-                                    rating: ratingDisplay(for: file),
-                                    exifSummary: ExifSummary.make(from: file.exifData),
-                                    saliencyLabel: saliencyLabel(for: file),
-                                    burstAnalysis: burstAnalysis,
-                                    burstCandidate: burstCandidate(for: file, in: burstAnalysis),
-                                    burstRating: viewModel.getRating(for: file),
-                                    sharpnessContext: sharpnessContext(for: file),
-                                    zoomPanGesture: zoomPanGesture,
-                                    onSelect: { viewModel.selectedFileID = file.id },
-                                    onToggleZoom: toggleZoom,
-                                )
-                                .aspectRatio(3 / 2, contentMode: .fit)
-                            }
-                        }
-                        .padding(12)
-
-                        if let burstComparisonResult {
-                            BurstComparisonEvidenceView(
-                                result: burstComparisonResult,
-                                selectedFile: selectedComparisonFile,
-                                onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
-                                onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
-                                finalistFocusActive: finalistFocusActive,
-                                onInspectFinalists: inspectFinalists,
-                                onShowAll: showAllCandidates,
-                                onSetManualWinner: { file in
-                                    viewModel.setManualBurstWinner(file, in: allComparisonFiles)
-                                },
-                                onBack: viewModel.returnToActiveBurstGroupView,
-                            )
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 90)
-                        }
-                    }
-
-                    VStack {
-                        Spacer()
-
-                        VStack(spacing: 8) {
-                            if let selectedComparisonFile {
-                                RatingActionBarView(
-                                    currentRating: ratingDisplay(for: selectedComparisonFile),
-                                    onSelect: { rating in
-                                        viewModel.updateRating(for: selectedComparisonFile, rating: rating)
-                                    },
-                                )
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                            }
-
-                            ImageOverlayControlsView(
-                                showFocusMask: $showFocusMask,
-                                focusMaskAvailable: focusMaskAvailable,
-                                hasFocusPoints: hasFocusPoints,
-                                showFocusPoints: $showFocusPoints,
-                                showShortcutHints: true,
-                                showImageSourceToggle: true,
-                                useThumbnailSource: $useThumbnailSource,
-                                inspectorIsPresented: showCandidateInspector,
-                                onToggleInspector: { showCandidateInspector.toggle() },
+            if files.count > 1 {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(files) { file in
+                            let burstAnalysis = burstComparisonResult
+                            ComparisonImagePaneView(
+                                file: file,
+                                state: imageStates[file.id],
+                                focusPoints: focusPoints(for: file),
                                 scale: scale,
-                                canZoomOut: scale > 0.5,
-                                canZoomIn: scale < 5.0,
-                                canReset: scale != 1.0 || offset != .zero,
-                                onZoomOut: decreaseZoom,
-                                onZoomReset: { withAnimation(.spring()) { resetToFit() } },
-                                onZoomIn: increaseZoom,
+                                offset: offset,
+                                showFocusMask: showFocusMask,
+                                showFocusPoints: showFocusPoints,
+                                markerSize: viewModel.focusPointMarkerSize,
+                                isSelected: viewModel.selectedFileID == file.id,
+                                rating: ratingDisplay(for: file),
+                                exifSummary: ExifSummary.make(from: file.exifData),
+                                saliencyLabel: saliencyLabel(for: file),
+                                burstAnalysis: burstAnalysis,
+                                burstCandidate: burstCandidate(for: file, in: burstAnalysis),
+                                burstRating: viewModel.getRating(for: file),
+                                sharpnessContext: sharpnessContext(for: file),
+                                zoomPanGesture: zoomPanGesture,
+                                onSelect: { viewModel.selectedFileID = file.id },
+                                onToggleZoom: toggleZoom,
                             )
+                            .aspectRatio(3 / 2, contentMode: .fit)
                         }
-                        .padding(.bottom, 14)
                     }
-                } else {
-                    ContentUnavailableView(
-                        "Select Images to Compare",
-                        systemImage: "rectangle.split.2x1",
-                        description: Text("Select two to four thumbnails in a grid view, then use Compare."),
-                    )
+                    .padding(12)
+
+                    if let burstComparisonResult {
+                        BurstComparisonEvidenceView(
+                            result: burstComparisonResult,
+                            selectedFile: selectedComparisonFile,
+                            onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
+                            onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
+                            finalistFocusActive: finalistFocusActive,
+                            onInspectFinalists: inspectFinalists,
+                            onShowAll: showAllCandidates,
+                            onSetManualWinner: { file in
+                                viewModel.setManualBurstWinner(file, in: allComparisonFiles)
+                            },
+                            onBack: viewModel.returnToActiveBurstGroupView,
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 90)
+                    }
                 }
+
+                VStack {
+                    Spacer()
+
+                    VStack(spacing: 8) {
+                        if let selectedComparisonFile {
+                            RatingActionBarView(
+                                currentRating: ratingDisplay(for: selectedComparisonFile),
+                                onSelect: { rating in
+                                    viewModel.updateRating(for: selectedComparisonFile, rating: rating)
+                                },
+                            )
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
+                        ImageOverlayControlsView(
+                            showFocusMask: $showFocusMask,
+                            focusMaskAvailable: focusMaskAvailable,
+                            hasFocusPoints: hasFocusPoints,
+                            showFocusPoints: $showFocusPoints,
+                            showShortcutHints: true,
+                            showImageSourceToggle: false,
+                            useThumbnailSource: .constant(false),
+                            inspectorIsPresented: showCandidateInspector,
+                            onToggleInspector: { showCandidateInspector.toggle() },
+                            scale: scale,
+                            canZoomOut: scale > 0.5,
+                            canZoomIn: scale < 5.0,
+                            canReset: scale != 1.0 || offset != .zero,
+                            onZoomOut: decreaseZoom,
+                            onZoomReset: { withAnimation(.spring()) { resetToFit() } },
+                            onZoomIn: increaseZoom,
+                        )
+                    }
+                    .padding(.bottom, 14)
+                }
+            } else {
+                ContentUnavailableView(
+                    "Select Images to Compare",
+                    systemImage: "rectangle.split.2x1",
+                    description: Text("Select two to four thumbnails in a grid view, then use Compare."),
+                )
             }
-        }
-        .onGeometryChange(for: Int.self) { proxy in
-            columnCount(for: proxy.size)
-        } action: { newColumnCount in
-            columnCount = newColumnCount
         }
         .focusable()
         .focused($isFocused)
@@ -139,12 +131,11 @@ struct ComparisonGridView: View {
             }
             return .ignored
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-iIjJxXpP012345tTfFaAbB")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-iIxXpP012345tTfFaAbB")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
             case "-": decreaseZoom(); return .handled
             case "i", "I": showCandidateInspector.toggle(); return .handled
-            case "j", "J": useThumbnailSource.toggle(); return .handled
             case "f", "F": showFocusMask.toggle(); return .handled
             case "a", "A": showFocusPoints.toggle(); return .handled
             case "b", "B": return applyBurstKeepBest()
@@ -217,8 +208,7 @@ struct ComparisonGridView: View {
     }
 
     private var loadKey: String {
-        let ids = files.map(\.id.uuidString).joined(separator: ",")
-        return "\(ids)-\(useThumbnailSource)"
+        files.map(\.id.uuidString).joined(separator: ",")
     }
 
     private var focusMaskAvailable: Bool {
@@ -255,15 +245,8 @@ struct ComparisonGridView: View {
         )
     }
 
-    private func columns(for size: CGSize) -> [GridItem] {
-        Array(
-            repeating: GridItem(.flexible(minimum: 320), spacing: 12),
-            count: columnCount(for: size),
-        )
-    }
-
-    private nonisolated func columnCount(for size: CGSize) -> Int {
-        size.width >= 1200 ? 2 : 1
+    private var columns: [GridItem] {
+        [GridItem(.flexible(minimum: 320), spacing: 12)]
     }
 
     private func loadImages() async {
@@ -276,10 +259,7 @@ struct ComparisonGridView: View {
 
         for file in currentFiles {
             guard !Task.isCancelled else { return }
-            let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
-                for: file,
-                useThumbnailSource: useThumbnailSource,
-            )
+            let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(for: file)
             guard !Task.isCancelled else { return }
 
             var state = ComparisonImageState(
@@ -462,10 +442,6 @@ struct ComparisonGridView: View {
 
         case .zoomOut:
             decreaseZoom()
-            return .handled
-
-        case .toggleThumbnailSource:
-            useThumbnailSource.toggle()
             return .handled
 
         case .toggleFocusMask:

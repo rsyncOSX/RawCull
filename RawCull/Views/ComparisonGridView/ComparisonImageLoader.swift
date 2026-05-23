@@ -6,37 +6,7 @@ enum ComparisonImageLoader {
         SharedMemoryCache.shared.fullSizeJPGDiskCache
     }
 
-    static func loadImage(
-        for file: FileItem,
-        useThumbnailSource: Bool,
-    ) async -> (CGImage?, NSImage?) {
-        if useThumbnailSource {
-            let settings = await SettingsViewModel.shared.asyncgetsettings()
-            let targetSize = settings.thumbnailSizePreview
-            let thumbnail = await RequestThumbnail.shared.requestThumbnail(
-                for: file.url,
-                targetSize: targetSize,
-            )
-
-            guard !Task.isCancelled else { return (nil, nil) }
-
-            let displayImage: CGImage?
-            if settings.enableThumbnailSharpening {
-                let url = file.url
-                let size = CGFloat(targetSize)
-                let amount = settings.thumbnailSharpenAmount
-                let sharpened = await Task.detached(priority: .userInitiated) {
-                    ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount)
-                }.value
-                displayImage = sharpened ?? thumbnail
-            } else {
-                displayImage = thumbnail
-            }
-
-            guard let displayImage else { return (nil, nil) }
-            return (nil, NSImage(cgImage: displayImage, size: .zero))
-        }
-
+    static func loadImage(for file: FileItem) async -> (CGImage?, NSImage?) {
         let filejpg = file.url
             .deletingPathExtension()
             .appendingPathExtension(SupportedFileType.jpg.rawValue)

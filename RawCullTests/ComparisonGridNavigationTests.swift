@@ -32,6 +32,60 @@ struct ComparisonGridNavigationTests {
     }
 
     @Test(.tags(.smoke))
+    func `forced vertical compare layout navigates linearly`() {
+        let columnCount = 1
+
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 0,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .up,
+        ) == nil)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 0,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .left,
+        ) == nil)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 1,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .up,
+        ) == 0)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 1,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .left,
+        ) == 0)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 1,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .down,
+        ) == 2)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 1,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .right,
+        ) == 2)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 3,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .down,
+        ) == nil)
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 3,
+            itemCount: 4,
+            columnCount: columnCount,
+            direction: .right,
+        ) == nil)
+    }
+
+    @Test(.tags(.smoke))
     func `two column arrows move through visible grid`() {
         #expect(ComparisonGridNavigation.destinationIndex(
             from: 0,
@@ -110,7 +164,7 @@ struct ComparisonGridNavigationTests {
 
     @Test(.tags(.smoke))
     func `printable rating and toggle shortcuts resolve from characters`() {
-        #expect(ComparisonGridKeyAction.resolve(characters: "j", keyCode: 0) == .toggleThumbnailSource)
+        #expect(ComparisonGridKeyAction.resolve(characters: "j", keyCode: 0) == nil)
         #expect(ComparisonGridKeyAction.resolve(characters: "F", keyCode: 0) == .toggleFocusMask)
         #expect(ComparisonGridKeyAction.resolve(characters: "a", keyCode: 0) == .toggleFocusPoints)
         #expect(ComparisonGridKeyAction.resolve(characters: "B", keyCode: 0) == .keepBest)

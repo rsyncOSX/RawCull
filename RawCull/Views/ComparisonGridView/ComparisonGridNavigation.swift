@@ -70,7 +70,6 @@ enum ComparisonGridKeyAction: Equatable {
     case escape
     case zoomIn
     case zoomOut
-    case toggleThumbnailSource
     case toggleFocusMask
     case toggleFocusPoints
     case keepBest
@@ -109,9 +108,6 @@ enum ComparisonGridKeyAction: Equatable {
 
         case "-":
             .zoomOut
-
-        case "j", "J":
-            .toggleThumbnailSource
 
         case "f", "F":
             .toggleFocusMask

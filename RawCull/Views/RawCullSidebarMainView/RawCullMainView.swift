@@ -256,14 +256,32 @@ struct RawCullMainView: View {
     // MARK: - Comparison grid mode
 
     private var comparisonGridSplit: some View {
-        ComparisonGridView(
-            viewModel: viewModel,
-            showCandidateInspector: $showCandidateInspector,
-        )
-        .navigationTitle("Compare images")
-        .toolbar { toolbarContent }
-        .inspector(isPresented: $showCandidateInspector) {
-            CandidateInspectorView(context: candidateInspectorContext)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            RAWCatalogSidebarView(
+                sources: $viewModel.sources,
+                selectedSource: $viewModel.selectedSource,
+                isShowingPicker: $viewModel.isShowingPicker,
+                cullingModel: viewModel.cullingModel,
+            )
+        } detail: {
+            ComparisonGridView(
+                viewModel: viewModel,
+                showCandidateInspector: $showCandidateInspector,
+            )
+            .navigationTitle("Compare images")
+            .toolbar { toolbarContent }
+            .inspector(isPresented: $showCandidateInspector) {
+                CandidateInspectorView(context: candidateInspectorContext)
+            }
+        }
+        .task {
+            columnVisibility = .doubleColumn
+        }
+        .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
+            handlePickerResult(result)
+        }
+        .task(id: viewModel.selectedSource) {
+            viewModel.startCatalogLoad(for: viewModel.selectedSource)
         }
     }
 
