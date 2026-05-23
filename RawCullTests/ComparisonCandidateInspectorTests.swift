@@ -90,7 +90,7 @@ struct ComparisonCandidateInspectorTests {
     }
 
     @Test(.tags(.smoke))
-    func `finalist focus uses top two ranked candidates without mutating source ids`() {
+    func `finalist focus uses recommended finalists without mutating source ids`() {
         let ids = [UUID(), UUID(), UUID()]
         let result = BurstAnalysisResult(
             groupID: 0,
@@ -100,8 +100,32 @@ struct ComparisonCandidateInspectorTests {
                 comparisonCandidate(fileID: ids[0], score: 0.8),
                 comparisonCandidate(fileID: ids[1], score: 0.7)
             ],
-            recommendedFileID: ids[2],
-            secondBestFileID: ids[0],
+            recommendedFileID: ids[1],
+            secondBestFileID: ids[2],
+            confidence: .medium,
+            reviewState: .algorithmReviewed,
+            isSafeForOneClickCulling: false,
+            reasons: [],
+            cautions: [],
+        )
+
+        #expect(ComparisonFinalistFocus.focusedIDs(from: result) == [ids[1], ids[2]])
+        #expect(result.fileIDs == ids)
+    }
+
+    @Test(.tags(.smoke))
+    func `finalist focus falls back to ranked candidates when recommendation ids are missing`() {
+        let ids = [UUID(), UUID(), UUID()]
+        let result = BurstAnalysisResult(
+            groupID: 0,
+            fileIDs: ids,
+            candidates: [
+                comparisonCandidate(fileID: ids[2], score: 0.9),
+                comparisonCandidate(fileID: ids[0], score: 0.8),
+                comparisonCandidate(fileID: ids[1], score: 0.7)
+            ],
+            recommendedFileID: nil,
+            secondBestFileID: nil,
             confidence: .medium,
             reviewState: .algorithmReviewed,
             isSafeForOneClickCulling: false,
@@ -110,7 +134,6 @@ struct ComparisonCandidateInspectorTests {
         )
 
         #expect(ComparisonFinalistFocus.focusedIDs(from: result) == [ids[2], ids[0]])
-        #expect(result.fileIDs == ids)
     }
 
     @Test(.tags(.smoke))
