@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ComparisonGridView: View {
     @Bindable var viewModel: RawCullViewModel
+    @Binding var showCandidateInspector: Bool
 
     @State private var imageStates: [FileItem.ID: ComparisonImageState] = [:]
     @State private var scale: CGFloat = 1.0
@@ -12,6 +13,7 @@ struct ComparisonGridView: View {
     @State private var showFocusMask = false
     @State private var showFocusPoints = false
     @State private var useThumbnailSource = false
+    @State private var finalistFocusActive = false
     @State private var columnCount = 1
     @State private var keyMonitor: Any?
     @FocusState private var isFocused: Bool
@@ -40,6 +42,8 @@ struct ComparisonGridView: View {
                                     markerSize: viewModel.focusPointMarkerSize,
                                     isSelected: viewModel.selectedFileID == file.id,
                                     rating: ratingDisplay(for: file),
+                                    exifSummary: ExifSummary.make(from: file.exifData),
+                                    saliencyLabel: saliencyLabel(for: file),
                                     burstAnalysis: burstAnalysis,
                                     burstCandidate: burstCandidate(for: file, in: burstAnalysis),
                                     burstRating: viewModel.getRating(for: file),
@@ -57,10 +61,13 @@ struct ComparisonGridView: View {
                             BurstComparisonEvidenceView(
                                 result: burstComparisonResult,
                                 selectedFile: selectedComparisonFile,
-                                onKeepBest: { viewModel.keepBestInGroup(from: files) },
-                                onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: files) },
+                                onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
+                                onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
+                                finalistFocusActive: finalistFocusActive,
+                                onInspectFinalists: inspectFinalists,
+                                onShowAll: showAllCandidates,
                                 onSetManualWinner: { file in
-                                    viewModel.setManualBurstWinner(file, in: files)
+                                    viewModel.setManualBurstWinner(file, in: allComparisonFiles)
                                 },
                                 onBack: viewModel.returnToActiveBurstGroupView,
                             )
@@ -91,6 +98,8 @@ struct ComparisonGridView: View {
                                 showShortcutHints: true,
                                 showImageSourceToggle: true,
                                 useThumbnailSource: $useThumbnailSource,
+                                inspectorIsPresented: showCandidateInspector,
+                                onToggleInspector: { showCandidateInspector.toggle() },
                                 scale: scale,
                                 canZoomOut: scale > 0.5,
                                 canZoomIn: scale < 5.0,
@@ -162,7 +171,12 @@ struct ComparisonGridView: View {
             await loadImages()
         }
         .onChange(of: viewModel.comparisonFileIDs) { _, _ in
+            finalistFocusActive = false
             selectFirstComparisonFileIfNeeded()
+        }
+        .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
+            finalistFocusActive = false
+            showCandidateInspector = false
         }
         .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             Task {
@@ -172,11 +186,23 @@ struct ComparisonGridView: View {
     }
 
     private var files: [FileItem] {
-        let selected = Set(viewModel.comparisonFileIDs)
-        return viewModel.filteredFiles
-            .filter { selected.contains($0.id) }
-            .prefix(4)
-            .map { $0 }
+        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.filteredFiles.map { ($0.id, $0) })
+        return comparisonDisplayFileIDs.compactMap { filesByID[$0] }
+    }
+
+    private var allComparisonFiles: [FileItem] {
+        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.filteredFiles.map { ($0.id, $0) })
+        return viewModel.comparisonFileIDs.prefix(4).compactMap { filesByID[$0] }
+    }
+
+    private var comparisonDisplayFileIDs: [FileItem.ID] {
+        if finalistFocusActive {
+            let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: burstComparisonResult)
+            if !finalistIDs.isEmpty {
+                return finalistIDs
+            }
+        }
+        return Array(viewModel.comparisonFileIDs.prefix(4))
     }
 
     private var selectedComparisonFile: FileItem? {
@@ -326,6 +352,10 @@ struct ComparisonGridView: View {
         return analysis.candidates.first { $0.fileID == file.id }
     }
 
+    private func saliencyLabel(for file: FileItem) -> String? {
+        viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel
+    }
+
     private func sharpnessContext(for file: FileItem) -> SharpnessComparisonContext? {
         SharpnessComparisonSummary.context(
             for: file.id,
@@ -362,6 +392,20 @@ struct ComparisonGridView: View {
         viewModel.selectedFileID = files[0].id
     }
 
+    private func inspectFinalists() {
+        let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: burstComparisonResult)
+        guard !finalistIDs.isEmpty else { return }
+        finalistFocusActive = true
+        viewModel.selectedFileID = finalistIDs[0]
+        showCandidateInspector = true
+        resetToFit()
+    }
+
+    private func showAllCandidates() {
+        finalistFocusActive = false
+        selectFirstComparisonFileIfNeeded()
+    }
+
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let file = selectedComparisonFile else { return .ignored }
         viewModel.updateRating(for: file, rating: rating)
@@ -369,8 +413,8 @@ struct ComparisonGridView: View {
     }
 
     private func applyBurstKeepBest() -> KeyPress.Result {
-        guard viewModel.activeBurstComparisonGroupID != nil, !files.isEmpty else { return .ignored }
-        viewModel.keepBestInGroup(from: files)
+        guard viewModel.activeBurstComparisonGroupID != nil, !allComparisonFiles.isEmpty else { return .ignored }
+        viewModel.keepBestInGroup(from: allComparisonFiles)
         return .handled
     }
 
@@ -493,6 +537,9 @@ private struct BurstComparisonEvidenceView: View {
     let selectedFile: FileItem?
     let onKeepBest: () -> Void
     let onKeepTopTwo: () -> Void
+    let finalistFocusActive: Bool
+    let onInspectFinalists: () -> Void
+    let onShowAll: () -> Void
     let onSetManualWinner: (FileItem) -> Void
     let onBack: () -> Void
 
@@ -510,6 +557,10 @@ private struct BurstComparisonEvidenceView: View {
                         .foregroundStyle(.orange)
                 }
                 Spacer()
+                if finalistFocusActive {
+                    Button("Show All", action: onShowAll)
+                        .controlSize(.small)
+                }
                 Button("Back To Group", action: onBack)
                     .controlSize(.small)
             }
@@ -535,6 +586,8 @@ private struct BurstComparisonEvidenceView: View {
                 }
                 Spacer()
                 HStack(spacing: 8) {
+                    Button("Inspect Finalists", action: onInspectFinalists)
+                        .disabled(result.candidates.isEmpty)
                     Button("Set Manual Winner") {
                         if let selectedFile {
                             onSetManualWinner(selectedFile)

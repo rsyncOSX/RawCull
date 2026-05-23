@@ -40,7 +40,11 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/ISOScalingTests/`mid range ramps to 1 point 6 at 3200`()' \
 	'-only-testing:RawCullTests/ISOScalingTests/`high range caps at 2 point 2`()' \
 	'-only-testing:RawCullTests/ISOScalingTests/`monotonically non decreasing across range`()' \
-	'-only-testing:RawCullTests/ISOScalingTests/`high ISO is less aggressive than old sqrt formula`()'
+	'-only-testing:RawCullTests/ISOScalingTests/`high ISO is less aggressive than old sqrt formula`()' \
+	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`exif footer omits missing fields and preserves display order`()' \
+	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`candidate context resolves selected rank saliency scores and focus points`()' \
+	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus uses top two ranked candidates without mutating source ids`()' \
+	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus falls back to file ids when candidates are missing`()'
 PERFORMANCE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
 

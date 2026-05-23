@@ -20,6 +20,11 @@ struct ImageOverlayControlsView: View {
     var showImageSourceToggle: Bool = false
     @Binding var useThumbnailSource: Bool
 
+    // MARK: - Inspector
+
+    var inspectorIsPresented: Bool = false
+    var onToggleInspector: (() -> Void)?
+
     // MARK: - Zoom pill
 
     var scale: CGFloat
@@ -51,6 +56,24 @@ struct ImageOverlayControlsView: View {
             if showImageSourceToggle {
                 ImageSourceToggleView(useThumbnailSource: $useThumbnailSource)
                     .transition(.opacity)
+            }
+
+            if let onToggleInspector {
+                Button {
+                    onToggleInspector()
+                } label: {
+                    Image(systemName: "sidebar.right")
+                        .font(.system(size: 12))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(inspectorIsPresented ? Color.accentColor : Color.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(.regularMaterial)
+                .clipShape(.rect(cornerRadius: 20))
+                .help(inspectorIsPresented ? "Hide candidate inspector" : "Show candidate inspector")
             }
 
             HStack {

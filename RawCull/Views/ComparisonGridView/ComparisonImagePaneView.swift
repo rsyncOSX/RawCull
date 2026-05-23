@@ -11,6 +11,8 @@ struct ComparisonImagePaneView: View {
     let markerSize: CGFloat
     let isSelected: Bool
     let rating: RatingDisplay
+    let exifSummary: ExifSummary
+    let saliencyLabel: String?
     let burstAnalysis: BurstAnalysisResult?
     let burstCandidate: BurstCandidateScore?
     let burstRating: Int
@@ -39,6 +41,7 @@ struct ComparisonImagePaneView: View {
                                     candidate: burstCandidate,
                                     analysis: burstAnalysis,
                                     rating: burstRating,
+                                    saliencyLabel: saliencyLabel,
                                 )
                             }
                             Spacer()
@@ -71,6 +74,11 @@ struct ComparisonImagePaneView: View {
                     .padding(8)
 
                     Spacer()
+
+                    if exifSummary.hasFooterContent {
+                        exifFooter
+                            .padding(8)
+                    }
                 }
             }
             .clipShape(.rect(cornerRadius: 8))
@@ -121,6 +129,28 @@ struct ComparisonImagePaneView: View {
         .padding(.horizontal, 5)
         .padding(.vertical, 3)
         .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
+    }
+
+    private var exifFooter: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if !exifSummary.exposureParts.isEmpty {
+                Text(exifSummary.exposureParts.joined(separator: " · "))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+            }
+            if !exifSummary.gearParts.isEmpty {
+                Text(exifSummary.gearParts.joined(separator: " · "))
+                    .font(.system(size: 10, weight: .medium, design: .default))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial)
+        .clipShape(.rect(cornerRadius: 8))
     }
 
     @ViewBuilder

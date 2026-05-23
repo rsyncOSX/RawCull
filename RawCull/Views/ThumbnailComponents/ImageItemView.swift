@@ -153,6 +153,7 @@ struct BurstCandidateBadgeView: View {
     let candidate: BurstCandidateScore
     let analysis: BurstAnalysisResult
     let rating: Int
+    var saliencyLabel: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -169,6 +170,10 @@ struct BurstCandidateBadgeView: View {
                 statusBadge("Keeper", color: .green)
             } else if rating == 2 {
                 statusBadge("Top 2", color: .green)
+            }
+
+            if let saliencyLabel, !saliencyLabel.isEmpty {
+                statusBadge(saliencyLabel, color: .cyan)
             }
         }
         .help("Burst score \(Int(candidate.overallScore * 100))")
@@ -296,6 +301,7 @@ struct ImageItemView: View {
                             candidate: candidate,
                             analysis: analysis,
                             rating: viewModel.getRating(for: file),
+                            saliencyLabel: viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
                         )
                         .padding(5)
                     }

@@ -16,6 +16,7 @@ struct RawCullMainView: View {
 
     @State private var cgImage: CGImage?
     @State private var nsImage: NSImage?
+    @State private var showCandidateInspector = false
 
     var body: some View {
         ZStack {
@@ -255,9 +256,29 @@ struct RawCullMainView: View {
     // MARK: - Comparison grid mode
 
     private var comparisonGridSplit: some View {
-        ComparisonGridView(viewModel: viewModel)
+        ComparisonGridView(
+            viewModel: viewModel,
+            showCandidateInspector: $showCandidateInspector,
+        )
             .navigationTitle("Compare images")
             .toolbar { toolbarContent }
+            .inspector(isPresented: $showCandidateInspector) {
+                CandidateInspectorView(context: candidateInspectorContext)
+            }
+    }
+
+    private var candidateInspectorContext: CandidateInspectorContext? {
+        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
+        return CandidateInspectorContext.make(
+            selectedFile: viewModel.selectedFile,
+            result: viewModel.burstAnalysisResult(for: groupID),
+            files: viewModel.files,
+            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
+            sharpnessScores: viewModel.sharpnessModel.scores,
+            sharpnessBreakdowns: viewModel.sharpnessModel.breakdowns,
+            focusPoints: viewModel.focusPoints,
+            rating: viewModel.selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+        )
     }
 
     // MARK: - Actions
