@@ -89,14 +89,14 @@ private struct BurstGroupHeaderView: View {
 
         if confidence == .high {
             keepBestButton(prominent: true)
-            compareButton(title: "Compare")
+            compareButton()
             keepTopTwoButton(prominent: false)
         } else if confidence == .medium {
-            compareButton(title: "Compare Top 2", prominent: true)
+            compareButton(prominent: true)
             keepTopTwoButton(prominent: false)
             keepBestButton(prominent: false)
         } else {
-            compareButton(title: "Compare")
+            compareButton()
         }
 
         if viewModel.lastBurstUndoEntry?.groupID == analysis?.groupID {
@@ -149,15 +149,15 @@ private struct BurstGroupHeaderView: View {
     }
 
     @ViewBuilder
-    private func compareButton(title: String, prominent: Bool = false) -> some View {
+    private func compareButton(prominent: Bool = false) -> some View {
         if prominent {
-            Button(title) { viewModel.compareBurstGroup(files) }
+            Button("Compare") { viewModel.compareBurstGroup(files) }
                 .buttonStyle(.borderedProminent)
                 .font(.caption)
                 .controlSize(.mini)
                 .help("Compare the top burst candidates")
         } else {
-            Button(title) { viewModel.compareBurstGroup(files) }
+            Button("Compare") { viewModel.compareBurstGroup(files) }
                 .buttonStyle(.bordered)
                 .font(.caption)
                 .controlSize(.mini)
