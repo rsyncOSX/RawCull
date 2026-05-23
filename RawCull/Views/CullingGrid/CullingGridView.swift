@@ -421,7 +421,7 @@ struct CullingGridView<Header: View>: View {
 
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
-        viewModel.openZoomOverlay()
+        viewModel.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
     }
 
     private var visibleSelectionIDs: [FileItem.ID] {
@@ -429,6 +429,16 @@ struct CullingGridView<Header: View>: View {
             return visibleBurstGroups.flatMap { group in
                 group.files.map(\.id)
             }
+        }
+        return files.map(\.id)
+    }
+
+    private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
+        if viewModel.similarityModel.burstModeActive,
+           let group = visibleBurstGroups.first(where: { group in
+               group.files.contains { $0.id == file.id }
+           }) {
+            return group.files.map(\.id)
         }
         return files.map(\.id)
     }

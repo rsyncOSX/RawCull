@@ -10,7 +10,7 @@
 import AppKit
 import SwiftUI
 
-enum ZoomOverlayKeyAction: Equatable {
+nonisolated enum ZoomOverlayKeyAction: Equatable {
     case navigatePrevious
     case navigateNext
     case escape
@@ -83,6 +83,30 @@ enum ZoomOverlayKeyAction: Equatable {
         default:
             nil
         }
+    }
+}
+
+nonisolated struct ZoomOverlayNavigationContext: Equatable, Sendable {
+    let orderedFileIDs: [FileItem.ID]
+
+    init(orderedFileIDs: [FileItem.ID]) {
+        var seen = Set<FileItem.ID>()
+        self.orderedFileIDs = orderedFileIDs.filter { seen.insert($0).inserted }
+    }
+
+    func destinationID(from currentID: FileItem.ID, delta: Int) -> FileItem.ID? {
+        guard let currentIndex = orderedFileIDs.firstIndex(of: currentID) else { return nil }
+        let destinationIndex = currentIndex + delta
+        guard orderedFileIDs.indices.contains(destinationIndex) else { return nil }
+        return orderedFileIDs[destinationIndex]
+    }
+
+    func canNavigatePrevious(from currentID: FileItem.ID) -> Bool {
+        destinationID(from: currentID, delta: -1) != nil
+    }
+
+    func canNavigateNext(from currentID: FileItem.ID) -> Bool {
+        destinationID(from: currentID, delta: 1) != nil
     }
 }
 
@@ -309,6 +333,14 @@ struct ZoomOverlayView: View {
     }
 
     private var orderedZoomFiles: [FileItem] {
+        if let context = viewModel.zoomOverlayNavigationContext {
+            let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+            let contextualFiles = context.orderedFileIDs.compactMap { filesByID[$0] }
+            if !contextualFiles.isEmpty {
+                return contextualFiles
+            }
+        }
+
         let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
         return viewModel.sharpnessModel.sortBySharpness
             ? filtered

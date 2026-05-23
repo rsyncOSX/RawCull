@@ -96,6 +96,7 @@ final class RawCullViewModel {
     // In-window zoom overlay (replaces the old separate zoom windows).
     var zoomOverlayVisible: Bool = false
     var zoomOverlayNavigationAxis: ZoomOverlayNavigationAxis = .horizontal
+    var zoomOverlayNavigationContext: ZoomOverlayNavigationContext?
     var zoomOverlayCGImage: CGImage?
     var zoomOverlayNSImage: NSImage?
 
@@ -209,8 +210,9 @@ final class RawCullViewModel {
         offset = .zero
     }
 
-    func openZoomOverlay() {
+    func openZoomOverlay(navigationIDs: [FileItem.ID]? = nil) {
         zoomOverlayNavigationAxis = mainViewMode == .loupe ? .vertical : .horizontal
+        zoomOverlayNavigationContext = navigationIDs.map(ZoomOverlayNavigationContext.init(orderedFileIDs:))
         zoomOverlayVisible = true
     }
 
@@ -218,6 +220,7 @@ final class RawCullViewModel {
         zoomExtractionTask?.cancel()
         zoomExtractionTask = nil
         zoomOverlayVisible = false
+        zoomOverlayNavigationContext = nil
         zoomOverlayCGImage = nil
         zoomOverlayNSImage = nil
     }

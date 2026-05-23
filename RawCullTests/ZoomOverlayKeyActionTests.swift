@@ -1,4 +1,5 @@
 @testable import RawCull
+import Foundation
 import Testing
 
 @Suite("ZoomOverlayKeyAction")
@@ -145,5 +146,47 @@ struct ZoomOverlayKeyActionTests {
             keyCode: 36,
             navigationAxis: .vertical,
         ) == nil)
+    }
+}
+
+@Suite("ZoomOverlayNavigationContext")
+struct ZoomOverlayNavigationContextTests {
+    @Test(.tags(.smoke))
+    func `destination returns previous and next inside supplied sequence`() {
+        let ids = [UUID(), UUID(), UUID()]
+        let context = ZoomOverlayNavigationContext(orderedFileIDs: ids)
+
+        #expect(context.destinationID(from: ids[1], delta: -1) == ids[0])
+        #expect(context.destinationID(from: ids[1], delta: 1) == ids[2])
+    }
+
+    @Test(.tags(.smoke))
+    func `navigation is disabled at sequence boundaries`() {
+        let ids = [UUID(), UUID(), UUID()]
+        let context = ZoomOverlayNavigationContext(orderedFileIDs: ids)
+
+        #expect(context.canNavigatePrevious(from: ids[0]) == false)
+        #expect(context.canNavigateNext(from: ids[0]) == true)
+        #expect(context.canNavigatePrevious(from: ids[2]) == true)
+        #expect(context.canNavigateNext(from: ids[2]) == false)
+    }
+
+    @Test(.tags(.smoke))
+    func `context does not cross burst group boundaries`() {
+        let firstGroup = [UUID(), UUID()]
+        let secondGroupFirstID = UUID()
+        let context = ZoomOverlayNavigationContext(orderedFileIDs: firstGroup)
+
+        #expect(context.destinationID(from: firstGroup[1], delta: 1) == nil)
+        #expect(context.destinationID(from: secondGroupFirstID, delta: -1) == nil)
+        #expect(context.destinationID(from: secondGroupFirstID, delta: 1) == nil)
+    }
+
+    @Test(.tags(.smoke))
+    func `context keeps first occurrence when duplicate IDs are supplied`() {
+        let ids = [UUID(), UUID()]
+        let context = ZoomOverlayNavigationContext(orderedFileIDs: [ids[0], ids[1], ids[0]])
+
+        #expect(context.orderedFileIDs == ids)
     }
 }

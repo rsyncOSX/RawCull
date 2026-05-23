@@ -95,6 +95,6 @@ struct RatedPhotoGridView: View {
 
     private func handleDoubleSelect(for file: FileItem) {
         viewModel.selectedFileID = file.id
-        viewModel.openZoomOverlay()
+        viewModel.openZoomOverlay(navigationIDs: ratedFiles.map(\.id))
     }
 }
