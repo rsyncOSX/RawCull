@@ -154,29 +154,47 @@ struct BurstCandidateBadgeView: View {
     let analysis: BurstAnalysisResult
     let rating: Int
     var saliencyLabel: String? = nil
+    var isCompact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(rankTitle)
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-                .background(rankColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
-
-            if rating == -1 {
-                statusBadge("Rejected", color: .red)
-            } else if rating == 3 {
-                statusBadge("Keeper", color: .green)
-            } else if rating == 2 {
-                statusBadge("Top 2", color: .green)
-            }
-
-            if let saliencyLabel, !saliencyLabel.isEmpty {
-                statusBadge(saliencyLabel, color: .cyan)
+        Group {
+            if isCompact {
+                HStack(spacing: 3) {
+                    rankBadge
+                    statusBadges
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    rankBadge
+                    statusBadges
+                }
             }
         }
         .help("Burst score \(Int(candidate.overallScore * 100))")
+    }
+
+    private var rankBadge: some View {
+        Text(rankTitle)
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(rankColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
+    }
+
+    @ViewBuilder
+    private var statusBadges: some View {
+        if rating == -1 {
+            statusBadge("Rejected", color: .red)
+        } else if rating == 3 {
+            statusBadge("Keeper", color: .green)
+        } else if rating == 2 {
+            statusBadge("Top 2", color: .green)
+        }
+
+        if let saliencyLabel, !saliencyLabel.isEmpty {
+            statusBadge(saliencyLabel, color: .cyan)
+        }
     }
 
     private func statusBadge(_ title: String, color: Color) -> some View {
