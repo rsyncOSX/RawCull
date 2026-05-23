@@ -32,7 +32,7 @@ struct ComparisonCandidateInspectorTests {
             "Shutter Speed",
             "ISO",
             "RAW Type",
-            "Dimensions",
+            "Dimensions"
         ])
     }
 
@@ -45,7 +45,7 @@ struct ComparisonCandidateInspectorTests {
             fileIDs: [first.id, second.id],
             candidates: [
                 comparisonCandidate(fileID: second.id, score: 0.9),
-                comparisonCandidate(fileID: first.id, score: 0.7),
+                comparisonCandidate(fileID: first.id, score: 0.7)
             ],
             recommendedFileID: second.id,
             secondBestFileID: first.id,
@@ -98,7 +98,7 @@ struct ComparisonCandidateInspectorTests {
             candidates: [
                 comparisonCandidate(fileID: ids[2], score: 0.9),
                 comparisonCandidate(fileID: ids[0], score: 0.8),
-                comparisonCandidate(fileID: ids[1], score: 0.7),
+                comparisonCandidate(fileID: ids[1], score: 0.7)
             ],
             recommendedFileID: ids[2],
             secondBestFileID: ids[0],

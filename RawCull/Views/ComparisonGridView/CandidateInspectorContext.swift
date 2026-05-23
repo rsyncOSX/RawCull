@@ -67,7 +67,9 @@ struct ExifDetailRow: Equatable, Identifiable {
     var label: String
     var value: String
 
-    var id: String { label }
+    var id: String {
+        label
+    }
 }
 
 struct CandidateRankRow: Equatable, Identifiable {
@@ -80,7 +82,9 @@ struct CandidateRankRow: Equatable, Identifiable {
     var isManualWinner: Bool
     var isSelected: Bool
 
-    var id: FileItem.ID { fileID }
+    var id: FileItem.ID {
+        fileID
+    }
 }
 
 struct CandidateInspectorContext {

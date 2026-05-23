@@ -260,11 +260,11 @@ struct RawCullMainView: View {
             viewModel: viewModel,
             showCandidateInspector: $showCandidateInspector,
         )
-            .navigationTitle("Compare images")
-            .toolbar { toolbarContent }
-            .inspector(isPresented: $showCandidateInspector) {
-                CandidateInspectorView(context: candidateInspectorContext)
-            }
+        .navigationTitle("Compare images")
+        .toolbar { toolbarContent }
+        .inspector(isPresented: $showCandidateInspector) {
+            CandidateInspectorView(context: candidateInspectorContext)
+        }
     }
 
     private var candidateInspectorContext: CandidateInspectorContext? {

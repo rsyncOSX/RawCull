@@ -442,7 +442,7 @@ struct SharpnessComparisonSummaryTests {
         #expect(context.rankTitle == "#2 of 3 in subject sharpness")
         #expect(context.deltaParts == [
             SharpnessComparisonDeltaPart(label: "Subject", value: -12),
-            SharpnessComparisonDeltaPart(label: "Global", value: 3),
+            SharpnessComparisonDeltaPart(label: "Global", value: 3)
         ])
         #expect(context.deltaParts.map(\.title) == ["Subject -12", "Global +3"])
     }
@@ -467,7 +467,7 @@ struct SharpnessComparisonSummaryTests {
         #expect(context.rankTitle.hasSuffix("of 2 in subject sharpness"))
         #expect(context.deltaParts == [
             SharpnessComparisonDeltaPart(label: "Subject", value: 0),
-            SharpnessComparisonDeltaPart(label: "Global", value: 0),
+            SharpnessComparisonDeltaPart(label: "Global", value: 0)
         ])
         #expect(context.deltaParts.map(\.title) == ["Subject 0", "Global 0"])
     }

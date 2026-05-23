@@ -92,7 +92,7 @@ struct CandidateInspectorView: View {
         switch rating {
         case -1: "Rejected"
         case 0: "Picked"
-        case 1...5: "\(rating) star"
+        case 1 ... 5: "\(rating) star"
         default: "Unrated"
         }
     }

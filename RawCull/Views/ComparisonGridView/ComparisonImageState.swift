@@ -18,8 +18,13 @@ struct SharpnessComparisonDeltaPart: Equatable, Identifiable {
     var label: String
     var value: Int
 
-    var id: String { label }
-    var title: String { "\(label) \(formattedValue)" }
+    var id: String {
+        label
+    }
+
+    var title: String {
+        "\(label) \(formattedValue)"
+    }
 
     private var formattedValue: String {
         value > 0 ? "+\(value)" : "\(value)"
@@ -57,9 +62,9 @@ enum SharpnessComparisonSummary {
         let globalDelta = componentDelta(current.globalScore, reference.globalScore)
         let deltaParts = [
             subjectDelta.map { SharpnessComparisonDeltaPart(label: "Subject", value: $0) },
-            globalDelta.map { SharpnessComparisonDeltaPart(label: "Global", value: $0) },
+            globalDelta.map { SharpnessComparisonDeltaPart(label: "Global", value: $0) }
         ]
-            .compactMap { $0 }
+        .compactMap { $0 }
 
         return SharpnessComparisonContext(
             rankTitle: rankTitle,

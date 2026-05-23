@@ -153,7 +153,7 @@ struct BurstCandidateBadgeView: View {
     let candidate: BurstCandidateScore
     let analysis: BurstAnalysisResult
     let rating: Int
-    var saliencyLabel: String? = nil
+    var saliencyLabel: String?
     var isCompact = false
 
     var body: some View {

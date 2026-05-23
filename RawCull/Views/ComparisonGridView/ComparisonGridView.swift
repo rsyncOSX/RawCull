@@ -139,10 +139,11 @@ struct ComparisonGridView: View {
             }
             return .ignored
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJxXpP012345tTfFaAbB")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-iIjJxXpP012345tTfFaAbB")) { press in
             switch press.characters {
             case "+": increaseZoom(); return .handled
             case "-": decreaseZoom(); return .handled
+            case "i", "I": showCandidateInspector.toggle(); return .handled
             case "j", "J": useThumbnailSource.toggle(); return .handled
             case "f", "F": showFocusMask.toggle(); return .handled
             case "a", "A": showFocusPoints.toggle(); return .handled
