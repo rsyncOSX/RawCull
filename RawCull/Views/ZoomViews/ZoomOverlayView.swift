@@ -101,6 +101,8 @@ struct ZoomOverlayView: View {
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
     @State private var useThumbnailSource: Bool = true
+    @State private var focusBreakdown: SharpnessBreakdown?
+    @State private var sharpnessInspectorExpanded = true
     @State private var maskTask: Task<Void, Never>?
     @State private var keyMonitor: Any?
     @FocusState private var isImageFocused: Bool
@@ -171,6 +173,17 @@ struct ZoomOverlayView: View {
                                 viewModel.updateRating(for: selectedFile, rating: rating)
                             },
                         )
+                    }
+
+                    if showFocusMask, let selectedFile = viewModel.selectedFile {
+                        SharpnessBreakdownInspectorView(
+                            fileName: selectedFile.name,
+                            score: viewModel.sharpnessModel.scores[selectedFile.id],
+                            maxScore: viewModel.sharpnessModel.maxScore,
+                            breakdown: focusBreakdown ?? viewModel.sharpnessModel.breakdowns[selectedFile.id],
+                            isExpanded: $sharpnessInspectorExpanded,
+                        )
+                        .frame(maxWidth: 360)
                     }
 
                     Text(currentScale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
@@ -287,6 +300,7 @@ struct ZoomOverlayView: View {
     private func reload() {
         guard let file = viewModel.selectedFile else { return }
         viewModel.zoomExtractionTask?.cancel()
+        focusBreakdown = nil
         viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
             useThumbnailAsZoomPreview: useThumbnailSource,
@@ -451,19 +465,32 @@ struct ZoomOverlayView: View {
         viewModel.closeZoomOverlay()
         resetToFit()
         focusMask = nil
+        focusBreakdown = nil
     }
 
     // MARK: - Mask regeneration
 
     private func regenerateMaskFromCG() async {
-        guard let cg = viewModel.zoomOverlayCGImage else { return }
+        guard let cg = viewModel.zoomOverlayCGImage,
+              let selectedFile = viewModel.selectedFile
+        else { return }
         let downscaled = cg.downscaled(toWidth: 1024)
-        let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
+        let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: downscaled ?? cg,
             scale: 1.0,
+            afPoint: selectedFile.afFocusNormalized,
         )
         guard !Task.isCancelled else { return }
-        await MainActor.run { self.focusMask = mask }
+        await MainActor.run {
+            self.focusMask = result.mask
+            self.focusBreakdown = result.breakdown
+            if let breakdown = result.breakdown {
+                viewModel.sharpnessModel.breakdowns[selectedFile.id] = breakdown
+            }
+            if let saliency = result.saliency {
+                viewModel.sharpnessModel.saliencyInfo[selectedFile.id] = saliency
+            }
+        }
     }
 
     // MARK: - Zoomable images
@@ -613,6 +640,73 @@ struct ZoomOverlayView: View {
 
     private func decreaseZoom() {
         withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) }
+    }
+}
+
+private struct SharpnessBreakdownInspectorView: View {
+    let fileName: String
+    let score: Float?
+    let maxScore: Float
+    let breakdown: SharpnessBreakdown?
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 7) {
+                if let breakdown {
+                    row("Global", value: percent(breakdown.globalScore))
+                    row("Subject", value: percent(breakdown.subjectScore))
+                    row("AF point", value: percent(breakdown.afPointScore))
+                    row("Blur gate", value: sigma(breakdown.blurGateSigma))
+                    if let subject = breakdown.subjectLabel {
+                        row("Subject label", value: subject)
+                    }
+                    row("Saliency", value: percent(breakdown.subjectConfidence))
+                    row("Focus flag", value: breakdown.focusFailureKind.title)
+                } else if let score {
+                    row("Sharpness", value: percent(score / Swift.max(maxScore, 1e-6)))
+                }
+            }
+            .padding(.top, 6)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "viewfinder")
+                Text("Sharpness")
+                    .font(.caption.weight(.semibold))
+                Text(fileName)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
+        }
+    }
+
+    private func row(_ title: String, value: String?) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value ?? "—")
+                .font(.system(.caption, design: .monospaced))
+        }
+    }
+
+    private func percent(_ value: Float?) -> String? {
+        guard let value, value.isFinite else { return nil }
+        return "\(Int((value * 100).rounded()))"
+    }
+
+    private func sigma(_ value: Float) -> String {
+        String(format: "%.3f", value)
     }
 }
 

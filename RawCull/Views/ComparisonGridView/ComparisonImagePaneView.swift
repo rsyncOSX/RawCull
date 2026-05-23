@@ -14,6 +14,7 @@ struct ComparisonImagePaneView: View {
     let burstAnalysis: BurstAnalysisResult?
     let burstCandidate: BurstCandidateScore?
     let burstRating: Int
+    let sharpnessContext: SharpnessComparisonContext?
     let zoomPanGesture: AnyGesture<Void>
     let onSelect: () -> Void
     let onToggleZoom: () -> Void
@@ -42,6 +43,22 @@ struct ComparisonImagePaneView: View {
                             }
                             Spacer()
                             CurrentRatingBadgeView(rating: rating)
+                        }
+
+                        if let sharpnessContext {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(sharpnessContext.rankTitle)
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(.white)
+                                if let deltaTitle = sharpnessContext.deltaTitle {
+                                    Text(deltaTitle)
+                                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.8))
+                                }
+                            }
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
                         }
 
                         VStack(alignment: .leading, spacing: 2) {

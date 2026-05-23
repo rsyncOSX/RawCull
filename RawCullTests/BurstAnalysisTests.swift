@@ -406,6 +406,7 @@ struct BurstViewModelActionTests {
         #expect(viewModel.burstAnalysisProgress == BurstAnalysisProgress())
         #expect(viewModel.sharpnessModel.scores.isEmpty)
         #expect(viewModel.sharpnessModel.saliencyInfo.isEmpty)
+        #expect(viewModel.sharpnessModel.breakdowns.isEmpty)
         #expect(viewModel.sharpnessModel.sortBySharpness == false)
         #expect(viewModel.similarityModel.embeddings.isEmpty)
         #expect(viewModel.similarityModel.distances.isEmpty)
@@ -414,6 +415,63 @@ struct BurstViewModelActionTests {
         #expect(viewModel.similarityModel.burstBoundaryEvidence.isEmpty)
         #expect(viewModel.similarityModel.burstModeActive == false)
     }
+}
+
+@Suite("Sharpness comparison summary")
+@MainActor
+struct SharpnessComparisonSummaryTests {
+    @Test(.tags(.smoke))
+    func `subject breakdown drives comparison rank and winner deltas`() throws {
+        let winnerID = UUID()
+        let rejectedID = UUID()
+        let thirdID = UUID()
+        let breakdowns = [
+            winnerID: comparisonBreakdown(global: 0.61, subject: 0.78),
+            rejectedID: comparisonBreakdown(global: 0.64, subject: 0.66),
+            thirdID: comparisonBreakdown(global: 0.40, subject: 0.30)
+        ]
+
+        let context = try #require(SharpnessComparisonSummary.context(
+            for: rejectedID,
+            fileIDs: [winnerID, rejectedID, thirdID],
+            scores: [winnerID: 0.5, rejectedID: 0.9, thirdID: 0.4],
+            breakdowns: breakdowns,
+            winnerID: winnerID,
+        ))
+
+        #expect(context.rankTitle == "#2 of 3 in subject sharpness")
+        #expect(context.deltaTitle == "Subject -12 · Global +3")
+    }
+
+    @Test(.tags(.smoke))
+    func `scalar score drives comparison rank when breakdowns are absent`() throws {
+        let firstID = UUID()
+        let secondID = UUID()
+
+        let context = try #require(SharpnessComparisonSummary.context(
+            for: secondID,
+            fileIDs: [firstID, secondID],
+            scores: [firstID: 0.7, secondID: 0.9],
+            breakdowns: [:],
+            winnerID: firstID,
+        ))
+
+        #expect(context.rankTitle == "#1 of 2 in sharpness")
+        #expect(context.deltaTitle == nil)
+    }
+}
+
+private func comparisonBreakdown(global: Float, subject: Float) -> SharpnessBreakdown {
+    SharpnessBreakdown(
+        finalScore: subject,
+        globalScore: global,
+        subjectScore: subject,
+        afPointScore: nil,
+        blurGateSigma: 0.03,
+        subjectLabel: nil,
+        subjectConfidence: nil,
+        focusFailureKind: .none,
+    )
 }
 
 @Suite("BurstAnalysisCache")

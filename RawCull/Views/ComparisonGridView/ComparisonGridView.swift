@@ -43,6 +43,7 @@ struct ComparisonGridView: View {
                                     burstAnalysis: burstAnalysis,
                                     burstCandidate: burstCandidate(for: file, in: burstAnalysis),
                                     burstRating: viewModel.getRating(for: file),
+                                    sharpnessContext: sharpnessContext(for: file),
                                     zoomPanGesture: zoomPanGesture,
                                     onSelect: { viewModel.selectedFileID = file.id },
                                     onToggleZoom: toggleZoom,
@@ -262,10 +263,19 @@ struct ComparisonGridView: View {
             )
             if let cgImage {
                 let downscaled = cgImage.downscaled(toWidth: 1024)
-                state.focusMask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
+                let focusResult = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
                     from: downscaled ?? cgImage,
                     scale: 1.0,
+                    afPoint: file.afFocusNormalized,
                 )
+                state.focusMask = focusResult.mask
+                state.sharpnessBreakdown = focusResult.breakdown
+                if let breakdown = focusResult.breakdown {
+                    viewModel.sharpnessModel.breakdowns[file.id] = breakdown
+                }
+                if let saliency = focusResult.saliency {
+                    viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
+                }
             }
             imageStates[file.id] = state
         }
@@ -276,12 +286,20 @@ struct ComparisonGridView: View {
             guard !Task.isCancelled else { return }
             guard let cgImage = imageStates[file.id]?.cgImage else { continue }
             let downscaled = cgImage.downscaled(toWidth: 1024)
-            let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
+            let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
                 from: downscaled ?? cgImage,
                 scale: 1.0,
+                afPoint: file.afFocusNormalized,
             )
             guard !Task.isCancelled else { return }
-            imageStates[file.id]?.focusMask = mask
+            imageStates[file.id]?.focusMask = result.mask
+            imageStates[file.id]?.sharpnessBreakdown = result.breakdown
+            if let breakdown = result.breakdown {
+                viewModel.sharpnessModel.breakdowns[file.id] = breakdown
+            }
+            if let saliency = result.saliency {
+                viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
+            }
         }
     }
 
@@ -306,6 +324,33 @@ struct ComparisonGridView: View {
               analysis.fileIDs.contains(file.id)
         else { return nil }
         return analysis.candidates.first { $0.fileID == file.id }
+    }
+
+    private func sharpnessContext(for file: FileItem) -> SharpnessComparisonContext? {
+        SharpnessComparisonSummary.context(
+            for: file.id,
+            fileIDs: files.map(\.id),
+            scores: viewModel.sharpnessModel.scores,
+            breakdowns: comparisonBreakdowns(),
+            winnerID: comparisonWinnerFile()?.id,
+        )
+    }
+
+    private func comparisonBreakdowns() -> [FileItem.ID: SharpnessBreakdown] {
+        Dictionary(uniqueKeysWithValues: files.compactMap { file in
+            guard let breakdown = imageStates[file.id]?.sharpnessBreakdown
+                ?? viewModel.sharpnessModel.breakdowns[file.id]
+            else { return nil }
+            return (file.id, breakdown)
+        })
+    }
+
+    private func comparisonWinnerFile() -> FileItem? {
+        if let manual = viewModel.manualOverrideWinner(in: files)?.file {
+            return manual
+        }
+        guard let winnerID = burstComparisonResult?.recommendedFileID else { return nil }
+        return files.first { $0.id == winnerID }
     }
 
     private func selectFirstComparisonFileIfNeeded() {

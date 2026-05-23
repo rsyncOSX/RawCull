@@ -12,6 +12,38 @@ import Vision
 struct SaliencyInfo: Codable, Equatable {
     /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
     let subjectLabel: String?
+    /// Highest confidence reported by Vision's salient-object observations.
+    let subjectConfidence: Float?
+
+    nonisolated init(subjectLabel: String?, subjectConfidence: Float? = nil) {
+        self.subjectLabel = subjectLabel
+        self.subjectConfidence = subjectConfidence
+    }
+}
+
+enum FocusFailureKind: String, Codable, Equatable {
+    case none
+    case motionBlur
+    case missedFocus
+
+    var title: String {
+        switch self {
+        case .none: "None"
+        case .motionBlur: "Motion blur"
+        case .missedFocus: "Missed focus"
+        }
+    }
+}
+
+struct SharpnessBreakdown: Equatable {
+    let finalScore: Float
+    let globalScore: Float?
+    let subjectScore: Float?
+    let afPointScore: Float?
+    let blurGateSigma: Float
+    let subjectLabel: String?
+    let subjectConfidence: Float?
+    let focusFailureKind: FocusFailureKind
 }
 
 struct FocusDetectorConfig {
@@ -208,12 +240,44 @@ struct FocusMaskEngine: @unchecked Sendable {
         }.value
     }
 
+    nonisolated func generateFocusMaskWithBreakdown(
+        from cgImage: CGImage,
+        scale: CGFloat,
+        config: FocusDetectorConfig,
+        afPoint: CGPoint? = nil,
+    ) async -> (mask: CGImage?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
+        let context = self.context
+
+        return await Task.detached(priority: .userInitiated) {
+            let ciImage = CIImage(cgImage: cgImage)
+            let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
+                for: cgImage,
+                classify: config.enableSubjectClassification,
+            )
+            let breakdown = Self.computeSharpnessBreakdown(
+                from: ciImage,
+                salientRegion: region,
+                saliencyInfo: saliencyInfo,
+                afPoint: afPoint,
+                context: context,
+                config: config,
+            )
+            let mask = Self.buildFocusMask(
+                from: ciImage,
+                scale: scale,
+                context: context,
+                config: config,
+            )
+            return (mask, saliencyInfo, breakdown)
+        }.value
+    }
+
     nonisolated func computeSharpnessScore(
         fromRawURL url: URL,
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
         afPoint: CGPoint? = nil,
-    ) async -> (score: Float?, saliency: SaliencyInfo?) {
+    ) async -> (score: Float?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
         await Task.detached(priority: .userInitiated) { [context] in
             let binaryImg = Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
 
@@ -222,7 +286,7 @@ struct FocusMaskEngine: @unchecked Sendable {
                 cgImage = img
             } else {
                 guard let img = Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) else {
-                    return (nil, nil)
+                    return (nil, nil, nil)
                 }
                 cgImage = img
             }
@@ -230,14 +294,15 @@ struct FocusMaskEngine: @unchecked Sendable {
             let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
                 for: cgImage, classify: config.enableSubjectClassification,
             )
-            let score = Self.computeSharpnessScalar(
+            let breakdown = Self.computeSharpnessBreakdown(
                 from: CIImage(cgImage: cgImage),
                 salientRegion: region,
+                saliencyInfo: saliencyInfo,
                 afPoint: afPoint,
                 context: context,
                 config: config,
             )
-            return (score, saliencyInfo)
+            return (breakdown?.finalScore, saliencyInfo, breakdown)
         }.value
     }
 
@@ -316,7 +381,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         guard union.width * union.height > 0.03 || maxConfidence >= 0.9 else { return (nil, nil) }
 
         let label = Self.bestClassificationLabel(from: classifyRequest.results ?? [])
-        return (union, SaliencyInfo(subjectLabel: label))
+        return (union, SaliencyInfo(subjectLabel: label, subjectConfidence: maxConfidence))
     }
 
     private nonisolated static func bestClassificationLabel(from observations: [VNClassificationObservation]) -> String? {
@@ -430,13 +495,86 @@ struct FocusMaskEngine: @unchecked Sendable {
     ///    * silhouette penalty if >62 % of subject energy sits in its outer 12 % rim;
     ///    * subject-size bonus `(1 + area · subjectSizeFactor)` for saliency-only;
     ///    * soft aperture-aware blur gate `0.20…1.0` driven by subject micro-contrast σ.
-    private nonisolated static func computeSharpnessScalar(
+    private struct SharpnessAnalysis {
+        let finalScore: Float
+        let fullScore: Float?
+        let salientScore: Float?
+        let afScore: Float?
+        let effectiveSubjectScore: Float?
+        let subjectMicro: Float
+    }
+
+    private nonisolated static let motionBlurScoreThreshold: Float = 0.08
+    private nonisolated static let motionBlurSigmaThreshold: Float = 0.012
+    private nonisolated static let missedFocusMinimumGlobalScore: Float = 0.12
+    private nonisolated static let missedFocusSubjectRatio: Float = 0.55
+
+    private nonisolated static func computeSharpnessBreakdown(
+        from inputImage: CIImage,
+        salientRegion: CGRect?,
+        saliencyInfo: SaliencyInfo?,
+        afPoint: CGPoint?,
+        context: CIContext,
+        config: FocusDetectorConfig,
+    ) -> SharpnessBreakdown? {
+        guard let analysis = computeSharpnessAnalysis(
+            from: inputImage,
+            salientRegion: salientRegion,
+            afPoint: afPoint,
+            context: context,
+            config: config,
+        ) else { return nil }
+
+        return SharpnessBreakdown(
+            finalScore: analysis.finalScore,
+            globalScore: analysis.fullScore,
+            subjectScore: analysis.salientScore,
+            afPointScore: analysis.afScore,
+            blurGateSigma: analysis.subjectMicro,
+            subjectLabel: saliencyInfo?.subjectLabel,
+            subjectConfidence: saliencyInfo?.subjectConfidence,
+            focusFailureKind: classifyFocusFailure(
+                globalScore: analysis.fullScore,
+                subjectScore: analysis.salientScore,
+                afPointScore: analysis.afScore,
+                blurGateSigma: analysis.subjectMicro,
+            ),
+        )
+    }
+
+    nonisolated static func classifyFocusFailure(
+        globalScore: Float?,
+        subjectScore: Float?,
+        afPointScore: Float?,
+        blurGateSigma: Float,
+    ) -> FocusFailureKind {
+        let subject = subjectScore ?? afPointScore
+        let afOrSubject = afPointScore ?? subjectScore
+
+        if (globalScore ?? 0) < motionBlurScoreThreshold,
+           (subject ?? 0) < motionBlurScoreThreshold,
+           (afOrSubject ?? 0) < motionBlurScoreThreshold,
+           blurGateSigma < motionBlurSigmaThreshold {
+            return .motionBlur
+        }
+
+        if let globalScore,
+           let subject,
+           globalScore >= missedFocusMinimumGlobalScore,
+           subject / max(globalScore, 1e-6) < missedFocusSubjectRatio {
+            return .missedFocus
+        }
+
+        return .none
+    }
+
+    private nonisolated static func computeSharpnessAnalysis(
         from inputImage: CIImage,
         salientRegion: CGRect?,
         afPoint: CGPoint?,
         context: CIContext,
         config: FocusDetectorConfig,
-    ) -> Float? {
+    ) -> SharpnessAnalysis? {
         guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
 
         let extent = boosted.extent
@@ -650,7 +788,14 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         guard let baseScore = base else { return nil }
-        return baseScore * blurAttenuation
+        return SharpnessAnalysis(
+            finalScore: baseScore * blurAttenuation,
+            fullScore: fullScore,
+            salientScore: salientScore,
+            afScore: afScore,
+            effectiveSubjectScore: effectiveSubjectScore,
+            subjectMicro: subjectMicro,
+        )
     }
 
     // MARK: - Mask generation
@@ -833,6 +978,20 @@ final class FocusMaskModel {
         )
     }
 
+    func generateFocusMaskWithBreakdown(
+        from cgImage: CGImage,
+        scale: CGFloat,
+        afPoint: CGPoint? = nil,
+    ) async -> (mask: CGImage?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
+        let config = self.config
+        return await engine.generateFocusMaskWithBreakdown(
+            from: cgImage,
+            scale: scale,
+            config: config,
+            afPoint: afPoint,
+        )
+    }
+
     nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
         FocusMaskEngine.robustTailScore(samples)
     }
@@ -843,6 +1002,20 @@ final class FocusMaskModel {
 
     nonisolated static func isoScalingFactor(iso: Int) -> Float {
         FocusMaskEngine.isoScalingFactor(iso: iso)
+    }
+
+    nonisolated static func classifyFocusFailure(
+        globalScore: Float?,
+        subjectScore: Float?,
+        afPointScore: Float?,
+        blurGateSigma: Float,
+    ) -> FocusFailureKind {
+        FocusMaskEngine.classifyFocusFailure(
+            globalScore: globalScore,
+            subjectScore: subjectScore,
+            afPointScore: afPointScore,
+            blurGateSigma: blurGateSigma,
+        )
     }
 
     @MainActor

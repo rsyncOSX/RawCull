@@ -37,7 +37,7 @@ final class SharpnessScoringModel {
         FocusDetectorConfig,
         Int,
         CGPoint?,
-    ) async -> (score: Float?, saliency: SaliencyInfo?)
+    ) async -> (score: Float?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?)
 
     /// Sharpness scores keyed by FileItem.id. Wholesale-replaced at the end
     /// of a scoring run; incremental inserts happen only when loading
@@ -48,6 +48,7 @@ final class SharpnessScoringModel {
     }
 
     var saliencyInfo: [UUID: SaliencyInfo] = [:]
+    var breakdowns: [UUID: SharpnessBreakdown] = [:]
     var isScoring: Bool = false
     var sortBySharpness: Bool = false
     var apertureFilter: ApertureFilter = .all
@@ -114,6 +115,7 @@ final class SharpnessScoringModel {
         isScoring = false
         scores = [:]
         saliencyInfo = [:]
+        breakdowns = [:]
         scoringProgress = 0
         scoringTotal = 0
         scoringEstimatedSeconds = 0
@@ -156,6 +158,7 @@ final class SharpnessScoringModel {
         scoringEstimatedSeconds = 0
         scores = [:]
         saliencyInfo = [:]
+        breakdowns = [:]
 
         let engine = FocusMaskEngine()
         let config = focusMaskModel.config
@@ -171,7 +174,7 @@ final class SharpnessScoringModel {
                 self.isScoring = false
             }
 
-            await withTaskGroup(of: (UUID, Float?, SaliencyInfo?).self) { group in
+            await withTaskGroup(of: (UUID, Float?, SaliencyInfo?, SharpnessBreakdown?).self) { group in
                 while active < maxConcurrent, let file = iterator.next() {
                     let url = file.url
                     let id = file.id
@@ -193,23 +196,25 @@ final class SharpnessScoringModel {
                                 afPoint: afPoint,
                             )
                         }
-                        return (id, result.score, result.saliency)
+                        return (id, result.score, result.saliency, result.breakdown)
                     }
                     active += 1
                 }
 
                 var localScores: [UUID: Float] = [:]
                 var localSaliency: [UUID: SaliencyInfo] = [:]
+                var localBreakdowns: [UUID: SharpnessBreakdown] = [:]
                 var completedCount = 0
                 var completionTimes: [TimeInterval] = []
                 var lastCompletionTime: Date?
 
-                for await (id, score, saliency) in group {
+                for await (id, score, saliency, breakdown) in group {
                     active -= 1
                     guard !Task.isCancelled else { break }
 
                     if let score { localScores[id] = score }
                     if let saliency { localSaliency[id] = saliency }
+                    if let breakdown { localBreakdowns[id] = breakdown }
                     completedCount += 1
 
                     self.scoringProgress = completedCount
@@ -247,7 +252,7 @@ final class SharpnessScoringModel {
                                     afPoint: afPoint,
                                 )
                             }
-                            return (id, result.score, result.saliency)
+                            return (id, result.score, result.saliency, result.breakdown)
                         }
                         active += 1
                     }
@@ -256,6 +261,7 @@ final class SharpnessScoringModel {
                 guard !Task.isCancelled else { return }
                 self.scores = localScores
                 self.saliencyInfo = localSaliency
+                self.breakdowns = localBreakdowns
             }
 
             guard !Task.isCancelled else { return }
@@ -291,6 +297,7 @@ final class SharpnessScoringModel {
         let validIDs = Set(files.map(\.id))
         scores = preloadedScores.filter { validIDs.contains($0.key) }
         saliencyInfo = preloadedSaliency.filter { validIDs.contains($0.key) }
+        breakdowns = [:]
 
         sortBySharpness = !scores.isEmpty
         scoringProgress = 0

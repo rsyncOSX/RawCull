@@ -65,7 +65,20 @@ struct SharpnessScoringTests {
         let model = SharpnessScoringModel { _, _, _, _ in
             await gate.markStarted()
             await gate.waitUntilReleased()
-            return (score: 0.75, saliency: nil)
+            return (
+                score: 0.75,
+                saliency: SaliencyInfo(subjectLabel: "bird", subjectConfidence: 0.8),
+                breakdown: SharpnessBreakdown(
+                    finalScore: 0.75,
+                    globalScore: 0.65,
+                    subjectScore: 0.75,
+                    afPointScore: 0.80,
+                    blurGateSigma: 0.03,
+                    subjectLabel: "bird",
+                    subjectConfidence: 0.8,
+                    focusFailureKind: .none,
+                ),
+            )
         }
         let files = [makeSharpnessTestFile()]
 
@@ -91,6 +104,8 @@ struct SharpnessScoringTests {
         #expect(await completion.completedAfterSort)
         #expect(await completion.completedAfterProgressReset)
         #expect(model.scores[files[0].id] == 0.75)
+        #expect(model.saliencyInfo[files[0].id]?.subjectLabel == "bird")
+        #expect(model.breakdowns[files[0].id]?.subjectScore == 0.75)
         #expect(model.sortBySharpness)
         #expect(model.scoringProgress == 0)
         #expect(model.scoringTotal == 0)
@@ -283,6 +298,41 @@ struct FocusNumericHelperTests {
         let b = try #require(FocusMaskModel.robustTailScore(scaled))
         // Allow 1% slack for percentile-index rounding noise.
         #expect(abs(b / a - 10) < 0.1)
+    }
+
+    // MARK: - Failure classification
+
+    @Test(.tags(.smoke))
+    func `focus failure classifier flags motion blur when all regions are weak`() {
+        let result = FocusMaskModel.classifyFocusFailure(
+            globalScore: 0.03,
+            subjectScore: 0.04,
+            afPointScore: 0.05,
+            blurGateSigma: 0.004,
+        )
+        #expect(result == .motionBlur)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus failure classifier flags missed focus when subject trails frame`() {
+        let result = FocusMaskModel.classifyFocusFailure(
+            globalScore: 0.30,
+            subjectScore: 0.10,
+            afPointScore: 0.11,
+            blurGateSigma: 0.03,
+        )
+        #expect(result == .missedFocus)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus failure classifier stays neutral for strong subject`() {
+        let result = FocusMaskModel.classifyFocusFailure(
+            globalScore: 0.24,
+            subjectScore: 0.22,
+            afPointScore: 0.26,
+            blurGateSigma: 0.03,
+        )
+        #expect(result == .none)
     }
 }
 
