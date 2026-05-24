@@ -95,10 +95,11 @@ struct ComparisonGridView: View {
             }
             return .ignored
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-iIxXpP012345tTfFaAbB")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJiIxXpP012345tTfFaAbB")) { press in
             switch press.characters {
             case "+": return increaseZoom()
             case "-": return decreaseZoom()
+            case "j", "J": return toggleSelectedImageSource()
             case "i", "I": showCandidateInspector.toggle(); return .handled
             case "f", "F": return toggleSelectedFocusMask()
             case "a", "A": return toggleSelectedFocusPoints()
@@ -420,6 +421,9 @@ struct ComparisonGridView: View {
         case .zoomOut:
             return decreaseZoom()
 
+        case .toggleImageSource:
+            return toggleSelectedImageSource()
+
         case .toggleFocusMask:
             return toggleSelectedFocusMask()
 
@@ -468,6 +472,10 @@ struct ComparisonGridView: View {
 
     private func toggleSelectedFocusPoints() -> KeyPress.Result {
         updateSelectedInteraction { $0.showFocusPoints.toggle() }
+    }
+
+    private func toggleSelectedImageSource() -> KeyPress.Result {
+        updateSelectedInteraction { $0.useThumbnailSource.toggle() }
     }
 
     private func increaseZoom() -> KeyPress.Result {
