@@ -6,7 +6,11 @@ enum ComparisonImageLoader {
         SharedMemoryCache.shared.fullSizeJPGDiskCache
     }
 
-    static func loadImage(for file: FileItem) async -> (CGImage?, NSImage?) {
+    static func loadImage(for file: FileItem, useThumbnailSource: Bool = false) async -> (CGImage?, NSImage?) {
+        if useThumbnailSource {
+            return await loadThumbnail(for: file)
+        }
+
         let filejpg = file.url
             .deletingPathExtension()
             .appendingPathExtension(SupportedFileType.jpg.rawValue)
@@ -31,6 +35,29 @@ enum ComparisonImageLoader {
         }
 
         return (nil, nil)
+    }
+
+    private static func loadThumbnail(for file: FileItem) async -> (CGImage?, NSImage?) {
+        let thumbnailSizePreview = 1616
+        let settings = await SettingsViewModel.shared.asyncgetsettings()
+        let cgThumb = await RequestThumbnail.shared.requestThumbnail(
+            for: file.url,
+            targetSize: thumbnailSizePreview,
+        )
+
+        guard !Task.isCancelled else { return (nil, nil) }
+
+        if settings.enableThumbnailSharpening {
+            let url = file.url
+            let size = CGFloat(thumbnailSizePreview)
+            let amount = settings.thumbnailSharpenAmount
+            let sharpened = await Task.detached(priority: .userInitiated) {
+                ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount)
+            }.value
+            return (sharpened ?? cgThumb, nil)
+        }
+
+        return (cgThumb, nil)
     }
 
     private static func loadCGImage(from url: URL) -> CGImage? {

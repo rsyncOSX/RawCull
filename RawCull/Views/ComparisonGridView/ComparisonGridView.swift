@@ -6,17 +6,11 @@ struct ComparisonGridView: View {
     @Binding var showCandidateInspector: Bool
 
     @State private var imageStates: [FileItem.ID: ComparisonImageState] = [:]
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-    @State private var showFocusMask = false
-    @State private var showFocusPoints = false
+    @State private var interactionStates: [FileItem.ID: ComparisonPaneInteractionState] = [:]
     @State private var finalistFocusActive = false
     @State private var keyMonitor: Any?
     @FocusState private var isFocused: Bool
 
-    private let zoomLevel: CGFloat = 2.0
     private let columnCount = 1
 
     var body: some View {
@@ -26,7 +20,6 @@ struct ComparisonGridView: View {
 
             if files.count > 1 {
                 ScrollView {
-                    
                     if let burstComparisonResult {
                         BurstComparisonEvidenceView(
                             result: burstComparisonResult,
@@ -43,7 +36,7 @@ struct ComparisonGridView: View {
                         )
                         .padding(.horizontal, 12)
                     }
-                    
+
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(files) { file in
                             let burstAnalysis = burstComparisonResult
@@ -51,10 +44,7 @@ struct ComparisonGridView: View {
                                 file: file,
                                 state: imageStates[file.id],
                                 focusPoints: focusPoints(for: file),
-                                scale: scale,
-                                offset: offset,
-                                showFocusMask: showFocusMask,
-                                showFocusPoints: showFocusPoints,
+                                interactionState: interactionBinding(for: file),
                                 markerSize: viewModel.focusPointMarkerSize,
                                 isSelected: viewModel.selectedFileID == file.id,
                                 rating: ratingDisplay(for: file),
@@ -64,50 +54,24 @@ struct ComparisonGridView: View {
                                 burstCandidate: burstCandidate(for: file, in: burstAnalysis),
                                 burstRating: viewModel.getRating(for: file),
                                 sharpnessContext: sharpnessContext(for: file),
-                                zoomPanGesture: zoomPanGesture,
+                                inspectorIsPresented: showCandidateInspector,
                                 onSelect: { viewModel.selectedFileID = file.id },
-                                onToggleZoom: toggleZoom,
+                                onRate: { rating in
+                                    viewModel.updateRating(for: file, rating: rating)
+                                },
+                                onToggleInspector: {
+                                    showCandidateInspector.toggle()
+                                },
+                                onSourceChange: {
+                                    Task {
+                                        await reloadImage(for: file)
+                                    }
+                                },
                             )
                             .aspectRatio(3 / 2, contentMode: .fit)
                         }
                     }
                     .padding(12)
-                }
-
-                VStack {
-                    Spacer()
-
-                    VStack(spacing: 8) {
-                        if let selectedComparisonFile {
-                            RatingActionBarView(
-                                currentRating: ratingDisplay(for: selectedComparisonFile),
-                                onSelect: { rating in
-                                    viewModel.updateRating(for: selectedComparisonFile, rating: rating)
-                                },
-                            )
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                        }
-
-                        ImageOverlayControlsView(
-                            showFocusMask: $showFocusMask,
-                            focusMaskAvailable: focusMaskAvailable,
-                            hasFocusPoints: hasFocusPoints,
-                            showFocusPoints: $showFocusPoints,
-                            showShortcutHints: true,
-                            showImageSourceToggle: false,
-                            useThumbnailSource: .constant(false),
-                            inspectorIsPresented: showCandidateInspector,
-                            onToggleInspector: { showCandidateInspector.toggle() },
-                            scale: scale,
-                            canZoomOut: scale > 0.5,
-                            canZoomIn: scale < 5.0,
-                            canReset: scale != 1.0 || offset != .zero,
-                            onZoomOut: decreaseZoom,
-                            onZoomReset: { withAnimation(.spring()) { resetToFit() } },
-                            onZoomIn: increaseZoom,
-                        )
-                    }
-                    .padding(.bottom, 14)
                 }
             } else {
                 ContentUnavailableView(
@@ -133,11 +97,11 @@ struct ComparisonGridView: View {
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-iIxXpP012345tTfFaAbB")) { press in
             switch press.characters {
-            case "+": increaseZoom(); return .handled
-            case "-": decreaseZoom(); return .handled
+            case "+": return increaseZoom()
+            case "-": return decreaseZoom()
             case "i", "I": showCandidateInspector.toggle(); return .handled
-            case "f", "F": showFocusMask.toggle(); return .handled
-            case "a", "A": showFocusPoints.toggle(); return .handled
+            case "f", "F": return toggleSelectedFocusMask()
+            case "a", "A": return toggleSelectedFocusPoints()
             case "b", "B": return applyBurstKeepBest()
             case "x", "X": return applyRating(-1)
             case "p", "P", "0": return applyRating(0)
@@ -152,7 +116,6 @@ struct ComparisonGridView: View {
         .onAppear {
             isFocused = true
             installKeyMonitor()
-            resetToFit()
             selectFirstComparisonFileIfNeeded()
         }
         .onDisappear {
@@ -211,46 +174,24 @@ struct ComparisonGridView: View {
         files.map(\.id.uuidString).joined(separator: ",")
     }
 
-    private var focusMaskAvailable: Bool {
-        imageStates.values.contains { $0.focusMask != nil }
-    }
-
-    private var hasFocusPoints: Bool {
-        files.contains { focusPoints(for: $0) != nil }
-    }
-
-    private var zoomPanGesture: AnyGesture<Void> {
-        AnyGesture(
-            SimultaneousGesture(
-                MagnificationGesture()
-                    .onChanged { scale = lastScale * $0 }
-                    .onEnded { _ in
-                        lastScale = scale
-                        if scale < 1.0 {
-                            withAnimation(.spring()) { resetToFit() }
-                        }
-                    },
-                DragGesture()
-                    .onChanged { value in
-                        if scale > 1.0 {
-                            offset = CGSize(
-                                width: lastOffset.width + value.translation.width,
-                                height: lastOffset.height + value.translation.height,
-                            )
-                        }
-                    }
-                    .onEnded { _ in lastOffset = offset },
-            )
-            .map { _ in () },
-        )
-    }
-
     private var columns: [GridItem] {
         [GridItem(.flexible(minimum: 320), spacing: 12)]
     }
 
+    private func interactionBinding(for file: FileItem) -> Binding<ComparisonPaneInteractionState> {
+        Binding(
+            get: {
+                interactionStates[file.id] ?? ComparisonPaneInteractionState()
+            },
+            set: { newValue in
+                interactionStates[file.id] = newValue
+            },
+        )
+    }
+
     private func loadImages() async {
         let currentFiles = files
+        syncInteractionStates(for: currentFiles)
         imageStates = Dictionary(
             uniqueKeysWithValues: currentFiles.map {
                 ($0.id, ComparisonImageState(id: $0.id, isLoading: true))
@@ -259,7 +200,11 @@ struct ComparisonGridView: View {
 
         for file in currentFiles {
             guard !Task.isCancelled else { return }
-            let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(for: file)
+            let useThumbnailSource = interactionStates[file.id]?.useThumbnailSource ?? false
+            let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+                for: file,
+                useThumbnailSource: useThumbnailSource,
+            )
             guard !Task.isCancelled else { return }
 
             var state = ComparisonImageState(
@@ -268,23 +213,57 @@ struct ComparisonGridView: View {
                 nsImage: nsImage,
                 isLoading: false,
             )
-            if let cgImage {
-                let downscaled = cgImage.downscaled(toWidth: 1024)
-                let focusResult = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-                    from: downscaled ?? cgImage,
-                    scale: 1.0,
-                    afPoint: file.afFocusNormalized,
-                )
-                state.focusMask = focusResult.mask
-                state.sharpnessBreakdown = focusResult.breakdown
-                if let breakdown = focusResult.breakdown {
-                    viewModel.sharpnessModel.breakdowns[file.id] = breakdown
-                }
-                if let saliency = focusResult.saliency {
-                    viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
-                }
-            }
+            await populateFocusMask(in: &state, for: file)
             imageStates[file.id] = state
+        }
+    }
+
+    private func syncInteractionStates(for currentFiles: [FileItem]) {
+        let currentIDs = Set(currentFiles.map(\.id))
+        interactionStates = interactionStates.filter { currentIDs.contains($0.key) }
+        for file in currentFiles where interactionStates[file.id] == nil {
+            interactionStates[file.id] = ComparisonPaneInteractionState()
+        }
+    }
+
+    private func reloadImage(for file: FileItem) async {
+        imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
+
+        let useThumbnailSource = interactionStates[file.id]?.useThumbnailSource ?? false
+        let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+            for: file,
+            useThumbnailSource: useThumbnailSource,
+        )
+        guard !Task.isCancelled else { return }
+
+        var state = ComparisonImageState(
+            id: file.id,
+            cgImage: cgImage,
+            nsImage: nsImage,
+            isLoading: false,
+        )
+        await populateFocusMask(in: &state, for: file)
+        imageStates[file.id] = state
+    }
+
+    private func populateFocusMask(
+        in state: inout ComparisonImageState,
+        for file: FileItem,
+    ) async {
+        guard let cgImage = state.cgImage else { return }
+        let downscaled = cgImage.downscaled(toWidth: 1024)
+        let focusResult = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
+            from: downscaled ?? cgImage,
+            scale: 1.0,
+            afPoint: file.afFocusNormalized,
+        )
+        state.focusMask = focusResult.mask
+        state.sharpnessBreakdown = focusResult.breakdown
+        if let breakdown = focusResult.breakdown {
+            viewModel.sharpnessModel.breakdowns[file.id] = breakdown
+        }
+        if let saliency = focusResult.saliency {
+            viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
         }
     }
 
@@ -379,7 +358,6 @@ struct ComparisonGridView: View {
         finalistFocusActive = true
         viewModel.selectedFileID = finalistIDs[0]
         showCandidateInspector = true
-        resetToFit()
     }
 
     private func showAllCandidates() {
@@ -437,20 +415,16 @@ struct ComparisonGridView: View {
             return .ignored
 
         case .zoomIn:
-            increaseZoom()
-            return .handled
+            return increaseZoom()
 
         case .zoomOut:
-            decreaseZoom()
-            return .handled
+            return decreaseZoom()
 
         case .toggleFocusMask:
-            showFocusMask.toggle()
-            return .handled
+            return toggleSelectedFocusMask()
 
         case .toggleFocusPoints:
-            showFocusPoints.toggle()
-            return .handled
+            return toggleSelectedFocusPoints()
 
         case .keepBest:
             return applyBurstKeepBest()
@@ -474,37 +448,43 @@ struct ComparisonGridView: View {
         viewModel.selectedFileID = files[destinationIndex].id
     }
 
-    private func toggleZoom() {
-        withAnimation(.spring()) {
-            scale > 1.0 ? resetToFit() : zoomToTarget()
+    @discardableResult
+    private func updateSelectedInteraction(
+        _ update: (inout ComparisonPaneInteractionState) -> Void,
+    ) -> KeyPress.Result {
+        guard let selectedID = viewModel.selectedFileID,
+              files.contains(where: { $0.id == selectedID })
+        else { return .ignored }
+
+        var state = interactionStates[selectedID] ?? ComparisonPaneInteractionState()
+        update(&state)
+        interactionStates[selectedID] = state
+        return .handled
+    }
+
+    private func toggleSelectedFocusMask() -> KeyPress.Result {
+        updateSelectedInteraction { $0.showFocusMask.toggle() }
+    }
+
+    private func toggleSelectedFocusPoints() -> KeyPress.Result {
+        updateSelectedInteraction { $0.showFocusPoints.toggle() }
+    }
+
+    private func increaseZoom() -> KeyPress.Result {
+        updateSelectedInteraction { state in
+            withAnimation(.spring()) {
+                state.scale = min(5.0, state.scale + 0.4)
+                state.lastScale = state.scale
+            }
         }
     }
 
-    private func resetToFit() {
-        scale = 1.0
-        lastScale = 1.0
-        offset = .zero
-        lastOffset = .zero
-    }
-
-    private func zoomToTarget() {
-        scale = zoomLevel
-        lastScale = zoomLevel
-        offset = .zero
-        lastOffset = .zero
-    }
-
-    private func increaseZoom() {
-        withAnimation(.spring()) {
-            scale = min(5.0, scale + 0.4)
-            lastScale = scale
-        }
-    }
-
-    private func decreaseZoom() {
-        withAnimation(.spring()) {
-            scale = max(0.5, scale - 0.4)
-            lastScale = scale
+    private func decreaseZoom() -> KeyPress.Result {
+        updateSelectedInteraction { state in
+            withAnimation(.spring()) {
+                state.scale = max(0.5, state.scale - 0.4)
+                state.lastScale = state.scale
+            }
         }
     }
 }

@@ -9,6 +9,16 @@ struct ComparisonImageState: Identifiable {
     var isLoading = false
 }
 
+struct ComparisonPaneInteractionState: Equatable {
+    var scale: CGFloat = 1.0
+    var lastScale: CGFloat = 1.0
+    var offset: CGSize = .zero
+    var lastOffset: CGSize = .zero
+    var showFocusMask = false
+    var showFocusPoints = false
+    var useThumbnailSource = false
+}
+
 struct SharpnessComparisonContext: Equatable {
     var rankTitle: String
     var deltaParts: [SharpnessComparisonDeltaPart]

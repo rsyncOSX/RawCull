@@ -1,5 +1,5 @@
-@testable import RawCull
 import Foundation
+@testable import RawCull
 import Testing
 
 @Suite("ZoomOverlayKeyAction")

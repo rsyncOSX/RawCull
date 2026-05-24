@@ -86,7 +86,7 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
     }
 }
 
-nonisolated struct ZoomOverlayNavigationContext: Equatable, Sendable {
+nonisolated struct ZoomOverlayNavigationContext: Equatable {
     let orderedFileIDs: [FileItem.ID]
 
     init(orderedFileIDs: [FileItem.ID]) {
