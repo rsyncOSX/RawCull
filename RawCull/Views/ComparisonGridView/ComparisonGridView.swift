@@ -26,6 +26,24 @@ struct ComparisonGridView: View {
 
             if files.count > 1 {
                 ScrollView {
+                    
+                    if let burstComparisonResult {
+                        BurstComparisonEvidenceView(
+                            result: burstComparisonResult,
+                            selectedFile: selectedComparisonFile,
+                            onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
+                            onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
+                            finalistFocusActive: finalistFocusActive,
+                            onInspectFinalists: inspectFinalists,
+                            onShowAll: showAllCandidates,
+                            onSetManualWinner: { file in
+                                viewModel.setManualBurstWinner(file, in: allComparisonFiles)
+                            },
+                            onBack: viewModel.returnToActiveBurstGroupView,
+                        )
+                        .padding(.horizontal, 12)
+                    }
+                    
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(files) { file in
                             let burstAnalysis = burstComparisonResult
@@ -54,24 +72,6 @@ struct ComparisonGridView: View {
                         }
                     }
                     .padding(12)
-
-                    if let burstComparisonResult {
-                        BurstComparisonEvidenceView(
-                            result: burstComparisonResult,
-                            selectedFile: selectedComparisonFile,
-                            onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
-                            onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
-                            finalistFocusActive: finalistFocusActive,
-                            onInspectFinalists: inspectFinalists,
-                            onShowAll: showAllCandidates,
-                            onSetManualWinner: { file in
-                                viewModel.setManualBurstWinner(file, in: allComparisonFiles)
-                            },
-                            onBack: viewModel.returnToActiveBurstGroupView,
-                        )
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 90)
-                    }
                 }
 
                 VStack {
