@@ -275,7 +275,7 @@ struct RawCullMainView: View {
             }
         }
         .task {
-            columnVisibility = .doubleColumn
+            columnVisibility = .detailOnly
         }
         .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
             handlePickerResult(result)

@@ -62,11 +62,10 @@ struct BurstGroupPresentation: Equatable {
         result: BurstAnalysisResult,
         files: [FileItem],
     ) -> BurstGroupPresentation {
-        let recommendedFrameIndex: Int?
-        if let recommendedFileID = result.recommendedFileID {
-            recommendedFrameIndex = frameIndex(for: recommendedFileID, in: result.fileIDs)
+        let recommendedFrameIndex: Int? = if let recommendedFileID = result.recommendedFileID {
+            frameIndex(for: recommendedFileID, in: result.fileIDs)
         } else {
-            recommendedFrameIndex = nil
+            nil
         }
         let frameText = recommendedFrameIndex.map { "frame \($0)" }
         let title = title(files: files)
@@ -167,14 +166,15 @@ struct BurstGroupPresentation: Equatable {
         for result: BurstAnalysisResult,
         confidence: BurstDecisionConfidence,
     ) -> String {
-        let items: [String]
-        switch confidence {
+        let items: [String] = switch confidence {
         case .high:
-            items = humanReasons(result.reasons)
+            humanReasons(result.reasons)
+
         case .medium:
-            items = humanReasons(result.reasons) + Array(humanCautions(result.cautions).prefix(1))
+            humanReasons(result.reasons) + Array(humanCautions(result.cautions).prefix(1))
+
         case .low:
-            items = humanCautions(result.cautions)
+            humanCautions(result.cautions)
         }
 
         let uniqueItems = items.reduce(into: [String]()) { partial, item in
