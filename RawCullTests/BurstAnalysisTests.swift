@@ -154,6 +154,39 @@ struct BurstRankingEngineTests {
         #expect(result.confidence == .low)
         #expect(!result.isSafeForOneClickCulling)
     }
+
+    @Test(.tags(.smoke))
+    func `medium confidence recommendation is not safe for one click culling`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let group = BurstGroup(id: 0, fileIDs: files.map(\.id))
+        let evidence = [
+            BurstBoundaryEvidence(previousID: files[0].id, currentID: files[1].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: []),
+            BurstBoundaryEvidence(previousID: files[1].id, currentID: files[2].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: [])
+        ]
+
+        let result = BurstRankingEngine.rankGroup(
+            group,
+            filesByID: Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) }),
+            scores: [files[0].id: 0.80, files[1].id: 0.70, files[2].id: 0.20],
+            maxScore: 1.0,
+            saliencyInfo: [:],
+            boundaryEvidence: evidence,
+        )
+
+        #expect(result.confidence == .medium)
+        #expect(!result.isSafeForOneClickCulling)
+    }
+
+    @Test(.tags(.smoke))
+    func `confidence titles use conservative recommendation copy`() {
+        #expect(BurstDecisionConfidence.high.title == "Strong recommendation")
+        #expect(BurstDecisionConfidence.medium.title == "Review recommended")
+        #expect(BurstDecisionConfidence.low.title == "Uncertain")
+    }
 }
 
 @MainActor
@@ -197,6 +230,11 @@ struct BurstViewModelActionTests {
         viewModel.files = files
         viewModel.filteredFiles = files
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.sharpnessModel.scores = [
+            files[0].id: 0.2,
+            files[1].id: 0.9,
+            files[2].id: 0.7
+        ]
         viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
         viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
         viewModel.burstAnalysisResults[0] = BurstAnalysisResult(
@@ -244,6 +282,11 @@ struct BurstViewModelActionTests {
         viewModel.files = files
         viewModel.filteredFiles = files
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.sharpnessModel.scores = [
+            files[0].id: 0.2,
+            files[1].id: 0.9,
+            files[2].id: 0.7
+        ]
         viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
         viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
         viewModel.burstAnalysisResults[0] = BurstAnalysisResult(
@@ -345,6 +388,56 @@ struct BurstViewModelActionTests {
         #expect(viewModel.burstAnalysisResults[0]?.reviewState == BurstReviewState.none)
         #expect(viewModel.burstAnalysisResults[1]?.recommendedFileID == files[2].id)
         #expect(viewModel.burstAnalysisResults[1]?.reviewState == .manualWinnerOverride)
+    }
+
+    @Test(.tags(.critical))
+    func `unsafe burst actions do not apply automatic ratings`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.filteredFiles = files
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.sharpnessModel.scores = [
+            files[0].id: 0.2,
+            files[1].id: 0.9,
+            files[2].id: 0.7
+        ]
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
+        viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
+        viewModel.burstAnalysisResults[0] = BurstAnalysisResult(
+            groupID: 0,
+            fileIDs: files.map(\.id),
+            candidates: [
+                BurstCandidateScore(fileID: files[1].id, overallScore: 0.9, sharpnessComponent: 0.9, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .medium, reasons: [], cautions: []),
+                BurstCandidateScore(fileID: files[2].id, overallScore: 0.7, sharpnessComponent: 0.7, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .medium, reasons: [], cautions: []),
+                BurstCandidateScore(fileID: files[0].id, overallScore: 0.2, sharpnessComponent: 0.2, focusPointComponent: 0.7, saliencyComponent: 0.7, metadataComponent: 0.7, confidence: .medium, reasons: [], cautions: [])
+            ],
+            recommendedFileID: files[1].id,
+            secondBestFileID: files[2].id,
+            confidence: .medium,
+            reviewState: .none,
+            isSafeForOneClickCulling: false,
+            reasons: [],
+            cautions: [],
+        )
+
+        #expect(!viewModel.canApplyOneClickCulling(to: files))
+
+        viewModel.keepBestInGroup(from: files)
+        #expect(viewModel.getRating(for: files[0]) == 0)
+        #expect(viewModel.getRating(for: files[1]) == 0)
+        #expect(viewModel.getRating(for: files[2]) == 0)
+
+        viewModel.keepTopTwoInGroup(from: files)
+        #expect(viewModel.getRating(for: files[0]) == 0)
+        #expect(viewModel.getRating(for: files[1]) == 0)
+        #expect(viewModel.getRating(for: files[2]) == 0)
     }
 
     @Test(.tags(.critical))

@@ -85,18 +85,12 @@ private struct BurstGroupHeaderView: View {
 
     @ViewBuilder
     private var actionButtons: some View {
-        let confidence = analysis?.confidence ?? .low
-
-        if confidence == .high {
+        if canApplyOneClickCulling {
             keepBestButton(prominent: true)
             compareButton()
             keepTopTwoButton(prominent: false)
-        } else if confidence == .medium {
-            compareButton(prominent: true)
-            keepTopTwoButton(prominent: false)
-            keepBestButton(prominent: false)
         } else {
-            compareButton()
+            compareButton(prominent: true)
         }
 
         if viewModel.lastBurstUndoEntry?.groupID == analysis?.groupID {
@@ -117,15 +111,13 @@ private struct BurstGroupHeaderView: View {
                 .tint(.green)
                 .font(.caption)
                 .controlSize(.mini)
-                .disabled(!hasSharpnessScores)
-                .help(hasSharpnessScores ? "Rate best frame ★★★ and reject all others" : "Run analysis first")
+                .help("Rate best frame ★★★ and reject all others")
         } else {
             Button("Keep Best") { viewModel.keepBestInGroup(from: files) }
                 .buttonStyle(.bordered)
                 .font(.caption)
                 .controlSize(.mini)
-                .disabled(!hasSharpnessScores)
-                .help(hasSharpnessScores ? "Rate best frame ★★★ and reject all others" : "Run analysis first")
+                .help("Rate best frame ★★★ and reject all others")
         }
     }
 
@@ -171,6 +163,10 @@ private struct BurstGroupHeaderView: View {
             return "\(prefix): \(best.fileName) (\(pct)%)"
         }
         return "\(prefix): \(best.fileName)"
+    }
+
+    private var canApplyOneClickCulling: Bool {
+        analysis?.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScores) ?? false
     }
 }
 
@@ -565,10 +561,12 @@ struct CullingGridView<Header: View>: View {
             return .handled
 
         case "B", "b":
+            guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
             viewModel.keepBestInGroup(from: groupFiles)
             return .handled
 
         case "2":
+            guard canApplyOneClickCulling(to: groupFiles) else { return .ignored }
             viewModel.keepTopTwoInGroup(from: groupFiles)
             return .handled
 
@@ -586,6 +584,13 @@ struct CullingGridView<Header: View>: View {
               let groupID = viewModel.similarityModel.burstGroupLookup[selectedID]
         else { return nil }
         return visibleBurstGroups.first { $0.id == groupID }?.files
+    }
+
+    private func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
+        guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityModel.burstGroupLookup[$0.id] }).first,
+              let result = viewModel.burstAnalysisResult(for: groupID)
+        else { return false }
+        return result.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScoresSnapshot)
     }
 
     // MARK: - Rating filter

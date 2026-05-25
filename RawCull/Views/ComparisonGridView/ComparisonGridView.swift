@@ -24,6 +24,7 @@ struct ComparisonGridView: View {
                         BurstComparisonEvidenceView(
                             result: burstComparisonResult,
                             selectedFile: selectedComparisonFile,
+                            canApplyOneClickCulling: canApplyOneClickCulling,
                             onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
                             onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
                             finalistFocusActive: finalistFocusActive,
@@ -169,6 +170,12 @@ struct ComparisonGridView: View {
     private var burstComparisonResult: BurstAnalysisResult? {
         guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
         return viewModel.burstAnalysisResult(for: groupID)
+    }
+
+    private var canApplyOneClickCulling: Bool {
+        burstComparisonResult?.canApplyOneClickCulling(
+            hasSharpnessScores: !viewModel.sharpnessModel.scores.isEmpty,
+        ) ?? false
     }
 
     private var loadKey: String {
@@ -373,7 +380,10 @@ struct ComparisonGridView: View {
     }
 
     private func applyBurstKeepBest() -> KeyPress.Result {
-        guard viewModel.activeBurstComparisonGroupID != nil, !allComparisonFiles.isEmpty else { return .ignored }
+        guard viewModel.activeBurstComparisonGroupID != nil,
+              canApplyOneClickCulling,
+              !allComparisonFiles.isEmpty
+        else { return .ignored }
         viewModel.keepBestInGroup(from: allComparisonFiles)
         return .handled
     }
@@ -500,6 +510,7 @@ struct ComparisonGridView: View {
 private struct BurstComparisonEvidenceView: View {
     let result: BurstAnalysisResult
     let selectedFile: FileItem?
+    let canApplyOneClickCulling: Bool
     let onKeepBest: () -> Void
     let onKeepTopTwo: () -> Void
     let finalistFocusActive: Bool
@@ -560,10 +571,12 @@ private struct BurstComparisonEvidenceView: View {
                     }
                     .disabled(!selectedFileIsInResult)
                     .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
-                    Button("Keep Best", action: onKeepBest)
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                    Button("Keep Top 2", action: onKeepTopTwo)
+                    if canApplyOneClickCulling {
+                        Button("Keep Best", action: onKeepBest)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+                        Button("Keep Top 2", action: onKeepTopTwo)
+                    }
                 }
                 .controlSize(.small)
             }

@@ -36,9 +36,9 @@ enum BurstDecisionConfidence: String, Codable, Equatable {
 
     var title: String {
         switch self {
-        case .high: "High confidence"
-        case .medium: "Medium confidence"
-        case .low: "Low confidence"
+        case .high: "Strong recommendation"
+        case .medium: "Review recommended"
+        case .low: "Uncertain"
         }
     }
 }
@@ -117,6 +117,10 @@ struct BurstAnalysisResult: Codable, Equatable, Identifiable {
     var isSafeForOneClickCulling: Bool
     var reasons: [String]
     var cautions: [String]
+
+    nonisolated func canApplyOneClickCulling(hasSharpnessScores: Bool) -> Bool {
+        isSafeForOneClickCulling && hasSharpnessScores
+    }
 }
 
 enum BurstAnalysisStep: String, Codable, Equatable {

@@ -216,7 +216,11 @@ struct BurstCandidateBadgeView: View {
             return "AUTO BEST"
         }
         if analysis.recommendedFileID == candidate.fileID {
-            return analysis.confidence == .low ? "BEST?" : "BEST"
+            switch analysis.confidence {
+            case .high: return "BEST"
+            case .medium: return "REVIEW"
+            case .low: return "CHECK"
+            }
         }
         if analysis.secondBestFileID == candidate.fileID {
             return "2ND"

@@ -99,6 +99,7 @@ extension RawCullViewModel {
     func keepBestInGroup(from groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
+        guard canApplyOneClickCulling(groupID: groupID) else { return }
         let best = manualOverrideWinner(in: groupFiles)?.file
             ?? burstAnalysisResults[groupID]?.recommendedFileID
             .flatMap { id in groupFiles.first { $0.id == id } }
@@ -135,6 +136,7 @@ extension RawCullViewModel {
     func keepTopTwoInGroup(from groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
+        guard canApplyOneClickCulling(groupID: groupID) else { return }
         let result = burstAnalysisResults[groupID]
         let rankedIDs = result?.candidates.map(\.fileID) ?? groupFiles
             .sorted { (sharpnessModel.scores[$0.id] ?? 0) > (sharpnessModel.scores[$1.id] ?? 0) }
@@ -264,6 +266,15 @@ extension RawCullViewModel {
 
     private func groupID(for groupFiles: [FileItem]) -> Int {
         groupFiles.lazy.compactMap { self.similarityModel.burstGroupLookup[$0.id] }.first ?? -1
+    }
+
+    func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
+        canApplyOneClickCulling(groupID: groupID(for: groupFiles))
+    }
+
+    private func canApplyOneClickCulling(groupID: Int) -> Bool {
+        guard let result = burstAnalysisResults[groupID] else { return false }
+        return result.canApplyOneClickCulling(hasSharpnessScores: !sharpnessModel.scores.isEmpty)
     }
 
     func manualOverrideWinner(in groupFiles: [FileItem]) -> (file: FileItem, override: BurstWinnerOverride)? {
