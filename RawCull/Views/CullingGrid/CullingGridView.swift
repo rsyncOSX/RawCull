@@ -36,40 +36,46 @@ private struct BurstGroupHeaderView: View {
     @Bindable var viewModel: RawCullViewModel
 
     var body: some View {
+        let presentation = analysis.map { BurstGroupPresentation.make(result: $0, files: files) }
+
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Label("Burst · \(files.count) frames", systemImage: "square.stack.3d.up")
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label(presentation?.title ?? "Burst of \(files.count) photos", systemImage: "square.stack.3d.up")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-
-                if let analysis {
-                    ConfidenceBadgeView(confidence: analysis.confidence)
-                }
-
-                if let best {
-                    Text(bestLabel(best))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                    .lineLimit(1)
 
                 Spacer()
 
-                actionButtons
+                if let presentation, presentation.showsAppliedStatus {
+                    BurstStatusBadgeView(title: "Applied", color: .blue)
+                }
+
+                if let presentation {
+                    BurstStatusBadgeView(title: presentation.confidenceLabel, color: badgeColor)
+                }
             }
 
-            if let analysis {
-                HStack(spacing: 6) {
-                    ForEach(Array(analysis.reasons.prefix(3)), id: \.self) { reason in
-                        Text(reason)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(Array(analysis.cautions.prefix(2)), id: \.self) { caution in
-                        Text(caution)
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
-                    }
-                }
+            if let presentation {
+                Text(presentation.decision)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(presentation.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else if let best {
+                Text(bestLabel(best))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            HStack(spacing: 8) {
+                Spacer()
+                actionButtons
             }
 
             if !hasSharpnessScores {
@@ -85,10 +91,18 @@ private struct BurstGroupHeaderView: View {
 
     @ViewBuilder
     private var actionButtons: some View {
+        let presentation = analysis.map { BurstGroupPresentation.make(result: $0, files: files) }
+
         if canApplyOneClickCulling {
-            keepBestButton(prominent: true)
+            keepBestButton(title: presentation?.primaryActionTitle ?? "Keep best", prominent: true)
             compareButton()
             keepTopTwoButton(prominent: false)
+        } else if presentation?.primaryAction == .compare {
+            compareButton(title: presentation?.primaryActionTitle ?? "Compare", prominent: true)
+            if analysis?.confidence == .medium {
+                keepTopTwoButton(prominent: false)
+                keepBestButton(title: "Keep best", prominent: false)
+            }
         } else {
             compareButton(prominent: true)
         }
@@ -104,16 +118,16 @@ private struct BurstGroupHeaderView: View {
     }
 
     @ViewBuilder
-    private func keepBestButton(prominent: Bool) -> some View {
+    private func keepBestButton(title: String = "Keep best", prominent: Bool) -> some View {
         if prominent {
-            Button("Keep Best") { viewModel.keepBestInGroup(from: files) }
+            Button(title) { viewModel.keepBestInGroup(from: files) }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
                 .font(.caption)
                 .controlSize(.mini)
                 .help("Rate best frame ★★★ and reject all others")
         } else {
-            Button("Keep Best") { viewModel.keepBestInGroup(from: files) }
+            Button(title) { viewModel.keepBestInGroup(from: files) }
                 .buttonStyle(.bordered)
                 .font(.caption)
                 .controlSize(.mini)
@@ -141,15 +155,15 @@ private struct BurstGroupHeaderView: View {
     }
 
     @ViewBuilder
-    private func compareButton(prominent: Bool = false) -> some View {
+    private func compareButton(title: String = "Compare", prominent: Bool = false) -> some View {
         if prominent {
-            Button("Compare") { viewModel.compareBurstGroup(files) }
+            Button(title) { viewModel.compareBurstGroup(files) }
                 .buttonStyle(.borderedProminent)
                 .font(.caption)
                 .controlSize(.mini)
                 .help("Compare the top burst candidates")
         } else {
-            Button("Compare") { viewModel.compareBurstGroup(files) }
+            Button(title) { viewModel.compareBurstGroup(files) }
                 .buttonStyle(.bordered)
                 .font(.caption)
                 .controlSize(.mini)
@@ -168,26 +182,30 @@ private struct BurstGroupHeaderView: View {
     private var canApplyOneClickCulling: Bool {
         analysis?.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScores) ?? false
     }
+
+    private var badgeColor: Color {
+        if analysis?.reviewState == .manualWinnerOverride {
+            return .orange
+        }
+        switch analysis?.confidence {
+        case .high: return .green
+        case .medium: return .orange
+        case .low, .none: return .gray
+        }
+    }
 }
 
-private struct ConfidenceBadgeView: View {
-    let confidence: BurstDecisionConfidence
+private struct BurstStatusBadgeView: View {
+    let title: String
+    let color: Color
 
     var body: some View {
-        Text(confidence.title)
+        Text(title)
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
-    }
-
-    private var color: Color {
-        switch confidence {
-        case .high: .green
-        case .medium: .orange
-        case .low: .gray
-        }
     }
 }
 

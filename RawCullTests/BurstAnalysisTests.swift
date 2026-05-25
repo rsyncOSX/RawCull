@@ -183,9 +183,181 @@ struct BurstRankingEngineTests {
 
     @Test(.tags(.smoke))
     func `confidence titles use conservative recommendation copy`() {
-        #expect(BurstDecisionConfidence.high.title == "Strong recommendation")
+        #expect(BurstDecisionConfidence.high.title == "High confidence")
         #expect(BurstDecisionConfidence.medium.title == "Review recommended")
-        #expect(BurstDecisionConfidence.low.title == "Uncertain")
+        #expect(BurstDecisionConfidence.low.title == "Low confidence")
+    }
+}
+
+@Suite("BurstGroupPresentation")
+@MainActor
+struct BurstGroupPresentationTests {
+    @Test(.tags(.smoke))
+    func `high confidence presentation recommends keeping full order frame`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let result = presentationResult(
+            files: files,
+            recommended: files[1].id,
+            confidence: .high,
+            reasons: ["Sharpest candidate leads", "Exposure stable", "Subject stable", "Best is clearly ahead"],
+        )
+
+        let presentation = BurstGroupPresentation.make(result: result, files: files)
+
+        #expect(presentation.decision == "Keep frame 2")
+        #expect(presentation.confidenceLabel == "High confidence")
+        #expect(presentation.primaryActionTitle == "Keep best")
+        #expect(presentation.primaryAction == .keepBest)
+        #expect(presentation.recommendedBadge == "Best")
+        #expect(presentation.explanation == "Sharpest frame · stable exposure · same subject")
+    }
+
+    @Test(.tags(.smoke))
+    func `medium confidence presentation uses review copy and one caution`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let result = presentationResult(
+            files: files,
+            recommended: files[2].id,
+            confidence: .medium,
+            reasons: ["Sharpest candidate leads", "Exposure stable"],
+            cautions: ["Top two are close", "Similarity spread is wider"],
+        )
+
+        let presentation = BurstGroupPresentation.make(result: result, files: files)
+
+        #expect(presentation.decision == "Suggested: frame 3")
+        #expect(presentation.confidenceLabel == "Review recommended")
+        #expect(presentation.primaryActionTitle == "Compare top 2")
+        #expect(presentation.primaryAction == .compare)
+        #expect(presentation.recommendedBadge == "Suggested")
+        #expect(presentation.explanation == "Sharpest frame · stable exposure · top frames are close")
+    }
+
+    @Test(.tags(.smoke))
+    func `low confidence presentation asks for review without inventing a frame`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3)
+        ]
+        let result = presentationResult(
+            files: files,
+            recommended: nil,
+            confidence: .low,
+            cautions: ["Sharpness scores missing", "Top two are close"],
+        )
+
+        let presentation = BurstGroupPresentation.make(result: result, files: files)
+
+        #expect(presentation.decision == "Needs review")
+        #expect(presentation.confidenceLabel == "Low confidence")
+        #expect(presentation.primaryActionTitle == "Open burst")
+        #expect(presentation.primaryAction == .compare)
+        #expect(presentation.recommendedBadge == nil)
+        #expect(presentation.explanation == "sharpness unavailable · top frames are close")
+    }
+
+    @Test(.tags(.smoke))
+    func `manual winner presentation takes precedence over confidence`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let result = presentationResult(
+            files: files,
+            recommended: files[2].id,
+            confidence: .high,
+            reviewState: .manualWinnerOverride,
+            reasons: ["Sharpest candidate leads"],
+        )
+
+        let presentation = BurstGroupPresentation.make(result: result, files: files)
+
+        #expect(presentation.decision == "Manual winner: frame 3")
+        #expect(presentation.confidenceLabel == "Manual")
+        #expect(presentation.primaryActionTitle == "Open burst")
+        #expect(presentation.recommendedBadge == "Manual")
+    }
+
+    @Test(.tags(.smoke))
+    func `applied presentation preserves confidence decision and exposes applied state`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3)
+        ]
+        let result = presentationResult(
+            files: files,
+            recommended: files[0].id,
+            confidence: .high,
+            reviewState: .decisionApplied,
+            reasons: ["Sharpest candidate leads"],
+        )
+
+        let presentation = BurstGroupPresentation.make(result: result, files: files)
+
+        #expect(presentation.decision == "Keep frame 1")
+        #expect(presentation.confidenceLabel == "High confidence")
+        #expect(presentation.showsAppliedStatus)
+    }
+
+    @Test(.tags(.smoke))
+    func `thumbnail recommendation labels only apply to recommended candidate`() throws {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3)
+        ]
+        let result = presentationResult(
+            files: files,
+            recommended: files[1].id,
+            confidence: .medium,
+        )
+        let recommended = try #require(result.candidates.first { $0.fileID == files[1].id })
+        let other = try #require(result.candidates.first { $0.fileID == files[0].id })
+
+        #expect(BurstGroupPresentation.recommendationBadge(for: recommended, in: result) == "Suggested")
+        #expect(BurstGroupPresentation.recommendationBadge(for: other, in: result) == nil)
+    }
+
+    private func presentationResult(
+        files: [FileItem],
+        recommended: UUID?,
+        confidence: BurstDecisionConfidence,
+        reviewState: BurstReviewState = .none,
+        reasons: [String] = [],
+        cautions: [String] = [],
+    ) -> BurstAnalysisResult {
+        BurstAnalysisResult(
+            groupID: 0,
+            fileIDs: files.map(\.id),
+            candidates: files.map {
+                BurstCandidateScore(
+                    fileID: $0.id,
+                    overallScore: $0.id == recommended ? 0.9 : 0.4,
+                    sharpnessComponent: $0.id == recommended ? 0.9 : 0.4,
+                    focusPointComponent: 0.7,
+                    saliencyComponent: 0.7,
+                    metadataComponent: 0.7,
+                    confidence: confidence,
+                    reasons: [],
+                    cautions: [],
+                )
+            },
+            recommendedFileID: recommended,
+            secondBestFileID: files.first { $0.id != recommended }?.id,
+            confidence: confidence,
+            reviewState: reviewState,
+            isSafeForOneClickCulling: confidence == .high,
+            reasons: reasons,
+            cautions: cautions,
+        )
     }
 }
 

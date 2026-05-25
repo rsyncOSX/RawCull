@@ -160,12 +160,16 @@ struct BurstCandidateBadgeView: View {
         Group {
             if isCompact {
                 HStack(spacing: 3) {
-                    rankBadge
+                    if let recommendationTitle {
+                        rankBadge(recommendationTitle)
+                    }
                     statusBadges
                 }
             } else {
                 VStack(alignment: .leading, spacing: 3) {
-                    rankBadge
+                    if let recommendationTitle {
+                        rankBadge(recommendationTitle)
+                    }
                     statusBadges
                 }
             }
@@ -173,8 +177,8 @@ struct BurstCandidateBadgeView: View {
         .help("Burst score \(Int(candidate.overallScore * 100))")
     }
 
-    private var rankBadge: some View {
-        Text(rankTitle)
+    private func rankBadge(_ title: String) -> some View {
+        Text(title)
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .foregroundStyle(.white)
             .padding(.horizontal, 4)
@@ -206,26 +210,19 @@ struct BurstCandidateBadgeView: View {
             .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
     }
 
-    private var rankTitle: String {
+    private var recommendationTitle: String? {
         if analysis.reviewState == .manualWinnerOverride,
            analysis.recommendedFileID == candidate.fileID {
-            return "MANUAL"
+            return "Manual"
         }
         if analysis.reviewState == .manualWinnerOverride,
            analysis.candidates.first?.fileID == candidate.fileID {
-            return "AUTO BEST"
+            return "Auto best"
         }
         if analysis.recommendedFileID == candidate.fileID {
-            switch analysis.confidence {
-            case .high: return "BEST"
-            case .medium: return "REVIEW"
-            case .low: return "CHECK"
-            }
+            return BurstGroupPresentation.recommendationBadge(for: candidate, in: analysis)
         }
-        if analysis.secondBestFileID == candidate.fileID {
-            return "2ND"
-        }
-        return "Score \(Int(candidate.overallScore * 100))"
+        return nil
     }
 
     private var rankColor: Color {
