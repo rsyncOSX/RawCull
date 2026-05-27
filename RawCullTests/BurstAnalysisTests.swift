@@ -414,13 +414,45 @@ struct BurstViewModelActionTests {
 
         viewModel.compareBurstGroup(files)
         #expect(viewModel.mainViewMode == .comparisonGrid)
-        #expect(viewModel.similarityModel.burstModeActive == false)
+        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.showsBurstGroups == false)
         #expect(viewModel.activeBurstComparisonGroupID == 0)
 
         viewModel.returnToActiveBurstGroupView()
         #expect(viewModel.mainViewMode == .similarityGrid)
         #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.showsBurstGroups == true)
         #expect(viewModel.activeBurstComparisonGroupID == nil)
+    }
+
+    @Test(.tags(.critical))
+    func `burst state survives loupe and grid visits but only shows in similarity grid`() {
+        let viewModel = RawCullViewModel()
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        viewModel.files = files
+        viewModel.filteredFiles = files
+        viewModel.mainViewMode = .similarityGrid
+        viewModel.similarityModel.burstModeActive = true
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 0, fileIDs: files.map(\.id))]
+        viewModel.similarityModel.burstGroupLookup = Dictionary(uniqueKeysWithValues: files.map { ($0.id, 0) })
+
+        #expect(viewModel.showsBurstGroups == true)
+
+        viewModel.selectMainViewMode(.loupe)
+        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.showsBurstGroups == false)
+
+        viewModel.selectMainViewMode(.grid)
+        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.showsBurstGroups == false)
+
+        viewModel.selectMainViewMode(.similarityGrid)
+        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.showsBurstGroups == true)
     }
 
     @Test(.tags(.critical))

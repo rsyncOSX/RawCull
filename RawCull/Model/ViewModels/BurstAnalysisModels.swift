@@ -52,7 +52,9 @@ struct BurstLabelDescription: Equatable, Identifiable {
     var label: String
     var description: String
 
-    var id: String { label }
+    var id: String {
+        label
+    }
 }
 
 struct BurstGroupPresentation: Equatable {
@@ -97,7 +99,7 @@ struct BurstGroupPresentation: Equatable {
         BurstLabelDescription(
             label: "Review",
             description: "A frame marked for manual inspection in a low-confidence burst.",
-        ),
+        )
     ]
 
     nonisolated static func make(

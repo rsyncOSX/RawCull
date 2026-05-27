@@ -251,19 +251,19 @@ private struct BurstLabelDescriptionView: View {
     private func badgeColor(for label: String) -> Color {
         switch label {
         case BurstDecisionConfidence.high.title, "Best":
-            return .green
+            .green
 
         case BurstDecisionConfidence.medium.title, "Manual", "Suggested":
-            return .orange
+            .orange
 
         case BurstDecisionConfidence.low.title, "Review":
-            return .gray
+            .gray
 
         case "Applied":
-            return .blue
+            .blue
 
         default:
-            return .black
+            .black
         }
     }
 }
@@ -297,7 +297,7 @@ struct CullingGridView<Header: View>: View {
                 // Grid view
                 ScrollViewReader { proxy in
                     ScrollView {
-                        if viewModel.similarityModel.burstModeActive {
+                        if viewModel.showsBurstGroups {
                             BurstLabelDescriptionView()
                                 .padding(.horizontal)
                                 .padding(.top, 12)
@@ -309,7 +309,7 @@ struct CullingGridView<Header: View>: View {
                             ],
                             spacing: 12,
                         ) {
-                            if viewModel.similarityModel.burstModeActive {
+                            if viewModel.showsBurstGroups {
                                 // ── Burst grouping mode ───────────────────────────
                                 ForEach(visibleBurstGroups) { vg in
                                     Section {
@@ -444,14 +444,14 @@ struct CullingGridView<Header: View>: View {
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
         .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isIndexing)
         .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isGrouping)
-        .animation(.easeInOut(duration: 0.15), value: viewModel.similarityModel.burstModeActive)
+        .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .toolbar { sharedSelectionStatusToolbar }
         .onKeyPress(characters: CharacterSet(charactersIn: "\rBb2RrUu")) { press in
             handleBurstKeyPress(press.characters)
         }
         .onKeyPress(.escape) {
-            if viewModel.similarityModel.burstModeActive {
+            if viewModel.showsBurstGroups {
                 viewModel.similarityModel.burstModeActive = false
                 return .handled
             }
@@ -504,7 +504,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private var visibleSelectionIDs: [FileItem.ID] {
-        if viewModel.similarityModel.burstModeActive {
+        if viewModel.showsBurstGroups {
             return visibleBurstGroups.flatMap { group in
                 group.files.map(\.id)
             }
@@ -513,7 +513,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
-        if viewModel.similarityModel.burstModeActive,
+        if viewModel.showsBurstGroups,
            let group = visibleBurstGroups.first(where: { group in
                group.files.contains { $0.id == file.id }
            }) {
@@ -634,7 +634,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
-        guard viewModel.similarityModel.burstModeActive,
+        guard viewModel.showsBurstGroups,
               let groupFiles = currentBurstGroupFiles
         else { return .ignored }
 

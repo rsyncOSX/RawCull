@@ -92,6 +92,9 @@ final class RawCullViewModel {
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
     var comparisonFileIDs: [FileItem.ID] = []
+    var showsBurstGroups: Bool {
+        mainViewMode == .similarityGrid && similarityModel.burstModeActive
+    }
 
     // In-window zoom overlay (replaces the old separate zoom windows).
     var zoomOverlayVisible: Bool = false
@@ -229,7 +232,7 @@ final class RawCullViewModel {
 
     func selectMainViewMode(_ mode: MainViewMode) {
         closeZoomOverlay()
-        if mode != .similarityGrid {
+        if mode == .ratedGrid {
             similarityModel.burstModeActive = false
         }
         mainViewMode = mode

@@ -21,7 +21,7 @@ struct GridThumbnailSelectionView: View {
 
     var body: some View {
         CullingGridView(viewModel: viewModel) {
-            if !viewModel.similarityModel.burstModeActive {
+            if !viewModel.showsBurstGroups {
                 SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
 
                 Divider().frame(height: 20)
