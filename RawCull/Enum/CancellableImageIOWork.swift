@@ -2,7 +2,6 @@
 //  CancellableImageIOWork.swift
 //  RawCull
 //
-//  Created by Codex on 14/05/2026.
 //
 
 import Foundation
