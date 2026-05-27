@@ -36,9 +36,9 @@ enum BurstDecisionConfidence: String, Codable, Equatable {
 
     nonisolated var title: String {
         switch self {
-        case .high: "High confidence"
-        case .medium: "Review recommended"
-        case .low: "Low confidence"
+        case .high: "Best frame found"
+        case .medium: "Compare first"
+        case .low: "Needs manual review"
         }
     }
 }
@@ -89,15 +89,11 @@ struct BurstGroupPresentation: Equatable {
             description: "A burst action has already rated/rejected the group.",
         ),
         BurstLabelDescription(
-            label: "Best",
-            description: "The recommended frame in a high-confidence burst.",
+            label: "Suggested best",
+            description: "The recommended frame in a burst group.",
         ),
         BurstLabelDescription(
-            label: "Suggested",
-            description: "The recommended frame when review is still advised.",
-        ),
-        BurstLabelDescription(
-            label: "Review",
+            label: "Check frame",
             description: "A frame marked for manual inspection in a low-confidence burst.",
         )
     ]
@@ -121,7 +117,7 @@ struct BurstGroupPresentation: Equatable {
                 decision: "Manual winner: \(frameText ?? "selected frame")",
                 explanation: explanation(for: result, confidence: result.confidence),
                 confidenceLabel: "Manual",
-                primaryActionTitle: "Open burst",
+                primaryActionTitle: "Review burst",
                 primaryAction: .compare,
                 recommendedBadge: "Manual",
                 showsAppliedStatus: applied,
@@ -132,36 +128,36 @@ struct BurstGroupPresentation: Equatable {
         case .high:
             return BurstGroupPresentation(
                 title: title,
-                decision: "Keep \(frameText ?? "best frame")",
+                decision: "Best frame found",
                 explanation: explanation(for: result, confidence: .high),
                 confidenceLabel: BurstDecisionConfidence.high.title,
                 primaryActionTitle: "Keep best",
                 primaryAction: .keepBest,
-                recommendedBadge: result.recommendedFileID == nil ? nil : "Best",
+                recommendedBadge: result.recommendedFileID == nil ? nil : "Suggested best",
                 showsAppliedStatus: applied,
             )
 
         case .medium:
             return BurstGroupPresentation(
                 title: title,
-                decision: "Suggested: \(frameText ?? "best frame")",
+                decision: "Compare before deleting",
                 explanation: explanation(for: result, confidence: .medium),
                 confidenceLabel: BurstDecisionConfidence.medium.title,
                 primaryActionTitle: "Compare top 2",
                 primaryAction: .compare,
-                recommendedBadge: result.recommendedFileID == nil ? nil : "Suggested",
+                recommendedBadge: result.recommendedFileID == nil ? nil : "Suggested best",
                 showsAppliedStatus: applied,
             )
 
         case .low:
             return BurstGroupPresentation(
                 title: title,
-                decision: "Needs review",
+                decision: "Needs manual review",
                 explanation: explanation(for: result, confidence: .low),
                 confidenceLabel: BurstDecisionConfidence.low.title,
-                primaryActionTitle: "Open burst",
+                primaryActionTitle: "Review burst",
                 primaryAction: .compare,
-                recommendedBadge: result.recommendedFileID == nil ? nil : "Review",
+                recommendedBadge: result.recommendedFileID == nil ? nil : "Check frame",
                 showsAppliedStatus: applied,
             )
         }

@@ -38,44 +38,51 @@ private struct BurstGroupHeaderView: View {
     var body: some View {
         let presentation = analysis.map { BurstGroupPresentation.make(result: $0, files: files) }
 
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Label(presentation?.title ?? "Burst of \(files.count) photos", systemImage: "square.stack.3d.up")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
+                if let presentation {
+                    BurstStatusBadgeView(title: presentation.confidenceLabel, color: badgeColor)
+                }
+
                 Spacer()
 
                 if let presentation, presentation.showsAppliedStatus {
                     BurstStatusBadgeView(title: "Applied", color: .blue)
                 }
-
-                if let presentation {
-                    BurstStatusBadgeView(title: presentation.confidenceLabel, color: badgeColor)
-                }
             }
 
             if let presentation {
-                Text(presentation.decision)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(presentation.decision)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
 
-                Text(presentation.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                        Text(presentation.explanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    actionButtons
+                }
             } else if let best {
                 Text(bestLabel(best))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-            }
-
-            HStack(spacing: 8) {
-                Spacer()
-                actionButtons
+                HStack(spacing: 8) {
+                    Spacer()
+                    actionButtons
+                }
             }
 
             if !hasSharpnessScores {
@@ -85,7 +92,7 @@ private struct BurstGroupHeaderView: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
     }
 
@@ -250,13 +257,13 @@ private struct BurstLabelDescriptionView: View {
 
     private func badgeColor(for label: String) -> Color {
         switch label {
-        case BurstDecisionConfidence.high.title, "Best":
+        case BurstDecisionConfidence.high.title, "Suggested best":
             .green
 
-        case BurstDecisionConfidence.medium.title, "Manual", "Suggested":
+        case BurstDecisionConfidence.medium.title, "Manual":
             .orange
 
-        case BurstDecisionConfidence.low.title, "Review":
+        case BurstDecisionConfidence.low.title, "Check frame":
             .gray
 
         case "Applied":
@@ -691,9 +698,8 @@ struct CullingGridView<Header: View>: View {
 
     private func badgeSelectionSortRank(_ label: String) -> Int {
         switch label {
-        case "Suggested": 0
-        case "Review": 1
-        case "Best": 2
+        case "Suggested best": 0
+        case "Check frame": 1
         case "Manual": 3
         default: 10
         }
@@ -701,9 +707,9 @@ struct CullingGridView<Header: View>: View {
 
     private func badgeSelectionColor(for label: String) -> Color {
         switch label {
-        case "Best": .green
-        case "Suggested", "Manual": .orange
-        case "Review": .gray
+        case "Suggested best": .green
+        case "Manual": .orange
+        case "Check frame": .gray
         default: .cyan
         }
     }

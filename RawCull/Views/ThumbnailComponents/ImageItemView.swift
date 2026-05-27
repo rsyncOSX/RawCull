@@ -301,14 +301,22 @@ struct ImageItemView: View {
                     }
                 }
 
-                // Multi-selection checkmark badge — top-right corner
+                // Selection and picked badges — top-right corner
                 .overlay(alignment: .topTrailing) {
-                    if isMultiSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white, Color.teal)
-                            .padding(5)
-                            .shadow(radius: 2)
+                    if isSelected || isMultiSelected || isPicked {
+                        HStack(spacing: 4) {
+                            if isPicked {
+                                PickedBadgeView()
+                            }
+
+                            if isSelected || isMultiSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: isSelected ? 17 : 15, weight: .bold))
+                                    .foregroundStyle(.white, selectionColor)
+                                    .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
+                            }
+                        }
+                        .padding(5)
                     }
                 }
                 // Burst recommendation badge — top-left corner
@@ -325,23 +333,16 @@ struct ImageItemView: View {
                         .padding(5)
                     }
                 }
-                // Picked badge (rating == 0) — top-right corner
-                .overlay(alignment: .topTrailing) {
-                    if isPicked {
-                        PickedBadgeView()
-                            .padding(5)
-                    }
-                }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-            // Selected: accent glow border
+            // Selected: strong accent frame inside the image bounds
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
+                    .stroke(selectionColor, lineWidth: isSelectionHighlighted ? imageSelectionLineWidth : 0),
             )
             .shadow(
-                color: isSelected ? Color.accentColor.opacity(0.65) : .clear,
-                radius: isSelected ? 8 : 0,
+                color: isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.75 : 0.45) : .clear,
+                radius: isSelected ? 9 : 5,
             )
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
@@ -350,11 +351,11 @@ struct ImageItemView: View {
                 .font(.system(size: 10, weight: .regular, design: .monospaced))
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .foregroundStyle(isSelected ? Color.accentColor : Color(white: 0.6))
+                .foregroundStyle(isSelectionHighlighted ? Color.white : Color(white: 0.6))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(white: 0.1))
+                .background(isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.75 : 0.55) : Color(white: 0.1))
 
             // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
             if let color = ratingColor {
@@ -368,8 +369,8 @@ struct ImageItemView: View {
         )
         .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
         .shadow(
-            color: isSelected ? Color.accentColor.opacity(0.75) : .clear,
-            radius: isSelected ? 12 : 0,
+            color: isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.8 : 0.5) : .clear,
+            radius: isSelected ? 12 : 7,
         )
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
@@ -385,9 +386,21 @@ struct ImageItemView: View {
     }
 
     private var borderWidth: CGFloat {
-        if isSelected { return 2.5 }
-        if isMultiSelected { return 2.0 }
+        if isSelected { return 3.5 }
+        if isMultiSelected { return 3.0 }
         return 1
+    }
+
+    private var imageSelectionLineWidth: CGFloat {
+        isSelected ? 4 : 3
+    }
+
+    private var isSelectionHighlighted: Bool {
+        isSelected || isMultiSelected
+    }
+
+    private var selectionColor: Color {
+        isSelected ? Color.accentColor : Color.teal
     }
 
     private var isPicked: Bool {
