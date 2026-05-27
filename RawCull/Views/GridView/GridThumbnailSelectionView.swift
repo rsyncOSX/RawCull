@@ -26,6 +26,8 @@ struct GridThumbnailSelectionView: View {
 
                 Divider().frame(height: 20)
             }
+        } batchBadgeSelectionEnabled: {
+            !viewModel.showsBurstGroups
         }
     }
 }

@@ -268,14 +268,95 @@ private struct BurstLabelDescriptionView: View {
     }
 }
 
+private struct BatchBadgeSelectionItem: Identifiable {
+    var id: String {
+        label
+    }
+
+    let label: String
+    let count: Int
+    let color: Color
+}
+
+private struct BatchBadgeSelectionControlsView: View {
+    let items: [BatchBadgeSelectionItem]
+    let selectedCount: Int
+    @Binding var rating: Int
+    let onSelectBadge: (String) -> Void
+    let onApplyRating: () -> Void
+
+    private let ratings: [(value: Int, label: String)] = [
+        (-1, "X"),
+        (0, "P"),
+        (2, "2"),
+        (3, "3"),
+        (4, "4"),
+        (5, "5")
+    ]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 5) {
+                    ForEach(items) { item in
+                        Button {
+                            onSelectBadge(item.label)
+                        } label: {
+                            Text("\(item.label) \(item.count)")
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                        .tint(item.color)
+                        .disabled(item.isEmpty)
+                        .help("Select \(item.count) visible thumbnails tagged \(item.label). Hold Command to add or remove from the current selection.")
+                    }
+                }
+                .padding(.vertical, 1)
+            }
+            .frame(maxWidth: 360)
+
+            Text("\(selectedCount) selected")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .frame(minWidth: 72, alignment: .trailing)
+
+            Picker("Rating", selection: $rating) {
+                ForEach(ratings, id: \.value) { option in
+                    Text(option.label).tag(option.value)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.mini)
+            .frame(width: 150)
+            .help("Rating to apply to the selected thumbnails")
+
+            Button("Apply") {
+                onApplyRating()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.mini)
+            .disabled(selectedCount == 0)
+            .help("Apply the selected rating to the selected thumbnails")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Badge batch selection")
+    }
+}
+
 // MARK: - CullingGridView
 
 struct CullingGridView<Header: View>: View {
     @Bindable var viewModel: RawCullViewModel
     @ViewBuilder let header: () -> Header
+    var batchBadgeSelectionEnabled: () -> Bool = { false }
 
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
+    @State private var batchRating: Int = 3
 
     // ── Burst-mode render cache ──────────────────────────────────────────
     // Recomputed only when `gridCacheKey` changes, so hover/selection
@@ -288,6 +369,15 @@ struct CullingGridView<Header: View>: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 header()
+                if batchBadgeSelectionEnabled(), !badgeSelectionItems.isEmpty {
+                    BatchBadgeSelectionControlsView(
+                        items: badgeSelectionItems,
+                        selectedCount: viewModel.selectedFileIDs.count,
+                        rating: $batchRating,
+                        onSelectBadge: selectFiles(matchingBadge:),
+                        onApplyRating: applyBatchRating,
+                    )
+                }
                 Spacer()
             }
             .padding()
@@ -503,6 +593,44 @@ struct CullingGridView<Header: View>: View {
         viewModel.openZoomOverlay(navigationIDs: zoomNavigationIDs(for: file))
     }
 
+    private func selectFiles(matchingBadge badge: String) {
+        let matchingFiles = visibleSelectionFiles.filter { badgeLabels(for: $0).contains(badge) }
+        guard !matchingFiles.isEmpty else { return }
+
+        let matchingIDs = Set(matchingFiles.map(\.id))
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.command) {
+            if matchingIDs.isSubset(of: viewModel.selectedFileIDs) {
+                viewModel.selectedFileIDs.subtract(matchingIDs)
+            } else {
+                viewModel.selectedFileIDs.formUnion(matchingIDs)
+            }
+        } else {
+            viewModel.selectedFileIDs = matchingIDs
+        }
+
+        if let selectedID = viewModel.selectedFileID,
+           viewModel.selectedFileIDs.contains(selectedID) {
+            return
+        }
+        viewModel.selectedFileID = visibleSelectionFiles.first { viewModel.selectedFileIDs.contains($0.id) }?.id
+    }
+
+    private func applyBatchRating() {
+        let selectedIDs = viewModel.selectedFileIDs
+        guard !selectedIDs.isEmpty else { return }
+        let selectedFiles = visibleSelectionFiles.filter { selectedIDs.contains($0.id) }
+        guard !selectedFiles.isEmpty else { return }
+        viewModel.updateRating(for: selectedFiles, rating: batchRating)
+    }
+
+    private var visibleSelectionFiles: [FileItem] {
+        if viewModel.showsBurstGroups {
+            return visibleBurstGroups.flatMap(\.files)
+        }
+        return files
+    }
+
     private var visibleSelectionIDs: [FileItem.ID] {
         if viewModel.showsBurstGroups {
             return visibleBurstGroups.flatMap { group in
@@ -520,6 +648,60 @@ struct CullingGridView<Header: View>: View {
             return group.files.map(\.id)
         }
         return files.map(\.id)
+    }
+
+    private var badgeSelectionItems: [BatchBadgeSelectionItem] {
+        let counts = visibleSelectionFiles.reduce(into: [String: Int]()) { result, file in
+            for label in badgeLabels(for: file) {
+                result[label, default: 0] += 1
+            }
+        }
+        return counts
+            .map { BatchBadgeSelectionItem(label: $0.key, count: $0.value, color: badgeSelectionColor(for: $0.key)) }
+            .sorted { lhs, rhs in
+                let lhsRank = badgeSelectionSortRank(lhs.label)
+                let rhsRank = badgeSelectionSortRank(rhs.label)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                if lhs.count != rhs.count { return lhs.count > rhs.count }
+                return lhs.label.localizedStandardCompare(rhs.label) == .orderedAscending
+            }
+    }
+
+    private func badgeLabels(for file: FileItem) -> Set<String> {
+        var labels: Set<String> = []
+
+        if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
+           let analysis = viewModel.burstAnalysisResult(for: groupID),
+           let candidate = viewModel.burstCandidate(for: file),
+           let badge = BurstGroupPresentation.recommendationBadge(for: candidate, in: analysis) {
+            labels.insert(badge)
+        }
+
+        if let subject = viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
+           !subject.isEmpty {
+            labels.insert(String(subject.prefix(10)))
+        }
+
+        return labels
+    }
+
+    private func badgeSelectionSortRank(_ label: String) -> Int {
+        switch label {
+        case "Suggested": 0
+        case "Review": 1
+        case "Best": 2
+        case "Manual": 3
+        default: 10
+        }
+    }
+
+    private func badgeSelectionColor(for label: String) -> Color {
+        switch label {
+        case "Best": .green
+        case "Suggested", "Manual": .orange
+        case "Review": .gray
+        default: .cyan
+        }
     }
 
     // MARK: - Burst grouping helpers
