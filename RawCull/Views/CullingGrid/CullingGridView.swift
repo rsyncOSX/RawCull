@@ -257,10 +257,10 @@ private struct BurstLabelDescriptionView: View {
 
     private func badgeColor(for label: String) -> Color {
         switch label {
-        case BurstDecisionConfidence.high.title, "Suggested best":
+        case BurstDecisionConfidence.high.title:
             .green
 
-        case BurstDecisionConfidence.medium.title, "Manual":
+        case BurstDecisionConfidence.medium.title, "Manual", "Suggested best":
             .orange
 
         case BurstDecisionConfidence.low.title, "Check frame":
@@ -707,7 +707,7 @@ struct CullingGridView<Header: View>: View {
 
     private func badgeSelectionColor(for label: String) -> Color {
         switch label {
-        case "Suggested best": .green
+        case "Suggested best": .orange
         case "Manual": .orange
         case "Check frame": .gray
         default: .cyan
