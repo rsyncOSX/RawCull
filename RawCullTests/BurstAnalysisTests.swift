@@ -326,6 +326,40 @@ struct BurstGroupPresentationTests {
         #expect(BurstGroupPresentation.recommendationBadge(for: other, in: result) == nil)
     }
 
+    @Test(.tags(.smoke))
+    func `label descriptions include current burst badge labels`() throws {
+        let labels = BurstGroupPresentation.labelDescriptions.map(\.label)
+        let uniqueLabels = Set(labels)
+
+        #expect(labels.count == 8)
+        #expect(uniqueLabels.count == labels.count)
+        #expect(uniqueLabels.contains(BurstDecisionConfidence.high.title))
+        #expect(uniqueLabels.contains(BurstDecisionConfidence.medium.title))
+        #expect(uniqueLabels.contains(BurstDecisionConfidence.low.title))
+        #expect(uniqueLabels.contains("Manual"))
+        #expect(uniqueLabels.contains("Applied"))
+
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3)
+        ]
+        let recommended = files[0].id
+        let high = presentationResult(files: files, recommended: recommended, confidence: .high)
+        let medium = presentationResult(files: files, recommended: recommended, confidence: .medium)
+        let low = presentationResult(files: files, recommended: recommended, confidence: .low)
+
+        let highCandidate = try #require(high.candidates.first { $0.fileID == recommended })
+        let mediumCandidate = try #require(medium.candidates.first { $0.fileID == recommended })
+        let lowCandidate = try #require(low.candidates.first { $0.fileID == recommended })
+        let highBadge = try #require(BurstGroupPresentation.recommendationBadge(for: highCandidate, in: high))
+        let mediumBadge = try #require(BurstGroupPresentation.recommendationBadge(for: mediumCandidate, in: medium))
+        let lowBadge = try #require(BurstGroupPresentation.recommendationBadge(for: lowCandidate, in: low))
+
+        #expect(uniqueLabels.contains(highBadge))
+        #expect(uniqueLabels.contains(mediumBadge))
+        #expect(uniqueLabels.contains(lowBadge))
+    }
+
     private func presentationResult(
         files: [FileItem],
         recommended: UUID?,

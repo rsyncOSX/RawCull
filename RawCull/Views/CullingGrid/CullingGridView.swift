@@ -209,6 +209,46 @@ private struct BurstStatusBadgeView: View {
     }
 }
 
+private struct BurstLabelDescriptionView: View {
+    private let descriptions = BurstGroupPresentation.labelDescriptions
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 260), alignment: .topLeading)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Burst group labels")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(descriptions) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(item.label)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color(nsColor: .tertiaryLabelColor).opacity(0.16), in: RoundedRectangle(cornerRadius: 4))
+
+                        Text(item.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(item.label): \(item.description)")
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
 // MARK: - CullingGridView
 
 struct CullingGridView<Header: View>: View {
@@ -238,6 +278,12 @@ struct CullingGridView<Header: View>: View {
                 // Grid view
                 ScrollViewReader { proxy in
                     ScrollView {
+                        if viewModel.similarityModel.burstModeActive {
+                            BurstLabelDescriptionView()
+                                .padding(.horizontal)
+                                .padding(.top, 12)
+                        }
+
                         LazyVGrid(
                             columns: [
                                 GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)
