@@ -227,10 +227,10 @@ private struct BurstLabelDescriptionView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(item.label)
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color(nsColor: .tertiaryLabelColor).opacity(0.16), in: RoundedRectangle(cornerRadius: 4))
+                            .background(badgeColor(for: item.label).opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
 
                         Text(item.description)
                             .font(.caption)
@@ -246,6 +246,25 @@ private struct BurstLabelDescriptionView: View {
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func badgeColor(for label: String) -> Color {
+        switch label {
+        case BurstDecisionConfidence.high.title, "Best":
+            return .green
+
+        case BurstDecisionConfidence.medium.title, "Manual", "Suggested":
+            return .orange
+
+        case BurstDecisionConfidence.low.title, "Review":
+            return .gray
+
+        case "Applied":
+            return .blue
+
+        default:
+            return .black
+        }
     }
 }
 
