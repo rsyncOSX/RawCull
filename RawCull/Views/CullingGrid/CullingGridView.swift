@@ -276,6 +276,10 @@ private struct BatchBadgeSelectionItem: Identifiable {
     let label: String
     let count: Int
     let color: Color
+
+    var isEmpty: Bool {
+        count == 0
+    }
 }
 
 private struct BatchBadgeSelectionControlsView: View {
