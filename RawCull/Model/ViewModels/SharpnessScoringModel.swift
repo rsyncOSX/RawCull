@@ -30,6 +30,71 @@ enum ApertureFilter: String, CaseIterable, Identifiable {
     }
 }
 
+enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable, Sendable {
+    case auto
+    case birdsWildlife
+    case portrait
+    case landscape
+    case generalAction
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .auto: "Auto"
+        case .birdsWildlife: "Birds/Wildlife"
+        case .portrait: "Portrait"
+        case .landscape: "Landscape"
+        case .generalAction: "Action"
+        }
+    }
+
+    nonisolated func applying(to config: FocusDetectorConfig) -> FocusDetectorConfig {
+        var c = config
+        switch self {
+        case .auto:
+            return c
+
+        case .birdsWildlife:
+            c.preBlurRadius = 2.2
+            c.borderInsetFraction = 0.05
+            c.salientWeight = 0.85
+            c.explicitSalientWeightOverride = 0.85
+            c.subjectSizeFactor = 0.05
+            c.silhouettePenaltyStrength = 0.55
+            c.afRegionRadius = 0.06
+            c.enableSubjectClassification = true
+
+        case .portrait:
+            c.preBlurRadius = min(c.preBlurRadius, 1.7)
+            c.salientWeight = 0.80
+            c.explicitSalientWeightOverride = 0.80
+            c.subjectSizeFactor = 0.08
+            c.silhouettePenaltyStrength = 0.25
+            c.afRegionRadius = 0.10
+            c.enableSubjectClassification = true
+
+        case .landscape:
+            c.preBlurRadius = min(c.preBlurRadius, 1.55)
+            c.salientWeight = 0.35
+            c.explicitSalientWeightOverride = 0.35
+            c.subjectSizeFactor = 0.0
+            c.silhouettePenaltyStrength = 0.15
+            c.afRegionRadius = 0.0
+
+        case .generalAction:
+            c.preBlurRadius = 2.0
+            c.salientWeight = 0.65
+            c.explicitSalientWeightOverride = 0.65
+            c.subjectSizeFactor = 0.05
+            c.silhouettePenaltyStrength = 0.40
+            c.afRegionRadius = 0.09
+            c.enableSubjectClassification = true
+        }
+        return c
+    }
+}
+
 @Observable @MainActor
 final class SharpnessScoringModel {
     typealias SharpnessScoreComputer = @Sendable (
@@ -52,6 +117,7 @@ final class SharpnessScoringModel {
     var isScoring: Bool = false
     var sortBySharpness: Bool = false
     var apertureFilter: ApertureFilter = .all
+    var photoType: SharpnessPhotoType = .auto
     var saliencyCategoryFilter: String?
 
     var availableSaliencyCategories: [String] {
@@ -103,6 +169,10 @@ final class SharpnessScoringModel {
         focusMaskModel.config = .birdsInFlight
     }
 
+    var effectiveFocusConfig: FocusDetectorConfig {
+        photoType.applying(to: focusMaskModel.config)
+    }
+
     func reset() {
         cancelScoring()
         apertureFilter = .all
@@ -126,9 +196,11 @@ final class SharpnessScoringModel {
     func calibrateFromBurst(_ files: [FileItem]) async {
         isCalibratingSharpnessScoring = true
         let fileEntries = files.map { (url: $0.url, iso: $0.exifData?.isoValue) }
+        let calibrationConfig = effectiveFocusConfig
 
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
             files: fileEntries,
+            baseConfigOverride: calibrationConfig,
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
             minSamples: 5,
             maxConcurrentTasks: 8,
@@ -161,7 +233,7 @@ final class SharpnessScoringModel {
         breakdowns = [:]
 
         let engine = FocusMaskEngine()
-        let config = focusMaskModel.config
+        let config = effectiveFocusConfig
         let thumbSize = thumbnailMaxPixelSize
         let scoreComputerOverride = scoreComputerOverride
         var iterator = files.makeIterator()

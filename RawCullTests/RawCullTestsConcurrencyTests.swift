@@ -98,6 +98,7 @@ enum ConcurrencyTests {
                 viewModel.memoryCacheSizeMB = 1000
                 viewModel.gridCacheSizeMB = 1500
                 viewModel.thumbnailSizeGrid = 200
+                viewModel.scoringPhotoType = .portrait
             }
 
             await viewModel.saveSettings()
@@ -113,10 +114,12 @@ enum ConcurrencyTests {
             let savedMB = await MainActor.run { savedSettings.memoryCacheSizeMB }
             let savedGridCache = await MainActor.run { savedSettings.gridCacheSizeMB }
             let savedGrid = await MainActor.run { savedSettings.thumbnailSizeGrid }
+            let savedPhotoType = await MainActor.run { savedSettings.scoringPhotoType }
 
             #expect(savedMB == 1000)
             #expect(savedGridCache == 1500)
             #expect(savedGrid == 200)
+            #expect(savedPhotoType == .portrait)
         }
 
         @Test
@@ -147,6 +150,24 @@ enum ConcurrencyTests {
             let savedGridCache = await MainActor.run { savedSettings.gridCacheSizeMB }
 
             #expect(savedGridCache == 1750)
+        }
+
+        @Test
+        @MainActor
+        func `legacy settings JSON defaults scoring photo type to auto`() throws {
+            let data = Data("""
+            {
+              "gridCacheSizeMB" : 1750,
+              "memoryCacheSizeMB" : 7000,
+              "thumbnailSizeFullSize" : 8700,
+              "thumbnailSizeGrid" : 240,
+              "thumbnailSizePreview" : 1664
+            }
+            """.utf8)
+
+            let settings = try JSONDecoder().decode(SavedSettings.self, from: data)
+
+            #expect(settings.scoringPhotoType == .auto)
         }
 
         @Test

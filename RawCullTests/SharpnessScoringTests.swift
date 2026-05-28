@@ -57,6 +57,42 @@ struct SharpnessScoringTests {
         #expect(SharpnessLabel(score: 0.5, maxScore: .nan) == .soft)
     }
 
+    @Test(.tags(.smoke))
+    @MainActor
+    func `auto photo type preserves current focus config`() {
+        let model = SharpnessScoringModel()
+        model.photoType = .auto
+
+        #expect(model.effectiveFocusConfig == model.focusMaskModel.config)
+        #expect(model.focusMaskModel.config == .birdsInFlight)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `photo type presets map to expected scoring emphasis`() {
+        let base = FocusDetectorConfig.birdsInFlight
+        let wildlife = SharpnessPhotoType.birdsWildlife.applying(to: base)
+        let portrait = SharpnessPhotoType.portrait.applying(to: base)
+        let landscape = SharpnessPhotoType.landscape.applying(to: base)
+        let action = SharpnessPhotoType.generalAction.applying(to: base)
+
+        #expect(wildlife.afRegionRadius == 0.06)
+        #expect(wildlife.explicitSalientWeightOverride == 0.85)
+        #expect(wildlife.subjectSizeFactor == 0.05)
+
+        #expect(portrait.explicitSalientWeightOverride == 0.80)
+        #expect(portrait.silhouettePenaltyStrength < wildlife.silhouettePenaltyStrength)
+        #expect(portrait.afRegionRadius > wildlife.afRegionRadius)
+
+        #expect(landscape.explicitSalientWeightOverride == 0.35)
+        #expect(landscape.subjectSizeFactor == 0.0)
+        #expect(landscape.afRegionRadius == 0.0)
+
+        #expect(action.explicitSalientWeightOverride == 0.65)
+        #expect(action.afRegionRadius > wildlife.afRegionRadius)
+        #expect(action.afRegionRadius < portrait.afRegionRadius)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     @MainActor
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {

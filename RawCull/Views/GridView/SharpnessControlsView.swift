@@ -28,6 +28,23 @@ struct SharpnessControlsView: View {
         .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
         .help("Auto-calibrate threshold and gain from this burst, then score sharpness")
 
+        Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
+            ForEach(SharpnessPhotoType.allCases) { type in
+                Text(type.title).tag(type)
+            }
+        }
+        .pickerStyle(.menu)
+        .font(.caption)
+        .frame(width: 130)
+        .disabled(viewModel.sharpnessModel.isScoring)
+        .help("Tune sharpness scoring for the kind of photos in this catalog")
+        .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
+            SettingsViewModel.shared.scoringPhotoType = newValue
+            Task(priority: .background) {
+                await SettingsViewModel.shared.saveSettings()
+            }
+        }
+
         // Cancel button — only visible while scoring
         if viewModel.sharpnessModel.isScoring {
             Button(role: .cancel) {

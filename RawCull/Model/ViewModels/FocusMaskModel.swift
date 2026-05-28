@@ -90,8 +90,16 @@ struct FocusDetectorConfig {
     /// 0 = full-frame only, 1 = subject region only.
     var salientWeight: Float = 0.75
 
+    /// Optional preset-level override for subject/full-frame blend weight.
+    /// Takes precedence over aperture-derived overrides when set.
+    var explicitSalientWeightOverride: Float?
+
     /// Bonus multiplier for subject size.
     var subjectSizeFactor: Float = 0.1
+
+    /// Maximum reduction applied when a subject region is silhouette-dominated.
+    /// 0 disables the penalty, 0.55 is the historical default.
+    var silhouettePenaltyStrength: Float = 0.55
 
     /// When true, runs VNClassifyImageRequest alongside saliency detection.
     var enableSubjectClassification: Bool = true
@@ -169,7 +177,9 @@ extension FocusDetectorConfig: Equatable {
             && lhs.showRawLaplacian == rhs.showRawLaplacian
             && lhs.borderInsetFraction == rhs.borderInsetFraction
             && lhs.salientWeight == rhs.salientWeight
+            && lhs.explicitSalientWeightOverride == rhs.explicitSalientWeightOverride
             && lhs.subjectSizeFactor == rhs.subjectSizeFactor
+            && lhs.silhouettePenaltyStrength == rhs.silhouettePenaltyStrength
             && lhs.enableSubjectClassification == rhs.enableSubjectClassification
             && lhs.afRegionRadius == rhs.afRegionRadius
             && lhs.apertureHint == rhs.apertureHint
@@ -189,6 +199,7 @@ extension FocusDetectorConfig {
         c.borderInsetFraction = 0.05
         c.salientWeight = 0.85
         c.subjectSizeFactor = 0.05
+        c.silhouettePenaltyStrength = 0.55
         c.enableSubjectClassification = true
         c.afRegionRadius = 0.06
         return c
@@ -490,7 +501,7 @@ struct FocusMaskEngine: @unchecked Sendable {
     /// 4. Each set is reduced to a scalar via `robustTailScore` (p90–p97 band mean).
     /// 5. Blend:  `score = (1 − w)·full + w·subject`,  where
     ///    `subject = 0.6·AF + 0.4·saliency` (whichever are present) and
-    ///    `w = apertureHint.salientWeightOverride ?? config.salientWeight`.
+    ///    `w = config.explicitSalientWeightOverride ?? apertureHint override ?? config.salientWeight`.
     /// 6. Penalties/bonuses on top of the blend:
     ///    * silhouette penalty if >62 % of subject energy sits in its outer 12 % rim;
     ///    * subject-size bonus `(1 + area · subjectSizeFactor)` for saliency-only;
@@ -742,7 +753,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         // Landscape (deep DoF) pulls the salient weight down so the full-frame score
         // is not dominated by the Vision salient region on scenes where the whole
         // frame carries real in-focus detail.
-        let salientWeight = hint.salientWeightOverride ?? config.salientWeight
+        let salientWeight = config.explicitSalientWeightOverride ?? hint.salientWeightOverride ?? config.salientWeight
 
         let base: Float?
         switch (fullScore, effectiveSubjectScore) {
@@ -752,12 +763,12 @@ struct FocusMaskEngine: @unchecked Sendable {
             // Silhouette penalty: if >62% of the subject-region edge energy sits in its
             // outer 12% border, we're measuring the silhouette rim rather than subject
             // detail (common on backlit wildlife). Reduce the score by up to 55%.
-            if let ea = effectiveAnalysis {
+            if let ea = effectiveAnalysis, config.silhouettePenaltyStrength > 0 {
                 let frac = ea.borderFraction
                 let silhouetteT: Float = 0.62
                 if frac > silhouetteT {
                     let over = min(1.0, (frac - silhouetteT) / (1.0 - silhouetteT))
-                    blended *= 1.0 - 0.55 * over
+                    blended *= 1.0 - config.silhouettePenaltyStrength * over
                 }
             }
 
@@ -1018,13 +1029,14 @@ final class FocusMaskModel {
     @MainActor
     func calibrateAndApplyFromBurstParallel(
         files: [(url: URL, iso: Int?)],
+        baseConfigOverride: FocusDetectorConfig? = nil,
         thumbnailMaxPixelSize: Int = 512,
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
-        let base = config
+        let base = baseConfigOverride ?? config
         guard let result = await engine.calibrateFromBurstParallel(
             files: files,
             baseConfig: base,

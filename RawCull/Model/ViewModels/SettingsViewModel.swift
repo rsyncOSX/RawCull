@@ -79,6 +79,8 @@ final class SettingsViewModel {
     var scoringSubjectSizeFactor: Float = 0.1
     /// Thumbnail pixel size used when decoding images for sharpness scoring (default: 512)
     var scoringThumbnailMaxPixelSize: Int = 512
+    /// Optional user intent preset used to tune sharpness scoring (default: Auto)
+    var scoringPhotoType: SharpnessPhotoType = .auto
 
     // MARK: - Focus Mask Parameters
 
@@ -152,6 +154,7 @@ final class SettingsViewModel {
                 self.scoringSalientWeight = savedSettings.scoringSalientWeight
                 self.scoringSubjectSizeFactor = savedSettings.scoringSubjectSizeFactor
                 self.scoringThumbnailMaxPixelSize = savedSettings.scoringThumbnailMaxPixelSize
+                self.scoringPhotoType = savedSettings.scoringPhotoType
                 self.focusMaskPreBlurRadius = savedSettings.focusMaskPreBlurRadius
                 self.focusMaskThreshold = savedSettings.focusMaskThreshold
                 self.focusMaskEnergyMultiplier = savedSettings.focusMaskEnergyMultiplier
@@ -191,6 +194,7 @@ final class SettingsViewModel {
                 scoringSalientWeight: scoringSalientWeight,
                 scoringSubjectSizeFactor: scoringSubjectSizeFactor,
                 scoringThumbnailMaxPixelSize: scoringThumbnailMaxPixelSize,
+                scoringPhotoType: scoringPhotoType,
                 focusMaskPreBlurRadius: focusMaskPreBlurRadius,
                 focusMaskThreshold: focusMaskThreshold,
                 focusMaskEnergyMultiplier: focusMaskEnergyMultiplier,
@@ -309,6 +313,7 @@ final class SettingsViewModel {
                 scoringSalientWeight: self.scoringSalientWeight,
                 scoringSubjectSizeFactor: self.scoringSubjectSizeFactor,
                 scoringThumbnailMaxPixelSize: self.scoringThumbnailMaxPixelSize,
+                scoringPhotoType: self.scoringPhotoType,
                 focusMaskPreBlurRadius: self.focusMaskPreBlurRadius,
                 focusMaskThreshold: self.focusMaskThreshold,
                 focusMaskEnergyMultiplier: self.focusMaskEnergyMultiplier,
@@ -339,6 +344,7 @@ struct SavedSettings: Codable {
     let scoringSalientWeight: Float
     let scoringSubjectSizeFactor: Float
     let scoringThumbnailMaxPixelSize: Int
+    let scoringPhotoType: SharpnessPhotoType
 
     let focusMaskPreBlurRadius: Float
     let focusMaskThreshold: Float
@@ -362,6 +368,7 @@ struct SavedSettings: Codable {
         scoringSalientWeight: Float = 0.75,
         scoringSubjectSizeFactor: Float = 0.1,
         scoringThumbnailMaxPixelSize: Int = 512,
+        scoringPhotoType: SharpnessPhotoType = .auto,
         focusMaskPreBlurRadius: Float = 1.92,
         focusMaskThreshold: Float = 0.46,
         focusMaskEnergyMultiplier: Float = 7.62,
@@ -383,6 +390,7 @@ struct SavedSettings: Codable {
         self.scoringSalientWeight = scoringSalientWeight
         self.scoringSubjectSizeFactor = scoringSubjectSizeFactor
         self.scoringThumbnailMaxPixelSize = scoringThumbnailMaxPixelSize
+        self.scoringPhotoType = scoringPhotoType
         self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
         self.focusMaskThreshold = focusMaskThreshold
         self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
@@ -407,6 +415,7 @@ struct SavedSettings: Codable {
         scoringSalientWeight = (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75
         scoringSubjectSizeFactor = (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1
         scoringThumbnailMaxPixelSize = (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512
+        scoringPhotoType = (try? c.decode(SharpnessPhotoType.self, forKey: .scoringPhotoType)) ?? .auto
         focusMaskPreBlurRadius = (try? c.decode(Float.self, forKey: .focusMaskPreBlurRadius)) ?? 1.92
         focusMaskThreshold = (try? c.decode(Float.self, forKey: .focusMaskThreshold)) ?? 0.46
         focusMaskEnergyMultiplier = (try? c.decode(Float.self, forKey: .focusMaskEnergyMultiplier)) ?? 7.62
