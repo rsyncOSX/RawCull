@@ -66,6 +66,7 @@ enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
             c.silhouettePenaltyStrength = 0.55
             c.afRegionRadius = 0.06
             c.enableSubjectClassification = true
+            c.isolateMaskToSubject = true
 
         case .portrait:
             c.preBlurRadius = min(c.preBlurRadius, 1.7)
@@ -75,6 +76,7 @@ enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
             c.silhouettePenaltyStrength = 0.25
             c.afRegionRadius = 0.10
             c.enableSubjectClassification = true
+            c.isolateMaskToSubject = true
 
         case .landscape:
             c.preBlurRadius = min(c.preBlurRadius, 1.55)
@@ -83,6 +85,7 @@ enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
             c.subjectSizeFactor = 0.0
             c.silhouettePenaltyStrength = 0.15
             c.afRegionRadius = 0.0
+            c.isolateMaskToSubject = false
 
         case .generalAction:
             c.preBlurRadius = 2.0
@@ -92,6 +95,7 @@ enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
             c.silhouettePenaltyStrength = 0.40
             c.afRegionRadius = 0.09
             c.enableSubjectClassification = true
+            c.isolateMaskToSubject = true
         }
         return c
     }

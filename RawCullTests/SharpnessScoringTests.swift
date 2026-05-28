@@ -79,18 +79,22 @@ struct SharpnessScoringTests {
         #expect(wildlife.afRegionRadius == 0.06)
         #expect(wildlife.explicitSalientWeightOverride == 0.85)
         #expect(wildlife.subjectSizeFactor == 0.05)
+        #expect(wildlife.isolateMaskToSubject)
 
         #expect(portrait.explicitSalientWeightOverride == 0.80)
         #expect(portrait.silhouettePenaltyStrength < wildlife.silhouettePenaltyStrength)
         #expect(portrait.afRegionRadius > wildlife.afRegionRadius)
+        #expect(portrait.isolateMaskToSubject)
 
         #expect(landscape.explicitSalientWeightOverride == 0.35)
         #expect(landscape.subjectSizeFactor == 0.0)
         #expect(landscape.afRegionRadius == 0.0)
+        #expect(!landscape.isolateMaskToSubject)
 
         #expect(action.explicitSalientWeightOverride == 0.65)
         #expect(action.afRegionRadius > wildlife.afRegionRadius)
         #expect(action.afRegionRadius < portrait.afRegionRadius)
+        #expect(action.isolateMaskToSubject)
     }
 
     @Test(.tags(.smoke))

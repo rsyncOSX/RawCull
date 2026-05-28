@@ -79,6 +79,11 @@ struct FocusDetectorConfig {
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
 
+    /// When true, the visual focus-mask overlay is clipped to the detected subject
+    /// region, falling back to the camera AF point if Vision does not find a subject.
+    /// This is overlay-only; scalar scoring still uses the subject/full-frame blend.
+    var isolateMaskToSubject: Bool = true
+
     // MARK: Scoring-only parameters (do not affect the focus mask overlay)
 
     /// Fraction of image dimension excluded from each border when computing
@@ -180,6 +185,7 @@ extension FocusDetectorConfig: Equatable {
             && lhs.erosionRadius == rhs.erosionRadius
             && lhs.featherRadius == rhs.featherRadius
             && lhs.showRawLaplacian == rhs.showRawLaplacian
+            && lhs.isolateMaskToSubject == rhs.isolateMaskToSubject
             && lhs.borderInsetFraction == rhs.borderInsetFraction
             && lhs.salientWeight == rhs.salientWeight
             && lhs.explicitSalientWeightOverride == rhs.explicitSalientWeightOverride
@@ -207,6 +213,7 @@ extension FocusDetectorConfig {
         c.subjectSizeFactor = 0.05
         c.silhouettePenaltyStrength = 0.55
         c.enableSubjectClassification = true
+        c.isolateMaskToSubject = true
         c.afRegionRadius = 0.06
         return c
     }
@@ -244,13 +251,25 @@ struct FocusMaskEngine: @unchecked Sendable {
         from cgImage: CGImage,
         scale: CGFloat,
         config: FocusDetectorConfig,
+        afPoint: CGPoint? = nil,
     ) async -> CGImage? {
         let context = self.context
 
         return await Task.detached(priority: .userInitiated) {
-            Self.buildFocusMask(
+            let salientRegion: CGRect? = if config.isolateMaskToSubject {
+                Self.detectSaliencyAndClassify(
+                    for: cgImage,
+                    classify: false,
+                ).region
+            } else {
+                nil
+            }
+
+            return Self.buildFocusMask(
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
+                salientRegion: salientRegion,
+                afPoint: afPoint,
                 context: context,
                 config: config,
             )
@@ -282,6 +301,8 @@ struct FocusMaskEngine: @unchecked Sendable {
             let mask = Self.buildFocusMask(
                 from: ciImage,
                 scale: scale,
+                salientRegion: region,
+                afPoint: afPoint,
                 context: context,
                 config: config,
             )
@@ -923,6 +944,8 @@ struct FocusMaskEngine: @unchecked Sendable {
     private nonisolated static func buildFocusMask(
         from inputImage: CIImage,
         scale: CGFloat,
+        salientRegion: CGRect?,
+        afPoint: CGPoint?,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> CGImage? {
@@ -941,13 +964,29 @@ struct FocusMaskEngine: @unchecked Sendable {
             boostedLaplacian = rawLaplacian
         }
 
+        let subjectLaplacian: CIImage
+        if config.isolateMaskToSubject,
+           let subjectRect = Self.focusMaskSubjectRect(
+               extent: scaledImage.extent,
+               salientRegion: salientRegion,
+               afPoint: afPoint,
+               afRegionRadius: config.afRegionRadius,
+           ) {
+            let blackBg = CIImage(color: .black).cropped(to: scaledImage.extent)
+            subjectLaplacian = boostedLaplacian
+                .cropped(to: subjectRect)
+                .composited(over: blackBg)
+        } else {
+            subjectLaplacian = boostedLaplacian
+        }
+
         if config.showRawLaplacian {
-            let cropped = boostedLaplacian.cropped(to: scaledImage.extent)
+            let cropped = subjectLaplacian.cropped(to: scaledImage.extent)
             return context.createCGImage(cropped, from: cropped.extent)
         }
 
         let thresholdFilter = CIFilter.colorThreshold()
-        thresholdFilter.inputImage = boostedLaplacian
+        thresholdFilter.inputImage = subjectLaplacian
         thresholdFilter.threshold = config.threshold
         guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
 
@@ -993,6 +1032,42 @@ struct FocusMaskEngine: @unchecked Sendable {
         return context.createCGImage(croppedMask, from: croppedMask.extent)
     }
 
+    private nonisolated static func focusMaskSubjectRect(
+        extent: CGRect,
+        salientRegion: CGRect?,
+        afPoint: CGPoint?,
+        afRegionRadius: Float,
+    ) -> CGRect? {
+        let unitBounds = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let unitRegion: CGRect?
+
+        if let salientRegion, !salientRegion.isNull, !salientRegion.isEmpty {
+            unitRegion = salientRegion.intersection(unitBounds)
+        } else if let afPoint, afRegionRadius > 0 {
+            let r = CGFloat(afRegionRadius)
+            let visionY = 1.0 - afPoint.y
+            let afRegion = CGRect(
+                x: afPoint.x - r,
+                y: visionY - r,
+                width: r * 2,
+                height: r * 2,
+            )
+            unitRegion = afRegion.intersection(unitBounds)
+        } else {
+            unitRegion = nil
+        }
+
+        guard let unitRegion, !unitRegion.isNull, !unitRegion.isEmpty else { return nil }
+
+        let rect = CGRect(
+            x: extent.minX + unitRegion.minX * extent.width,
+            y: extent.minY + (1.0 - unitRegion.maxY) * extent.height,
+            width: unitRegion.width * extent.width,
+            height: unitRegion.height * extent.height,
+        )
+        return rect.integral.intersection(extent)
+    }
+
     @inline(__always)
     private nonisolated static func morphologyPixelRadius(_ r: Float) -> Int {
         max(0, Int(r.rounded()))
@@ -1015,15 +1090,21 @@ final class FocusMaskModel {
 
     private nonisolated let engine = FocusMaskEngine()
 
-    func generateFocusMask(from nsImage: NSImage, scale: CGFloat) async -> NSImage? {
+    func generateFocusMask(
+        from nsImage: NSImage,
+        scale: CGFloat,
+        configOverride: FocusDetectorConfig? = nil,
+        afPoint: CGPoint? = nil,
+    ) async -> NSImage? {
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let originalSize = nsImage.size
-        let config = self.config
+        let config = configOverride ?? self.config
 
         guard let result = await engine.generateFocusMask(
             from: cgImage,
             scale: scale,
             config: config,
+            afPoint: afPoint,
         ) else { return nil }
 
         return NSImage(cgImage: result, size: originalSize)
@@ -1032,9 +1113,10 @@ final class FocusMaskModel {
     func generateFocusMaskWithBreakdown(
         from cgImage: CGImage,
         scale: CGFloat,
+        configOverride: FocusDetectorConfig? = nil,
         afPoint: CGPoint? = nil,
     ) async -> (mask: CGImage?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
-        let config = self.config
+        let config = configOverride ?? self.config
         return await engine.generateFocusMaskWithBreakdown(
             from: cgImage,
             scale: scale,

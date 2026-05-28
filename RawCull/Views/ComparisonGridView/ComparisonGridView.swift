@@ -135,7 +135,7 @@ struct ComparisonGridView: View {
             finalistFocusActive = false
             showCandidateInspector = false
         }
-        .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
+        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             Task {
                 await regenerateFocusMasks()
             }
@@ -260,9 +260,11 @@ struct ComparisonGridView: View {
     ) async {
         guard let cgImage = state.cgImage else { return }
         let downscaled = cgImage.downscaled(toWidth: 1024)
+        let config = focusMaskConfig(for: file)
         let focusResult = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: downscaled ?? cgImage,
             scale: 1.0,
+            configOverride: config,
             afPoint: file.afFocusNormalized,
         )
         state.focusMask = focusResult.mask
@@ -280,9 +282,11 @@ struct ComparisonGridView: View {
             guard !Task.isCancelled else { return }
             guard let cgImage = imageStates[file.id]?.cgImage else { continue }
             let downscaled = cgImage.downscaled(toWidth: 1024)
+            let config = focusMaskConfig(for: file)
             let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
                 from: downscaled ?? cgImage,
                 scale: 1.0,
+                configOverride: config,
                 afPoint: file.afFocusNormalized,
             )
             guard !Task.isCancelled else { return }
@@ -295,6 +299,13 @@ struct ComparisonGridView: View {
                 viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
             }
         }
+    }
+
+    private func focusMaskConfig(for file: FileItem) -> FocusDetectorConfig {
+        var config = viewModel.sharpnessModel.effectiveFocusConfig
+        config.iso = file.exifData?.isoValue ?? 400
+        config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+        return config
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {

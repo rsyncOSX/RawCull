@@ -309,7 +309,7 @@ struct ZoomOverlayView: View {
             guard !Task.isCancelled else { return }
             await regenerateMaskFromCG()
         }
-        .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
+        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             maskTask?.cancel()
             maskTask = Task {
                 try? await Task.sleep(for: .milliseconds(400))
@@ -507,9 +507,11 @@ struct ZoomOverlayView: View {
               let selectedFile = viewModel.selectedFile
         else { return }
         let downscaled = cg.downscaled(toWidth: 1024)
+        let config = focusMaskConfig(for: selectedFile)
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: downscaled ?? cg,
             scale: 1.0,
+            configOverride: config,
             afPoint: selectedFile.afFocusNormalized,
         )
         guard !Task.isCancelled else { return }
@@ -523,6 +525,13 @@ struct ZoomOverlayView: View {
                 viewModel.sharpnessModel.saliencyInfo[selectedFile.id] = saliency
             }
         }
+    }
+
+    private func focusMaskConfig(for file: FileItem) -> FocusDetectorConfig {
+        var config = viewModel.sharpnessModel.effectiveFocusConfig
+        config.iso = file.exifData?.isoValue ?? 400
+        config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+        return config
     }
 
     // MARK: - Zoomable images
