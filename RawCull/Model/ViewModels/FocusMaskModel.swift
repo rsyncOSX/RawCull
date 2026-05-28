@@ -329,13 +329,15 @@ struct FocusMaskEngine: @unchecked Sendable {
         let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
         guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
 
-        let thumbOptions: [CFString: Any] = [
+        var thumbOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
             kCGImageSourceCreateThumbnailFromImageAlways: false,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
             kCGImageSourceShouldCacheImmediately: true
         ]
+        if maxPixelSize > 0 {
+            thumbOptions[kCGImageSourceThumbnailMaxPixelSize] = maxPixelSize
+        }
         return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
     }
 
@@ -353,13 +355,24 @@ struct FocusMaskEngine: @unchecked Sendable {
               let src = CGImageSourceCreateWithData(data as CFData, nil)
         else { return nil }
 
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        guard let raw = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
+        let raw: CGImage?
+        if maxPixelSize > 0 {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            raw = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
+        } else {
+            raw = CGImageSourceCreateImageAtIndex(
+                src,
+                0,
+                [kCGImageSourceShouldCacheImmediately: true] as CFDictionary,
+            )
+        }
+
+        guard let raw else { return nil }
 
         return Self.normalizeToSRGB(raw)
     }

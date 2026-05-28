@@ -912,13 +912,13 @@ struct BurstAnalysisCacheTests {
         let highPrecisionSignature = BurstSharpnessSignature(
             photoType: .birdsWildlife,
             scoringQuality: .highPrecision,
-            thumbnailMaxPixelSize: 512,
+            thumbnailMaxPixelSize: 0,
             config: highPrecisionConfig,
         )
         let invalidQuality = await cache.load(
             catalog: catalog,
             files: files,
-            thumbnailMaxPixelSize: 512,
+            thumbnailMaxPixelSize: 0,
             sharpnessSignature: highPrecisionSignature,
         )
         #expect(invalidQuality == nil)

@@ -47,17 +47,30 @@ struct ScoringParametersSheetView: View {
                         }
                     }
                     .pickerStyle(.inline)
+                    .onChange(of: scoringQuality) { _, newValue in
+                        if newValue == .highPrecision {
+                            thumbnailMaxPixelSize = SharpnessScoringSizeOption.max.rawValue
+                        } else if thumbnailMaxPixelSize <= 0 {
+                            thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
+                        }
+                    }
                     Text("Fast preserves today's scoring path. Balanced and High Precision decode larger previews and blend a fine-detail pass for better small-subject ranking at higher compute cost.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Picker("Thumbnail size", selection: $thumbnailMaxPixelSize) {
-                        Text("512 px  (fast)").tag(512)
-                        Text("768 px").tag(768)
-                        Text("1024 px  (accurate)").tag(1024)
+                        if scoringQuality == .highPrecision {
+                            ForEach(SharpnessScoringSizeOption.allCases) { option in
+                                Text(option.title).tag(option.rawValue)
+                            }
+                        } else {
+                            Text("512 px  (fast)").tag(512)
+                            Text("768 px").tag(768)
+                            Text("1024 px  (accurate)").tag(1024)
+                        }
                     }
                     .pickerStyle(.inline)
-                    Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer")
+                    Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer. Max uses the largest available embedded/image source.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

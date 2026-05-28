@@ -108,9 +108,13 @@ struct SharpnessScoringTests {
         #expect(model.effectiveFocusConfig.fineDetailBlendWeight == 0.25)
 
         model.scoringQuality = .highPrecision
-        #expect(model.effectiveThumbnailMaxPixelSize == 1024)
+        model.thumbnailMaxPixelSize = 0
+        #expect(model.effectiveThumbnailMaxPixelSize == 0)
         #expect(model.effectiveFocusConfig.fineDetailBlendWeight == 0.45)
         #expect(model.effectiveFocusConfig.enableSubjectClassification)
+
+        model.thumbnailMaxPixelSize = 1536
+        #expect(model.effectiveThumbnailMaxPixelSize == 1536)
     }
 
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))

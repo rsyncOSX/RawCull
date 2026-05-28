@@ -40,9 +40,34 @@ struct SharpnessIntentControlsView: View {
             .frame(width: 122)
             .help("Choose the sharpness scoring speed/precision trade-off")
             .onChange(of: viewModel.sharpnessModel.scoringQuality) { _, newValue in
+                if newValue == .highPrecision {
+                    viewModel.sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.max.rawValue
+                    SettingsViewModel.shared.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.max.rawValue
+                } else if viewModel.sharpnessModel.thumbnailMaxPixelSize <= 0 {
+                    viewModel.sharpnessModel.thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
+                    SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
+                }
                 SettingsViewModel.shared.scoringQuality = newValue
                 Task(priority: .background) {
                     await SettingsViewModel.shared.saveSettings()
+                }
+            }
+
+            if viewModel.sharpnessModel.scoringQuality == .highPrecision {
+                Picker("Size", selection: $viewModel.sharpnessModel.thumbnailMaxPixelSize) {
+                    ForEach(SharpnessScoringSizeOption.allCases) { option in
+                        Text(option.title).tag(option.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .frame(width: 92)
+                .help("High Precision scoring size. Max uses the largest available embedded/image source.")
+                .onChange(of: viewModel.sharpnessModel.thumbnailMaxPixelSize) { _, newValue in
+                    SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue
+                    Task(priority: .background) {
+                        await SettingsViewModel.shared.saveSettings()
+                    }
                 }
             }
         }

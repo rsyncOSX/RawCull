@@ -147,6 +147,26 @@ enum SharpnessScoringQuality: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum SharpnessScoringSizeOption: Int, CaseIterable, Identifiable {
+    case max = 0
+    case px1024 = 1024
+    case px1536 = 1536
+    case px2048 = 2048
+
+    var id: Int {
+        rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .max: "Max"
+        case .px1024: "1024 px"
+        case .px1536: "1536 px"
+        case .px2048: "2048 px"
+        }
+    }
+}
+
 @Observable @MainActor
 final class SharpnessScoringModel {
     typealias SharpnessScoreComputer = @Sendable (
@@ -227,7 +247,10 @@ final class SharpnessScoringModel {
     }
 
     var effectiveThumbnailMaxPixelSize: Int {
-        max(thumbnailMaxPixelSize, scoringQuality.minimumThumbnailMaxPixelSize)
+        if scoringQuality == .highPrecision, thumbnailMaxPixelSize <= 0 {
+            return 0
+        }
+        return max(thumbnailMaxPixelSize, scoringQuality.minimumThumbnailMaxPixelSize)
     }
 
     func reset() {
