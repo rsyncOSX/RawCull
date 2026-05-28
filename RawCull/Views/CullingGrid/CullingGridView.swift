@@ -285,7 +285,7 @@ private struct BatchBadgeSelectionItem: Identifiable {
     let color: Color
 
     var isEmpty: Bool {
-        count == 0
+        isEmpty
     }
 }
 

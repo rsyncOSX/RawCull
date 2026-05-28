@@ -30,14 +30,16 @@ enum ApertureFilter: String, CaseIterable, Identifiable {
     }
 }
 
-enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable, Sendable {
+enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
     case auto
     case birdsWildlife
     case portrait
     case landscape
     case generalAction
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var title: String {
         switch self {

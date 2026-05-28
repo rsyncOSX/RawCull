@@ -5,6 +5,7 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var algorithmVersion: Int
     var catalogPath: String
     var thumbnailMaxPixelSize: Int
+    var sharpnessSignature: BurstSharpnessSignature
     var files: [BurstAnalysisCacheFile]
     var embeddings: [UUID: Data]
     var sharpnessScores: [UUID: Float]
@@ -14,6 +15,67 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var results: [BurstAnalysisResult]
     var reviewStates: [Int: BurstReviewState]
 }
+
+struct BurstSharpnessSignature: Codable {
+    var scoringPhotoType: SharpnessPhotoType
+    var thumbnailMaxPixelSize: Int
+    var borderInsetFraction: Float
+    var enableSubjectClassification: Bool
+    var salientWeight: Float
+    var subjectSizeFactor: Float
+    var focusMaskPreBlurRadius: Float
+    var focusMaskThreshold: Float
+    var focusMaskEnergyMultiplier: Float
+    var focusMaskErosionRadius: Float
+    var focusMaskDilationRadius: Float
+    var focusMaskFeatherRadius: Float
+
+    @MainActor
+    init(photoType: SharpnessPhotoType, thumbnailMaxPixelSize: Int, config: FocusDetectorConfig) {
+        self.scoringPhotoType = photoType
+        self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
+        self.borderInsetFraction = config.borderInsetFraction
+        self.enableSubjectClassification = config.enableSubjectClassification
+        self.salientWeight = config.salientWeight
+        self.subjectSizeFactor = config.subjectSizeFactor
+        self.focusMaskPreBlurRadius = config.preBlurRadius
+        self.focusMaskThreshold = config.threshold
+        self.focusMaskEnergyMultiplier = config.energyMultiplier
+        self.focusMaskErosionRadius = config.erosionRadius
+        self.focusMaskDilationRadius = config.dilationRadius
+        self.focusMaskFeatherRadius = config.featherRadius
+    }
+
+    nonisolated init(
+        scoringPhotoType: SharpnessPhotoType,
+        thumbnailMaxPixelSize: Int,
+        borderInsetFraction: Float,
+        enableSubjectClassification: Bool,
+        salientWeight: Float,
+        subjectSizeFactor: Float,
+        focusMaskPreBlurRadius: Float,
+        focusMaskThreshold: Float,
+        focusMaskEnergyMultiplier: Float,
+        focusMaskErosionRadius: Float,
+        focusMaskDilationRadius: Float,
+        focusMaskFeatherRadius: Float,
+    ) {
+        self.scoringPhotoType = scoringPhotoType
+        self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
+        self.borderInsetFraction = borderInsetFraction
+        self.enableSubjectClassification = enableSubjectClassification
+        self.salientWeight = salientWeight
+        self.subjectSizeFactor = subjectSizeFactor
+        self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
+        self.focusMaskThreshold = focusMaskThreshold
+        self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
+        self.focusMaskErosionRadius = focusMaskErosionRadius
+        self.focusMaskDilationRadius = focusMaskDilationRadius
+        self.focusMaskFeatherRadius = focusMaskFeatherRadius
+    }
+}
+
+extension BurstSharpnessSignature: Equatable {}
 
 struct BurstAnalysisCacheFile: Codable, Equatable {
     var id: UUID
@@ -40,7 +102,12 @@ actor BurstAnalysisCache {
         }
     }
 
-    func load(catalog: URL, files: [FileItem], thumbnailMaxPixelSize: Int) async -> BurstAnalysisCacheSnapshot? {
+    func load(
+        catalog: URL,
+        files: [FileItem],
+        thumbnailMaxPixelSize: Int,
+        sharpnessSignature: BurstSharpnessSignature,
+    ) async -> BurstAnalysisCacheSnapshot? {
         let url = cacheURL(for: catalog)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         do {
@@ -48,7 +115,13 @@ actor BurstAnalysisCache {
             let snapshot = try await MainActor.run {
                 try JSONDecoder().decode(BurstAnalysisCacheSnapshot.self, from: data)
             }
-            guard isValid(snapshot, catalog: catalog, files: files, thumbnailMaxPixelSize: thumbnailMaxPixelSize) else {
+            guard isValid(
+                snapshot,
+                catalog: catalog,
+                files: files,
+                thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+                sharpnessSignature: sharpnessSignature,
+            ) else {
                 return nil
             }
             return snapshot
@@ -84,11 +157,13 @@ actor BurstAnalysisCache {
         catalog: URL,
         files: [FileItem],
         thumbnailMaxPixelSize: Int,
+        sharpnessSignature: BurstSharpnessSignature,
     ) -> Bool {
         guard snapshot.schemaVersion == Self.schemaVersion,
               snapshot.algorithmVersion == BurstGroupingConfig.algorithmVersion,
               snapshot.catalogPath == catalog.path,
               snapshot.thumbnailMaxPixelSize == thumbnailMaxPixelSize,
+              snapshot.sharpnessSignature == sharpnessSignature,
               snapshot.files.count == files.count
         else { return false }
 

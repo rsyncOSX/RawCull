@@ -33,6 +33,7 @@ extension RawCullViewModel {
             catalog: catalog,
             files: sorted,
             thumbnailMaxPixelSize: sharpnessModel.thumbnailMaxPixelSize,
+            sharpnessSignature: currentBurstSharpnessSignature,
         ) {
             applyCachedBurstAnalysis(remapCachedSnapshot(snapshot, to: sorted))
             burstAnalysisProgress = BurstAnalysisProgress()
@@ -355,6 +356,7 @@ extension RawCullViewModel {
             algorithmVersion: BurstGroupingConfig.algorithmVersion,
             catalogPath: catalog.path,
             thumbnailMaxPixelSize: sharpnessModel.thumbnailMaxPixelSize,
+            sharpnessSignature: currentBurstSharpnessSignature,
             files: files.map {
                 BurstAnalysisCacheFile(
                     id: $0.id,
@@ -440,6 +442,7 @@ extension RawCullViewModel {
             algorithmVersion: snapshot.algorithmVersion,
             catalogPath: snapshot.catalogPath,
             thumbnailMaxPixelSize: snapshot.thumbnailMaxPixelSize,
+            sharpnessSignature: snapshot.sharpnessSignature,
             files: currentFiles.map {
                 BurstAnalysisCacheFile(id: $0.id, path: $0.url.path, size: $0.size, modificationDate: $0.dateModified)
             },
@@ -459,6 +462,14 @@ extension RawCullViewModel {
             boundaryEvidence: evidence,
             results: results,
             reviewStates: snapshot.reviewStates,
+        )
+    }
+
+    private var currentBurstSharpnessSignature: BurstSharpnessSignature {
+        BurstSharpnessSignature(
+            photoType: sharpnessModel.photoType,
+            thumbnailMaxPixelSize: sharpnessModel.thumbnailMaxPixelSize,
+            config: sharpnessModel.focusMaskModel.config,
         )
     }
 }

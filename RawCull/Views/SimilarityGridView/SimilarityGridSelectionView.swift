@@ -49,8 +49,17 @@ struct SimilarityGridSelectionView: View {
         let isGrouping = viewModel.similarityModel.isGrouping
         let burstAnalysisIsBusy = analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
         let inBurstMode = viewModel.similarityModel.burstModeActive
+        let sharpnessControlsDisabled = viewModel.sharpnessModel.isScoring || isIndexing || isGrouping || burstAnalysisIsBusy
 
         if !inBurstMode {
+            SharpnessIntentControlsView(
+                viewModel: viewModel,
+                isDisabled: sharpnessControlsDisabled,
+                showsParametersButton: true,
+            )
+
+            Divider().frame(height: 16)
+
             Button {
                 runWithAutoScoring { await viewModel.indexSimilarity() }
             } label: {
@@ -108,6 +117,14 @@ struct SimilarityGridSelectionView: View {
 
         if !isIndexing {
             if inBurstMode {
+                SharpnessIntentControlsView(
+                    viewModel: viewModel,
+                    isDisabled: sharpnessControlsDisabled,
+                    showsParametersButton: true,
+                )
+
+                Divider().frame(height: 16)
+
                 HStack(spacing: 4) {
                     Slider(
                         value: $viewModel.similarityModel.burstSensitivity,

@@ -7,6 +7,42 @@
 
 import SwiftUI
 
+struct SharpnessIntentControlsView: View {
+    @Bindable var viewModel: RawCullViewModel
+    var isDisabled: Bool
+    var showsParametersButton: Bool = false
+
+    var body: some View {
+        Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
+            ForEach(SharpnessPhotoType.allCases) { type in
+                Text(type.title).tag(type)
+            }
+        }
+        .pickerStyle(.menu)
+        .font(.caption)
+        .frame(width: 130)
+        .disabled(isDisabled)
+        .help("Tune sharpness scoring for the kind of photos in this catalog")
+        .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
+            SettingsViewModel.shared.scoringPhotoType = newValue
+            Task(priority: .background) {
+                await SettingsViewModel.shared.saveSettings()
+            }
+        }
+
+        if showsParametersButton {
+            Button {
+                viewModel.activeSheet = .scoringParams
+            } label: {
+                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+            }
+            .font(.caption)
+            .disabled(isDisabled)
+            .help("Configure sharpness scoring parameters")
+        }
+    }
+}
+
 struct SharpnessControlsView: View {
     @Bindable var viewModel: RawCullViewModel
     @Binding var sharpnessThreshold: Int
@@ -28,22 +64,10 @@ struct SharpnessControlsView: View {
         .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
         .help("Auto-calibrate threshold and gain from this burst, then score sharpness")
 
-        Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
-            ForEach(SharpnessPhotoType.allCases) { type in
-                Text(type.title).tag(type)
-            }
-        }
-        .pickerStyle(.menu)
-        .font(.caption)
-        .frame(width: 130)
-        .disabled(viewModel.sharpnessModel.isScoring)
-        .help("Tune sharpness scoring for the kind of photos in this catalog")
-        .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
-            SettingsViewModel.shared.scoringPhotoType = newValue
-            Task(priority: .background) {
-                await SettingsViewModel.shared.saveSettings()
-            }
-        }
+        SharpnessIntentControlsView(
+            viewModel: viewModel,
+            isDisabled: viewModel.sharpnessModel.isScoring,
+        )
 
         // Cancel button — only visible while scoring
         if viewModel.sharpnessModel.isScoring {

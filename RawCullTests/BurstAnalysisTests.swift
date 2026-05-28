@@ -844,11 +844,17 @@ struct BurstAnalysisCacheTests {
         let cache = BurstAnalysisCache(cacheDirectory: directory)
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let files = [burstTestFile("a.ARW", seconds: 0), burstTestFile("b.ARW", seconds: 0.5)]
+        let signature = BurstSharpnessSignature(
+            photoType: .birdsWildlife,
+            thumbnailMaxPixelSize: 512,
+            config: .birdsInFlight,
+        )
         let snapshot = BurstAnalysisCacheSnapshot(
             schemaVersion: BurstAnalysisCache.schemaVersion,
             algorithmVersion: BurstGroupingConfig.algorithmVersion,
             catalogPath: catalog.path,
             thumbnailMaxPixelSize: 512,
+            sharpnessSignature: signature,
             files: files.map { BurstAnalysisCacheFile(id: $0.id, path: $0.url.path, size: $0.size, modificationDate: $0.dateModified) },
             embeddings: [files[0].id: Data([1, 2, 3])],
             sharpnessScores: [files[0].id: 0.8],
@@ -860,16 +866,44 @@ struct BurstAnalysisCacheTests {
         )
 
         await cache.save(snapshot, catalog: catalog)
-        let loaded = await cache.load(catalog: catalog, files: files, thumbnailMaxPixelSize: 512)
+        let loaded = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: signature,
+        )
         #expect(loaded?.reviewStates[0] == .decisionApplied)
 
         await cache.delete(catalog: catalog)
-        let deleted = await cache.load(catalog: catalog, files: files, thumbnailMaxPixelSize: 512)
+        let deleted = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: signature,
+        )
         #expect(deleted == nil)
 
         await cache.save(snapshot, catalog: catalog)
         let changed = [burstTestFile("a.ARW", seconds: 0, size: 999), files[1]]
-        let invalid = await cache.load(catalog: catalog, files: changed, thumbnailMaxPixelSize: 512)
+        let invalid = await cache.load(
+            catalog: catalog,
+            files: changed,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: signature,
+        )
         #expect(invalid == nil)
+
+        let portraitSignature = BurstSharpnessSignature(
+            photoType: .portrait,
+            thumbnailMaxPixelSize: 512,
+            config: .birdsInFlight,
+        )
+        let invalidPhotoType = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: portraitSignature,
+        )
+        #expect(invalidPhotoType == nil)
     }
 }
