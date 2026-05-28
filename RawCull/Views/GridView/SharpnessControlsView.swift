@@ -15,8 +15,13 @@ enum SharpnessIntentControlsStyle {
 struct SharpnessIntentControlsView: View {
     @Bindable var viewModel: RawCullViewModel
     var isDisabled: Bool
+    var showsScoringBadgeToggle: Bool = false
     var showsParametersButton: Bool = false
     var style: SharpnessIntentControlsStyle = .inline
+
+    private var settings: SettingsViewModel {
+        SettingsViewModel.shared
+    }
 
     var body: some View {
         if style == .compactInfo {
@@ -87,6 +92,19 @@ struct SharpnessIntentControlsView: View {
             .disabled(isDisabled)
         }
 
+        if showsScoringBadgeToggle {
+            Toggle(isOn: Binding(
+                get: { settings.showScoringBadge },
+                set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
+            )) {
+                Label("Sharpness Label", systemImage: "scope")
+            }
+            .toggleStyle(.button)
+            .font(.caption)
+            .disabled(isDisabled)
+            .help("Show simple sharpness labels on thumbnails")
+        }
+
         if showsParametersButton {
             Button {
                 viewModel.activeSheet = .scoringParams
@@ -124,6 +142,7 @@ struct SharpnessControlsView: View {
         SharpnessIntentControlsView(
             viewModel: viewModel,
             isDisabled: viewModel.sharpnessModel.isScoring,
+            showsScoringBadgeToggle: true,
             showsParametersButton: true,
             style: .compactInfo,
         )
