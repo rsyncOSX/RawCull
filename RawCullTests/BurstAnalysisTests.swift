@@ -846,6 +846,7 @@ struct BurstAnalysisCacheTests {
         let files = [burstTestFile("a.ARW", seconds: 0), burstTestFile("b.ARW", seconds: 0.5)]
         let signature = BurstSharpnessSignature(
             photoType: .birdsWildlife,
+            scoringQuality: .fast,
             thumbnailMaxPixelSize: 512,
             config: .birdsInFlight,
         )
@@ -895,6 +896,7 @@ struct BurstAnalysisCacheTests {
 
         let portraitSignature = BurstSharpnessSignature(
             photoType: .portrait,
+            scoringQuality: .fast,
             thumbnailMaxPixelSize: 512,
             config: .birdsInFlight,
         )
@@ -905,5 +907,20 @@ struct BurstAnalysisCacheTests {
             sharpnessSignature: portraitSignature,
         )
         #expect(invalidPhotoType == nil)
+
+        let highPrecisionConfig = SharpnessScoringQuality.highPrecision.applying(to: FocusDetectorConfig.birdsInFlight)
+        let highPrecisionSignature = BurstSharpnessSignature(
+            photoType: .birdsWildlife,
+            scoringQuality: .highPrecision,
+            thumbnailMaxPixelSize: 512,
+            config: highPrecisionConfig,
+        )
+        let invalidQuality = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: highPrecisionSignature,
+        )
+        #expect(invalidQuality == nil)
     }
 }

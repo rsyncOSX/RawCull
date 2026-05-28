@@ -18,11 +18,13 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
 
 struct BurstSharpnessSignature: Codable {
     var scoringPhotoType: SharpnessPhotoType
+    var scoringQuality: SharpnessScoringQuality
     var thumbnailMaxPixelSize: Int
     var borderInsetFraction: Float
     var enableSubjectClassification: Bool
     var salientWeight: Float
     var subjectSizeFactor: Float
+    var fineDetailBlendWeight: Float
     var focusMaskPreBlurRadius: Float
     var focusMaskThreshold: Float
     var focusMaskEnergyMultiplier: Float
@@ -31,13 +33,20 @@ struct BurstSharpnessSignature: Codable {
     var focusMaskFeatherRadius: Float
 
     @MainActor
-    init(photoType: SharpnessPhotoType, thumbnailMaxPixelSize: Int, config: FocusDetectorConfig) {
+    init(
+        photoType: SharpnessPhotoType,
+        scoringQuality: SharpnessScoringQuality,
+        thumbnailMaxPixelSize: Int,
+        config: FocusDetectorConfig,
+    ) {
         self.scoringPhotoType = photoType
+        self.scoringQuality = scoringQuality
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
         self.borderInsetFraction = config.borderInsetFraction
         self.enableSubjectClassification = config.enableSubjectClassification
         self.salientWeight = config.salientWeight
         self.subjectSizeFactor = config.subjectSizeFactor
+        self.fineDetailBlendWeight = config.fineDetailBlendWeight
         self.focusMaskPreBlurRadius = config.preBlurRadius
         self.focusMaskThreshold = config.threshold
         self.focusMaskEnergyMultiplier = config.energyMultiplier
@@ -48,11 +57,13 @@ struct BurstSharpnessSignature: Codable {
 
     nonisolated init(
         scoringPhotoType: SharpnessPhotoType,
+        scoringQuality: SharpnessScoringQuality = .fast,
         thumbnailMaxPixelSize: Int,
         borderInsetFraction: Float,
         enableSubjectClassification: Bool,
         salientWeight: Float,
         subjectSizeFactor: Float,
+        fineDetailBlendWeight: Float = 0.0,
         focusMaskPreBlurRadius: Float,
         focusMaskThreshold: Float,
         focusMaskEnergyMultiplier: Float,
@@ -61,11 +72,13 @@ struct BurstSharpnessSignature: Codable {
         focusMaskFeatherRadius: Float,
     ) {
         self.scoringPhotoType = scoringPhotoType
+        self.scoringQuality = scoringQuality
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
         self.borderInsetFraction = borderInsetFraction
         self.enableSubjectClassification = enableSubjectClassification
         self.salientWeight = salientWeight
         self.subjectSizeFactor = subjectSizeFactor
+        self.fineDetailBlendWeight = fineDetailBlendWeight
         self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
         self.focusMaskThreshold = focusMaskThreshold
         self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
@@ -75,7 +88,24 @@ struct BurstSharpnessSignature: Codable {
     }
 }
 
-extension BurstSharpnessSignature: Equatable {}
+extension BurstSharpnessSignature: Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.scoringPhotoType.rawValue == rhs.scoringPhotoType.rawValue
+            && lhs.scoringQuality.rawValue == rhs.scoringQuality.rawValue
+            && lhs.thumbnailMaxPixelSize == rhs.thumbnailMaxPixelSize
+            && lhs.borderInsetFraction == rhs.borderInsetFraction
+            && lhs.enableSubjectClassification == rhs.enableSubjectClassification
+            && lhs.salientWeight == rhs.salientWeight
+            && lhs.subjectSizeFactor == rhs.subjectSizeFactor
+            && lhs.fineDetailBlendWeight == rhs.fineDetailBlendWeight
+            && lhs.focusMaskPreBlurRadius == rhs.focusMaskPreBlurRadius
+            && lhs.focusMaskThreshold == rhs.focusMaskThreshold
+            && lhs.focusMaskEnergyMultiplier == rhs.focusMaskEnergyMultiplier
+            && lhs.focusMaskErosionRadius == rhs.focusMaskErosionRadius
+            && lhs.focusMaskDilationRadius == rhs.focusMaskDilationRadius
+            && lhs.focusMaskFeatherRadius == rhs.focusMaskFeatherRadius
+    }
+}
 
 struct BurstAnalysisCacheFile: Codable, Equatable {
     var id: UUID

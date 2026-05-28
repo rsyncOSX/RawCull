@@ -32,7 +32,7 @@ extension RawCullViewModel {
         if let snapshot = await burstAnalysisCache.load(
             catalog: catalog,
             files: sorted,
-            thumbnailMaxPixelSize: sharpnessModel.thumbnailMaxPixelSize,
+            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
             sharpnessSignature: currentBurstSharpnessSignature,
         ) {
             applyCachedBurstAnalysis(remapCachedSnapshot(snapshot, to: sorted))
@@ -355,7 +355,7 @@ extension RawCullViewModel {
             schemaVersion: BurstAnalysisCache.schemaVersion,
             algorithmVersion: BurstGroupingConfig.algorithmVersion,
             catalogPath: catalog.path,
-            thumbnailMaxPixelSize: sharpnessModel.thumbnailMaxPixelSize,
+            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
             sharpnessSignature: currentBurstSharpnessSignature,
             files: files.map {
                 BurstAnalysisCacheFile(
@@ -468,8 +468,9 @@ extension RawCullViewModel {
     private var currentBurstSharpnessSignature: BurstSharpnessSignature {
         BurstSharpnessSignature(
             photoType: sharpnessModel.photoType,
-            thumbnailMaxPixelSize: sharpnessModel.thumbnailMaxPixelSize,
-            config: sharpnessModel.focusMaskModel.config,
+            scoringQuality: sharpnessModel.scoringQuality,
+            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
+            config: sharpnessModel.effectiveFocusConfig,
         )
     }
 }

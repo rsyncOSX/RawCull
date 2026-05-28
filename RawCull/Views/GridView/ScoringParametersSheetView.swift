@@ -9,6 +9,7 @@ struct ScoringParametersSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var config: FocusDetectorConfig
     @Binding var thumbnailMaxPixelSize: Int
+    @Binding var scoringQuality: SharpnessScoringQuality
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,6 +22,7 @@ struct ScoringParametersSheetView: View {
                     let defaults = FocusDetectorConfig()
                     config = defaults
                     thumbnailMaxPixelSize = 512
+                    scoringQuality = .fast
                     saveScoringSettings()
                 }
                 .buttonStyle(.borderless)
@@ -39,6 +41,16 @@ struct ScoringParametersSheetView: View {
 
             Form {
                 Section("Scoring Resolution") {
+                    Picker("Quality", selection: $scoringQuality) {
+                        ForEach(SharpnessScoringQuality.allCases) { quality in
+                            Text(quality.title).tag(quality)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    Text("Fast preserves today's scoring path. Balanced and High Precision decode larger previews and blend a fine-detail pass for better small-subject ranking at higher compute cost.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     Picker("Thumbnail size", selection: $thumbnailMaxPixelSize) {
                         Text("512 px  (fast)").tag(512)
                         Text("768 px").tag(768)
@@ -103,6 +115,7 @@ struct ScoringParametersSheetView: View {
         SettingsViewModel.shared.scoringSalientWeight = config.salientWeight
         SettingsViewModel.shared.scoringSubjectSizeFactor = config.subjectSizeFactor
         SettingsViewModel.shared.scoringThumbnailMaxPixelSize = thumbnailMaxPixelSize
+        SettingsViewModel.shared.scoringQuality = scoringQuality
         Task { await SettingsViewModel.shared.saveSettings() }
     }
 }

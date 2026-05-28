@@ -101,6 +101,11 @@ struct FocusDetectorConfig {
     /// 0 disables the penalty, 0.55 is the historical default.
     var silhouettePenaltyStrength: Float = 0.55
 
+    /// Optional second fine-detail Laplacian pass blended into scoring. Higher values
+    /// cost more compute but preserve small subject detail at larger scoring sizes.
+    /// The focus mask overlay keeps using the primary pass.
+    var fineDetailBlendWeight: Float = 0.0
+
     /// When true, runs VNClassifyImageRequest alongside saliency detection.
     var enableSubjectClassification: Bool = true
 
@@ -180,6 +185,7 @@ extension FocusDetectorConfig: Equatable {
             && lhs.explicitSalientWeightOverride == rhs.explicitSalientWeightOverride
             && lhs.subjectSizeFactor == rhs.subjectSizeFactor
             && lhs.silhouettePenaltyStrength == rhs.silhouettePenaltyStrength
+            && lhs.fineDetailBlendWeight == rhs.fineDetailBlendWeight
             && lhs.enableSubjectClassification == rhs.enableSubjectClassification
             && lhs.afRegionRadius == rhs.afRegionRadius
             && lhs.apertureHint == rhs.apertureHint
@@ -585,7 +591,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> SharpnessAnalysis? {
-        guard let boosted = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
+        guard let boosted = buildScoringLaplacian(from: inputImage, config: config) else { return nil }
 
         let extent = boosted.extent
         let width = Int(extent.width)
@@ -867,6 +873,38 @@ struct FocusMaskEngine: @unchecked Sendable {
         boost.bVector = CIVector(x: 0, y: 0, z: CGFloat(config.energyMultiplier), w: 0)
         boost.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         return boost.outputImage
+    }
+
+    /// Scoring-only Laplacian. Slower quality modes blend the normal blur scale
+    /// with a finer pass so small feathers, eyes, and eyelashes survive the
+    /// noise-reduction pre-blur instead of being averaged away.
+    private nonisolated static func buildScoringLaplacian(from image: CIImage, config: FocusDetectorConfig) -> CIImage? {
+        guard let primary = buildAmplifiedLaplacian(from: image, config: config) else { return nil }
+        let w = min(max(config.fineDetailBlendWeight, 0), 0.65)
+        guard w > 0 else { return primary }
+
+        var fineConfig = config
+        fineConfig.preBlurRadius = max(0.35, config.preBlurRadius * 0.58)
+        guard let fine = buildAmplifiedLaplacian(from: image, config: fineConfig) else { return primary }
+
+        func scaled(_ input: CIImage, by amount: Float) -> CIImage? {
+            let scale = CIFilter.colorMatrix()
+            scale.inputImage = input
+            scale.rVector = CIVector(x: CGFloat(amount), y: 0, z: 0, w: 0)
+            scale.gVector = CIVector(x: 0, y: CGFloat(amount), z: 0, w: 0)
+            scale.bVector = CIVector(x: 0, y: 0, z: CGFloat(amount), w: 0)
+            scale.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+            return scale.outputImage
+        }
+
+        guard let primaryWeighted = scaled(primary, by: 1.0 - w),
+              let fineWeighted = scaled(fine, by: w),
+              let add = CIFilter(name: "CIAdditionCompositing")
+        else { return primary }
+
+        add.setValue(fineWeighted, forKey: kCIInputImageKey)
+        add.setValue(primaryWeighted, forKey: kCIInputBackgroundImageKey)
+        return add.outputImage?.cropped(to: primary.extent) ?? primary
     }
 
     private nonisolated static func buildFocusMask(

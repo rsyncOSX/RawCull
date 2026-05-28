@@ -54,6 +54,7 @@ struct RawCullMainView: View {
                 ScoringParametersSheetView(
                     config: Bindable(viewModel.sharpnessModel.focusMaskModel).config,
                     thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize,
+                    scoringQuality: Bindable(viewModel.sharpnessModel).scoringQuality,
                 )
             }
         }

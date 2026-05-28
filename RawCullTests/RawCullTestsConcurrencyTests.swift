@@ -99,6 +99,7 @@ enum ConcurrencyTests {
                 viewModel.gridCacheSizeMB = 1500
                 viewModel.thumbnailSizeGrid = 200
                 viewModel.scoringPhotoType = .portrait
+                viewModel.scoringQuality = .highPrecision
             }
 
             await viewModel.saveSettings()
@@ -115,11 +116,13 @@ enum ConcurrencyTests {
             let savedGridCache = await MainActor.run { savedSettings.gridCacheSizeMB }
             let savedGrid = await MainActor.run { savedSettings.thumbnailSizeGrid }
             let savedPhotoType = await MainActor.run { savedSettings.scoringPhotoType }
+            let savedQuality = await MainActor.run { savedSettings.scoringQuality }
 
             #expect(savedMB == 1000)
             #expect(savedGridCache == 1500)
             #expect(savedGrid == 200)
             #expect(savedPhotoType == .portrait)
+            #expect(savedQuality == .highPrecision)
         }
 
         @Test
@@ -168,6 +171,7 @@ enum ConcurrencyTests {
             let settings = try JSONDecoder().decode(SavedSettings.self, from: data)
 
             #expect(settings.scoringPhotoType == .auto)
+            #expect(settings.scoringQuality == .fast)
         }
 
         @Test

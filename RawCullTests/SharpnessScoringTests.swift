@@ -93,6 +93,26 @@ struct SharpnessScoringTests {
         #expect(action.afRegionRadius < portrait.afRegionRadius)
     }
 
+    @Test(.tags(.smoke))
+    @MainActor
+    func `scoring quality maps to compute cost and precision config`() {
+        let model = SharpnessScoringModel()
+        model.thumbnailMaxPixelSize = 512
+
+        model.scoringQuality = .fast
+        #expect(model.effectiveThumbnailMaxPixelSize == 512)
+        #expect(model.effectiveFocusConfig.fineDetailBlendWeight == 0)
+
+        model.scoringQuality = .balanced
+        #expect(model.effectiveThumbnailMaxPixelSize == 768)
+        #expect(model.effectiveFocusConfig.fineDetailBlendWeight == 0.25)
+
+        model.scoringQuality = .highPrecision
+        #expect(model.effectiveThumbnailMaxPixelSize == 1024)
+        #expect(model.effectiveFocusConfig.fineDetailBlendWeight == 0.45)
+        #expect(model.effectiveFocusConfig.enableSubjectClassification)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     @MainActor
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {

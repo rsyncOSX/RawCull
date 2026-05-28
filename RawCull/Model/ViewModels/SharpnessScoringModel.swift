@@ -97,6 +97,56 @@ enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum SharpnessScoringQuality: String, CaseIterable, Codable, Identifiable {
+    case fast
+    case balanced
+    case highPrecision
+
+    var id: String {
+        rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .fast: "Fast"
+        case .balanced: "Balanced"
+        case .highPrecision: "High Precision"
+        }
+    }
+
+    var minimumThumbnailMaxPixelSize: Int {
+        switch self {
+        case .fast: 512
+        case .balanced: 768
+        case .highPrecision: 1024
+        }
+    }
+
+    var maxConcurrentScoringTasks: Int {
+        switch self {
+        case .fast: 6
+        case .balanced: 4
+        case .highPrecision: 3
+        }
+    }
+
+    nonisolated func applying(to config: FocusDetectorConfig) -> FocusDetectorConfig {
+        var c = config
+        switch self {
+        case .fast:
+            c.fineDetailBlendWeight = 0.0
+
+        case .balanced:
+            c.fineDetailBlendWeight = max(c.fineDetailBlendWeight, 0.25)
+
+        case .highPrecision:
+            c.fineDetailBlendWeight = max(c.fineDetailBlendWeight, 0.45)
+            c.enableSubjectClassification = true
+        }
+        return c
+    }
+}
+
 @Observable @MainActor
 final class SharpnessScoringModel {
     typealias SharpnessScoreComputer = @Sendable (
@@ -120,6 +170,7 @@ final class SharpnessScoringModel {
     var sortBySharpness: Bool = false
     var apertureFilter: ApertureFilter = .all
     var photoType: SharpnessPhotoType = .auto
+    var scoringQuality: SharpnessScoringQuality = .fast
     var saliencyCategoryFilter: String?
 
     var availableSaliencyCategories: [String] {
@@ -172,7 +223,11 @@ final class SharpnessScoringModel {
     }
 
     var effectiveFocusConfig: FocusDetectorConfig {
-        photoType.applying(to: focusMaskModel.config)
+        scoringQuality.applying(to: photoType.applying(to: focusMaskModel.config))
+    }
+
+    var effectiveThumbnailMaxPixelSize: Int {
+        max(thumbnailMaxPixelSize, scoringQuality.minimumThumbnailMaxPixelSize)
     }
 
     func reset() {
@@ -203,9 +258,9 @@ final class SharpnessScoringModel {
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
             files: fileEntries,
             baseConfigOverride: calibrationConfig,
-            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
             minSamples: 5,
-            maxConcurrentTasks: 8,
+            maxConcurrentTasks: scoringQuality.maxConcurrentScoringTasks,
         ) else {
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
             isCalibratingSharpnessScoring = false
@@ -236,11 +291,11 @@ final class SharpnessScoringModel {
 
         let engine = FocusMaskEngine()
         let config = effectiveFocusConfig
-        let thumbSize = thumbnailMaxPixelSize
+        let thumbSize = effectiveThumbnailMaxPixelSize
         let scoreComputerOverride = scoreComputerOverride
         var iterator = files.makeIterator()
         var active = 0
-        let maxConcurrent = 6
+        let maxConcurrent = scoringQuality.maxConcurrentScoringTasks
 
         let workTask = Task {
             defer {

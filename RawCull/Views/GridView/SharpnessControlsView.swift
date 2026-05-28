@@ -13,22 +13,40 @@ struct SharpnessIntentControlsView: View {
     var showsParametersButton: Bool = false
 
     var body: some View {
-        Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
-            ForEach(SharpnessPhotoType.allCases) { type in
-                Text(type.title).tag(type)
+        HStack(spacing: 6) {
+            Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
+                ForEach(SharpnessPhotoType.allCases) { type in
+                    Text(type.title).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            .font(.caption)
+            .frame(width: 130)
+            .help("Tune sharpness scoring for the kind of photos in this catalog")
+            .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
+                SettingsViewModel.shared.scoringPhotoType = newValue
+                Task(priority: .background) {
+                    await SettingsViewModel.shared.saveSettings()
+                }
+            }
+
+            Picker("Quality", selection: $viewModel.sharpnessModel.scoringQuality) {
+                ForEach(SharpnessScoringQuality.allCases) { quality in
+                    Text(quality.title).tag(quality)
+                }
+            }
+            .pickerStyle(.menu)
+            .font(.caption)
+            .frame(width: 122)
+            .help("Choose the sharpness scoring speed/precision trade-off")
+            .onChange(of: viewModel.sharpnessModel.scoringQuality) { _, newValue in
+                SettingsViewModel.shared.scoringQuality = newValue
+                Task(priority: .background) {
+                    await SettingsViewModel.shared.saveSettings()
+                }
             }
         }
-        .pickerStyle(.menu)
-        .font(.caption)
-        .frame(width: 130)
         .disabled(isDisabled)
-        .help("Tune sharpness scoring for the kind of photos in this catalog")
-        .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
-            SettingsViewModel.shared.scoringPhotoType = newValue
-            Task(priority: .background) {
-                await SettingsViewModel.shared.saveSettings()
-            }
-        }
 
         if showsParametersButton {
             Button {

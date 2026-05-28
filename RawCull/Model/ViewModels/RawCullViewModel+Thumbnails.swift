@@ -77,6 +77,7 @@ extension RawCullViewModel {
         sharpnessModel.focusMaskModel.config.subjectSizeFactor = s.scoringSubjectSizeFactor
         sharpnessModel.focusMaskModel.config.preBlurRadius = s.focusMaskPreBlurRadius
         sharpnessModel.photoType = s.scoringPhotoType
+        sharpnessModel.scoringQuality = s.scoringQuality
         sharpnessModel.focusMaskModel.config.threshold = s.focusMaskThreshold
         sharpnessModel.focusMaskModel.config.energyMultiplier = s.focusMaskEnergyMultiplier
         sharpnessModel.focusMaskModel.config.erosionRadius = s.focusMaskErosionRadius
