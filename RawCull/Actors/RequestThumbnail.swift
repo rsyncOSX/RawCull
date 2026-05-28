@@ -80,7 +80,7 @@ actor RequestThumbnail {
         }
 
         // C. Extract
-        // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
+        Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
         let costPerPixel = memoryCache.costPerPixel
 

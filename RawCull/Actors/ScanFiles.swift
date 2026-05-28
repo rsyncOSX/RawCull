@@ -8,7 +8,7 @@
 import Foundation
 import ImageIO
 
-// import OSLog
+import OSLog
 
 struct ExifMetadata: Hashable {
     let shutterSpeed: String?
@@ -143,7 +143,7 @@ actor ScanFiles {
         by sortOrder: [some SortComparator<FileItem>],
         searchText: String,
     ) async -> [FileItem] {
-        // Logger.process.debugThreadOnly("func sortFiles()")
+        Logger.process.debugThreadOnly("func sortFiles()")
         let sorted = files.sorted(using: sortOrder)
         if searchText.isEmpty {
             return sorted
