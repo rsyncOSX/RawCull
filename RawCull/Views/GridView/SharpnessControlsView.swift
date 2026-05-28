@@ -7,71 +7,85 @@
 
 import SwiftUI
 
+enum SharpnessIntentControlsStyle {
+    case inline
+    case compactInfo
+}
+
 struct SharpnessIntentControlsView: View {
     @Bindable var viewModel: RawCullViewModel
     var isDisabled: Bool
     var showsParametersButton: Bool = false
+    var style: SharpnessIntentControlsStyle = .inline
 
     var body: some View {
-        HStack(spacing: 6) {
-            Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
-                ForEach(SharpnessPhotoType.allCases) { type in
-                    Text(type.title).tag(type)
-                }
-            }
-            .pickerStyle(.menu)
-            .font(.caption)
-            .frame(width: 130)
-            .help("Tune sharpness scoring for the kind of photos in this catalog")
-            .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
-                SettingsViewModel.shared.scoringPhotoType = newValue
-                Task(priority: .background) {
-                    await SettingsViewModel.shared.saveSettings()
-                }
-            }
-
-            Picker("Quality", selection: $viewModel.sharpnessModel.scoringQuality) {
-                ForEach(SharpnessScoringQuality.allCases) { quality in
-                    Text(quality.title).tag(quality)
-                }
-            }
-            .pickerStyle(.menu)
-            .font(.caption)
-            .frame(width: 122)
-            .help("Choose the sharpness scoring speed/precision trade-off")
-            .onChange(of: viewModel.sharpnessModel.scoringQuality) { _, newValue in
-                if newValue == .highPrecision {
-                    viewModel.sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.max.rawValue
-                    SettingsViewModel.shared.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.max.rawValue
-                } else if viewModel.sharpnessModel.thumbnailMaxPixelSize <= 0 {
-                    viewModel.sharpnessModel.thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
-                    SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
-                }
-                SettingsViewModel.shared.scoringQuality = newValue
-                Task(priority: .background) {
-                    await SettingsViewModel.shared.saveSettings()
-                }
-            }
-
-            if viewModel.sharpnessModel.scoringQuality == .highPrecision {
-                Picker("Size", selection: $viewModel.sharpnessModel.thumbnailMaxPixelSize) {
-                    ForEach(SharpnessScoringSizeOption.allCases) { option in
-                        Text(option.title).tag(option.rawValue)
+        if style == .compactInfo {
+            Label("Scoring settings are in Scoring Parameters.", systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .help("Photo type, quality, and thumbnail size are configured in Scoring Parameters")
+        } else {
+            HStack(spacing: 6) {
+                Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
+                    ForEach(SharpnessPhotoType.allCases) { type in
+                        Text(type.title).tag(type)
                     }
                 }
                 .pickerStyle(.menu)
                 .font(.caption)
-                .frame(width: 92)
-                .help("High Precision scoring size. Max uses the largest available embedded/image source.")
-                .onChange(of: viewModel.sharpnessModel.thumbnailMaxPixelSize) { _, newValue in
-                    SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue
+                .frame(width: 130)
+                .help("Tune sharpness scoring for the kind of photos in this catalog")
+                .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
+                    SettingsViewModel.shared.scoringPhotoType = newValue
                     Task(priority: .background) {
                         await SettingsViewModel.shared.saveSettings()
                     }
                 }
+
+                Picker("Quality", selection: $viewModel.sharpnessModel.scoringQuality) {
+                    ForEach(SharpnessScoringQuality.allCases) { quality in
+                        Text(quality.title).tag(quality)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .frame(width: 122)
+                .help("Choose the sharpness scoring speed/precision trade-off")
+                .onChange(of: viewModel.sharpnessModel.scoringQuality) { _, newValue in
+                    if newValue == .highPrecision {
+                        viewModel.sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
+                        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
+                    } else if viewModel.sharpnessModel.thumbnailMaxPixelSize <= 0 {
+                        viewModel.sharpnessModel.thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
+                        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
+                    }
+                    SettingsViewModel.shared.scoringQuality = newValue
+                    Task(priority: .background) {
+                        await SettingsViewModel.shared.saveSettings()
+                    }
+                }
+
+                if viewModel.sharpnessModel.scoringQuality == .highPrecision {
+                    Picker("Size", selection: $viewModel.sharpnessModel.thumbnailMaxPixelSize) {
+                        ForEach(SharpnessScoringSizeOption.allCases) { option in
+                            Text(option.title).tag(option.rawValue)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .font(.caption)
+                    .frame(width: 92)
+                    .help("High Precision scoring size")
+                    .onChange(of: viewModel.sharpnessModel.thumbnailMaxPixelSize) { _, newValue in
+                        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue
+                        Task(priority: .background) {
+                            await SettingsViewModel.shared.saveSettings()
+                        }
+                    }
+                }
             }
+            .disabled(isDisabled)
         }
-        .disabled(isDisabled)
 
         if showsParametersButton {
             Button {
@@ -110,6 +124,8 @@ struct SharpnessControlsView: View {
         SharpnessIntentControlsView(
             viewModel: viewModel,
             isDisabled: viewModel.sharpnessModel.isScoring,
+            showsParametersButton: true,
+            style: .compactInfo,
         )
 
         // Cancel button — only visible while scoring

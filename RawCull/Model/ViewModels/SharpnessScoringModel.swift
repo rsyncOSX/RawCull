@@ -152,10 +152,11 @@ enum SharpnessScoringQuality: String, CaseIterable, Codable, Identifiable {
 }
 
 enum SharpnessScoringSizeOption: Int, CaseIterable, Identifiable {
-    case max = 0
     case px1024 = 1024
     case px1536 = 1536
     case px2048 = 2048
+
+    static let highPrecisionDefaultPixelSize = SharpnessScoringSizeOption.px2048.rawValue
 
     var id: Int {
         rawValue
@@ -163,11 +164,17 @@ enum SharpnessScoringSizeOption: Int, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .max: "Max"
         case .px1024: "1024 px"
         case .px1536: "1536 px"
         case .px2048: "2048 px"
         }
+    }
+
+    static func normalizedPixelSize(_ value: Int, for quality: SharpnessScoringQuality) -> Int {
+        if quality == .highPrecision, value <= 0 {
+            return highPrecisionDefaultPixelSize
+        }
+        return max(value, quality.minimumThumbnailMaxPixelSize)
     }
 }
 
@@ -251,10 +258,7 @@ final class SharpnessScoringModel {
     }
 
     var effectiveThumbnailMaxPixelSize: Int {
-        if scoringQuality == .highPrecision, thumbnailMaxPixelSize <= 0 {
-            return 0
-        }
-        return max(thumbnailMaxPixelSize, scoringQuality.minimumThumbnailMaxPixelSize)
+        SharpnessScoringSizeOption.normalizedPixelSize(thumbnailMaxPixelSize, for: scoringQuality)
     }
 
     func reset() {

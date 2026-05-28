@@ -155,7 +155,10 @@ final class SettingsViewModel {
                 self.scoringEnableSubjectClassification = savedSettings.scoringEnableSubjectClassification
                 self.scoringSalientWeight = savedSettings.scoringSalientWeight
                 self.scoringSubjectSizeFactor = savedSettings.scoringSubjectSizeFactor
-                self.scoringThumbnailMaxPixelSize = savedSettings.scoringThumbnailMaxPixelSize
+                self.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+                    savedSettings.scoringThumbnailMaxPixelSize,
+                    for: savedSettings.scoringQuality,
+                )
                 self.scoringPhotoType = savedSettings.scoringPhotoType
                 self.scoringQuality = savedSettings.scoringQuality
                 self.focusMaskPreBlurRadius = savedSettings.focusMaskPreBlurRadius
@@ -196,7 +199,10 @@ final class SettingsViewModel {
                 scoringEnableSubjectClassification: scoringEnableSubjectClassification,
                 scoringSalientWeight: scoringSalientWeight,
                 scoringSubjectSizeFactor: scoringSubjectSizeFactor,
-                scoringThumbnailMaxPixelSize: scoringThumbnailMaxPixelSize,
+                scoringThumbnailMaxPixelSize: SharpnessScoringSizeOption.normalizedPixelSize(
+                    scoringThumbnailMaxPixelSize,
+                    for: scoringQuality,
+                ),
                 scoringPhotoType: scoringPhotoType,
                 scoringQuality: scoringQuality,
                 focusMaskPreBlurRadius: focusMaskPreBlurRadius,
@@ -316,7 +322,10 @@ final class SettingsViewModel {
                 scoringEnableSubjectClassification: self.scoringEnableSubjectClassification,
                 scoringSalientWeight: self.scoringSalientWeight,
                 scoringSubjectSizeFactor: self.scoringSubjectSizeFactor,
-                scoringThumbnailMaxPixelSize: self.scoringThumbnailMaxPixelSize,
+                scoringThumbnailMaxPixelSize: SharpnessScoringSizeOption.normalizedPixelSize(
+                    self.scoringThumbnailMaxPixelSize,
+                    for: self.scoringQuality,
+                ),
                 scoringPhotoType: self.scoringPhotoType,
                 scoringQuality: self.scoringQuality,
                 focusMaskPreBlurRadius: self.focusMaskPreBlurRadius,
@@ -396,9 +405,12 @@ struct SavedSettings: Codable {
         self.scoringEnableSubjectClassification = scoringEnableSubjectClassification
         self.scoringSalientWeight = scoringSalientWeight
         self.scoringSubjectSizeFactor = scoringSubjectSizeFactor
-        self.scoringThumbnailMaxPixelSize = scoringThumbnailMaxPixelSize
         self.scoringPhotoType = scoringPhotoType
         self.scoringQuality = scoringQuality
+        self.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+            scoringThumbnailMaxPixelSize,
+            for: scoringQuality,
+        )
         self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
         self.focusMaskThreshold = focusMaskThreshold
         self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
@@ -422,9 +434,12 @@ struct SavedSettings: Codable {
         scoringEnableSubjectClassification = (try? c.decode(Bool.self, forKey: .scoringEnableSubjectClassification)) ?? true
         scoringSalientWeight = (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75
         scoringSubjectSizeFactor = (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1
-        scoringThumbnailMaxPixelSize = (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512
         scoringPhotoType = (try? c.decode(SharpnessPhotoType.self, forKey: .scoringPhotoType)) ?? .auto
         scoringQuality = (try? c.decode(SharpnessScoringQuality.self, forKey: .scoringQuality)) ?? .fast
+        scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+            (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512,
+            for: scoringQuality,
+        )
         focusMaskPreBlurRadius = (try? c.decode(Float.self, forKey: .focusMaskPreBlurRadius)) ?? 1.92
         focusMaskThreshold = (try? c.decode(Float.self, forKey: .focusMaskThreshold)) ?? 0.46
         focusMaskEnergyMultiplier = (try? c.decode(Float.self, forKey: .focusMaskEnergyMultiplier)) ?? 7.62

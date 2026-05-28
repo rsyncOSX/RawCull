@@ -70,7 +70,10 @@ extension RawCullViewModel {
         // and read default values from the JSON before the file I/O finishes.
         await SettingsViewModel.shared.ensureLoaded()
         let s = SettingsViewModel.shared
-        sharpnessModel.thumbnailMaxPixelSize = s.scoringThumbnailMaxPixelSize
+        sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+            s.scoringThumbnailMaxPixelSize,
+            for: s.scoringQuality,
+        )
         sharpnessModel.focusMaskModel.config.borderInsetFraction = s.scoringBorderInsetFraction
         sharpnessModel.focusMaskModel.config.enableSubjectClassification = s.scoringEnableSubjectClassification
         sharpnessModel.focusMaskModel.config.salientWeight = s.scoringSalientWeight

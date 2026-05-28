@@ -121,6 +121,7 @@ struct SimilarityGridSelectionView: View {
                     viewModel: viewModel,
                     isDisabled: sharpnessControlsDisabled,
                     showsParametersButton: true,
+                    style: .compactInfo,
                 )
 
                 Divider().frame(height: 16)

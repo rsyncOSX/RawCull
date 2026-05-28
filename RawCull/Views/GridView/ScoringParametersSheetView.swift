@@ -49,7 +49,7 @@ struct ScoringParametersSheetView: View {
                     .pickerStyle(.inline)
                     .onChange(of: scoringQuality) { _, newValue in
                         if newValue == .highPrecision {
-                            thumbnailMaxPixelSize = SharpnessScoringSizeOption.max.rawValue
+                            thumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
                         } else if thumbnailMaxPixelSize <= 0 {
                             thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
                         }
@@ -70,7 +70,7 @@ struct ScoringParametersSheetView: View {
                         }
                     }
                     .pickerStyle(.inline)
-                    Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer. Max uses the largest available embedded/image source.")
+                    Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -120,6 +120,12 @@ struct ScoringParametersSheetView: View {
         }
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear {
+            thumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+                thumbnailMaxPixelSize,
+                for: scoringQuality,
+            )
+        }
     }
 
     private func saveScoringSettings() {
@@ -127,7 +133,10 @@ struct ScoringParametersSheetView: View {
         SettingsViewModel.shared.scoringEnableSubjectClassification = config.enableSubjectClassification
         SettingsViewModel.shared.scoringSalientWeight = config.salientWeight
         SettingsViewModel.shared.scoringSubjectSizeFactor = config.subjectSizeFactor
-        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = thumbnailMaxPixelSize
+        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
+            thumbnailMaxPixelSize,
+            for: scoringQuality,
+        )
         SettingsViewModel.shared.scoringQuality = scoringQuality
         Task { await SettingsViewModel.shared.saveSettings() }
     }
