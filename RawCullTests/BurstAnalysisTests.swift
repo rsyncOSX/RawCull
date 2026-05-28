@@ -414,7 +414,7 @@ struct BurstViewModelActionTests {
 
         viewModel.compareBurstGroup(files)
         #expect(viewModel.mainViewMode == .comparisonGrid)
-        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.similarityModel.burstModeActive == false)
         #expect(viewModel.showsBurstGroups == false)
         #expect(viewModel.activeBurstComparisonGroupID == 0)
 
@@ -426,7 +426,7 @@ struct BurstViewModelActionTests {
     }
 
     @Test(.tags(.critical))
-    func `burst state survives loupe and grid visits but only shows in similarity grid`() {
+    func `grid and loupe exit active burst review without discarding analysis`() {
         let viewModel = RawCullViewModel()
         let files = [
             burstTestFile("a.ARW", seconds: 0),
@@ -442,17 +442,23 @@ struct BurstViewModelActionTests {
 
         #expect(viewModel.showsBurstGroups == true)
 
-        viewModel.selectMainViewMode(.loupe)
-        #expect(viewModel.similarityModel.burstModeActive == true)
-        #expect(viewModel.showsBurstGroups == false)
-
         viewModel.selectMainViewMode(.grid)
-        #expect(viewModel.similarityModel.burstModeActive == true)
+        #expect(viewModel.mainViewMode == .grid)
+        #expect(viewModel.similarityModel.burstModeActive == false)
         #expect(viewModel.showsBurstGroups == false)
+        #expect(viewModel.similarityModel.burstGroups.map(\.fileIDs) == [files.map(\.id)])
+        #expect(viewModel.similarityModel.burstGroupLookup.count == files.count)
 
         viewModel.selectMainViewMode(.similarityGrid)
-        #expect(viewModel.similarityModel.burstModeActive == true)
-        #expect(viewModel.showsBurstGroups == true)
+        #expect(viewModel.mainViewMode == .similarityGrid)
+        #expect(viewModel.similarityModel.burstModeActive == false)
+        #expect(viewModel.showsBurstGroups == false)
+
+        viewModel.similarityModel.burstModeActive = true
+        viewModel.selectMainViewMode(.loupe)
+        #expect(viewModel.mainViewMode == .loupe)
+        #expect(viewModel.similarityModel.burstModeActive == false)
+        #expect(viewModel.showsBurstGroups == false)
     }
 
     @Test(.tags(.critical))

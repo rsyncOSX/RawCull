@@ -232,7 +232,7 @@ final class RawCullViewModel {
 
     func selectMainViewMode(_ mode: MainViewMode) {
         closeZoomOverlay()
-        if mode == .ratedGrid {
+        if mode != .similarityGrid {
             similarityModel.burstModeActive = false
         }
         mainViewMode = mode
