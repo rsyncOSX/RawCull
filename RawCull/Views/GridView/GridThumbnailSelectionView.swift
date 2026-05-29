@@ -14,15 +14,13 @@ import SwiftUI
 struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
-    @State private var sharpnessThreshold: Int = 50
-
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
     var body: some View {
         CullingGridView(viewModel: viewModel) {
             if !viewModel.showsBurstGroups {
-                SharpnessControlsView(viewModel: viewModel, sharpnessThreshold: $sharpnessThreshold)
+                SharpnessControlsView(viewModel: viewModel)
 
                 Divider().frame(height: 20)
             }

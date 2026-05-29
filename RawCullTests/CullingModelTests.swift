@@ -408,27 +408,4 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.ratingCache == ["two.ARW": 5])
         #expect(viewModel.taggedNamesCache == ["two.ARW"])
     }
-
-    @Test
-    func `applySharpnessThreshold rejects files below normalized threshold`() {
-        let viewModel = RawCullViewModel()
-        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
-        let sharp = makeCullingTestFile("sharp.ARW")
-        let soft = makeCullingTestFile("soft.ARW")
-        let unscored = makeCullingTestFile("unscored.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.filteredFiles = [sharp, soft, unscored]
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.sharpnessModel.scores = [
-            sharp.id: 100,
-            soft.id: 40
-        ]
-
-        viewModel.applySharpnessThreshold(50)
-
-        #expect(viewModel.getRating(for: sharp) == 0)
-        #expect(viewModel.getRating(for: soft) == -1)
-        #expect(viewModel.getRating(for: unscored) == 0)
-        #expect(viewModel.ratingCache.keys.sorted() == ["sharp.ARW", "soft.ARW"])
-    }
 }

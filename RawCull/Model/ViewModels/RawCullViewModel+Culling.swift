@@ -76,17 +76,4 @@ extension RawCullViewModel {
         sharpnessModel.reset()
         similarityModel.reset()
     }
-
-    func applySharpnessThreshold(_ thresholdPercent: Int) {
-        let maxScore = sharpnessModel.maxScore
-        guard maxScore > 0, let selectedSource else { return }
-        let ratingsByFileName = filteredFiles.reduce(into: [String: Int]()) { ratings, file in
-            guard let score = sharpnessModel.scores[file.id] else { return }
-            let normalised = Int((score / maxScore) * 100)
-            ratings[file.name] = normalised >= thresholdPercent ? 0 : -1
-        }
-
-        cullingModel.applyRatings(ratingsByFileName, in: selectedSource.url)
-        rebuildRatingCache()
-    }
 }

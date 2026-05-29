@@ -7,29 +7,6 @@ import Foundation
 import Observation
 import OSLog
 
-enum ApertureFilter: String, CaseIterable, Identifiable {
-    case all = "All"
-    case wide = "Wide (≤ f/5.6)"
-    case landscape = "Landscape (≥ f/8)"
-
-    var id: String {
-        rawValue
-    }
-
-    func matches(_ file: FileItem) -> Bool {
-        switch self {
-        case .all:
-            true
-
-        case .wide:
-            file.exifData?.apertureValue.map { $0 <= 5.6 } ?? false
-
-        case .landscape:
-            file.exifData?.apertureValue.map { $0 >= 8.0 } ?? false
-        }
-    }
-}
-
 enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
     case auto
     case birdsWildlife
@@ -199,14 +176,8 @@ final class SharpnessScoringModel {
     var breakdowns: [UUID: SharpnessBreakdown] = [:]
     var isScoring: Bool = false
     var sortBySharpness: Bool = false
-    var apertureFilter: ApertureFilter = .all
     var photoType: SharpnessPhotoType = .auto
     var scoringQuality: SharpnessScoringQuality = .fast
-    var saliencyCategoryFilter: String?
-
-    var availableSaliencyCategories: [String] {
-        Array(Set(saliencyInfo.values.compactMap(\.subjectLabel))).sorted()
-    }
 
     var focusMaskModel = FocusMaskModel()
     var thumbnailMaxPixelSize: Int = 512
@@ -263,8 +234,6 @@ final class SharpnessScoringModel {
 
     func reset() {
         cancelScoring()
-        apertureFilter = .all
-        saliencyCategoryFilter = nil
     }
 
     func cancelScoring() {
@@ -278,7 +247,6 @@ final class SharpnessScoringModel {
         scoringTotal = 0
         scoringEstimatedSeconds = 0
         sortBySharpness = false
-        saliencyCategoryFilter = nil
     }
 
     func calibrateFromBurst(_ files: [FileItem]) async {

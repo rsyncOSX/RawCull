@@ -162,8 +162,7 @@ extension FocusDetectorConfig.ApertureHint {
         }
     }
 
-    /// Derives the hint from an EXIF f-number. Thresholds mirror `ApertureFilter` in
-    /// `SharpnessScoringModel` so the display filter and scoring hint stay in sync.
+    /// Derives the hint from an EXIF f-number for aperture-aware scoring.
     nonisolated static func from(aperture: Double?) -> Self {
         guard let a = aperture else { return .mid }
         if a <= 5.6 { return .wide }

@@ -7,7 +7,8 @@
 
 import AppKit
 import Foundation
-import OSLog
+
+// import OSLog
 
 enum SonyThumbnailExtractor {
     /// Extract thumbnail using generic ImageIO framework.
@@ -41,7 +42,7 @@ enum SonyThumbnailExtractor {
     ) throws -> CGImage {
         try cancellationToken.checkCancellation()
 
-        Logger.process.debugThreadOnly("SonyThumbnailExtractor: extractSync() - create CGImageSource")
+        // Logger.process.debugThreadOnly("SonyThumbnailExtractor: extractSync() - create CGImageSource")
 
         // Prefer Sony's embedded JPEG preview. Newer RA16-backed ARW files
         // (A7V, A7R VI / ILCE-7RM6) can make ImageIO initialize the unsupported

@@ -15,7 +15,6 @@ enum SharpnessIntentControlsStyle {
 struct SharpnessIntentControlsView: View {
     @Bindable var viewModel: RawCullViewModel
     var isDisabled: Bool
-    var showsScoringBadgeToggle: Bool = false
     var showsParametersButton: Bool = false
     var style: SharpnessIntentControlsStyle = .inline
 
@@ -30,20 +29,6 @@ struct SharpnessIntentControlsView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .help("Photo type, quality, and thumbnail size are configured in Scoring Parameters")
-
-                if showsScoringBadgeToggle {
-                    Toggle(isOn: Binding(
-                        get: { settings.showScoringBadge },
-                        set: {
-                            settings.showScoringBadge = $0
-                            Task(priority: .background) { await settings.saveSettings() }
-                        },
-                    )) {
-                        Label("Sharpness Label", systemImage: "scope")
-                    }
-                    .toggleStyle(.button)
-                    .help("Show simple sharpness labels on thumbnails")
-                }
             }
             .font(.caption)
             .disabled(isDisabled)
@@ -124,13 +109,12 @@ struct SharpnessIntentControlsView: View {
 
 struct SharpnessControlsView: View {
     @Bindable var viewModel: RawCullViewModel
-    @Binding var sharpnessThreshold: Int
 
     var body: some View {
         SharpnessIntentControlsView(
             viewModel: viewModel,
             isDisabled: viewModel.sharpnessModel.isScoring,
-            showsScoringBadgeToggle: true,
+            // showsScoringBadgeToggle: true,
             showsParametersButton: true,
             style: .compactInfo,
         )
@@ -177,59 +161,6 @@ struct SharpnessControlsView: View {
                     await viewModel.handleSortOrderChange()
                 }
             }
-        }
-
-        // Subject filter — only visible once saliency data exists
-        if !viewModel.sharpnessModel.saliencyInfo.isEmpty, !viewModel.sharpnessModel.isScoring {
-            Picker("Subject", selection: $viewModel.sharpnessModel.saliencyCategoryFilter) {
-                Text("All Subjects").tag(String?.none)
-                ForEach(viewModel.sharpnessModel.availableSaliencyCategories, id: \.self) { label in
-                    Text(label.capitalized).tag(String?.some(label))
-                }
-            }
-            .pickerStyle(.menu)
-            .font(.caption)
-            .frame(width: 130)
-            .help("Filter thumbnails by detected subject category")
-            .onChange(of: viewModel.sharpnessModel.saliencyCategoryFilter) { _, _ in
-                Task(priority: .background) { await viewModel.handleSortOrderChange() }
-            }
-        }
-
-        Picker("Aperture", selection: $viewModel.sharpnessModel.apertureFilter) {
-            ForEach(ApertureFilter.allCases) { filter in
-                Text(filter.rawValue).tag(filter)
-            }
-        }
-        .pickerStyle(.menu)
-        .font(.caption)
-        .frame(width: 160)
-        .help("Filter by aperture — Wide for birds/portraits, Landscape for stopped-down shots")
-        .onChange(of: viewModel.sharpnessModel.apertureFilter) { _, _ in
-            Task(priority: .background) {
-                await viewModel.handleSortOrderChange()
-            }
-        }
-
-        // Sharpness threshold classifier — visible once scores exist
-        if !viewModel.sharpnessModel.scores.isEmpty, !viewModel.sharpnessModel.isScoring {
-            Picker("Threshold", selection: $sharpnessThreshold) {
-                ForEach([20, 30, 40, 50, 60, 70, 80], id: \.self) { pct in
-                    Text("\(pct)%").tag(pct)
-                }
-            }
-            .pickerStyle(.menu)
-            .font(.caption)
-            .frame(width: 70)
-            .padding(.leading, 12)
-            .help("Sharpness cut-off: images at or above this score become Keep (P), below become Rejected (X)")
-
-            Button("Apply") {
-                viewModel.applySharpnessThreshold(sharpnessThreshold)
-            }
-            .font(.caption)
-            .padding(.trailing, 12)
-            .help("Auto-classify all scored images using the selected sharpness threshold")
         }
 
         // Spinner shown while calibrating is in progress

@@ -199,25 +199,17 @@ extension RawCullViewModel {
         activeCatalogLoadURL == url && selectedSource?.url == url
     }
 
-    /// Applies the active rating filter, aperture filter, and sharpness sort to a pre-sorted
-    /// file list. When similarity mode is active, similarity sort runs last and takes precedence
+    /// Applies the active rating filter and sharpness sort to a pre-sorted file list.
+    /// When similarity mode is active, similarity sort runs last and takes precedence
     /// over sharpness sort, with the anchor image always ranked first.
     private func applyFilters(to files: [FileItem]) -> [FileItem] {
         var result = files
         if ratingFilter != .all {
             result = result.filter { passesRatingFilter($0) }
         }
-        if sharpnessModel.apertureFilter != .all {
-            let filter = sharpnessModel.apertureFilter
-            result = result.filter { filter.matches($0) }
-        }
         if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
             let scores = sharpnessModel.scores
             result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
-        }
-        if let label = sharpnessModel.saliencyCategoryFilter {
-            let info = sharpnessModel.saliencyInfo
-            result = result.filter { info[$0.id]?.subjectLabel == label }
         }
         // Similarity sort takes precedence over sharpness sort when active.
         if similarityModel.sortBySimilarity, !similarityModel.distances.isEmpty {
