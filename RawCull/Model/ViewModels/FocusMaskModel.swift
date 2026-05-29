@@ -118,7 +118,7 @@ struct SharpnessBreakdown: Equatable {
     let focusFailureKind: FocusFailureKind
     var focusMaskRegionSource: FocusMaskRegionSource?
     var focusMaskVisualThreshold: Float?
-    var focusEvidence: FocusEvidence? = nil
+    var focusEvidence: FocusEvidence?
 }
 
 struct FocusDetectorConfig {
@@ -793,7 +793,7 @@ struct FocusMaskEngine: @unchecked Sendable {
             (.afNeighborhood, validAFNeighborhood ?? -.infinity),
             (.afPoint, validAF ?? -.infinity),
             (.saliency, validSaliency ?? -.infinity),
-            (.global, validGlobal ?? -.infinity),
+            (.global, validGlobal ?? -.infinity)
         ]
         return candidates.max(by: { $0.1 < $1.1 })?.0 ?? .none
     }
@@ -1253,28 +1253,27 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         let requestedEvidenceRegion = evidenceRegion ?? .none
-        let visualEvidenceRegion: FocusEvidenceRegion
-        switch requestedEvidenceRegion {
+        let visualEvidenceRegion: FocusEvidenceRegion = switch requestedEvidenceRegion {
         case .afCenter where afCenterRect != nil:
-            visualEvidenceRegion = .afCenter
+            .afCenter
 
         case .afNeighborhood where afNeighborhoodRect != nil:
-            visualEvidenceRegion = .afNeighborhood
+            .afNeighborhood
 
         case .afPoint where selection.afRect != nil:
-            visualEvidenceRegion = .afPoint
+            .afPoint
 
         case .saliency where selection.saliencyRect != nil:
-            visualEvidenceRegion = .saliency
+            .saliency
 
         case .mixed where selection.afRect != nil || selection.saliencyRect != nil:
-            visualEvidenceRegion = .mixed
+            .mixed
 
         case .global:
-            visualEvidenceRegion = .global
+            .global
 
         default:
-            visualEvidenceRegion = switch (selection.afRect, selection.saliencyRect) {
+            switch (selection.afRect, selection.saliencyRect) {
             case (.some, _): .afPoint
             case (nil, .some): .saliency
             default: .global

@@ -305,7 +305,7 @@ struct BurstCandidateScore: Codable, Equatable {
     var fileID: UUID
     var overallScore: Float
     var sharpnessComponent: Float
-    var burstRelativeSharpnessComponent: Float? = nil
+    var burstRelativeSharpnessComponent: Float?
     var focusPointComponent: Float
     var saliencyComponent: Float
     var metadataComponent: Float

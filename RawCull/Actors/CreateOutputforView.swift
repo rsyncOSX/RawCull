@@ -6,7 +6,7 @@
 //
 import OSLog
 
-struct CreateOutputforView: Sendable {
+struct CreateOutputforView {
     /// From Array[String]
     @concurrent
     func createOutputForView(_ stringoutputfromrsync: [String]?) async -> [RsyncOutputData] {

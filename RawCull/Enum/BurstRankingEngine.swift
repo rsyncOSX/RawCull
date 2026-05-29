@@ -174,7 +174,8 @@ enum BurstRankingEngine {
         }
         guard normalizedScores.count >= 2 else { return [:] }
         guard let minScore = normalizedScores.map(\.1).min(),
-              let maxScore = normalizedScores.map(\.1).max() else {
+              let maxScore = normalizedScores.map(\.1).max()
+        else {
             return [:]
         }
         let spread = maxScore - minScore
