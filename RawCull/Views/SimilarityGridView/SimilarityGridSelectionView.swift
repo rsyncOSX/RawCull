@@ -2,10 +2,8 @@
 //  SimilarityGridSelectionView.swift
 //  RawCull
 //
-//  Similarity-focused grid. Header exposes only similarity indexing and
-//  burst grouping. A toolbar toggle (default ON) gates an automatic
-//  sharpness-scoring prerequisite that runs the first time any analysis
-//  action is invoked while scores are missing.
+//  Similarity-focused grid. Header exposes similarity indexing, burst grouping,
+//  and the automatic sharpness-scoring prerequisite toggle.
 //
 
 import AppKit
@@ -28,15 +26,6 @@ struct SimilarityGridSelectionView: View {
     var body: some View {
         CullingGridView(viewModel: viewModel) {
             similarityHeaderControls
-        }
-        .toolbar {
-            ToolbarItem(placement: .status) {
-                Toggle(isOn: $autoSharpnessScoring) {
-                    Label("Auto Sharpness", systemImage: "scope")
-                }
-                .toggleStyle(.button)
-                .help("Auto-run sharpness scoring before similarity actions when scores are missing")
-            }
         }
     }
 
@@ -175,6 +164,14 @@ struct SimilarityGridSelectionView: View {
                 .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
                 .help("Delete saved burst analysis for this catalog and recompute from scratch")
             } else {
+                Toggle(isOn: $autoSharpnessScoring) {
+                    Label("Auto Sharpness", systemImage: "scope")
+                }
+                .toggleStyle(.button)
+                .font(.caption)
+                .disabled(sharpnessControlsDisabled)
+                .help("Auto-run sharpness scoring before similarity actions when scores are missing")
+
                 Button {
                     analyzeBurstsRequested = true
                     Task {

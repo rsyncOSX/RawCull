@@ -4,7 +4,7 @@
 //
 //  Similarity-focused alternative to GridThumbnailView. Hosts only similarity
 //  indexing and burst grouping; sharpness scoring runs as a silent
-//  prerequisite controlled by a toolbar toggle inside the selection view.
+//  prerequisite controlled by an inline header toggle inside the selection view.
 //
 
 import SwiftUI
