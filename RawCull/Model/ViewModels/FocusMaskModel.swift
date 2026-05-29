@@ -71,6 +71,15 @@ enum FocusEvidenceRegion: String, Codable, Equatable {
         case .mixed: "Mixed"
         }
     }
+
+    nonisolated var isAFAnchored: Bool {
+        switch self {
+        case .afCenter, .afNeighborhood, .afPoint:
+            true
+        case .none, .saliency, .global, .mixed:
+            false
+        }
+    }
 }
 
 struct FocusEvidence: Equatable {
@@ -1206,6 +1215,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         var masks = [CIImage]()
         var thresholds = [Float]()
         var coverages = [Float]()
+        var maskClipRects = [CGRect]()
         var relaxedForVisibility = false
 
         func appendMask(
@@ -1247,6 +1257,7 @@ struct FocusMaskEngine: @unchecked Sendable {
                 extent: scaledImage.extent,
             ) {
                 masks.append(mask)
+                maskClipRects.append(rect.integral.intersection(scaledImage.extent))
                 thresholds.append(threshold)
                 coverages.append(coverage)
             }
@@ -1289,17 +1300,31 @@ struct FocusMaskEngine: @unchecked Sendable {
             fineLaplacian = nil
         }
 
+        let afPixelCenter = Self.afPixelCenter(afPoint: afPoint, in: scaledImage.extent)
+        func afWeightedSource(for rect: CGRect) -> CIImage {
+            let source = fineLaplacian ?? boostedLaplacian
+            guard let afPixelCenter,
+                  let weighted = Self.centerWeightedLaplacian(
+                    source,
+                    center: afPixelCenter,
+                    rect: rect,
+                    extent: scaledImage.extent,
+                  )
+            else { return source }
+            return weighted
+        }
+
         switch visualEvidenceRegion {
         case .afCenter:
             if let afCenterRect {
                 appendMask(
                     rect: afCenterRect,
-                    sourceImage: fineLaplacian ?? boostedLaplacian,
-                    percentile: 0.72,
-                    floorMultiplier: 0.24,
+                    sourceImage: afWeightedSource(for: afCenterRect),
+                    percentile: 0.82,
+                    floorMultiplier: 0.32,
                     capAtFallback: true,
                     erosionRadius: 0,
-                    dilationRadius: min(config.dilationRadius, 1.0),
+                    dilationRadius: min(config.dilationRadius, 0.75),
                 )
             }
 
@@ -1307,12 +1332,12 @@ struct FocusMaskEngine: @unchecked Sendable {
             if let afNeighborhoodRect {
                 appendMask(
                     rect: afNeighborhoodRect,
-                    sourceImage: fineLaplacian ?? boostedLaplacian,
-                    percentile: 0.80,
-                    floorMultiplier: 0.30,
+                    sourceImage: afWeightedSource(for: afNeighborhoodRect),
+                    percentile: 0.88,
+                    floorMultiplier: 0.42,
                     capAtFallback: true,
                     erosionRadius: max(0, config.erosionRadius - 1.0),
-                    dilationRadius: min(config.dilationRadius, 1.0),
+                    dilationRadius: min(config.dilationRadius, 0.75),
                 )
             }
 
@@ -1320,12 +1345,12 @@ struct FocusMaskEngine: @unchecked Sendable {
             if let afRect = selection.afRect {
                 appendMask(
                     rect: afRect,
-                    sourceImage: fineLaplacian ?? boostedLaplacian,
-                    percentile: 0.82,
-                    floorMultiplier: 0.32,
+                    sourceImage: afWeightedSource(for: afRect),
+                    percentile: 0.88,
+                    floorMultiplier: 0.42,
                     capAtFallback: true,
                     erosionRadius: max(0, config.erosionRadius - 1.0),
-                    dilationRadius: min(config.dilationRadius, 1.0),
+                    dilationRadius: min(config.dilationRadius, 0.75),
                 )
             }
 
@@ -1346,12 +1371,12 @@ struct FocusMaskEngine: @unchecked Sendable {
             if let afRect = selection.afRect {
                 appendMask(
                     rect: afRect,
-                    sourceImage: fineLaplacian ?? boostedLaplacian,
-                    percentile: 0.82,
-                    floorMultiplier: 0.32,
+                    sourceImage: afWeightedSource(for: afRect),
+                    percentile: 0.88,
+                    floorMultiplier: 0.42,
                     capAtFallback: true,
                     erosionRadius: max(0, config.erosionRadius - 1.0),
-                    dilationRadius: min(config.dilationRadius, 1.0),
+                    dilationRadius: min(config.dilationRadius, 0.75),
                 )
             }
             if let saliencyRect = selection.saliencyRect {
@@ -1421,7 +1446,21 @@ struct FocusMaskEngine: @unchecked Sendable {
             feathered = redMask
         }
 
-        let croppedMask = feathered.cropped(to: scaledImage.extent)
+        let croppedMask: CIImage
+        if visualEvidenceRegion.isAFAnchored,
+           let clip = Self.union(maskClipRects),
+           !clip.isNull,
+           !clip.isEmpty {
+            let pad = CGFloat(max(config.featherRadius, 0))
+            let paddedClip = clip.insetBy(dx: -pad, dy: -pad).intersection(scaledImage.extent)
+            let blackBg = CIImage(color: .black).cropped(to: scaledImage.extent)
+            croppedMask = feathered
+                .cropped(to: paddedClip)
+                .composited(over: blackBg)
+                .cropped(to: scaledImage.extent)
+        } else {
+            croppedMask = feathered.cropped(to: scaledImage.extent)
+        }
         return FocusMaskRenderResult(
             image: context.createCGImage(croppedMask, from: croppedMask.extent),
             diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
@@ -1502,6 +1541,22 @@ struct FocusMaskEngine: @unchecked Sendable {
             height: unitRegion.height * extent.height,
         ).integral.intersection(extent)
         return rect.isNull || rect.isEmpty ? nil : rect
+    }
+
+    nonisolated static func afPixelCenter(afPoint: CGPoint?, in extent: CGRect) -> CGPoint? {
+        guard let afPoint else { return nil }
+        return CGPoint(
+            x: extent.minX + afPoint.x * extent.width,
+            y: extent.minY + afPoint.y * extent.height,
+        )
+    }
+
+    private nonisolated static func union(_ rects: [CGRect]) -> CGRect? {
+        let validRects = rects.filter { !$0.isNull && !$0.isEmpty }
+        guard let first = validRects.first else { return nil }
+        return validRects.dropFirst().reduce(first) { partial, rect in
+            partial.union(rect)
+        }
     }
 
     nonisolated static func adaptiveVisualThreshold(
@@ -1639,6 +1694,28 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         return eroded.cropped(to: extent)
+    }
+
+    private nonisolated static func centerWeightedLaplacian(
+        _ image: CIImage,
+        center: CGPoint,
+        rect: CGRect,
+        extent: CGRect,
+    ) -> CIImage? {
+        let outerRadius = max(min(rect.width, rect.height) * 0.52, 1)
+        let innerRadius = max(outerRadius * 0.18, 1)
+        let radial = CIFilter.radialGradient()
+        radial.center = center
+        radial.radius0 = Float(innerRadius)
+        radial.radius1 = Float(outerRadius)
+        radial.color0 = CIColor(red: 1, green: 1, blue: 1, alpha: 1)
+        radial.color1 = CIColor(red: 0, green: 0, blue: 0, alpha: 1)
+        guard let mask = radial.outputImage?.cropped(to: extent),
+              let multiply = CIFilter(name: "CIMultiplyCompositing")
+        else { return nil }
+        multiply.setValue(mask, forKey: kCIInputImageKey)
+        multiply.setValue(image, forKey: kCIInputBackgroundImageKey)
+        return multiply.outputImage?.cropped(to: extent)
     }
 
     private nonisolated static func maximumComposite(_ image: CIImage, over background: CIImage) -> CIImage {

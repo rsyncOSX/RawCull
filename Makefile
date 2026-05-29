@@ -43,6 +43,7 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold to meet minimum coverage`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation is not applied when coverage already meets target`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF local rect stays constrained around focus point`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF pixel center matches overlay normalized coordinates`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness can outweigh subject metadata when detail clearly leads`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness is omitted for tiny sharpness spread`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`best relative frame still needs absolute sharpness for high confidence`()' \

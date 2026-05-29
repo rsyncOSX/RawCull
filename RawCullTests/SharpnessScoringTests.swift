@@ -583,6 +583,17 @@ struct FocusNumericHelperTests {
         #expect(center.contains(CGPoint(x: 300, y: 200)))
     }
 
+    @Test(.tags(.smoke))
+    func `AF pixel center matches overlay normalized coordinates`() throws {
+        let extent = CGRect(x: 0, y: 0, width: 1000, height: 500)
+        let center = try #require(FocusMaskEngine.afPixelCenter(
+            afPoint: CGPoint(x: 0.30, y: 0.40),
+            in: extent,
+        ))
+
+        #expect(center == CGPoint(x: 300, y: 200))
+    }
+
     // MARK: - Scale invariance of robustTailScore
 
     /// Fix verification: p90–p97 band mean is linearly proportional to a uniform
