@@ -182,6 +182,78 @@ struct BurstRankingEngineTests {
     }
 
     @Test(.tags(.smoke))
+    func `burst relative sharpness can outweigh subject metadata when detail clearly leads`() throws {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let group = BurstGroup(id: 0, fileIDs: files.map(\.id))
+        let saliencyInfo = [
+            files[0].id: SaliencyInfo(subjectLabel: "bird"),
+            files[1].id: SaliencyInfo(subjectLabel: "mammal"),
+            files[2].id: SaliencyInfo(subjectLabel: "bird")
+        ]
+
+        let result = BurstRankingEngine.rankGroup(
+            group,
+            filesByID: Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) }),
+            scores: [files[0].id: 0.90, files[1].id: 0.94, files[2].id: 0.89],
+            maxScore: 1.0,
+            saliencyInfo: saliencyInfo,
+            boundaryEvidence: [],
+        )
+
+        let best = try #require(result.candidates.first)
+        #expect(best.fileID == files[1].id)
+        #expect(best.burstRelativeSharpnessComponent == 1)
+        #expect(abs(best.sharpnessComponent - 0.94) < 0.0001)
+    }
+
+    @Test(.tags(.smoke))
+    func `burst relative sharpness is omitted for tiny sharpness spread`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let components = BurstRankingEngine.burstRelativeSharpnessComponents(
+            fileIDs: files.map(\.id),
+            scores: [files[0].id: 0.900, files[1].id: 0.902, files[2].id: 0.901],
+            maxScore: 1.0,
+        )
+
+        #expect(components.isEmpty)
+    }
+
+    @Test(.tags(.smoke))
+    func `best relative frame still needs absolute sharpness for high confidence`() {
+        let files = [
+            burstTestFile("a.ARW", seconds: 0),
+            burstTestFile("b.ARW", seconds: 0.3),
+            burstTestFile("c.ARW", seconds: 0.6)
+        ]
+        let group = BurstGroup(id: 0, fileIDs: files.map(\.id))
+        let evidence = [
+            BurstBoundaryEvidence(previousID: files[0].id, currentID: files[1].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: []),
+            BurstBoundaryEvidence(previousID: files[1].id, currentID: files[2].id, visualDistance: 0.10, timeGapSeconds: 0.3, focalLengthDelta: 0, exposureChanged: false, cameraChanged: false, lensChanged: false, startsNewGroup: false, reasons: [])
+        ]
+
+        let result = BurstRankingEngine.rankGroup(
+            group,
+            filesByID: Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) }),
+            scores: [files[0].id: 0.20, files[1].id: 0.45, files[2].id: 0.25],
+            maxScore: 1.0,
+            saliencyInfo: Dictionary(uniqueKeysWithValues: files.map { ($0.id, SaliencyInfo(subjectLabel: "bird")) }),
+            boundaryEvidence: evidence,
+        )
+
+        #expect(result.recommendedFileID == files[1].id)
+        #expect(result.confidence != .high)
+        #expect(!result.isSafeForOneClickCulling)
+    }
+
+    @Test(.tags(.smoke))
     func `confidence titles use conservative recommendation copy`() {
         #expect(BurstDecisionConfidence.high.title == "High confidence")
         #expect(BurstDecisionConfidence.medium.title == "Review recommended")

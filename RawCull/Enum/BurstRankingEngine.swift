@@ -44,12 +44,18 @@ enum BurstRankingEngine {
         }
 
         let dominantSubject = dominantSubject(in: files, saliencyInfo: saliencyInfo)
+        let burstRelativeSharpness = burstRelativeSharpnessComponents(
+            fileIDs: group.fileIDs,
+            scores: scores,
+            maxScore: maxScore,
+        )
 
         var candidates = files.map { file in
             candidate(
                 file,
                 scores: scores,
                 maxScore: maxScore,
+                burstRelativeSharpness: burstRelativeSharpness[file.id],
                 saliencyInfo: saliencyInfo,
                 dominantSubject: dominantSubject,
                 metadataStable: metadataStable,
@@ -103,21 +109,30 @@ enum BurstRankingEngine {
         _ file: FileItem,
         scores: [UUID: Float],
         maxScore: Float,
+        burstRelativeSharpness: Float?,
         saliencyInfo: [UUID: SaliencyInfo],
         dominantSubject: String?,
         metadataStable: Bool,
         tightSimilarity: Bool,
     ) -> BurstCandidateScore {
         let sharpness = normalizedScore(scores[file.id], maxScore: maxScore)
+        let rankingSharpness = if let burstRelativeSharpness {
+            sharpness * 0.65 + burstRelativeSharpness * 0.35
+        } else {
+            sharpness
+        }
         let focus = file.afFocusNormalized == nil ? Float(0.45) : Float(0.70)
         let saliency = saliencyComponent(fileID: file.id, saliencyInfo: saliencyInfo, dominantSubject: dominantSubject)
         let metadata = metadataComponent(file: file, metadataStable: metadataStable, tightSimilarity: tightSimilarity)
-        let overall = sharpness * 0.62 + focus * 0.12 + saliency * 0.10 + metadata * 0.16
+        let overall = rankingSharpness * 0.62 + focus * 0.12 + saliency * 0.10 + metadata * 0.16
 
         var reasons: [String] = []
         var cautions: [String] = []
         if scores[file.id] != nil {
             reasons.append("Sharpness measured")
+            if burstRelativeSharpness != nil {
+                reasons.append("Burst-relative sharpness measured")
+            }
         } else {
             cautions.append("Sharpness missing")
         }
@@ -137,6 +152,7 @@ enum BurstRankingEngine {
             fileID: file.id,
             overallScore: overall,
             sharpnessComponent: sharpness,
+            burstRelativeSharpnessComponent: burstRelativeSharpness,
             focusPointComponent: focus,
             saliencyComponent: saliency,
             metadataComponent: metadata,
@@ -144,6 +160,28 @@ enum BurstRankingEngine {
             reasons: reasons,
             cautions: cautions,
         )
+    }
+
+    nonisolated static func burstRelativeSharpnessComponents(
+        fileIDs: [UUID],
+        scores: [UUID: Float],
+        maxScore: Float,
+    ) -> [UUID: Float] {
+        let normalizedScores = fileIDs.compactMap { fileID -> (UUID, Float)? in
+            guard scores[fileID] != nil else { return nil }
+            let normalized = normalizedScore(scores[fileID], maxScore: maxScore)
+            return normalized.isFinite ? (fileID, normalized) : nil
+        }
+        guard normalizedScores.count >= 2 else { return [:] }
+        guard let minScore = normalizedScores.map(\.1).min(),
+              let maxScore = normalizedScores.map(\.1).max() else {
+            return [:]
+        }
+        let spread = maxScore - minScore
+        guard spread >= 0.03 else { return [:] }
+        return Dictionary(uniqueKeysWithValues: normalizedScores.map { fileID, score in
+            (fileID, min(max((score - minScore) / spread, 0), 1))
+        })
     }
 
     private nonisolated static func normalizedScore(_ score: Float?, maxScore: Float) -> Float {

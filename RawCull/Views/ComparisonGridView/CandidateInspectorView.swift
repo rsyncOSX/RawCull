@@ -23,6 +23,9 @@ struct CandidateInspectorView: View {
 
                 Section("Score Components") {
                     LabeledContent("Sharpness", value: percent(context.candidate.sharpnessComponent))
+                    if let burstRelativeSharpness = context.candidate.burstRelativeSharpnessComponent {
+                        LabeledContent("Burst-relative", value: percent(burstRelativeSharpness))
+                    }
                     LabeledContent("Focus Point", value: percent(context.candidate.focusPointComponent))
                     LabeledContent("Saliency", value: percent(context.candidate.saliencyComponent))
                     LabeledContent("Metadata", value: percent(context.candidate.metadataComponent))

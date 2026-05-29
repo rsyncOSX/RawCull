@@ -43,6 +43,9 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold to meet minimum coverage`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation is not applied when coverage already meets target`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF local rect stays constrained around focus point`()' \
+	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness can outweigh subject metadata when detail clearly leads`()' \
+	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness is omitted for tiny sharpness spread`()' \
+	'-only-testing:RawCullTests/BurstRankingEngineTests/`best relative frame still needs absolute sharpness for high confidence`()' \
 	'-only-testing:RawCullTests/ApertureHintTests/`nil aperture maps to mid`()' \
 	'-only-testing:RawCullTests/ApertureHintTests/`wide boundary is inclusive at 5 point 6`()' \
 	'-only-testing:RawCullTests/ApertureHintTests/`landscape boundary is inclusive at f 8`()' \

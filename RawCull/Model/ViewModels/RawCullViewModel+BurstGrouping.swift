@@ -419,6 +419,7 @@ extension RawCullViewModel {
                         fileID: remap(candidate.fileID),
                         overallScore: candidate.overallScore,
                         sharpnessComponent: candidate.sharpnessComponent,
+                        burstRelativeSharpnessComponent: candidate.burstRelativeSharpnessComponent,
                         focusPointComponent: candidate.focusPointComponent,
                         saliencyComponent: candidate.saliencyComponent,
                         metadataComponent: candidate.metadataComponent,

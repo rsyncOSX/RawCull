@@ -7,7 +7,7 @@ struct BurstGroupingConfig: Codable, Equatable {
     var requireSimilarFocalLength: Bool = true
     var maxFocalLengthDeltaMM: Double = 3.0
 
-    nonisolated static let algorithmVersion = 1
+    nonisolated static let algorithmVersion = 2
 }
 
 enum BurstPairKey {
@@ -305,6 +305,7 @@ struct BurstCandidateScore: Codable, Equatable {
     var fileID: UUID
     var overallScore: Float
     var sharpnessComponent: Float
+    var burstRelativeSharpnessComponent: Float? = nil
     var focusPointComponent: Float
     var saliencyComponent: Float
     var metadataComponent: Float
