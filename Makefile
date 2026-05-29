@@ -30,6 +30,15 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast uniform returns zero`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast ignores non finite`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast alternating known variance`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`adaptive AF threshold keeps low contrast local detail reachable`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`adaptive saliency threshold rises for broad high contrast edges`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`adaptive AF threshold is capped so strong body edges do not hide AF detail`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection prefers AF when strongest`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection keeps wildlife AF when nearly strongest`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection uses saliency when AF is absent`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection falls back to global without subject evidence`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold to meet minimum coverage`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation is not applied when coverage already meets target`()' \
 	'-only-testing:RawCullTests/ApertureHintTests/`nil aperture maps to mid`()' \
 	'-only-testing:RawCullTests/ApertureHintTests/`wide boundary is inclusive at 5 point 6`()' \
 	'-only-testing:RawCullTests/ApertureHintTests/`landscape boundary is inclusive at f 8`()' \

@@ -51,6 +51,52 @@ enum FocusMaskRegionSource: String, Codable, Equatable {
     }
 }
 
+enum FocusEvidenceRegion: String, Codable, Equatable {
+    case none
+    case afPoint
+    case saliency
+    case global
+    case mixed
+
+    var title: String {
+        switch self {
+        case .none: "None"
+        case .afPoint: "AF point"
+        case .saliency: "Saliency"
+        case .global: "Global"
+        case .mixed: "Mixed"
+        }
+    }
+}
+
+struct FocusEvidence: Equatable {
+    let winningRegion: FocusEvidenceRegion
+    let globalScore: Float?
+    let saliencyScore: Float?
+    let afPointScore: Float?
+    var effectiveVisualThreshold: Float?
+    var maskCoverage: Float?
+    var relaxedForVisibility: Bool
+
+    nonisolated init(
+        winningRegion: FocusEvidenceRegion,
+        globalScore: Float?,
+        saliencyScore: Float?,
+        afPointScore: Float?,
+        effectiveVisualThreshold: Float? = nil,
+        maskCoverage: Float? = nil,
+        relaxedForVisibility: Bool = false,
+    ) {
+        self.winningRegion = winningRegion
+        self.globalScore = globalScore
+        self.saliencyScore = saliencyScore
+        self.afPointScore = afPointScore
+        self.effectiveVisualThreshold = effectiveVisualThreshold
+        self.maskCoverage = maskCoverage
+        self.relaxedForVisibility = relaxedForVisibility
+    }
+}
+
 struct SharpnessBreakdown: Equatable {
     let finalScore: Float
     let globalScore: Float?
@@ -62,6 +108,7 @@ struct SharpnessBreakdown: Equatable {
     let focusFailureKind: FocusFailureKind
     var focusMaskRegionSource: FocusMaskRegionSource?
     var focusMaskVisualThreshold: Float?
+    var focusEvidence: FocusEvidence? = nil
 }
 
 struct FocusDetectorConfig {
@@ -96,6 +143,8 @@ struct FocusDetectorConfig {
     var erosionRadius: Float = 1.0
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
+    var guaranteeVisibleFocusEvidence: Bool = false
+    var minimumEvidenceCoverage: Float = 0.001
 
     /// When true, the visual focus-mask overlay is clipped to the detected subject
     /// region, falling back to the camera AF point if Vision does not find a subject.
@@ -202,6 +251,8 @@ extension FocusDetectorConfig: Equatable {
             && lhs.erosionRadius == rhs.erosionRadius
             && lhs.featherRadius == rhs.featherRadius
             && lhs.showRawLaplacian == rhs.showRawLaplacian
+            && lhs.guaranteeVisibleFocusEvidence == rhs.guaranteeVisibleFocusEvidence
+            && lhs.minimumEvidenceCoverage == rhs.minimumEvidenceCoverage
             && lhs.isolateMaskToSubject == rhs.isolateMaskToSubject
             && lhs.borderInsetFraction == rhs.borderInsetFraction
             && lhs.salientWeight == rhs.salientWeight
@@ -282,6 +333,7 @@ struct FocusMaskEngine: @unchecked Sendable {
     private struct FocusMaskRenderResult {
         let image: CGImage?
         let diagnostics: FocusMaskDiagnostics
+        let evidence: FocusEvidence?
     }
 
     nonisolated init() {}
@@ -311,6 +363,8 @@ struct FocusMaskEngine: @unchecked Sendable {
                 scale: scale,
                 salientRegion: salientRegion,
                 afPoint: afPoint,
+                evidenceRegion: nil,
+                evidence: nil,
                 context: context,
                 config: config,
             ).image
@@ -344,11 +398,16 @@ struct FocusMaskEngine: @unchecked Sendable {
                 scale: scale,
                 salientRegion: region,
                 afPoint: afPoint,
+                evidenceRegion: breakdown?.focusEvidence?.winningRegion,
+                evidence: breakdown?.focusEvidence,
                 context: context,
                 config: config,
             )
             breakdown?.focusMaskRegionSource = maskResult.diagnostics.regionSource
             breakdown?.focusMaskVisualThreshold = maskResult.diagnostics.visualThreshold
+            if let evidence = maskResult.evidence {
+                breakdown?.focusEvidence = evidence
+            }
             return (maskResult.image, saliencyInfo, breakdown)
         }.value
     }
@@ -595,6 +654,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         let salientScore: Float?
         let afScore: Float?
         let subjectMicro: Float
+        let evidenceRegion: FocusEvidenceRegion
     }
 
     private nonisolated static let motionBlurScoreThreshold: Float = 0.08
@@ -632,6 +692,12 @@ struct FocusMaskEngine: @unchecked Sendable {
                 afPointScore: analysis.afScore,
                 blurGateSigma: analysis.subjectMicro,
             ),
+            focusEvidence: FocusEvidence(
+                winningRegion: analysis.evidenceRegion,
+                globalScore: analysis.fullScore,
+                saliencyScore: analysis.salientScore,
+                afPointScore: analysis.afScore,
+            ),
         )
     }
 
@@ -659,6 +725,44 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         return .none
+    }
+
+    nonisolated static func focusEvidenceRegion(
+        globalScore: Float?,
+        saliencyScore: Float?,
+        afPointScore: Float?,
+        afRegionRadius: Float,
+    ) -> FocusEvidenceRegion {
+        let validGlobal = globalScore.flatMap { $0.isFinite ? $0 : nil }
+        let validSaliency = saliencyScore.flatMap { $0.isFinite ? $0 : nil }
+        let validAF = afPointScore.flatMap { $0.isFinite ? $0 : nil }
+
+        guard validGlobal != nil || validSaliency != nil || validAF != nil else {
+            return .none
+        }
+
+        if let af = validAF {
+            let strongestOther = max(validGlobal ?? 0, validSaliency ?? 0)
+            let wildlifeSizedAF = afRegionRadius > 0 && afRegionRadius <= 0.08
+            if wildlifeSizedAF, af >= strongestOther * 0.85 {
+                return .afPoint
+            }
+
+            if let saliency = validSaliency {
+                let maxSubject = max(af, saliency)
+                let minSubject = min(af, saliency)
+                if maxSubject > 0, minSubject / maxSubject >= 0.92 {
+                    return .mixed
+                }
+            }
+        }
+
+        let candidates: [(FocusEvidenceRegion, Float)] = [
+            (.afPoint, validAF ?? -.infinity),
+            (.saliency, validSaliency ?? -.infinity),
+            (.global, validGlobal ?? -.infinity),
+        ]
+        return candidates.max(by: { $0.1 < $1.1 })?.0 ?? .none
     }
 
     private nonisolated static func computeSharpnessAnalysis(
@@ -887,6 +991,12 @@ struct FocusMaskEngine: @unchecked Sendable {
             salientScore: salientScore,
             afScore: afScore,
             subjectMicro: subjectMicro,
+            evidenceRegion: Self.focusEvidenceRegion(
+                globalScore: fullScore,
+                saliencyScore: salientScore,
+                afPointScore: afScore,
+                afRegionRadius: config.afRegionRadius,
+            ),
         )
     }
 
@@ -989,13 +1099,15 @@ struct FocusMaskEngine: @unchecked Sendable {
         scale: CGFloat,
         salientRegion: CGRect?,
         afPoint: CGPoint?,
+        evidenceRegion: FocusEvidenceRegion?,
+        evidence: FocusEvidence?,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> FocusMaskRenderResult {
         let emptyDiagnostics = FocusMaskDiagnostics(regionSource: .none, visualThreshold: nil)
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else {
-            return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics)
+            return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics, evidence: evidence)
         }
 
         let boostedLaplacian: CIImage
@@ -1021,6 +1133,7 @@ struct FocusMaskEngine: @unchecked Sendable {
             return FocusMaskRenderResult(
                 image: context.createCGImage(cropped, from: cropped.extent),
                 diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: nil),
+                evidence: evidence,
             )
         }
 
@@ -1037,52 +1150,146 @@ struct FocusMaskEngine: @unchecked Sendable {
 
         var masks = [CIImage]()
         var thresholds = [Float]()
+        var coverages = [Float]()
+        var relaxedForVisibility = false
 
-        if let saliencyRect = selection.saliencyRect {
-            let samples = Self.redSamples(in: saliencyRect, from: boostedLaplacian, context: context)
-            let threshold = Self.adaptiveVisualThreshold(
+        func appendMask(
+            rect: CGRect,
+            sourceImage: CIImage,
+            percentile: Float,
+            floorMultiplier: Float,
+            capAtFallback: Bool,
+            erosionRadius: Float,
+            dilationRadius: Float,
+        ) {
+            let samples = Self.redSamples(in: rect, from: sourceImage, context: context)
+            var threshold = Self.adaptiveVisualThreshold(
                 samples,
                 fallback: config.threshold,
-                percentile: 0.95,
-                floorMultiplier: 1.0,
-                capAtFallback: false,
+                percentile: percentile,
+                floorMultiplier: floorMultiplier,
+                capAtFallback: capAtFallback,
             )
+            var coverage = Self.maskCoverage(samples, threshold: threshold)
+
+            if config.guaranteeVisibleFocusEvidence, coverage < config.minimumEvidenceCoverage {
+                let relaxed = Self.relaxedVisualThreshold(
+                    samples,
+                    currentThreshold: threshold,
+                    minimumCoverage: config.minimumEvidenceCoverage,
+                )
+                threshold = relaxed.threshold
+                coverage = relaxed.coverage
+                relaxedForVisibility = relaxedForVisibility || relaxed.relaxed
+            }
+
             if let mask = Self.thresholdedMask(
-                from: boostedLaplacian,
-                in: saliencyRect,
+                from: sourceImage,
+                in: rect,
                 threshold: threshold,
-                erosionRadius: config.erosionRadius,
-                dilationRadius: config.dilationRadius,
+                erosionRadius: erosionRadius,
+                dilationRadius: dilationRadius,
                 extent: scaledImage.extent,
             ) {
                 masks.append(mask)
                 thresholds.append(threshold)
+                coverages.append(coverage)
             }
         }
 
-        if let afRect = selection.afRect {
+        let requestedEvidenceRegion = evidenceRegion ?? .none
+        let visualEvidenceRegion: FocusEvidenceRegion
+        switch requestedEvidenceRegion {
+        case .afPoint where selection.afRect != nil:
+            visualEvidenceRegion = .afPoint
+
+        case .saliency where selection.saliencyRect != nil:
+            visualEvidenceRegion = .saliency
+
+        case .mixed where selection.afRect != nil || selection.saliencyRect != nil:
+            visualEvidenceRegion = .mixed
+
+        case .global:
+            visualEvidenceRegion = .global
+
+        default:
+            visualEvidenceRegion = switch (selection.afRect, selection.saliencyRect) {
+            case (.some, _): .afPoint
+            case (nil, .some): .saliency
+            default: .global
+            }
+        }
+
+        let fineLaplacian: CIImage?
+        if selection.afRect != nil {
             var fineConfig = config
             fineConfig.preBlurRadius = max(0.35, config.preBlurRadius * 0.52)
-            let fineLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: fineConfig) ?? boostedLaplacian
-            let samples = Self.redSamples(in: afRect, from: fineLaplacian, context: context)
-            let threshold = Self.adaptiveVisualThreshold(
-                samples,
-                fallback: config.threshold,
-                percentile: 0.82,
-                floorMultiplier: 0.32,
-                capAtFallback: true,
-            )
-            if let mask = Self.thresholdedMask(
-                from: fineLaplacian,
-                in: afRect,
-                threshold: threshold,
-                erosionRadius: max(0, config.erosionRadius - 1.0),
-                dilationRadius: min(config.dilationRadius, 1.0),
-                extent: scaledImage.extent,
-            ) {
-                masks.append(mask)
-                thresholds.append(threshold)
+            fineLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: fineConfig) ?? boostedLaplacian
+        } else {
+            fineLaplacian = nil
+        }
+
+        switch visualEvidenceRegion {
+        case .afPoint:
+            if let afRect = selection.afRect {
+                appendMask(
+                    rect: afRect,
+                    sourceImage: fineLaplacian ?? boostedLaplacian,
+                    percentile: 0.82,
+                    floorMultiplier: 0.32,
+                    capAtFallback: true,
+                    erosionRadius: max(0, config.erosionRadius - 1.0),
+                    dilationRadius: min(config.dilationRadius, 1.0),
+                )
             }
+
+        case .saliency:
+            if let saliencyRect = selection.saliencyRect {
+                appendMask(
+                    rect: saliencyRect,
+                    sourceImage: boostedLaplacian,
+                    percentile: 0.95,
+                    floorMultiplier: 1.0,
+                    capAtFallback: false,
+                    erosionRadius: config.erosionRadius,
+                    dilationRadius: config.dilationRadius,
+                )
+            }
+
+        case .mixed:
+            if let afRect = selection.afRect {
+                appendMask(
+                    rect: afRect,
+                    sourceImage: fineLaplacian ?? boostedLaplacian,
+                    percentile: 0.82,
+                    floorMultiplier: 0.32,
+                    capAtFallback: true,
+                    erosionRadius: max(0, config.erosionRadius - 1.0),
+                    dilationRadius: min(config.dilationRadius, 1.0),
+                )
+            }
+            if let saliencyRect = selection.saliencyRect {
+                appendMask(
+                    rect: saliencyRect,
+                    sourceImage: boostedLaplacian,
+                    percentile: 0.95,
+                    floorMultiplier: 1.0,
+                    capAtFallback: false,
+                    erosionRadius: config.erosionRadius,
+                    dilationRadius: config.dilationRadius,
+                )
+            }
+
+        case .global, .none:
+            appendMask(
+                rect: scaledImage.extent,
+                sourceImage: boostedLaplacian,
+                percentile: 0.97,
+                floorMultiplier: 1.0,
+                capAtFallback: false,
+                erosionRadius: config.erosionRadius,
+                dilationRadius: config.dilationRadius,
+            )
         }
 
         let whiteMask: CIImage = switch masks.count {
@@ -1108,6 +1315,13 @@ struct FocusMaskEngine: @unchecked Sendable {
             return FocusMaskRenderResult(
                 image: nil,
                 diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
+                evidence: Self.focusEvidenceDiagnostics(
+                    from: evidence,
+                    visualRegion: visualEvidenceRegion,
+                    threshold: thresholds.min(),
+                    coverage: coverages.max(),
+                    relaxedForVisibility: relaxedForVisibility,
+                ),
             )
         }
 
@@ -1125,6 +1339,13 @@ struct FocusMaskEngine: @unchecked Sendable {
         return FocusMaskRenderResult(
             image: context.createCGImage(croppedMask, from: croppedMask.extent),
             diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
+            evidence: Self.focusEvidenceDiagnostics(
+                from: evidence,
+                visualRegion: visualEvidenceRegion,
+                threshold: thresholds.min(),
+                coverage: coverages.max(),
+                relaxedForVisibility: relaxedForVisibility,
+            ),
         )
     }
 
@@ -1191,6 +1412,61 @@ struct FocusMaskEngine: @unchecked Sendable {
         let index = min(max(Int(Float(sorted.count - 1) * p), 0), sorted.count - 1)
         let adaptive = capAtFallback ? min(sorted[index], fallback) : sorted[index]
         return min(max(adaptive, floor), 0.95)
+    }
+
+    nonisolated static func maskCoverage(_ samples: [Float], threshold: Float) -> Float {
+        let finite = samples.filter(\.isFinite)
+        guard !finite.isEmpty, threshold.isFinite else { return 0 }
+        let covered = finite.reduce(0) { partial, value in
+            partial + (value >= threshold ? 1 : 0)
+        }
+        return Float(covered) / Float(finite.count)
+    }
+
+    nonisolated static func relaxedVisualThreshold(
+        _ samples: [Float],
+        currentThreshold: Float,
+        minimumCoverage: Float,
+    ) -> (threshold: Float, coverage: Float, relaxed: Bool) {
+        let finite = samples.filter { $0.isFinite && $0 > 0 }
+        let currentCoverage = maskCoverage(samples, threshold: currentThreshold)
+        let targetCoverage = min(max(minimumCoverage, 0), 1)
+        guard targetCoverage > 0, currentCoverage < targetCoverage, !finite.isEmpty else {
+            return (currentThreshold, currentCoverage, false)
+        }
+
+        var sorted = finite
+        vDSP.sort(&sorted, sortOrder: .ascending)
+        let coveredCount = max(1, Int(ceil(Float(sorted.count) * targetCoverage)))
+        let index = min(max(sorted.count - coveredCount, 0), sorted.count - 1)
+        let relaxedThreshold = min(currentThreshold, sorted[index])
+        let relaxedCoverage = maskCoverage(samples, threshold: relaxedThreshold)
+        return (relaxedThreshold, relaxedCoverage, relaxedThreshold < currentThreshold)
+    }
+
+    private nonisolated static func focusEvidenceDiagnostics(
+        from evidence: FocusEvidence?,
+        visualRegion: FocusEvidenceRegion,
+        threshold: Float?,
+        coverage: Float?,
+        relaxedForVisibility: Bool,
+    ) -> FocusEvidence {
+        if var evidence {
+            evidence.effectiveVisualThreshold = threshold
+            evidence.maskCoverage = coverage
+            evidence.relaxedForVisibility = relaxedForVisibility
+            return evidence
+        }
+
+        return FocusEvidence(
+            winningRegion: visualRegion,
+            globalScore: nil,
+            saliencyScore: nil,
+            afPointScore: nil,
+            effectiveVisualThreshold: threshold,
+            maskCoverage: coverage,
+            relaxedForVisibility: relaxedForVisibility,
+        )
     }
 
     private nonisolated static func redSamples(in rect: CGRect, from image: CIImage, context: CIContext) -> [Float] {

@@ -443,6 +443,84 @@ struct FocusNumericHelperTests {
         #expect(threshold == 0.46)
     }
 
+    // MARK: focus evidence selection and visibility
+
+    @Test(.tags(.smoke))
+    func `focus evidence selection prefers AF when strongest`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.24,
+            saliencyScore: 0.31,
+            afPointScore: 0.42,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .afPoint)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus evidence selection keeps wildlife AF when nearly strongest`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.20,
+            saliencyScore: 0.40,
+            afPointScore: 0.35,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .afPoint)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus evidence selection uses saliency when AF is absent`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.22,
+            saliencyScore: 0.38,
+            afPointScore: nil,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .saliency)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus evidence selection falls back to global without subject evidence`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.30,
+            saliencyScore: nil,
+            afPointScore: nil,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .global)
+    }
+
+    @Test(.tags(.smoke))
+    func `visibility relaxation lowers threshold to meet minimum coverage`() {
+        let samples = [Float](repeating: 0.02, count: 990) + [Float](repeating: 0.30, count: 10)
+        let relaxed = FocusMaskEngine.relaxedVisualThreshold(
+            samples,
+            currentThreshold: 0.46,
+            minimumCoverage: 0.01,
+        )
+
+        #expect(relaxed.relaxed)
+        #expect(relaxed.threshold < 0.46)
+        #expect(relaxed.coverage >= 0.01)
+    }
+
+    @Test(.tags(.smoke))
+    func `visibility relaxation is not applied when coverage already meets target`() {
+        let samples = [Float](repeating: 0.02, count: 900) + [Float](repeating: 0.50, count: 100)
+        let relaxed = FocusMaskEngine.relaxedVisualThreshold(
+            samples,
+            currentThreshold: 0.46,
+            minimumCoverage: 0.01,
+        )
+
+        #expect(!relaxed.relaxed)
+        #expect(relaxed.threshold == 0.46)
+        #expect(relaxed.coverage >= 0.01)
+    }
+
     // MARK: - Scale invariance of robustTailScore
 
     /// Fix verification: p90–p97 band mean is linearly proportional to a uniform

@@ -531,6 +531,10 @@ struct ZoomOverlayView: View {
         var config = viewModel.sharpnessModel.effectiveFocusConfig
         config.iso = file.exifData?.isoValue ?? 400
         config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+        if let score = viewModel.sharpnessModel.scores[file.id],
+           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
+            config.guaranteeVisibleFocusEvidence = true
+        }
         return config
     }
 
@@ -703,6 +707,12 @@ private struct SharpnessBreakdownInspectorView: View {
                         row("Mask region", value: source.title)
                     }
                     row("Mask threshold", value: threshold(breakdown.focusMaskVisualThreshold))
+                    if let evidence = breakdown.focusEvidence {
+                        row("Evidence", value: evidence.winningRegion.title)
+                        row("Evidence threshold", value: threshold(evidence.effectiveVisualThreshold))
+                        row("Evidence coverage", value: percent(evidence.maskCoverage))
+                        row("Visibility relaxed", value: evidence.relaxedForVisibility ? "Yes" : "No")
+                    }
                     if let subject = breakdown.subjectLabel {
                         row("Subject label", value: subject)
                     }
