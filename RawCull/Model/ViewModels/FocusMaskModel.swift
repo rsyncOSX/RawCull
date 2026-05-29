@@ -53,6 +53,8 @@ enum FocusMaskRegionSource: String, Codable, Equatable {
 
 enum FocusEvidenceRegion: String, Codable, Equatable {
     case none
+    case afCenter
+    case afNeighborhood
     case afPoint
     case saliency
     case global
@@ -61,6 +63,8 @@ enum FocusEvidenceRegion: String, Codable, Equatable {
     var title: String {
         switch self {
         case .none: "None"
+        case .afCenter: "AF center"
+        case .afNeighborhood: "AF neighborhood"
         case .afPoint: "AF point"
         case .saliency: "Saliency"
         case .global: "Global"
@@ -74,6 +78,8 @@ struct FocusEvidence: Equatable {
     let globalScore: Float?
     let saliencyScore: Float?
     let afPointScore: Float?
+    let afCenterScore: Float?
+    let afNeighborhoodScore: Float?
     var effectiveVisualThreshold: Float?
     var maskCoverage: Float?
     var relaxedForVisibility: Bool
@@ -83,6 +89,8 @@ struct FocusEvidence: Equatable {
         globalScore: Float?,
         saliencyScore: Float?,
         afPointScore: Float?,
+        afCenterScore: Float? = nil,
+        afNeighborhoodScore: Float? = nil,
         effectiveVisualThreshold: Float? = nil,
         maskCoverage: Float? = nil,
         relaxedForVisibility: Bool = false,
@@ -91,6 +99,8 @@ struct FocusEvidence: Equatable {
         self.globalScore = globalScore
         self.saliencyScore = saliencyScore
         self.afPointScore = afPointScore
+        self.afCenterScore = afCenterScore
+        self.afNeighborhoodScore = afNeighborhoodScore
         self.effectiveVisualThreshold = effectiveVisualThreshold
         self.maskCoverage = maskCoverage
         self.relaxedForVisibility = relaxedForVisibility
@@ -145,6 +155,8 @@ struct FocusDetectorConfig {
     var showRawLaplacian: Bool = false
     var guaranteeVisibleFocusEvidence: Bool = false
     var minimumEvidenceCoverage: Float = 0.001
+    var afCenterRegionRadius: Float = 0.025
+    var afNeighborhoodRegionRadius: Float = 0.075
 
     /// When true, the visual focus-mask overlay is clipped to the detected subject
     /// region, falling back to the camera AF point if Vision does not find a subject.
@@ -253,6 +265,8 @@ extension FocusDetectorConfig: Equatable {
             && lhs.showRawLaplacian == rhs.showRawLaplacian
             && lhs.guaranteeVisibleFocusEvidence == rhs.guaranteeVisibleFocusEvidence
             && lhs.minimumEvidenceCoverage == rhs.minimumEvidenceCoverage
+            && lhs.afCenterRegionRadius == rhs.afCenterRegionRadius
+            && lhs.afNeighborhoodRegionRadius == rhs.afNeighborhoodRegionRadius
             && lhs.isolateMaskToSubject == rhs.isolateMaskToSubject
             && lhs.borderInsetFraction == rhs.borderInsetFraction
             && lhs.salientWeight == rhs.salientWeight
@@ -653,6 +667,8 @@ struct FocusMaskEngine: @unchecked Sendable {
         let fullScore: Float?
         let salientScore: Float?
         let afScore: Float?
+        let afCenterScore: Float?
+        let afNeighborhoodScore: Float?
         let subjectMicro: Float
         let evidenceRegion: FocusEvidenceRegion
     }
@@ -697,6 +713,8 @@ struct FocusMaskEngine: @unchecked Sendable {
                 globalScore: analysis.fullScore,
                 saliencyScore: analysis.salientScore,
                 afPointScore: analysis.afScore,
+                afCenterScore: analysis.afCenterScore,
+                afNeighborhoodScore: analysis.afNeighborhoodScore,
             ),
         )
     }
@@ -731,14 +749,27 @@ struct FocusMaskEngine: @unchecked Sendable {
         globalScore: Float?,
         saliencyScore: Float?,
         afPointScore: Float?,
+        afCenterScore: Float? = nil,
+        afNeighborhoodScore: Float? = nil,
         afRegionRadius: Float,
     ) -> FocusEvidenceRegion {
         let validGlobal = globalScore.flatMap { $0.isFinite ? $0 : nil }
         let validSaliency = saliencyScore.flatMap { $0.isFinite ? $0 : nil }
         let validAF = afPointScore.flatMap { $0.isFinite ? $0 : nil }
+        let validAFCenter = afCenterScore.flatMap { $0.isFinite ? $0 : nil }
+        let validAFNeighborhood = afNeighborhoodScore.flatMap { $0.isFinite ? $0 : nil }
 
-        guard validGlobal != nil || validSaliency != nil || validAF != nil else {
+        guard validGlobal != nil || validSaliency != nil || validAF != nil || validAFCenter != nil || validAFNeighborhood != nil else {
             return .none
+        }
+
+        let strongestNonLocal = max(validGlobal ?? 0, validSaliency ?? 0, validAF ?? 0)
+        if let center = validAFCenter, center >= strongestNonLocal * 0.82 {
+            return .afCenter
+        }
+
+        if let neighborhood = validAFNeighborhood, neighborhood >= strongestNonLocal * 0.88 {
+            return .afNeighborhood
         }
 
         if let af = validAF {
@@ -758,6 +789,8 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         let candidates: [(FocusEvidenceRegion, Float)] = [
+            (.afCenter, validAFCenter ?? -.infinity),
+            (.afNeighborhood, validAFNeighborhood ?? -.infinity),
             (.afPoint, validAF ?? -.infinity),
             (.saliency, validSaliency ?? -.infinity),
             (.global, validGlobal ?? -.infinity),
@@ -888,19 +921,29 @@ struct FocusMaskEngine: @unchecked Sendable {
         // AF-point subject score
         var afAnalysis: RegionAnalysis?
         var afScore: Float?
+        var afCenterScore: Float?
+        var afNeighborhoodScore: Float?
         var afRegionUsed: CGRect?
-        if let pt = afPoint, config.afRegionRadius > 0 {
-            let r = CGFloat(config.afRegionRadius)
-            let visionY = 1.0 - pt.y
-            let afRegionRaw = CGRect(x: pt.x - r, y: visionY - r, width: r * 2, height: r * 2)
-            let afRegion = afRegionRaw.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
-            if !afRegion.isNull, !afRegion.isEmpty {
-                let a = analyzeRegion(afRegion)
-                if a.samples.count >= 64 {
-                    afScore = Self.robustTailScore(a.samples)
-                    afRegionUsed = afRegion
-                    afAnalysis = a
-                }
+        if let afRegion = Self.afUnitRegion(afPoint: afPoint, radius: config.afRegionRadius) {
+            let a = analyzeRegion(afRegion)
+            if a.samples.count >= 64 {
+                afScore = Self.robustTailScore(a.samples)
+                afRegionUsed = afRegion
+                afAnalysis = a
+            }
+        }
+
+        if let afCenterRegion = Self.afUnitRegion(afPoint: afPoint, radius: config.afCenterRegionRadius) {
+            let a = analyzeRegion(afCenterRegion)
+            if a.samples.count >= 16 {
+                afCenterScore = Self.robustTailScore(a.samples)
+            }
+        }
+
+        if let afNeighborhoodRegion = Self.afUnitRegion(afPoint: afPoint, radius: config.afNeighborhoodRegionRadius) {
+            let a = analyzeRegion(afNeighborhoodRegion)
+            if a.samples.count >= 64 {
+                afNeighborhoodScore = Self.robustTailScore(a.samples)
             }
         }
 
@@ -990,11 +1033,15 @@ struct FocusMaskEngine: @unchecked Sendable {
             fullScore: fullScore,
             salientScore: salientScore,
             afScore: afScore,
+            afCenterScore: afCenterScore,
+            afNeighborhoodScore: afNeighborhoodScore,
             subjectMicro: subjectMicro,
             evidenceRegion: Self.focusEvidenceRegion(
                 globalScore: fullScore,
                 saliencyScore: salientScore,
                 afPointScore: afScore,
+                afCenterScore: afCenterScore,
+                afNeighborhoodScore: afNeighborhoodScore,
                 afRegionRadius: config.afRegionRadius,
             ),
         )
@@ -1147,6 +1194,14 @@ struct FocusMaskEngine: @unchecked Sendable {
         } else {
             FocusMaskRegionSelection(saliencyRect: scaledImage.extent, afRect: nil)
         }
+        let afCenterRect = Self.pixelRect(
+            from: Self.afUnitRegion(afPoint: afPoint, radius: config.afCenterRegionRadius),
+            in: scaledImage.extent,
+        )
+        let afNeighborhoodRect = Self.pixelRect(
+            from: Self.afUnitRegion(afPoint: afPoint, radius: config.afNeighborhoodRegionRadius),
+            in: scaledImage.extent,
+        )
 
         var masks = [CIImage]()
         var thresholds = [Float]()
@@ -1200,6 +1255,12 @@ struct FocusMaskEngine: @unchecked Sendable {
         let requestedEvidenceRegion = evidenceRegion ?? .none
         let visualEvidenceRegion: FocusEvidenceRegion
         switch requestedEvidenceRegion {
+        case .afCenter where afCenterRect != nil:
+            visualEvidenceRegion = .afCenter
+
+        case .afNeighborhood where afNeighborhoodRect != nil:
+            visualEvidenceRegion = .afNeighborhood
+
         case .afPoint where selection.afRect != nil:
             visualEvidenceRegion = .afPoint
 
@@ -1221,7 +1282,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         let fineLaplacian: CIImage?
-        if selection.afRect != nil {
+        if selection.afRect != nil || afCenterRect != nil || afNeighborhoodRect != nil {
             var fineConfig = config
             fineConfig.preBlurRadius = max(0.35, config.preBlurRadius * 0.52)
             fineLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: fineConfig) ?? boostedLaplacian
@@ -1230,6 +1291,32 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         switch visualEvidenceRegion {
+        case .afCenter:
+            if let afCenterRect {
+                appendMask(
+                    rect: afCenterRect,
+                    sourceImage: fineLaplacian ?? boostedLaplacian,
+                    percentile: 0.72,
+                    floorMultiplier: 0.24,
+                    capAtFallback: true,
+                    erosionRadius: 0,
+                    dilationRadius: min(config.dilationRadius, 1.0),
+                )
+            }
+
+        case .afNeighborhood:
+            if let afNeighborhoodRect {
+                appendMask(
+                    rect: afNeighborhoodRect,
+                    sourceImage: fineLaplacian ?? boostedLaplacian,
+                    percentile: 0.80,
+                    floorMultiplier: 0.30,
+                    capAtFallback: true,
+                    erosionRadius: max(0, config.erosionRadius - 1.0),
+                    dilationRadius: min(config.dilationRadius, 1.0),
+                )
+            }
+
         case .afPoint:
             if let afRect = selection.afRect {
                 appendMask(
@@ -1391,6 +1478,31 @@ struct FocusMaskEngine: @unchecked Sendable {
             saliencyRect: pixelRect(from: saliencyUnitRect),
             afRect: pixelRect(from: afUnitRect),
         )
+    }
+
+    nonisolated static func afUnitRegion(afPoint: CGPoint?, radius: Float) -> CGRect? {
+        guard let afPoint, radius > 0 else { return nil }
+        let unitBounds = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let r = CGFloat(radius)
+        let visionY = 1.0 - afPoint.y
+        let region = CGRect(
+            x: afPoint.x - r,
+            y: visionY - r,
+            width: r * 2,
+            height: r * 2,
+        ).intersection(unitBounds)
+        return region.isNull || region.isEmpty ? nil : region
+    }
+
+    nonisolated static func pixelRect(from unitRegion: CGRect?, in extent: CGRect) -> CGRect? {
+        guard let unitRegion, !unitRegion.isNull, !unitRegion.isEmpty else { return nil }
+        let rect = CGRect(
+            x: extent.minX + unitRegion.minX * extent.width,
+            y: extent.minY + (1.0 - unitRegion.maxY) * extent.height,
+            width: unitRegion.width * extent.width,
+            height: unitRegion.height * extent.height,
+        ).integral.intersection(extent)
+        return rect.isNull || rect.isEmpty ? nil : rect
     }
 
     nonisolated static func adaptiveVisualThreshold(

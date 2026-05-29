@@ -458,6 +458,34 @@ struct FocusNumericHelperTests {
     }
 
     @Test(.tags(.smoke))
+    func `focus evidence selection prefers AF center when eye patch is strongest`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.28,
+            saliencyScore: 0.34,
+            afPointScore: 0.30,
+            afCenterScore: 0.36,
+            afNeighborhoodScore: 0.32,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .afCenter)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus evidence selection uses AF neighborhood when center is weak`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.28,
+            saliencyScore: 0.35,
+            afPointScore: 0.31,
+            afCenterScore: 0.12,
+            afNeighborhoodScore: 0.33,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .afNeighborhood)
+    }
+
+    @Test(.tags(.smoke))
     func `focus evidence selection keeps wildlife AF when nearly strongest`() {
         let region = FocusMaskEngine.focusEvidenceRegion(
             globalScore: 0.20,
@@ -475,6 +503,20 @@ struct FocusNumericHelperTests {
             globalScore: 0.22,
             saliencyScore: 0.38,
             afPointScore: nil,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(region == .saliency)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus evidence selection keeps saliency when AF local scores are weak`() {
+        let region = FocusMaskEngine.focusEvidenceRegion(
+            globalScore: 0.24,
+            saliencyScore: 0.42,
+            afPointScore: 0.22,
+            afCenterScore: 0.08,
+            afNeighborhoodScore: 0.16,
             afRegionRadius: 0.06,
         )
 
@@ -519,6 +561,26 @@ struct FocusNumericHelperTests {
         #expect(!relaxed.relaxed)
         #expect(relaxed.threshold == 0.46)
         #expect(relaxed.coverage >= 0.01)
+    }
+
+    @Test(.tags(.smoke))
+    func `AF local rect stays constrained around focus point`() throws {
+        let extent = CGRect(x: 0, y: 0, width: 1000, height: 500)
+        let centerUnit = try #require(FocusMaskEngine.afUnitRegion(
+            afPoint: CGPoint(x: 0.30, y: 0.40),
+            radius: 0.025,
+        ))
+        let neighborhoodUnit = try #require(FocusMaskEngine.afUnitRegion(
+            afPoint: CGPoint(x: 0.30, y: 0.40),
+            radius: 0.075,
+        ))
+        let center = try #require(FocusMaskEngine.pixelRect(from: centerUnit, in: extent))
+        let neighborhood = try #require(FocusMaskEngine.pixelRect(from: neighborhoodUnit, in: extent))
+
+        #expect(center.width < neighborhood.width)
+        #expect(center.height < neighborhood.height)
+        #expect(neighborhood.contains(center))
+        #expect(center.contains(CGPoint(x: 300, y: 200)))
     }
 
     // MARK: - Scale invariance of robustTailScore

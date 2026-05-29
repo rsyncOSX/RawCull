@@ -709,6 +709,8 @@ private struct SharpnessBreakdownInspectorView: View {
                     row("Mask threshold", value: threshold(breakdown.focusMaskVisualThreshold))
                     if let evidence = breakdown.focusEvidence {
                         row("Evidence", value: evidence.winningRegion.title)
+                        row("AF center", value: percent(evidence.afCenterScore))
+                        row("AF neighborhood", value: percent(evidence.afNeighborhoodScore))
                         row("Evidence threshold", value: threshold(evidence.effectiveVisualThreshold))
                         row("Evidence coverage", value: percent(evidence.maskCoverage))
                         row("Visibility relaxed", value: evidence.relaxedForVisibility ? "Yes" : "No")
