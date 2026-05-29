@@ -92,19 +92,6 @@ struct SharpnessIntentControlsView: View {
             .disabled(isDisabled)
         }
 
-        if showsScoringBadgeToggle {
-            Toggle(isOn: Binding(
-                get: { settings.showScoringBadge },
-                set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
-            )) {
-                Label("Sharpness Label", systemImage: "scope")
-            }
-            .toggleStyle(.button)
-            .font(.caption)
-            .disabled(isDisabled)
-            .help("Show simple sharpness labels on thumbnails")
-        }
-
         if showsParametersButton {
             Button {
                 viewModel.activeSheet = .scoringParams
@@ -123,6 +110,14 @@ struct SharpnessControlsView: View {
     @Binding var sharpnessThreshold: Int
 
     var body: some View {
+        SharpnessIntentControlsView(
+            viewModel: viewModel,
+            isDisabled: viewModel.sharpnessModel.isScoring,
+            showsScoringBadgeToggle: true,
+            showsParametersButton: true,
+            style: .compactInfo,
+        )
+
         // Score button — calibrates from the burst then scores
         Button {
             Task { await viewModel.calibrateAndScoreCurrentCatalog() }
@@ -138,14 +133,6 @@ struct SharpnessControlsView: View {
         .font(.caption)
         .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
         .help("Auto-calibrate threshold and gain from this burst, then score sharpness")
-
-        SharpnessIntentControlsView(
-            viewModel: viewModel,
-            isDisabled: viewModel.sharpnessModel.isScoring,
-            showsScoringBadgeToggle: true,
-            showsParametersButton: true,
-            style: .compactInfo,
-        )
 
         // Cancel button — only visible while scoring
         if viewModel.sharpnessModel.isScoring {

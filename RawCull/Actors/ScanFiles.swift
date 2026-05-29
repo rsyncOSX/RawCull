@@ -7,7 +7,6 @@
 
 import Foundation
 import ImageIO
-
 import OSLog
 
 struct ExifMetadata: Hashable {
