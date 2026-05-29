@@ -55,6 +55,7 @@ struct RawCullMainView: View {
                     config: Bindable(viewModel.sharpnessModel.focusMaskModel).config,
                     thumbnailMaxPixelSize: Bindable(viewModel.sharpnessModel).thumbnailMaxPixelSize,
                     scoringQuality: Bindable(viewModel.sharpnessModel).scoringQuality,
+                    scoringSource: Bindable(viewModel.sharpnessModel).scoringSource,
                 )
             }
         }

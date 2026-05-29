@@ -20,6 +20,7 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`max score large set uses P 90`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label maps threshold boundaries`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label clamps and handles invalid denominator`()' \
+	'-only-testing:RawCullTests/SharpnessScoringTests/`RAW demosaic scoring source caps concurrency and keeps embedded default`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score empty returns nil`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score uniform returns zero`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score dense edges scores higher than sparse`()' \

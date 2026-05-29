@@ -122,6 +122,20 @@ struct SharpnessScoringTests {
         #expect(model.effectiveThumbnailMaxPixelSize == 1536)
     }
 
+    @Test(.tags(.smoke))
+    @MainActor
+    func `RAW demosaic scoring source caps concurrency and keeps embedded default`() {
+        let model = SharpnessScoringModel()
+
+        #expect(model.scoringSource == .embeddedPreview)
+        #expect(model.effectiveMaxConcurrentScoringTasks == model.scoringQuality.maxConcurrentScoringTasks)
+
+        model.scoringSource = .rawDemosaic
+        model.scoringQuality = .highPrecision
+
+        #expect(model.effectiveMaxConcurrentScoringTasks == 2)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     @MainActor
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {

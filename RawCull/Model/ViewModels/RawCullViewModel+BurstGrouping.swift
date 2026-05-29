@@ -470,6 +470,7 @@ extension RawCullViewModel {
         BurstSharpnessSignature(
             photoType: sharpnessModel.photoType,
             scoringQuality: sharpnessModel.scoringQuality,
+            scoringSource: sharpnessModel.scoringSource,
             thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
             config: sharpnessModel.effectiveFocusConfig,
         )

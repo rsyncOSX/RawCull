@@ -699,6 +699,7 @@ private struct SharpnessBreakdownInspectorView: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 7) {
                 if let breakdown {
+                    row("Source", value: breakdown.scoringSource.title)
                     row("Global", value: percent(breakdown.globalScore))
                     row("Subject", value: percent(breakdown.subjectScore))
                     row("AF point", value: percent(breakdown.afPointScore))

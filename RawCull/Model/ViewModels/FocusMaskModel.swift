@@ -76,6 +76,7 @@ enum FocusEvidenceRegion: String, Codable, Equatable {
         switch self {
         case .afCenter, .afNeighborhood, .afPoint:
             true
+
         case .none, .saliency, .global, .mixed:
             false
         }
@@ -128,6 +129,7 @@ struct SharpnessBreakdown: Equatable {
     var focusMaskRegionSource: FocusMaskRegionSource?
     var focusMaskVisualThreshold: Float?
     var focusEvidence: FocusEvidence?
+    var scoringSource: SharpnessScoringSource = .embeddedPreview
 }
 
 struct FocusDetectorConfig {
@@ -440,15 +442,28 @@ struct FocusMaskEngine: @unchecked Sendable {
         config: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
         afPoint: CGPoint? = nil,
+        scoringSource: SharpnessScoringSource = .embeddedPreview,
     ) async -> (score: Float?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
         await Task.detached(priority: .userInitiated) { [context] in
-            let binaryImg = Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
-
             let cgImage: CGImage
-            if let img = binaryImg {
-                cgImage = img
-            } else {
-                guard let img = Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) else {
+            switch scoringSource {
+            case .embeddedPreview:
+                let binaryImg = Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
+                if let img = binaryImg {
+                    cgImage = img
+                } else {
+                    guard let img = Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) else {
+                        return (nil, nil, nil)
+                    }
+                    cgImage = img
+                }
+
+            case .rawDemosaic:
+                guard let img = Self.decodeDemosaicedRawThumbnail(
+                    at: url,
+                    maxPixelSize: thumbnailMaxPixelSize,
+                    context: context,
+                ) else {
                     return (nil, nil, nil)
                 }
                 cgImage = img
@@ -457,7 +472,7 @@ struct FocusMaskEngine: @unchecked Sendable {
             let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
                 for: cgImage, classify: config.enableSubjectClassification,
             )
-            let breakdown = Self.computeSharpnessBreakdown(
+            var breakdown = Self.computeSharpnessBreakdown(
                 from: CIImage(cgImage: cgImage),
                 salientRegion: region,
                 saliencyInfo: saliencyInfo,
@@ -465,6 +480,7 @@ struct FocusMaskEngine: @unchecked Sendable {
                 context: context,
                 config: config,
             )
+            breakdown?.scoringSource = scoringSource
             return (breakdown?.finalScore, saliencyInfo, breakdown)
         }.value
     }
@@ -485,6 +501,31 @@ struct FocusMaskEngine: @unchecked Sendable {
             thumbOptions[kCGImageSourceThumbnailMaxPixelSize] = maxPixelSize
         }
         return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+    }
+
+    private nonisolated static func decodeDemosaicedRawThumbnail(
+        at url: URL,
+        maxPixelSize: Int,
+        context: CIContext,
+    ) -> CGImage? {
+        guard let rawFilter = CIRAWFilter(imageURL: url) else { return nil }
+
+        rawFilter.sharpnessAmount = 0.0
+        rawFilter.detailAmount = 0.6
+        rawFilter.contrastAmount = 1.0
+        rawFilter.exposure = 0.0
+
+        guard var image = rawFilter.outputImage else { return nil }
+        if maxPixelSize > 0 {
+            let maxDimension = max(image.extent.width, image.extent.height)
+            if maxDimension > CGFloat(maxPixelSize), maxDimension > 0 {
+                let scale = CGFloat(maxPixelSize) / maxDimension
+                image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            }
+        }
+
+        guard let rendered = context.createCGImage(image, from: image.extent) else { return nil }
+        return Self.normalizeToSRGB(rendered)
     }
 
     /// Binary fallback for ARW 6.0 (RA16) files from newer Sony bodies
@@ -1305,10 +1346,10 @@ struct FocusMaskEngine: @unchecked Sendable {
             let source = fineLaplacian ?? boostedLaplacian
             guard let afPixelCenter,
                   let weighted = Self.centerWeightedLaplacian(
-                    source,
-                    center: afPixelCenter,
-                    rect: rect,
-                    extent: scaledImage.extent,
+                      source,
+                      center: afPixelCenter,
+                      rect: rect,
+                      extent: scaledImage.extent,
                   )
             else { return source }
             return weighted
@@ -1823,6 +1864,7 @@ final class FocusMaskModel {
         files: [(url: URL, iso: Int?)],
         baseConfigOverride: FocusDetectorConfig? = nil,
         thumbnailMaxPixelSize: Int = 512,
+        scoringSource: SharpnessScoringSource = .embeddedPreview,
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
@@ -1833,6 +1875,7 @@ final class FocusMaskModel {
             files: files,
             baseConfig: base,
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            scoringSource: scoringSource,
             thresholdPercentile: thresholdPercentile,
             targetP95AfterGain: targetP95AfterGain,
             minSamples: minSamples,
@@ -1864,6 +1907,7 @@ extension FocusMaskEngine {
         files: [(url: URL, iso: Int?)],
         baseConfig: FocusDetectorConfig,
         thumbnailMaxPixelSize: Int = 512,
+        scoringSource: SharpnessScoringSource = .embeddedPreview,
         thresholdPercentile: Float = 0.90,
         targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
@@ -1893,6 +1937,7 @@ extension FocusMaskEngine {
                         fromRawURL: entry.url,
                         config: fileConfig,
                         thumbnailMaxPixelSize: tSize,
+                        scoringSource: scoringSource,
                     )
                     return result.score
                 }
@@ -1914,6 +1959,7 @@ extension FocusMaskEngine {
                             fromRawURL: entry.url,
                             config: fileConfig,
                             thumbnailMaxPixelSize: tSize,
+                            scoringSource: scoringSource,
                         )
                         return result.score
                     }

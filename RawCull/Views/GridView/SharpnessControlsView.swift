@@ -73,6 +73,22 @@ struct SharpnessIntentControlsView: View {
                     }
                 }
 
+                Picker("Source", selection: $viewModel.sharpnessModel.scoringSource) {
+                    ForEach(SharpnessScoringSource.allCases) { source in
+                        Text(source.title).tag(source)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                .frame(width: 150)
+                .help(viewModel.sharpnessModel.scoringSource.help)
+                .onChange(of: viewModel.sharpnessModel.scoringSource) { _, newValue in
+                    SettingsViewModel.shared.scoringSource = newValue
+                    Task(priority: .background) {
+                        await SettingsViewModel.shared.saveSettings()
+                    }
+                }
+
                 if viewModel.sharpnessModel.scoringQuality == .highPrecision {
                     Picker("Size", selection: $viewModel.sharpnessModel.thumbnailMaxPixelSize) {
                         ForEach(SharpnessScoringSizeOption.allCases) { option in

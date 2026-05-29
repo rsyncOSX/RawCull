@@ -10,6 +10,7 @@ struct ScoringParametersSheetView: View {
     @Binding var config: FocusDetectorConfig
     @Binding var thumbnailMaxPixelSize: Int
     @Binding var scoringQuality: SharpnessScoringQuality
+    @Binding var scoringSource: SharpnessScoringSource
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,6 +24,7 @@ struct ScoringParametersSheetView: View {
                     config = defaults
                     thumbnailMaxPixelSize = 512
                     scoringQuality = .fast
+                    scoringSource = .embeddedPreview
                     saveScoringSettings()
                 }
                 .buttonStyle(.borderless)
@@ -71,6 +73,16 @@ struct ScoringParametersSheetView: View {
                     }
                     .pickerStyle(.inline)
                     Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Picker("Source", selection: $scoringSource) {
+                        ForEach(SharpnessScoringSource.allCases) { source in
+                            Text(source.title).tag(source)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    Text(scoringSource.help)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -138,6 +150,7 @@ struct ScoringParametersSheetView: View {
             for: scoringQuality,
         )
         SettingsViewModel.shared.scoringQuality = scoringQuality
+        SettingsViewModel.shared.scoringSource = scoringSource
         Task { await SettingsViewModel.shared.saveSettings() }
     }
 }

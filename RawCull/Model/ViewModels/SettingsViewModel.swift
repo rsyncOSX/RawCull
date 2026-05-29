@@ -83,6 +83,8 @@ final class SettingsViewModel {
     var scoringPhotoType: SharpnessPhotoType = .auto
     /// Scoring quality/compute trade-off (default: Fast, preserves current speed)
     var scoringQuality: SharpnessScoringQuality = .fast
+    /// Image source used for sharpness scoring (default: embedded camera preview)
+    var scoringSource: SharpnessScoringSource = .embeddedPreview
 
     // MARK: - Focus Mask Parameters
 
@@ -161,6 +163,7 @@ final class SettingsViewModel {
                 )
                 self.scoringPhotoType = savedSettings.scoringPhotoType
                 self.scoringQuality = savedSettings.scoringQuality
+                self.scoringSource = savedSettings.scoringSource
                 self.focusMaskPreBlurRadius = savedSettings.focusMaskPreBlurRadius
                 self.focusMaskThreshold = savedSettings.focusMaskThreshold
                 self.focusMaskEnergyMultiplier = savedSettings.focusMaskEnergyMultiplier
@@ -205,6 +208,7 @@ final class SettingsViewModel {
                 ),
                 scoringPhotoType: scoringPhotoType,
                 scoringQuality: scoringQuality,
+                scoringSource: scoringSource,
                 focusMaskPreBlurRadius: focusMaskPreBlurRadius,
                 focusMaskThreshold: focusMaskThreshold,
                 focusMaskEnergyMultiplier: focusMaskEnergyMultiplier,
@@ -328,6 +332,7 @@ final class SettingsViewModel {
                 ),
                 scoringPhotoType: self.scoringPhotoType,
                 scoringQuality: self.scoringQuality,
+                scoringSource: self.scoringSource,
                 focusMaskPreBlurRadius: self.focusMaskPreBlurRadius,
                 focusMaskThreshold: self.focusMaskThreshold,
                 focusMaskEnergyMultiplier: self.focusMaskEnergyMultiplier,
@@ -360,6 +365,7 @@ struct SavedSettings: Codable {
     let scoringThumbnailMaxPixelSize: Int
     let scoringPhotoType: SharpnessPhotoType
     let scoringQuality: SharpnessScoringQuality
+    let scoringSource: SharpnessScoringSource
 
     let focusMaskPreBlurRadius: Float
     let focusMaskThreshold: Float
@@ -385,6 +391,7 @@ struct SavedSettings: Codable {
         scoringThumbnailMaxPixelSize: Int = 512,
         scoringPhotoType: SharpnessPhotoType = .auto,
         scoringQuality: SharpnessScoringQuality = .fast,
+        scoringSource: SharpnessScoringSource = .embeddedPreview,
         focusMaskPreBlurRadius: Float = 1.92,
         focusMaskThreshold: Float = 0.46,
         focusMaskEnergyMultiplier: Float = 7.62,
@@ -407,6 +414,7 @@ struct SavedSettings: Codable {
         self.scoringSubjectSizeFactor = scoringSubjectSizeFactor
         self.scoringPhotoType = scoringPhotoType
         self.scoringQuality = scoringQuality
+        self.scoringSource = scoringSource
         self.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
             scoringThumbnailMaxPixelSize,
             for: scoringQuality,
@@ -436,6 +444,7 @@ struct SavedSettings: Codable {
         scoringSubjectSizeFactor = (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1
         scoringPhotoType = (try? c.decode(SharpnessPhotoType.self, forKey: .scoringPhotoType)) ?? .auto
         scoringQuality = (try? c.decode(SharpnessScoringQuality.self, forKey: .scoringQuality)) ?? .fast
+        scoringSource = (try? c.decode(SharpnessScoringSource.self, forKey: .scoringSource)) ?? .embeddedPreview
         scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
             (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512,
             for: scoringQuality,

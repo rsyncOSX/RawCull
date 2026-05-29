@@ -19,6 +19,7 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
 struct BurstSharpnessSignature: Codable {
     var scoringPhotoType: SharpnessPhotoType
     var scoringQuality: SharpnessScoringQuality
+    var scoringSource: SharpnessScoringSource
     var thumbnailMaxPixelSize: Int
     var borderInsetFraction: Float
     var enableSubjectClassification: Bool
@@ -36,11 +37,13 @@ struct BurstSharpnessSignature: Codable {
     init(
         photoType: SharpnessPhotoType,
         scoringQuality: SharpnessScoringQuality,
+        scoringSource: SharpnessScoringSource = .embeddedPreview,
         thumbnailMaxPixelSize: Int,
         config: FocusDetectorConfig,
     ) {
         self.scoringPhotoType = photoType
         self.scoringQuality = scoringQuality
+        self.scoringSource = scoringSource
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
         self.borderInsetFraction = config.borderInsetFraction
         self.enableSubjectClassification = config.enableSubjectClassification
@@ -60,6 +63,7 @@ extension BurstSharpnessSignature: Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.scoringPhotoType.rawValue == rhs.scoringPhotoType.rawValue
             && lhs.scoringQuality.rawValue == rhs.scoringQuality.rawValue
+            && lhs.scoringSource.rawValue == rhs.scoringSource.rawValue
             && lhs.thumbnailMaxPixelSize == rhs.thumbnailMaxPixelSize
             && lhs.borderInsetFraction == rhs.borderInsetFraction
             && lhs.enableSubjectClassification == rhs.enableSubjectClassification

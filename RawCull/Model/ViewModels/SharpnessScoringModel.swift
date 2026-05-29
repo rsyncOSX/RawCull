@@ -128,6 +128,32 @@ enum SharpnessScoringQuality: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+enum SharpnessScoringSource: String, CaseIterable, Codable, Identifiable {
+    case embeddedPreview
+    case rawDemosaic
+
+    var id: String {
+        rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .embeddedPreview: "Embedded Preview"
+        case .rawDemosaic: "RAW Demosaic"
+        }
+    }
+
+    var help: String {
+        switch self {
+        case .embeddedPreview:
+            "Scores Sony's embedded camera JPEG preview. Fast and suitable for normal culling."
+
+        case .rawDemosaic:
+            "Scores a CIRAWFilter demosaiced image. Much slower, but useful for final precision checks."
+        }
+    }
+}
+
 enum SharpnessScoringSizeOption: Int, CaseIterable, Identifiable {
     case px1024 = 1024
     case px1536 = 1536
@@ -178,6 +204,7 @@ final class SharpnessScoringModel {
     var sortBySharpness: Bool = false
     var photoType: SharpnessPhotoType = .auto
     var scoringQuality: SharpnessScoringQuality = .fast
+    var scoringSource: SharpnessScoringSource = .embeddedPreview
 
     var focusMaskModel = FocusMaskModel()
     var thumbnailMaxPixelSize: Int = 512
@@ -232,6 +259,16 @@ final class SharpnessScoringModel {
         SharpnessScoringSizeOption.normalizedPixelSize(thumbnailMaxPixelSize, for: scoringQuality)
     }
 
+    var effectiveMaxConcurrentScoringTasks: Int {
+        switch scoringSource {
+        case .embeddedPreview:
+            scoringQuality.maxConcurrentScoringTasks
+
+        case .rawDemosaic:
+            min(2, scoringQuality.maxConcurrentScoringTasks)
+        }
+    }
+
     func reset() {
         cancelScoring()
     }
@@ -258,8 +295,9 @@ final class SharpnessScoringModel {
             files: fileEntries,
             baseConfigOverride: calibrationConfig,
             thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
+            scoringSource: scoringSource,
             minSamples: 5,
-            maxConcurrentTasks: scoringQuality.maxConcurrentScoringTasks,
+            maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,
         ) else {
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
             isCalibratingSharpnessScoring = false
@@ -291,10 +329,11 @@ final class SharpnessScoringModel {
         let engine = FocusMaskEngine()
         let config = effectiveFocusConfig
         let thumbSize = effectiveThumbnailMaxPixelSize
+        let scoringSource = scoringSource
         let scoreComputerOverride = scoreComputerOverride
         var iterator = files.makeIterator()
         var active = 0
-        let maxConcurrent = scoringQuality.maxConcurrentScoringTasks
+        let maxConcurrent = effectiveMaxConcurrentScoringTasks
 
         let workTask = Task {
             defer {
@@ -322,6 +361,7 @@ final class SharpnessScoringModel {
                                 config: fileConfig,
                                 thumbnailMaxPixelSize: thumbSize,
                                 afPoint: afPoint,
+                                scoringSource: scoringSource,
                             )
                         }
                         return (id, result.score, result.saliency, result.breakdown)
@@ -378,6 +418,7 @@ final class SharpnessScoringModel {
                                     config: fileConfig,
                                     thumbnailMaxPixelSize: thumbSize,
                                     afPoint: afPoint,
+                                    scoringSource: scoringSource,
                                 )
                             }
                             return (id, result.score, result.saliency, result.breakdown)
