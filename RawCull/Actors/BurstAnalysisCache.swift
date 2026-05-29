@@ -54,7 +54,6 @@ struct BurstSharpnessSignature: Codable {
         self.focusMaskDilationRadius = config.dilationRadius
         self.focusMaskFeatherRadius = config.featherRadius
     }
-
 }
 
 extension BurstSharpnessSignature: Equatable {
