@@ -6,7 +6,7 @@
 //
 import OSLog
 
-struct ActorCreateOutputforView {
+struct CreateOutputforView {
     /// From Array[String]
     func createOutputForView(_ stringoutputfromrsync: [String]?) async -> [RsyncOutputData] {
         Logger.process.debugThreadOnly("ActorCreateOutputforView: createaoutputforview()")

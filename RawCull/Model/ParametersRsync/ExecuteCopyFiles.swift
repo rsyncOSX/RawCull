@@ -189,7 +189,7 @@ final class ExecuteCopyFiles {
         }
 
         // Create view output asynchronously
-        let viewOutput = await ActorCreateOutputforView().createOutputForView(stringoutputfromrsync)
+        let viewOutput = await CreateOutputforView().createOutputForView(stringoutputfromrsync)
 
         // Create the result
         let result = CopyDataResult(
