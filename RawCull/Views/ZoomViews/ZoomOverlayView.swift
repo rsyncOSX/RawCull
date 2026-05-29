@@ -699,6 +699,10 @@ private struct SharpnessBreakdownInspectorView: View {
                     row("Subject", value: percent(breakdown.subjectScore))
                     row("AF point", value: percent(breakdown.afPointScore))
                     row("Blur gate", value: sigma(breakdown.blurGateSigma))
+                    if let source = breakdown.focusMaskRegionSource {
+                        row("Mask region", value: source.title)
+                    }
+                    row("Mask threshold", value: threshold(breakdown.focusMaskVisualThreshold))
                     if let subject = breakdown.subjectLabel {
                         row("Subject label", value: subject)
                     }
@@ -748,6 +752,11 @@ private struct SharpnessBreakdownInspectorView: View {
 
     private func sigma(_ value: Float) -> String {
         String(format: "%.3f", value)
+    }
+
+    private func threshold(_ value: Float?) -> String? {
+        guard let value, value.isFinite else { return nil }
+        return String(format: "%.3f", value)
     }
 }
 

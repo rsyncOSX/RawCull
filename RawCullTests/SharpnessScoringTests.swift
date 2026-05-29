@@ -3,6 +3,7 @@
 //  RawCullTests
 //
 
+import CoreGraphics
 import Foundation
 @testable import RawCull
 import Testing
@@ -346,6 +347,100 @@ struct FocusNumericHelperTests {
         samples.append(Float.nan)
         samples.append(Float.infinity)
         #expect(FocusMaskModel.microContrast(samples) < 1e-5)
+    }
+
+    // MARK: focus mask region selection
+
+    @Test(.tags(.smoke))
+    func `focus mask region selection uses saliency only when AF is absent`() {
+        let extent = CGRect(x: 0, y: 0, width: 1000, height: 500)
+        let selection = FocusMaskEngine.focusMaskRegionSelection(
+            extent: extent,
+            salientRegion: CGRect(x: 0.20, y: 0.30, width: 0.40, height: 0.20),
+            afPoint: nil,
+            afRegionRadius: 0.06,
+        )
+
+        #expect(selection.source == .saliency)
+        #expect(selection.saliencyRect == CGRect(x: 200, y: 250, width: 400, height: 100))
+        #expect(selection.afRect == nil)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus mask region selection uses AF only when saliency is absent`() {
+        let extent = CGRect(x: 0, y: 0, width: 1000, height: 500)
+        let selection = FocusMaskEngine.focusMaskRegionSelection(
+            extent: extent,
+            salientRegion: nil,
+            afPoint: CGPoint(x: 0.30, y: 0.40),
+            afRegionRadius: 0.05,
+        )
+
+        #expect(selection.source == .afPoint)
+        #expect(selection.saliencyRect == nil)
+        #expect(selection.afRect?.contains(CGPoint(x: 300, y: 200)) == true)
+        #expect(abs((selection.afRect?.width ?? 0) - 100) <= 2)
+        #expect(abs((selection.afRect?.height ?? 0) - 50) <= 2)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus mask region selection keeps AF when saliency misses focus point`() {
+        let extent = CGRect(x: 0, y: 0, width: 1000, height: 500)
+        let selection = FocusMaskEngine.focusMaskRegionSelection(
+            extent: extent,
+            salientRegion: CGRect(x: 0.65, y: 0.20, width: 0.20, height: 0.20),
+            afPoint: CGPoint(x: 0.25, y: 0.65),
+            afRegionRadius: 0.04,
+        )
+
+        #expect(selection.source == .saliencyAndAF)
+        #expect(selection.saliencyRect == CGRect(x: 650, y: 300, width: 200, height: 100))
+        #expect(selection.afRect == CGRect(x: 210, y: 305, width: 80, height: 40))
+    }
+
+    // MARK: adaptive visual threshold
+
+    @Test(.tags(.smoke))
+    func `adaptive AF threshold keeps low contrast local detail reachable`() {
+        let samples = [Float](repeating: 0.04, count: 900) + [Float](repeating: 0.18, count: 100)
+        let threshold = FocusMaskEngine.adaptiveVisualThreshold(
+            samples,
+            fallback: 0.46,
+            percentile: 0.82,
+            floorMultiplier: 0.32,
+            capAtFallback: true,
+        )
+
+        #expect(threshold < 0.18)
+        #expect(threshold >= 0.14)
+    }
+
+    @Test(.tags(.smoke))
+    func `adaptive saliency threshold rises for broad high contrast edges`() {
+        let samples = [Float](repeating: 0.12, count: 850) + [Float](repeating: 0.82, count: 150)
+        let threshold = FocusMaskEngine.adaptiveVisualThreshold(
+            samples,
+            fallback: 0.46,
+            percentile: 0.95,
+            floorMultiplier: 1.0,
+            capAtFallback: false,
+        )
+
+        #expect(threshold > 0.46)
+    }
+
+    @Test(.tags(.smoke))
+    func `adaptive AF threshold is capped so strong body edges do not hide AF detail`() {
+        let samples = [Float](repeating: 0.20, count: 500) + [Float](repeating: 0.90, count: 500)
+        let threshold = FocusMaskEngine.adaptiveVisualThreshold(
+            samples,
+            fallback: 0.46,
+            percentile: 0.82,
+            floorMultiplier: 0.32,
+            capAtFallback: true,
+        )
+
+        #expect(threshold == 0.46)
     }
 
     // MARK: - Scale invariance of robustTailScore

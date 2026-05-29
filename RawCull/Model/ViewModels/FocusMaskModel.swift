@@ -35,6 +35,22 @@ enum FocusFailureKind: String, Codable, Equatable {
     }
 }
 
+enum FocusMaskRegionSource: String, Codable, Equatable {
+    case none
+    case saliency
+    case afPoint
+    case saliencyAndAF
+
+    var title: String {
+        switch self {
+        case .none: "None"
+        case .saliency: "Saliency"
+        case .afPoint: "AF point"
+        case .saliencyAndAF: "AF + saliency"
+        }
+    }
+}
+
 struct SharpnessBreakdown: Equatable {
     let finalScore: Float
     let globalScore: Float?
@@ -44,6 +60,8 @@ struct SharpnessBreakdown: Equatable {
     let subjectLabel: String?
     let subjectConfidence: Float?
     let focusFailureKind: FocusFailureKind
+    var focusMaskRegionSource: FocusMaskRegionSource?
+    var focusMaskVisualThreshold: Float?
 }
 
 struct FocusDetectorConfig {
@@ -242,6 +260,30 @@ struct FocusMaskEngine: @unchecked Sendable {
         .workingFormat: CIFormat.RGBAf
     ])
 
+    struct FocusMaskDiagnostics: Equatable {
+        let regionSource: FocusMaskRegionSource
+        let visualThreshold: Float?
+    }
+
+    struct FocusMaskRegionSelection: Equatable {
+        nonisolated let saliencyRect: CGRect?
+        nonisolated let afRect: CGRect?
+
+        nonisolated var source: FocusMaskRegionSource {
+            switch (saliencyRect, afRect) {
+            case (.some, .some): .saliencyAndAF
+            case (.some, nil): .saliency
+            case (nil, .some): .afPoint
+            case (nil, nil): .none
+            }
+        }
+    }
+
+    private struct FocusMaskRenderResult {
+        let image: CGImage?
+        let diagnostics: FocusMaskDiagnostics
+    }
+
     nonisolated init() {}
 
     // MARK: - Public API
@@ -271,7 +313,7 @@ struct FocusMaskEngine: @unchecked Sendable {
                 afPoint: afPoint,
                 context: context,
                 config: config,
-            )
+            ).image
         }.value
     }
 
@@ -289,7 +331,7 @@ struct FocusMaskEngine: @unchecked Sendable {
                 for: cgImage,
                 classify: config.enableSubjectClassification,
             )
-            let breakdown = Self.computeSharpnessBreakdown(
+            var breakdown = Self.computeSharpnessBreakdown(
                 from: ciImage,
                 salientRegion: region,
                 saliencyInfo: saliencyInfo,
@@ -297,7 +339,7 @@ struct FocusMaskEngine: @unchecked Sendable {
                 context: context,
                 config: config,
             )
-            let mask = Self.buildFocusMask(
+            let maskResult = Self.buildFocusMask(
                 from: ciImage,
                 scale: scale,
                 salientRegion: region,
@@ -305,7 +347,9 @@ struct FocusMaskEngine: @unchecked Sendable {
                 context: context,
                 config: config,
             )
-            return (mask, saliencyInfo, breakdown)
+            breakdown?.focusMaskRegionSource = maskResult.diagnostics.regionSource
+            breakdown?.focusMaskVisualThreshold = maskResult.diagnostics.visualThreshold
+            return (maskResult.image, saliencyInfo, breakdown)
         }.value
     }
 
@@ -947,9 +991,12 @@ struct FocusMaskEngine: @unchecked Sendable {
         afPoint: CGPoint?,
         context: CIContext,
         config: FocusDetectorConfig,
-    ) -> CGImage? {
+    ) -> FocusMaskRenderResult {
+        let emptyDiagnostics = FocusMaskDiagnostics(regionSource: .none, visualThreshold: nil)
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else { return nil }
+        guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else {
+            return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics)
+        }
 
         let boostedLaplacian: CIImage
         if config.borderInsetFraction > 0 {
@@ -963,59 +1010,106 @@ struct FocusMaskEngine: @unchecked Sendable {
             boostedLaplacian = rawLaplacian
         }
 
-        let subjectLaplacian: CIImage
-        if config.isolateMaskToSubject,
-           let subjectRect = Self.focusMaskSubjectRect(
-               extent: scaledImage.extent,
-               salientRegion: salientRegion,
-               afPoint: afPoint,
-               afRegionRadius: config.afRegionRadius,
-           ) {
-            let blackBg = CIImage(color: .black).cropped(to: scaledImage.extent)
-            subjectLaplacian = boostedLaplacian
-                .cropped(to: subjectRect)
-                .composited(over: blackBg)
-        } else {
-            subjectLaplacian = boostedLaplacian
-        }
-
         if config.showRawLaplacian {
-            let cropped = subjectLaplacian.cropped(to: scaledImage.extent)
-            return context.createCGImage(cropped, from: cropped.extent)
+            let selection = Self.focusMaskRegionSelection(
+                extent: scaledImage.extent,
+                salientRegion: config.isolateMaskToSubject ? salientRegion : nil,
+                afPoint: config.isolateMaskToSubject ? afPoint : nil,
+                afRegionRadius: config.afRegionRadius,
+            )
+            let cropped = boostedLaplacian.cropped(to: scaledImage.extent)
+            return FocusMaskRenderResult(
+                image: context.createCGImage(cropped, from: cropped.extent),
+                diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: nil),
+            )
         }
 
-        let thresholdFilter = CIFilter.colorThreshold()
-        thresholdFilter.inputImage = subjectLaplacian
-        thresholdFilter.threshold = config.threshold
-        guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
-
-        let erosionPx = Self.morphologyPixelRadius(config.erosionRadius)
-        let eroded: CIImage
-        if erosionPx > 0, let erode = CIFilter(name: "CIMorphologyMinimum") {
-            erode.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-            erode.setValue(erosionPx, forKey: kCIInputRadiusKey)
-            eroded = erode.outputImage ?? thresholdedEdges
+        let selection = if config.isolateMaskToSubject {
+            Self.focusMaskRegionSelection(
+                extent: scaledImage.extent,
+                salientRegion: salientRegion,
+                afPoint: afPoint,
+                afRegionRadius: config.afRegionRadius,
+            )
         } else {
-            eroded = thresholdedEdges
+            FocusMaskRegionSelection(saliencyRect: scaledImage.extent, afRect: nil)
         }
 
-        let dilationPx = Self.morphologyPixelRadius(config.dilationRadius)
-        let dilated: CIImage
-        if dilationPx > 0, let dilate = CIFilter(name: "CIMorphologyMaximum") {
-            dilate.setValue(eroded, forKey: kCIInputImageKey)
-            dilate.setValue(dilationPx, forKey: kCIInputRadiusKey)
-            dilated = dilate.outputImage ?? eroded
-        } else {
-            dilated = eroded
+        var masks = [CIImage]()
+        var thresholds = [Float]()
+
+        if let saliencyRect = selection.saliencyRect {
+            let samples = Self.redSamples(in: saliencyRect, from: boostedLaplacian, context: context)
+            let threshold = Self.adaptiveVisualThreshold(
+                samples,
+                fallback: config.threshold,
+                percentile: 0.95,
+                floorMultiplier: 1.0,
+                capAtFallback: false,
+            )
+            if let mask = Self.thresholdedMask(
+                from: boostedLaplacian,
+                in: saliencyRect,
+                threshold: threshold,
+                erosionRadius: config.erosionRadius,
+                dilationRadius: config.dilationRadius,
+                extent: scaledImage.extent,
+            ) {
+                masks.append(mask)
+                thresholds.append(threshold)
+            }
+        }
+
+        if let afRect = selection.afRect {
+            var fineConfig = config
+            fineConfig.preBlurRadius = max(0.35, config.preBlurRadius * 0.52)
+            let fineLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: fineConfig) ?? boostedLaplacian
+            let samples = Self.redSamples(in: afRect, from: fineLaplacian, context: context)
+            let threshold = Self.adaptiveVisualThreshold(
+                samples,
+                fallback: config.threshold,
+                percentile: 0.82,
+                floorMultiplier: 0.32,
+                capAtFallback: true,
+            )
+            if let mask = Self.thresholdedMask(
+                from: fineLaplacian,
+                in: afRect,
+                threshold: threshold,
+                erosionRadius: max(0, config.erosionRadius - 1.0),
+                dilationRadius: min(config.dilationRadius, 1.0),
+                extent: scaledImage.extent,
+            ) {
+                masks.append(mask)
+                thresholds.append(threshold)
+            }
+        }
+
+        let whiteMask: CIImage = switch masks.count {
+        case 0:
+            CIImage(color: .black).cropped(to: scaledImage.extent)
+
+        case 1:
+            masks[0]
+
+        default:
+            masks.dropFirst().reduce(masks[0]) { partial, next in
+                Self.maximumComposite(next, over: partial).cropped(to: scaledImage.extent)
+            }
         }
 
         let redMatrix = CIFilter.colorMatrix()
-        redMatrix.inputImage = dilated
+        redMatrix.inputImage = whiteMask
         redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
         redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        guard let redMask = redMatrix.outputImage else { return nil }
+        guard let redMask = redMatrix.outputImage else {
+            return FocusMaskRenderResult(
+                image: nil,
+                diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
+            )
+        }
 
         let feathered: CIImage
         if config.featherRadius > 0 {
@@ -1028,21 +1122,27 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
 
         let croppedMask = feathered.cropped(to: scaledImage.extent)
-        return context.createCGImage(croppedMask, from: croppedMask.extent)
+        return FocusMaskRenderResult(
+            image: context.createCGImage(croppedMask, from: croppedMask.extent),
+            diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
+        )
     }
 
-    private nonisolated static func focusMaskSubjectRect(
+    nonisolated static func focusMaskRegionSelection(
         extent: CGRect,
         salientRegion: CGRect?,
         afPoint: CGPoint?,
         afRegionRadius: Float,
-    ) -> CGRect? {
+    ) -> FocusMaskRegionSelection {
         let unitBounds = CGRect(x: 0, y: 0, width: 1, height: 1)
-        let unitRegion: CGRect?
+        let saliencyUnitRect: CGRect? = if let salientRegion, !salientRegion.isNull, !salientRegion.isEmpty {
+            salientRegion.intersection(unitBounds)
+        } else {
+            nil
+        }
 
-        if let salientRegion, !salientRegion.isNull, !salientRegion.isEmpty {
-            unitRegion = salientRegion.intersection(unitBounds)
-        } else if let afPoint, afRegionRadius > 0 {
+        let afUnitRect: CGRect? = {
+            guard let afPoint, afRegionRadius > 0 else { return nil }
             let r = CGFloat(afRegionRadius)
             let visionY = 1.0 - afPoint.y
             let afRegion = CGRect(
@@ -1051,20 +1151,116 @@ struct FocusMaskEngine: @unchecked Sendable {
                 width: r * 2,
                 height: r * 2,
             )
-            unitRegion = afRegion.intersection(unitBounds)
-        } else {
-            unitRegion = nil
+            let intersection = afRegion.intersection(unitBounds)
+            return intersection.isNull || intersection.isEmpty ? nil : intersection
+        }()
+
+        func pixelRect(from unitRegion: CGRect?) -> CGRect? {
+            guard let unitRegion, !unitRegion.isNull, !unitRegion.isEmpty else { return nil }
+            let rect = CGRect(
+                x: extent.minX + unitRegion.minX * extent.width,
+                y: extent.minY + (1.0 - unitRegion.maxY) * extent.height,
+                width: unitRegion.width * extent.width,
+                height: unitRegion.height * extent.height,
+            ).integral.intersection(extent)
+            return rect.isNull || rect.isEmpty ? nil : rect
         }
 
-        guard let unitRegion, !unitRegion.isNull, !unitRegion.isEmpty else { return nil }
-
-        let rect = CGRect(
-            x: extent.minX + unitRegion.minX * extent.width,
-            y: extent.minY + (1.0 - unitRegion.maxY) * extent.height,
-            width: unitRegion.width * extent.width,
-            height: unitRegion.height * extent.height,
+        return FocusMaskRegionSelection(
+            saliencyRect: pixelRect(from: saliencyUnitRect),
+            afRect: pixelRect(from: afUnitRect),
         )
-        return rect.integral.intersection(extent)
+    }
+
+    nonisolated static func adaptiveVisualThreshold(
+        _ samples: [Float],
+        fallback: Float,
+        percentile: Float,
+        floorMultiplier: Float,
+        capAtFallback: Bool,
+    ) -> Float {
+        let floor = max(fallback * floorMultiplier, 0.01)
+        let finite = samples.filter { $0.isFinite && $0 > 0 }
+        guard !finite.isEmpty else {
+            return min(floor, 0.95)
+        }
+
+        var sorted = finite
+        vDSP.sort(&sorted, sortOrder: .ascending)
+        let p = min(max(percentile, 0), 1)
+        let index = min(max(Int(Float(sorted.count - 1) * p), 0), sorted.count - 1)
+        let adaptive = capAtFallback ? min(sorted[index], fallback) : sorted[index]
+        return min(max(adaptive, floor), 0.95)
+    }
+
+    private nonisolated static func redSamples(in rect: CGRect, from image: CIImage, context: CIContext) -> [Float] {
+        let bounds = rect.integral.intersection(image.extent)
+        guard !bounds.isNull, !bounds.isEmpty else { return [] }
+
+        let width = Int(bounds.width)
+        let height = Int(bounds.height)
+        guard width > 0, height > 0 else { return [] }
+
+        var rgba = [Float](repeating: 0, count: width * height * 4)
+        context.render(
+            image,
+            toBitmap: &rgba,
+            rowBytes: width * 16,
+            bounds: bounds,
+            format: .RGBAf,
+            colorSpace: nil,
+        )
+        return stride(from: 0, to: rgba.count, by: 4).compactMap { idx in
+            let value = rgba[idx]
+            return value.isFinite ? value : nil
+        }
+    }
+
+    private nonisolated static func thresholdedMask(
+        from image: CIImage,
+        in rect: CGRect,
+        threshold: Float,
+        erosionRadius: Float,
+        dilationRadius: Float,
+        extent: CGRect,
+    ) -> CIImage? {
+        let blackBg = CIImage(color: .black).cropped(to: extent)
+        let regionImage = image
+            .cropped(to: rect.integral.intersection(extent))
+            .composited(over: blackBg)
+
+        let thresholdFilter = CIFilter.colorThreshold()
+        thresholdFilter.inputImage = regionImage
+        thresholdFilter.threshold = threshold
+        guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
+
+        let erosionPx = Self.morphologyPixelRadius(erosionRadius)
+        let eroded: CIImage
+        if erosionPx > 0, let erode = CIFilter(name: "CIMorphologyMinimum") {
+            erode.setValue(thresholdedEdges, forKey: kCIInputImageKey)
+            erode.setValue(erosionPx, forKey: kCIInputRadiusKey)
+            eroded = erode.outputImage ?? thresholdedEdges
+        } else {
+            eroded = thresholdedEdges
+        }
+
+        let dilationPx = Self.morphologyPixelRadius(dilationRadius)
+        if dilationPx > 0, let dilate = CIFilter(name: "CIMorphologyMaximum") {
+            dilate.setValue(eroded, forKey: kCIInputImageKey)
+            dilate.setValue(dilationPx, forKey: kCIInputRadiusKey)
+            return (dilate.outputImage ?? eroded).cropped(to: extent)
+        }
+
+        return eroded.cropped(to: extent)
+    }
+
+    private nonisolated static func maximumComposite(_ image: CIImage, over background: CIImage) -> CIImage {
+        if let maxFilter = CIFilter(name: "CIMaximumCompositing") {
+            maxFilter.setValue(image, forKey: kCIInputImageKey)
+            maxFilter.setValue(background, forKey: kCIInputBackgroundImageKey)
+            return maxFilter.outputImage ?? image.composited(over: background)
+        }
+        return image.composited(over: background)
     }
 
     @inline(__always)
