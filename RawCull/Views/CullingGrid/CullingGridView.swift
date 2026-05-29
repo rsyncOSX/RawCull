@@ -316,7 +316,7 @@ private struct BatchBadgeSelectionControlsView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                         .tint(item.color)
-                        .disabled(item.isEmpty)
+                        .disabled(item.count == 0)
                         .help("Select \(item.count) visible thumbnails tagged \(item.label). Hold Command to add or remove from the current selection.")
                     }
                 }

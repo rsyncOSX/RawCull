@@ -25,11 +25,28 @@ struct SharpnessIntentControlsView: View {
 
     var body: some View {
         if style == .compactInfo {
-            Label("Scoring settings are in Scoring Parameters.", systemImage: "info.circle")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .help("Photo type, quality, and thumbnail size are configured in Scoring Parameters")
+            HStack(spacing: 6) {
+                Label("Scoring settings are in Scoring Parameters.", systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .help("Photo type, quality, and thumbnail size are configured in Scoring Parameters")
+
+                if showsScoringBadgeToggle {
+                    Toggle(isOn: Binding(
+                        get: { settings.showScoringBadge },
+                        set: {
+                            settings.showScoringBadge = $0
+                            Task(priority: .background) { await settings.saveSettings() }
+                        },
+                    )) {
+                        Label("Sharpness Label", systemImage: "scope")
+                    }
+                    .toggleStyle(.button)
+                    .help("Show simple sharpness labels on thumbnails")
+                }
+            }
+            .font(.caption)
+            .disabled(isDisabled)
         } else {
             HStack(spacing: 6) {
                 Picker("Type", selection: $viewModel.sharpnessModel.photoType) {

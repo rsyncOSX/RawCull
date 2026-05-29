@@ -55,37 +55,6 @@ struct BurstSharpnessSignature: Codable {
         self.focusMaskFeatherRadius = config.featherRadius
     }
 
-    nonisolated init(
-        scoringPhotoType: SharpnessPhotoType,
-        scoringQuality: SharpnessScoringQuality = .fast,
-        thumbnailMaxPixelSize: Int,
-        borderInsetFraction: Float,
-        enableSubjectClassification: Bool,
-        salientWeight: Float,
-        subjectSizeFactor: Float,
-        fineDetailBlendWeight: Float = 0.0,
-        focusMaskPreBlurRadius: Float,
-        focusMaskThreshold: Float,
-        focusMaskEnergyMultiplier: Float,
-        focusMaskErosionRadius: Float,
-        focusMaskDilationRadius: Float,
-        focusMaskFeatherRadius: Float,
-    ) {
-        self.scoringPhotoType = scoringPhotoType
-        self.scoringQuality = scoringQuality
-        self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
-        self.borderInsetFraction = borderInsetFraction
-        self.enableSubjectClassification = enableSubjectClassification
-        self.salientWeight = salientWeight
-        self.subjectSizeFactor = subjectSizeFactor
-        self.fineDetailBlendWeight = fineDetailBlendWeight
-        self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
-        self.focusMaskThreshold = focusMaskThreshold
-        self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
-        self.focusMaskErosionRadius = focusMaskErosionRadius
-        self.focusMaskDilationRadius = focusMaskDilationRadius
-        self.focusMaskFeatherRadius = focusMaskFeatherRadius
-    }
 }
 
 extension BurstSharpnessSignature: Equatable {
