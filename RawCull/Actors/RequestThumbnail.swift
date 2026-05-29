@@ -15,16 +15,13 @@ actor RequestThumbnail {
     private var setupTask: Task<Void, Never>?
     private let diskCache: DiskCacheManager
     private let memoryCache: SharedMemoryCache
-    private let extractionCoordinator: ThumbnailExtractionCoordinator
 
     init(
         diskCache: DiskCacheManager? = nil,
         memoryCache: SharedMemoryCache = .shared,
-        extractionCoordinator: ThumbnailExtractionCoordinator = .shared,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
         self.memoryCache = memoryCache
-        self.extractionCoordinator = extractionCoordinator
     }
 
     private func ensureReady() async {
@@ -90,20 +87,10 @@ actor RequestThumbnail {
         guard let format = RawFormatRegistry.format(for: url) else {
             throw ThumbnailError.invalidSource
         }
-        let key = ThumbnailExtractionCoordinator.Key(
-            url: url,
-            targetSize: targetSize,
+        let cgImage = try await format.extractThumbnail(
+            from: url,
+            maxDimension: CGFloat(targetSize),
             qualityCost: costPerPixel,
-        )
-        let cgImage = try await extractionCoordinator.extract(
-            key: key,
-            operation: {
-                try await format.extractThumbnail(
-                    from: url,
-                    maxDimension: CGFloat(targetSize),
-                    qualityCost: costPerPixel,
-                )
-            },
         )
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))

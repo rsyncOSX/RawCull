@@ -15,7 +15,6 @@ actor ScanAndCreateThumbnails {
 
     private var successCount = 0
     private let diskCache: DiskCacheManager
-    private let extractionCoordinator: ThumbnailExtractionCoordinator
 
     // Timing tracking
     private var processingTimes: [TimeInterval] = []
@@ -38,10 +37,8 @@ actor ScanAndCreateThumbnails {
     init(
         config _: CacheConfig? = nil,
         diskCache: DiskCacheManager? = nil,
-        extractionCoordinator: ThumbnailExtractionCoordinator = .shared,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        self.extractionCoordinator = extractionCoordinator
         // Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
     }
 
@@ -163,20 +160,10 @@ actor ScanAndCreateThumbnails {
             let costPerPixel = SharedMemoryCache.shared.costPerPixel
 
             guard let format = RawFormatRegistry.format(for: url) else { return }
-            let key = ThumbnailExtractionCoordinator.Key(
-                url: url,
-                targetSize: targetSize,
+            let cgImage = try await format.extractThumbnail(
+                from: url,
+                maxDimension: CGFloat(targetSize),
                 qualityCost: costPerPixel,
-            )
-            let cgImage = try await extractionCoordinator.extract(
-                key: key,
-                operation: {
-                    try await format.extractThumbnail(
-                        from: url,
-                        maxDimension: CGFloat(targetSize),
-                        qualityCost: costPerPixel,
-                    )
-                },
             )
 
             if Task.isCancelled { return }
