@@ -371,3 +371,23 @@ The next implementation pass uses these decisions:
 - Treat AF-local evidence as spatially aligned only when the overlay centroid is within 5% of image span from the AF marker.
 - Keep burst ranking and one-click eligibility unchanged. Global-only or poorly aligned evidence adds inspector warnings only.
 - Defer the Phase 9 eye/head heuristic and any further RAW-mode policy work until patch evidence rendering has been validated.
+
+### Phase 9-10 Implementation Policy
+
+After validating bounded patch placement against the bird examples, add a deterministic
+overlay-only eye/head candidate heuristic:
+
+- Reward compact ring-like local detail near AF.
+- Penalize strongly linear edge energy that is more likely to be beak, wing, tail, or silhouette detail.
+- Penalize patches below AF when they fall outside a small head window.
+- Apply the below-AF penalty only to AF-anchored evidence. Saliency and global fallbacks must not pretend an AF-local eye/head decision exists.
+- Expose the heuristic adjustment, ring detail, compactness, linear-edge penalty, and below-AF penalty in ranked patch diagnostics.
+
+This heuristic changes only which explanatory heat patch is rendered. It does not alter
+scalar sharpness scores, labels, persisted score shape, burst ranking, or one-click eligibility.
+
+Keep the Phase 10 RAW policy unchanged:
+
+- Embedded preview scoring remains the default.
+- RAW demosaic remains an optional manual verification tool for small final sets.
+- RAW mode is not used to compensate for overlay alignment or eye/head localization.

@@ -126,7 +126,6 @@ struct ZoomOverlayView: View {
     @State private var showFocusPoints: Bool = false
     @State private var useThumbnailSource: Bool = true
     @State private var focusBreakdown: SharpnessBreakdown?
-    @State private var sharpnessInspectorExpanded = true
     @State private var maskTask: Task<Void, Never>?
     @State private var keyMonitor: Any?
     @FocusState private var isImageFocused: Bool
@@ -197,17 +196,6 @@ struct ZoomOverlayView: View {
                                 viewModel.updateRating(for: selectedFile, rating: rating)
                             },
                         )
-                    }
-
-                    if showFocusMask, let selectedFile = viewModel.selectedFile {
-                        SharpnessBreakdownInspectorView(
-                            fileName: selectedFile.name,
-                            score: viewModel.sharpnessModel.scores[selectedFile.id],
-                            maxScore: viewModel.sharpnessModel.maxScore,
-                            breakdown: focusBreakdown ?? viewModel.sharpnessModel.breakdowns[selectedFile.id],
-                            isExpanded: $sharpnessInspectorExpanded,
-                        )
-                        .frame(maxWidth: 360)
                     }
 
                     Text(currentScale <= 1.0 ? "Double-click to zoom" : "Double-click to fit")
@@ -802,7 +790,17 @@ private struct SharpnessBreakdownInspectorView: View {
 
     private func patchSummary(_ patch: FocusPatchRanking) -> String {
         let distance = patch.distanceToAF.map { String(format: "%.3f", $0) } ?? "—"
-        return String(format: "score %.3f  AF %@  cover %.2f", patch.compositeScore, distance, patch.coverage)
+        return String(
+            format: "score %.3f  AF %@  cover %.2f  eye %+0.2f  ring %.2f  compact %.2f  line %.2f  below %.2f",
+            patch.compositeScore,
+            distance,
+            patch.coverage,
+            patch.eyeHeadHeuristicAdjustment,
+            patch.ringDetailScore,
+            patch.compactDetailScore,
+            patch.linearEdgePenalty,
+            patch.belowAFPenalty,
+        )
     }
 }
 

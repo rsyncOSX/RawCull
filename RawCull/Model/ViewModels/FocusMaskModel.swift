@@ -112,18 +112,42 @@ struct FocusPatchRanking: Equatable {
     nonisolated let coverage: Float
     nonisolated let distanceToAF: Float?
     nonisolated let silhouetteFraction: Float
+    nonisolated let ringDetailScore: Float
+    nonisolated let compactDetailScore: Float
+    nonisolated let linearEdgePenalty: Float
+    nonisolated let belowAFPenalty: Float
+    nonisolated let eyeHeadHeuristicAdjustment: Float
     nonisolated let compositeScore: Float
     nonisolated let containsAFPoint: Bool
 
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.normalizedRect == rhs.normalizedRect
-            && lhs.robustTailScore == rhs.robustTailScore
-            && lhs.microContrast == rhs.microContrast
-            && lhs.coverage == rhs.coverage
-            && lhs.distanceToAF == rhs.distanceToAF
-            && lhs.silhouetteFraction == rhs.silhouetteFraction
-            && lhs.compositeScore == rhs.compositeScore
-            && lhs.containsAFPoint == rhs.containsAFPoint
+    nonisolated init(
+        normalizedRect: CGRect,
+        robustTailScore: Float,
+        microContrast: Float,
+        coverage: Float,
+        distanceToAF: Float?,
+        silhouetteFraction: Float,
+        ringDetailScore: Float = 0,
+        compactDetailScore: Float = 0,
+        linearEdgePenalty: Float = 0,
+        belowAFPenalty: Float = 0,
+        eyeHeadHeuristicAdjustment: Float = 0,
+        compositeScore: Float,
+        containsAFPoint: Bool,
+    ) {
+        self.normalizedRect = normalizedRect
+        self.robustTailScore = robustTailScore
+        self.microContrast = microContrast
+        self.coverage = coverage
+        self.distanceToAF = distanceToAF
+        self.silhouetteFraction = silhouetteFraction
+        self.ringDetailScore = ringDetailScore
+        self.compactDetailScore = compactDetailScore
+        self.linearEdgePenalty = linearEdgePenalty
+        self.belowAFPenalty = belowAFPenalty
+        self.eyeHeadHeuristicAdjustment = eyeHeadHeuristicAdjustment
+        self.compositeScore = compositeScore
+        self.containsAFPoint = containsAFPoint
     }
 }
 
@@ -1457,7 +1481,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
         let patchMask: CIImage = switch masks.count {
         case 0:
-            CIImage(color: .black).cropped(to: scaledImage.extent)
+            CIImage(color: .clear).cropped(to: scaledImage.extent)
 
         case 1:
             masks[0]
@@ -1711,7 +1735,8 @@ struct FocusMaskEngine: @unchecked Sendable {
         visualRegion: FocusEvidenceRegion,
         context: CIContext,
     ) -> FocusPatchRanking {
-        let samples = redSamples(in: rect, from: sourceImage, context: context)
+        let grid = redSampleGrid(in: rect, from: sourceImage, context: context)
+        let samples = grid.samples
         let robust = robustTailScore(samples) ?? 0
         let micro = microContrast(samples)
         let threshold = adaptiveVisualThreshold(
@@ -1737,7 +1762,20 @@ struct FocusMaskEngine: @unchecked Sendable {
             abs(rect.maxY - searchRegion.maxY) < 1
         let interiorBonus: Float = touchesSearchBorder ? 0 : 0.03
         let silhouettePenalty: Float = visualRegion.isAFAnchored ? 0.18 : 0.45
-        let composite = max(0, robust + micro * 0.35 + coverage * 0.08 + afProximity * 0.12 + interiorBonus - silhouette * silhouettePenalty)
+        let shape = patchShapeEvidence(samples: samples, width: grid.width, height: grid.height)
+        let eyeHeadAdjustment = eyeHeadHeuristicAdjustment(
+            ringDetailScore: shape.ringDetailScore,
+            compactDetailScore: shape.compactDetailScore,
+            linearEdgePenalty: shape.linearEdgePenalty,
+            centroid: centroid,
+            afPoint: afPoint,
+            visualRegion: visualRegion,
+        )
+        let composite = max(
+            0,
+            robust + micro * 0.35 + coverage * 0.08 + afProximity * 0.12 + interiorBonus
+                - silhouette * silhouettePenalty + eyeHeadAdjustment.adjustment,
+        )
 
         return FocusPatchRanking(
             normalizedRect: normalizedRect,
@@ -1746,8 +1784,37 @@ struct FocusMaskEngine: @unchecked Sendable {
             coverage: coverage,
             distanceToAF: distance,
             silhouetteFraction: silhouette,
+            ringDetailScore: shape.ringDetailScore,
+            compactDetailScore: shape.compactDetailScore,
+            linearEdgePenalty: shape.linearEdgePenalty,
+            belowAFPenalty: eyeHeadAdjustment.belowAFPenalty,
+            eyeHeadHeuristicAdjustment: eyeHeadAdjustment.adjustment,
             compositeScore: composite,
             containsAFPoint: afPoint.map(normalizedRect.contains) ?? false,
+        )
+    }
+
+    nonisolated static func eyeHeadHeuristicAdjustment(
+        ringDetailScore: Float,
+        compactDetailScore: Float,
+        linearEdgePenalty: Float,
+        centroid: CGPoint,
+        afPoint: CGPoint?,
+        visualRegion: FocusEvidenceRegion,
+    ) -> (adjustment: Float, belowAFPenalty: Float) {
+        let ring = min(max(ringDetailScore, 0), 1)
+        let compact = min(max(compactDetailScore, 0), 1)
+        let linear = min(max(linearEdgePenalty, 0), 1)
+        let belowAFPenalty: Float
+        if visualRegion.isAFAnchored, let afPoint {
+            let belowAFDistance = max(Float(centroid.y - afPoint.y) - 0.025, 0)
+            belowAFPenalty = min(belowAFDistance / 0.15, 1) * 0.18
+        } else {
+            belowAFPenalty = 0
+        }
+        return (
+            adjustment: ring * 0.10 + compact * 0.08 - linear * 0.10 - belowAFPenalty,
+            belowAFPenalty: belowAFPenalty,
         )
     }
 
@@ -1851,7 +1918,7 @@ struct FocusMaskEngine: @unchecked Sendable {
             gradient.color0 = CIColor(red: 0.82, green: 0.52, blue: 0.18, alpha: 0.42)
             gradient.color1 = CIColor(red: 0.70, green: 0.48, blue: 0.20, alpha: 0)
         }
-        return gradient.outputImage?.cropped(to: rect).composited(over: CIImage(color: .black).cropped(to: extent))
+        return gradient.outputImage?.cropped(to: rect).composited(over: CIImage(color: .clear).cropped(to: extent))
     }
 
     private nonisolated static func normalizedRect(_ rect: CGRect, in extent: CGRect) -> CGRect {
@@ -1878,13 +1945,111 @@ struct FocusMaskEngine: @unchecked Sendable {
         return (intersection.width * intersection.height) / min(lhs.width * lhs.height, rhs.width * rhs.height)
     }
 
+    private struct PatchSampleGrid {
+        let samples: [Float]
+        let width: Int
+        let height: Int
+    }
+
+    private struct PatchShapeEvidence {
+        let ringDetailScore: Float
+        let compactDetailScore: Float
+        let linearEdgePenalty: Float
+    }
+
+    private nonisolated static func patchShapeEvidence(
+        samples: [Float],
+        width: Int,
+        height: Int,
+    ) -> PatchShapeEvidence {
+        guard width > 2, height > 2, samples.count == width * height else {
+            return PatchShapeEvidence(ringDetailScore: 0, compactDetailScore: 0, linearEdgePenalty: 0)
+        }
+
+        var centerSum: Float = 0
+        var centerCount = 0
+        var ringSum: Float = 0
+        var ringCount = 0
+        var outerSum: Float = 0
+        var outerCount = 0
+        var weightSum: Float = 0
+        var weightedX: Float = 0
+        var weightedY: Float = 0
+
+        for row in 0 ..< height {
+            for col in 0 ..< width {
+                let value = max(samples[row * width + col], 0)
+                let x = (Float(col) + 0.5) / Float(width) - 0.5
+                let y = (Float(row) + 0.5) / Float(height) - 0.5
+                let radius = hypot(x, y)
+                switch radius {
+                case ..<0.16:
+                    centerSum += value
+                    centerCount += 1
+
+                case ..<0.34:
+                    ringSum += value
+                    ringCount += 1
+
+                default:
+                    outerSum += value
+                    outerCount += 1
+                }
+                weightSum += value
+                weightedX += value * x
+                weightedY += value * y
+            }
+        }
+
+        guard weightSum > 1e-6 else {
+            return PatchShapeEvidence(ringDetailScore: 0, compactDetailScore: 0, linearEdgePenalty: 0)
+        }
+
+        let centerMean = centerSum / Float(max(centerCount, 1))
+        let ringMean = ringSum / Float(max(ringCount, 1))
+        let outerMean = outerSum / Float(max(outerCount, 1))
+        let ringDetail = min(max(ringMean / max(ringMean + outerMean, 1e-6), 0), 1)
+        let compactDetail = min(max((centerMean + ringMean) / max(centerMean + ringMean + outerMean, 1e-6), 0), 1)
+
+        let meanX = weightedX / weightSum
+        let meanY = weightedY / weightSum
+        var covarianceXX: Float = 0
+        var covarianceYY: Float = 0
+        var covarianceXY: Float = 0
+        for row in 0 ..< height {
+            for col in 0 ..< width {
+                let value = max(samples[row * width + col], 0)
+                let x = (Float(col) + 0.5) / Float(width) - 0.5 - meanX
+                let y = (Float(row) + 0.5) / Float(height) - 0.5 - meanY
+                covarianceXX += value * x * x
+                covarianceYY += value * y * y
+                covarianceXY += value * x * y
+            }
+        }
+        covarianceXX /= weightSum
+        covarianceYY /= weightSum
+        covarianceXY /= weightSum
+        let trace = covarianceXX + covarianceYY
+        let discriminant = sqrt(max((covarianceXX - covarianceYY) * (covarianceXX - covarianceYY) + 4 * covarianceXY * covarianceXY, 0))
+        let linearPenalty = trace > 1e-6 ? min(max(discriminant / trace, 0), 1) : 0
+        return PatchShapeEvidence(
+            ringDetailScore: ringDetail,
+            compactDetailScore: compactDetail,
+            linearEdgePenalty: linearPenalty,
+        )
+    }
+
     private nonisolated static func redSamples(in rect: CGRect, from image: CIImage, context: CIContext) -> [Float] {
+        redSampleGrid(in: rect, from: image, context: context).samples
+    }
+
+    private nonisolated static func redSampleGrid(in rect: CGRect, from image: CIImage, context: CIContext) -> PatchSampleGrid {
         let bounds = rect.integral.intersection(image.extent)
-        guard !bounds.isNull, !bounds.isEmpty else { return [] }
+        guard !bounds.isNull, !bounds.isEmpty else { return PatchSampleGrid(samples: [], width: 0, height: 0) }
 
         let width = Int(bounds.width)
         let height = Int(bounds.height)
-        guard width > 0, height > 0 else { return [] }
+        guard width > 0, height > 0 else { return PatchSampleGrid(samples: [], width: 0, height: 0) }
 
         var rgba = [Float](repeating: 0, count: width * height * 4)
         context.render(
@@ -1895,10 +2060,11 @@ struct FocusMaskEngine: @unchecked Sendable {
             format: .RGBAf,
             colorSpace: nil,
         )
-        return stride(from: 0, to: rgba.count, by: 4).compactMap { idx in
+        let samples = stride(from: 0, to: rgba.count, by: 4).map { idx in
             let value = rgba[idx]
-            return value.isFinite ? value : nil
+            return value.isFinite ? value : 0
         }
+        return PatchSampleGrid(samples: samples, width: width, height: height)
     }
 
     private nonisolated static func centerWeightedLaplacian(

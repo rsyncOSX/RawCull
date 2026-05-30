@@ -133,7 +133,17 @@ struct CandidateInspectorView: View {
 
     private func patchSummary(_ patch: FocusPatchRanking) -> String {
         let distance = patch.distanceToAF.map { String(format: "%.3f", $0) } ?? "—"
-        return String(format: "%.3f  AF %@  cover %.2f", patch.compositeScore, distance, patch.coverage)
+        return String(
+            format: "%.3f  AF %@  cover %.2f  eye %+0.2f  ring %.2f  compact %.2f  line %.2f  below %.2f",
+            patch.compositeScore,
+            distance,
+            patch.coverage,
+            patch.eyeHeadHeuristicAdjustment,
+            patch.ringDetailScore,
+            patch.compactDetailScore,
+            patch.linearEdgePenalty,
+            patch.belowAFPenalty,
+        )
     }
 
     private func evidenceNeedsReview(_ evidence: FocusEvidence) -> Bool {

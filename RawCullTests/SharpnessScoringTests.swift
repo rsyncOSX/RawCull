@@ -737,6 +737,68 @@ struct FocusEvidencePatchOverlayTests {
         #expect(evidence.focusEvidenceConfidence == .high)
     }
 
+    @Test(.tags(.smoke))
+    func `eye head heuristic rewards compact ring detail over linear edge`() {
+        let eye = FocusMaskEngine.eyeHeadHeuristicAdjustment(
+            ringDetailScore: 0.85,
+            compactDetailScore: 0.80,
+            linearEdgePenalty: 0.10,
+            centroid: CGPoint(x: 0.50, y: 0.50),
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+            visualRegion: .afCenter,
+        )
+        let beak = FocusMaskEngine.eyeHeadHeuristicAdjustment(
+            ringDetailScore: 0.20,
+            compactDetailScore: 0.25,
+            linearEdgePenalty: 0.90,
+            centroid: CGPoint(x: 0.50, y: 0.50),
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+            visualRegion: .afCenter,
+        )
+
+        #expect(eye.adjustment > 0)
+        #expect(beak.adjustment < 0)
+        #expect(eye.adjustment > beak.adjustment)
+    }
+
+    @Test(.tags(.smoke))
+    func `AF anchored heuristic penalizes lower patch beyond head window`() {
+        let aligned = FocusMaskEngine.eyeHeadHeuristicAdjustment(
+            ringDetailScore: 0.50,
+            compactDetailScore: 0.50,
+            linearEdgePenalty: 0.10,
+            centroid: CGPoint(x: 0.50, y: 0.51),
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+            visualRegion: .afCenter,
+        )
+        let lower = FocusMaskEngine.eyeHeadHeuristicAdjustment(
+            ringDetailScore: 0.50,
+            compactDetailScore: 0.50,
+            linearEdgePenalty: 0.10,
+            centroid: CGPoint(x: 0.50, y: 0.65),
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+            visualRegion: .afCenter,
+        )
+
+        #expect(aligned.belowAFPenalty == 0)
+        #expect(lower.belowAFPenalty > 0)
+        #expect(lower.adjustment < aligned.adjustment)
+    }
+
+    @Test(.tags(.smoke))
+    func `saliency heuristic does not invent below AF penalty`() {
+        let result = FocusMaskEngine.eyeHeadHeuristicAdjustment(
+            ringDetailScore: 0.50,
+            compactDetailScore: 0.50,
+            linearEdgePenalty: 0.10,
+            centroid: CGPoint(x: 0.50, y: 0.75),
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+            visualRegion: .saliency,
+        )
+
+        #expect(result.belowAFPenalty == 0)
+    }
+
     private func patch(
         x: CGFloat,
         y: CGFloat,

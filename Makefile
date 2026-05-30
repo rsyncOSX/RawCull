@@ -51,6 +51,9 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`global evidence uses medium confidence when measurable`()' \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`no viable patch is low confidence`()' \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`diagnostics report visualized patch and AF distance`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`eye head heuristic rewards compact ring detail over linear edge`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF anchored heuristic penalizes lower patch beyond head window`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`saliency heuristic does not invent below AF penalty`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness can outweigh subject metadata when detail clearly leads`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness is omitted for tiny sharpness spread`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`best relative frame still needs absolute sharpness for high confidence`()' \
