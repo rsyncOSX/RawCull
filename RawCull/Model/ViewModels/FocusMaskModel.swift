@@ -1523,7 +1523,7 @@ struct FocusMaskEngine: @unchecked Sendable {
             guard let unitRegion, !unitRegion.isNull, !unitRegion.isEmpty else { return nil }
             let rect = CGRect(
                 x: extent.minX + unitRegion.minX * extent.width,
-                y: extent.minY + (1.0 - unitRegion.maxY) * extent.height,
+                y: extent.minY + unitRegion.minY * extent.height,
                 width: unitRegion.width * extent.width,
                 height: unitRegion.height * extent.height,
             ).integral.intersection(extent)
@@ -1554,7 +1554,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         guard let unitRegion, !unitRegion.isNull, !unitRegion.isEmpty else { return nil }
         let rect = CGRect(
             x: extent.minX + unitRegion.minX * extent.width,
-            y: extent.minY + (1.0 - unitRegion.maxY) * extent.height,
+            y: extent.minY + unitRegion.minY * extent.height,
             width: unitRegion.width * extent.width,
             height: unitRegion.height * extent.height,
         ).integral.intersection(extent)
@@ -1565,7 +1565,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         guard let afPoint else { return nil }
         return CGPoint(
             x: extent.minX + afPoint.x * extent.width,
-            y: extent.minY + afPoint.y * extent.height,
+            y: extent.minY + (1.0 - afPoint.y) * extent.height,
         )
     }
 
@@ -1833,7 +1833,7 @@ struct FocusMaskEngine: @unchecked Sendable {
     ) -> CIImage? {
         let rect = CGRect(
             x: extent.minX + normalizedRect.minX * extent.width,
-            y: extent.minY + normalizedRect.minY * extent.height,
+            y: extent.minY + (1.0 - normalizedRect.maxY) * extent.height,
             width: normalizedRect.width * extent.width,
             height: normalizedRect.height * extent.height,
         ).integral.intersection(extent)
@@ -1857,7 +1857,7 @@ struct FocusMaskEngine: @unchecked Sendable {
     private nonisolated static func normalizedRect(_ rect: CGRect, in extent: CGRect) -> CGRect {
         CGRect(
             x: (rect.minX - extent.minX) / extent.width,
-            y: (rect.minY - extent.minY) / extent.height,
+            y: 1.0 - (rect.maxY - extent.minY) / extent.height,
             width: rect.width / extent.width,
             height: rect.height / extent.height,
         )

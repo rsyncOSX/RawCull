@@ -376,7 +376,7 @@ struct FocusNumericHelperTests {
         )
 
         #expect(selection.source == .saliency)
-        #expect(selection.saliencyRect == CGRect(x: 200, y: 250, width: 400, height: 100))
+        #expect(selection.saliencyRect == CGRect(x: 200, y: 150, width: 400, height: 100))
         #expect(selection.afRect == nil)
     }
 
@@ -392,7 +392,7 @@ struct FocusNumericHelperTests {
 
         #expect(selection.source == .afPoint)
         #expect(selection.saliencyRect == nil)
-        #expect(selection.afRect?.contains(CGPoint(x: 300, y: 200)) == true)
+        #expect(selection.afRect?.contains(CGPoint(x: 300, y: 300)) == true)
         #expect(abs((selection.afRect?.width ?? 0) - 100) <= 2)
         #expect(abs((selection.afRect?.height ?? 0) - 50) <= 2)
     }
@@ -408,8 +408,8 @@ struct FocusNumericHelperTests {
         )
 
         #expect(selection.source == .saliencyAndAF)
-        #expect(selection.saliencyRect == CGRect(x: 650, y: 300, width: 200, height: 100))
-        #expect(selection.afRect == CGRect(x: 210, y: 305, width: 80, height: 40))
+        #expect(selection.saliencyRect == CGRect(x: 650, y: 100, width: 200, height: 100))
+        #expect(selection.afRect == CGRect(x: 210, y: 155, width: 80, height: 40))
     }
 
     // MARK: adaptive visual threshold
@@ -594,7 +594,7 @@ struct FocusNumericHelperTests {
         #expect(center.width < neighborhood.width)
         #expect(center.height < neighborhood.height)
         #expect(neighborhood.contains(center))
-        #expect(center.contains(CGPoint(x: 300, y: 200)))
+        #expect(center.contains(CGPoint(x: 300, y: 300)))
     }
 
     @Test(.tags(.smoke))
@@ -605,7 +605,7 @@ struct FocusNumericHelperTests {
             in: extent,
         ))
 
-        #expect(center == CGPoint(x: 300, y: 200))
+        #expect(center == CGPoint(x: 300, y: 300))
     }
 
     // MARK: - Scale invariance of robustTailScore
