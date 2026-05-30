@@ -149,6 +149,22 @@ struct FocusPatchRanking: Equatable {
         self.compositeScore = compositeScore
         self.containsAFPoint = containsAFPoint
     }
+
+    nonisolated static func == (lhs: FocusPatchRanking, rhs: FocusPatchRanking) -> Bool {
+        lhs.normalizedRect == rhs.normalizedRect
+            && lhs.robustTailScore == rhs.robustTailScore
+            && lhs.microContrast == rhs.microContrast
+            && lhs.coverage == rhs.coverage
+            && lhs.distanceToAF == rhs.distanceToAF
+            && lhs.silhouetteFraction == rhs.silhouetteFraction
+            && lhs.ringDetailScore == rhs.ringDetailScore
+            && lhs.compactDetailScore == rhs.compactDetailScore
+            && lhs.linearEdgePenalty == rhs.linearEdgePenalty
+            && lhs.belowAFPenalty == rhs.belowAFPenalty
+            && lhs.eyeHeadHeuristicAdjustment == rhs.eyeHeadHeuristicAdjustment
+            && lhs.compositeScore == rhs.compositeScore
+            && lhs.containsAFPoint == rhs.containsAFPoint
+    }
 }
 
 struct FocusEvidence: Equatable {
