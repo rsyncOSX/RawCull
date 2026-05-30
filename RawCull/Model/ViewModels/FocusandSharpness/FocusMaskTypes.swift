@@ -1,0 +1,244 @@
+import AppKit
+import Foundation
+
+/// Saliency detection result: whether a salient region was found and, if Vision
+/// classification succeeded, what the dominant subject is.
+struct SaliencyInfo: Codable, Equatable {
+    /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
+    let subjectLabel: String?
+    /// Highest confidence reported by Vision's salient-object observations.
+    let subjectConfidence: Float?
+
+    nonisolated init(subjectLabel: String?, subjectConfidence: Float? = nil) {
+        self.subjectLabel = subjectLabel
+        self.subjectConfidence = subjectConfidence
+    }
+}
+
+enum FocusFailureKind: String, Codable, Equatable {
+    case none
+    case motionBlur
+    case missedFocus
+
+    var title: String {
+        switch self {
+        case .none: "None"
+        case .motionBlur: "Motion blur"
+        case .missedFocus: "Missed focus"
+        }
+    }
+}
+
+enum FocusMaskRegionSource: String, Codable, Equatable {
+    case none
+    case saliency
+    case afPoint
+    case saliencyAndAF
+
+    var title: String {
+        switch self {
+        case .none: "None"
+        case .saliency: "Saliency"
+        case .afPoint: "AF point"
+        case .saliencyAndAF: "AF + saliency"
+        }
+    }
+}
+
+enum FocusEvidenceRegion: String, Codable, Equatable {
+    case none
+    case afCenter
+    case afNeighborhood
+    case afPoint
+    case saliency
+    case global
+    case mixed
+
+    var title: String {
+        switch self {
+        case .none: "None"
+        case .afCenter: "AF center"
+        case .afNeighborhood: "AF neighborhood"
+        case .afPoint: "AF point"
+        case .saliency: "Saliency"
+        case .global: "Global"
+        case .mixed: "Mixed"
+        }
+    }
+
+    nonisolated var isAFAnchored: Bool {
+        switch self {
+        case .afCenter, .afNeighborhood, .afPoint:
+            true
+
+        case .none, .saliency, .global, .mixed:
+            false
+        }
+    }
+}
+
+enum FocusEvidenceOverlayStyle: String, Codable, Equatable {
+    case subjectHeat
+    case globalDetail
+
+    var title: String {
+        switch self {
+        case .subjectHeat: "Subject heat"
+        case .globalDetail: "Muted global detail"
+        }
+    }
+}
+
+enum FocusEvidenceConfidence: String, Codable, Equatable {
+    case high
+    case medium
+    case low
+
+    var title: String {
+        rawValue.capitalized
+    }
+}
+
+struct FocusPatchRanking: Equatable {
+    nonisolated let normalizedRect: CGRect
+    nonisolated let robustTailScore: Float
+    nonisolated let microContrast: Float
+    nonisolated let coverage: Float
+    nonisolated let distanceToAF: Float?
+    nonisolated let silhouetteFraction: Float
+    nonisolated let ringDetailScore: Float
+    nonisolated let compactDetailScore: Float
+    nonisolated let linearEdgePenalty: Float
+    nonisolated let belowAFPenalty: Float
+    nonisolated let eyeHeadHeuristicAdjustment: Float
+    nonisolated let compositeScore: Float
+    nonisolated let containsAFPoint: Bool
+
+    nonisolated init(
+        normalizedRect: CGRect,
+        robustTailScore: Float,
+        microContrast: Float,
+        coverage: Float,
+        distanceToAF: Float?,
+        silhouetteFraction: Float,
+        ringDetailScore: Float = 0,
+        compactDetailScore: Float = 0,
+        linearEdgePenalty: Float = 0,
+        belowAFPenalty: Float = 0,
+        eyeHeadHeuristicAdjustment: Float = 0,
+        compositeScore: Float,
+        containsAFPoint: Bool,
+    ) {
+        self.normalizedRect = normalizedRect
+        self.robustTailScore = robustTailScore
+        self.microContrast = microContrast
+        self.coverage = coverage
+        self.distanceToAF = distanceToAF
+        self.silhouetteFraction = silhouetteFraction
+        self.ringDetailScore = ringDetailScore
+        self.compactDetailScore = compactDetailScore
+        self.linearEdgePenalty = linearEdgePenalty
+        self.belowAFPenalty = belowAFPenalty
+        self.eyeHeadHeuristicAdjustment = eyeHeadHeuristicAdjustment
+        self.compositeScore = compositeScore
+        self.containsAFPoint = containsAFPoint
+    }
+
+    nonisolated static func == (lhs: FocusPatchRanking, rhs: FocusPatchRanking) -> Bool {
+        lhs.normalizedRect == rhs.normalizedRect
+            && lhs.robustTailScore == rhs.robustTailScore
+            && lhs.microContrast == rhs.microContrast
+            && lhs.coverage == rhs.coverage
+            && lhs.distanceToAF == rhs.distanceToAF
+            && lhs.silhouetteFraction == rhs.silhouetteFraction
+            && lhs.ringDetailScore == rhs.ringDetailScore
+            && lhs.compactDetailScore == rhs.compactDetailScore
+            && lhs.linearEdgePenalty == rhs.linearEdgePenalty
+            && lhs.belowAFPenalty == rhs.belowAFPenalty
+            && lhs.eyeHeadHeuristicAdjustment == rhs.eyeHeadHeuristicAdjustment
+            && lhs.compositeScore == rhs.compositeScore
+            && lhs.containsAFPoint == rhs.containsAFPoint
+    }
+}
+
+struct FocusEvidence: Equatable {
+    nonisolated let winningRegion: FocusEvidenceRegion
+    nonisolated let globalScore: Float?
+    nonisolated let saliencyScore: Float?
+    nonisolated let afPointScore: Float?
+    nonisolated let afCenterScore: Float?
+    nonisolated let afNeighborhoodScore: Float?
+    nonisolated var effectiveVisualThreshold: Float?
+    nonisolated var maskCoverage: Float?
+    nonisolated var relaxedForVisibility: Bool
+    nonisolated var visualizedRegion: FocusEvidenceRegion?
+    nonisolated var visualizedRect: CGRect?
+    nonisolated var visualizedCentroid: CGPoint?
+    nonisolated var afDistanceFromCentroid: Float?
+    nonisolated var patchRankings: [FocusPatchRanking]
+    nonisolated var overlayStyle: FocusEvidenceOverlayStyle?
+    nonisolated var focusEvidenceConfidence: FocusEvidenceConfidence?
+    nonisolated var focusEvidenceConfidenceReason: String?
+    nonisolated var spatialAlignmentScore: Float?
+    nonisolated var localPatchDominance: Float?
+    nonisolated var silhouettePenaltyApplied: Bool
+
+    nonisolated init(
+        winningRegion: FocusEvidenceRegion,
+        globalScore: Float?,
+        saliencyScore: Float?,
+        afPointScore: Float?,
+        afCenterScore: Float? = nil,
+        afNeighborhoodScore: Float? = nil,
+        effectiveVisualThreshold: Float? = nil,
+        maskCoverage: Float? = nil,
+        relaxedForVisibility: Bool = false,
+        visualizedRegion: FocusEvidenceRegion? = nil,
+        visualizedRect: CGRect? = nil,
+        visualizedCentroid: CGPoint? = nil,
+        afDistanceFromCentroid: Float? = nil,
+        patchRankings: [FocusPatchRanking] = [],
+        overlayStyle: FocusEvidenceOverlayStyle? = nil,
+        focusEvidenceConfidence: FocusEvidenceConfidence? = nil,
+        focusEvidenceConfidenceReason: String? = nil,
+        spatialAlignmentScore: Float? = nil,
+        localPatchDominance: Float? = nil,
+        silhouettePenaltyApplied: Bool = false,
+    ) {
+        self.winningRegion = winningRegion
+        self.globalScore = globalScore
+        self.saliencyScore = saliencyScore
+        self.afPointScore = afPointScore
+        self.afCenterScore = afCenterScore
+        self.afNeighborhoodScore = afNeighborhoodScore
+        self.effectiveVisualThreshold = effectiveVisualThreshold
+        self.maskCoverage = maskCoverage
+        self.relaxedForVisibility = relaxedForVisibility
+        self.visualizedRegion = visualizedRegion
+        self.visualizedRect = visualizedRect
+        self.visualizedCentroid = visualizedCentroid
+        self.afDistanceFromCentroid = afDistanceFromCentroid
+        self.patchRankings = patchRankings
+        self.overlayStyle = overlayStyle
+        self.focusEvidenceConfidence = focusEvidenceConfidence
+        self.focusEvidenceConfidenceReason = focusEvidenceConfidenceReason
+        self.spatialAlignmentScore = spatialAlignmentScore
+        self.localPatchDominance = localPatchDominance
+        self.silhouettePenaltyApplied = silhouettePenaltyApplied
+    }
+}
+
+struct SharpnessBreakdown: Equatable {
+    let finalScore: Float
+    let globalScore: Float?
+    let subjectScore: Float?
+    let afPointScore: Float?
+    let blurGateSigma: Float
+    let subjectLabel: String?
+    let subjectConfidence: Float?
+    let focusFailureKind: FocusFailureKind
+    var focusMaskRegionSource: FocusMaskRegionSource?
+    var focusMaskVisualThreshold: Float?
+    var focusEvidence: FocusEvidence?
+    var scoringSource: SharpnessScoringSource = .embeddedPreview
+}
