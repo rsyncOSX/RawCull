@@ -42,6 +42,42 @@ struct CandidateInspectorView: View {
                     }
                 }
 
+                if let evidence = context.sharpnessBreakdown?.focusEvidence {
+                    Section("Focus Evidence") {
+                        LabeledContent("Winning Region", value: evidence.winningRegion.title)
+                        if let region = evidence.visualizedRegion {
+                            LabeledContent("Rendered Region", value: region.title)
+                        }
+                        if let style = evidence.overlayStyle {
+                            LabeledContent("Overlay Style", value: style.title)
+                        }
+                        if let confidence = evidence.focusEvidenceConfidence {
+                            LabeledContent("Location Confidence", value: confidence.title)
+                        }
+                        if let reason = evidence.focusEvidenceConfidenceReason {
+                            Text(reason)
+                                .foregroundStyle(evidenceNeedsReview(evidence) ? .orange : .secondary)
+                        }
+                        if let distance = evidence.afDistanceFromCentroid {
+                            LabeledContent("AF Distance", value: percent(distance))
+                        }
+                        if let alignment = evidence.spatialAlignmentScore {
+                            LabeledContent("Spatial Alignment", value: percent(alignment))
+                        }
+                        if let dominance = evidence.localPatchDominance {
+                            LabeledContent("Patch Dominance", value: decimal(dominance))
+                        }
+                        LabeledContent("Silhouette Penalty", value: evidence.silhouettePenaltyApplied ? "Applied" : "None")
+                        ForEach(Array(evidence.patchRankings.prefix(3).enumerated()), id: \.offset) { index, patch in
+                            LabeledContent("Patch \(index + 1)", value: patchSummary(patch))
+                        }
+                        if evidenceNeedsReview(evidence) {
+                            Text("Review focus location: evidence is global-only or not aligned with the AF marker.")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+
                 if !context.exifSummary.detailRows.isEmpty {
                     Section("Camera Settings") {
                         ForEach(context.exifSummary.detailRows) { row in
@@ -89,6 +125,19 @@ struct CandidateInspectorView: View {
 
     private func percent(_ value: Float) -> String {
         "\(Int((value * 100).rounded()))%"
+    }
+
+    private func decimal(_ value: Float) -> String {
+        String(format: "%.2f", value)
+    }
+
+    private func patchSummary(_ patch: FocusPatchRanking) -> String {
+        let distance = patch.distanceToAF.map { String(format: "%.3f", $0) } ?? "—"
+        return String(format: "%.3f  AF %@  cover %.2f", patch.compositeScore, distance, patch.coverage)
+    }
+
+    private func evidenceNeedsReview(_ evidence: FocusEvidence) -> Bool {
+        evidence.visualizedRegion == .global || evidence.focusEvidenceConfidence == .low
     }
 
     private func ratingTitle(_ rating: Int) -> String {

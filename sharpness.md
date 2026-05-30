@@ -361,3 +361,13 @@ Before coding Phase 6/7, decide:
 - Should global evidence be shown in red, or with a different style to avoid implying exact subject focus?
 - What maximum allowed AF-to-overlay-centroid distance is acceptable for AF-local evidence?
 - Should "Sharp but global-only" be allowed to rank highly in burst culling, or should it require manual review?
+
+### Phase 6-8 Implementation Policy
+
+The next implementation pass uses these decisions:
+
+- Replace normal thresholded red pixel masks with bounded red/orange heat patches.
+- Render global-only detail with a muted amber style so it does not imply eye/head confirmation.
+- Treat AF-local evidence as spatially aligned only when the overlay centroid is within 5% of image span from the AF marker.
+- Keep burst ranking and one-click eligibility unchanged. Global-only or poorly aligned evidence adds inspector warnings only.
+- Defer the Phase 9 eye/head heuristic and any further RAW-mode policy work until patch evidence rendering has been validated.

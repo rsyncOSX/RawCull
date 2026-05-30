@@ -715,6 +715,19 @@ private struct SharpnessBreakdownInspectorView: View {
                         row("Evidence threshold", value: threshold(evidence.effectiveVisualThreshold))
                         row("Evidence coverage", value: percent(evidence.maskCoverage))
                         row("Visibility relaxed", value: evidence.relaxedForVisibility ? "Yes" : "No")
+                        row("Rendered region", value: evidence.visualizedRegion?.title)
+                        row("Overlay style", value: evidence.overlayStyle?.title)
+                        row("Rendered rect", value: rect(evidence.visualizedRect))
+                        row("Rendered centroid", value: point(evidence.visualizedCentroid))
+                        row("AF distance", value: percent(evidence.afDistanceFromCentroid))
+                        row("Spatial alignment", value: percent(evidence.spatialAlignmentScore))
+                        row("Patch dominance", value: decimal(evidence.localPatchDominance))
+                        row("Silhouette penalty", value: evidence.silhouettePenaltyApplied ? "Yes" : "No")
+                        row("Evidence confidence", value: evidence.focusEvidenceConfidence?.title)
+                        row("Confidence reason", value: evidence.focusEvidenceConfidenceReason)
+                        ForEach(Array(evidence.patchRankings.prefix(3).enumerated()), id: \.offset) { index, patch in
+                            row("Patch \(index + 1)", value: patchSummary(patch))
+                        }
                     }
                     if let subject = breakdown.subjectLabel {
                         row("Subject label", value: subject)
@@ -770,6 +783,26 @@ private struct SharpnessBreakdownInspectorView: View {
     private func threshold(_ value: Float?) -> String? {
         guard let value, value.isFinite else { return nil }
         return String(format: "%.3f", value)
+    }
+
+    private func decimal(_ value: Float?) -> String? {
+        guard let value, value.isFinite else { return nil }
+        return String(format: "%.2f", value)
+    }
+
+    private func point(_ value: CGPoint?) -> String? {
+        guard let value else { return nil }
+        return String(format: "%.3f, %.3f", value.x, value.y)
+    }
+
+    private func rect(_ value: CGRect?) -> String? {
+        guard let value else { return nil }
+        return String(format: "%.3f, %.3f  %.3f x %.3f", value.minX, value.minY, value.width, value.height)
+    }
+
+    private func patchSummary(_ patch: FocusPatchRanking) -> String {
+        let distance = patch.distanceToAF.map { String(format: "%.3f", $0) } ?? "—"
+        return String(format: "score %.3f  AF %@  cover %.2f", patch.compositeScore, distance, patch.coverage)
     }
 }
 

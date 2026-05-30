@@ -83,16 +83,60 @@ enum FocusEvidenceRegion: String, Codable, Equatable {
     }
 }
 
+enum FocusEvidenceOverlayStyle: String, Codable, Equatable {
+    case subjectHeat
+    case globalDetail
+
+    var title: String {
+        switch self {
+        case .subjectHeat: "Subject heat"
+        case .globalDetail: "Muted global detail"
+        }
+    }
+}
+
+enum FocusEvidenceConfidence: String, Codable, Equatable {
+    case high
+    case medium
+    case low
+
+    var title: String {
+        rawValue.capitalized
+    }
+}
+
+struct FocusPatchRanking: Equatable {
+    nonisolated let normalizedRect: CGRect
+    nonisolated let robustTailScore: Float
+    nonisolated let microContrast: Float
+    nonisolated let coverage: Float
+    nonisolated let distanceToAF: Float?
+    nonisolated let silhouetteFraction: Float
+    nonisolated let compositeScore: Float
+    nonisolated let containsAFPoint: Bool
+}
+
 struct FocusEvidence: Equatable {
-    let winningRegion: FocusEvidenceRegion
-    let globalScore: Float?
-    let saliencyScore: Float?
-    let afPointScore: Float?
-    let afCenterScore: Float?
-    let afNeighborhoodScore: Float?
-    var effectiveVisualThreshold: Float?
-    var maskCoverage: Float?
-    var relaxedForVisibility: Bool
+    nonisolated let winningRegion: FocusEvidenceRegion
+    nonisolated let globalScore: Float?
+    nonisolated let saliencyScore: Float?
+    nonisolated let afPointScore: Float?
+    nonisolated let afCenterScore: Float?
+    nonisolated let afNeighborhoodScore: Float?
+    nonisolated var effectiveVisualThreshold: Float?
+    nonisolated var maskCoverage: Float?
+    nonisolated var relaxedForVisibility: Bool
+    nonisolated var visualizedRegion: FocusEvidenceRegion?
+    nonisolated var visualizedRect: CGRect?
+    nonisolated var visualizedCentroid: CGPoint?
+    nonisolated var afDistanceFromCentroid: Float?
+    nonisolated var patchRankings: [FocusPatchRanking]
+    nonisolated var overlayStyle: FocusEvidenceOverlayStyle?
+    nonisolated var focusEvidenceConfidence: FocusEvidenceConfidence?
+    nonisolated var focusEvidenceConfidenceReason: String?
+    nonisolated var spatialAlignmentScore: Float?
+    nonisolated var localPatchDominance: Float?
+    nonisolated var silhouettePenaltyApplied: Bool
 
     nonisolated init(
         winningRegion: FocusEvidenceRegion,
@@ -104,6 +148,17 @@ struct FocusEvidence: Equatable {
         effectiveVisualThreshold: Float? = nil,
         maskCoverage: Float? = nil,
         relaxedForVisibility: Bool = false,
+        visualizedRegion: FocusEvidenceRegion? = nil,
+        visualizedRect: CGRect? = nil,
+        visualizedCentroid: CGPoint? = nil,
+        afDistanceFromCentroid: Float? = nil,
+        patchRankings: [FocusPatchRanking] = [],
+        overlayStyle: FocusEvidenceOverlayStyle? = nil,
+        focusEvidenceConfidence: FocusEvidenceConfidence? = nil,
+        focusEvidenceConfidenceReason: String? = nil,
+        spatialAlignmentScore: Float? = nil,
+        localPatchDominance: Float? = nil,
+        silhouettePenaltyApplied: Bool = false,
     ) {
         self.winningRegion = winningRegion
         self.globalScore = globalScore
@@ -114,6 +169,17 @@ struct FocusEvidence: Equatable {
         self.effectiveVisualThreshold = effectiveVisualThreshold
         self.maskCoverage = maskCoverage
         self.relaxedForVisibility = relaxedForVisibility
+        self.visualizedRegion = visualizedRegion
+        self.visualizedRect = visualizedRect
+        self.visualizedCentroid = visualizedCentroid
+        self.afDistanceFromCentroid = afDistanceFromCentroid
+        self.patchRankings = patchRankings
+        self.overlayStyle = overlayStyle
+        self.focusEvidenceConfidence = focusEvidenceConfidence
+        self.focusEvidenceConfidenceReason = focusEvidenceConfidenceReason
+        self.spatialAlignmentScore = spatialAlignmentScore
+        self.localPatchDominance = localPatchDominance
+        self.silhouettePenaltyApplied = silhouettePenaltyApplied
     }
 }
 
@@ -370,6 +436,7 @@ struct FocusMaskEngine: @unchecked Sendable {
         scale: CGFloat,
         config: FocusDetectorConfig,
         afPoint: CGPoint? = nil,
+        evidence: FocusEvidence? = nil,
     ) async -> CGImage? {
         let context = self.context
 
@@ -388,8 +455,8 @@ struct FocusMaskEngine: @unchecked Sendable {
                 scale: scale,
                 salientRegion: salientRegion,
                 afPoint: afPoint,
-                evidenceRegion: nil,
-                evidence: nil,
+                evidenceRegion: evidence?.winningRegion,
+                evidence: evidence,
                 context: context,
                 config: config,
             ).image
@@ -1253,57 +1320,6 @@ struct FocusMaskEngine: @unchecked Sendable {
             in: scaledImage.extent,
         )
 
-        var masks = [CIImage]()
-        var thresholds = [Float]()
-        var coverages = [Float]()
-        var maskClipRects = [CGRect]()
-        var relaxedForVisibility = false
-
-        func appendMask(
-            rect: CGRect,
-            sourceImage: CIImage,
-            percentile: Float,
-            floorMultiplier: Float,
-            capAtFallback: Bool,
-            erosionRadius: Float,
-            dilationRadius: Float,
-        ) {
-            let samples = Self.redSamples(in: rect, from: sourceImage, context: context)
-            var threshold = Self.adaptiveVisualThreshold(
-                samples,
-                fallback: config.threshold,
-                percentile: percentile,
-                floorMultiplier: floorMultiplier,
-                capAtFallback: capAtFallback,
-            )
-            var coverage = Self.maskCoverage(samples, threshold: threshold)
-
-            if config.guaranteeVisibleFocusEvidence, coverage < config.minimumEvidenceCoverage {
-                let relaxed = Self.relaxedVisualThreshold(
-                    samples,
-                    currentThreshold: threshold,
-                    minimumCoverage: config.minimumEvidenceCoverage,
-                )
-                threshold = relaxed.threshold
-                coverage = relaxed.coverage
-                relaxedForVisibility = relaxedForVisibility || relaxed.relaxed
-            }
-
-            if let mask = Self.thresholdedMask(
-                from: sourceImage,
-                in: rect,
-                threshold: threshold,
-                erosionRadius: erosionRadius,
-                dilationRadius: dilationRadius,
-                extent: scaledImage.extent,
-            ) {
-                masks.append(mask)
-                maskClipRects.append(rect.integral.intersection(scaledImage.extent))
-                thresholds.append(threshold)
-                coverages.append(coverage)
-            }
-        }
-
         let requestedEvidenceRegion = evidenceRegion ?? .none
         let visualEvidenceRegion: FocusEvidenceRegion = switch requestedEvidenceRegion {
         case .afCenter where afCenterRect != nil:
@@ -1355,96 +1371,80 @@ struct FocusMaskEngine: @unchecked Sendable {
             return weighted
         }
 
-        switch visualEvidenceRegion {
+        let searchRegions: [(CGRect, CIImage)] = switch visualEvidenceRegion {
         case .afCenter:
             if let afCenterRect {
-                appendMask(
-                    rect: afCenterRect,
-                    sourceImage: afWeightedSource(for: afCenterRect),
-                    percentile: 0.82,
-                    floorMultiplier: 0.32,
-                    capAtFallback: true,
-                    erosionRadius: 0,
-                    dilationRadius: min(config.dilationRadius, 0.75),
-                )
-            }
+                [(afCenterRect, afWeightedSource(for: afCenterRect))]
+            } else { [] }
 
         case .afNeighborhood:
             if let afNeighborhoodRect {
-                appendMask(
-                    rect: afNeighborhoodRect,
-                    sourceImage: afWeightedSource(for: afNeighborhoodRect),
-                    percentile: 0.88,
-                    floorMultiplier: 0.42,
-                    capAtFallback: true,
-                    erosionRadius: max(0, config.erosionRadius - 1.0),
-                    dilationRadius: min(config.dilationRadius, 0.75),
-                )
-            }
+                [(afNeighborhoodRect, afWeightedSource(for: afNeighborhoodRect))]
+            } else { [] }
 
         case .afPoint:
             if let afRect = selection.afRect {
-                appendMask(
-                    rect: afRect,
-                    sourceImage: afWeightedSource(for: afRect),
-                    percentile: 0.88,
-                    floorMultiplier: 0.42,
-                    capAtFallback: true,
-                    erosionRadius: max(0, config.erosionRadius - 1.0),
-                    dilationRadius: min(config.dilationRadius, 0.75),
-                )
-            }
+                [(afRect, afWeightedSource(for: afRect))]
+            } else { [] }
 
         case .saliency:
             if let saliencyRect = selection.saliencyRect {
-                appendMask(
-                    rect: saliencyRect,
-                    sourceImage: boostedLaplacian,
-                    percentile: 0.95,
-                    floorMultiplier: 1.0,
-                    capAtFallback: false,
-                    erosionRadius: config.erosionRadius,
-                    dilationRadius: config.dilationRadius,
-                )
-            }
+                [(saliencyRect, boostedLaplacian)]
+            } else { [] }
 
         case .mixed:
-            if let afRect = selection.afRect {
-                appendMask(
-                    rect: afRect,
-                    sourceImage: afWeightedSource(for: afRect),
-                    percentile: 0.88,
-                    floorMultiplier: 0.42,
-                    capAtFallback: true,
-                    erosionRadius: max(0, config.erosionRadius - 1.0),
-                    dilationRadius: min(config.dilationRadius, 0.75),
-                )
-            }
-            if let saliencyRect = selection.saliencyRect {
-                appendMask(
-                    rect: saliencyRect,
-                    sourceImage: boostedLaplacian,
-                    percentile: 0.95,
-                    floorMultiplier: 1.0,
-                    capAtFallback: false,
-                    erosionRadius: config.erosionRadius,
-                    dilationRadius: config.dilationRadius,
-                )
-            }
+            [
+                selection.afRect.map { ($0, afWeightedSource(for: $0)) },
+                selection.saliencyRect.map { ($0, boostedLaplacian) }
+            ].compactMap { $0 }
 
         case .global, .none:
-            appendMask(
-                rect: scaledImage.extent,
-                sourceImage: boostedLaplacian,
-                percentile: 0.97,
-                floorMultiplier: 1.0,
-                capAtFallback: false,
-                erosionRadius: config.erosionRadius,
-                dilationRadius: config.dilationRadius,
-            )
+            [(scaledImage.extent, boostedLaplacian)]
         }
 
-        let whiteMask: CIImage = switch masks.count {
+        var rankings = searchRegions
+            .flatMap { region, source in
+                Self.patchRankings(
+                    in: region,
+                    sourceImage: source,
+                    extent: scaledImage.extent,
+                    afPoint: afPoint,
+                    visualRegion: visualEvidenceRegion,
+                    context: context,
+                )
+            }
+        if let afPixelCenter {
+            let afPatchWidth = scaledImage.extent.width * 0.06
+            let afPatchHeight = scaledImage.extent.height * 0.06
+            let afPatchRect = CGRect(
+                x: afPixelCenter.x - afPatchWidth * 0.5,
+                y: afPixelCenter.y - afPatchHeight * 0.5,
+                width: afPatchWidth,
+                height: afPatchHeight,
+            ).intersection(scaledImage.extent)
+            rankings.append(Self.patchRanking(
+                for: afPatchRect,
+                searchRegion: scaledImage.extent,
+                sourceImage: fineLaplacian ?? boostedLaplacian,
+                extent: scaledImage.extent,
+                afPoint: afPoint,
+                visualRegion: visualEvidenceRegion,
+                context: context,
+            ))
+        }
+        let selectedPatches = Self.selectEvidencePatches(
+            from: rankings,
+            visualRegion: visualEvidenceRegion,
+        )
+        let overlayStyle: FocusEvidenceOverlayStyle = visualEvidenceRegion == .global ? .globalDetail : .subjectHeat
+        let masks = selectedPatches.compactMap {
+            Self.heatPatch(
+                for: $0.normalizedRect,
+                extent: scaledImage.extent,
+                style: overlayStyle,
+            )
+        }
+        let patchMask: CIImage = switch masks.count {
         case 0:
             CIImage(color: .black).cropped(to: scaledImage.extent)
 
@@ -1457,60 +1457,26 @@ struct FocusMaskEngine: @unchecked Sendable {
             }
         }
 
-        let redMatrix = CIFilter.colorMatrix()
-        redMatrix.inputImage = whiteMask
-        redMatrix.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        redMatrix.gVector = CIVector(x: 0, y: 0, z: 0, w: 0)
-        redMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 0)
-        redMatrix.aVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        guard let redMask = redMatrix.outputImage else {
-            return FocusMaskRenderResult(
-                image: nil,
-                diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
-                evidence: Self.focusEvidenceDiagnostics(
-                    from: evidence,
-                    visualRegion: visualEvidenceRegion,
-                    threshold: thresholds.min(),
-                    coverage: coverages.max(),
-                    relaxedForVisibility: relaxedForVisibility,
-                ),
-            )
-        }
-
         let feathered: CIImage
         if config.featherRadius > 0 {
             let featherBlur = CIFilter.gaussianBlur()
-            featherBlur.inputImage = redMask
+            featherBlur.inputImage = patchMask
             featherBlur.radius = config.featherRadius
-            feathered = featherBlur.outputImage ?? redMask
+            feathered = featherBlur.outputImage ?? patchMask
         } else {
-            feathered = redMask
+            feathered = patchMask
         }
-
-        let croppedMask: CIImage
-        if visualEvidenceRegion.isAFAnchored,
-           let clip = Self.union(maskClipRects),
-           !clip.isNull,
-           !clip.isEmpty {
-            let pad = CGFloat(max(config.featherRadius, 0))
-            let paddedClip = clip.insetBy(dx: -pad, dy: -pad).intersection(scaledImage.extent)
-            let blackBg = CIImage(color: .black).cropped(to: scaledImage.extent)
-            croppedMask = feathered
-                .cropped(to: paddedClip)
-                .composited(over: blackBg)
-                .cropped(to: scaledImage.extent)
-        } else {
-            croppedMask = feathered.cropped(to: scaledImage.extent)
-        }
+        let croppedMask = feathered.cropped(to: scaledImage.extent)
         return FocusMaskRenderResult(
             image: context.createCGImage(croppedMask, from: croppedMask.extent),
-            diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: thresholds.min()),
+            diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: nil),
             evidence: Self.focusEvidenceDiagnostics(
                 from: evidence,
                 visualRegion: visualEvidenceRegion,
-                threshold: thresholds.min(),
-                coverage: coverages.max(),
-                relaxedForVisibility: relaxedForVisibility,
+                selectedPatches: selectedPatches,
+                rankings: rankings,
+                overlayStyle: overlayStyle,
+                afPoint: afPoint,
             ),
         )
     }
@@ -1592,14 +1558,6 @@ struct FocusMaskEngine: @unchecked Sendable {
         )
     }
 
-    private nonisolated static func union(_ rects: [CGRect]) -> CGRect? {
-        let validRects = rects.filter { !$0.isNull && !$0.isEmpty }
-        guard let first = validRects.first else { return nil }
-        return validRects.dropFirst().reduce(first) { partial, rect in
-            partial.union(rect)
-        }
-    }
-
     nonisolated static func adaptiveVisualThreshold(
         _ samples: [Float],
         fallback: Float,
@@ -1651,29 +1609,262 @@ struct FocusMaskEngine: @unchecked Sendable {
         return (relaxedThreshold, relaxedCoverage, relaxedThreshold < currentThreshold)
     }
 
-    private nonisolated static func focusEvidenceDiagnostics(
-        from evidence: FocusEvidence?,
+    nonisolated static func selectEvidencePatches(
+        from rankings: [FocusPatchRanking],
         visualRegion: FocusEvidenceRegion,
-        threshold: Float?,
-        coverage: Float?,
-        relaxedForVisibility: Bool,
-    ) -> FocusEvidence {
-        if var evidence {
-            evidence.effectiveVisualThreshold = threshold
-            evidence.maskCoverage = coverage
-            evidence.relaxedForVisibility = relaxedForVisibility
-            return evidence
+    ) -> [FocusPatchRanking] {
+        let viable = rankings
+            .filter { $0.compositeScore.isFinite && $0.compositeScore > 0 }
+            .sorted { $0.compositeScore > $1.compositeScore }
+        guard !viable.isEmpty else { return [] }
+
+        var ordered = viable
+        if visualRegion.isAFAnchored,
+           let nearest = viable.min(by: { ($0.distanceToAF ?? .infinity) < ($1.distanceToAF ?? .infinity) }),
+           let strongest = viable.first,
+           strongest != nearest,
+           strongest.compositeScore < nearest.compositeScore * 1.15 {
+            ordered.removeAll { $0 == nearest }
+            ordered.insert(nearest, at: 0)
         }
 
-        return FocusEvidence(
+        var selected: [FocusPatchRanking] = []
+        for candidate in ordered {
+            guard selected.allSatisfy({ overlapRatio(candidate.normalizedRect, $0.normalizedRect) < 0.55 }) else {
+                continue
+            }
+            selected.append(candidate)
+            if selected.count == 3 { break }
+        }
+        return selected
+    }
+
+    private nonisolated static func patchRankings(
+        in region: CGRect,
+        sourceImage: CIImage,
+        extent: CGRect,
+        afPoint: CGPoint?,
+        visualRegion: FocusEvidenceRegion,
+        context: CIContext,
+    ) -> [FocusPatchRanking] {
+        let boundedRegion = region.integral.intersection(extent)
+        guard !boundedRegion.isNull, !boundedRegion.isEmpty else { return [] }
+
+        let patchWidth = min(max(boundedRegion.width * 0.34, extent.width * 0.035), extent.width * 0.14)
+        let patchHeight = min(max(boundedRegion.height * 0.34, extent.height * 0.035), extent.height * 0.14)
+        let stepX = max(1, patchWidth * 0.50)
+        let stepY = max(1, patchHeight * 0.50)
+        var rects: [CGRect] = []
+
+        var y = boundedRegion.minY
+        while y + patchHeight <= boundedRegion.maxY + 0.5 {
+            var x = boundedRegion.minX
+            while x + patchWidth <= boundedRegion.maxX + 0.5 {
+                rects.append(CGRect(x: x, y: y, width: patchWidth, height: patchHeight))
+                x += stepX
+            }
+            y += stepY
+        }
+
+        if let afPixel = afPixelCenter(afPoint: afPoint, in: extent) {
+            let centered = CGRect(
+                x: afPixel.x - patchWidth * 0.5,
+                y: afPixel.y - patchHeight * 0.5,
+                width: patchWidth,
+                height: patchHeight,
+            ).intersection(boundedRegion)
+            if centered.width >= patchWidth * 0.75, centered.height >= patchHeight * 0.75 {
+                rects.append(centered)
+            }
+        }
+
+        return rects.map {
+            patchRanking(
+                for: $0,
+                searchRegion: boundedRegion,
+                sourceImage: sourceImage,
+                extent: extent,
+                afPoint: afPoint,
+                visualRegion: visualRegion,
+                context: context,
+            )
+        }
+    }
+
+    private nonisolated static func patchRanking(
+        for rect: CGRect,
+        searchRegion: CGRect,
+        sourceImage: CIImage,
+        extent: CGRect,
+        afPoint: CGPoint?,
+        visualRegion: FocusEvidenceRegion,
+        context: CIContext,
+    ) -> FocusPatchRanking {
+        let samples = redSamples(in: rect, from: sourceImage, context: context)
+        let robust = robustTailScore(samples) ?? 0
+        let micro = microContrast(samples)
+        let threshold = adaptiveVisualThreshold(
+            samples,
+            fallback: 0.46,
+            percentile: 0.88,
+            floorMultiplier: 0.32,
+            capAtFallback: true,
+        )
+        let coverage = maskCoverage(samples, threshold: threshold)
+        let inset = rect.insetBy(dx: rect.width * 0.18, dy: rect.height * 0.18)
+        let innerMean = sampleMean(redSamples(in: inset, from: sourceImage, context: context))
+        let allMean = sampleMean(samples)
+        let silhouette = max(0, min(1, (allMean - innerMean) / max(allMean, 1e-6)))
+        let normalizedRect = normalizedRect(rect, in: extent)
+        let centroid = CGPoint(x: normalizedRect.midX, y: normalizedRect.midY)
+        let distance = afPoint.map { normalizedDistance(from: centroid, to: $0) }
+        let afProximity = distance.map { max(0, 1 - $0 / 0.20) } ?? 0
+        let touchesSearchBorder =
+            abs(rect.minX - searchRegion.minX) < 1 ||
+            abs(rect.maxX - searchRegion.maxX) < 1 ||
+            abs(rect.minY - searchRegion.minY) < 1 ||
+            abs(rect.maxY - searchRegion.maxY) < 1
+        let interiorBonus: Float = touchesSearchBorder ? 0 : 0.03
+        let silhouettePenalty: Float = visualRegion.isAFAnchored ? 0.18 : 0.45
+        let composite = max(0, robust + micro * 0.35 + coverage * 0.08 + afProximity * 0.12 + interiorBonus - silhouette * silhouettePenalty)
+
+        return FocusPatchRanking(
+            normalizedRect: normalizedRect,
+            robustTailScore: robust,
+            microContrast: micro,
+            coverage: coverage,
+            distanceToAF: distance,
+            silhouetteFraction: silhouette,
+            compositeScore: composite,
+            containsAFPoint: afPoint.map(normalizedRect.contains) ?? false,
+        )
+    }
+
+    nonisolated static func focusEvidenceDiagnostics(
+        from evidence: FocusEvidence?,
+        visualRegion: FocusEvidenceRegion,
+        selectedPatches: [FocusPatchRanking],
+        rankings: [FocusPatchRanking],
+        overlayStyle: FocusEvidenceOverlayStyle,
+        afPoint: CGPoint?,
+    ) -> FocusEvidence {
+        var result = evidence ?? FocusEvidence(
             winningRegion: visualRegion,
             globalScore: nil,
             saliencyScore: nil,
             afPointScore: nil,
-            effectiveVisualThreshold: threshold,
-            maskCoverage: coverage,
-            relaxedForVisibility: relaxedForVisibility,
         )
+        let visualizedRect = selectedPatches.map(\.normalizedRect).reduce(nil as CGRect?) { partial, rect in
+            partial.map { $0.union(rect) } ?? rect
+        }
+        let centroid = visualizedRect.map { CGPoint(x: $0.midX, y: $0.midY) }
+        let afDistance = centroid.flatMap { center in afPoint.map { normalizedDistance(from: center, to: $0) } }
+        let sortedRankings = rankings.sorted { $0.compositeScore > $1.compositeScore }
+        let dominance: Float? = if let first = sortedRankings.first?.compositeScore {
+            first / max(sortedRankings.dropFirst().first?.compositeScore ?? first, 1e-6)
+        } else {
+            nil
+        }
+        let confidence = focusEvidenceConfidence(
+            visualRegion: visualRegion,
+            patches: selectedPatches,
+            afDistance: afDistance,
+            dominance: dominance,
+        )
+
+        result.effectiveVisualThreshold = nil
+        result.maskCoverage = selectedPatches.map(\.coverage).max()
+        result.relaxedForVisibility = false
+        result.visualizedRegion = visualRegion
+        result.visualizedRect = visualizedRect
+        result.visualizedCentroid = centroid
+        result.afDistanceFromCentroid = afDistance
+        result.patchRankings = sortedRankings
+        result.overlayStyle = overlayStyle
+        result.focusEvidenceConfidence = confidence.value
+        result.focusEvidenceConfidenceReason = confidence.reason
+        result.spatialAlignmentScore = afDistance.map { max(0, 1 - $0 / 0.05) }
+        result.localPatchDominance = dominance
+        result.silhouettePenaltyApplied = selectedPatches.contains { $0.silhouetteFraction > 0.12 }
+        return result
+    }
+
+    nonisolated static func focusEvidenceConfidence(
+        visualRegion: FocusEvidenceRegion,
+        patches: [FocusPatchRanking],
+        afDistance: Float?,
+        dominance: Float?,
+    ) -> (value: FocusEvidenceConfidence, reason: String) {
+        guard let best = patches.first, best.compositeScore > 0 else {
+            return (.low, "No viable local focus patch")
+        }
+        if visualRegion.isAFAnchored, let afDistance {
+            if afDistance <= 0.05 {
+                return (.high, "AF-local patch is spatially aligned")
+            }
+            return (.low, "AF-local patch is more than 5% from the AF marker")
+        }
+        if visualRegion == .global {
+            return best.compositeScore >= 0.10
+                ? (.medium, "Detail is measurable but global-only")
+                : (.low, "Global detail is weak")
+        }
+        if best.silhouetteFraction < 0.20, (dominance ?? 1) >= 1.08 {
+            return (.high, "Interior subject patch clearly dominates")
+        }
+        return (.medium, "Subject detail is usable but not strongly localized")
+    }
+
+    private nonisolated static func heatPatch(
+        for normalizedRect: CGRect,
+        extent: CGRect,
+        style: FocusEvidenceOverlayStyle,
+    ) -> CIImage? {
+        let rect = CGRect(
+            x: extent.minX + normalizedRect.minX * extent.width,
+            y: extent.minY + normalizedRect.minY * extent.height,
+            width: normalizedRect.width * extent.width,
+            height: normalizedRect.height * extent.height,
+        ).integral.intersection(extent)
+        guard !rect.isEmpty else { return nil }
+        let gradient = CIFilter.radialGradient()
+        gradient.center = CGPoint(x: rect.midX, y: rect.midY)
+        gradient.radius0 = Float(min(rect.width, rect.height) * 0.18)
+        gradient.radius1 = Float(min(rect.width, rect.height) * 0.58)
+        switch style {
+        case .subjectHeat:
+            gradient.color0 = CIColor(red: 1.0, green: 0.12, blue: 0.02, alpha: 0.88)
+            gradient.color1 = CIColor(red: 1.0, green: 0.42, blue: 0.02, alpha: 0)
+
+        case .globalDetail:
+            gradient.color0 = CIColor(red: 0.82, green: 0.52, blue: 0.18, alpha: 0.42)
+            gradient.color1 = CIColor(red: 0.70, green: 0.48, blue: 0.20, alpha: 0)
+        }
+        return gradient.outputImage?.cropped(to: rect).composited(over: CIImage(color: .black).cropped(to: extent))
+    }
+
+    private nonisolated static func normalizedRect(_ rect: CGRect, in extent: CGRect) -> CGRect {
+        CGRect(
+            x: (rect.minX - extent.minX) / extent.width,
+            y: (rect.minY - extent.minY) / extent.height,
+            width: rect.width / extent.width,
+            height: rect.height / extent.height,
+        )
+    }
+
+    private nonisolated static func normalizedDistance(from lhs: CGPoint, to rhs: CGPoint) -> Float {
+        Float(hypot(lhs.x - rhs.x, lhs.y - rhs.y))
+    }
+
+    private nonisolated static func sampleMean(_ samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        return samples.reduce(0, +) / Float(samples.count)
+    }
+
+    private nonisolated static func overlapRatio(_ lhs: CGRect, _ rhs: CGRect) -> CGFloat {
+        let intersection = lhs.intersection(rhs)
+        guard !intersection.isNull, !intersection.isEmpty else { return 0 }
+        return (intersection.width * intersection.height) / min(lhs.width * lhs.height, rhs.width * rhs.height)
     }
 
     private nonisolated static func redSamples(in rect: CGRect, from image: CIImage, context: CIContext) -> [Float] {
@@ -1697,44 +1888,6 @@ struct FocusMaskEngine: @unchecked Sendable {
             let value = rgba[idx]
             return value.isFinite ? value : nil
         }
-    }
-
-    private nonisolated static func thresholdedMask(
-        from image: CIImage,
-        in rect: CGRect,
-        threshold: Float,
-        erosionRadius: Float,
-        dilationRadius: Float,
-        extent: CGRect,
-    ) -> CIImage? {
-        let blackBg = CIImage(color: .black).cropped(to: extent)
-        let regionImage = image
-            .cropped(to: rect.integral.intersection(extent))
-            .composited(over: blackBg)
-
-        let thresholdFilter = CIFilter.colorThreshold()
-        thresholdFilter.inputImage = regionImage
-        thresholdFilter.threshold = threshold
-        guard let thresholdedEdges = thresholdFilter.outputImage else { return nil }
-
-        let erosionPx = Self.morphologyPixelRadius(erosionRadius)
-        let eroded: CIImage
-        if erosionPx > 0, let erode = CIFilter(name: "CIMorphologyMinimum") {
-            erode.setValue(thresholdedEdges, forKey: kCIInputImageKey)
-            erode.setValue(erosionPx, forKey: kCIInputRadiusKey)
-            eroded = erode.outputImage ?? thresholdedEdges
-        } else {
-            eroded = thresholdedEdges
-        }
-
-        let dilationPx = Self.morphologyPixelRadius(dilationRadius)
-        if dilationPx > 0, let dilate = CIFilter(name: "CIMorphologyMaximum") {
-            dilate.setValue(eroded, forKey: kCIInputImageKey)
-            dilate.setValue(dilationPx, forKey: kCIInputRadiusKey)
-            return (dilate.outputImage ?? eroded).cropped(to: extent)
-        }
-
-        return eroded.cropped(to: extent)
     }
 
     private nonisolated static func centerWeightedLaplacian(
@@ -1767,11 +1920,6 @@ struct FocusMaskEngine: @unchecked Sendable {
         }
         return image.composited(over: background)
     }
-
-    @inline(__always)
-    private nonisolated static func morphologyPixelRadius(_ r: Float) -> Int {
-        max(0, Int(r.rounded()))
-    }
 }
 
 struct FocusCalibrationResult {
@@ -1795,6 +1943,7 @@ final class FocusMaskModel {
         scale: CGFloat,
         configOverride: FocusDetectorConfig? = nil,
         afPoint: CGPoint? = nil,
+        evidence: FocusEvidence? = nil,
     ) async -> NSImage? {
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let originalSize = nsImage.size
@@ -1805,6 +1954,7 @@ final class FocusMaskModel {
             scale: scale,
             config: config,
             afPoint: afPoint,
+            evidence: evidence,
         ) else { return nil }
 
         return NSImage(cgImage: result, size: originalSize)

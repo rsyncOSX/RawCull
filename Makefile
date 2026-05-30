@@ -45,6 +45,12 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation is not applied when coverage already meets target`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF local rect stays constrained around focus point`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF pixel center matches overlay normalized coordinates`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF centered patch wins over slightly stronger distant patch`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF distant patch wins when detail exceeds override`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`saliency interior patch beats silhouette border`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`global evidence uses medium confidence when measurable`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`no viable patch is low confidence`()' \
+	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`diagnostics report visualized patch and AF distance`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness can outweigh subject metadata when detail clearly leads`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness is omitted for tiny sharpness spread`()' \
 	'-only-testing:RawCullTests/BurstRankingEngineTests/`best relative frame still needs absolute sharpness for high confidence`()' \

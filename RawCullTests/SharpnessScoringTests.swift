@@ -660,6 +660,104 @@ struct FocusNumericHelperTests {
     }
 }
 
+@Suite("Focus evidence patch overlay")
+struct FocusEvidencePatchOverlayTests {
+    @Test(.tags(.smoke))
+    func `AF centered patch wins over slightly stronger distant patch`() throws {
+        let near = patch(x: 0.47, y: 0.47, score: 1.0, distance: 0.01, containsAF: true)
+        let distant = patch(x: 0.47, y: 0.62, score: 1.14, distance: 0.16)
+
+        let selected = FocusMaskEngine.selectEvidencePatches(from: [distant, near], visualRegion: .afCenter)
+
+        #expect(try #require(selected.first) == near)
+    }
+
+    @Test(.tags(.smoke))
+    func `AF distant patch wins when detail exceeds override`() throws {
+        let near = patch(x: 0.47, y: 0.47, score: 1.0, distance: 0.01, containsAF: true)
+        let distant = patch(x: 0.47, y: 0.62, score: 1.16, distance: 0.16)
+
+        let selected = FocusMaskEngine.selectEvidencePatches(from: [distant, near], visualRegion: .afCenter)
+
+        #expect(try #require(selected.first) == distant)
+    }
+
+    @Test(.tags(.smoke))
+    func `saliency interior patch beats silhouette border`() throws {
+        let interior = patch(x: 0.45, y: 0.45, score: 0.72, silhouette: 0.04)
+        let border = patch(x: 0.10, y: 0.10, score: 0.58, silhouette: 0.70)
+
+        let selected = FocusMaskEngine.selectEvidencePatches(from: [border, interior], visualRegion: .saliency)
+
+        #expect(try #require(selected.first) == interior)
+    }
+
+    @Test(.tags(.smoke))
+    func `global evidence uses medium confidence when measurable`() {
+        let result = FocusMaskEngine.focusEvidenceConfidence(
+            visualRegion: .global,
+            patches: [patch(x: 0.45, y: 0.45, score: 0.20)],
+            afDistance: nil,
+            dominance: 1.2,
+        )
+
+        #expect(result.value == .medium)
+    }
+
+    @Test(.tags(.smoke))
+    func `no viable patch is low confidence`() {
+        let result = FocusMaskEngine.focusEvidenceConfidence(
+            visualRegion: .afCenter,
+            patches: [],
+            afDistance: nil,
+            dominance: nil,
+        )
+
+        #expect(result.value == .low)
+    }
+
+    @Test(.tags(.smoke))
+    func `diagnostics report visualized patch and AF distance`() throws {
+        let selected = patch(x: 0.47, y: 0.47, score: 0.8, distance: 0.0, containsAF: true)
+        let evidence = FocusMaskEngine.focusEvidenceDiagnostics(
+            from: nil,
+            visualRegion: .afCenter,
+            selectedPatches: [selected],
+            rankings: [selected],
+            overlayStyle: .subjectHeat,
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+        )
+
+        #expect(evidence.visualizedRegion == .afCenter)
+        #expect(evidence.visualizedRect == selected.normalizedRect)
+        #expect(evidence.visualizedCentroid == CGPoint(x: 0.50, y: 0.50))
+        #expect(try #require(evidence.afDistanceFromCentroid) < 0.001)
+        #expect(evidence.patchRankings == [selected])
+        #expect(evidence.overlayStyle == .subjectHeat)
+        #expect(evidence.focusEvidenceConfidence == .high)
+    }
+
+    private func patch(
+        x: CGFloat,
+        y: CGFloat,
+        score: Float,
+        distance: Float? = nil,
+        silhouette: Float = 0,
+        containsAF: Bool = false,
+    ) -> FocusPatchRanking {
+        FocusPatchRanking(
+            normalizedRect: CGRect(x: x, y: y, width: 0.06, height: 0.06),
+            robustTailScore: score,
+            microContrast: 0.2,
+            coverage: 0.15,
+            distanceToAF: distance,
+            silhouetteFraction: silhouette,
+            compositeScore: score,
+            containsAFPoint: containsAF,
+        )
+    }
+}
+
 // MARK: - Aperture hint
 
 @Suite("FocusDetectorConfig.ApertureHint")

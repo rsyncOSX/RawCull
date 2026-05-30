@@ -220,12 +220,31 @@ struct MainThumbnailImageView: View {
 
     private func regenerateMask() async {
         guard let image else { return }
-        let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(from: image, scale: 1.0)
+        let config = focusMaskConfig()
+        let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
+            from: image,
+            scale: 1.0,
+            configOverride: config,
+            afPoint: file?.afFocusNormalized,
+            evidence: file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence },
+        )
         guard !Task.isCancelled else { return }
         await MainActor.run {
             self.focusMask = mask
             self.focusMaskSourceURL = url
         }
+    }
+
+    private func focusMaskConfig() -> FocusDetectorConfig {
+        guard let file else { return viewModel.sharpnessModel.effectiveFocusConfig }
+        var config = viewModel.sharpnessModel.effectiveFocusConfig
+        config.iso = file.exifData?.isoValue ?? 400
+        config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+        if let score = viewModel.sharpnessModel.scores[file.id],
+           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
+            config.guaranteeVisibleFocusEvidence = true
+        }
+        return config
     }
 
     private func resetFocusMaskState() {
