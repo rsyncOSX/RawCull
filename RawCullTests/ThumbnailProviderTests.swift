@@ -59,7 +59,10 @@ struct RequestThumbnailTests {
             return await group.next()
         }
 
-        #expect(result == nil)
+        // group.next() returns CGImage?? — task ran in cancelled context and returned nil (inner),
+        // so result is .some(nil), not the outer nil. Verify the task completed without surfacing
+        // a failure (no crash, no thrown error propagated up).
+        #expect(result == .some(nil))
     }
 
     @Test

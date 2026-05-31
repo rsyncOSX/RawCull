@@ -167,9 +167,7 @@ enum SharpnessScoringSizeOption: Int, CaseIterable, Identifiable {
     }
 
     static func normalizedPixelSize(_ value: Int, for quality: SharpnessScoringQuality) -> Int {
-        if quality == .highPrecision, value <= 0 {
-            return highPrecisionDefaultPixelSize
-        }
+        guard value > 0 else { return 0 }
         return max(value, quality.minimumThumbnailMaxPixelSize)
     }
 }

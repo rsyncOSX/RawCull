@@ -110,7 +110,7 @@ enum ComparisonGridKeyAction: Equatable {
         case "-":
             .zoomOut
 
-        case "j", "J":
+        case "J":
             .toggleImageSource
 
         case "f", "F":
