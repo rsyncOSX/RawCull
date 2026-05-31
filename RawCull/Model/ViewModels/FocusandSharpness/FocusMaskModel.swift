@@ -43,6 +43,14 @@ final class FocusMaskModel {
         )
     }
 
+    func generateFocusPeakingMask(
+        from cgImage: CGImage,
+        configOverride: FocusDetectorConfig? = nil,
+    ) async -> CGImage? {
+        let config = configOverride ?? self.config
+        return await engine.generateFocusPeakingMask(from: cgImage, configOverride: config)
+    }
+
     nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
         FocusMaskEngine.robustTailScore(samples)
     }

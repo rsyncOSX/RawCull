@@ -36,6 +36,86 @@ extension FocusMaskEngine {
         }.value
     }
 
+    /// Generates a pixel-level focus peaking overlay covering the full frame.
+    /// Every pixel whose Laplacian energy exceeds `config.threshold` is coloured bright
+    /// green; all other pixels are transparent. The result is composited over the photo
+    /// with `.screen` blend mode.
+    nonisolated func generateFocusPeakingMask(from cgImage: CGImage, configOverride: FocusDetectorConfig? = nil) async -> CGImage? {
+        let config = configOverride ?? FocusDetectorConfig()
+        let context = self.context
+        return await Task.detached(priority: .userInitiated) {
+            Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
+        }.value
+    }
+
+    /// Pixel-level focus peaking: highlights every above-threshold pixel in bright green.
+    ///
+    /// Pipeline:
+    /// 1. `buildAmplifiedLaplacian` — Gaussian pre-blur + Metal Laplacian + gain (full frame, no region restriction).
+    /// 2. `CIColorMatrix` — copies R channel into R/G/B so `CIColorThreshold` sees a greyscale image.
+    /// 3. `CIColorThreshold` — outputs 1.0 where energy ≥ `config.threshold`, 0.0 elsewhere.
+    /// 4. `CIMorphologyMinimum` (erosion) — removes isolated noise pixels.
+    /// 5. `CIMorphologyMaximum` (dilation) — slightly expands remaining edges.
+    /// 6. `CIColorMatrix` — maps binary value to bright green tint; alpha = binary value
+    ///    (non-sharp pixels transparent, sharp pixels opaque + green).
+    nonisolated static func buildFocusPeakingMask(
+        from inputImage: CIImage,
+        config: FocusDetectorConfig,
+        context: CIContext,
+    ) -> CGImage? {
+        guard let laplacian = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
+
+        // Collapse R channel into R,G,B so CIColorThreshold sees a grey signal.
+        let extractR = CIFilter.colorMatrix()
+        extractR.inputImage = laplacian
+        extractR.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        extractR.gVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        extractR.bVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        extractR.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        guard let grey = extractR.outputImage else { return nil }
+
+        // Threshold: pixels above config.threshold → 1.0, below → 0.0.
+        let thresh = CIFilter.colorThreshold()
+        thresh.inputImage = grey
+        thresh.threshold = config.threshold
+        guard var binary = thresh.outputImage else { return nil }
+
+        // Erosion: remove isolated noise pixels.
+        if config.erosionRadius > 0 {
+            let erode = CIFilter.morphologyMinimum()
+            erode.inputImage = binary
+            erode.radius = config.erosionRadius
+            binary = erode.outputImage ?? binary
+        }
+
+        // Dilation: slightly expand surviving edges.
+        if config.dilationRadius > 0 {
+            let dilate = CIFilter.morphologyMaximum()
+            dilate.inputImage = binary
+            dilate.radius = config.dilationRadius
+            binary = dilate.outputImage ?? binary
+        }
+
+        // Colorize with bright green. The binary value (0 or 1) is in the R channel after
+        // the earlier CIColorMatrix, and in R,G,B after CIColorThreshold. Drive both RGB
+        // and alpha from R:
+        //   output.r = binary * 0.15   (dim red component of green)
+        //   output.g = binary * 1.00   (strong green)
+        //   output.b = binary * 0.05   (very dim blue)
+        //   output.a = binary * 1.00   (sharp → opaque, non-sharp → transparent)
+        let colorize = CIFilter.colorMatrix()
+        colorize.inputImage = binary
+        colorize.rVector = CIVector(x: 0.15, y: 0, z: 0, w: 0)
+        colorize.gVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
+        colorize.bVector = CIVector(x: 0.05, y: 0, z: 0, w: 0)
+        colorize.aVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
+        colorize.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+        guard let colored = colorize.outputImage else { return nil }
+
+        let cropped = colored.cropped(to: inputImage.extent)
+        return context.createCGImage(cropped, from: cropped.extent)
+    }
+
     nonisolated func generateFocusMaskWithBreakdown(
         from cgImage: CGImage,
         scale: CGFloat,

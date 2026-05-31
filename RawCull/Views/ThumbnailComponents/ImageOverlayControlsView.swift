@@ -9,6 +9,11 @@ struct ImageOverlayControlsView: View {
     @Binding var showFocusMask: Bool
     var focusMaskAvailable: Bool
 
+    // MARK: - Focus peaking
+
+    @Binding var showFocusPeaking: Bool
+    var focusPeakingAvailable: Bool
+
     // MARK: - Focus points
 
     var hasFocusPoints: Bool
@@ -43,6 +48,12 @@ struct ImageOverlayControlsView: View {
                 showFocusMask: $showFocusMask,
                 focusMaskAvailable: focusMaskAvailable,
                 shortcutLabel: showShortcutHints ? "F" : nil,
+            )
+
+            FocusPeakingControlsView(
+                showFocusPeaking: $showFocusPeaking,
+                focusPeakingAvailable: focusPeakingAvailable,
+                shortcutLabel: showShortcutHints ? "G" : nil,
             )
 
             if hasFocusPoints {

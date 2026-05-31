@@ -32,6 +32,7 @@ struct FocusDetectorConfig {
     var erosionRadius: Float = 1.0
     var featherRadius: Float = 2.0
     var showRawLaplacian: Bool = false
+    var showFocusPeaking: Bool = false
     var guaranteeVisibleFocusEvidence: Bool = false
     var minimumEvidenceCoverage: Float = 0.001
     var afCenterRegionRadius: Float = 0.025
@@ -142,6 +143,7 @@ extension FocusDetectorConfig: Equatable {
             && lhs.erosionRadius == rhs.erosionRadius
             && lhs.featherRadius == rhs.featherRadius
             && lhs.showRawLaplacian == rhs.showRawLaplacian
+            && lhs.showFocusPeaking == rhs.showFocusPeaking
             && lhs.guaranteeVisibleFocusEvidence == rhs.guaranteeVisibleFocusEvidence
             && lhs.minimumEvidenceCoverage == rhs.minimumEvidenceCoverage
             && lhs.afCenterRegionRadius == rhs.afCenterRegionRadius
