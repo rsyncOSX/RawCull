@@ -51,7 +51,7 @@ final class SharpnessScoringModel {
     /// 1e-6 floor prevents division-by-zero in the consumers.
     private func recomputeMaxScore() {
         guard scores.count >= 2 else {
-            maxScore = scores.values.first ?? 1.0
+            maxScore = max(scores.values.first ?? 1.0, 1e-6)
             return
         }
         var sorted = Array(scores.values)

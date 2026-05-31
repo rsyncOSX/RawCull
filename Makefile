@@ -17,6 +17,7 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/SimilarityCancellationTests/`cancelIndexing resets progress state`()' \
 	'-only-testing:RawCullTests/SimilarityCancellationTests/`reset clears all similarity state`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`max score small set uses maximum not minimum`()' \
+	'-only-testing:RawCullTests/SharpnessScoringTests/`max score single zero score has 1e-6 floor`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`max score large set uses P 90`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label maps threshold boundaries`()' \
 	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label clamps and handles invalid denominator`()' \
@@ -41,8 +42,6 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection uses saliency when AF is absent`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection keeps saliency when AF local scores are weak`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection falls back to global without subject evidence`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold to meet minimum coverage`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation is not applied when coverage already meets target`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF local rect stays constrained around focus point`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF pixel center matches overlay normalized coordinates`()' \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF centered patch wins over slightly stronger distant patch`()' \

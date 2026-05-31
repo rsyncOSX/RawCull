@@ -407,27 +407,6 @@ extension FocusMaskEngine {
         return Float(covered) / Float(finite.count)
     }
 
-    nonisolated static func relaxedVisualThreshold(
-        _ samples: [Float],
-        currentThreshold: Float,
-        minimumCoverage: Float,
-    ) -> (threshold: Float, coverage: Float, relaxed: Bool) {
-        let finite = samples.filter { $0.isFinite && $0 > 0 }
-        let currentCoverage = maskCoverage(samples, threshold: currentThreshold)
-        let targetCoverage = min(max(minimumCoverage, 0), 1)
-        guard targetCoverage > 0, currentCoverage < targetCoverage, !finite.isEmpty else {
-            return (currentThreshold, currentCoverage, false)
-        }
-
-        var sorted = finite
-        vDSP.sort(&sorted, sortOrder: .ascending)
-        let coveredCount = max(1, Int(ceil(Float(sorted.count) * targetCoverage)))
-        let index = min(max(sorted.count - coveredCount, 0), sorted.count - 1)
-        let relaxedThreshold = min(currentThreshold, sorted[index])
-        let relaxedCoverage = maskCoverage(samples, threshold: relaxedThreshold)
-        return (relaxedThreshold, relaxedCoverage, relaxedThreshold < currentThreshold)
-    }
-
     nonisolated static func selectEvidencePatches(
         from rankings: [FocusPatchRanking],
         visualRegion: FocusEvidenceRegion,

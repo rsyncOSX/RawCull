@@ -29,6 +29,16 @@ struct SharpnessScoringTests {
         #expect(softNormalised < 100, "Soft (out-of-focus) image must not score 100 when a sharper image exists")
     }
 
+    /// Regression test: a single file scoring exactly 0.0 must not produce maxScore == 0.0,
+    /// which would cause NaN/Inf in consumers that compute score / maxScore.
+    @Test(.tags(.smoke))
+    @MainActor
+    func `max score single zero score has 1e-6 floor`() {
+        let model = SharpnessScoringModel()
+        model.scores = [UUID(): 0.0]
+        #expect(model.maxScore >= 1e-6, "maxScore must never be 0.0 — consumers divide by it")
+    }
+
     /// Sanity check: with ≥ 10 scores the p90 path is still used (index > 0).
     @Test(.tags(.smoke))
     @MainActor
@@ -547,34 +557,6 @@ struct FocusNumericHelperTests {
         )
 
         #expect(region == .global)
-    }
-
-    @Test(.tags(.smoke))
-    func `visibility relaxation lowers threshold to meet minimum coverage`() {
-        let samples = [Float](repeating: 0.02, count: 990) + [Float](repeating: 0.30, count: 10)
-        let relaxed = FocusMaskEngine.relaxedVisualThreshold(
-            samples,
-            currentThreshold: 0.46,
-            minimumCoverage: 0.01,
-        )
-
-        #expect(relaxed.relaxed)
-        #expect(relaxed.threshold < 0.46)
-        #expect(relaxed.coverage >= 0.01)
-    }
-
-    @Test(.tags(.smoke))
-    func `visibility relaxation is not applied when coverage already meets target`() {
-        let samples = [Float](repeating: 0.02, count: 900) + [Float](repeating: 0.50, count: 100)
-        let relaxed = FocusMaskEngine.relaxedVisualThreshold(
-            samples,
-            currentThreshold: 0.46,
-            minimumCoverage: 0.01,
-        )
-
-        #expect(!relaxed.relaxed)
-        #expect(relaxed.threshold == 0.46)
-        #expect(relaxed.coverage >= 0.01)
     }
 
     @Test(.tags(.smoke))

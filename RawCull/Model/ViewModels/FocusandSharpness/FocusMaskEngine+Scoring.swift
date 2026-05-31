@@ -31,7 +31,7 @@ extension FocusMaskEngine {
             let cgImage: CGImage
             switch scoringSource {
             case .embeddedPreview:
-                let binaryImg = Self.decodeBinaryFallback(at: url, maxPixelSize: thumbnailMaxPixelSize)
+                let binaryImg = Self.extractSonyEmbeddedPreview(at: url, maxPixelSize: thumbnailMaxPixelSize)
                 if let img = binaryImg {
                     cgImage = img
                 } else {
@@ -117,7 +117,7 @@ extension FocusMaskEngine {
     /// SonyMakerNoteParser, bypassing the RA16 decoder entirely. Sony-only:
     /// other vendors (e.g. Nikon NEF) don't need this path and would hit a
     /// TIFF structure the Sony parser doesn't understand.
-    private nonisolated static func decodeBinaryFallback(at url: URL, maxPixelSize: Int) -> CGImage? {
+    private nonisolated static func extractSonyEmbeddedPreview(at url: URL, maxPixelSize: Int) -> CGImage? {
         guard RawFormatRegistry.format(for: url) is SonyRawFormat.Type else { return nil }
         guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
               let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
@@ -226,6 +226,9 @@ extension FocusMaskEngine {
     /// than 6% of pixels land in the band (sparse edges → likely out-of-focus).
     nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
         guard !samples.isEmpty else { return nil }
+        // Note: with n == 1, p20 == p90 == p97 == the single element.
+        // The p97 <= p90 branch fires and returns max(0, p90 - p20) == 0.0 (not nil).
+        // Callers cannot distinguish "single pixel that scored zero" from "empty" by the return alone.
         var a = samples
         let n = a.count
 
@@ -548,7 +551,7 @@ extension FocusMaskEngine {
         if let region = salientRegion {
             let a = analyzeRegion(region)
             salientAnalysis = a
-            if a.samples.count >= 256 { salientScore = Self.robustTailScore(a.samples) }
+            if a.samples.count >= 64 { salientScore = Self.robustTailScore(a.samples) }
         }
 
         // AF-point subject score
@@ -765,7 +768,12 @@ extension FocusMaskEngine {
         guard let primaryWeighted = scaled(primary, by: 1.0 - w),
               let fineWeighted = scaled(fine, by: w),
               let add = CIFilter(name: "CIAdditionCompositing")
-        else { return primary }
+        else {
+            #if DEBUG
+            Logger.process.debugMessageOnly("buildScoringLaplacian: CIAdditionCompositing unavailable, using primary Laplacian only")
+            #endif
+            return primary
+        }
 
         add.setValue(fineWeighted, forKey: kCIInputImageKey)
         add.setValue(primaryWeighted, forKey: kCIInputBackgroundImageKey)
