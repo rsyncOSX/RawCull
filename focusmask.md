@@ -2,13 +2,30 @@
 
 This document describes the **current implementation in code** of RawCull's sharpness scoring and focus-mask overlay system.
 
-The main implementation lives in:
+The implementation lives in the `FocusandSharpness/` subdirectory and supporting views:
 
-- `RawCull/Model/ViewModels/FocusMaskModel.swift`
-- `RawCull/Model/ViewModels/SharpnessScoringModel.swift`
+**Core model/engine — `RawCull/Model/ViewModels/FocusandSharpness/`**
+
+| File | Contents |
+|---|---|
+| `FocusDetectorConfig.swift` | `FocusDetectorConfig` struct and `ApertureHint` extensions |
+| `FocusMaskCalibration.swift` | `FocusMaskEngine` calibration extension (`calibrateFromBurstParallel`) |
+| `FocusMaskEngine.swift` | Engine struct definition, `CIContext`, inner types |
+| `FocusMaskEngine+Scoring.swift` | `computeSharpnessScore`, `buildAmplifiedLaplacian`, `robustTailScore` |
+| `FocusMaskEngine+MaskGeneration.swift` | `generateFocusMask`, `buildFocusPeakingMask`, patch ranking, overlay rendering |
+| `FocusMaskModel.swift` | `@Observable @MainActor` wrapper; thin async facade over `FocusMaskEngine` |
+| `FocusMaskTypes.swift` | Shared value types: `SaliencyInfo`, `FocusFailureKind`, `FocusEvidence`, `SharpnessBreakdown`, `FocusPatchRanking`, enums |
+| `FocusPointsModel.swift` | Sony AF focus-point reading |
+| `SharpnessScoringModel.swift` | Batch scoring coordinator |
+| `SharpnessScoringOptions.swift` | `SharpnessPhotoType`, `SharpnessScoringQuality`, `SharpnessScoringSource`, `SharpnessScoringSizeOption` |
+
+**Other files**
+
 - `RawCull/Model/ViewModels/RawCullViewModel+Sharpness.swift`
 - `RawCull/Kernels.ci.metal`
 - `RawCull/Views/ZoomViews/ZoomOverlayView.swift`
+- `RawCull/Views/FocusPeek/FocusPeakingControlsView.swift`
+- `RawCull/Views/ThumbnailComponents/ImageOverlayControlsView.swift`
 - `RawCull/Views/GridView/SharpnessControlsView.swift`
 - `RawCull/Views/Settings/FocusSettingsTab.swift`
 - `RawCullTests/SharpnessScoringTests.swift`
@@ -78,8 +95,10 @@ flowchart TD
 Important architectural points:
 
 - `SharpnessScoringModel` is `@MainActor`, but the heavy work runs inside detached/background tasks.
-- `FocusMaskEngine` is `@unchecked Sendable` because it owns a `CIContext`, and the code treats it as immutable background infrastructure.
-- `FocusMaskModel` and `SharpnessScoringModel` share the same config vocabulary, but not every config field currently affects both paths equally.
+- `FocusMaskEngine` is a `struct` marked `@unchecked Sendable` because it owns a `CIContext`; the code treats it as immutable background infrastructure. Its implementation is split across `FocusMaskEngine+Scoring.swift`, `FocusMaskEngine+MaskGeneration.swift`, and `FocusMaskCalibration.swift`.
+- `FocusMaskModel` is `@Observable @MainActor` and acts as a thin async facade over `FocusMaskEngine`. It does not run heavy work itself — it forwards to engine methods via `async let` / `await`.
+- `FocusMaskModel` and `SharpnessScoringModel` share the same config vocabulary via `FocusDetectorConfig`, but not every config field currently affects both paths equally.
+- `SharpnessScoringOptions.swift` contains all options enums (`SharpnessPhotoType`, `SharpnessScoringQuality`, `SharpnessScoringSource`, `SharpnessScoringSizeOption`) that were previously inline in `SharpnessScoringModel`.
 
 ---
 
@@ -454,6 +473,20 @@ This preserves finer details like:
 
 If the source is `rawDemosaic`, concurrency is capped to `2`.
 
+### Thumbnail size option
+
+`SharpnessScoringSizeOption` encodes the three selectable sizes for high-precision scoring:
+
+| Case | Pixel size |
+|---|---:|
+| `.px1024` | 1024 |
+| `.px1536` | 1536 |
+| `.px2048` | 2048 |
+
+`SharpnessScoringSizeOption.highPrecisionDefaultPixelSize` is `2048` (the default for high-precision mode in the UI).
+
+`SharpnessScoringSizeOption.normalizedPixelSize(_:for:)` enforces that the chosen pixel size is never below the quality preset's `minimumThumbnailMaxPixelSize` — so a user cannot accidentally score at 1024 px while `highPrecision` mode requires at least 1024 as a floor.
+
 ---
 
 ## 9. Photo-type presets
@@ -642,7 +675,57 @@ This is why the overlay today behaves more like a **localized heatmap of best fo
 
 ---
 
-## 12. Evidence diagnostics
+## 12. Focus peaking
+
+Focus peaking is a separate per-pixel overlay distinct from the heatmap-style focus evidence overlay.
+
+### What it is
+
+Focus peaking highlights every above-threshold pixel across the whole frame in bright green — it is a **pixel-level binary edge mask**, not a region-ranked heatmap.
+
+### Pipeline
+
+`FocusMaskEngine.buildFocusPeakingMask(from:config:context:)` in `FocusMaskEngine+MaskGeneration.swift`:
+
+1. `buildAmplifiedLaplacian` — same Gaussian pre-blur + Metal Laplacian + gain as the scoring path, but applied to the full frame with no region restriction.
+2. `CIColorMatrix` — copies the R channel into R/G/B so `CIColorThreshold` sees a greyscale signal.
+3. `CIColorThreshold` — outputs `1.0` where energy ≥ `config.threshold`, `0.0` elsewhere.
+4. `CIMorphologyMinimum` (erosion with `config.erosionRadius`) — removes isolated noise pixels.
+5. `CIMorphologyMaximum` (dilation with `config.dilationRadius`) — slightly expands surviving edge pixels.
+6. `CIColorMatrix` — maps the binary value to a bright green tint; sets alpha = binary value so non-sharp pixels are fully transparent.
+
+### Entry point
+
+`FocusMaskModel.generateFocusPeakingMask(from:configOverride:)` is the async facade used by the UI.
+
+In `ZoomOverlayView`, the focus evidence mask and the peaking mask are generated **concurrently** via `async let`:
+
+```swift
+async let maskResult = focusMaskModel.generateFocusMaskWithBreakdown(...)
+async let peakingResult = focusMaskModel.generateFocusPeakingMask(from: source, configOverride: config)
+let (result, peaking) = await (maskResult, peakingResult)
+```
+
+### UI
+
+- Toggled with keyboard shortcut **`g`** (`ZoomOverlayKeyAction.toggleFocusPeaking`) in the zoom view.
+- Controlled by `FocusPeakingControlsView` (pill-shaped overlay button).
+- Rendered with `.blendMode(.screen)` and `.opacity(0.85)` over the base image, so the green overlay does not obscure the image details.
+- Unlike the focus evidence heatmap, no aperture/saliency/AF region logic applies — peaking fires on every pixel that passes the threshold.
+
+### Config fields used
+
+| Field | Role |
+|---|---|
+| `preBlurRadius` | Pre-blur before Laplacian (ISO/aperture-scaled) |
+| `energyMultiplier` | Laplacian gain |
+| `threshold` | Binary cutoff: pixels above this are highlighted |
+| `erosionRadius` | Noise pixel removal |
+| `dilationRadius` | Edge expansion after erosion |
+
+---
+
+## 13. Evidence diagnostics
 
 The overlay path also produces rich diagnostics in `FocusEvidence`.
 
@@ -679,7 +762,7 @@ Examples:
 
 ---
 
-## 13. Auto-calibration
+## 14. Auto-calibration
 
 Before a scoring run, `RawCullViewModel.calibrateAndScoreCurrentCatalog()` calls:
 
@@ -722,16 +805,16 @@ So bursts with different exposure/noise/detail characteristics still produce rou
 
 ---
 
-## 14. UI integration and persistence
+## 15. UI integration and persistence
 
-### 14.1 Scoring trigger
+### 15.1 Scoring trigger
 
 The main score button in `SharpnessControlsView`:
 
 - calibrates from the current burst/catalog
 - then scores all files
 
-### 14.2 Display
+### 15.2 Display
 
 Results are used for:
 
@@ -740,7 +823,7 @@ Results are used for:
 - saliency/subject badges
 - zoom inspector details
 
-### 14.3 Persistence
+### 15.3 Persistence
 
 `RawCullViewModel.persistScoringResultsInMemory()` writes:
 
@@ -760,7 +843,7 @@ Not persisted:
 - full patch diagnostics
 - rendered mask image
 
-### 14.4 Settings persistence
+### 15.4 Settings persistence
 
 The following are loaded from `SettingsViewModel` into the sharpness/focus config:
 
@@ -781,19 +864,22 @@ The following are loaded from `SettingsViewModel` into the sharpness/focus confi
 
 ---
 
-## 15. Active vs currently dormant config behavior
+## 16. Active vs currently dormant config behavior
 
 This is the most important "code reality" section.
 
 Some config names still reflect an older thresholded-mask model, but the current overlay renderer is patch/heat based.
 
-### 15.1 Clearly active in current code
+### 16.1 Clearly active in current code
 
 | Config field | Used now? | Where |
 |---|---|---|
 | `preBlurRadius` | Yes | Laplacian pipeline |
 | `iso` | Yes | ISO-aware pre-blur |
 | `energyMultiplier` | Yes | Laplacian gain |
+| `threshold` | Yes | Focus peaking binary cutoff (not used by the heat overlay) |
+| `erosionRadius` | Yes | Focus peaking noise removal |
+| `dilationRadius` | Yes | Focus peaking edge expansion |
 | `borderInsetFraction` | Yes | scoring and border blacking in overlay path |
 | `salientWeight` / overrides | Yes | score blending |
 | `subjectSizeFactor` | Yes | score bonus |
@@ -807,17 +893,16 @@ Some config names still reflect an older thresholded-mask model, but the current
 | `apertureHint` | Yes | blur gate, blur damp, salient-weight override |
 | `featherRadius` | Yes | final overlay smoothing |
 
-### 15.2 Present in config/settings, but not directly driving the current overlay renderer
+### 16.2 Present in config/settings, but not directly driving the current heat overlay renderer
 
 | Config field | Current state |
 |---|---|
-| `threshold` | Stored, calibrated, and shown in UI, but the current overlay renderer does not use `config.threshold` directly when painting the heat overlay. |
-| `erosionRadius` | Present in settings/UI/config, but not consumed by the current `buildFocusMask` implementation. |
-| `dilationRadius` | Present in settings/UI/config, but not consumed by the current `buildFocusMask` implementation. |
-| `guaranteeVisibleFocusEvidence` | Set by some views for sharp images, but currently not read anywhere in `FocusMaskModel.swift`. |
+| `guaranteeVisibleFocusEvidence` | Set by some views for sharp images, but currently not read anywhere in `FocusMaskModel`. |
 | `minimumEvidenceCoverage` | Present in config, but currently not read by the overlay/scoring flow. |
 
-### 15.3 Diagnostics fields that are currently always unset
+Note: `threshold`, `erosionRadius`, and `dilationRadius` **are** active — in the focus peaking path. They are not used by the heat overlay renderer (`buildFocusMask`).
+
+### 16.3 Diagnostics fields that are currently always unset
 
 The current implementation creates these fields but does not fill them with meaningful values in the active path:
 
@@ -837,7 +922,7 @@ So if you read older comments, setting names, or inspector labels, they may impl
 
 ---
 
-## 16. Coordinate systems and why AF/saliency can be tricky
+## 17. Coordinate systems and why AF/saliency can be tricky
 
 The implementation has to reconcile multiple coordinate systems:
 
@@ -856,7 +941,7 @@ This is one of the most important correctness details in the whole system.
 
 ---
 
-## 17. What the tests cover today
+## 18. What the tests cover today
 
 `RawCullTests/SharpnessScoringTests.swift` currently verifies:
 
@@ -877,7 +962,7 @@ Not deep numeric validation of the full image-analysis math.
 
 ---
 
-## 18. Practical summary
+## 19. Practical summary
 
 In current code, RawCull's sharpness system is best described as:
 
@@ -886,14 +971,13 @@ In current code, RawCull's sharpness system is best described as:
 - blended across **global, saliency, and AF-local regions**
 - with penalties for **silhouette-only detail** and very low local micro-contrast
 
-And the focus overlay is best described as:
+The system provides two complementary visual overlays:
 
-- a **localized focus-evidence heatmap**
-- driven by the same Laplacian/saliency/AF analysis
-- but rendered from **ranked evidence patches**, not from a final whole-image binary threshold/morphology mask
+- a **localized focus-evidence heatmap** — driven by ranked evidence patches from the Laplacian/saliency/AF analysis, showing where the strongest believable focus evidence is
+- a **focus peaking mask** — a pixel-level binary overlay (green tint, threshold + morphology) showing every above-threshold in-focus edge across the full frame
 
 That distinction matters when tuning or refactoring the feature:
 
 - **scoring** is primarily about scalar ranking accuracy
-- **overlay rendering** is primarily about showing the user where the strongest believable focus evidence is
-
+- **heat overlay rendering** is primarily about showing the user where the strongest believable focus evidence is
+- **focus peaking** is primarily a real-time diagnostic for edge density — it uses `threshold`, `erosionRadius`, and `dilationRadius` (not used by the heat overlay)
