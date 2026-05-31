@@ -96,19 +96,29 @@ extension FocusMaskEngine {
             binary = dilate.outputImage ?? binary
         }
 
+        // Second erosion pass to re-thin edges that were widened by dilation, producing
+        // narrower, more precise edge lines without removing the connectivity dilation
+        // provides. Radius is fixed at 0.6 — just enough to trim one pixel of bloat.
+        let fineThin = CIFilter.morphologyMinimum()
+        fineThin.inputImage = binary
+        fineThin.radius = 0.6
+        binary = fineThin.outputImage ?? binary
+
         // Colorize with bright green. The binary value (0 or 1) is in the R channel after
         // the earlier CIColorMatrix, and in R,G,B after CIColorThreshold. Drive both RGB
-        // and alpha from R:
-        //   output.r = binary * 0.15   (dim red component of green)
-        //   output.g = binary * 1.00   (strong green)
-        //   output.b = binary * 0.05   (very dim blue)
-        //   output.a = binary * 1.00   (sharp → opaque, non-sharp → transparent)
+        // and alpha from R, scaling alpha by focusPeakingIntensity so the user can dial
+        // down the overlay without losing edge detail:
+        //   output.r = binary * 0.15 * intensity  (dim red component of green)
+        //   output.g = binary * 1.00              (strong green)
+        //   output.b = binary * 0.05              (very dim blue)
+        //   output.a = binary * intensity         (sharp → semi-opaque, non-sharp → transparent)
+        let intensity = CGFloat(min(max(config.focusPeakingIntensity, 0.30), 1.0))
         let colorize = CIFilter.colorMatrix()
         colorize.inputImage = binary
-        colorize.rVector = CIVector(x: 0.15, y: 0, z: 0, w: 0)
+        colorize.rVector = CIVector(x: 0.15 * intensity, y: 0, z: 0, w: 0)
         colorize.gVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
         colorize.bVector = CIVector(x: 0.05, y: 0, z: 0, w: 0)
-        colorize.aVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
+        colorize.aVector = CIVector(x: intensity, y: 0, z: 0, w: 0)
         colorize.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
         guard let colored = colorize.outputImage else { return nil }
 

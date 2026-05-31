@@ -562,7 +562,7 @@ struct ZoomOverlayView: View {
                     .scaledToFit()
                     .frame(width: size.width, height: size.height)
                     .blendMode(.screen)
-                    .opacity(0.85)
+                    .opacity(0.72)
                     .transition(.opacity)
             }
 

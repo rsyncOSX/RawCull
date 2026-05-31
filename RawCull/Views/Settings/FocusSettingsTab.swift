@@ -58,6 +58,22 @@ struct FocusSettingsTab: View {
                     }
                 }
 
+                // Focus Peaking Section
+                SettingsCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Focus Peaking")
+                            .font(.system(size: 14, weight: .semibold))
+                        Divider()
+
+                        LabeledSlider(
+                            label: "Intensity",
+                            value: $vm.sharpnessModel.focusMaskModel.config.focusPeakingIntensity,
+                            range: 0.30 ... 1.0,
+                            hint: "Lower = more translucent green edges, less overwhelming overlay",
+                        )
+                    }
+                }
+
                 // Focus Points Section
                 SettingsCard {
                     VStack(alignment: .leading, spacing: 12) {
@@ -107,6 +123,7 @@ struct FocusSettingsTab: View {
         viewModel.sharpnessModel.focusMaskModel.config.erosionRadius = d.erosionRadius
         viewModel.sharpnessModel.focusMaskModel.config.dilationRadius = d.dilationRadius
         viewModel.sharpnessModel.focusMaskModel.config.featherRadius = d.featherRadius
+        viewModel.sharpnessModel.focusMaskModel.config.focusPeakingIntensity = d.focusPeakingIntensity
         viewModel.focusPointMarkerSize = 40
         Task { await saveSettings() }
     }
@@ -119,6 +136,7 @@ struct FocusSettingsTab: View {
         settingsManager.focusMaskErosionRadius = config.erosionRadius
         settingsManager.focusMaskDilationRadius = config.dilationRadius
         settingsManager.focusMaskFeatherRadius = config.featherRadius
+        settingsManager.focusPeakingIntensity = config.focusPeakingIntensity
         await settingsManager.saveSettings()
     }
 }

@@ -31,6 +31,10 @@ struct FocusDetectorConfig {
     var energyMultiplier: Float = 7.62
     var erosionRadius: Float = 1.0
     var featherRadius: Float = 2.0
+    /// Per-pixel alpha of the green color applied to above-threshold pixels in the Focus
+    /// Peaking overlay. Lower values produce a more translucent, less overwhelming overlay
+    /// while keeping the edge positions pixel-accurate. Range 0.30–1.0; default 0.65.
+    var focusPeakingIntensity: Float = 0.65
     var showRawLaplacian: Bool = false
     var showFocusPeaking: Bool = false
     var guaranteeVisibleFocusEvidence: Bool = false
@@ -142,6 +146,7 @@ extension FocusDetectorConfig: Equatable {
             && lhs.energyMultiplier == rhs.energyMultiplier
             && lhs.erosionRadius == rhs.erosionRadius
             && lhs.featherRadius == rhs.featherRadius
+            && lhs.focusPeakingIntensity == rhs.focusPeakingIntensity
             && lhs.showRawLaplacian == rhs.showRawLaplacian
             && lhs.showFocusPeaking == rhs.showFocusPeaking
             && lhs.guaranteeVisibleFocusEvidence == rhs.guaranteeVisibleFocusEvidence
