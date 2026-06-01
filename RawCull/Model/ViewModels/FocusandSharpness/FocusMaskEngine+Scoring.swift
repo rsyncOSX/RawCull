@@ -770,7 +770,7 @@ extension FocusMaskEngine {
               let add = CIFilter(name: "CIAdditionCompositing")
         else {
             #if DEBUG
-            Logger.process.debugMessageOnly("buildScoringLaplacian: CIAdditionCompositing unavailable, using primary Laplacian only")
+                Logger.process.debugMessageOnly("buildScoringLaplacian: CIAdditionCompositing unavailable, using primary Laplacian only")
             #endif
             return primary
         }

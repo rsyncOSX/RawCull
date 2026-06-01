@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+
 @Observable @MainActor
 final class FocusMaskModel {
     var config = FocusDetectorConfig()
