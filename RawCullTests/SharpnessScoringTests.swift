@@ -591,7 +591,6 @@ struct FocusNumericHelperTests {
         #expect(center == CGPoint(x: 300, y: 300))
     }
 
-
     @Test(.tags(.smoke))
     func `resolution scaling uses longest side regardless of orientation`() {
         let landscape = FocusMaskEngine.resolutionScalingFactor(for: CGRect(x: 0, y: 0, width: 2048, height: 1024))
@@ -665,7 +664,7 @@ struct FocusNumericHelperTests {
             ("silhouette penalty", { $0.silhouettePenaltyStrength += 0.01 }),
             ("AF radius", { $0.afRegionRadius += 0.01 }),
             ("fine detail blend", { $0.fineDetailBlendWeight += 0.01 }),
-            ("stable scoring gain", { $0.stableScoringEnergyMultiplier += 0.01 }),
+            ("stable scoring gain", { $0.stableScoringEnergyMultiplier += 0.01 })
         ]
 
         for (field, mutate) in mutations {

@@ -103,9 +103,9 @@ struct FileRecord: Identifiable, Codable {
     var rating: Int?
     var sharpnessScore: Float?
     var saliencySubject: String?
-    var sharpnessScoringSignature: SharpnessScoringSignature? = nil
-    var sharpnessFileSize: Int64? = nil
-    var sharpnessModificationDate: Date? = nil
+    var sharpnessScoringSignature: SharpnessScoringSignature?
+    var sharpnessFileSize: Int64?
+    var sharpnessModificationDate: Date?
 }
 
 extension FileRecord: Hashable, Equatable {

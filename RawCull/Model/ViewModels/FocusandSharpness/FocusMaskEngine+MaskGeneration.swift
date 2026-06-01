@@ -775,6 +775,7 @@ extension FocusMaskEngine {
             colorize.gVector = CIVector(x: 0.22, y: 0, z: 0, w: 0)
             colorize.bVector = CIVector(x: 0.02, y: 0, z: 0, w: 0)
             colorize.aVector = CIVector(x: 0.92, y: 0, z: 0, w: 0)
+
         case .focusPeaking:
             let intensity = CGFloat(min(max(config.focusPeakingIntensity, 0.30), 1.0))
             colorize.rVector = CIVector(x: 0.15 * intensity, y: 0, z: 0, w: 0)

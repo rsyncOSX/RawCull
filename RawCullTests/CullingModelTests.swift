@@ -410,7 +410,6 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.ratingCache == ["one.ARW": 5, "two.ARW": 5])
     }
 
-
     @Test
     func `persisted sharpness reload requires signature and source metadata`() {
         let viewModel = RawCullViewModel()
