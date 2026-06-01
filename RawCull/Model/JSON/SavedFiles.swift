@@ -66,6 +66,9 @@ struct SavedFiles: Identifiable, Codable {
                 rating: record.rating,
                 sharpnessScore: record.sharpnessScore,
                 saliencySubject: record.saliencySubject,
+                sharpnessScoringSignature: record.sharpnessScoringSignature,
+                sharpnessFileSize: record.sharpnessFileSize,
+                sharpnessModificationDate: record.sharpnessModificationDate,
             )
         }
         burstWinnerOverrides = data.burstWinnerOverrides
@@ -100,6 +103,9 @@ struct FileRecord: Identifiable, Codable {
     var rating: Int?
     var sharpnessScore: Float?
     var saliencySubject: String?
+    var sharpnessScoringSignature: SharpnessScoringSignature? = nil
+    var sharpnessFileSize: Int64? = nil
+    var sharpnessModificationDate: Date? = nil
 }
 
 extension FileRecord: Hashable, Equatable {

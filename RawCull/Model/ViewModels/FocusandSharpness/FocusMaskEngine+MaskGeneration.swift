@@ -63,65 +63,14 @@ extension FocusMaskEngine {
         config: FocusDetectorConfig,
         context: CIContext,
     ) -> CGImage? {
-        guard let laplacian = buildAmplifiedLaplacian(from: inputImage, config: config) else { return nil }
-
-        // Collapse R channel into R,G,B so CIColorThreshold sees a grey signal.
-        let extractR = CIFilter.colorMatrix()
-        extractR.inputImage = laplacian
-        extractR.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        extractR.gVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        extractR.bVector = CIVector(x: 1, y: 0, z: 0, w: 0)
-        extractR.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-        guard let grey = extractR.outputImage else { return nil }
-
-        // Threshold: pixels above config.threshold → 1.0, below → 0.0.
-        let thresh = CIFilter.colorThreshold()
-        thresh.inputImage = grey
-        thresh.threshold = config.threshold
-        guard var binary = thresh.outputImage else { return nil }
-
-        // Erosion: remove isolated noise pixels.
-        if config.erosionRadius > 0 {
-            let erode = CIFilter.morphologyMinimum()
-            erode.inputImage = binary
-            erode.radius = config.erosionRadius
-            binary = erode.outputImage ?? binary
-        }
-
-        // Dilation: slightly expand surviving edges.
-        if config.dilationRadius > 0 {
-            let dilate = CIFilter.morphologyMaximum()
-            dilate.inputImage = binary
-            dilate.radius = config.dilationRadius
-            binary = dilate.outputImage ?? binary
-        }
-
-        // Second erosion pass to re-thin edges that were widened by dilation, producing
-        // narrower, more precise edge lines without removing the connectivity dilation
-        // provides. Radius is fixed at 0.6 — just enough to trim one pixel of bloat.
-        let fineThin = CIFilter.morphologyMinimum()
-        fineThin.inputImage = binary
-        fineThin.radius = 0.6
-        binary = fineThin.outputImage ?? binary
-
-        // Colorize with bright green. The binary value (0 or 1) is in the R channel after
-        // the earlier CIColorMatrix, and in R,G,B after CIColorThreshold. Drive both RGB
-        // and alpha from R, scaling alpha by focusPeakingIntensity so the user can dial
-        // down the overlay without losing edge detail:
-        //   output.r = binary * 0.15 * intensity  (dim red component of green)
-        //   output.g = binary * 1.00              (strong green)
-        //   output.b = binary * 0.05              (very dim blue)
-        //   output.a = binary * intensity         (sharp → semi-opaque, non-sharp → transparent)
-        let intensity = CGFloat(min(max(config.focusPeakingIntensity, 0.30), 1.0))
-        let colorize = CIFilter.colorMatrix()
-        colorize.inputImage = binary
-        colorize.rVector = CIVector(x: 0.15 * intensity, y: 0, z: 0, w: 0)
-        colorize.gVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
-        colorize.bVector = CIVector(x: 0.05, y: 0, z: 0, w: 0)
-        colorize.aVector = CIVector(x: intensity, y: 0, z: 0, w: 0)
-        colorize.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
-        guard let colored = colorize.outputImage else { return nil }
-
+        guard let laplacian = buildAmplifiedLaplacian(from: inputImage, config: config),
+              let colored = buildColorizedThresholdedEdges(
+                  from: laplacian,
+                  threshold: config.threshold,
+                  config: config,
+                  tint: .focusPeaking,
+              )
+        else { return nil }
         let cropped = colored.cropped(to: inputImage.extent)
         return context.createCGImage(cropped, from: cropped.extent)
     }
@@ -345,40 +294,45 @@ extension FocusMaskEngine {
             from: rankings,
             visualRegion: visualEvidenceRegion,
         )
-        let overlayStyle: FocusEvidenceOverlayStyle = visualEvidenceRegion == .global ? .globalDetail : .subjectHeat
-        let masks = selectedPatches.compactMap {
-            Self.heatPatch(
-                for: $0.normalizedRect,
-                extent: scaledImage.extent,
-                style: overlayStyle,
-            )
+        let overlayStyle: FocusEvidenceOverlayStyle = visualEvidenceRegion == .global ? .globalEdges : .subjectEdges
+        let patchRects = selectedPatches.map { Self.pixelRect(fromNormalizedRect: $0.normalizedRect, in: scaledImage.extent) }
+        let visualSamples = patchRects.flatMap { Self.redSamples(in: $0, from: boostedLaplacian, context: context) }
+        var visualThreshold = Self.adaptiveVisualThreshold(
+            visualSamples,
+            fallback: config.threshold,
+            percentile: visualEvidenceRegion.isAFAnchored ? 0.82 : 0.90,
+            floorMultiplier: visualEvidenceRegion.isAFAnchored ? 0.32 : 0.55,
+            capAtFallback: visualEvidenceRegion.isAFAnchored,
+        )
+        let visibility = Self.thresholdEnsuringVisibleEvidence(
+            visualSamples,
+            threshold: visualThreshold,
+            minimumCoverage: config.minimumEvidenceCoverage,
+            enabled: config.guaranteeVisibleFocusEvidence,
+        )
+        visualThreshold = visibility.threshold
+        let coverage = visibility.coverage
+        let relaxedForVisibility = visibility.relaxed
+        let edgeMask = Self.buildColorizedThresholdedEdges(
+            from: boostedLaplacian,
+            threshold: visualThreshold,
+            config: config,
+            tint: .focusMask,
+        )
+        let clippedMask = edgeMask.flatMap {
+            Self.clip($0, to: patchRects, extent: scaledImage.extent)
         }
-        let patchMask: CIImage = switch masks.count {
-        case 0:
-            CIImage(color: .clear).cropped(to: scaledImage.extent)
-
-        case 1:
-            masks[0]
-
-        default:
-            masks.dropFirst().reduce(masks[0]) { partial, next in
-                Self.maximumComposite(next, over: partial).cropped(to: scaledImage.extent)
-            }
+        let featheredMask = clippedMask.map { mask in
+            guard config.featherRadius > 0 else { return mask }
+            let feather = CIFilter.gaussianBlur()
+            feather.inputImage = mask
+            feather.radius = config.featherRadius
+            return feather.outputImage ?? mask
         }
-
-        let feathered: CIImage
-        if config.featherRadius > 0 {
-            let featherBlur = CIFilter.gaussianBlur()
-            featherBlur.inputImage = patchMask
-            featherBlur.radius = config.featherRadius
-            feathered = featherBlur.outputImage ?? patchMask
-        } else {
-            feathered = patchMask
-        }
-        let croppedMask = feathered.cropped(to: scaledImage.extent)
+        let croppedMask = featheredMask?.cropped(to: scaledImage.extent)
         return FocusMaskRenderResult(
-            image: context.createCGImage(croppedMask, from: croppedMask.extent),
-            diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: nil),
+            image: croppedMask.flatMap { context.createCGImage($0, from: $0.extent) },
+            diagnostics: FocusMaskDiagnostics(regionSource: selection.source, visualThreshold: visualThreshold),
             evidence: Self.focusEvidenceDiagnostics(
                 from: evidence,
                 visualRegion: visualEvidenceRegion,
@@ -386,6 +340,9 @@ extension FocusMaskEngine {
                 rankings: rankings,
                 overlayStyle: overlayStyle,
                 afPoint: afPoint,
+                effectiveVisualThreshold: visualThreshold,
+                maskCoverage: coverage,
+                relaxedForVisibility: relaxedForVisibility,
             ),
         )
     }
@@ -495,6 +452,25 @@ extension FocusMaskEngine {
             partial + (value >= threshold ? 1 : 0)
         }
         return Float(covered) / Float(finite.count)
+    }
+
+    nonisolated static func thresholdEnsuringVisibleEvidence(
+        _ samples: [Float],
+        threshold: Float,
+        minimumCoverage: Float,
+        enabled: Bool,
+    ) -> (threshold: Float, coverage: Float, relaxed: Bool) {
+        let coverage = maskCoverage(samples, threshold: threshold)
+        guard enabled, coverage < minimumCoverage else { return (threshold, coverage, false) }
+        let relaxed = adaptiveVisualThreshold(
+            samples,
+            fallback: threshold,
+            percentile: 0.70,
+            floorMultiplier: 0.16,
+            capAtFallback: true,
+        )
+        guard relaxed < threshold else { return (threshold, coverage, false) }
+        return (relaxed, maskCoverage(samples, threshold: relaxed), true)
     }
 
     nonisolated static func selectEvidencePatches(
@@ -678,6 +654,9 @@ extension FocusMaskEngine {
         rankings: [FocusPatchRanking],
         overlayStyle: FocusEvidenceOverlayStyle,
         afPoint: CGPoint?,
+        effectiveVisualThreshold: Float? = nil,
+        maskCoverage: Float? = nil,
+        relaxedForVisibility: Bool = false,
     ) -> FocusEvidence {
         var result = evidence ?? FocusEvidence(
             winningRegion: visualRegion,
@@ -703,9 +682,9 @@ extension FocusMaskEngine {
             dominance: dominance,
         )
 
-        result.effectiveVisualThreshold = nil
-        result.maskCoverage = selectedPatches.map(\.coverage).max()
-        result.relaxedForVisibility = false
+        result.effectiveVisualThreshold = effectiveVisualThreshold
+        result.maskCoverage = maskCoverage ?? selectedPatches.map(\.coverage).max()
+        result.relaxedForVisibility = relaxedForVisibility
         result.visualizedRegion = visualRegion
         result.visualizedRect = visualizedRect
         result.visualizedCentroid = centroid
@@ -746,32 +725,86 @@ extension FocusMaskEngine {
         return (.medium, "Subject detail is usable but not strongly localized")
     }
 
-    private nonisolated static func heatPatch(
-        for normalizedRect: CGRect,
-        extent: CGRect,
-        style: FocusEvidenceOverlayStyle,
-    ) -> CIImage? {
-        let rect = CGRect(
-            x: extent.minX + normalizedRect.minX * extent.width,
-            y: extent.minY + (1.0 - normalizedRect.maxY) * extent.height,
-            width: normalizedRect.width * extent.width,
-            height: normalizedRect.height * extent.height,
-        ).integral.intersection(extent)
-        guard !rect.isEmpty else { return nil }
-        let gradient = CIFilter.radialGradient()
-        gradient.center = CGPoint(x: rect.midX, y: rect.midY)
-        gradient.radius0 = Float(min(rect.width, rect.height) * 0.18)
-        gradient.radius1 = Float(min(rect.width, rect.height) * 0.58)
-        switch style {
-        case .subjectHeat:
-            gradient.color0 = CIColor(red: 1.0, green: 0.12, blue: 0.02, alpha: 0.88)
-            gradient.color1 = CIColor(red: 1.0, green: 0.42, blue: 0.02, alpha: 0)
+    private enum EdgeTint {
+        case focusMask
+        case focusPeaking
+    }
 
-        case .globalDetail:
-            gradient.color0 = CIColor(red: 0.82, green: 0.52, blue: 0.18, alpha: 0.42)
-            gradient.color1 = CIColor(red: 0.70, green: 0.48, blue: 0.20, alpha: 0)
+    private nonisolated static func buildColorizedThresholdedEdges(
+        from laplacian: CIImage,
+        threshold: Float,
+        config: FocusDetectorConfig,
+        tint: EdgeTint,
+    ) -> CIImage? {
+        let extractR = CIFilter.colorMatrix()
+        extractR.inputImage = laplacian
+        extractR.rVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        extractR.gVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        extractR.bVector = CIVector(x: 1, y: 0, z: 0, w: 0)
+        extractR.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        guard let grey = extractR.outputImage else { return nil }
+
+        let thresh = CIFilter.colorThreshold()
+        thresh.inputImage = grey
+        thresh.threshold = threshold
+        guard var binary = thresh.outputImage else { return nil }
+        if config.erosionRadius > 0 {
+            let erode = CIFilter.morphologyMinimum()
+            erode.inputImage = binary
+            erode.radius = config.erosionRadius
+            binary = erode.outputImage ?? binary
         }
-        return gradient.outputImage?.cropped(to: rect).composited(over: CIImage(color: .clear).cropped(to: extent))
+        if config.dilationRadius > 0 {
+            let dilate = CIFilter.morphologyMaximum()
+            dilate.inputImage = binary
+            dilate.radius = config.dilationRadius
+            binary = dilate.outputImage ?? binary
+        }
+
+        // Restore narrow edge lines after connectivity-preserving dilation.
+        let fineThin = CIFilter.morphologyMinimum()
+        fineThin.inputImage = binary
+        fineThin.radius = 0.6
+        binary = fineThin.outputImage ?? binary
+
+        let colorize = CIFilter.colorMatrix()
+        colorize.inputImage = binary
+        switch tint {
+        case .focusMask:
+            colorize.rVector = CIVector(x: 1.0, y: 0, z: 0, w: 0)
+            colorize.gVector = CIVector(x: 0.22, y: 0, z: 0, w: 0)
+            colorize.bVector = CIVector(x: 0.02, y: 0, z: 0, w: 0)
+            colorize.aVector = CIVector(x: 0.92, y: 0, z: 0, w: 0)
+        case .focusPeaking:
+            let intensity = CGFloat(min(max(config.focusPeakingIntensity, 0.30), 1.0))
+            colorize.rVector = CIVector(x: 0.15 * intensity, y: 0, z: 0, w: 0)
+            colorize.gVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
+            colorize.bVector = CIVector(x: 0.05, y: 0, z: 0, w: 0)
+            colorize.aVector = CIVector(x: intensity, y: 0, z: 0, w: 0)
+        }
+        return colorize.outputImage
+    }
+
+    private nonisolated static func clip(_ image: CIImage, to rects: [CGRect], extent: CGRect) -> CIImage? {
+        guard !rects.isEmpty else { return nil }
+        let clear = CIImage(color: .clear).cropped(to: extent)
+        let mask = rects.reduce(clear) { partial, rect in
+            CIImage(color: .white).cropped(to: rect).composited(over: partial)
+        }
+        let blend = CIFilter.blendWithMask()
+        blend.inputImage = image
+        blend.backgroundImage = clear
+        blend.maskImage = mask
+        return blend.outputImage?.cropped(to: extent)
+    }
+
+    private nonisolated static func pixelRect(fromNormalizedRect rect: CGRect, in extent: CGRect) -> CGRect {
+        CGRect(
+            x: extent.minX + rect.minX * extent.width,
+            y: extent.minY + (1.0 - rect.maxY) * extent.height,
+            width: rect.width * extent.width,
+            height: rect.height * extent.height,
+        ).integral.intersection(extent)
     }
 
     private nonisolated static func normalizedRect(_ rect: CGRect, in extent: CGRect) -> CGRect {
@@ -892,7 +925,7 @@ extension FocusMaskEngine {
         )
     }
 
-    private nonisolated static func redSamples(in rect: CGRect, from image: CIImage, context: CIContext) -> [Float] {
+    nonisolated static func redSamples(in rect: CGRect, from image: CIImage, context: CIContext) -> [Float] {
         redSampleGrid(in: rect, from: image, context: context).samples
     }
 

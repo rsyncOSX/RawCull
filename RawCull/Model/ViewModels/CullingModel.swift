@@ -6,6 +6,25 @@ struct CullingScoringResult {
     let fileName: String
     let score: Float
     let saliencySubject: String?
+    let scoringSignature: SharpnessScoringSignature?
+    let fileSize: Int64?
+    let modificationDate: Date?
+
+    init(
+        fileName: String,
+        score: Float,
+        saliencySubject: String?,
+        scoringSignature: SharpnessScoringSignature? = nil,
+        fileSize: Int64? = nil,
+        modificationDate: Date? = nil,
+    ) {
+        self.fileName = fileName
+        self.score = score
+        self.saliencySubject = saliencySubject
+        self.scoringSignature = scoringSignature
+        self.fileSize = fileSize
+        self.modificationDate = modificationDate
+    }
 }
 
 @Observable @MainActor
@@ -109,6 +128,9 @@ final class CullingModel {
                 sharpnessScore: result.score,
                 saliencySubject: result.saliencySubject,
                 updateSaliencySubject: true,
+                scoringSignature: result.scoringSignature,
+                scoringFileSize: result.fileSize,
+                scoringModificationDate: result.modificationDate,
             )
         }
         scheduleSave()
@@ -194,6 +216,9 @@ final class CullingModel {
         sharpnessScore: Float? = nil,
         saliencySubject: String? = nil,
         updateSaliencySubject: Bool = false,
+        scoringSignature: SharpnessScoringSignature? = nil,
+        scoringFileSize: Int64? = nil,
+        scoringModificationDate: Date? = nil,
     ) {
         if let recordIndex = savedFiles[catalogIndex].filerecords?.firstIndex(where: { $0.fileName == fileName }) {
             if let rating {
@@ -205,6 +230,11 @@ final class CullingModel {
             if updateSaliencySubject {
                 savedFiles[catalogIndex].filerecords?[recordIndex].saliencySubject = saliencySubject
             }
+            if let scoringSignature {
+                savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessScoringSignature = scoringSignature
+                savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessFileSize = scoringFileSize
+                savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessModificationDate = scoringModificationDate
+            }
             return
         }
 
@@ -215,6 +245,9 @@ final class CullingModel {
             rating: rating,
             sharpnessScore: sharpnessScore,
             saliencySubject: saliencySubject,
+            sharpnessScoringSignature: scoringSignature,
+            sharpnessFileSize: scoringFileSize,
+            sharpnessModificationDate: scoringModificationDate,
         ))
     }
 }

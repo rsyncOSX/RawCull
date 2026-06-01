@@ -82,7 +82,6 @@ final class FocusMaskModel {
     func applyCalibration(_ result: FocusCalibrationResult) {
         var cfg = config
         cfg.threshold = result.threshold
-        cfg.energyMultiplier = result.energyMultiplier
         config = cfg
     }
 
@@ -93,7 +92,6 @@ final class FocusMaskModel {
         thumbnailMaxPixelSize: Int = 512,
         scoringSource: SharpnessScoringSource = .embeddedPreview,
         thresholdPercentile: Float = 0.90,
-        targetP95AfterGain: Float = 0.50,
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
@@ -104,7 +102,6 @@ final class FocusMaskModel {
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
             scoringSource: scoringSource,
             thresholdPercentile: thresholdPercentile,
-            targetP95AfterGain: targetP95AfterGain,
             minSamples: minSamples,
             maxConcurrentTasks: maxConcurrentTasks,
         ) else { return nil }

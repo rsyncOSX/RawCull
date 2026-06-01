@@ -85,6 +85,16 @@ final class SharpnessScoringModel {
         SharpnessScoringSizeOption.normalizedPixelSize(thumbnailMaxPixelSize, for: scoringQuality)
     }
 
+    var scoringSignature: SharpnessScoringSignature {
+        SharpnessScoringSignature(
+            photoType: photoType,
+            scoringQuality: scoringQuality,
+            scoringSource: scoringSource,
+            thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
+            config: effectiveFocusConfig,
+        )
+    }
+
     var effectiveMaxConcurrentScoringTasks: Int {
         switch scoringSource {
         case .embeddedPreview:
@@ -130,7 +140,7 @@ final class SharpnessScoringModel {
             return
         }
 
-        Logger.process.debugMessageOnly("SharpnessScoringModel: calibration applied — threshold: \(result.threshold), gain: \(result.energyMultiplier), n=\(result.sampleCount)")
+        Logger.process.debugMessageOnly("SharpnessScoringModel: visual calibration applied — threshold: \(result.threshold), pixels=\(result.sampleCount)")
         Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
         isCalibratingSharpnessScoring = false
     }

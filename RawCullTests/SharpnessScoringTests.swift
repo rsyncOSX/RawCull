@@ -3,6 +3,7 @@
 //  RawCullTests
 //
 
+import AppKit
 import CoreGraphics
 import Foundation
 @testable import RawCull
@@ -590,6 +591,102 @@ struct FocusNumericHelperTests {
         #expect(center == CGPoint(x: 300, y: 300))
     }
 
+
+    @Test(.tags(.smoke))
+    func `resolution scaling uses longest side regardless of orientation`() {
+        let landscape = FocusMaskEngine.resolutionScalingFactor(for: CGRect(x: 0, y: 0, width: 2048, height: 1024))
+        let portrait = FocusMaskEngine.resolutionScalingFactor(for: CGRect(x: 0, y: 0, width: 1024, height: 2048))
+        #expect(landscape == portrait)
+    }
+
+    @Test(.tags(.smoke))
+    func `visibility relaxation lowers threshold and reports coverage`() {
+        let samples = [Float](repeating: 0.05, count: 90) + [Float](repeating: 0.20, count: 10)
+        let result = FocusMaskEngine.thresholdEnsuringVisibleEvidence(
+            samples,
+            threshold: 0.46,
+            minimumCoverage: 0.05,
+            enabled: true,
+        )
+        #expect(result.relaxed)
+        #expect(result.threshold < 0.46)
+        #expect(result.coverage >= 0.05)
+    }
+
+    @Test(.tags(.smoke))
+    func `generic decode normalization produces sRGB eight bit RGBA`() throws {
+        let displayP3 = try #require(CGColorSpace(name: CGColorSpace.displayP3))
+        let context = try #require(CGContext(
+            data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+            space: displayP3, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+        ))
+        let source = try #require(context.makeImage())
+        let normalized = try #require(FocusMaskEngine.normalizeToSRGB(source))
+        #expect(normalized.bitsPerComponent == 8)
+        #expect(normalized.alphaInfo == .premultipliedLast)
+        #expect(normalized.colorSpace?.name == CGColorSpace.sRGB)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `scoring signature ignores visual controls and tracks score controls`() {
+        let base = SharpnessScoringModel()
+        let original = base.scoringSignature
+        base.focusMaskModel.config.threshold = 0.12
+        base.focusMaskModel.config.energyMultiplier = 2.0
+        #expect(base.scoringSignature == original)
+        base.focusMaskModel.config.silhouettePenaltyStrength = 0.1
+        #expect(base.scoringSignature != original)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `scoring signature invalidates for every score affecting field and policy version`() {
+        let base = SharpnessScoringSignature(
+            photoType: .auto,
+            scoringQuality: .fast,
+            scoringSource: .embeddedPreview,
+            thumbnailMaxPixelSize: 512,
+            config: FocusDetectorConfig(),
+        )
+        let mutations: [(String, (inout SharpnessScoringSignature) -> Void)] = [
+            ("algorithm version", { $0.algorithmVersion += 1 }),
+            ("ISO policy version", { $0.isoScalingPolicyVersion += 1 }),
+            ("aperture policy version", { $0.apertureHintPolicyVersion += 1 }),
+            ("photo type", { $0.scoringPhotoType = .portrait }),
+            ("quality", { $0.scoringQuality = .balanced }),
+            ("source", { $0.scoringSource = .rawDemosaic }),
+            ("thumbnail size", { $0.thumbnailMaxPixelSize += 1 }),
+            ("pre blur", { $0.preBlurRadius += 0.1 }),
+            ("border inset", { $0.borderInsetFraction += 0.01 }),
+            ("salient weight", { $0.salientWeight += 0.01 }),
+            ("explicit salient weight", { $0.explicitSalientWeightOverride = 0.8 }),
+            ("subject size factor", { $0.subjectSizeFactor += 0.01 }),
+            ("silhouette penalty", { $0.silhouettePenaltyStrength += 0.01 }),
+            ("AF radius", { $0.afRegionRadius += 0.01 }),
+            ("fine detail blend", { $0.fineDetailBlendWeight += 0.01 }),
+            ("stable scoring gain", { $0.stableScoringEnergyMultiplier += 0.01 }),
+        ]
+
+        for (field, mutate) in mutations {
+            var changed = base
+            mutate(&changed)
+            #expect(changed != base, "Expected invalidation for \(field)")
+        }
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `applying visual calibration does not change scoring signature`() {
+        let model = FocusMaskModel()
+        let beforeGain = model.config.energyMultiplier
+        model.applyCalibration(FocusCalibrationResult(
+            threshold: 0.22, sampleCount: 100, p50: 0.1, p90: 0.22, p95: 0.3, p99: 0.4,
+        ))
+        #expect(model.config.threshold == 0.22)
+        #expect(model.config.energyMultiplier == beforeGain)
+    }
+
     // MARK: - Scale invariance of robustTailScore
 
     /// Fix verification: p90–p97 band mean is linearly proportional to a uniform
@@ -706,7 +803,7 @@ struct FocusEvidencePatchOverlayTests {
             visualRegion: .afCenter,
             selectedPatches: [selected],
             rankings: [selected],
-            overlayStyle: .subjectHeat,
+            overlayStyle: .subjectEdges,
             afPoint: CGPoint(x: 0.50, y: 0.50),
         )
 
@@ -715,7 +812,7 @@ struct FocusEvidencePatchOverlayTests {
         #expect(evidence.visualizedCentroid == CGPoint(x: 0.50, y: 0.50))
         #expect(try #require(evidence.afDistanceFromCentroid) < 0.001)
         #expect(evidence.patchRankings == [selected])
-        #expect(evidence.overlayStyle == .subjectHeat)
+        #expect(evidence.overlayStyle == .subjectEdges)
         #expect(evidence.focusEvidenceConfidence == .high)
     }
 

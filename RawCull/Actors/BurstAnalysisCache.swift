@@ -16,22 +16,28 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var reviewStates: [Int: BurstReviewState]
 }
 
-struct BurstSharpnessSignature: Codable {
+struct SharpnessScoringSignature: Codable {
+    nonisolated static let currentAlgorithmVersion = 2
+    nonisolated static let currentISOScalingPolicyVersion = 1
+    nonisolated static let currentApertureHintPolicyVersion = 1
+    nonisolated static let stableScoringEnergyMultiplier: Float = 7.62
+
+    var algorithmVersion: Int
+    var isoScalingPolicyVersion: Int
+    var apertureHintPolicyVersion: Int
     var scoringPhotoType: SharpnessPhotoType
     var scoringQuality: SharpnessScoringQuality
     var scoringSource: SharpnessScoringSource
     var thumbnailMaxPixelSize: Int
+    var preBlurRadius: Float
     var borderInsetFraction: Float
-    var enableSubjectClassification: Bool
     var salientWeight: Float
+    var explicitSalientWeightOverride: Float?
     var subjectSizeFactor: Float
+    var silhouettePenaltyStrength: Float
+    var afRegionRadius: Float
     var fineDetailBlendWeight: Float
-    var focusMaskPreBlurRadius: Float
-    var focusMaskThreshold: Float
-    var focusMaskEnergyMultiplier: Float
-    var focusMaskErosionRadius: Float
-    var focusMaskDilationRadius: Float
-    var focusMaskFeatherRadius: Float
+    var stableScoringEnergyMultiplier: Float
 
     @MainActor
     init(
@@ -41,43 +47,47 @@ struct BurstSharpnessSignature: Codable {
         thumbnailMaxPixelSize: Int,
         config: FocusDetectorConfig,
     ) {
+        self.algorithmVersion = Self.currentAlgorithmVersion
+        self.isoScalingPolicyVersion = Self.currentISOScalingPolicyVersion
+        self.apertureHintPolicyVersion = Self.currentApertureHintPolicyVersion
         self.scoringPhotoType = photoType
         self.scoringQuality = scoringQuality
         self.scoringSource = scoringSource
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
+        self.preBlurRadius = config.preBlurRadius
         self.borderInsetFraction = config.borderInsetFraction
-        self.enableSubjectClassification = config.enableSubjectClassification
         self.salientWeight = config.salientWeight
+        self.explicitSalientWeightOverride = config.explicitSalientWeightOverride
         self.subjectSizeFactor = config.subjectSizeFactor
+        self.silhouettePenaltyStrength = config.silhouettePenaltyStrength
+        self.afRegionRadius = config.afRegionRadius
         self.fineDetailBlendWeight = config.fineDetailBlendWeight
-        self.focusMaskPreBlurRadius = config.preBlurRadius
-        self.focusMaskThreshold = config.threshold
-        self.focusMaskEnergyMultiplier = config.energyMultiplier
-        self.focusMaskErosionRadius = config.erosionRadius
-        self.focusMaskDilationRadius = config.dilationRadius
-        self.focusMaskFeatherRadius = config.featherRadius
+        self.stableScoringEnergyMultiplier = Self.stableScoringEnergyMultiplier
     }
 }
 
-extension BurstSharpnessSignature: Equatable {
+extension SharpnessScoringSignature: Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.scoringPhotoType.rawValue == rhs.scoringPhotoType.rawValue
+        lhs.algorithmVersion == rhs.algorithmVersion
+            && lhs.isoScalingPolicyVersion == rhs.isoScalingPolicyVersion
+            && lhs.apertureHintPolicyVersion == rhs.apertureHintPolicyVersion
+            && lhs.scoringPhotoType.rawValue == rhs.scoringPhotoType.rawValue
             && lhs.scoringQuality.rawValue == rhs.scoringQuality.rawValue
             && lhs.scoringSource.rawValue == rhs.scoringSource.rawValue
             && lhs.thumbnailMaxPixelSize == rhs.thumbnailMaxPixelSize
+            && lhs.preBlurRadius == rhs.preBlurRadius
             && lhs.borderInsetFraction == rhs.borderInsetFraction
-            && lhs.enableSubjectClassification == rhs.enableSubjectClassification
             && lhs.salientWeight == rhs.salientWeight
+            && lhs.explicitSalientWeightOverride == rhs.explicitSalientWeightOverride
             && lhs.subjectSizeFactor == rhs.subjectSizeFactor
+            && lhs.silhouettePenaltyStrength == rhs.silhouettePenaltyStrength
+            && lhs.afRegionRadius == rhs.afRegionRadius
             && lhs.fineDetailBlendWeight == rhs.fineDetailBlendWeight
-            && lhs.focusMaskPreBlurRadius == rhs.focusMaskPreBlurRadius
-            && lhs.focusMaskThreshold == rhs.focusMaskThreshold
-            && lhs.focusMaskEnergyMultiplier == rhs.focusMaskEnergyMultiplier
-            && lhs.focusMaskErosionRadius == rhs.focusMaskErosionRadius
-            && lhs.focusMaskDilationRadius == rhs.focusMaskDilationRadius
-            && lhs.focusMaskFeatherRadius == rhs.focusMaskFeatherRadius
+            && lhs.stableScoringEnergyMultiplier == rhs.stableScoringEnergyMultiplier
     }
 }
+
+typealias BurstSharpnessSignature = SharpnessScoringSignature
 
 struct BurstAnalysisCacheFile: Codable, Equatable {
     var id: UUID
@@ -88,7 +98,7 @@ struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 1
+    nonisolated static let schemaVersion = 2
 
     private let cacheDirectory: URL
 

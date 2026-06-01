@@ -78,13 +78,13 @@ enum FocusEvidenceRegion: String, Codable, Equatable {
 }
 
 enum FocusEvidenceOverlayStyle: String, Codable, Equatable {
-    case subjectHeat
-    case globalDetail
+    case subjectEdges
+    case globalEdges
 
     var title: String {
         switch self {
-        case .subjectHeat: "Subject heat"
-        case .globalDetail: "Muted global detail"
+        case .subjectEdges: "Subject edges"
+        case .globalEdges: "Muted global edges"
         }
     }
 }

@@ -467,12 +467,6 @@ extension RawCullViewModel {
     }
 
     private var currentBurstSharpnessSignature: BurstSharpnessSignature {
-        BurstSharpnessSignature(
-            photoType: sharpnessModel.photoType,
-            scoringQuality: sharpnessModel.scoringQuality,
-            scoringSource: sharpnessModel.scoringSource,
-            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
-            config: sharpnessModel.effectiveFocusConfig,
-        )
+        sharpnessModel.scoringSignature
     }
 }

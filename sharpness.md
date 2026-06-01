@@ -16,6 +16,17 @@ The highest-priority issues are:
 4. The generic embedded-preview decode path skips sRGB normalization, unlike the Sony binary-preview and RAW-demosaic paths.
 5. Cached and persisted scores can survive scoring-configuration changes because their validity signatures are incomplete or absent.
 
+
+## P1 Resolution Status
+
+All P1 findings have been addressed:
+
+1. Resolution compensation uses the decoded image's longest side, so portrait and landscape frames receive equivalent pre-blur scaling.
+2. The red/orange Focus Mask keeps AF/saliency patch selection but renders thresholded, morphed Laplacian edges inside the selected patches. Diagnostics now report threshold, coverage, and visibility relaxation.
+3. Burst calibration samples Laplacian pixel energies and updates only the visual threshold. Core sharpness scoring uses a fixed, versioned gain.
+4. Sony previews, generic embedded previews, and RAW-demosaic images pass through one sRGB RGBA normalization boundary before scoring.
+5. Burst caches and persisted scores carry a complete versioned scoring signature. Persisted scores also require matching file size and modification date; older unsigned scores remain readable but are treated as stale.
+
 ## Findings
 
 ### P1: Resolution compensation is orientation-dependent

@@ -197,7 +197,7 @@ struct SimilarityGridSelectionView: View {
         if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
             HStack {
                 ProgressView()
-                Text("Calibrating sharpness scoring, please wait...")
+                Text("Calibrating focus-mask threshold, please wait...")
             }
         }
     }

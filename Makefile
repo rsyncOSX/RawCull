@@ -44,6 +44,12 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection falls back to global without subject evidence`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF local rect stays constrained around focus point`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF pixel center matches overlay normalized coordinates`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`resolution scaling uses longest side regardless of orientation`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold and reports coverage`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`generic decode normalization produces sRGB eight bit RGBA`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring signature ignores visual controls and tracks score controls`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring signature invalidates for every score affecting field and policy version`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`applying visual calibration does not change scoring signature`()' \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF centered patch wins over slightly stronger distant patch`()' \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF distant patch wins when detail exceeds override`()' \
 	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`saliency interior patch beats silhouette border`()' \

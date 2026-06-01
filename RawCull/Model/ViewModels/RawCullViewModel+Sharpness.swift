@@ -25,6 +25,7 @@ extension RawCullViewModel {
         guard let catalog = selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo
+        let signature = sharpnessModel.scoringSignature
 
         let results = files.compactMap { file -> CullingScoringResult? in
             guard let score = scores[file.id] else { return nil }
@@ -32,6 +33,9 @@ extension RawCullViewModel {
                 fileName: file.name,
                 score: score,
                 saliencySubject: saliency[file.id]?.subjectLabel,
+                scoringSignature: signature,
+                fileSize: file.size,
+                modificationDate: file.dateModified,
             )
         }
         cullingModel.mergeScoringResults(results, in: catalog)
@@ -46,7 +50,11 @@ extension RawCullViewModel {
             // Find the matching file record for this file
             guard let fileRecord = filerecords.first(where: { $0.fileName == file.name }) else { continue }
 
-            // Load the persisted score and saliency info back into the sharpness model
+            // Legacy unsigned scores remain in JSON for compatibility but are stale.
+            let metadataMatches = fileRecord.sharpnessFileSize == file.size
+                && fileRecord.sharpnessModificationDate.map { abs($0.timeIntervalSince(file.dateModified)) < 0.001 } == true
+            guard fileRecord.sharpnessScoringSignature == sharpnessModel.scoringSignature, metadataMatches else { continue }
+
             if let score = fileRecord.sharpnessScore { sharpnessModel.scores[file.id] = score }
 
             if let subjectLabel = fileRecord.saliencySubject {

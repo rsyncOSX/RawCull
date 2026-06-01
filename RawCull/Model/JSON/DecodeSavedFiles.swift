@@ -29,13 +29,16 @@ struct DecodeSavedFiles: Codable {
     }
 }
 
-struct DecodeFileRecord: Codable, Hashable {
+struct DecodeFileRecord: Codable {
     var fileName: String?
     var dateTagged: String?
     var dateCopied: String?
     var rating: Int?
     var sharpnessScore: Float?
     var saliencySubject: String?
+    var sharpnessScoringSignature: SharpnessScoringSignature?
+    var sharpnessFileSize: Int64?
+    var sharpnessModificationDate: Date?
 
     enum CodingKeys: String, CodingKey {
         case fileName
@@ -44,6 +47,9 @@ struct DecodeFileRecord: Codable, Hashable {
         case rating
         case sharpnessScore
         case saliencySubject
+        case sharpnessScoringSignature
+        case sharpnessFileSize
+        case sharpnessModificationDate
     }
 
     init(from decoder: Decoder) throws {
@@ -54,6 +60,9 @@ struct DecodeFileRecord: Codable, Hashable {
         rating = try values.decodeIfPresent(Int.self, forKey: .rating)
         sharpnessScore = try values.decodeIfPresent(Float.self, forKey: .sharpnessScore)
         saliencySubject = try values.decodeIfPresent(String.self, forKey: .saliencySubject)
+        sharpnessScoringSignature = try values.decodeIfPresent(SharpnessScoringSignature.self, forKey: .sharpnessScoringSignature)
+        sharpnessFileSize = try values.decodeIfPresent(Int64.self, forKey: .sharpnessFileSize)
+        sharpnessModificationDate = try values.decodeIfPresent(Date.self, forKey: .sharpnessModificationDate)
     }
 
     init() {
@@ -63,5 +72,8 @@ struct DecodeFileRecord: Codable, Hashable {
         rating = nil
         sharpnessScore = nil
         saliencySubject = nil
+        sharpnessScoringSignature = nil
+        sharpnessFileSize = nil
+        sharpnessModificationDate = nil
     }
 }

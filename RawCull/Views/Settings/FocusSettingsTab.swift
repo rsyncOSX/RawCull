@@ -39,7 +39,7 @@ struct FocusSettingsTab: View {
                             label: "Amplify",
                             value: $vm.sharpnessModel.focusMaskModel.config.energyMultiplier,
                             range: 1.0 ... 20.0,
-                            hint: "Amplification of sharpness signal before threshold",
+                            hint: "Visual-only amplification before the overlay threshold",
                         )
 
                         LabeledSlider(

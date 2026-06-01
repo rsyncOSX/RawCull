@@ -149,7 +149,7 @@ struct SharpnessControlsView: View {
         }
         .font(.caption)
         .disabled(viewModel.sharpnessModel.isScoring || viewModel.files.isEmpty)
-        .help("Auto-calibrate threshold and gain from this burst, then score sharpness")
+        .help("Calibrate the visual edge threshold from this catalog, then score sharpness")
 
         // Cancel button — only visible while scoring
         if viewModel.sharpnessModel.isScoring {
@@ -183,7 +183,7 @@ struct SharpnessControlsView: View {
         if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
             HStack {
                 ProgressView()
-                Text("Calibrating sharpness scoring, please wait...")
+                Text("Calibrating focus-mask threshold, please wait...")
             }
         }
     }

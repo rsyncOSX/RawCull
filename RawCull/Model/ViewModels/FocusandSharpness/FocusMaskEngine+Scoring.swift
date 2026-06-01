@@ -28,29 +28,12 @@ extension FocusMaskEngine {
         scoringSource: SharpnessScoringSource = .embeddedPreview,
     ) async -> (score: Float?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
         await Task.detached(priority: .userInitiated) { [context] in
-            let cgImage: CGImage
-            switch scoringSource {
-            case .embeddedPreview:
-                let binaryImg = Self.extractSonyEmbeddedPreview(at: url, maxPixelSize: thumbnailMaxPixelSize)
-                if let img = binaryImg {
-                    cgImage = img
-                } else {
-                    guard let img = Self.decodeThumbnail(at: url, maxPixelSize: thumbnailMaxPixelSize) else {
-                        return (nil, nil, nil)
-                    }
-                    cgImage = img
-                }
-
-            case .rawDemosaic:
-                guard let img = Self.decodeDemosaicedRawThumbnail(
-                    at: url,
-                    maxPixelSize: thumbnailMaxPixelSize,
-                    context: context,
-                ) else {
-                    return (nil, nil, nil)
-                }
-                cgImage = img
-            }
+            guard let cgImage = Self.decodeScoringImage(
+                at: url,
+                maxPixelSize: thumbnailMaxPixelSize,
+                scoringSource: scoringSource,
+                context: context,
+            ) else { return (nil, nil, nil) }
 
             let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
                 for: cgImage, classify: config.enableSubjectClassification,
@@ -69,6 +52,23 @@ extension FocusMaskEngine {
     }
 
     // MARK: - Decode helpers
+
+    nonisolated static func decodeScoringImage(
+        at url: URL,
+        maxPixelSize: Int,
+        scoringSource: SharpnessScoringSource,
+        context: CIContext,
+    ) -> CGImage? {
+        let decoded: CGImage? = switch scoringSource {
+        case .embeddedPreview:
+            extractSonyEmbeddedPreview(at: url, maxPixelSize: maxPixelSize)
+                ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
+
+        case .rawDemosaic:
+            decodeDemosaicedRawThumbnail(at: url, maxPixelSize: maxPixelSize, context: context)
+        }
+        return decoded.flatMap(normalizeToSRGB)
+    }
 
     private nonisolated static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
         let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
@@ -107,8 +107,7 @@ extension FocusMaskEngine {
             }
         }
 
-        guard let rendered = context.createCGImage(image, from: image.extent) else { return nil }
-        return Self.normalizeToSRGB(rendered)
+        return context.createCGImage(image, from: image.extent)
     }
 
     /// Binary fallback for ARW 6.0 (RA16) files from newer Sony bodies
@@ -142,15 +141,13 @@ extension FocusMaskEngine {
             )
         }
 
-        guard let raw else { return nil }
-
-        return Self.normalizeToSRGB(raw)
+        return raw
     }
 
     /// Re-renders a CGImage through an 8-bit sRGB RGBA CGContext so that the Metal
     /// pipeline always receives a predictable pixel format, regardless of the
     /// source JPEG's color space or bit depth.
-    private nonisolated static func normalizeToSRGB(_ image: CGImage) -> CGImage? {
+    nonisolated static func normalizeToSRGB(_ image: CGImage) -> CGImage? {
         guard let srgb = CGColorSpace(name: CGColorSpace.sRGB) else { return image }
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
         guard let ctx = CGContext(
@@ -712,11 +709,15 @@ extension FocusMaskEngine {
     ///    * `blurDamp` is 0.8 for landscape apertures (deep DoF scenes), 1.0 otherwise.
     ///    * Capped at 100 px to avoid pathological radii from malformed input.
     /// 2. Metal `focusLaplacian` kernel → per-pixel 2nd-derivative energy.
-    /// 3. `CIColorMatrix` scales R/G/B by `energyMultiplier` (tuned by calibration).
+    /// 3. `CIColorMatrix` scales R/G/B by `energyMultiplier`.
+    nonisolated static func resolutionScalingFactor(for extent: CGRect) -> Float {
+        let longestSide = Float(max(extent.width, extent.height))
+        return max(1.0, min(sqrt(max(longestSide, 512.0) / 512.0), 3.0))
+    }
+
     nonisolated static func buildAmplifiedLaplacian(from image: CIImage, config: FocusDetectorConfig) -> CIImage? {
         let isoFactor = Self.isoScalingFactor(iso: config.iso)
-        let imageWidth = Float(image.extent.width)
-        let resFactor = max(1.0, min(sqrt(max(imageWidth, 512.0) / 512.0), 3.0))
+        let resFactor = Self.resolutionScalingFactor(for: image.extent)
         // Landscape (deep DoF) damps the combined ISO × resolution blur so the whole-
         // frame edge energy isn't smoothed away before the Laplacian fires.
         let blurDamp = config.apertureHint.blurDamp
@@ -747,12 +748,14 @@ extension FocusMaskEngine {
     /// with a finer pass so small feathers, eyes, and eyelashes survive the
     /// noise-reduction pre-blur instead of being averaged away.
     private nonisolated static func buildScoringLaplacian(from image: CIImage, config: FocusDetectorConfig) -> CIImage? {
-        guard let primary = buildAmplifiedLaplacian(from: image, config: config) else { return nil }
+        var scoringConfig = config
+        scoringConfig.energyMultiplier = SharpnessScoringSignature.stableScoringEnergyMultiplier
+        guard let primary = buildAmplifiedLaplacian(from: image, config: scoringConfig) else { return nil }
         let w = min(max(config.fineDetailBlendWeight, 0), 0.65)
         guard w > 0 else { return primary }
 
-        var fineConfig = config
-        fineConfig.preBlurRadius = max(0.35, config.preBlurRadius * 0.58)
+        var fineConfig = scoringConfig
+        fineConfig.preBlurRadius = max(0.35, scoringConfig.preBlurRadius * 0.58)
         guard let fine = buildAmplifiedLaplacian(from: image, config: fineConfig) else { return primary }
 
         func scaled(_ input: CIImage, by amount: Float) -> CIImage? {
