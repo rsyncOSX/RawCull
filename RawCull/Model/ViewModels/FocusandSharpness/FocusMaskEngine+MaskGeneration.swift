@@ -13,7 +13,7 @@ extension FocusMaskEngine {
     ) async -> CGImage? {
         let context = self.context
 
-        return await Self.runCancellableWorker {
+        let result: CGImage?? = await Self.runCancellableWorker { () -> CGImage? in
             guard !Task.isCancelled else { return nil }
             let salientRegion: CGRect? = if let winningSaliencyRect = evidence?.winningSaliencyRect {
                 winningSaliencyRect
@@ -40,6 +40,7 @@ extension FocusMaskEngine {
                 config: config,
             ).image
         }
+        return result ?? nil
     }
 
     /// Generates a pixel-level focus peaking overlay covering the full frame.
@@ -49,10 +50,11 @@ extension FocusMaskEngine {
     nonisolated func generateFocusPeakingMask(from cgImage: CGImage, configOverride: FocusDetectorConfig? = nil) async -> CGImage? {
         let config = configOverride ?? FocusDetectorConfig()
         let context = self.context
-        return await Self.runCancellableWorker {
+        let result: CGImage?? = await Self.runCancellableWorker { () -> CGImage? in
             guard !Task.isCancelled else { return nil }
             return Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
         }
+        return result ?? nil
     }
 
     /// Pixel-level focus peaking: highlights every above-threshold pixel in bright green.
