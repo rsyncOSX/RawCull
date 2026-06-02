@@ -38,6 +38,7 @@ struct RawCullApp: App {
                     NSApplication.shared.terminate(nil)
                 }
         }
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             SidebarCommands()
 

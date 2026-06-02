@@ -34,7 +34,7 @@ struct ComparisonGridView: View {
                             },
                             onBack: viewModel.returnToActiveBurstGroupView,
                         )
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 4)
                     }
 
                     GeometryReader { geometry in
@@ -76,7 +76,7 @@ struct ComparisonGridView: View {
                                 }
                             }
                             .scrollTargetLayout()
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 4)
                         }
                         .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne))
                         .scrollPosition(id: $scrollPositionID, anchor: .center)
@@ -552,69 +552,70 @@ private struct BurstComparisonEvidenceView: View {
     let onBack: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Burst \(result.groupID + 1) Comparison")
-                    .font(.headline)
-                Text(result.confidence.title)
+        HStack(spacing: 8) {
+            Text("Burst \(result.groupID + 1)")
+                .font(.subheadline.weight(.semibold))
+
+            Text(result.confidence.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if result.reviewState == .manualWinnerOverride {
+                Text("Manual winner")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                if result.reviewState == .manualWinnerOverride {
-                    Text("Manual winner active")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
-                }
-                Spacer()
-                if finalistFocusActive {
-                    Button("Show All", action: onShowAll)
-                        .controlSize(.small)
-                }
-                Button("Back To Group", action: onBack)
-                    .controlSize(.small)
+                    .foregroundStyle(.orange)
             }
 
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Evidence")
-                        .font(.caption.weight(.semibold))
-                    ForEach(result.reasons, id: \.self) { reason in
-                        Text(reason)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Caution")
-                        .font(.caption.weight(.semibold))
-                    ForEach(result.cautions, id: \.self) { caution in
-                        Text(caution)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-                Spacer()
-                HStack(spacing: 8) {
-                    Button("Inspect Finalists", action: onInspectFinalists)
-                        .disabled(result.candidates.isEmpty)
-                    Button("Set Manual Winner") {
-                        if let selectedFile {
-                            onSetManualWinner(selectedFile)
-                        }
-                    }
-                    .disabled(!selectedFileIsInResult)
-                    .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
-                    if canApplyOneClickCulling {
-                        Button("Keep Best", action: onKeepBest)
-                            .buttonStyle(.borderedProminent)
-                            .tint(.green)
-                        Button("Keep Top 2", action: onKeepTopTwo)
-                    }
-                }
-                .controlSize(.small)
+            if let firstReason = result.reasons.first {
+                Text("Evidence: \(firstReason)")
+                    .foregroundStyle(.secondary)
+                    .help(evidenceHelp)
             }
+
+            if let firstCaution = result.cautions.first {
+                Text("Caution: \(firstCaution)")
+                    .foregroundStyle(.orange)
+                    .help(cautionHelp)
+            }
+
+            Spacer(minLength: 4)
+
+            HStack(spacing: 6) {
+                if finalistFocusActive {
+                    Button("Show All", action: onShowAll)
+                }
+                Button("Back To Group", action: onBack)
+                Button("Inspect Finalists", action: onInspectFinalists)
+                    .disabled(result.candidates.isEmpty)
+                Button("Set Manual Winner") {
+                    if let selectedFile {
+                        onSetManualWinner(selectedFile)
+                    }
+                }
+                .disabled(!selectedFileIsInResult)
+                .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
+                if canApplyOneClickCulling {
+                    Button("Keep Best", action: onKeepBest)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    Button("Keep Top 2", action: onKeepTopTwo)
+                }
+            }
+            .controlSize(.mini)
         }
-        .padding(12)
+        .font(.caption)
+        .lineLimit(1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var evidenceHelp: String {
+        result.reasons.joined(separator: "\n")
+    }
+
+    private var cautionHelp: String {
+        result.cautions.joined(separator: "\n")
     }
 
     private var selectedFileIsInResult: Bool {

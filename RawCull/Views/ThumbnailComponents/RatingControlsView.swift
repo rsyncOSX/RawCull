@@ -89,6 +89,7 @@ struct CurrentRatingBadgeView: View {
 
 struct RatingActionBarView: View {
     let currentRating: RatingDisplay
+    var density: ImageOverlayControlDensity = .regular
     let onSelect: (Int) -> Void
 
     private let ratings: [(Int, String, Color)] = [
@@ -101,15 +102,15 @@ struct RatingActionBarView: View {
     ]
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: density == .compact ? 4 : 6) {
             ForEach(ratings, id: \.0) { rating, label, color in
                 Button {
                     onSelect(rating)
                 } label: {
                     Text(label)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .font(.system(size: density == .compact ? 11 : 12, weight: .semibold, design: .monospaced))
                         .foregroundStyle(isActive(rating) ? .white : color)
-                        .frame(width: 24, height: 24)
+                        .frame(width: density == .compact ? 20 : 24, height: density == .compact ? 20 : 24)
                         .background(
                             Circle()
                                 .fill(isActive(rating) ? color.opacity(0.95) : color.opacity(0.18)),
@@ -119,8 +120,8 @@ struct RatingActionBarView: View {
                 .help(help(for: rating))
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, density == .compact ? 7 : 10)
+        .padding(.vertical, density == .compact ? 4 : 7)
         .background(.regularMaterial, in: Capsule())
     }
 
