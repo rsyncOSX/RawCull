@@ -100,10 +100,6 @@ final class SettingsViewModel {
     var focusMaskDilationRadius: Float = 1.0
     /// Feather radius for mask edges (default: 2.0)
     var focusMaskFeatherRadius: Float = 2.0
-    /// Per-pixel alpha of the green Focus Peaking overlay. Lower = more translucent edges.
-    /// Range 0.30–1.0; default 0.65.
-    var focusPeakingIntensity: Float = 0.65
-
     // MARK: - Private Properties
 
     private let settingsFileName = "settings.json"
@@ -173,7 +169,6 @@ final class SettingsViewModel {
                 self.focusMaskErosionRadius = savedSettings.focusMaskErosionRadius
                 self.focusMaskDilationRadius = savedSettings.focusMaskDilationRadius
                 self.focusMaskFeatherRadius = savedSettings.focusMaskFeatherRadius
-                self.focusPeakingIntensity = savedSettings.focusPeakingIntensity
             }
 
             Logger.process.debugMessageOnly("SettingsManager: Settings loaded successfully")
@@ -343,7 +338,6 @@ final class SettingsViewModel {
                 focusMaskErosionRadius: self.focusMaskErosionRadius,
                 focusMaskDilationRadius: self.focusMaskDilationRadius,
                 focusMaskFeatherRadius: self.focusMaskFeatherRadius,
-                focusPeakingIntensity: self.focusPeakingIntensity,
             )
         }
     }
@@ -378,7 +372,6 @@ struct SavedSettings: Codable {
     let focusMaskErosionRadius: Float
     let focusMaskDilationRadius: Float
     let focusMaskFeatherRadius: Float
-    let focusPeakingIntensity: Float
 
     init(
         memoryCacheSizeMB: Int,
@@ -404,7 +397,6 @@ struct SavedSettings: Codable {
         focusMaskErosionRadius: Float = 1.0,
         focusMaskDilationRadius: Float = 1.0,
         focusMaskFeatherRadius: Float = 2.0,
-        focusPeakingIntensity: Float = 0.65,
     ) {
         self.memoryCacheSizeMB = memoryCacheSizeMB
         self.gridCacheSizeMB = gridCacheSizeMB
@@ -432,7 +424,6 @@ struct SavedSettings: Codable {
         self.focusMaskErosionRadius = focusMaskErosionRadius
         self.focusMaskDilationRadius = focusMaskDilationRadius
         self.focusMaskFeatherRadius = focusMaskFeatherRadius
-        self.focusPeakingIntensity = focusPeakingIntensity
     }
 
     init(from decoder: Decoder) throws {
@@ -463,6 +454,5 @@ struct SavedSettings: Codable {
         focusMaskErosionRadius = (try? c.decode(Float.self, forKey: .focusMaskErosionRadius)) ?? 1.0
         focusMaskDilationRadius = (try? c.decode(Float.self, forKey: .focusMaskDilationRadius)) ?? 1.0
         focusMaskFeatherRadius = (try? c.decode(Float.self, forKey: .focusMaskFeatherRadius)) ?? 2.0
-        focusPeakingIntensity = (try? c.decode(Float.self, forKey: .focusPeakingIntensity)) ?? 0.65
     }
 }

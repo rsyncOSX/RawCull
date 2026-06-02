@@ -18,10 +18,6 @@ struct SharpnessIntentControlsView: View {
     var showsParametersButton: Bool = false
     var style: SharpnessIntentControlsStyle = .inline
 
-    private var settings: SettingsViewModel {
-        SettingsViewModel.shared
-    }
-
     var body: some View {
         if style == .compactInfo {
             HStack(spacing: 6) {

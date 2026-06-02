@@ -87,7 +87,6 @@ extension RawCullViewModel {
         sharpnessModel.focusMaskModel.config.erosionRadius = s.focusMaskErosionRadius
         sharpnessModel.focusMaskModel.config.dilationRadius = s.focusMaskDilationRadius
         sharpnessModel.focusMaskModel.config.featherRadius = s.focusMaskFeatherRadius
-        sharpnessModel.focusMaskModel.config.focusPeakingIntensity = s.focusPeakingIntensity
     }
 
     func abort() {

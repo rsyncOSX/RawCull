@@ -39,6 +39,21 @@ struct CandidateInspectorView: View {
                         if let afPointScore = breakdown.afPointScore {
                             LabeledContent("AF Detail", value: percent(afPointScore))
                         }
+                        LabeledContent("Source", value: breakdown.scoringSource.title)
+                        LabeledContent("Blur Gate", value: decimal(breakdown.blurGateSigma))
+                        if let subjectLabel = breakdown.subjectLabel {
+                            LabeledContent("Subject Label", value: subjectLabel)
+                        }
+                        if let subjectConfidence = breakdown.subjectConfidence {
+                            LabeledContent("Subject Confidence", value: percent(subjectConfidence))
+                        }
+                        LabeledContent("Focus Flag", value: breakdown.focusFailureKind.title)
+                        if let regionSource = breakdown.focusMaskRegionSource {
+                            LabeledContent("Mask Region", value: regionSource.title)
+                        }
+                        if let visualThreshold = breakdown.focusMaskVisualThreshold {
+                            LabeledContent("Mask Threshold", value: decimal(visualThreshold))
+                        }
                     }
                 }
 
@@ -53,6 +68,18 @@ struct CandidateInspectorView: View {
                         }
                         if let localScore = evidence.scoringLocalDetailScore {
                             LabeledContent("Scoring Local Detail", value: percent(localScore))
+                        }
+                        if let afCenterScore = evidence.afCenterScore {
+                            LabeledContent("AF Center Detail", value: percent(afCenterScore))
+                        }
+                        if let afNeighborhoodScore = evidence.afNeighborhoodScore {
+                            LabeledContent("AF Neighborhood Detail", value: percent(afNeighborhoodScore))
+                        }
+                        if let afPatchScore = evidence.scoringAFLocalPatchScore {
+                            LabeledContent("Scoring AF Patch", value: percent(afPatchScore))
+                        }
+                        if let subjectPatchScore = evidence.scoringSubjectInteriorPatchScore {
+                            LabeledContent("Scoring Subject Patch", value: percent(subjectPatchScore))
                         }
                         LabeledContent("Saliency Candidates", value: "\(evidence.saliencyCandidateCount)")
                         if let reason = evidence.saliencySelectionReason {
@@ -71,6 +98,13 @@ struct CandidateInspectorView: View {
                         if let alignment = evidence.spatialAlignmentScore {
                             LabeledContent("Spatial Alignment", value: percent(alignment))
                         }
+                        if let threshold = evidence.effectiveVisualThreshold {
+                            LabeledContent("Evidence Threshold", value: decimal(threshold))
+                        }
+                        if let coverage = evidence.maskCoverage {
+                            LabeledContent("Evidence Coverage", value: percent(coverage))
+                        }
+                        LabeledContent("Visibility Relaxed", value: evidence.relaxedForVisibility ? "Yes" : "No")
                         if let dominance = evidence.localPatchDominance {
                             LabeledContent("Patch Dominance", value: decimal(dominance))
                         }

@@ -45,52 +45,6 @@ extension FocusMaskEngine {
         return result ?? nil
     }
 
-    /// Generates a pixel-level focus peaking overlay covering the full frame.
-    /// Every pixel whose Laplacian energy exceeds `config.threshold` is coloured bright
-    /// green; all other pixels are transparent. The result is composited over the photo
-    /// with `.screen` blend mode.
-    nonisolated func generateFocusPeakingMask(from cgImage: CGImage, configOverride: FocusDetectorConfig? = nil) async -> CGImage? {
-        let config = configOverride ?? FocusDetectorConfig()
-        let context = self.context
-        let result: CGImage?? = await Self.runCancellableWorker { () -> CGImage? in
-            guard !Task.isCancelled else { return nil }
-            return Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
-        }
-        // Preserve the explicit flattening of the worker's cancellation optional.
-        // swiftlint:disable:next redundant_nil_coalescing
-        return result ?? nil
-    }
-
-    /// Pixel-level focus peaking: highlights every above-threshold pixel in bright green.
-    ///
-    /// Pipeline:
-    /// 1. `buildAmplifiedLaplacian` — Gaussian pre-blur + Metal Laplacian + gain (full frame, no region restriction).
-    /// 2. `CIColorMatrix` — copies R channel into R/G/B so `CIColorThreshold` sees a greyscale image.
-    /// 3. `CIColorThreshold` — outputs 1.0 where energy ≥ `config.threshold`, 0.0 elsewhere.
-    /// 4. `CIMorphologyMinimum` (erosion) — removes isolated noise pixels.
-    /// 5. `CIMorphologyMaximum` (dilation) — slightly expands remaining edges.
-    /// 6. `CIColorMatrix` — maps binary value to bright green tint; alpha = binary value
-    ///    (non-sharp pixels transparent, sharp pixels opaque + green).
-    nonisolated static func buildFocusPeakingMask(
-        from inputImage: CIImage,
-        config: FocusDetectorConfig,
-        context: CIContext,
-    ) -> CGImage? {
-        guard !Task.isCancelled,
-              let laplacian = buildAmplifiedLaplacian(from: inputImage, config: config),
-              !Task.isCancelled,
-              let colored = buildColorizedThresholdedEdges(
-                  from: laplacian,
-                  threshold: config.threshold,
-                  config: config,
-                  tint: .focusPeaking,
-              )
-        else { return nil }
-        let cropped = colored.cropped(to: inputImage.extent)
-        guard !Task.isCancelled else { return nil }
-        return context.createCGImage(cropped, from: cropped.extent)
-    }
-
     nonisolated func generateFocusMaskWithBreakdown(
         from cgImage: CGImage,
         scale: CGFloat,
@@ -344,7 +298,6 @@ extension FocusMaskEngine {
             from: boostedLaplacian,
             threshold: visualThreshold,
             config: config,
-            tint: .focusMask,
         )
         let clippedMask = edgeMask.flatMap {
             Self.clip($0, to: patchRects, extent: scaledImage.extent)
@@ -688,9 +641,6 @@ extension FocusMaskEngine {
     ) -> FocusEvidence {
         var result = evidence ?? FocusEvidence(
             winningRegion: visualRegion,
-            globalScore: nil,
-            saliencyScore: nil,
-            afPointScore: nil,
         )
         let visualizedRect = selectedPatches.map(\.normalizedRect).reduce(nil as CGRect?) { partial, rect in
             partial.map { $0.union(rect) } ?? rect
@@ -753,16 +703,10 @@ extension FocusMaskEngine {
         return (.medium, "Subject detail is usable but not strongly localized")
     }
 
-    private enum EdgeTint {
-        case focusMask
-        case focusPeaking
-    }
-
     private nonisolated static func buildColorizedThresholdedEdges(
         from laplacian: CIImage,
         threshold: Float,
         config: FocusDetectorConfig,
-        tint: EdgeTint,
     ) -> CIImage? {
         let extractR = CIFilter.colorMatrix()
         extractR.inputImage = laplacian
@@ -797,20 +741,10 @@ extension FocusMaskEngine {
 
         let colorize = CIFilter.colorMatrix()
         colorize.inputImage = binary
-        switch tint {
-        case .focusMask:
-            colorize.rVector = CIVector(x: 1.0, y: 0, z: 0, w: 0)
-            colorize.gVector = CIVector(x: 0.22, y: 0, z: 0, w: 0)
-            colorize.bVector = CIVector(x: 0.02, y: 0, z: 0, w: 0)
-            colorize.aVector = CIVector(x: 0.92, y: 0, z: 0, w: 0)
-
-        case .focusPeaking:
-            let intensity = CGFloat(min(max(config.focusPeakingIntensity, 0.30), 1.0))
-            colorize.rVector = CIVector(x: 0.15 * intensity, y: 0, z: 0, w: 0)
-            colorize.gVector = CIVector(x: 1.00, y: 0, z: 0, w: 0)
-            colorize.bVector = CIVector(x: 0.05, y: 0, z: 0, w: 0)
-            colorize.aVector = CIVector(x: intensity, y: 0, z: 0, w: 0)
-        }
+        colorize.rVector = CIVector(x: 1.0, y: 0, z: 0, w: 0)
+        colorize.gVector = CIVector(x: 0.22, y: 0, z: 0, w: 0)
+        colorize.bVector = CIVector(x: 0.02, y: 0, z: 0, w: 0)
+        colorize.aVector = CIVector(x: 0.92, y: 0, z: 0, w: 0)
         return colorize.outputImage
     }
 
@@ -1003,14 +937,5 @@ extension FocusMaskEngine {
         multiply.setValue(mask, forKey: kCIInputImageKey)
         multiply.setValue(image, forKey: kCIInputBackgroundImageKey)
         return multiply.outputImage?.cropped(to: extent)
-    }
-
-    private nonisolated static func maximumComposite(_ image: CIImage, over background: CIImage) -> CIImage {
-        if let maxFilter = CIFilter(name: "CIMaximumCompositing") {
-            maxFilter.setValue(image, forKey: kCIInputImageKey)
-            maxFilter.setValue(background, forKey: kCIInputBackgroundImageKey)
-            return maxFilter.outputImage ?? image.composited(over: background)
-        }
-        return image.composited(over: background)
     }
 }

@@ -23,10 +23,6 @@ struct SaliencyCandidate: Equatable {
 struct SaliencyDetection {
     nonisolated let candidates: [SaliencyCandidate]
     nonisolated let saliencyInfo: SaliencyInfo?
-
-    nonisolated var fallbackRegion: CGRect? {
-        candidates.first?.normalizedRect
-    }
 }
 
 struct SaliencySelection: Equatable {
@@ -183,9 +179,6 @@ struct FocusPatchRanking: Equatable {
 
 struct FocusEvidence: Equatable {
     nonisolated let winningRegion: FocusEvidenceRegion
-    nonisolated let globalScore: Float?
-    nonisolated let saliencyScore: Float?
-    nonisolated let afPointScore: Float?
     nonisolated let afCenterScore: Float?
     nonisolated let afNeighborhoodScore: Float?
     nonisolated var effectiveVisualThreshold: Float?
@@ -211,9 +204,6 @@ struct FocusEvidence: Equatable {
 
     nonisolated init(
         winningRegion: FocusEvidenceRegion,
-        globalScore: Float?,
-        saliencyScore: Float?,
-        afPointScore: Float?,
         afCenterScore: Float? = nil,
         afNeighborhoodScore: Float? = nil,
         effectiveVisualThreshold: Float? = nil,
@@ -238,9 +228,6 @@ struct FocusEvidence: Equatable {
         saliencySelectionReason: String? = nil,
     ) {
         self.winningRegion = winningRegion
-        self.globalScore = globalScore
-        self.saliencyScore = saliencyScore
-        self.afPointScore = afPointScore
         self.afCenterScore = afCenterScore
         self.afNeighborhoodScore = afNeighborhoodScore
         self.effectiveVisualThreshold = effectiveVisualThreshold

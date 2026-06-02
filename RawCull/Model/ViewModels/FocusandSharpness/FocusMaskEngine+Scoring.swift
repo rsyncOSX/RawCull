@@ -422,9 +422,6 @@ extension FocusMaskEngine {
             ),
             focusEvidence: FocusEvidence(
                 winningRegion: analysis.evidenceRegion,
-                globalScore: analysis.fullScore,
-                saliencyScore: analysis.salientScore,
-                afPointScore: analysis.afScore,
                 afCenterScore: analysis.afCenterScore,
                 afNeighborhoodScore: analysis.afNeighborhoodScore,
                 scoringAFLocalPatchScore: analysis.afLocalPatchScore,
