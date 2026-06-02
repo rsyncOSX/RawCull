@@ -18,7 +18,6 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
     case zoomOut
     case toggleThumbnailSource
     case toggleFocusMask
-    case toggleFocusPeaking
     case toggleFocusPoints
     case rating(Int)
 
@@ -59,9 +58,6 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
 
         case "f", "F":
             .toggleFocusMask
-
-        case "g", "G":
-            .toggleFocusPeaking
 
         case "a", "A":
             .toggleFocusPoints
@@ -122,13 +118,11 @@ struct ZoomOverlayView: View {
     }
 
     @State private var focusMask: CGImage?
-    @State private var focusPeakingMask: CGImage?
     @State private var currentScale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask: Bool = false
-    @State private var showFocusPeaking: Bool = false
     @State private var showFocusPoints: Bool = false
     @State private var useThumbnailSource: Bool = true
     @State private var focusBreakdown: SharpnessBreakdown?
@@ -218,8 +212,6 @@ struct ZoomOverlayView: View {
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
                         focusMaskAvailable: focusMask != nil,
-                        showFocusPeaking: $showFocusPeaking,
-                        focusPeakingAvailable: focusPeakingMask != nil,
                         hasFocusPoints: focusPoints != nil,
                         showFocusPoints: $showFocusPoints,
                         showShortcutHints: true,
@@ -277,7 +269,7 @@ struct ZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFgGaAxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFaAxXpP012345tT")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -294,7 +286,6 @@ struct ZoomOverlayView: View {
             maskTask?.cancel()
             maskTask = nil
             focusMask = nil
-            focusPeakingMask = nil
         }
         .onChange(of: useThumbnailSource) { _, _ in reload() }
         .onChange(of: viewModel.selectedFile) { _, _ in
@@ -445,10 +436,6 @@ struct ZoomOverlayView: View {
             showFocusMask.toggle()
             return .handled
 
-        case .toggleFocusPeaking:
-            showFocusPeaking.toggle()
-            return .handled
-
         case .toggleFocusPoints:
             showFocusPoints.toggle()
             return .handled
@@ -498,7 +485,6 @@ struct ZoomOverlayView: View {
         viewModel.closeZoomOverlay()
         resetToFit()
         focusMask = nil
-        focusPeakingMask = nil
         focusBreakdown = nil
     }
 
@@ -511,21 +497,15 @@ struct ZoomOverlayView: View {
         let downscaled = cg.downscaled(toWidth: 1024)
         let source = downscaled ?? cg
         let config = focusMaskConfig(for: selectedFile)
-        async let maskResult = viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
+        let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: source,
             scale: 1.0,
             configOverride: config,
             afPoint: selectedFile.afFocusNormalized,
         )
-        async let peakingResult = viewModel.sharpnessModel.focusMaskModel.generateFocusPeakingMask(
-            from: source,
-            configOverride: config,
-        )
-        let (result, peaking) = await (maskResult, peakingResult)
         guard !Task.isCancelled else { return }
         await MainActor.run {
             self.focusMask = result.mask
-            self.focusPeakingMask = peaking
             self.focusBreakdown = result.breakdown
             if let breakdown = result.breakdown {
                 viewModel.sharpnessModel.breakdowns[selectedFile.id] = breakdown
@@ -555,16 +535,6 @@ struct ZoomOverlayView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
-
-            if showFocusPeaking, let peaking = focusPeakingMask {
-                Image(decorative: peaking, scale: 1.0, orientation: .up)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size.width, height: size.height)
-                    .blendMode(.screen)
-                    .opacity(0.72)
-                    .transition(.opacity)
-            }
 
             if showFocusMask, let mask = focusMask {
                 Image(decorative: mask, scale: 1.0, orientation: .up)

@@ -40,7 +40,7 @@ extension FocusMaskEngine {
                 config: config,
             ).image
         }
-        return result ?? nil
+        return result
     }
 
     /// Generates a pixel-level focus peaking overlay covering the full frame.
@@ -54,7 +54,7 @@ extension FocusMaskEngine {
             guard !Task.isCancelled else { return nil }
             return Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
         }
-        return result ?? nil
+        return result
     }
 
     /// Pixel-level focus peaking: highlights every above-threshold pixel in bright green.

@@ -137,6 +137,16 @@ struct ZoomOverlayKeyActionTests {
     @Test(.tags(.smoke))
     func `unmapped keys are ignored`() {
         #expect(ZoomOverlayKeyAction.resolve(
+            characters: "g",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == nil)
+        #expect(ZoomOverlayKeyAction.resolve(
+            characters: "G",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == nil)
+        #expect(ZoomOverlayKeyAction.resolve(
             characters: "q",
             keyCode: 12,
             navigationAxis: .horizontal,

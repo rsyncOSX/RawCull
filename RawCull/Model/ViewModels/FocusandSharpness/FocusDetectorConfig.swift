@@ -36,7 +36,6 @@ struct FocusDetectorConfig {
     /// while keeping the edge positions pixel-accurate. Range 0.30–1.0; default 0.65.
     var focusPeakingIntensity: Float = 0.65
     var showRawLaplacian: Bool = false
-    var showFocusPeaking: Bool = false
     var guaranteeVisibleFocusEvidence: Bool = false
     var minimumEvidenceCoverage: Float = 0.001
     var afCenterRegionRadius: Float = 0.025
@@ -148,7 +147,6 @@ extension FocusDetectorConfig: Equatable {
             && lhs.featherRadius == rhs.featherRadius
             && lhs.focusPeakingIntensity == rhs.focusPeakingIntensity
             && lhs.showRawLaplacian == rhs.showRawLaplacian
-            && lhs.showFocusPeaking == rhs.showFocusPeaking
             && lhs.guaranteeVisibleFocusEvidence == rhs.guaranteeVisibleFocusEvidence
             && lhs.minimumEvidenceCoverage == rhs.minimumEvidenceCoverage
             && lhs.afCenterRegionRadius == rhs.afCenterRegionRadius

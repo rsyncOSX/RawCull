@@ -116,8 +116,6 @@ struct MainThumbnailImageView: View {
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
                                     focusMaskAvailable: image != nil,
-                                    showFocusPeaking: .constant(false),
-                                    focusPeakingAvailable: false,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
                                     useThumbnailSource: .constant(false),
