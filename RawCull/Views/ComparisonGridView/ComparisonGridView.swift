@@ -9,6 +9,7 @@ struct ComparisonGridView: View {
     @State private var interactionStates: [FileItem.ID: ComparisonPaneInteractionState] = [:]
     @State private var finalistFocusActive = false
     @State private var keyMonitor: Any?
+    @State private var scrollPositionID: FileItem.ID?
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -37,54 +38,63 @@ struct ComparisonGridView: View {
                     }
 
                     GeometryReader { geometry in
-                        ScrollViewReader { proxy in
-                            ScrollView(.horizontal) {
-                                LazyHStack(spacing: 12) {
-                                    ForEach(files) { file in
-                                        let burstAnalysis = burstComparisonResult
-                                        ComparisonImagePaneView(
-                                            file: file,
-                                            state: imageStates[file.id],
-                                            focusPoints: focusPoints(for: file),
-                                            interactionState: interactionBinding(for: file),
-                                            markerSize: viewModel.focusPointMarkerSize,
-                                            isSelected: viewModel.selectedFileID == file.id,
-                                            rating: ratingDisplay(for: file),
-                                            exifSummary: ExifSummary.make(from: file.exifData),
-                                            saliencyLabel: saliencyLabel(for: file),
-                                            burstAnalysis: burstAnalysis,
-                                            burstCandidate: burstCandidate(for: file, in: burstAnalysis),
-                                            burstRating: viewModel.getRating(for: file),
-                                            sharpnessContext: sharpnessContext(for: file),
-                                            inspectorIsPresented: showCandidateInspector,
-                                            onSelect: { viewModel.selectedFileID = file.id },
-                                            onRate: { rating in
-                                                viewModel.updateRating(for: file, rating: rating)
-                                            },
-                                            onToggleInspector: {
-                                                showCandidateInspector.toggle()
-                                            },
-                                            onSourceChange: {
-                                                Task {
-                                                    await reloadImage(for: file)
-                                                }
-                                            },
-                                        )
-                                        .aspectRatio(3 / 2, contentMode: .fit)
-                                        .frame(width: max(320, geometry.size.width - 24))
-                                        .id(file.id)
-                                    }
-                                }
-                                .padding(12)
-                            }
-                            .onChange(of: viewModel.selectedFileID) { _, newID in
-                                guard let newID,
-                                      files.contains(where: { $0.id == newID })
-                                else { return }
-                                withAnimation {
-                                    proxy.scrollTo(newID, anchor: .center)
+                        ScrollView(.horizontal) {
+                            LazyHStack(spacing: 0) {
+                                ForEach(files) { file in
+                                    let burstAnalysis = burstComparisonResult
+                                    ComparisonImagePaneView(
+                                        file: file,
+                                        state: imageStates[file.id],
+                                        focusPoints: focusPoints(for: file),
+                                        interactionState: interactionBinding(for: file),
+                                        markerSize: viewModel.focusPointMarkerSize,
+                                        isSelected: viewModel.selectedFileID == file.id,
+                                        rating: ratingDisplay(for: file),
+                                        exifSummary: ExifSummary.make(from: file.exifData),
+                                        saliencyLabel: saliencyLabel(for: file),
+                                        burstAnalysis: burstAnalysis,
+                                        burstCandidate: burstCandidate(for: file, in: burstAnalysis),
+                                        burstRating: viewModel.getRating(for: file),
+                                        sharpnessContext: sharpnessContext(for: file),
+                                        inspectorIsPresented: showCandidateInspector,
+                                        onSelect: { viewModel.selectedFileID = file.id },
+                                        onRate: { rating in
+                                            viewModel.updateRating(for: file, rating: rating)
+                                        },
+                                        onToggleInspector: {
+                                            showCandidateInspector.toggle()
+                                        },
+                                        onSourceChange: {
+                                            Task {
+                                                await reloadImage(for: file)
+                                            }
+                                        },
+                                    )
+                                    .aspectRatio(3 / 2, contentMode: .fit)
+                                    .frame(width: geometry.size.width)
+                                    .id(file.id)
                                 }
                             }
+                            .scrollTargetLayout()
+                            .padding(.vertical, 12)
+                        }
+                        .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne))
+                        .scrollPosition(id: $scrollPositionID, anchor: .center)
+                        .onChange(of: viewModel.selectedFileID, initial: true) { _, newID in
+                            guard let newID,
+                                  scrollPositionID != newID,
+                                  files.contains(where: { $0.id == newID })
+                            else { return }
+                            withAnimation {
+                                scrollPositionID = newID
+                            }
+                        }
+                        .onChange(of: scrollPositionID) { _, newID in
+                            guard let newID,
+                                  viewModel.selectedFileID != newID,
+                                  files.contains(where: { $0.id == newID })
+                            else { return }
+                            viewModel.selectedFileID = newID
                         }
                     }
                 }
