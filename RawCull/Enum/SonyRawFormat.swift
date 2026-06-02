@@ -42,6 +42,7 @@ enum SonyRawFormat: RawFormat {
         case 1: "Uncompressed"
         case 6: "Compressed"
         case 7: "Lossless Compressed"
+        case 32766: "Compressed"
         case 32767: "Compressed"
         case 32770: "Lossless Compressed"
         default: "Unknown (\(compressionCode))"
