@@ -40,7 +40,9 @@ extension FocusMaskEngine {
                 config: config,
             ).image
         }
-        return result
+        // Preserve the explicit flattening of the worker's cancellation optional.
+        // swiftlint:disable:next redundant_nil_coalescing
+        return result ?? nil
     }
 
     /// Generates a pixel-level focus peaking overlay covering the full frame.
@@ -54,7 +56,9 @@ extension FocusMaskEngine {
             guard !Task.isCancelled else { return nil }
             return Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
         }
-        return result
+        // Preserve the explicit flattening of the worker's cancellation optional.
+        // swiftlint:disable:next redundant_nil_coalescing
+        return result ?? nil
     }
 
     /// Pixel-level focus peaking: highlights every above-threshold pixel in bright green.
