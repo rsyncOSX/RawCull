@@ -38,62 +38,48 @@ private struct BurstGroupHeaderView: View {
     var body: some View {
         let presentation = analysis.map { BurstGroupPresentation.make(result: $0, files: files) }
 
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Label(presentation?.title ?? "Burst of \(files.count) photos", systemImage: "square.stack.3d.up")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                if let presentation {
-                    BurstStatusBadgeView(title: presentation.confidenceLabel, color: badgeColor)
-                }
-
-                Spacer()
-
-                if let presentation, presentation.showsAppliedStatus {
-                    BurstStatusBadgeView(title: "Applied", color: .blue)
-                }
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Label(presentation?.title ?? "Burst of \(files.count) photos", systemImage: "square.stack.3d.up")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
 
             if let presentation {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(presentation.decision)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                BurstStatusBadgeView(title: presentation.confidenceLabel, color: badgeColor)
 
-                        Text(presentation.explanation)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 12)
-
-                    actionButtons
+                if presentation.showsAppliedStatus {
+                    BurstStatusBadgeView(title: "Applied", color: .blue)
                 }
+
+                Text(presentation.decision)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .help(presentation.explanation)
             } else if let best {
                 Text(bestLabel(best))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                HStack(spacing: 8) {
-                    Spacer()
-                    actionButtons
-                }
             }
 
             if !hasSharpnessScores {
-                Text("Run Sharpness Scoring to enable Keep Best")
+                Image(systemName: "exclamationmark.triangle.fill")
                     .font(.caption2)
                     .foregroundStyle(.orange)
+                    .help("Run Sharpness Scoring to enable Keep Best")
+                    .accessibilityLabel("Run Sharpness Scoring to enable Keep Best")
+            }
+
+            Spacer(minLength: 6)
+
+            HStack(spacing: 3) {
+                actionButtons
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 4))
     }
 
     @ViewBuilder
@@ -210,68 +196,9 @@ private struct BurstStatusBadgeView: View {
         Text(title)
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
-    }
-}
-
-private struct BurstLabelDescriptionView: View {
-    private let descriptions = BurstGroupPresentation.labelDescriptions
-
-    private let columns = [
-        GridItem(.adaptive(minimum: 260), alignment: .topLeading)
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Burst group labels")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-                ForEach(descriptions) { item in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(item.label)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(badgeColor(for: item.label).opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
-
-                        Text(item.description)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(item.label): \(item.description)")
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func badgeColor(for label: String) -> Color {
-        switch label {
-        case BurstDecisionConfidence.high.title:
-            .green
-
-        case BurstDecisionConfidence.medium.title, "Manual", "Suggested best":
-            .orange
-
-        case BurstDecisionConfidence.low.title, "Check frame":
-            .gray
-
-        case "Applied":
-            .blue
-
-        default:
-            .black
-        }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
     }
 }
 
@@ -396,12 +323,6 @@ struct CullingGridView<Header: View>: View {
                 // Grid view
                 ScrollViewReader { proxy in
                     ScrollView {
-                        if viewModel.showsBurstGroups {
-                            BurstLabelDescriptionView()
-                                .padding(.horizontal)
-                                .padding(.top, 12)
-                        }
-
                         LazyVGrid(
                             columns: [
                                 GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)
