@@ -15,6 +15,26 @@ struct SaliencyInfo: Codable, Equatable {
     }
 }
 
+struct SaliencyCandidate: Equatable {
+    nonisolated let normalizedRect: CGRect
+    nonisolated let confidence: Float
+}
+
+struct SaliencyDetection {
+    nonisolated let candidates: [SaliencyCandidate]
+    nonisolated let saliencyInfo: SaliencyInfo?
+
+    nonisolated var fallbackRegion: CGRect? {
+        candidates.first?.normalizedRect
+    }
+}
+
+struct SaliencySelection: Equatable {
+    nonisolated let candidateCount: Int
+    nonisolated let winningRegion: CGRect?
+    nonisolated let reason: String?
+}
+
 enum FocusFailureKind: String, Codable, Equatable {
     case none
     case motionBlur
@@ -182,6 +202,12 @@ struct FocusEvidence: Equatable {
     nonisolated var spatialAlignmentScore: Float?
     nonisolated var localPatchDominance: Float?
     nonisolated var silhouettePenaltyApplied: Bool
+    nonisolated var scoringAFLocalPatchScore: Float?
+    nonisolated var scoringSubjectInteriorPatchScore: Float?
+    nonisolated var scoringLocalDetailScore: Float?
+    nonisolated var saliencyCandidateCount: Int
+    nonisolated var winningSaliencyRect: CGRect?
+    nonisolated var saliencySelectionReason: String?
 
     nonisolated init(
         winningRegion: FocusEvidenceRegion,
@@ -204,6 +230,12 @@ struct FocusEvidence: Equatable {
         spatialAlignmentScore: Float? = nil,
         localPatchDominance: Float? = nil,
         silhouettePenaltyApplied: Bool = false,
+        scoringAFLocalPatchScore: Float? = nil,
+        scoringSubjectInteriorPatchScore: Float? = nil,
+        scoringLocalDetailScore: Float? = nil,
+        saliencyCandidateCount: Int = 0,
+        winningSaliencyRect: CGRect? = nil,
+        saliencySelectionReason: String? = nil,
     ) {
         self.winningRegion = winningRegion
         self.globalScore = globalScore
@@ -225,6 +257,12 @@ struct FocusEvidence: Equatable {
         self.spatialAlignmentScore = spatialAlignmentScore
         self.localPatchDominance = localPatchDominance
         self.silhouettePenaltyApplied = silhouettePenaltyApplied
+        self.scoringAFLocalPatchScore = scoringAFLocalPatchScore
+        self.scoringSubjectInteriorPatchScore = scoringSubjectInteriorPatchScore
+        self.scoringLocalDetailScore = scoringLocalDetailScore
+        self.saliencyCandidateCount = saliencyCandidateCount
+        self.winningSaliencyRect = winningSaliencyRect
+        self.saliencySelectionReason = saliencySelectionReason
     }
 }
 

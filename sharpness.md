@@ -27,6 +27,16 @@ All P1 findings have been addressed:
 4. Sony previews, generic embedded previews, and RAW-demosaic images pass through one sRGB RGBA normalization boundary before scoring.
 5. Burst caches and persisted scores carry a complete versioned scoring signature. Persisted scores also require matching file size and modification date; older unsigned scores remain readable but are treated as stale.
 
+## P2 Resolution Status
+
+All P2 findings have been addressed:
+
+1. Scalar scoring reuses the local patch analysis from the visual overlay. Broad AF/saliency scoring remains the primary subject signal and is blended 75/25 with the best AF-local and subject-interior patch evidence.
+2. Vision salient objects remain separate. Scoring selects one AF-aware winner instead of unioning boxes, and diagnostics report the candidate count, winning rectangle, and selection reason.
+3. Scoring resolution has a hard 2048 px ceiling. Legacy `0`, negative, and oversized persisted values migrate to 2048 px, and decode boundaries enforce the same limit.
+4. Detached sharpness workers forward cancellation and check for cancellation between decode, Vision, Laplacian, render, reduction, patch analysis, and mask stages. Calibration stops admitting work after cancellation.
+5. The scoring algorithm version is incremented so burst caches and persisted scores from the earlier ranking policy are treated as stale.
+
 ## Findings
 
 ### P1: Resolution compensation is orientation-dependent
@@ -185,12 +195,9 @@ Use labeled ranking accuracy to decide whether the extra complexity earns its co
 
 ## Recommended Implementation Order
 
-1. Fix longest-side resolution normalization and normalize every decode path to the same color space.
-2. Separate focus-evidence heat map from focus-peaking mask in naming, controls, and diagnostics.
-3. Replace image-score-derived peaking calibration with sampled pixel-energy calibration.
-4. Add a versioned complete scoring signature to burst cache and persisted scores.
-5. Reuse local patch evidence in scalar ranking, especially for wildlife and portraits.
-6. Evaluate multiscale and linear-light scoring against a labeled dataset.
+1. Validate local-patch ranking and AF-aware salient-object selection against labeled wildlife, portrait, and multiple-subject bursts.
+2. Measure runtime, peak memory, and cancellation latency at 1024, 1536, and 2048 px.
+3. Evaluate multiscale and linear-light scoring against the same labeled dataset.
 
 ## Validation Plan
 
@@ -222,6 +229,10 @@ Add automated tests for:
 - calibration based on pixel-energy samples;
 - focus-mask diagnostics when visibility relaxation occurs;
 - stale persisted-score rejection.
+- bounded scoring-size migration;
+- conservative local-patch blending;
+- AF-aware salient-object selection;
+- cancellation forwarding between sharpness worker stages.
 
 ## Existing Test Coverage
 

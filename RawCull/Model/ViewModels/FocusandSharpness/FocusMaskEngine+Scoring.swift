@@ -27,7 +27,8 @@ extension FocusMaskEngine {
         afPoint: CGPoint? = nil,
         scoringSource: SharpnessScoringSource = .embeddedPreview,
     ) async -> (score: Float?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
-        await Task.detached(priority: .userInitiated) { [context] in
+        await Self.runCancellableWorker { [context] in
+            guard !Task.isCancelled else { return (nil, nil, nil) }
             guard let cgImage = Self.decodeScoringImage(
                 at: url,
                 maxPixelSize: thumbnailMaxPixelSize,
@@ -35,20 +36,21 @@ extension FocusMaskEngine {
                 context: context,
             ) else { return (nil, nil, nil) }
 
-            let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
+            guard !Task.isCancelled else { return (nil, nil, nil) }
+            let saliency = Self.detectSaliencyAndClassify(
                 for: cgImage, classify: config.enableSubjectClassification,
             )
+            guard !Task.isCancelled else { return (nil, nil, nil) }
             var breakdown = Self.computeSharpnessBreakdown(
                 from: CIImage(cgImage: cgImage),
-                salientRegion: region,
-                saliencyInfo: saliencyInfo,
+                saliencyDetection: saliency,
                 afPoint: afPoint,
                 context: context,
                 config: config,
             )
             breakdown?.scoringSource = scoringSource
-            return (breakdown?.finalScore, saliencyInfo, breakdown)
-        }.value
+            return (breakdown?.finalScore, saliency.saliencyInfo, breakdown)
+        } ?? (nil, nil, nil)
     }
 
     // MARK: - Decode helpers
@@ -59,14 +61,19 @@ extension FocusMaskEngine {
         scoringSource: SharpnessScoringSource,
         context: CIContext,
     ) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        let boundedMaxPixelSize = maxPixelSize > 0
+            ? min(maxPixelSize, SharpnessScoringSizeOption.maximumPixelSize)
+            : SharpnessScoringSizeOption.maximumPixelSize
         let decoded: CGImage? = switch scoringSource {
         case .embeddedPreview:
-            extractSonyEmbeddedPreview(at: url, maxPixelSize: maxPixelSize)
-                ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
+            extractSonyEmbeddedPreview(at: url, maxPixelSize: boundedMaxPixelSize)
+                ?? decodeThumbnail(at: url, maxPixelSize: boundedMaxPixelSize)
 
         case .rawDemosaic:
-            decodeDemosaicedRawThumbnail(at: url, maxPixelSize: maxPixelSize, context: context)
+            decodeDemosaicedRawThumbnail(at: url, maxPixelSize: boundedMaxPixelSize, context: context)
         }
+        guard !Task.isCancelled else { return nil }
         return decoded.flatMap(normalizeToSRGB)
     }
 
@@ -162,23 +169,92 @@ extension FocusMaskEngine {
 
     // MARK: - Saliency
 
-    nonisolated static func detectSaliencyAndClassify(for cgImage: CGImage, classify: Bool) -> (region: CGRect?, saliency: SaliencyInfo?) {
+    nonisolated static func detectSaliencyAndClassify(for cgImage: CGImage, classify: Bool) -> SaliencyDetection {
+        guard !Task.isCancelled else { return SaliencyDetection(candidates: [], saliencyInfo: nil) }
         let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
         let classifyRequest = VNClassifyImageRequest()
         let requests: [VNRequest] = classify ? [saliencyRequest, classifyRequest] : [saliencyRequest]
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         try? handler.perform(requests)
+        guard !Task.isCancelled else { return SaliencyDetection(candidates: [], saliencyInfo: nil) }
 
         guard let observation = saliencyRequest.results?.first,
               let objects = observation.salientObjects,
-              !objects.isEmpty else { return (nil, nil) }
+              !objects.isEmpty else { return SaliencyDetection(candidates: [], saliencyInfo: nil) }
 
-        let union = objects.reduce(CGRect.null) { $0.union($1.boundingBox) }
         let maxConfidence = objects.map(\.confidence).max() ?? 0
-        guard union.width * union.height > 0.03 || maxConfidence >= 0.9 else { return (nil, nil) }
-
         let label = Self.bestClassificationLabel(from: classifyRequest.results ?? [])
-        return (union, SaliencyInfo(subjectLabel: label, subjectConfidence: maxConfidence))
+        var candidates = [SaliencyCandidate]()
+        for object in objects {
+            let candidate = SaliencyCandidate(normalizedRect: object.boundingBox, confidence: object.confidence)
+            let area = candidate.normalizedRect.width * candidate.normalizedRect.height
+            if area > 0.03 || candidate.confidence >= 0.9 {
+                candidates.append(candidate)
+            }
+        }
+        candidates.sort { $0.confidence > $1.confidence }
+        return SaliencyDetection(
+            candidates: candidates,
+            saliencyInfo: candidates.isEmpty ? nil : SaliencyInfo(subjectLabel: label, subjectConfidence: maxConfidence),
+        )
+    }
+
+    nonisolated static func selectSaliencyCandidate(
+        _ candidates: [SaliencyCandidate],
+        afPoint: CGPoint?,
+        detailScores: [CGRect: Float] = [:],
+    ) -> SaliencySelection {
+        guard !candidates.isEmpty else {
+            return SaliencySelection(candidateCount: 0, winningRegion: nil, reason: nil)
+        }
+
+        let visionAFPoint = afPoint.map { CGPoint(x: $0.x, y: 1.0 - $0.y) }
+        func metrics(for candidate: SaliencyCandidate) -> (
+            candidate: SaliencyCandidate,
+            overlapsAF: Bool,
+            distanceToAF: CGFloat,
+            detail: Float,
+            area: CGFloat,
+        ) {
+            let rect = candidate.normalizedRect
+            let center = CGPoint(x: rect.midX, y: rect.midY)
+            let distance = visionAFPoint.map { hypot(center.x - $0.x, center.y - $0.y) } ?? .infinity
+            return (
+                candidate,
+                visionAFPoint.map(rect.contains) ?? false,
+                distance,
+                detailScores[rect] ?? 0,
+                rect.width * rect.height,
+            )
+        }
+
+        let ranked = candidates.map(metrics).sorted { lhs, rhs in
+            if lhs.overlapsAF != rhs.overlapsAF { return lhs.overlapsAF }
+            if visionAFPoint != nil, lhs.distanceToAF != rhs.distanceToAF { return lhs.distanceToAF < rhs.distanceToAF }
+            if lhs.candidate.confidence != rhs.candidate.confidence { return lhs.candidate.confidence > rhs.candidate.confidence }
+            if lhs.detail != rhs.detail { return lhs.detail > rhs.detail }
+            if lhs.area != rhs.area { return lhs.area > rhs.area }
+            let l = lhs.candidate.normalizedRect
+            let r = rhs.candidate.normalizedRect
+            return l.minX == r.minX ? l.minY < r.minY : l.minX < r.minX
+        }
+        let winner = ranked[0]
+        let reason = if winner.overlapsAF {
+            "AF overlap"
+        } else if visionAFPoint != nil {
+            "Nearest to AF point"
+        } else if winner.candidate.confidence > 0 {
+            "Highest saliency confidence"
+        } else if winner.detail > 0 {
+            "Strongest interior detail"
+        } else {
+            "Largest viable salient object"
+        }
+        return SaliencySelection(
+            candidateCount: candidates.count,
+            winningRegion: winner.candidate.normalizedRect,
+            reason: reason,
+        )
     }
 
     private nonisolated static func bestClassificationLabel(from observations: [VNClassificationObservation]) -> String? {
@@ -302,8 +378,12 @@ extension FocusMaskEngine {
         let afScore: Float?
         let afCenterScore: Float?
         let afNeighborhoodScore: Float?
+        let afLocalPatchScore: Float?
+        let subjectInteriorPatchScore: Float?
+        let localDetailScore: Float?
         let subjectMicro: Float
         let evidenceRegion: FocusEvidenceRegion
+        let saliencySelection: SaliencySelection
     }
 
     private nonisolated static let motionBlurScoreThreshold: Float = 0.08
@@ -313,15 +393,14 @@ extension FocusMaskEngine {
 
     nonisolated static func computeSharpnessBreakdown(
         from inputImage: CIImage,
-        salientRegion: CGRect?,
-        saliencyInfo: SaliencyInfo?,
+        saliencyDetection: SaliencyDetection,
         afPoint: CGPoint?,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> SharpnessBreakdown? {
         guard let analysis = computeSharpnessAnalysis(
             from: inputImage,
-            salientRegion: salientRegion,
+            saliencyDetection: saliencyDetection,
             afPoint: afPoint,
             context: context,
             config: config,
@@ -333,8 +412,8 @@ extension FocusMaskEngine {
             subjectScore: analysis.salientScore,
             afPointScore: analysis.afScore,
             blurGateSigma: analysis.subjectMicro,
-            subjectLabel: saliencyInfo?.subjectLabel,
-            subjectConfidence: saliencyInfo?.subjectConfidence,
+            subjectLabel: saliencyDetection.saliencyInfo?.subjectLabel,
+            subjectConfidence: saliencyDetection.saliencyInfo?.subjectConfidence,
             focusFailureKind: classifyFocusFailure(
                 globalScore: analysis.fullScore,
                 subjectScore: analysis.salientScore,
@@ -348,8 +427,34 @@ extension FocusMaskEngine {
                 afPointScore: analysis.afScore,
                 afCenterScore: analysis.afCenterScore,
                 afNeighborhoodScore: analysis.afNeighborhoodScore,
+                scoringAFLocalPatchScore: analysis.afLocalPatchScore,
+                scoringSubjectInteriorPatchScore: analysis.subjectInteriorPatchScore,
+                scoringLocalDetailScore: analysis.localDetailScore,
+                saliencyCandidateCount: analysis.saliencySelection.candidateCount,
+                winningSaliencyRect: analysis.saliencySelection.winningRegion,
+                saliencySelectionReason: analysis.saliencySelection.reason,
             ),
         )
+    }
+
+    nonisolated static func conservativeSubjectScore(
+        broadSubjectScore: Float?,
+        afLocalPatchScore: Float?,
+        subjectInteriorPatchScore: Float?,
+    ) -> (score: Float?, localDetailScore: Float?) {
+        let localDetailScore: Float? = switch (afLocalPatchScore, subjectInteriorPatchScore) {
+        case let (af?, subject?): af * 0.6 + subject * 0.4
+        case let (af?, nil): af
+        case let (nil, subject?): subject
+        default: nil
+        }
+        let score: Float? = switch (broadSubjectScore, localDetailScore) {
+        case let (broad?, local?): broad * 0.75 + local * 0.25
+        case let (broad?, nil): broad
+        case let (nil, local?): local
+        default: nil
+        }
+        return (score, localDetailScore)
     }
 
     nonisolated static func classifyFocusFailure(
@@ -433,11 +538,12 @@ extension FocusMaskEngine {
 
     private nonisolated static func computeSharpnessAnalysis(
         from inputImage: CIImage,
-        salientRegion: CGRect?,
+        saliencyDetection: SaliencyDetection,
         afPoint: CGPoint?,
         context: CIContext,
         config: FocusDetectorConfig,
     ) -> SharpnessAnalysis? {
+        guard !Task.isCancelled else { return nil }
         guard let boosted = buildScoringLaplacian(from: inputImage, config: config) else { return nil }
 
         let extent = boosted.extent
@@ -455,6 +561,7 @@ extension FocusMaskEngine {
             format: .RGBAf,
             colorSpace: nil,
         )
+        guard !Task.isCancelled else { return nil }
 
         @inline(__always)
         func redAt(_ idx: Int) -> Float {
@@ -470,6 +577,7 @@ extension FocusMaskEngine {
         var full = [Float]()
         full.reserveCapacity(innerW * innerH)
         for row in borderRows ..< (height - borderRows) {
+            if row & 0x3F == 0, Task.isCancelled { return nil }
             let base = row * width
             for col in borderCols ..< (width - borderCols) {
                 let v = redAt(base + col)
@@ -509,6 +617,7 @@ extension FocusMaskEngine {
             var innerCnt = 0
 
             for row in rowStart ..< rowEnd {
+                if row & 0x3F == 0, Task.isCancelled { return RegionAnalysis(samples: [], borderFraction: 1.0) }
                 let base = row * width
                 for col in colStart ..< colEnd {
                     let v = redAt(base + col)
@@ -543,13 +652,24 @@ extension FocusMaskEngine {
 
         let fullScore = Self.robustTailScore(full)
 
-        var salientAnalysis: RegionAnalysis?
-        var salientScore: Float?
-        if let region = salientRegion {
-            let a = analyzeRegion(region)
-            salientAnalysis = a
-            if a.samples.count >= 64 { salientScore = Self.robustTailScore(a.samples) }
+        var salientAnalyses: [CGRect: RegionAnalysis] = [:]
+        var salientDetailScores: [CGRect: Float] = [:]
+        for candidate in saliencyDetection.candidates {
+            guard !Task.isCancelled else { return nil }
+            let analysis = analyzeRegion(candidate.normalizedRect)
+            salientAnalyses[candidate.normalizedRect] = analysis
+            if analysis.samples.count >= 64 {
+                salientDetailScores[candidate.normalizedRect] = Self.robustTailScore(analysis.samples)
+            }
         }
+        let saliencySelection = Self.selectSaliencyCandidate(
+            saliencyDetection.candidates,
+            afPoint: afPoint,
+            detailScores: salientDetailScores,
+        )
+        let salientRegion = saliencySelection.winningRegion
+        let salientAnalysis = salientRegion.flatMap { salientAnalyses[$0] }
+        let salientScore = salientRegion.flatMap { salientDetailScores[$0] }
 
         // AF-point subject score
         var afAnalysis: RegionAnalysis?
@@ -580,18 +700,46 @@ extension FocusMaskEngine {
             }
         }
 
+        func bestLocalPatchScore(in unitRegion: CGRect?, visualRegion: FocusEvidenceRegion) -> Float? {
+            guard !Task.isCancelled,
+                  let rect = Self.pixelRect(from: unitRegion, in: extent)
+            else { return nil }
+            return Self.selectEvidencePatches(
+                from: Self.patchRankings(
+                    in: rect,
+                    sourceImage: boosted,
+                    extent: extent,
+                    afPoint: afPoint,
+                    visualRegion: visualRegion,
+                    context: context,
+                ),
+                visualRegion: visualRegion,
+            ).first?.robustTailScore
+        }
+        let afLocalPatchScore = bestLocalPatchScore(
+            in: Self.afUnitRegion(afPoint: afPoint, radius: config.afNeighborhoodRegionRadius),
+            visualRegion: .afNeighborhood,
+        )
+        let subjectInteriorPatchScore = bestLocalPatchScore(in: salientRegion, visualRegion: .saliency)
+
         // AF and saliency both signal "where the subject is" but with different confidence
         // characteristics: AF is camera-provided ground truth for where focus was attempted;
         // Vision saliency is a perceptual model. Blending keeps both signals in the mix
         // rather than AF silently overriding saliency (the earlier `afScore ?? salientScore`
         // behaviour), which occasionally mis-ranked when the AF point landed on a secondary
         // subject while Vision correctly identified the main one.
-        let effectiveSubjectScore: Float? = switch (afScore, salientScore) {
+        let broadSubjectScore: Float? = switch (afScore, salientScore) {
         case let (a?, s?): a * 0.6 + s * 0.4
         case let (a?, nil): a
         case let (nil, s?): s
         default: nil
         }
+        let localBlend = Self.conservativeSubjectScore(
+            broadSubjectScore: broadSubjectScore,
+            afLocalPatchScore: afLocalPatchScore,
+            subjectInteriorPatchScore: subjectInteriorPatchScore,
+        )
+        let effectiveSubjectScore = localBlend.score
         // Prefer AF analysis for micro-contrast / silhouette because the AF region is
         // usually tighter than the Vision salient union.
         let effectiveAnalysis = afAnalysis ?? salientAnalysis
@@ -668,6 +816,9 @@ extension FocusMaskEngine {
             afScore: afScore,
             afCenterScore: afCenterScore,
             afNeighborhoodScore: afNeighborhoodScore,
+            afLocalPatchScore: afLocalPatchScore,
+            subjectInteriorPatchScore: subjectInteriorPatchScore,
+            localDetailScore: localBlend.localDetailScore,
             subjectMicro: subjectMicro,
             evidenceRegion: Self.focusEvidenceRegion(
                 globalScore: fullScore,
@@ -677,6 +828,7 @@ extension FocusMaskEngine {
                 afNeighborhoodScore: afNeighborhoodScore,
                 afRegionRadius: config.afRegionRadius,
             ),
+            saliencySelection: saliencySelection,
         )
     }
 
@@ -716,6 +868,7 @@ extension FocusMaskEngine {
     }
 
     nonisolated static func buildAmplifiedLaplacian(from image: CIImage, config: FocusDetectorConfig) -> CIImage? {
+        guard !Task.isCancelled else { return nil }
         let isoFactor = Self.isoScalingFactor(iso: config.iso)
         let resFactor = Self.resolutionScalingFactor(for: image.extent)
         // Landscape (deep DoF) damps the combined ISO × resolution blur so the whole-
@@ -727,6 +880,7 @@ extension FocusMaskEngine {
         preBlur.inputImage = image
         preBlur.radius = effectiveRadius
         guard let smoothed = preBlur.outputImage else { return nil }
+        guard !Task.isCancelled else { return nil }
 
         guard let kernel = _focusMagnitudeKernel else { return nil }
         guard let laplacianOutput = kernel.apply(
@@ -734,6 +888,7 @@ extension FocusMaskEngine {
             roiCallback: { _, rect in rect.insetBy(dx: -2, dy: -2) },
             arguments: [smoothed],
         ) else { return nil }
+        guard !Task.isCancelled else { return nil }
 
         let boost = CIFilter.colorMatrix()
         boost.inputImage = laplacianOutput

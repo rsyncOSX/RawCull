@@ -6,6 +6,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import os
 @testable import RawCull
 import Testing
 
@@ -125,7 +126,7 @@ struct SharpnessScoringTests {
 
         model.scoringQuality = .highPrecision
         model.thumbnailMaxPixelSize = 0
-        #expect(model.effectiveThumbnailMaxPixelSize == 0)
+        #expect(model.effectiveThumbnailMaxPixelSize == 2048)
         #expect(model.effectiveFocusConfig.fineDetailBlendWeight == 0.45)
         #expect(model.effectiveFocusConfig.enableSubjectClassification)
 
@@ -598,6 +599,107 @@ struct FocusNumericHelperTests {
         #expect(landscape == portrait)
     }
 
+    @Test(
+        .tags(.smoke),
+        arguments: [
+            (value: 0, expected: 2048),
+            (value: -1, expected: 2048),
+            (value: 4096, expected: 2048),
+            (value: 256, expected: 512),
+            (value: 1536, expected: 1536)
+        ],
+    )
+    func `scoring size normalization clamps legacy and oversized values`(value: Int, expected: Int) {
+        #expect(SharpnessScoringSizeOption.normalizedPixelSize(value, for: .fast) == expected)
+    }
+
+    @Test(.tags(.smoke))
+    func `conservative subject score keeps broad score dominant`() throws {
+        let result = FocusMaskEngine.conservativeSubjectScore(
+            broadSubjectScore: 0.40,
+            afLocalPatchScore: 0.80,
+            subjectInteriorPatchScore: 0.20,
+        )
+        #expect(try abs(#require(result.localDetailScore) - 0.56) < 0.001)
+        #expect(try abs(#require(result.score) - 0.44) < 0.001)
+    }
+
+    @Test(.tags(.smoke))
+    func `conservative subject score preserves broad fallback without patches`() {
+        let result = FocusMaskEngine.conservativeSubjectScore(
+            broadSubjectScore: 0.40,
+            afLocalPatchScore: nil,
+            subjectInteriorPatchScore: nil,
+        )
+        #expect(result.score == 0.40)
+        #expect(result.localDetailScore == nil)
+    }
+
+    @Test(.tags(.smoke))
+    func `saliency selection prefers AF overlap over confidence`() {
+        let overlapping = SaliencyCandidate(
+            normalizedRect: CGRect(x: 0.40, y: 0.40, width: 0.20, height: 0.20),
+            confidence: 0.50,
+        )
+        let distracting = SaliencyCandidate(
+            normalizedRect: CGRect(x: 0.05, y: 0.05, width: 0.25, height: 0.25),
+            confidence: 0.99,
+        )
+        let result = FocusMaskEngine.selectSaliencyCandidate(
+            [distracting, overlapping],
+            afPoint: CGPoint(x: 0.50, y: 0.50),
+        )
+        #expect(result.winningRegion == overlapping.normalizedRect)
+        #expect(result.reason == "AF overlap")
+    }
+
+    @Test(.tags(.smoke))
+    func `saliency selection is deterministic without AF`() {
+        let detailed = SaliencyCandidate(
+            normalizedRect: CGRect(x: 0.40, y: 0.40, width: 0.20, height: 0.20),
+            confidence: 0.70,
+        )
+        let confident = SaliencyCandidate(
+            normalizedRect: CGRect(x: 0.05, y: 0.05, width: 0.25, height: 0.25),
+            confidence: 0.90,
+        )
+        let result = FocusMaskEngine.selectSaliencyCandidate(
+            [detailed, confident],
+            afPoint: nil,
+            detailScores: [detailed.normalizedRect: 0.95],
+        )
+        #expect(result.winningRegion == confident.normalizedRect)
+        #expect(result.reason == "Highest saliency confidence")
+    }
+
+    @Test(.tags(.smoke))
+    func `saliency selection reports empty fallback`() {
+        let result = FocusMaskEngine.selectSaliencyCandidate([], afPoint: nil)
+        #expect(result.candidateCount == 0)
+        #expect(result.winningRegion == nil)
+        #expect(result.reason == nil)
+    }
+
+    @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
+    func `cancellable worker forwards cancellation`() async {
+        let reachedLaterStage = CancellationStageProbe()
+        let task = Task {
+            await FocusMaskEngine.runCancellableWorker {
+                while !Task.isCancelled {
+                    Thread.sleep(forTimeInterval: 0.001)
+                }
+                if !Task.isCancelled {
+                    reachedLaterStage.markReached()
+                }
+                return true
+            }
+        }
+        try? await Task.sleep(for: .milliseconds(10))
+        task.cancel()
+        _ = await task.value
+        #expect(!reachedLaterStage.didReach)
+    }
+
     @Test(.tags(.smoke))
     func `visibility relaxation lowers threshold and reports coverage`() {
         let samples = [Float](repeating: 0.05, count: 90) + [Float](repeating: 0.20, count: 10)
@@ -735,6 +837,18 @@ struct FocusNumericHelperTests {
             blurGateSigma: 0.03,
         )
         #expect(result == .none)
+    }
+}
+
+private final class CancellationStageProbe: @unchecked Sendable {
+    private let reached = OSAllocatedUnfairLock(initialState: false)
+
+    nonisolated var didReach: Bool {
+        reached.withLock { $0 }
+    }
+
+    nonisolated func markReached() {
+        reached.withLock { $0 = true }
     }
 }
 

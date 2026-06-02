@@ -51,6 +51,13 @@ struct CandidateInspectorView: View {
                         if let style = evidence.overlayStyle {
                             LabeledContent("Overlay Style", value: style.title)
                         }
+                        if let localScore = evidence.scoringLocalDetailScore {
+                            LabeledContent("Scoring Local Detail", value: percent(localScore))
+                        }
+                        LabeledContent("Saliency Candidates", value: "\(evidence.saliencyCandidateCount)")
+                        if let reason = evidence.saliencySelectionReason {
+                            LabeledContent("Saliency Selection", value: reason)
+                        }
                         if let confidence = evidence.focusEvidenceConfidence {
                             LabeledContent("Location Confidence", value: confidence.title)
                         }

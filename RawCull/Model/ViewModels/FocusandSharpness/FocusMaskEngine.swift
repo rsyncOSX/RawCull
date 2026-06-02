@@ -39,4 +39,20 @@ struct FocusMaskEngine: @unchecked Sendable {
     }
 
     nonisolated init() {}
+
+    nonisolated static func runCancellableWorker<Success: Sendable>(
+        priority: TaskPriority = .userInitiated,
+        operation: @escaping @Sendable () -> Success,
+    ) async -> Success? {
+        let worker = Task.detached(priority: priority, operation: operation)
+        return await withTaskCancellationHandler {
+            guard !Task.isCancelled else {
+                worker.cancel()
+                return nil
+            }
+            return await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
+    }
 }

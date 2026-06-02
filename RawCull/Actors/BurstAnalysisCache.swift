@@ -17,7 +17,7 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
 }
 
 struct SharpnessScoringSignature: Codable {
-    nonisolated static let currentAlgorithmVersion = 2
+    nonisolated static let currentAlgorithmVersion = 3
     nonisolated static let currentISOScalingPolicyVersion = 1
     nonisolated static let currentApertureHintPolicyVersion = 1
     nonisolated static let stableScoringEnergyMultiplier: Float = 7.62

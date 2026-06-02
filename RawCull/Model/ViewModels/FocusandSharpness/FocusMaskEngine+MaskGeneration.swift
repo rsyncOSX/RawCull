@@ -13,16 +13,22 @@ extension FocusMaskEngine {
     ) async -> CGImage? {
         let context = self.context
 
-        return await Task.detached(priority: .userInitiated) {
-            let salientRegion: CGRect? = if config.isolateMaskToSubject {
-                Self.detectSaliencyAndClassify(
-                    for: cgImage,
-                    classify: false,
-                ).region
+        return await Self.runCancellableWorker {
+            guard !Task.isCancelled else { return nil }
+            let salientRegion: CGRect? = if let winningSaliencyRect = evidence?.winningSaliencyRect {
+                winningSaliencyRect
+            } else if config.isolateMaskToSubject {
+                Self.selectSaliencyCandidate(
+                    Self.detectSaliencyAndClassify(
+                        for: cgImage,
+                        classify: false,
+                    ).candidates,
+                    afPoint: afPoint,
+                ).winningRegion
             } else {
                 nil
             }
-
+            guard !Task.isCancelled else { return nil }
             return Self.buildFocusMask(
                 from: CIImage(cgImage: cgImage),
                 scale: scale,
@@ -33,7 +39,7 @@ extension FocusMaskEngine {
                 context: context,
                 config: config,
             ).image
-        }.value
+        }
     }
 
     /// Generates a pixel-level focus peaking overlay covering the full frame.
@@ -43,9 +49,10 @@ extension FocusMaskEngine {
     nonisolated func generateFocusPeakingMask(from cgImage: CGImage, configOverride: FocusDetectorConfig? = nil) async -> CGImage? {
         let config = configOverride ?? FocusDetectorConfig()
         let context = self.context
-        return await Task.detached(priority: .userInitiated) {
-            Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
-        }.value
+        return await Self.runCancellableWorker {
+            guard !Task.isCancelled else { return nil }
+            return Self.buildFocusPeakingMask(from: CIImage(cgImage: cgImage), config: config, context: context)
+        }
     }
 
     /// Pixel-level focus peaking: highlights every above-threshold pixel in bright green.
@@ -63,7 +70,9 @@ extension FocusMaskEngine {
         config: FocusDetectorConfig,
         context: CIContext,
     ) -> CGImage? {
-        guard let laplacian = buildAmplifiedLaplacian(from: inputImage, config: config),
+        guard !Task.isCancelled,
+              let laplacian = buildAmplifiedLaplacian(from: inputImage, config: config),
+              !Task.isCancelled,
               let colored = buildColorizedThresholdedEdges(
                   from: laplacian,
                   threshold: config.threshold,
@@ -72,6 +81,7 @@ extension FocusMaskEngine {
               )
         else { return nil }
         let cropped = colored.cropped(to: inputImage.extent)
+        guard !Task.isCancelled else { return nil }
         return context.createCGImage(cropped, from: cropped.extent)
     }
 
@@ -83,24 +93,26 @@ extension FocusMaskEngine {
     ) async -> (mask: CGImage?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
         let context = self.context
 
-        return await Task.detached(priority: .userInitiated) {
+        return await Self.runCancellableWorker {
+            guard !Task.isCancelled else { return (nil, nil, nil) }
             let ciImage = CIImage(cgImage: cgImage)
-            let (region, saliencyInfo) = Self.detectSaliencyAndClassify(
+            let saliency = Self.detectSaliencyAndClassify(
                 for: cgImage,
                 classify: config.enableSubjectClassification,
             )
+            guard !Task.isCancelled else { return (nil, nil, nil) }
             var breakdown = Self.computeSharpnessBreakdown(
                 from: ciImage,
-                salientRegion: region,
-                saliencyInfo: saliencyInfo,
+                saliencyDetection: saliency,
                 afPoint: afPoint,
                 context: context,
                 config: config,
             )
+            guard !Task.isCancelled else { return (nil, nil, nil) }
             let maskResult = Self.buildFocusMask(
                 from: ciImage,
                 scale: scale,
-                salientRegion: region,
+                salientRegion: breakdown?.focusEvidence?.winningSaliencyRect,
                 afPoint: afPoint,
                 evidenceRegion: breakdown?.focusEvidence?.winningRegion,
                 evidence: breakdown?.focusEvidence,
@@ -112,8 +124,8 @@ extension FocusMaskEngine {
             if let evidence = maskResult.evidence {
                 breakdown?.focusEvidence = evidence
             }
-            return (maskResult.image, saliencyInfo, breakdown)
-        }.value
+            return (maskResult.image, saliency.saliencyInfo, breakdown)
+        } ?? (nil, nil, nil)
     }
 
     private nonisolated static func buildFocusMask(
@@ -127,8 +139,14 @@ extension FocusMaskEngine {
         config: FocusDetectorConfig,
     ) -> FocusMaskRenderResult {
         let emptyDiagnostics = FocusMaskDiagnostics(regionSource: .none, visualThreshold: nil)
+        guard !Task.isCancelled else {
+            return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics, evidence: evidence)
+        }
         let scaledImage = inputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         guard let rawLaplacian = Self.buildAmplifiedLaplacian(from: scaledImage, config: config) else {
+            return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics, evidence: evidence)
+        }
+        guard !Task.isCancelled else {
             return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics, evidence: evidence)
         }
 
@@ -271,6 +289,9 @@ extension FocusMaskEngine {
                     context: context,
                 )
             }
+        guard !Task.isCancelled else {
+            return FocusMaskRenderResult(image: nil, diagnostics: emptyDiagnostics, evidence: evidence)
+        }
         if let afPixelCenter {
             let afPatchWidth = scaledImage.extent.width * 0.06
             let afPatchHeight = scaledImage.extent.height * 0.06
@@ -503,7 +524,7 @@ extension FocusMaskEngine {
         return selected
     }
 
-    private nonisolated static func patchRankings(
+    nonisolated static func patchRankings(
         in region: CGRect,
         sourceImage: CIImage,
         extent: CGRect,
@@ -522,6 +543,7 @@ extension FocusMaskEngine {
 
         var y = boundedRegion.minY
         while y + patchHeight <= boundedRegion.maxY + 0.5 {
+            if Task.isCancelled { return [] }
             var x = boundedRegion.minX
             while x + patchWidth <= boundedRegion.maxX + 0.5 {
                 rects.append(CGRect(x: x, y: y, width: patchWidth, height: patchHeight))
@@ -555,7 +577,7 @@ extension FocusMaskEngine {
         }
     }
 
-    private nonisolated static func patchRanking(
+    nonisolated static func patchRanking(
         for rect: CGRect,
         searchRegion: CGRect,
         sourceImage: CIImage,
@@ -936,7 +958,7 @@ extension FocusMaskEngine {
 
         let width = Int(bounds.width)
         let height = Int(bounds.height)
-        guard width > 0, height > 0 else { return PatchSampleGrid(samples: [], width: 0, height: 0) }
+        guard !Task.isCancelled, width > 0, height > 0 else { return PatchSampleGrid(samples: [], width: 0, height: 0) }
 
         var rgba = [Float](repeating: 0, count: width * height * 4)
         context.render(
@@ -947,6 +969,7 @@ extension FocusMaskEngine {
             format: .RGBAf,
             colorSpace: nil,
         )
+        guard !Task.isCancelled else { return PatchSampleGrid(samples: [], width: 0, height: 0) }
         let samples = stride(from: 0, to: rgba.count, by: 4).map { idx in
             let value = rgba[idx]
             return value.isFinite ? value : 0

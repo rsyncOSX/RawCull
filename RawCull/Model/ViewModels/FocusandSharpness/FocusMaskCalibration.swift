@@ -33,6 +33,7 @@ extension FocusMaskEngine {
         await withTaskGroup(of: [Float]?.self) { group in
             func enqueue(_ entry: (url: URL, iso: Int?)) {
                 group.addTask { [baseConfig, calibrationPixelSize, scoringSource, context] in
+                    guard !Task.isCancelled else { return nil }
                     var fileConfig = baseConfig
                     fileConfig.iso = entry.iso ?? 400
                     fileConfig.enableSubjectClassification = false
@@ -45,29 +46,35 @@ extension FocusMaskEngine {
                         from: CIImage(cgImage: image),
                         config: fileConfig,
                     ) else { return nil }
+                    guard !Task.isCancelled else { return nil }
                     let samples = Self.redSamples(in: laplacian.extent, from: laplacian, context: context)
                         .filter { $0.isFinite && $0 > 0 }
+                    guard !Task.isCancelled else { return nil }
                     let strideBy = max(samples.count / 4096, 1)
                     return Swift.stride(from: 0, to: samples.count, by: strideBy).map { samples[$0] }
                 }
             }
-            for _ in 0 ..< concurrency where nextIndex < files.count {
+            for _ in 0 ..< concurrency where nextIndex < files.count && !Task.isCancelled {
                 enqueue(files[nextIndex])
                 nextIndex += 1
             }
             while let values = await group.next() {
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    break
+                }
                 if let values, !values.isEmpty {
                     successfulImages += 1
                     energies.append(contentsOf: values)
                 }
-                if nextIndex < files.count {
+                if nextIndex < files.count, !Task.isCancelled {
                     enqueue(files[nextIndex])
                     nextIndex += 1
                 }
             }
         }
 
-        guard successfulImages >= minSamples, !energies.isEmpty else { return nil }
+        guard !Task.isCancelled, successfulImages >= minSamples, !energies.isEmpty else { return nil }
         energies.sort()
         func percentile(_ p: Float) -> Float {
             let index = Int((Float(energies.count - 1) * min(max(p, 0), 1)).rounded(.toNearestOrEven))

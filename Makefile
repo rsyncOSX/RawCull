@@ -47,6 +47,12 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`resolution scaling uses longest side regardless of orientation`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold and reports coverage`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`generic decode normalization produces sRGB eight bit RGBA`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring size normalization clamps legacy and oversized values`(value:expected:)' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`conservative subject score keeps broad score dominant`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`conservative subject score preserves broad fallback without patches`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`saliency selection prefers AF overlap over confidence`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`saliency selection is deterministic without AF`()' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests/`saliency selection reports empty fallback`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring signature ignores visual controls and tracks score controls`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring signature invalidates for every score affecting field and policy version`()' \
 	'-only-testing:RawCullTests/FocusNumericHelperTests/`applying visual calibration does not change scoring signature`()' \
