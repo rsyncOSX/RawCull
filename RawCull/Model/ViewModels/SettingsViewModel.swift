@@ -100,6 +100,7 @@ final class SettingsViewModel {
     var focusMaskDilationRadius: Float = 1.0
     /// Feather radius for mask edges (default: 2.0)
     var focusMaskFeatherRadius: Float = 2.0
+
     // MARK: - Private Properties
 
     private let settingsFileName = "settings.json"

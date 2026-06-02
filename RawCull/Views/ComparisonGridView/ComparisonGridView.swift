@@ -11,15 +11,13 @@ struct ComparisonGridView: View {
     @State private var keyMonitor: Any?
     @FocusState private var isFocused: Bool
 
-    private let columnCount = 1
-
     var body: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
 
             if files.count > 1 {
-                ScrollView {
+                VStack(spacing: 0) {
                     if let burstComparisonResult {
                         BurstComparisonEvidenceView(
                             result: burstComparisonResult,
@@ -38,41 +36,57 @@ struct ComparisonGridView: View {
                         .padding(.horizontal, 12)
                     }
 
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(files) { file in
-                            let burstAnalysis = burstComparisonResult
-                            ComparisonImagePaneView(
-                                file: file,
-                                state: imageStates[file.id],
-                                focusPoints: focusPoints(for: file),
-                                interactionState: interactionBinding(for: file),
-                                markerSize: viewModel.focusPointMarkerSize,
-                                isSelected: viewModel.selectedFileID == file.id,
-                                rating: ratingDisplay(for: file),
-                                exifSummary: ExifSummary.make(from: file.exifData),
-                                saliencyLabel: saliencyLabel(for: file),
-                                burstAnalysis: burstAnalysis,
-                                burstCandidate: burstCandidate(for: file, in: burstAnalysis),
-                                burstRating: viewModel.getRating(for: file),
-                                sharpnessContext: sharpnessContext(for: file),
-                                inspectorIsPresented: showCandidateInspector,
-                                onSelect: { viewModel.selectedFileID = file.id },
-                                onRate: { rating in
-                                    viewModel.updateRating(for: file, rating: rating)
-                                },
-                                onToggleInspector: {
-                                    showCandidateInspector.toggle()
-                                },
-                                onSourceChange: {
-                                    Task {
-                                        await reloadImage(for: file)
+                    GeometryReader { geometry in
+                        ScrollViewReader { proxy in
+                            ScrollView(.horizontal) {
+                                LazyHStack(spacing: 12) {
+                                    ForEach(files) { file in
+                                        let burstAnalysis = burstComparisonResult
+                                        ComparisonImagePaneView(
+                                            file: file,
+                                            state: imageStates[file.id],
+                                            focusPoints: focusPoints(for: file),
+                                            interactionState: interactionBinding(for: file),
+                                            markerSize: viewModel.focusPointMarkerSize,
+                                            isSelected: viewModel.selectedFileID == file.id,
+                                            rating: ratingDisplay(for: file),
+                                            exifSummary: ExifSummary.make(from: file.exifData),
+                                            saliencyLabel: saliencyLabel(for: file),
+                                            burstAnalysis: burstAnalysis,
+                                            burstCandidate: burstCandidate(for: file, in: burstAnalysis),
+                                            burstRating: viewModel.getRating(for: file),
+                                            sharpnessContext: sharpnessContext(for: file),
+                                            inspectorIsPresented: showCandidateInspector,
+                                            onSelect: { viewModel.selectedFileID = file.id },
+                                            onRate: { rating in
+                                                viewModel.updateRating(for: file, rating: rating)
+                                            },
+                                            onToggleInspector: {
+                                                showCandidateInspector.toggle()
+                                            },
+                                            onSourceChange: {
+                                                Task {
+                                                    await reloadImage(for: file)
+                                                }
+                                            },
+                                        )
+                                        .aspectRatio(3 / 2, contentMode: .fit)
+                                        .frame(width: max(320, geometry.size.width - 24))
+                                        .id(file.id)
                                     }
-                                },
-                            )
-                            .aspectRatio(3 / 2, contentMode: .fit)
+                                }
+                                .padding(12)
+                            }
+                            .onChange(of: viewModel.selectedFileID) { _, newID in
+                                guard let newID,
+                                      files.contains(where: { $0.id == newID })
+                                else { return }
+                                withAnimation {
+                                    proxy.scrollTo(newID, anchor: .center)
+                                }
+                            }
                         }
                     }
-                    .padding(12)
                 }
             } else {
                 ContentUnavailableView(
@@ -87,8 +101,6 @@ struct ComparisonGridView: View {
         .focusEffectDisabled(true)
         .onKeyPress(.leftArrow) { navigate(.left); return .handled }
         .onKeyPress(.rightArrow) { navigate(.right); return .handled }
-        .onKeyPress(.upArrow) { navigate(.up); return .handled }
-        .onKeyPress(.downArrow) { navigate(.down); return .handled }
         .onKeyPress(.escape) {
             if viewModel.activeBurstComparisonGroupID != nil {
                 viewModel.returnToActiveBurstGroupView()
@@ -180,10 +192,6 @@ struct ComparisonGridView: View {
 
     private var loadKey: String {
         files.map(\.id.uuidString).joined(separator: ",")
-    }
-
-    private var columns: [GridItem] {
-        [GridItem(.flexible(minimum: 320), spacing: 12)]
     }
 
     private func interactionBinding(for file: FileItem) -> Binding<ComparisonPaneInteractionState> {
@@ -469,7 +477,6 @@ struct ComparisonGridView: View {
               let destinationIndex = ComparisonGridNavigation.destinationIndex(
                   from: currentIndex,
                   itemCount: files.count,
-                  columnCount: columnCount,
                   direction: direction,
               )
         else { return }

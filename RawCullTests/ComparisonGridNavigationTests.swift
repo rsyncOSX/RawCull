@@ -4,113 +4,17 @@ import Testing
 @Suite("ComparisonGridNavigation")
 struct ComparisonGridNavigationTests {
     @Test(.tags(.smoke))
-    func `single column arrows move previous and next`() {
+    func `horizontal arrows move previous and next`() {
         #expect(ComparisonGridNavigation.destinationIndex(
             from: 1,
             itemCount: 4,
-            columnCount: 1,
             direction: .left,
         ) == 0)
         #expect(ComparisonGridNavigation.destinationIndex(
             from: 1,
             itemCount: 4,
-            columnCount: 1,
-            direction: .up,
-        ) == 0)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: 1,
             direction: .right,
         ) == 2)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: 1,
-            direction: .down,
-        ) == 2)
-    }
-
-    @Test(.tags(.smoke))
-    func `forced vertical compare layout navigates linearly`() {
-        let columnCount = 1
-
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 0,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .up,
-        ) == nil)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 0,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .left,
-        ) == nil)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .up,
-        ) == 0)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .left,
-        ) == 0)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .down,
-        ) == 2)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .right,
-        ) == 2)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 3,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .down,
-        ) == nil)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 3,
-            itemCount: 4,
-            columnCount: columnCount,
-            direction: .right,
-        ) == nil)
-    }
-
-    @Test(.tags(.smoke))
-    func `two column arrows move through visible grid`() {
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 0,
-            itemCount: 4,
-            columnCount: 2,
-            direction: .right,
-        ) == 1)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: 2,
-            direction: .left,
-        ) == 0)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 0,
-            itemCount: 4,
-            columnCount: 2,
-            direction: .down,
-        ) == 2)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 2,
-            itemCount: 4,
-            columnCount: 2,
-            direction: .up,
-        ) == 0)
     }
 
     @Test(.tags(.smoke))
@@ -118,32 +22,12 @@ struct ComparisonGridNavigationTests {
         #expect(ComparisonGridNavigation.destinationIndex(
             from: 0,
             itemCount: 4,
-            columnCount: 1,
             direction: .left,
         ) == nil)
         #expect(ComparisonGridNavigation.destinationIndex(
             from: 3,
             itemCount: 4,
-            columnCount: 1,
-            direction: .down,
-        ) == nil)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 0,
-            itemCount: 4,
-            columnCount: 2,
-            direction: .left,
-        ) == nil)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 1,
-            itemCount: 4,
-            columnCount: 2,
             direction: .right,
-        ) == nil)
-        #expect(ComparisonGridNavigation.destinationIndex(
-            from: 3,
-            itemCount: 4,
-            columnCount: 2,
-            direction: .down,
         ) == nil)
     }
 
@@ -157,9 +41,13 @@ struct ComparisonGridNavigationTests {
     func `non printable key codes still resolve navigation`() {
         #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 123) == .navigate(.left))
         #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 124) == .navigate(.right))
-        #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 125) == .navigate(.down))
-        #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 126) == .navigate(.up))
         #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 53) == .escape)
+    }
+
+    @Test(.tags(.smoke))
+    func `vertical arrow key codes are ignored`() {
+        #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 125) == nil)
+        #expect(ComparisonGridKeyAction.resolve(characters: nil, keyCode: 126) == nil)
     }
 
     @Test(.tags(.smoke))
