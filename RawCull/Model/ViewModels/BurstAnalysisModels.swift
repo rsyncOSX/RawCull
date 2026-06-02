@@ -50,7 +50,7 @@ enum BurstGroupPrimaryAction: Equatable {
 
 struct BurstLabelDescription: Equatable, Identifiable {
     var label: String
-    var description: String
+    // var description: String
 
     var id: String {
         label
@@ -70,35 +70,27 @@ struct BurstGroupPresentation: Equatable {
     nonisolated static let labelDescriptions: [BurstLabelDescription] = [
         BurstLabelDescription(
             label: BurstDecisionConfidence.high.title,
-            description: "Clear best frame; Keep Best can be applied directly.",
         ),
         BurstLabelDescription(
             label: BurstDecisionConfidence.medium.title,
-            description: "A likely best frame exists, but compare the top frames.",
         ),
         BurstLabelDescription(
             label: BurstDecisionConfidence.low.title,
-            description: "The app cannot pick safely; open the burst and review manually.",
         ),
         BurstLabelDescription(
             label: "Manual",
-            description: "You selected the winner for this burst.",
         ),
         BurstLabelDescription(
             label: "Applied",
-            description: "A burst action has already rated/rejected the group.",
         ),
         BurstLabelDescription(
             label: "Best",
-            description: "The recommended frame in a high-confidence burst group.",
         ),
         BurstLabelDescription(
             label: "Suggested",
-            description: "A likely best frame in a medium-confidence burst group.",
         ),
         BurstLabelDescription(
             label: "Check frame",
-            description: "A frame marked for manual inspection in a low-confidence burst.",
         )
     ]
 

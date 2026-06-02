@@ -66,7 +66,7 @@ struct ImageOverlayControlsView: View {
                     useThumbnailSource: $useThumbnailSource,
                     density: density,
                 )
-                    .transition(.opacity)
+                .transition(.opacity)
             }
 
             if let onToggleInspector {
