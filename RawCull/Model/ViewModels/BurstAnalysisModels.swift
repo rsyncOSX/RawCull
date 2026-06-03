@@ -110,7 +110,7 @@ struct BurstGroupPresentation: Equatable {
         if result.reviewState == .manualWinnerOverride {
             return BurstGroupPresentation(
                 title: title,
-                decision: "Manual winner: \(frameText ?? "selected frame")",
+                decision: "Manual: \(frameText ?? "selected frame")",
                 explanation: explanation(for: result, confidence: result.confidence),
                 confidenceLabel: "Manual",
                 primaryActionTitle: "Open burst",
@@ -124,7 +124,7 @@ struct BurstGroupPresentation: Equatable {
         case .high:
             return BurstGroupPresentation(
                 title: title,
-                decision: "Keep \(frameText ?? "selected frame")",
+                decision: "Best: \(frameText ?? "selected frame")",
                 explanation: explanation(for: result, confidence: .high),
                 confidenceLabel: BurstDecisionConfidence.high.title,
                 primaryActionTitle: "Keep best",
@@ -139,7 +139,7 @@ struct BurstGroupPresentation: Equatable {
                 decision: "Suggested: \(frameText ?? "selected frame")",
                 explanation: explanation(for: result, confidence: .medium),
                 confidenceLabel: BurstDecisionConfidence.medium.title,
-                primaryActionTitle: "Compare top 2",
+                primaryActionTitle: "Open burst",
                 primaryAction: .compare,
                 recommendedBadge: result.recommendedFileID == nil ? nil : "Suggested",
                 showsAppliedStatus: applied,
@@ -148,7 +148,7 @@ struct BurstGroupPresentation: Equatable {
         case .low:
             return BurstGroupPresentation(
                 title: title,
-                decision: "Needs review",
+                decision: "Review needed",
                 explanation: explanation(for: result, confidence: .low),
                 confidenceLabel: BurstDecisionConfidence.low.title,
                 primaryActionTitle: "Open burst",

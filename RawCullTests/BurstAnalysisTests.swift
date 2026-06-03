@@ -280,7 +280,7 @@ struct BurstGroupPresentationTests {
 
         let presentation = BurstGroupPresentation.make(result: result, files: files)
 
-        #expect(presentation.decision == "Keep frame 2")
+        #expect(presentation.decision == "Best: frame 2")
         #expect(presentation.confidenceLabel == "High confidence")
         #expect(presentation.primaryActionTitle == "Keep best")
         #expect(presentation.primaryAction == .keepBest)
@@ -307,7 +307,7 @@ struct BurstGroupPresentationTests {
 
         #expect(presentation.decision == "Suggested: frame 3")
         #expect(presentation.confidenceLabel == "Review recommended")
-        #expect(presentation.primaryActionTitle == "Compare top 2")
+        #expect(presentation.primaryActionTitle == "Open burst")
         #expect(presentation.primaryAction == .compare)
         #expect(presentation.recommendedBadge == "Suggested")
         #expect(presentation.explanation == "Sharpest frame · stable exposure · top frames are close")
@@ -328,7 +328,7 @@ struct BurstGroupPresentationTests {
 
         let presentation = BurstGroupPresentation.make(result: result, files: files)
 
-        #expect(presentation.decision == "Needs review")
+        #expect(presentation.decision == "Review needed")
         #expect(presentation.confidenceLabel == "Low confidence")
         #expect(presentation.primaryActionTitle == "Open burst")
         #expect(presentation.primaryAction == .compare)
@@ -353,7 +353,7 @@ struct BurstGroupPresentationTests {
 
         let presentation = BurstGroupPresentation.make(result: result, files: files)
 
-        #expect(presentation.decision == "Manual winner: frame 3")
+        #expect(presentation.decision == "Manual: frame 3")
         #expect(presentation.confidenceLabel == "Manual")
         #expect(presentation.primaryActionTitle == "Open burst")
         #expect(presentation.recommendedBadge == "Manual")
@@ -375,7 +375,7 @@ struct BurstGroupPresentationTests {
 
         let presentation = BurstGroupPresentation.make(result: result, files: files)
 
-        #expect(presentation.decision == "Keep frame 1")
+        #expect(presentation.decision == "Best: frame 1")
         #expect(presentation.confidenceLabel == "High confidence")
         #expect(presentation.showsAppliedStatus)
     }

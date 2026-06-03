@@ -154,13 +154,13 @@ private struct BurstGroupHeaderView: View {
                 .buttonStyle(.borderedProminent)
                 .font(.caption)
                 .controlSize(.mini)
-                .help("Compare the top burst candidates")
+                .help("Open this burst for review")
         } else {
             Button(title) { viewModel.compareBurstGroup(files) }
                 .buttonStyle(.bordered)
                 .font(.caption)
                 .controlSize(.mini)
-                .help("Compare the top burst candidates")
+                .help("Open this burst for review")
         }
     }
 
