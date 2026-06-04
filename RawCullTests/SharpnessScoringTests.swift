@@ -4,8 +4,8 @@
 //
 
 import Foundation
-import RawCullCore
 @testable import RawCull
+import RawCullCore
 import Testing
 
 struct SharpnessScoringTests {

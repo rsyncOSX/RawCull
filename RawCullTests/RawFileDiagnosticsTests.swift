@@ -1,6 +1,6 @@
 import Foundation
-import RawCullCore
 @testable import RawCull
+import RawCullCore
 import Testing
 
 private func makeDiagnosticFileItem(url: URL, size: Int64? = nil) throws -> FileItem {

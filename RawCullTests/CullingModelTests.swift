@@ -1,6 +1,6 @@
 import Foundation
-import RawCullCore
 @testable import RawCull
+import RawCullCore
 import Testing
 
 private actor SavedFilesRecorder {

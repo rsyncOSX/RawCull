@@ -57,7 +57,7 @@ struct RequestThumbnailTests {
             group.addTask {
                 await provider.requestThumbnail(for: missingRaw, targetSize: 256)
             }
-            return await group.next() ?? nil
+            return await group.next()
         }
 
         #expect(result == nil)
