@@ -172,8 +172,6 @@ struct FocusEvidence: Equatable {
     nonisolated var maskCoverage: Float?
     nonisolated var relaxedForVisibility: Bool
     nonisolated var visualizedRegion: FocusEvidenceRegion?
-    nonisolated var visualizedRect: CGRect?
-    nonisolated var visualizedCentroid: CGPoint?
     nonisolated var afDistanceFromCentroid: Float?
     nonisolated var patchRankings: [FocusPatchRanking]
     nonisolated var overlayStyle: FocusEvidenceOverlayStyle?
@@ -197,8 +195,6 @@ struct FocusEvidence: Equatable {
         maskCoverage: Float? = nil,
         relaxedForVisibility: Bool = false,
         visualizedRegion: FocusEvidenceRegion? = nil,
-        visualizedRect: CGRect? = nil,
-        visualizedCentroid: CGPoint? = nil,
         afDistanceFromCentroid: Float? = nil,
         patchRankings: [FocusPatchRanking] = [],
         overlayStyle: FocusEvidenceOverlayStyle? = nil,
@@ -221,8 +217,6 @@ struct FocusEvidence: Equatable {
         self.maskCoverage = maskCoverage
         self.relaxedForVisibility = relaxedForVisibility
         self.visualizedRegion = visualizedRegion
-        self.visualizedRect = visualizedRect
-        self.visualizedCentroid = visualizedCentroid
         self.afDistanceFromCentroid = afDistanceFromCentroid
         self.patchRankings = patchRankings
         self.overlayStyle = overlayStyle

@@ -130,10 +130,6 @@ extension RawCullViewModel {
         applyManualWinnerOverrides(files: files)
     }
 
-    func reapplyManualBurstWinnerOverridesForCurrentGroups() {
-        applyManualWinnerOverrides(files: files)
-    }
-
     /// Rate the recommended frame at ★★★, second best at ★★, and reject others.
     func keepTopTwoInGroup(from groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
@@ -268,10 +264,6 @@ extension RawCullViewModel {
 
     private func groupID(for groupFiles: [FileItem]) -> Int {
         groupFiles.lazy.compactMap { self.similarityModel.burstGroupLookup[$0.id] }.first ?? -1
-    }
-
-    func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
-        canApplyOneClickCulling(groupID: groupID(for: groupFiles))
     }
 
     private func canApplyOneClickCulling(groupID: Int) -> Bool {

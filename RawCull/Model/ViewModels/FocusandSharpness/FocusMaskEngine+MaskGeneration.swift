@@ -665,8 +665,6 @@ extension FocusMaskEngine {
         result.maskCoverage = maskCoverage ?? selectedPatches.map(\.coverage).max()
         result.relaxedForVisibility = relaxedForVisibility
         result.visualizedRegion = visualRegion
-        result.visualizedRect = visualizedRect
-        result.visualizedCentroid = centroid
         result.afDistanceFromCentroid = afDistance
         result.patchRankings = sortedRankings
         result.overlayStyle = overlayStyle

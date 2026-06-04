@@ -6,15 +6,6 @@ enum BurstGroupPrimaryAction: Equatable {
     case compare
 }
 
-struct BurstLabelDescription: Equatable, Identifiable {
-    var label: String
-    // var description: String
-
-    var id: String {
-        label
-    }
-}
-
 struct BurstGroupPresentation: Equatable {
     var title: String
     var decision: String
@@ -24,33 +15,6 @@ struct BurstGroupPresentation: Equatable {
     var primaryAction: BurstGroupPrimaryAction
     var recommendedBadge: String?
     var showsAppliedStatus: Bool
-
-    nonisolated static let labelDescriptions: [BurstLabelDescription] = [
-        BurstLabelDescription(
-            label: BurstDecisionConfidence.high.title,
-        ),
-        BurstLabelDescription(
-            label: BurstDecisionConfidence.medium.title,
-        ),
-        BurstLabelDescription(
-            label: BurstDecisionConfidence.low.title,
-        ),
-        BurstLabelDescription(
-            label: "Manual",
-        ),
-        BurstLabelDescription(
-            label: "Applied",
-        ),
-        BurstLabelDescription(
-            label: "Best",
-        ),
-        BurstLabelDescription(
-            label: "Suggested",
-        ),
-        BurstLabelDescription(
-            label: "Check frame",
-        )
-    ]
 
     nonisolated static func make(
         result: BurstAnalysisResult,

@@ -398,14 +398,6 @@ struct MainThumbnailImageView: View {
         isGeneratingFocusMask = false
     }
 
-    private func resetExtractedJPGState() {
-        extractedJPGTask?.cancel()
-        extractedJPGTask = nil
-        extractedJPGImage = nil
-        isLoadingExtractedJPG = false
-        showExtractedJPG = false
-    }
-
     private func resetExtractedJPGImage() {
         extractedJPGTask?.cancel()
         extractedJPGTask = nil
