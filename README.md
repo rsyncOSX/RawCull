@@ -21,7 +21,7 @@ Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6
 
 ## Latest release
 
-v1.9.5 — June 2, 2026 — in active development
+v1.9.6 — June 4, 2026 — in active development
 
 ## Camera body compatibility
 
