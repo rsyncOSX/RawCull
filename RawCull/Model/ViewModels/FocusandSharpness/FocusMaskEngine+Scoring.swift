@@ -4,6 +4,8 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import ImageIO
 import OSLog
+import RawCullCore
+import RawParserKit
 import Vision
 
 private nonisolated let _focusMagnitudeKernel: CIKernel? = {

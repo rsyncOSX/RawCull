@@ -5,6 +5,7 @@
 
 import Foundation
 import OSLog
+import RawParserKit
 
 actor ScanAndExtractJPGs {
     private var extractTask: Task<Int, Never>?

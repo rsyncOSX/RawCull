@@ -1,4 +1,5 @@
 import Foundation
+import RawCullCore
 
 struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var schemaVersion: Int

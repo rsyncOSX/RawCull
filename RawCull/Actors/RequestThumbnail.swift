@@ -8,6 +8,7 @@
 import AppKit
 import Foundation
 import OSLog
+import RawParserKit
 
 actor RequestThumbnail {
     static let shared = RequestThumbnail()

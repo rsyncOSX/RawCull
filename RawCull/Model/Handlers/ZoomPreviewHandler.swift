@@ -5,8 +5,9 @@
 //  Created by Thomas Evensen on 08/02/2026.
 //
 
-import SwiftUI
 import ImageIO
+import RawParserKit
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
@@ -23,7 +24,7 @@ enum ZoomPreviewHandler {
         viewModel: RawCullViewModel,
     ) -> Task<Void, Never> {
         if useThumbnailAsZoomPreview {
-            return Task {
+            Task {
                 let settings = await SettingsViewModel.shared.asyncgetsettings()
 
                 await MainActor.run {
@@ -59,7 +60,7 @@ enum ZoomPreviewHandler {
                 }
             }
         } else {
-            return Task {
+            Task {
                 await MainActor.run {
                     viewModel.zoomOverlayNSImage = nil
                     viewModel.zoomOverlayCGImage = nil

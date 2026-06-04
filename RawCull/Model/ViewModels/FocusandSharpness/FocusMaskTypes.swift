@@ -1,19 +1,6 @@
 import AppKit
 import Foundation
-
-/// Saliency detection result: whether a salient region was found and, if Vision
-/// classification succeeded, what the dominant subject is.
-struct SaliencyInfo: Codable, Equatable {
-    /// Top VNClassifyImageRequest label with confidence ≥ 0.20, nil if none found.
-    let subjectLabel: String?
-    /// Highest confidence reported by Vision's salient-object observations.
-    let subjectConfidence: Float?
-
-    nonisolated init(subjectLabel: String?, subjectConfidence: Float? = nil) {
-        self.subjectLabel = subjectLabel
-        self.subjectConfidence = subjectConfidence
-    }
-}
+import RawCullCore
 
 struct SaliencyCandidate: Equatable {
     nonisolated let normalizedRect: CGRect

@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import OSAKit
 import OSLog
+import RawCullCore
 
 enum AlertType {
     case extractJPGs

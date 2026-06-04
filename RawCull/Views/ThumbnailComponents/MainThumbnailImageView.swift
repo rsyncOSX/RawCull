@@ -57,32 +57,32 @@ struct MainThumbnailImageView: View {
                         ZStack {
                             // 1️⃣ Image FIRST (background)
                             displayedImageContent(thumbnailSizePreview: thumbnailSizePreview)
-                            .scaleEffect(viewModel.scale)
-                            .offset(viewModel.offset)
-                            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
-                            .gesture(
-                                MagnifyGesture()
-                                    .onChanged { value in
-                                        viewModel.scale = viewModel.lastScale * value.magnification
-                                    }
-                                    .onEnded { _ in
-                                        viewModel.lastScale = viewModel.scale
-                                    },
-                            )
-                            .simultaneousGesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        if viewModel.scale > 1.0 {
-                                            viewModel.offset = CGSize(
-                                                width: viewModel.lastOffset.width + value.translation.width,
-                                                height: viewModel.lastOffset.height + value.translation.height,
-                                            )
+                                .scaleEffect(viewModel.scale)
+                                .offset(viewModel.offset)
+                                .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+                                .gesture(
+                                    MagnifyGesture()
+                                        .onChanged { value in
+                                            viewModel.scale = viewModel.lastScale * value.magnification
                                         }
-                                    }
-                                    .onEnded { _ in
-                                        viewModel.lastOffset = viewModel.offset
-                                    },
-                            )
+                                        .onEnded { _ in
+                                            viewModel.lastScale = viewModel.scale
+                                        },
+                                )
+                                .simultaneousGesture(
+                                    DragGesture()
+                                        .onChanged { value in
+                                            if viewModel.scale > 1.0 {
+                                                viewModel.offset = CGSize(
+                                                    width: viewModel.lastOffset.width + value.translation.width,
+                                                    height: viewModel.lastOffset.height + value.translation.height,
+                                                )
+                                            }
+                                        }
+                                        .onEnded { _ in
+                                            viewModel.lastOffset = viewModel.offset
+                                        },
+                                )
 
                             // 2️⃣ Focus mask overlay
 

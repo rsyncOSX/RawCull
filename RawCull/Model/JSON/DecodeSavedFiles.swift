@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import RawCullCore
 
 struct DecodeSavedFiles: Codable {
     let catalog: URL?

@@ -8,6 +8,7 @@
 import AppKit
 import Foundation
 import OSLog
+import RawParserKit
 
 struct DiscoverFiles {
     nonisolated func discoverFiles(at catalogURL: URL, recursive: Bool) async -> [URL] {

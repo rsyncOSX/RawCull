@@ -1,5 +1,6 @@
 import Foundation
 import ImageIO
+import RawParserKit
 
 @MainActor
 enum RawFileDiagnostics {

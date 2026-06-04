@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import RawCullCore
 
 /// Precomputed "best frame" info for a burst group — consumed by the
 /// grid's burst-section header so the header body does no scoring math

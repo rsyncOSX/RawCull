@@ -2,6 +2,7 @@ import Accelerate
 import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import RawCullCore
 
 extension FocusMaskEngine {
     nonisolated func generateFocusMask(

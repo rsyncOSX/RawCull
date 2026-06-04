@@ -6,6 +6,7 @@
 import Foundation
 import Observation
 import OSLog
+import RawCullCore
 
 @Observable @MainActor
 final class SharpnessScoringModel {

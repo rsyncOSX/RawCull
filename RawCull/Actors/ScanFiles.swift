@@ -8,21 +8,8 @@
 import Foundation
 import ImageIO
 import OSLog
-
-struct ExifMetadata: Hashable {
-    let shutterSpeed: String?
-    let focalLength: String?
-    let aperture: String? // formatted display string, e.g. "ƒ/5.6"
-    let apertureValue: Double? // raw f-number for filtering, e.g. 5.6
-    let iso: String?
-    let isoValue: Int? // raw integer ISO for computation (e.g. 6400)
-    let camera: String?
-    let lensModel: String?
-    let rawFileType: String? // "Uncompressed" | "Compressed" | "Lossless Compressed"
-    let rawSizeClass: String? // "L" | "M" | "S"
-    let pixelWidth: Int?
-    let pixelHeight: Int?
-}
+import RawCullCore
+import RawParserKit
 
 struct DecodeFocusPoints: Codable {
     let sourceFile: String
@@ -85,7 +72,7 @@ actor ScanFiles {
                             size: Int64(res?.fileSize ?? 0),
                             dateModified: res?.contentModificationDate ?? Date(),
                             exifData: exifData,
-                            afFocusNormalized: focusStr.flatMap { Self.parseFocusNormalized($0) },
+                            afFocusNormalized: focusStr.flatMap { FocusPointParser.normalizedPoint(from: $0) },
                         )
                         let focusPoint: DecodeFocusPoints? = focusStr.map {
                             DecodeFocusPoints(sourceFile: fileURL.lastPathComponent, focusLocation: $0)
@@ -150,18 +137,6 @@ actor ScanFiles {
             return sorted.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
     }
-
-    // MARK: - AF Point Parsing
-
-    /// Parses a Sony MakerNote focus-location string ("width height x y") into a
-    /// normalised CGPoint (origin top-left, range 0–1). Returns nil if malformed.
-    private nonisolated static func parseFocusNormalized(_ str: String) -> CGPoint? {
-        let parts = str.split(separator: " ").compactMap { Double($0) }
-        guard parts.count == 4, parts[0] > 0, parts[1] > 0 else { return nil }
-        return CGPoint(x: parts[2] / parts[0], y: parts[3] / parts[1])
-    }
-
-    // MARK: - EXIF Extraction
 
     private nonisolated func extractExifData(from url: URL, format: any RawFormat.Type) -> ExifMetadata? {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),

@@ -11,6 +11,7 @@
 //
 
 import Foundation
+import RawCullCore
 
 /*
  › [0] RawCull.SavedFiles

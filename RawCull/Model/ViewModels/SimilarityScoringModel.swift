@@ -7,15 +7,9 @@ import Foundation
 import ImageIO
 import Observation
 import OSLog
+import RawCullCore
+import RawParserKit
 import Vision
-
-// MARK: - BurstGroup
-
-/// A burst group: a sequence of consecutive frames that are visually similar.
-struct BurstGroup: Codable, Equatable, Identifiable {
-    let id: Int
-    let fileIDs: [UUID] // sequential (name-sorted) order
-}
 
 // MARK: - Constants
 
@@ -385,7 +379,7 @@ final class SimilarityScoringModel {
     /// Returns the archived Data for the VNFeaturePrintObservation, or nil on failure.
     nonisolated static func computeEmbedding(url: URL, maxPixelSize: Int) async -> Data? {
         await Task.detached(priority: .userInitiated) {
-            guard let cgImage = decodeBinaryFallback(at: url, maxPixelSize: maxPixelSize)
+            guard let cgImage = await decodeRawParserKitThumbnail(at: url, maxPixelSize: maxPixelSize)
                 ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
             else {
                 Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
@@ -477,22 +471,14 @@ final class SimilarityScoringModel {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
     }
 
-    /// Binary fallback for ARW files where CGImageSourceCreateThumbnailAtIndex returns nil.
-    /// Sony-only: parses the Sony MakerNote directly. Other RAW formats have their own
-    /// embedded-JPEG extraction paths that ImageIO handles correctly without a fallback.
-    private nonisolated static func decodeBinaryFallback(at url: URL, maxPixelSize: Int) -> CGImage? {
-        guard RawFormatRegistry.format(for: url) is SonyRawFormat.Type else { return nil }
-        guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url),
-              let loc = locations.preview ?? locations.thumbnail ?? locations.fullJPEG,
-              let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: loc, from: url),
-              let src = CGImageSourceCreateWithData(data as CFData, nil)
-        else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
+    /// Prefer RawParserKit's registered vendor extractor. It owns embedded-JPEG
+    /// fallbacks for RAW formats that ImageIO cannot decode directly.
+    private nonisolated static func decodeRawParserKitThumbnail(at url: URL, maxPixelSize: Int) async -> CGImage? {
+        guard let format = RawFormatRegistry.format(for: url) else { return nil }
+        return try? await format.extractThumbnail(
+            from: url,
+            maxDimension: CGFloat(maxPixelSize),
+            qualityCost: 4,
+        )
     }
 }

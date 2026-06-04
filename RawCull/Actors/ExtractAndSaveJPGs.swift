@@ -7,6 +7,7 @@
 
 import Foundation
 import OSLog
+import RawParserKit
 
 actor ExtractAndSaveJPGs {
     // Track the current preload task so we can cancel it

@@ -1,9 +1,9 @@
-enum ComparisonGridNavigationDirection {
+nonisolated enum ComparisonGridNavigationDirection {
     case left
     case right
 }
 
-enum ComparisonGridNavigation {
+nonisolated enum ComparisonGridNavigation {
     nonisolated static func destinationIndex(
         from currentIndex: Int,
         itemCount: Int,
@@ -27,7 +27,7 @@ enum ComparisonGridNavigation {
     }
 }
 
-enum ComparisonGridKeyAction: Equatable {
+nonisolated enum ComparisonGridKeyAction: Equatable {
     case navigate(ComparisonGridNavigationDirection)
     case escape
     case zoomIn

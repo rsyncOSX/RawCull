@@ -7,6 +7,7 @@
 
 import AppKit
 import OSLog
+import RawCullCore
 import SwiftUI
 
 struct HistogramView: View {
@@ -41,7 +42,7 @@ struct HistogramView: View {
                 return
             }
             Task {
-                normalizedBins = await CalculateHistogram().calculateHistogram(from: cgRef)
+                normalizedBins = await calculateHistogram(from: cgRef)
             }
         }
         .frame(height: 150) // Default height
@@ -50,7 +51,13 @@ struct HistogramView: View {
             guard let cgRef = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
                 fatalError("Could not initialize CGImage from NSImage")
             }
-            normalizedBins = await CalculateHistogram().calculateHistogram(from: cgRef)
+            normalizedBins = await calculateHistogram(from: cgRef)
         }
+    }
+
+    private nonisolated func calculateHistogram(from image: CGImage) async -> [CGFloat] {
+        await Task.detached(priority: .utility) {
+            HistogramCalculator.normalizedLuminanceHistogram(from: image)
+        }.value
     }
 }

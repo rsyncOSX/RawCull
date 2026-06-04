@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import RawCullCore
 
 extension RawCullViewModel {
     /// Auto-calibrates focus config from the current catalog, then scores and re-sorts.

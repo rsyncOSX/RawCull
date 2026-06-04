@@ -1,4 +1,5 @@
 import ImageIO
+import RawParserKit
 import SwiftUI
 
 enum ComparisonImageLoader {

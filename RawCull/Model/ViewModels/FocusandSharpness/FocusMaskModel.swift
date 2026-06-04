@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import RawCullCore
 
 @Observable @MainActor
 final class FocusMaskModel {

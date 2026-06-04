@@ -12,6 +12,7 @@
 
 import AppKit
 import OSLog
+import RawCullCore
 import SwiftUI
 
 // MARK: - Rating filter

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import OSLog
+import RawCullCore
 
 struct CullingScoringResult {
     let fileName: String

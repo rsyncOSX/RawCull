@@ -1,4 +1,5 @@
 import Foundation
+import RawCullCore
 
 struct ExifSummary: Equatable {
     var exposureParts: [String]
