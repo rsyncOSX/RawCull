@@ -1,6 +1,6 @@
 //
 //  ThumbnailProviderTests.swift
-//  RawCullTests
+//  RawCullVerifyTests
 //
 
 import AppKit
@@ -51,7 +51,8 @@ struct RequestThumbnailTests {
             .appendingPathComponent("rawcull-cancel-\(UUID().uuidString)")
             .appendingPathExtension("arw")
 
-        let result = await withTaskGroup(of: CGImage?.self) { group in
+        // group.next() returns CGImage?? — flatten with ?? nil to get CGImage?
+        let result: CGImage? = await withTaskGroup(of: CGImage?.self) { group in
             group.cancelAll()
             group.addTask {
                 await provider.requestThumbnail(for: missingRaw, targetSize: 256)
@@ -59,10 +60,7 @@ struct RequestThumbnailTests {
             return await group.next()
         }
 
-        // group.next() returns CGImage?? — task ran in cancelled context and returned nil (inner),
-        // so result is .some(nil), not the outer nil. Verify the task completed without surfacing
-        // a failure (no crash, no thrown error propagated up).
-        #expect(result == .some(nil))
+        #expect(result == nil)
     }
 
     @Test

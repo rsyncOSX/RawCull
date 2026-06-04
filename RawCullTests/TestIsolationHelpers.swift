@@ -10,7 +10,7 @@ func makeIsolatedCache(
         .replacingOccurrences(of: " ", with: "-")
         .replacingOccurrences(of: "()", with: "")
     let root = FileManager.default.temporaryDirectory
-        .appendingPathComponent("RawCullTests", isDirectory: true)
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
         .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
     let thumbnailDirectory = root.appendingPathComponent("Thumbnails", isDirectory: true)
     let fullSizeDirectory = root.appendingPathComponent("FullSizeJPGs", isDirectory: true)
@@ -44,7 +44,7 @@ func makeIsolatedSettingsURL(name: String = #function) -> URL {
         .replacingOccurrences(of: " ", with: "-")
         .replacingOccurrences(of: "()", with: "")
     return FileManager.default.temporaryDirectory
-        .appendingPathComponent("RawCullTests", isDirectory: true)
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
         .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
         .appendingPathComponent("settings.json")
 }
@@ -55,9 +55,9 @@ func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
         .replacingOccurrences(of: " ", with: "-")
         .replacingOccurrences(of: "()", with: "")
     return FileManager.default.temporaryDirectory
-        .appendingPathComponent("RawCullTests", isDirectory: true)
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
         .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
         .appendingPathComponent("Application Support", isDirectory: true)
-        .appendingPathComponent("RawCull", isDirectory: true)
+        .appendingPathComponent("RawCullVerify", isDirectory: true)
         .appendingPathComponent("savedfiles.json")
 }

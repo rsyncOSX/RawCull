@@ -9,7 +9,7 @@ private func makeCacheTestRoot(_ name: String = #function) throws -> URL {
         .replacingOccurrences(of: " ", with: "-")
         .replacingOccurrences(of: "()", with: "")
     let root = FileManager.default.temporaryDirectory
-        .appendingPathComponent("RawCullTests", isDirectory: true)
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
         .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     return root

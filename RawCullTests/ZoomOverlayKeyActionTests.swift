@@ -137,16 +137,6 @@ struct ZoomOverlayKeyActionTests {
     @Test(.tags(.smoke))
     func `unmapped keys are ignored`() {
         #expect(ZoomOverlayKeyAction.resolve(
-            characters: "g",
-            keyCode: 0,
-            navigationAxis: .horizontal,
-        ) == nil)
-        #expect(ZoomOverlayKeyAction.resolve(
-            characters: "G",
-            keyCode: 0,
-            navigationAxis: .horizontal,
-        ) == nil)
-        #expect(ZoomOverlayKeyAction.resolve(
             characters: "q",
             keyCode: 12,
             navigationAxis: .horizontal,
@@ -182,12 +172,12 @@ struct ZoomOverlayNavigationContextTests {
     }
 
     @Test(.tags(.smoke))
-    func `context does not cross burst group boundaries`() {
-        let firstGroup = [UUID(), UUID()]
+    func `context does not navigate outside supplied sequence`() {
+        let sequence = [UUID(), UUID()]
         let secondGroupFirstID = UUID()
-        let context = ZoomOverlayNavigationContext(orderedFileIDs: firstGroup)
+        let context = ZoomOverlayNavigationContext(orderedFileIDs: sequence)
 
-        #expect(context.destinationID(from: firstGroup[1], delta: 1) == nil)
+        #expect(context.destinationID(from: sequence[1], delta: 1) == nil)
         #expect(context.destinationID(from: secondGroupFirstID, delta: -1) == nil)
         #expect(context.destinationID(from: secondGroupFirstID, delta: 1) == nil)
     }

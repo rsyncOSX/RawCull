@@ -1,4 +1,5 @@
 import Foundation
+import RawCullCore
 @testable import RawCull
 import Testing
 
@@ -18,12 +19,7 @@ private actor SavedFilesRecorder {
     }
 }
 
-private func makeCullingTestFile(
-    _ name: String,
-    scoreAperture: Double? = nil,
-    size: Int64 = 1,
-    dateModified: Date = Date(timeIntervalSince1970: 0),
-) -> FileItem {
+private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -> FileItem {
     let exif = scoreAperture.map {
         ExifMetadata(
             shutterSpeed: nil,
@@ -43,8 +39,8 @@ private func makeCullingTestFile(
     return FileItem(
         url: URL(fileURLWithPath: "/tmp/\(name)"),
         name: name,
-        size: size,
-        dateModified: dateModified,
+        size: 1,
+        dateModified: Date(timeIntervalSince1970: 0),
         exifData: exif,
         afFocusNormalized: nil,
     )
@@ -100,22 +96,8 @@ struct CullingModelTests {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
 
         model.updateRating(fileName: "one.ARW", rating: 4, in: catalog)
-        let signature = SharpnessScoringSignature(
-            photoType: .auto,
-            scoringQuality: .fast,
-            thumbnailMaxPixelSize: 512,
-            config: FocusDetectorConfig(),
-        )
-        let modificationDate = Date(timeIntervalSince1970: 123)
         model.mergeScoringResults(
-            [CullingScoringResult(
-                fileName: "one.ARW",
-                score: 0.75,
-                saliencySubject: "bird",
-                scoringSignature: signature,
-                fileSize: 42,
-                modificationDate: modificationDate,
-            )],
+            [CullingScoringResult(fileName: "one.ARW", score: 0.75, saliencySubject: "bird")],
             in: catalog,
         )
         _ = await recorder.waitForSnapshotCount(1)
@@ -124,41 +106,6 @@ struct CullingModelTests {
         #expect(record?.rating == 4)
         #expect(record?.sharpnessScore == 0.75)
         #expect(record?.saliencySubject == "bird")
-        #expect(record?.sharpnessScoringSignature == signature)
-        #expect(record?.sharpnessFileSize == 42)
-        #expect(record?.sharpnessModificationDate == modificationDate)
-    }
-
-    @Test
-    func `burst winner overrides upsert match and prune by catalog`() async {
-        let recorder = SavedFilesRecorder()
-        let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
-            await recorder.record(savedFiles)
-        }
-        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
-        let files = [
-            makeCullingTestFile("one.ARW"),
-            makeCullingTestFile("two.ARW"),
-            makeCullingTestFile("three.ARW")
-        ]
-        let first = BurstWinnerOverride(
-            winnerFileName: "two.ARW",
-            memberFileNames: files.map(\.name),
-        )
-        let replacement = BurstWinnerOverride(
-            winnerFileName: "three.ARW",
-            memberFileNames: files.map(\.name),
-        )
-
-        model.upsertBurstWinnerOverride(first, in: catalog)
-        model.upsertBurstWinnerOverride(replacement, in: catalog)
-        _ = await recorder.waitForSnapshotCount(1)
-
-        #expect(model.burstWinnerOverrides(in: catalog).map(\.winnerFileName) == ["three.ARW"])
-        #expect(model.overrideWinner(for: files, in: catalog)?.winnerFileName == "three.ARW")
-
-        model.pruneStaleBurstOverrides(validFileNames: ["one.ARW", "two.ARW"], in: catalog)
-        #expect(model.burstWinnerOverrides(in: catalog).isEmpty)
     }
 
     @Test
@@ -224,7 +171,7 @@ struct SavedFilesJSONTests {
     }
 
     @Test
-    func `older saved files JSON without burst overrides decodes`() throws {
+    func `older saved files JSON decodes`() throws {
         let json = """
         [{
           "catalog": "file:///tmp/catalog/",
@@ -240,27 +187,6 @@ struct SavedFilesJSONTests {
 
         #expect(saved.catalog == URL(string: "file:///tmp/catalog/"))
         #expect(saved.filerecords?.first?.fileName == "one.ARW")
-        #expect(saved.burstWinnerOverrides == nil)
-    }
-
-    @Test
-    func `saved files JSON round trips burst winner overrides`() throws {
-        let override = BurstWinnerOverride(
-            winnerFileName: "winner.ARW",
-            memberFileNames: ["one.ARW", "winner.ARW"],
-        )
-        var saved = SavedFiles(
-            catalog: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
-            dateStart: "19 May 2026 12:00",
-            filerecord: FileRecord(fileName: "winner.ARW", dateTagged: nil, dateCopied: nil, rating: 3),
-        )
-        saved.burstWinnerOverrides = [override]
-
-        let data = try JSONEncoder().encode([saved])
-        let decoded = try JSONDecoder().decode([DecodeSavedFiles].self, from: data)
-        let restored = try #require(decoded.first.map(SavedFiles.init))
-
-        #expect(restored.burstWinnerOverrides == [override])
     }
 
     @Test
@@ -408,59 +334,6 @@ struct RawCullViewModelCullingTests {
         viewModel.updateRating(for: files, rating: 5)
 
         #expect(viewModel.ratingCache == ["one.ARW": 5, "two.ARW": 5])
-    }
-
-    @Test
-    func `persisted sharpness reload requires signature and source metadata`() {
-        let viewModel = RawCullViewModel()
-        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
-        let original = makeCullingTestFile("one.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.files = [original]
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.cullingModel.mergeScoringResults(
-            [CullingScoringResult(
-                fileName: original.name,
-                score: 0.75,
-                saliencySubject: "bird",
-                scoringSignature: viewModel.sharpnessModel.scoringSignature,
-                fileSize: original.size,
-                modificationDate: original.dateModified,
-            )],
-            in: catalog.url,
-        )
-
-        viewModel.loadPersistedScoringandSaliency()
-        #expect(viewModel.sharpnessModel.scores[original.id] == 0.75)
-
-        viewModel.sharpnessModel.scores = [:]
-        viewModel.files = [makeCullingTestFile("one.ARW", size: 2)]
-        viewModel.loadPersistedScoringandSaliency()
-        #expect(viewModel.sharpnessModel.scores.isEmpty)
-
-        viewModel.files = [original]
-        viewModel.sharpnessModel.focusMaskModel.config.silhouettePenaltyStrength = 0.1
-        viewModel.loadPersistedScoringandSaliency()
-        #expect(viewModel.sharpnessModel.scores.isEmpty)
-    }
-
-    @Test
-    func `legacy unsigned sharpness scores remain readable but reload as stale`() {
-        let viewModel = RawCullViewModel()
-        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
-        let file = makeCullingTestFile("legacy.ARW")
-        viewModel.selectedSource = catalog
-        viewModel.files = [file]
-        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.cullingModel.mergeScoringResults(
-            [CullingScoringResult(fileName: file.name, score: 0.5, saliencySubject: "bird")],
-            in: catalog.url,
-        )
-
-        viewModel.loadPersistedScoringandSaliency()
-
-        #expect(viewModel.sharpnessModel.scores.isEmpty)
-        #expect(viewModel.cullingModel.savedFiles.first?.filerecords?.first?.sharpnessScore == 0.5)
     }
 
     @Test

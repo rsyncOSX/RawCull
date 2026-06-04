@@ -1,6 +1,6 @@
 //
 //  ScanAndExtractJPGsTests.swift
-//  RawCullTests
+//  RawCullVerifyTests
 //
 
 import Foundation

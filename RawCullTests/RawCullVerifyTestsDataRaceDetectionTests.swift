@@ -1,8 +1,8 @@
 //
-//  RawCullTestsDataRaceDetectionTests.swift
-//  RawCull
+//  RawCullVerifyTestsDataRaceDetectionTests.swift
+//  RawCullVerify
 //
-//  These tests intentionally exercise RawCull shared state from many tasks.
+//  These tests intentionally exercise RawCullVerify shared state from many tasks.
 //  They are most valuable when `make test-full` runs with Thread Sanitizer.
 //
 
