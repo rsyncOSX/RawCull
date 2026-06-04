@@ -217,8 +217,11 @@ struct MainThumbnailImageView: View {
             }
         }
         .onChange(of: url) { _, _ in
-            resetExtractedJPGState()
+            resetExtractedJPGImage()
             resetFocusMaskState()
+            if showExtractedJPG {
+                loadExtractedJPGIfNeeded()
+            }
         }
         .onDisappear {
             maskTask?.cancel()
@@ -399,5 +402,12 @@ struct MainThumbnailImageView: View {
         extractedJPGImage = nil
         isLoadingExtractedJPG = false
         showExtractedJPG = false
+    }
+
+    private func resetExtractedJPGImage() {
+        extractedJPGTask?.cancel()
+        extractedJPGTask = nil
+        extractedJPGImage = nil
+        isLoadingExtractedJPG = false
     }
 }
