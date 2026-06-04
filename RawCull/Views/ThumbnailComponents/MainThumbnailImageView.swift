@@ -74,12 +74,14 @@ struct MainThumbnailImageView: View {
                                     .onChanged { value in
                                         if viewModel.scale > 1.0 {
                                             viewModel.offset = CGSize(
-                                                width: value.translation.width,
-                                                height: value.translation.height,
+                                                width: viewModel.lastOffset.width + value.translation.width,
+                                                height: viewModel.lastOffset.height + value.translation.height,
                                             )
                                         }
                                     }
-                                    .onEnded { _ in },
+                                    .onEnded { _ in
+                                        viewModel.lastOffset = viewModel.offset
+                                    },
                             )
 
                             // 2️⃣ Focus mask overlay

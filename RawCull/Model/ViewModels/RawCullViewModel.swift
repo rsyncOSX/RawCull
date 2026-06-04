@@ -107,6 +107,7 @@ final class RawCullViewModel {
     var scale: CGFloat = 1.0
     var lastScale: CGFloat = 1.0
     var offset: CGSize = .zero
+    var lastOffset: CGSize = .zero
 
     /// Focus point marker size — shared across all overlay views and the Focus settings tab
     var focusPointMarkerSize: CGFloat = 40
@@ -211,6 +212,7 @@ final class RawCullViewModel {
         scale = 1.0
         lastScale = 1.0
         offset = .zero
+        lastOffset = .zero
     }
 
     func openZoomOverlay(navigationIDs: [FileItem.ID]? = nil) {
