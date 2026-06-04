@@ -51,13 +51,16 @@ struct RequestThumbnailTests {
             .appendingPathComponent("rawcull-cancel-\(UUID().uuidString)")
             .appendingPathExtension("arw")
 
-        // group.next() returns CGImage?? — flatten with ?? nil to get CGImage?
+        // group.next() returns CGImage??; unwrap only the outer "next result" optional.
         let result: CGImage? = await withTaskGroup(of: CGImage?.self) { group in
             group.cancelAll()
             group.addTask {
                 await provider.requestThumbnail(for: missingRaw, targetSize: 256)
             }
-            return await group.next()
+            guard let result = await group.next() else {
+                return nil
+            }
+            return result
         }
 
         #expect(result == nil)
