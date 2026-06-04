@@ -58,6 +58,13 @@ struct RatedImageItemView: View {
                             .shadow(radius: 2)
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    CurrentRatingBadgeView(
+                        rating: ratingDisplay,
+                        density: .compact,
+                    )
+                    .padding(5)
+                }
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
                         .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
@@ -112,11 +119,8 @@ struct RatedImageItemView: View {
     }
 
     private var ratingColor: Color? {
-        guard let catalogURL,
-              let entry = cullingModel.savedFiles.first(where: { $0.catalog == catalogURL }),
-              let record = entry.filerecords?.first(where: { $0.fileName == photo })
-        else { return nil }
-        switch record.rating ?? 0 {
+        guard let rating = ratingValue else { return nil }
+        switch rating {
         case -1: return .red
         case 2: return .yellow
         case 3: return .green
@@ -124,6 +128,18 @@ struct RatedImageItemView: View {
         case 5: return .purple
         default: return nil
         }
+    }
+
+    private var ratingDisplay: RatingDisplay {
+        RatingDisplay(rating: ratingValue ?? 0, isExplicit: ratingValue != nil)
+    }
+
+    private var ratingValue: Int? {
+        guard let catalogURL,
+              let entry = cullingModel.savedFiles.first(where: { $0.catalog == catalogURL }),
+              let record = entry.filerecords?.first(where: { $0.fileName == photo })
+        else { return nil }
+        return record.rating
     }
 
     var cullingModel: CullingModel {

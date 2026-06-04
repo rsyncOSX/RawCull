@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ImageIO
 import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
@@ -58,11 +59,6 @@ enum ZoomPreviewHandler {
                 }
             }
         } else {
-            let rawURL = file.url
-            let sidecarJPGURL = rawURL
-                .deletingPathExtension()
-                .appendingPathExtension(SupportedFileType.jpg.rawValue)
-
             return Task {
                 await MainActor.run {
                     viewModel.zoomOverlayNSImage = nil
@@ -72,48 +68,48 @@ enum ZoomPreviewHandler {
 
                 guard !Task.isCancelled else { return }
 
-                let sidecarImage = await Task.detached(priority: .userInitiated) {
-                    loadCGImage(from: sidecarJPGURL)
-                }.value
-
-                guard !Task.isCancelled else { return }
-
-                if let sidecarImage {
+                if let image = await loadExtractedJPGPreview(for: file.url) {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
-                        viewModel.zoomOverlayCGImage = sidecarImage
-                    }
-                    return
-                }
-
-                if let cached = await fullSizeCache.load(for: rawURL) {
-                    guard !Task.isCancelled else { return }
-                    await MainActor.run {
-                        guard !Task.isCancelled else { return }
-                        viewModel.zoomOverlayCGImage = cached
-                    }
-                    return
-                }
-
-                guard !Task.isCancelled else { return }
-
-                if let format = RawFormatRegistry.format(for: rawURL) {
-                    let extracted = await format.extractFullJPEG(from: rawURL, fullSize: false)
-
-                    guard !Task.isCancelled else { return }
-
-                    if let extracted {
-                        await MainActor.run {
-                            guard !Task.isCancelled else { return }
-                            viewModel.zoomOverlayCGImage = extracted
-                        }
-                        if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-                            await fullSizeCache.save(jpegData, for: rawURL)
-                        }
+                        viewModel.zoomOverlayCGImage = image
                     }
                 }
             }
         }
+    }
+
+    static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
+        let sidecarJPGURL = rawURL
+            .deletingPathExtension()
+            .appendingPathExtension(SupportedFileType.jpg.rawValue)
+
+        let sidecarImage = await Task.detached(priority: .userInitiated) {
+            loadCGImage(from: sidecarJPGURL)
+        }.value
+
+        guard !Task.isCancelled else { return nil }
+        if let sidecarImage {
+            return sidecarImage
+        }
+
+        if let cached = await fullSizeCache.load(for: rawURL) {
+            guard !Task.isCancelled else { return nil }
+            return cached
+        }
+
+        guard !Task.isCancelled,
+              let format = RawFormatRegistry.format(for: rawURL)
+        else { return nil }
+
+        let extracted = await format.extractFullJPEG(from: rawURL, fullSize: false)
+        guard !Task.isCancelled else { return nil }
+
+        if let extracted,
+           let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
+            await fullSizeCache.save(jpegData, for: rawURL)
+        }
+
+        return extracted
     }
 
     private nonisolated static func loadCGImage(from url: URL) -> CGImage? {

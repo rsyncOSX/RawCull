@@ -1,5 +1,27 @@
 import SwiftUI
 
+nonisolated enum LoupeImageKeyAction: Equatable {
+    case zoomIn
+    case zoomOut
+    case toggleExtractedJPG
+
+    nonisolated static func resolve(characters: String?) -> LoupeImageKeyAction? {
+        switch characters {
+        case "+":
+            .zoomIn
+
+        case "-":
+            .zoomOut
+
+        case "j", "J":
+            .toggleExtractedJPG
+
+        default:
+            nil
+        }
+    }
+}
+
 struct MainThumbnailImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
 
@@ -12,6 +34,10 @@ struct MainThumbnailImageView: View {
 
     @State private var image: NSImage?
     @State private var thumbnailSizePreview: Int?
+    @State private var extractedJPGImage: CGImage?
+    @State private var isLoadingExtractedJPG = false
+    @State private var showExtractedJPG = false
+    @State private var extractedJPGTask: Task<Void, Never>?
 
     @State private var showFocusPoints = false
 
@@ -30,14 +56,7 @@ struct MainThumbnailImageView: View {
                     GeometryReader { geo in
                         ZStack {
                             // 1️⃣ Image FIRST (background)
-                            ThumbnailImageView(
-                                url: url,
-                                targetSize: thumbnailSizePreview,
-                                style: .list,
-                                showsShimmer: false,
-                                contentMode: .fit,
-                                image: $image,
-                            )
+                            displayedImageContent(thumbnailSizePreview: thumbnailSizePreview)
                             .scaleEffect(viewModel.scale)
                             .offset(viewModel.offset)
                             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
@@ -82,7 +101,7 @@ struct MainThumbnailImageView: View {
                             if showFocusPoints, let focusPoints {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
-                                    imageSize: image?.size,
+                                    imageSize: currentImageSize,
                                     markerSize: viewModel.focusPointMarkerSize,
                                 )
                                 .scaleEffect(viewModel.scale)
@@ -94,7 +113,12 @@ struct MainThumbnailImageView: View {
                             VStack {
                                 // File metadata at the top where it belongs
                                 if let file {
-                                    HStack {
+                                    HStack(alignment: .top, spacing: 8) {
+                                        CurrentRatingBadgeView(
+                                            rating: ratingDisplay(for: file),
+                                            density: .compact,
+                                        )
+
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(file.name)
                                                 .font(.headline)
@@ -115,10 +139,12 @@ struct MainThumbnailImageView: View {
 
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
-                                    focusMaskAvailable: image != nil,
+                                    focusMaskAvailable: currentDisplayedImage != nil,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
-                                    useThumbnailSource: .constant(false),
+                                    showShortcutHints: true,
+                                    showImageSourceToggle: true,
+                                    useThumbnailSource: useThumbnailSourceBinding,
                                     scale: viewModel.scale,
                                     canZoomOut: viewModel.scale > 0.5,
                                     canZoomIn: viewModel.scale < 4.0,
@@ -133,25 +159,8 @@ struct MainThumbnailImageView: View {
                         .focusable()
                         .focused($isImageFocused)
                         .focusEffectDisabled(true)
-                        .onKeyPress(characters: CharacterSet(charactersIn: "+-")) { press in
-                            switch press.characters {
-                            case "+":
-                                withAnimation(.spring()) {
-                                    viewModel.scale = min(4.0, viewModel.scale + 0.2)
-                                    viewModel.lastScale = viewModel.scale
-                                }
-                                return .handled
-
-                            case "-":
-                                withAnimation(.spring()) {
-                                    viewModel.scale = max(0.5, viewModel.scale - 0.2)
-                                    viewModel.lastScale = viewModel.scale
-                                }
-                                return .handled
-
-                            default:
-                                return .ignored
-                            }
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJ")) { press in
+                            handleKeyAction(LoupeImageKeyAction.resolve(characters: press.characters))
                         }
                         .onAppear { isImageFocused = true }
                     }
@@ -177,6 +186,19 @@ struct MainThumbnailImageView: View {
                 isGeneratingFocusMask = false
             }
         }
+        .onChange(of: showExtractedJPG) { _, newValue in
+            resetFocusMaskImage()
+            if newValue {
+                loadExtractedJPGIfNeeded()
+            } else {
+                extractedJPGTask?.cancel()
+                extractedJPGTask = nil
+                isLoadingExtractedJPG = false
+                if showFocusMask {
+                    generateFocusMaskIfNeeded()
+                }
+            }
+        }
         .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             focusMask = nil
@@ -195,20 +217,127 @@ struct MainThumbnailImageView: View {
             }
         }
         .onChange(of: url) { _, _ in
+            resetExtractedJPGState()
             resetFocusMaskState()
         }
         .onDisappear {
             maskTask?.cancel()
             maskTask = nil
             isGeneratingFocusMask = false
+            extractedJPGTask?.cancel()
+            extractedJPGTask = nil
+            isLoadingExtractedJPG = false
         }
+    }
+
+    @ViewBuilder
+    private func displayedImageContent(thumbnailSizePreview: Int) -> some View {
+        if showExtractedJPG {
+            if let extractedJPGImage {
+                Image(decorative: extractedJPGImage, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+            } else if isLoadingExtractedJPG {
+                ProgressView()
+                    .fixedSize()
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.title3)
+                    Text("No extracted JPG")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+            }
+        } else {
+            ThumbnailImageView(
+                url: url,
+                targetSize: thumbnailSizePreview,
+                style: .list,
+                showsShimmer: false,
+                contentMode: .fit,
+                image: $image,
+            )
+        }
+    }
+
+    private var currentDisplayedImage: NSImage? {
+        if showExtractedJPG, let extractedJPGImage {
+            return NSImage(
+                cgImage: extractedJPGImage,
+                size: NSSize(width: extractedJPGImage.width, height: extractedJPGImage.height),
+            )
+        }
+        return image
+    }
+
+    private var currentImageSize: NSSize? {
+        if showExtractedJPG, let extractedJPGImage {
+            return NSSize(width: extractedJPGImage.width, height: extractedJPGImage.height)
+        }
+        return image?.size
+    }
+
+    private var useThumbnailSourceBinding: Binding<Bool> {
+        Binding(
+            get: { !showExtractedJPG },
+            set: { showExtractedJPG = !$0 },
+        )
+    }
+
+    private func handleKeyAction(_ action: LoupeImageKeyAction?) -> KeyPress.Result {
+        guard let action else { return .ignored }
+        switch action {
+        case .zoomIn:
+            withAnimation(.spring()) {
+                viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                viewModel.lastScale = viewModel.scale
+            }
+            return .handled
+
+        case .zoomOut:
+            withAnimation(.spring()) {
+                viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                viewModel.lastScale = viewModel.scale
+            }
+            return .handled
+
+        case .toggleExtractedJPG:
+            showExtractedJPG.toggle()
+            return .handled
+        }
+    }
+
+    private func loadExtractedJPGIfNeeded() {
+        guard extractedJPGImage == nil, !isLoadingExtractedJPG else { return }
+
+        extractedJPGTask?.cancel()
+        extractedJPGTask = Task {
+            isLoadingExtractedJPG = true
+            let image = await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                extractedJPGImage = image
+                isLoadingExtractedJPG = false
+                if showFocusMask {
+                    generateFocusMaskIfNeeded()
+                }
+            }
+        }
+    }
+
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: viewModel.getRating(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
     }
 
     // MARK: - Regenerate Mask
 
     private func generateFocusMaskIfNeeded() {
         guard focusMaskSourceURL != url || focusMask == nil else { return }
-        guard image != nil, !isGeneratingFocusMask else { return }
+        guard currentDisplayedImage != nil, !isGeneratingFocusMask else { return }
 
         maskTask?.cancel()
         maskTask = Task {
@@ -219,7 +348,7 @@ struct MainThumbnailImageView: View {
     }
 
     private func regenerateMask() async {
-        guard let image else { return }
+        guard let image = currentDisplayedImage else { return }
         let config = focusMaskConfig()
         let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
             from: image,
@@ -254,5 +383,21 @@ struct MainThumbnailImageView: View {
         focusMaskSourceURL = nil
         showFocusMask = false
         isGeneratingFocusMask = false
+    }
+
+    private func resetFocusMaskImage() {
+        maskTask?.cancel()
+        maskTask = nil
+        focusMask = nil
+        focusMaskSourceURL = nil
+        isGeneratingFocusMask = false
+    }
+
+    private func resetExtractedJPGState() {
+        extractedJPGTask?.cancel()
+        extractedJPGTask = nil
+        extractedJPGImage = nil
+        isLoadingExtractedJPG = false
+        showExtractedJPG = false
     }
 }

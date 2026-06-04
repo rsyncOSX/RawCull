@@ -319,19 +319,26 @@ struct ImageItemView: View {
                         .padding(5)
                     }
                 }
-                // Burst recommendation badge — top-left corner
+                // Rating and burst recommendation badges — top-left corner
                 .overlay(alignment: .topLeading) {
-                    if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
-                       let analysis = viewModel.burstAnalysisResult(for: groupID),
-                       let candidate = viewModel.burstCandidate(for: file) {
-                        BurstCandidateBadgeView(
-                            candidate: candidate,
-                            analysis: analysis,
-                            rating: viewModel.getRating(for: file),
-                            saliencyLabel: viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
+                    VStack(alignment: .leading, spacing: 4) {
+                        CurrentRatingBadgeView(
+                            rating: ratingDisplay,
+                            density: .compact,
                         )
-                        .padding(5)
+
+                        if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
+                           let analysis = viewModel.burstAnalysisResult(for: groupID),
+                           let candidate = viewModel.burstCandidate(for: file) {
+                            BurstCandidateBadgeView(
+                                candidate: candidate,
+                                analysis: analysis,
+                                rating: viewModel.getRating(for: file),
+                                saliencyLabel: viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
+                            )
+                        }
                     }
+                    .padding(5)
                 }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
@@ -420,5 +427,12 @@ struct ImageItemView: View {
         case 5: .purple
         default: nil
         }
+    }
+
+    private var ratingDisplay: RatingDisplay {
+        RatingDisplay(
+            rating: viewModel.getRating(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
     }
 }
