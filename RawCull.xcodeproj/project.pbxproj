@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
+		E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
+		E9634D6F2FD1D1B9009E567D /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6E2FD1D1B9009E567D /* RawParserKit */; };
 		E97E976C2F210EAB001A4239 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E97E975C2F210EAB001A4239 /* Assets.xcassets */; };
 		E97E976D2F210EAB001A4239 /* RawCullicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E97E975D2F210EAB001A4239 /* RawCullicon.icon */; };
 		E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E9B609842F28FA3600704081 /* DecodeEncodeGeneric */; };
@@ -52,7 +54,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
+				E9634D6F2FD1D1B9009E567D /* RawParserKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
 				E9D876E62F3B053B00119643 /* RsyncAnalyse in Frameworks */,
@@ -116,6 +120,8 @@
 				E92712B22F2CF57E00A681D0 /* RsyncArguments */,
 				E952AA612F2E37170081987F /* ParseRsyncOutput */,
 				E9D876E52F3B053B00119643 /* RsyncAnalyse */,
+				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
+				E9634D6E2FD1D1B9009E567D /* RawParserKit */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -178,6 +184,8 @@
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9D876E42F3B053B00119643 /* XCRemoteSwiftPackageReference "RsyncAnalyse" */,
+				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
+				E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -371,7 +379,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 98;
+				CURRENT_PROJECT_VERSION = 99;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -396,7 +404,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.9.6;
+				MARKETING_VERSION = 2.0.0;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
@@ -431,7 +439,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 98;
+				CURRENT_PROJECT_VERSION = 99;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -456,7 +464,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.9.6;
+				MARKETING_VERSION = 2.0.0;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
@@ -572,6 +580,22 @@
 				version = 1.0.0;
 			};
 		};
+		E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.0;
+			};
+		};
+		E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.2;
+			};
+		};
 		E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/DecodeEncodeGeneric.git";
@@ -608,6 +632,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */;
 			productName = ParseRsyncOutput;
+		};
+		E9634D6B2FD1D1A0009E567D /* RawCullCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */;
+			productName = RawCullCore;
+		};
+		E9634D6E2FD1D1B9009E567D /* RawParserKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */;
+			productName = RawParserKit;
 		};
 		E9B609842F28FA3600704081 /* DecodeEncodeGeneric */ = {
 			isa = XCSwiftPackageProductDependency;

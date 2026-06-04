@@ -1,5 +1,5 @@
 {
-  "originHash" : "86a0d74e75de40a227dbd3e3c740ff8f80afd63ed0aadefe4afc12c2c0f8656c",
+  "originHash" : "037fea9338a0006744a523c3dcf87f1a6c6224d97715ce11d7229adc16806d2e",
   "pins" : [
     {
       "identity" : "decodeencodegeneric",
@@ -17,6 +17,24 @@
       "state" : {
         "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847",
         "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "rawcullcore",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rsyncOSX/RawCullCore.git",
+      "state" : {
+        "revision" : "225504157ac5493f64f9d3516cc78a8937c22646",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "rawparserkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rsyncOSX/RawParserKit.git",
+      "state" : {
+        "revision" : "287abb878e44397ae5617cf42c1f50b37585b461",
+        "version" : "1.0.2"
       }
     },
     {
