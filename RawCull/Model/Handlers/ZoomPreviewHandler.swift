@@ -78,8 +78,10 @@ enum ZoomPreviewHandler {
                 switch source {
                 case .thumbnail:
                     image = nil
+
                 case .embeddedJPG:
                     image = await loadExtractedJPGPreview(for: file.url)
+
                 case .developedRAW:
                     do {
                         image = try await loadDevelopedRAWPreview(for: file.url)

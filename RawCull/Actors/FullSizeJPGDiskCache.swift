@@ -5,7 +5,7 @@ import OSLog
 import UniformTypeIdentifiers
 
 actor FullSizeJPGDiskCache {
-    nonisolated enum Variant: String, Sendable {
+    nonisolated enum Variant: String {
         case embeddedJPG
         case developedRAW
     }

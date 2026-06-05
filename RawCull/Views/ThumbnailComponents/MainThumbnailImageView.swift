@@ -258,6 +258,7 @@ struct MainThumbnailImageView: View {
                 contentMode: .fit,
                 image: $image,
             )
+
         case .embeddedJPG:
             if let embeddedJPGImage {
                 Image(decorative: embeddedJPGImage, scale: 1.0, orientation: .up)
@@ -275,6 +276,7 @@ struct MainThumbnailImageView: View {
                 }
                 .foregroundStyle(.secondary)
             }
+
         case .developedRAW:
             if let developedRAWImage {
                 Image(decorative: developedRAWImage, scale: 1.0, orientation: .up)
@@ -360,14 +362,15 @@ struct MainThumbnailImageView: View {
         isLoadingSource = true
         sourceTask = Task {
             do {
-                let loadedImage: CGImage?
-                switch requestedSource {
+                let loadedImage: CGImage? = switch requestedSource {
                 case .thumbnail:
-                    loadedImage = nil
+                    nil
+
                 case .embeddedJPG:
-                    loadedImage = await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
+                    await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
+
                 case .developedRAW:
-                    loadedImage = try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: url)
+                    try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: url)
                 }
                 guard !Task.isCancelled, sourceSelection.selected == requestedSource else { return }
                 if requestedSource == .embeddedJPG {

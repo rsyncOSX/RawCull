@@ -1,12 +1,12 @@
 import SwiftUI
 
-nonisolated enum ImagePreviewSource: Equatable, Sendable {
+nonisolated enum ImagePreviewSource: Equatable {
     case thumbnail
     case embeddedJPG
     case developedRAW
 }
 
-nonisolated struct ImageSourceSelectionState: Equatable, Sendable {
+nonisolated struct ImageSourceSelectionState: Equatable {
     var selected: ImagePreviewSource = .thumbnail
     private(set) var previous: ImagePreviewSource = .thumbnail
     private(set) var rawUnavailable = false
@@ -87,11 +87,11 @@ struct ImageSourceSelectorView: View {
                 Image(systemName: icon)
                 Text(label)
             }
-                .font(density == .compact ? .caption2 : .caption)
-                .padding(.horizontal, density == .compact ? 5 : 8)
-                .padding(.vertical, density == .compact ? 3 : 5)
-                .background(selection.selected == source ? Color.accentColor.opacity(0.25) : .clear)
-                .clipShape(Capsule())
+            .font(density == .compact ? .caption2 : .caption)
+            .padding(.horizontal, density == .compact ? 5 : 8)
+            .padding(.vertical, density == .compact ? 3 : 5)
+            .background(selection.selected == source ? Color.accentColor.opacity(0.25) : .clear)
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .foregroundStyle(selection.selected == source ? Color.accentColor : Color.primary)

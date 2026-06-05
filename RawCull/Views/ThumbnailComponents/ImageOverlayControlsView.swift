@@ -25,7 +25,7 @@ struct ImageOverlayControlsView: View {
 
     var showImageSourceToggle: Bool = false
     @Binding var useThumbnailSource: Bool
-    var imageSourceSelection: Binding<ImageSourceSelectionState>? = nil
+    var imageSourceSelection: Binding<ImageSourceSelectionState>?
 
     // MARK: - Inspector
 
