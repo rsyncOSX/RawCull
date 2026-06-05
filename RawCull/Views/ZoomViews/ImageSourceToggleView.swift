@@ -17,6 +17,12 @@ nonisolated struct ImageSourceSelectionState: Equatable, Sendable {
         selected = source
     }
 
+    mutating func toggleExtractionSource(_ source: ImagePreviewSource) {
+        guard source != .thumbnail else { return }
+        guard source != .developedRAW || !rawUnavailable else { return }
+        select(selected == source ? .thumbnail : source)
+    }
+
     mutating func markDevelopedRAWUnavailable() {
         selected = previous
         rawUnavailable = true
@@ -58,7 +64,6 @@ struct ImageSourceSelectorView: View {
 
     var body: some View {
         HStack(spacing: density == .compact ? 2 : 4) {
-            sourceButton(.thumbnail, icon: "photo", label: "Thumbnail")
             sourceButton(.embeddedJPG, icon: "photo.stack", label: "JPG")
             sourceButton(.developedRAW, icon: "camera.aperture", label: "RAW")
                 .disabled(selection.rawUnavailable)
@@ -74,13 +79,13 @@ struct ImageSourceSelectorView: View {
         label: String,
     ) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selection.select(source) }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selection.toggleExtractionSource(source)
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                if source != .thumbnail {
-                    Text(label)
-                }
+                Text(label)
             }
                 .font(density == .compact ? .caption2 : .caption)
                 .padding(.horizontal, density == .compact ? 5 : 8)

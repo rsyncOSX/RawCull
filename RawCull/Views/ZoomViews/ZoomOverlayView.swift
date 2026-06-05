@@ -16,7 +16,8 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
     case escape
     case zoomIn
     case zoomOut
-    case toggleThumbnailSource
+    case toggleEmbeddedJPG
+    case toggleDevelopedRAW
     case toggleFocusMask
     case toggleFocusPoints
     case rating(Int)
@@ -54,7 +55,10 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
             .zoomOut
 
         case "j", "J":
-            .toggleThumbnailSource
+            .toggleEmbeddedJPG
+
+        case "r", "R":
+            .toggleDevelopedRAW
 
         case "f", "F":
             .toggleFocusMask
@@ -280,7 +284,7 @@ struct ZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJfFaAxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -453,8 +457,12 @@ struct ZoomOverlayView: View {
             decreaseZoom()
             return .handled
 
-        case .toggleThumbnailSource:
-            sourceSelection.select(sourceSelection.selected == .embeddedJPG ? .thumbnail : .embeddedJPG)
+        case .toggleEmbeddedJPG:
+            sourceSelection.toggleExtractionSource(.embeddedJPG)
+            return .handled
+
+        case .toggleDevelopedRAW:
+            sourceSelection.toggleExtractionSource(.developedRAW)
             return .handled
 
         case .toggleFocusMask:

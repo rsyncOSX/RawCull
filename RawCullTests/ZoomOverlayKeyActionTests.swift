@@ -67,12 +67,22 @@ struct ZoomOverlayKeyActionTests {
             characters: "j",
             keyCode: 0,
             navigationAxis: .horizontal,
-        ) == .toggleThumbnailSource)
+        ) == .toggleEmbeddedJPG)
         #expect(ZoomOverlayKeyAction.resolve(
             characters: "J",
             keyCode: 0,
             navigationAxis: .horizontal,
-        ) == .toggleThumbnailSource)
+        ) == .toggleEmbeddedJPG)
+        #expect(ZoomOverlayKeyAction.resolve(
+            characters: "r",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == .toggleDevelopedRAW)
+        #expect(ZoomOverlayKeyAction.resolve(
+            characters: "R",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == .toggleDevelopedRAW)
         #expect(ZoomOverlayKeyAction.resolve(
             characters: "F",
             keyCode: 0,
@@ -151,6 +161,30 @@ struct ZoomOverlayKeyActionTests {
 
 @Suite("ImageSourceSelectionState")
 struct ImageSourceSelectionStateTests {
+    @Test(.tags(.smoke), arguments: [ImagePreviewSource.embeddedJPG, .developedRAW])
+    func `extraction source toggles against thumbnail`(source: ImagePreviewSource) {
+        var state = ImageSourceSelectionState()
+
+        state.toggleExtractionSource(source)
+        #expect(state.selected == source)
+
+        state.toggleExtractionSource(source)
+        #expect(state.selected == .thumbnail)
+    }
+
+    @Test(.tags(.smoke))
+    func `disabled RAW source ignores toggle`() {
+        var state = ImageSourceSelectionState()
+        state.select(.developedRAW)
+        state.markDevelopedRAWUnavailable()
+        let restoredSource = state.selected
+
+        state.toggleExtractionSource(.developedRAW)
+
+        #expect(state.selected == restoredSource)
+        #expect(state.rawUnavailable)
+    }
+
     @Test(.tags(.smoke))
     func `RAW failure restores previous source and disables RAW`() {
         var state = ImageSourceSelectionState()
@@ -174,6 +208,19 @@ struct ImageSourceSelectionStateTests {
 
         #expect(state.selected == restoredSource)
         #expect(state.rawUnavailable == false)
+    }
+}
+
+@Suite("LoupeImageKeyAction")
+struct LoupeImageKeyActionTests {
+    @Test(.tags(.smoke), arguments: ["j", "J"])
+    func `J resolves to embedded JPG`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleEmbeddedJPG)
+    }
+
+    @Test(.tags(.smoke), arguments: ["r", "R"])
+    func `R resolves to developed RAW`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleDevelopedRAW)
     }
 }
 

@@ -3,7 +3,8 @@ import SwiftUI
 nonisolated enum LoupeImageKeyAction: Equatable {
     case zoomIn
     case zoomOut
-    case toggleExtractedJPG
+    case toggleEmbeddedJPG
+    case toggleDevelopedRAW
 
     nonisolated static func resolve(characters: String?) -> LoupeImageKeyAction? {
         switch characters {
@@ -14,7 +15,10 @@ nonisolated enum LoupeImageKeyAction: Equatable {
             .zoomOut
 
         case "j", "J":
-            .toggleExtractedJPG
+            .toggleEmbeddedJPG
+
+        case "r", "R":
+            .toggleDevelopedRAW
 
         default:
             nil
@@ -175,7 +179,7 @@ struct MainThumbnailImageView: View {
                         .focusable()
                         .focused($isImageFocused)
                         .focusEffectDisabled(true)
-                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJ")) { press in
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrR")) { press in
                             handleKeyAction(LoupeImageKeyAction.resolve(characters: press.characters))
                         }
                         .onAppear { isImageFocused = true }
@@ -330,8 +334,12 @@ struct MainThumbnailImageView: View {
             }
             return .handled
 
-        case .toggleExtractedJPG:
-            sourceSelection.select(sourceSelection.selected == .embeddedJPG ? .thumbnail : .embeddedJPG)
+        case .toggleEmbeddedJPG:
+            sourceSelection.toggleExtractionSource(.embeddedJPG)
+            return .handled
+
+        case .toggleDevelopedRAW:
+            sourceSelection.toggleExtractionSource(.developedRAW)
             return .handled
         }
     }
