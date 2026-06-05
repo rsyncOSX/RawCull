@@ -130,6 +130,29 @@ struct FullSizeJPGDiskCacheTests {
     }
 
     @Test
+    func `embedded and developed JPEGs use separate cache entries`() async throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = FullSizeJPGDiskCache(cacheDirectory: root)
+        let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let embedded = try #require(FullSizeJPGDiskCache.jpegData(from: makeCacheTestCGImage(width: 40, height: 30)))
+        let developed = try #require(FullSizeJPGDiskCache.jpegData(from: makeCacheTestCGImage(width: 80, height: 60)))
+
+        await cache.save(embedded, for: source)
+        await cache.save(developed, for: source, variant: .developedRAW)
+
+        let defaultLoaded = await cache.load(for: source)
+        let developedLoaded = await cache.load(for: source, variant: .developedRAW)
+        let entries = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+
+        #expect(entries.count == 2)
+        #expect(defaultLoaded?.width == 40)
+        #expect(defaultLoaded?.height == 30)
+        #expect(developedLoaded?.width == 80)
+        #expect(developedLoaded?.height == 60)
+    }
+
+    @Test
     func `pruneCache removes old full size JPEG files`() async throws {
         let root = try makeCacheTestRoot()
         defer { try? FileManager.default.removeItem(at: root) }

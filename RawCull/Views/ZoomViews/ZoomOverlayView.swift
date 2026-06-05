@@ -124,7 +124,9 @@ struct ZoomOverlayView: View {
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask: Bool = false
     @State private var showFocusPoints: Bool = false
-    @State private var useThumbnailSource: Bool = true
+    @State private var sourceSelection = ImageSourceSelectionState()
+    @State private var showRAWNotSupported = false
+    @State private var rawMessageTask: Task<Void, Never>?
     @State private var maskTask: Task<Void, Never>?
     @State private var keyMonitor: Any?
     @FocusState private var isImageFocused: Bool
@@ -151,6 +153,15 @@ struct ZoomOverlayView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     focusPoint()
+
+                    if showRAWNotSupported {
+                        Text("Not supported")
+                            .font(.title2.weight(.semibold))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(.regularMaterial, in: Capsule())
+                            .transition(.opacity)
+                    }
                 }
             }
 
@@ -215,7 +226,8 @@ struct ZoomOverlayView: View {
                         showFocusPoints: $showFocusPoints,
                         showShortcutHints: true,
                         showImageSourceToggle: true,
-                        useThumbnailSource: $useThumbnailSource,
+                        useThumbnailSource: useThumbnailSourceBinding,
+                        imageSourceSelection: $sourceSelection,
                         scale: currentScale,
                         canZoomOut: currentScale > 0.5,
                         canZoomIn: currentScale < 5.0,
@@ -285,10 +297,14 @@ struct ZoomOverlayView: View {
             maskTask?.cancel()
             maskTask = nil
             focusMask = nil
+            rawMessageTask?.cancel()
+            rawMessageTask = nil
         }
-        .onChange(of: useThumbnailSource) { _, _ in reload() }
+        .onChange(of: sourceSelection.selected) { _, _ in reload() }
         .onChange(of: viewModel.selectedFile) { _, _ in
             guard viewModel.zoomOverlayVisible else { return }
+            sourceSelection.resetForNewImage()
+            clearRAWMessage()
             reload()
         }
         .task(id: viewModel.zoomOverlayCGImage?.hashValue) {
@@ -313,8 +329,19 @@ struct ZoomOverlayView: View {
         viewModel.zoomExtractionTask?.cancel()
         viewModel.zoomExtractionTask = ZoomPreviewHandler.handleOverlay(
             file: file,
-            useThumbnailAsZoomPreview: useThumbnailSource,
+            source: sourceSelection.selected,
             viewModel: viewModel,
+            onDevelopedRAWFailure: {
+                sourceSelection.markDevelopedRAWUnavailable()
+                showRAWFailureMessage()
+            },
+        )
+    }
+
+    private var useThumbnailSourceBinding: Binding<Bool> {
+        Binding(
+            get: { sourceSelection.selected == .thumbnail },
+            set: { sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
         )
     }
 
@@ -427,7 +454,7 @@ struct ZoomOverlayView: View {
             return .handled
 
         case .toggleThumbnailSource:
-            useThumbnailSource.toggle()
+            sourceSelection.select(sourceSelection.selected == .embeddedJPG ? .thumbnail : .embeddedJPG)
             return .handled
 
         case .toggleFocusMask:
@@ -483,6 +510,22 @@ struct ZoomOverlayView: View {
         viewModel.closeZoomOverlay()
         resetToFit()
         focusMask = nil
+    }
+
+    private func showRAWFailureMessage() {
+        rawMessageTask?.cancel()
+        withAnimation { showRAWNotSupported = true }
+        rawMessageTask = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            withAnimation { showRAWNotSupported = false }
+        }
+    }
+
+    private func clearRAWMessage() {
+        rawMessageTask?.cancel()
+        rawMessageTask = nil
+        showRAWNotSupported = false
     }
 
     // MARK: - Mask regeneration

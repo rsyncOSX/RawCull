@@ -25,6 +25,7 @@ struct ImageOverlayControlsView: View {
 
     var showImageSourceToggle: Bool = false
     @Binding var useThumbnailSource: Bool
+    var imageSourceSelection: Binding<ImageSourceSelectionState>? = nil
 
     // MARK: - Inspector
 
@@ -62,10 +63,19 @@ struct ImageOverlayControlsView: View {
             }
 
             if showImageSourceToggle {
-                ImageSourceToggleView(
-                    useThumbnailSource: $useThumbnailSource,
-                    density: density,
-                )
+                Group {
+                    if let imageSourceSelection {
+                        ImageSourceSelectorView(
+                            selection: imageSourceSelection,
+                            density: density,
+                        )
+                    } else {
+                        ImageSourceToggleView(
+                            useThumbnailSource: $useThumbnailSource,
+                            density: density,
+                        )
+                    }
+                }
                 .transition(.opacity)
             }
 

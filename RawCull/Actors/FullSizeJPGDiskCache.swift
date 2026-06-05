@@ -5,6 +5,11 @@ import OSLog
 import UniformTypeIdentifiers
 
 actor FullSizeJPGDiskCache {
+    nonisolated enum Variant: String, Sendable {
+        case embeddedJPG
+        case developedRAW
+    }
+
     private static let cacheKeyVersion = "v2-jpgfromraw"
     let cacheDirectory: URL
 
@@ -24,16 +29,17 @@ actor FullSizeJPGDiskCache {
         }
     }
 
-    private func cacheURL(for sourceURL: URL) -> URL {
+    private func cacheURL(for sourceURL: URL, variant: Variant) -> URL {
         let standardizedPath = sourceURL.standardized.path
-        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)".utf8)
+        let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue)"
+        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)\(variantKey)".utf8)
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
     }
 
-    func contains(for sourceURL: URL) async -> Bool {
-        let fileURL = cacheURL(for: sourceURL)
+    func contains(for sourceURL: URL, variant: Variant = .embeddedJPG) async -> Bool {
+        let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         return await Task.detached(priority: .utility) {
             FileManager.default.fileExists(atPath: fileURL.path)
@@ -44,8 +50,8 @@ actor FullSizeJPGDiskCache {
     /// Uses `kCGImageSourceShouldCache: false` and `CGImageSourceRemoveCacheAtIndex`
     /// to prevent ImageIO from retaining the decoded ~188 MB pixel buffer in its
     /// process-level cache (matches the pattern in `ZoomPreviewHandler.loadCGImage`).
-    func load(for sourceURL: URL) async -> CGImage? {
-        let fileURL = cacheURL(for: sourceURL)
+    func load(for sourceURL: URL, variant: Variant = .embeddedJPG) async -> CGImage? {
+        let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         return await Task.detached(priority: .userInitiated) {
             let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
@@ -61,8 +67,8 @@ actor FullSizeJPGDiskCache {
         }.value
     }
 
-    func save(_ jpegData: Data, for sourceURL: URL) async {
-        let fileURL = cacheURL(for: sourceURL)
+    func save(_ jpegData: Data, for sourceURL: URL, variant: Variant = .embeddedJPG) async {
+        let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         await Task.detached(priority: .background) {
             do {

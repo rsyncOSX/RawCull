@@ -34,10 +34,13 @@ struct MainThumbnailImageView: View {
 
     @State private var image: NSImage?
     @State private var thumbnailSizePreview: Int?
-    @State private var extractedJPGImage: CGImage?
-    @State private var isLoadingExtractedJPG = false
-    @State private var showExtractedJPG = false
-    @State private var extractedJPGTask: Task<Void, Never>?
+    @State private var sourceSelection = ImageSourceSelectionState()
+    @State private var embeddedJPGImage: CGImage?
+    @State private var developedRAWImage: CGImage?
+    @State private var isLoadingSource = false
+    @State private var sourceTask: Task<Void, Never>?
+    @State private var showRAWNotSupported = false
+    @State private var rawMessageTask: Task<Void, Never>?
 
     @State private var showFocusPoints = false
 
@@ -69,6 +72,7 @@ struct MainThumbnailImageView: View {
                                             viewModel.lastScale = viewModel.scale
                                         },
                                 )
+
                                 .simultaneousGesture(
                                     DragGesture()
                                         .onChanged { value in
@@ -147,6 +151,7 @@ struct MainThumbnailImageView: View {
                                     showShortcutHints: true,
                                     showImageSourceToggle: true,
                                     useThumbnailSource: useThumbnailSourceBinding,
+                                    imageSourceSelection: $sourceSelection,
                                     scale: viewModel.scale,
                                     canZoomOut: viewModel.scale > 0.5,
                                     canZoomIn: viewModel.scale < 4.0,
@@ -156,6 +161,15 @@ struct MainThumbnailImageView: View {
                                     onZoomIn: { withAnimation(.spring()) { viewModel.scale = min(4.0, viewModel.scale + 0.2) } },
                                 )
                                 .padding(.bottom, 12)
+                            }
+
+                            if showRAWNotSupported {
+                                Text("Not supported")
+                                    .font(.title2.weight(.semibold))
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 10)
+                                    .background(.regularMaterial, in: Capsule())
+                                    .transition(.opacity)
                             }
                         }
                         .focusable()
@@ -188,18 +202,9 @@ struct MainThumbnailImageView: View {
                 isGeneratingFocusMask = false
             }
         }
-        .onChange(of: showExtractedJPG) { _, newValue in
+        .onChange(of: sourceSelection.selected) { _, _ in
             resetFocusMaskImage()
-            if newValue {
-                loadExtractedJPGIfNeeded()
-            } else {
-                extractedJPGTask?.cancel()
-                extractedJPGTask = nil
-                isLoadingExtractedJPG = false
-                if showFocusMask {
-                    generateFocusMaskIfNeeded()
-                }
-            }
+            loadSelectedSourceIfNeeded()
         }
         .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
@@ -219,30 +224,42 @@ struct MainThumbnailImageView: View {
             }
         }
         .onChange(of: url) { _, _ in
-            resetExtractedJPGImage()
+            resetSourceImages()
+            sourceSelection.resetForNewImage()
+            clearRAWMessage()
             resetFocusMaskState()
-            if showExtractedJPG {
-                loadExtractedJPGIfNeeded()
-            }
+            loadSelectedSourceIfNeeded()
         }
         .onDisappear {
             maskTask?.cancel()
             maskTask = nil
             isGeneratingFocusMask = false
-            extractedJPGTask?.cancel()
-            extractedJPGTask = nil
-            isLoadingExtractedJPG = false
+            sourceTask?.cancel()
+            sourceTask = nil
+            rawMessageTask?.cancel()
+            rawMessageTask = nil
+            isLoadingSource = false
         }
     }
 
     @ViewBuilder
     private func displayedImageContent(thumbnailSizePreview: Int) -> some View {
-        if showExtractedJPG {
-            if let extractedJPGImage {
-                Image(decorative: extractedJPGImage, scale: 1.0, orientation: .up)
+        switch sourceSelection.selected {
+        case .thumbnail:
+            ThumbnailImageView(
+                url: url,
+                targetSize: thumbnailSizePreview,
+                style: .list,
+                showsShimmer: false,
+                contentMode: .fit,
+                image: $image,
+            )
+        case .embeddedJPG:
+            if let embeddedJPGImage {
+                Image(decorative: embeddedJPGImage, scale: 1.0, orientation: .up)
                     .resizable()
                     .scaledToFit()
-            } else if isLoadingExtractedJPG {
+            } else if isLoadingSource {
                 ProgressView()
                     .fixedSize()
             } else {
@@ -254,39 +271,45 @@ struct MainThumbnailImageView: View {
                 }
                 .foregroundStyle(.secondary)
             }
-        } else {
-            ThumbnailImageView(
-                url: url,
-                targetSize: thumbnailSizePreview,
-                style: .list,
-                showsShimmer: false,
-                contentMode: .fit,
-                image: $image,
-            )
+        case .developedRAW:
+            if let developedRAWImage {
+                Image(decorative: developedRAWImage, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                ProgressView()
+                    .fixedSize()
+            }
         }
     }
 
     private var currentDisplayedImage: NSImage? {
-        if showExtractedJPG, let extractedJPGImage {
+        if sourceSelection.selected == .embeddedJPG, let embeddedJPGImage {
             return NSImage(
-                cgImage: extractedJPGImage,
-                size: NSSize(width: extractedJPGImage.width, height: extractedJPGImage.height),
+                cgImage: embeddedJPGImage,
+                size: NSSize(width: embeddedJPGImage.width, height: embeddedJPGImage.height),
             )
+        }
+        if sourceSelection.selected == .developedRAW, let developedRAWImage {
+            return NSImage(cgImage: developedRAWImage, size: .zero)
         }
         return image
     }
 
     private var currentImageSize: NSSize? {
-        if showExtractedJPG, let extractedJPGImage {
-            return NSSize(width: extractedJPGImage.width, height: extractedJPGImage.height)
+        if sourceSelection.selected == .embeddedJPG, let embeddedJPGImage {
+            return NSSize(width: embeddedJPGImage.width, height: embeddedJPGImage.height)
+        }
+        if sourceSelection.selected == .developedRAW, let developedRAWImage {
+            return NSSize(width: developedRAWImage.width, height: developedRAWImage.height)
         }
         return image?.size
     }
 
     private var useThumbnailSourceBinding: Binding<Bool> {
         Binding(
-            get: { !showExtractedJPG },
-            set: { showExtractedJPG = !$0 },
+            get: { sourceSelection.selected == .thumbnail },
+            set: { sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
         )
     }
 
@@ -308,25 +331,51 @@ struct MainThumbnailImageView: View {
             return .handled
 
         case .toggleExtractedJPG:
-            showExtractedJPG.toggle()
+            sourceSelection.select(sourceSelection.selected == .embeddedJPG ? .thumbnail : .embeddedJPG)
             return .handled
         }
     }
 
-    private func loadExtractedJPGIfNeeded() {
-        guard extractedJPGImage == nil, !isLoadingExtractedJPG else { return }
+    private func loadSelectedSourceIfNeeded() {
+        sourceTask?.cancel()
+        sourceTask = nil
 
-        extractedJPGTask?.cancel()
-        extractedJPGTask = Task {
-            isLoadingExtractedJPG = true
-            let image = await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                extractedJPGImage = image
-                isLoadingExtractedJPG = false
-                if showFocusMask {
-                    generateFocusMaskIfNeeded()
+        let requestedSource = sourceSelection.selected
+        guard requestedSource != .thumbnail else {
+            isLoadingSource = false
+            if showFocusMask { generateFocusMaskIfNeeded() }
+            return
+        }
+        if requestedSource == .embeddedJPG, embeddedJPGImage != nil { return }
+        if requestedSource == .developedRAW, developedRAWImage != nil { return }
+
+        isLoadingSource = true
+        sourceTask = Task {
+            do {
+                let loadedImage: CGImage?
+                switch requestedSource {
+                case .thumbnail:
+                    loadedImage = nil
+                case .embeddedJPG:
+                    loadedImage = await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
+                case .developedRAW:
+                    loadedImage = try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: url)
                 }
+                guard !Task.isCancelled, sourceSelection.selected == requestedSource else { return }
+                if requestedSource == .embeddedJPG {
+                    embeddedJPGImage = loadedImage
+                } else {
+                    developedRAWImage = loadedImage
+                }
+                isLoadingSource = false
+                if showFocusMask { generateFocusMaskIfNeeded() }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard sourceSelection.selected == .developedRAW else { return }
+                isLoadingSource = false
+                sourceSelection.markDevelopedRAWUnavailable()
+                showRAWFailureMessage()
             }
         }
     }
@@ -398,10 +447,27 @@ struct MainThumbnailImageView: View {
         isGeneratingFocusMask = false
     }
 
-    private func resetExtractedJPGImage() {
-        extractedJPGTask?.cancel()
-        extractedJPGTask = nil
-        extractedJPGImage = nil
-        isLoadingExtractedJPG = false
+    private func resetSourceImages() {
+        sourceTask?.cancel()
+        sourceTask = nil
+        embeddedJPGImage = nil
+        developedRAWImage = nil
+        isLoadingSource = false
+    }
+
+    private func showRAWFailureMessage() {
+        rawMessageTask?.cancel()
+        withAnimation { showRAWNotSupported = true }
+        rawMessageTask = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            withAnimation { showRAWNotSupported = false }
+        }
+    }
+
+    private func clearRAWMessage() {
+        rawMessageTask?.cancel()
+        rawMessageTask = nil
+        showRAWNotSupported = false
     }
 }

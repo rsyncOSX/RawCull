@@ -149,6 +149,34 @@ struct ZoomOverlayKeyActionTests {
     }
 }
 
+@Suite("ImageSourceSelectionState")
+struct ImageSourceSelectionStateTests {
+    @Test(.tags(.smoke))
+    func `RAW failure restores previous source and disables RAW`() {
+        var state = ImageSourceSelectionState()
+        state.select(.embeddedJPG)
+        state.select(.developedRAW)
+
+        state.markDevelopedRAWUnavailable()
+
+        #expect(state.selected == .embeddedJPG)
+        #expect(state.rawUnavailable)
+    }
+
+    @Test(.tags(.smoke))
+    func `new image clears RAW disable while preserving selected source`() {
+        var state = ImageSourceSelectionState()
+        state.select(.developedRAW)
+        state.markDevelopedRAWUnavailable()
+        let restoredSource = state.selected
+
+        state.resetForNewImage()
+
+        #expect(state.selected == restoredSource)
+        #expect(state.rawUnavailable == false)
+    }
+}
+
 @Suite("ZoomOverlayNavigationContext")
 struct ZoomOverlayNavigationContextTests {
     @Test(.tags(.smoke))

@@ -12,6 +12,10 @@ import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
 enum ZoomPreviewHandler {
+    enum DevelopedRAWError: Error {
+        case decodingFailed
+    }
+
     private nonisolated static var fullSizeCache: FullSizeJPGDiskCache {
         SharedMemoryCache.shared.fullSizeJPGDiskCache
     }
@@ -19,11 +23,12 @@ enum ZoomPreviewHandler {
     @discardableResult
     static func handleOverlay(
         file: FileItem,
-        useThumbnailAsZoomPreview: Bool = false,
+        source: ImagePreviewSource = .embeddedJPG,
         thumbnailSizePreview: Int = 1616,
         viewModel: RawCullViewModel,
+        onDevelopedRAWFailure: @escaping @MainActor () -> Void = {},
     ) -> Task<Void, Never> {
-        if useThumbnailAsZoomPreview {
+        if source == .thumbnail {
             Task {
                 let settings = await SettingsViewModel.shared.asyncgetsettings()
 
@@ -69,7 +74,24 @@ enum ZoomPreviewHandler {
 
                 guard !Task.isCancelled else { return }
 
-                if let image = await loadExtractedJPGPreview(for: file.url) {
+                let image: CGImage?
+                switch source {
+                case .thumbnail:
+                    image = nil
+                case .embeddedJPG:
+                    image = await loadExtractedJPGPreview(for: file.url)
+                case .developedRAW:
+                    do {
+                        image = try await loadDevelopedRAWPreview(for: file.url)
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        await MainActor.run { onDevelopedRAWFailure() }
+                        return
+                    }
+                }
+
+                if let image {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
                         viewModel.zoomOverlayCGImage = image
@@ -113,6 +135,25 @@ enum ZoomPreviewHandler {
         return extracted
     }
 
+    static func loadDevelopedRAWPreview(for rawURL: URL) async throws -> CGImage {
+        if let cached = await fullSizeCache.load(for: rawURL, variant: .developedRAW) {
+            try Task.checkCancellation()
+            return cached
+        }
+
+        try Task.checkCancellation()
+        let jpegData = try await SonyRawFormat.createFullSizeJPEG(from: rawURL, quality: 1.0)
+        try Task.checkCancellation()
+
+        guard let image = loadCGImage(from: jpegData) else {
+            throw DevelopedRAWError.decodingFailed
+        }
+
+        await fullSizeCache.save(jpegData, for: rawURL, variant: .developedRAW)
+        try Task.checkCancellation()
+        return image
+    }
+
     private nonisolated static func loadCGImage(from url: URL) -> CGImage? {
         // Disable source-level AND decode-level ImageIO caching. Without this, ImageIO
         // retains the decoded pixel buffer (~188 MB for a 50 MP JPEG) in a process-level
@@ -121,6 +162,19 @@ enum ZoomPreviewHandler {
         // before imageSource goes out of scope.
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return nil
+        }
+        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
+            return nil
+        }
+        CGImageSourceRemoveCacheAtIndex(imageSource, 0)
+        return cgImage
+    }
+
+    private nonisolated static func loadCGImage(from data: Data) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
             return nil
         }
         let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
