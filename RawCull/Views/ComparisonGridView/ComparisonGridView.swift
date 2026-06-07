@@ -16,29 +16,11 @@ struct ComparisonGridView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            Color.black.opacity(0.97)
                 .ignoresSafeArea()
 
             if files.count > 1 {
-                VStack(spacing: 0) {
-                    if let burstComparisonResult {
-                        BurstComparisonEvidenceView(
-                            result: burstComparisonResult,
-                            selectedFile: selectedComparisonFile,
-                            canApplyOneClickCulling: canApplyOneClickCulling,
-                            onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
-                            onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
-                            finalistFocusActive: finalistFocusActive,
-                            onInspectFinalists: inspectFinalists,
-                            onShowAll: showAllCandidates,
-                            onSetManualWinner: { file in
-                                viewModel.setManualBurstWinner(file, in: allComparisonFiles)
-                            },
-                            onBack: viewModel.returnToActiveBurstGroupView,
-                        )
-                        .padding(.horizontal, 4)
-                    }
-
+                ZStack(alignment: .top) {
                     GeometryReader { geometry in
                         ScrollView(.horizontal) {
                             LazyHStack(spacing: 0) {
@@ -73,14 +55,13 @@ struct ComparisonGridView: View {
                                             }
                                         },
                                     )
-                                    .aspectRatio(3 / 2, contentMode: .fit)
-                                    .frame(width: geometry.size.width)
+                                    .frame(width: geometry.size.width, height: geometry.size.height)
                                     .id(file.id)
                                 }
                             }
                             .scrollTargetLayout()
-                            .padding(.vertical, 4)
                         }
+                        .scrollIndicators(.hidden)
                         .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne))
                         .scrollPosition(id: $scrollPositionID, anchor: .center)
                         .onChange(of: viewModel.selectedFileID, initial: true) { _, newID in
@@ -99,6 +80,26 @@ struct ComparisonGridView: View {
                             else { return }
                             viewModel.selectedFileID = newID
                         }
+                    }
+
+                    if let burstComparisonResult {
+                        BurstComparisonEvidenceView(
+                            result: burstComparisonResult,
+                            selectedFile: selectedComparisonFile,
+                            canApplyOneClickCulling: canApplyOneClickCulling,
+                            onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
+                            onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
+                            finalistFocusActive: finalistFocusActive,
+                            onInspectFinalists: inspectFinalists,
+                            onShowAll: showAllCandidates,
+                            onSetManualWinner: { file in
+                                viewModel.setManualBurstWinner(file, in: allComparisonFiles)
+                            },
+                            onBack: viewModel.returnToActiveBurstGroupView,
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.top, 8)
+                        .zIndex(2)
                     }
                 }
             } else {
@@ -528,8 +529,10 @@ private struct BurstComparisonEvidenceView: View {
         .font(.caption)
         .lineLimit(1)
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
+        .foregroundStyle(.white)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
     }
 
     private var evidenceHelp: String {

@@ -29,7 +29,7 @@ struct ComparisonImagePaneView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Color.black
+                Color.black.opacity(0.97)
 
                 if let state {
                     imageContent(state, in: geo.size)
@@ -43,7 +43,6 @@ struct ComparisonImagePaneView: View {
                         .transition(.opacity)
                 }
             }
-            .clipShape(.rect(cornerRadius: 8))
             .contentShape(Rectangle())
             .gesture(zoomPanGesture)
             .onTapGesture(count: 1, perform: onSelect)
@@ -57,16 +56,7 @@ struct ComparisonImagePaneView: View {
             }
             .animation(.easeInOut(duration: 0.16), value: showsPaneChrome)
         }
-        .background(Color(nsColor: .textBackgroundColor))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
-        )
-        .shadow(
-            color: isSelected ? Color.accentColor.opacity(0.55) : .clear,
-            radius: isSelected ? 10 : 0,
-        )
-        .clipShape(.rect(cornerRadius: 8))
+        .background(Color.black.opacity(0.97))
     }
 
     private var showsPaneChrome: Bool {
@@ -82,13 +72,14 @@ struct ComparisonImagePaneView: View {
     }
 
     private var paneChrome: some View {
-        VStack(spacing: 4) {
-            headerOverlay
+        VStack(spacing: 0) {
+            topOverlay
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
             Spacer()
-            VStack(spacing: 4) {
+            VStack(spacing: 8) {
                 RatingActionBarView(
                     currentRating: rating,
-                    density: .compact,
                     onSelect: { rating in
                         onSelect()
                         onRate(rating)
@@ -102,7 +93,6 @@ struct ComparisonImagePaneView: View {
                     hasFocusPoints: hasFocusPoints,
                     showFocusPoints: $viewportState.showFocusPoints,
                     showShortcutHints: true,
-                    density: .compact,
                     showImageSourceToggle: true,
                     useThumbnailSource: $useThumbnailSource,
                     inspectorIsPresented: inspectorIsPresented,
@@ -133,14 +123,16 @@ struct ComparisonImagePaneView: View {
                     exifFooter
                 }
             }
-            .padding(.horizontal, 4)
-            .padding(.bottom, 4)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
         }
     }
 
-    private var headerOverlay: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .top) {
+    private var topOverlay: some View {
+        HStack(alignment: .top, spacing: 8) {
+            CurrentRatingBadgeView(rating: rating)
+
+            VStack(alignment: .leading, spacing: 6) {
                 if let burstAnalysis, let burstCandidate {
                     BurstCandidateBadgeView(
                         candidate: burstCandidate,
@@ -150,30 +142,23 @@ struct ComparisonImagePaneView: View {
                         isCompact: true,
                     )
                 }
-                Spacer()
-                CurrentRatingBadgeView(rating: rating)
-            }
 
-            HStack(alignment: .center, spacing: 8) {
-                if let sharpnessContext {
-                    sharpnessBadge(for: sharpnessContext)
-                        .fixedSize(horizontal: true, vertical: false)
-                }
+                HStack(alignment: .center, spacing: 8) {
+                    if let sharpnessContext {
+                        sharpnessBadge(for: sharpnessContext)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
 
-                VStack(alignment: .leading, spacing: 2) {
                     Text(file.name)
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
             }
+
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(.regularMaterial)
-        .clipShape(.rect(cornerRadius: 8))
-        .padding(4)
     }
 
     private var zoomPanGesture: AnyGesture<Void> {
@@ -251,9 +236,8 @@ struct ComparisonImagePaneView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
-        .clipShape(.rect(cornerRadius: 8))
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder
