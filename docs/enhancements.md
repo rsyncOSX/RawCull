@@ -542,3 +542,447 @@ Required secondary tests:
 - Adding new RAW format support.
 
 Those features should follow after this hardening pass, because they will depend on stable group identity and trustworthy persisted decisions.
+
+## July Review Queue MVP Details
+
+The July milestone should turn RawCull's existing evidence into a focused review workflow. After the June hardening pass, the app should know which burst decisions are safely attached to stable member sets. The next step is to use that stability to create a separate `Needs Review` surface for images and burst groups that should not be handled by blind grid browsing or automatic one-click culling.
+
+The core idea is simple: the grid is for browsing the catalog, similarity is for finding related frames, comparison is for inspecting candidates, and the review queue is for resolving uncertainty. The review queue should feel like a distinct workbench with its own entry point, counters, filters, empty state, actions, and completion model. A photographer should never wonder whether they are looking at the normal catalog grid or a curated list of unresolved decisions.
+
+### Goal
+
+Build a minimum viable `Needs Review` mode that gathers uncertain burst groups and individual files, explains why they are in the queue, and lets the user resolve each item with fast, conservative actions.
+
+The main outcome is that RawCull guides the photographer toward the frames that need human judgment. It should reduce the cognitive load of culling by separating "browse everything" from "review only the unresolved cases." A secondary outcome is to create the state model that later decision-ledger and export features can depend on.
+
+### Product Principle
+
+The review queue should be a clear workflow boundary, not just another filter on the grid.
+
+RawCull already has several specialized views. The risk of adding review as a subtle grid filter is that users may not know whether actions apply to the entire catalog, the current visual filter, a burst group, or a pending review task. The queue should therefore have a distinct title, count, visual treatment, toolbar actions, and navigation behavior.
+
+Suggested UX boundaries:
+
+- Name the mode `Needs Review` or `Review Queue` consistently in the sidebar/toolbar.
+- Show a queue count, such as `12 Needs Review`, separate from total file count and rated-file count.
+- Use a dedicated review layout instead of reusing the normal thumbnail grid unchanged.
+- Present each queue item as a review task with a reason, suggested action, confidence, and status.
+- Keep browse-only controls out of the primary review toolbar unless they directly help resolve the current task.
+- Make completion explicit with states like `Reviewed`, `Deferred`, or `Applied`.
+- Let users leave the queue and return without losing their place.
+
+The visual and interaction language should communicate: "you are resolving uncertain decisions now." It should not communicate: "you are browsing a filtered subset of the catalog."
+
+### Primary Problem
+
+RawCull can already rank candidates, compare top frames, show focus evidence, and attach cautions. However, that evidence is distributed across several views and is easy to miss during a fast cull.
+
+Concrete problems the queue should solve:
+
+- Low-confidence burst groups require attention, but currently they can sit among high-confidence groups in the same browsing flow.
+- Missing sharpness scores, missing AF evidence, or candidate cautions may not be obvious until the user opens an inspector.
+- Similar frames outside a burst may be ambiguous, but the app does not yet turn that ambiguity into a task.
+- Manual overrides and deferred choices need a visible place to come back to.
+- A photographer may want to run automation on easy groups, then spend the rest of the session only on unresolved cases.
+
+The review queue should collect those cases into a small, prioritized list and make the next action obvious.
+
+### Required Scope
+
+1. Add a dedicated review mode.
+
+   Add a `Needs Review` mode alongside the existing app modes, but make it visually and behaviorally distinct. It can reuse existing candidate and comparison components internally, but the top-level view should clearly be a review queue. The entry point should show the number of unresolved review items.
+
+2. Create queue item types.
+
+   The MVP should support at least burst-group queue items. If individual file-level risk items are straightforward, include them as a second item type; otherwise design the model so file-level items can be added in October when technical-risk scoring lands.
+
+   Suggested shape:
+
+   ```swift
+   enum ReviewQueueItemKind: Codable, Hashable, Sendable {
+       case burstGroup(BurstGroupSignature)
+       case file(String)
+   }
+   ```
+
+   The stable key matters. A queue item should represent the actual files requiring review, not the current transient group id.
+
+3. Define queue inclusion rules.
+
+   The MVP should include burst groups when any of these are true:
+
+   - Ranking confidence is `.low` or `.medium`.
+   - The gap between the top two candidates is small.
+   - The selected winner has candidate cautions.
+   - The group has group-level cautions.
+   - Sharpness score is missing or stale for one or more important candidates.
+   - AF focus evidence is missing when the camera format normally supports it.
+   - A manual winner override exists but the current recommendation disagrees.
+   - The group was previously deferred.
+   - A cached recommendation was invalidated because group membership or scoring signature changed.
+
+   These rules should be conservative. It is better for the MVP queue to include a few extra ambiguous groups than to hide a decision that deserves attention.
+
+4. Add review states.
+
+   Use `BurstReviewState` if it already covers the needed states. If it does not, extend carefully rather than adding a parallel state model. The MVP needs at least:
+
+   - `needsReview`: unresolved and visible in the queue.
+   - `reviewed`: user inspected and intentionally closed the item without applying an automated decision.
+   - `deferred`: user chose to leave the item for later.
+   - `decisionApplied`: user accepted or applied an action.
+   - `manualWinnerOverride`: user manually selected a winner.
+
+   State should persist by stable group signature. Runtime lookup can still map back to `group.id` for view performance.
+
+5. Add quick actions.
+
+   The queue should help users finish work, not just list problems. For burst groups, include:
+
+   - Accept RawCull recommendation.
+   - Keep top two.
+   - Reject all but selected.
+   - Choose selected as winner.
+   - Mark reviewed.
+   - Defer.
+
+   Actions that change ratings should show enough context to avoid surprises. For low-confidence groups, the primary action can still be available, but the UI should make it clear that the user is accepting a recommendation after review.
+
+6. Explain why each item is queued.
+
+   Every queue item should show concise reasons. Examples:
+
+   - `Low confidence: top candidates are separated by 2.4 points`
+   - `Missing sharpness score for DSC01234.ARW`
+   - `Manual winner differs from current recommendation`
+   - `AF point evidence unavailable`
+   - `Candidate caution: subject may be off focus`
+
+   This explanation is what makes the queue trustworthy. A queue with no reason text becomes another mysterious filter.
+
+7. Preserve navigation context.
+
+   Users should be able to open a queue item, compare candidates, inspect evidence, apply a decision, and return to the next unresolved item. The mode should remember the current queue position and should not bounce the user back to the full catalog after every action.
+
+8. Add queue counts and empty states.
+
+   The app should show unresolved count, deferred count, and reviewed/applied count for the current catalog. When the queue is empty, the empty state should be direct and useful: all uncertain groups are resolved, or no review items match the current queue filter.
+
+### Review Queue Examples
+
+#### Example 1: Low-Confidence Burst
+
+RawCull scans a five-frame bird-in-flight burst:
+
+```text
+DSC04120.ARW
+DSC04121.ARW
+DSC04122.ARW
+DSC04123.ARW
+DSC04124.ARW
+```
+
+The ranking engine chooses `DSC04122.ARW`, but `DSC04123.ARW` has a very close score and the group confidence is `.medium`.
+
+The queue item should appear as:
+
+```text
+Needs Review
+Burst: DSC04120-DSC04124
+Reason: Medium confidence. Top two candidates are close.
+Recommendation: Keep DSC04122.ARW
+Suggested action: Compare top two
+```
+
+Expected workflow:
+
+1. User opens the item from `Needs Review`.
+2. RawCull shows the top candidates in comparison mode with the candidate inspector visible.
+3. User picks `DSC04123.ARW` after seeing better wing position.
+4. RawCull saves a manual winner override for the exact burst signature.
+5. The queue item moves out of unresolved review and is marked `manualWinnerOverride`.
+
+The important behavior is that the user did not need to find this burst manually in the full grid. RawCull surfaced it because the decision was close.
+
+#### Example 2: Missing Evidence
+
+RawCull scans a three-frame burst where embedded preview extraction succeeded, but sharpness scoring failed for one candidate:
+
+```text
+DSC05010.ARW
+DSC05011.ARW
+DSC05012.ARW
+```
+
+The ranking engine recommends `DSC05011.ARW`, but `DSC05012.ARW` has no sharpness score.
+
+The queue item should appear as:
+
+```text
+Needs Review
+Burst: DSC05010-DSC05012
+Reason: Missing sharpness score for DSC05012.ARW.
+Recommendation: Review before applying one-click cull.
+Suggested action: Inspect candidates
+```
+
+Expected workflow:
+
+1. User opens the item.
+2. RawCull displays the scored candidates and marks the missing-score frame clearly.
+3. User manually inspects the previews.
+4. User either keeps a selected frame, keeps top two, or marks the group reviewed.
+5. RawCull persists the review state by burst signature.
+
+The queue should not imply that the recommendation is bad. It should say that the evidence is incomplete.
+
+#### Example 3: Manual Override Conflict
+
+In a previous session, the user manually selected `DSC06105.ARW` as winner for:
+
+```text
+DSC06103.ARW
+DSC06104.ARW
+DSC06105.ARW
+```
+
+After scoring settings change, RawCull now recommends `DSC06104.ARW` for the same exact burst membership.
+
+The queue item should appear as:
+
+```text
+Needs Review
+Burst: DSC06103-DSC06105
+Reason: Current recommendation differs from manual winner.
+Manual winner: DSC06105.ARW
+Current recommendation: DSC06104.ARW
+Suggested action: Keep manual winner or accept new recommendation
+```
+
+Expected workflow:
+
+1. User opens the item and sees both the previous manual choice and the new recommendation.
+2. User confirms the manual winner, or accepts the new recommendation.
+3. RawCull records the chosen outcome and removes the item from unresolved review.
+
+The app should not silently replace the user's earlier manual judgment.
+
+#### Example 4: Deferred Decision
+
+The user reviews a difficult portrait burst and decides not to choose yet.
+
+Expected workflow:
+
+1. User opens the queue item.
+2. User clicks `Defer`.
+3. The item leaves the main unresolved queue but remains visible under a `Deferred` queue filter.
+4. The toolbar count changes from `Needs Review: 8` to `Needs Review: 7`, and `Deferred: 1`.
+5. Reopening the catalog restores the deferred item by stable signature.
+
+Deferred should mean "come back later," not "hide forever."
+
+#### Example 5: Accepting a Recommendation After Review
+
+RawCull flags a group because confidence is `.medium`, but the photographer agrees with the suggested winner.
+
+Expected workflow:
+
+1. User opens the queue item.
+2. User checks the top candidate and focus evidence.
+3. User clicks `Accept Recommendation`.
+4. RawCull applies the normal keep/reject or rating behavior for that action.
+5. The item is marked `decisionApplied` and disappears from unresolved review.
+6. Undo remains available for the immediate action.
+
+The distinction is that medium-confidence automation becomes acceptable after explicit review.
+
+### Suggested UI Shape
+
+The MVP can be implemented without a large redesign, but it should still feel like its own workflow.
+
+Recommended layout:
+
+- Left or top queue summary: unresolved, deferred, reviewed, applied.
+- Main list or vertical stack of review tasks, sorted by priority.
+- Detail pane for the selected task, reusing candidate rows, focus evidence, and ranking reasons.
+- Primary action area with review-specific actions.
+- Optional "Open in Comparison" action when the dedicated comparison grid is better than an embedded detail view.
+
+Recommended sorting:
+
+1. Manual override conflicts.
+2. Low-confidence groups.
+3. Missing evidence.
+4. Medium-confidence close calls.
+5. Deferred items, when the deferred filter is active.
+
+Recommended visual distinction:
+
+- Use a clear `Needs Review` title in the mode header.
+- Use status badges such as `Low confidence`, `Missing evidence`, `Manual conflict`, and `Deferred`.
+- Avoid showing the full catalog thumbnail grid as the first thing in this mode.
+- Keep queue items task-like, not photo-browser-like.
+
+### Suggested Implementation Shape
+
+The July work should build on the June stable-signature work:
+
+- Add a `ReviewQueueBuilder` or small view-model helper that derives queue items from current burst groups, ranking results, review states, candidate cautions, and scoring state.
+- Keep derivation deterministic and testable. Given the same groups and states, the queue should produce the same items in the same priority order.
+- Store persisted review states by `BurstGroupSignature`, but expose UI state through current group ids after remapping.
+- Treat queue items as derived from source-of-truth state rather than as a second permanent list whenever possible.
+- Persist only user decisions and review states, not every computed queue row.
+- Rebuild the queue after scoring completes, burst analysis changes, settings invalidate scores, or review actions are applied.
+
+Suggested model sketch:
+
+```swift
+struct ReviewQueueItem: Identifiable, Hashable, Sendable {
+    var id: ReviewQueueItemID
+    var priority: ReviewQueuePriority
+    var kind: ReviewQueueItemKind
+    var status: BurstReviewState
+    var title: String
+    var reasons: [String]
+    var recommendedAction: ReviewRecommendedAction?
+    var candidateFileNames: [String]
+}
+
+enum ReviewQueuePriority: Int, Codable, Sendable {
+    case manualConflict = 0
+    case lowConfidence = 1
+    case missingEvidence = 2
+    case mediumConfidence = 3
+    case deferred = 4
+}
+```
+
+This can live in the app target at first. If the queue rules become pure and broadly testable, move the rule engine into `RawCullCore`.
+
+### Main Code Surfaces
+
+- `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`: current burst groups, review states, one-click actions, manual winner overrides, and cache interactions.
+- `RawCullCore/Sources/RawCullCore/BurstRankingEngine.swift`: confidence, score gaps, reasons, cautions, and recommendation evidence.
+- `RawCullCore/Sources/RawCullCore/BurstGroupingEngine.swift`: group membership and stable group signatures after the June work.
+- `RawCull/Views/ComparisonGridView/ComparisonGridView.swift`: candidate comparison UI that can be reused or opened from a review item.
+- `RawCull/Views/ComparisonGridView/CandidateInspectorView.swift`: evidence display for reasons, cautions, focus data, and score components.
+- `RawCull/Model/ViewModels/SimilarityScoringModel.swift`: current burst group source and similarity analysis state.
+- `RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringModel.swift`: scoring freshness and missing-score evidence.
+- A new `ReviewQueueView` or `NeedsReviewView`: the dedicated review surface.
+- A new `ReviewQueueBuilder` or `RawCullViewModel+ReviewQueue.swift`: deterministic queue construction.
+
+### Concrete Code Change Plan
+
+1. Define queue item models.
+
+   Add lightweight models for queue item id, kind, priority, reasons, and recommended action. Keep the models `Sendable` where practical. Use stable signatures for burst identity.
+
+2. Add queue derivation.
+
+   Build a pure or mostly pure helper that accepts current burst groups, file lookup, ranking results, review states, and scoring metadata. It should return unresolved queue items plus optional deferred/reviewed summaries.
+
+3. Add inclusion rules one at a time.
+
+   Start with low/medium confidence and candidate/group cautions. Then add missing sharpness/AF evidence if the needed state is readily available. Keep each rule named so the reason text can be tested.
+
+4. Add `Needs Review` mode routing.
+
+   Add the mode to the app's navigation or toolbar where the other major modes live. Do not bury it as a small grid filter. The mode should have its own title and count.
+
+5. Build the queue view.
+
+   The first version can use a split view: queue tasks on one side, selected task details on the other. It can reuse existing candidate rows and inspector components rather than duplicating scoring UI.
+
+6. Connect quick actions.
+
+   Wire `Accept Recommendation`, `Keep Top Two`, `Reject All But Selected`, `Choose Winner`, `Mark Reviewed`, and `Defer` to the existing burst action methods where possible. Make sure actions update review state and rebuild the queue.
+
+7. Preserve undo behavior.
+
+   Existing immediate undo for burst actions should remain available. If an action changes ratings and review state, undo should restore both enough to avoid a stale queue item.
+
+8. Persist review states.
+
+   Save `reviewed`, `deferred`, `decisionApplied`, and `manualWinnerOverride` by stable signature. Do not persist transient queue ordering or computed reason strings.
+
+9. Add counters.
+
+   Add unresolved and deferred counts to the toolbar/sidebar. These counts should update after scoring, burst analysis, and review actions.
+
+10. Add tests.
+
+    Start with queue-builder tests before UI tests. The queue rules are the part most likely to regress quietly.
+
+### What Can Go Wrong If This Is Not Implemented Clearly
+
+The biggest risk is user confusion. A review queue that looks too much like the normal grid can make users uncertain about what they are acting on.
+
+Concrete failure modes:
+
+- The user thinks they are reviewing all files, but they are only seeing uncertain groups.
+- The user thinks they are applying a decision to one image, but the action affects a whole burst group.
+- Deferred items disappear because there is no visible deferred state or count.
+- A queue item has no reason text, so the user cannot tell why RawCull is asking for attention.
+- Review state is stored by runtime group id, so a resolved item can reappear incorrectly or an unresolved item can vanish after regrouping.
+- The queue becomes a passive warning list instead of a workflow because it lacks quick actions.
+- Medium-confidence recommendations feel automated rather than reviewed because `Accept Recommendation` does not clearly indicate user confirmation.
+
+The MVP should optimize for clarity over density. RawCull can become more compact later, but the first version should teach the user what this new workflow means.
+
+### Test Coverage
+
+Use Swift Testing tests for queue derivation and state transitions. UI tests can be added later if the project does not already have a UI-testing harness, but the core queue rules should be covered immediately.
+
+Required queue-builder tests:
+
+- Low-confidence burst groups are included in unresolved review.
+- Medium-confidence groups with close top candidates are included.
+- High-confidence groups with no cautions are not included.
+- Candidate cautions add a queue reason.
+- Group cautions add a queue reason.
+- Missing sharpness evidence adds a queue reason when the candidate is otherwise relevant.
+- Manual winner conflicts are prioritized above ordinary low-confidence items.
+- Deferred items are excluded from the default unresolved queue but included in the deferred filter.
+- `decisionApplied` and `reviewed` items are excluded from unresolved review.
+- Queue ordering is deterministic for equal-priority items.
+
+Required state tests:
+
+- Marking a queue item reviewed persists by stable signature.
+- Deferring a queue item persists by stable signature.
+- Accepting a recommendation updates review state to `decisionApplied`.
+- Choosing a manual winner updates review state to `manualWinnerOverride`.
+- A changed burst membership invalidates the previous review state and creates a fresh queue item if rules still match.
+- Reopening or reloading a catalog restores deferred/reviewed state only for matching signatures.
+
+Required action tests:
+
+- `Accept Recommendation` applies the expected ratings or keep/reject behavior.
+- `Keep Top Two` keeps exactly the selected recommendation set.
+- `Reject All But Selected` does not run unless the selected file belongs to the current group.
+- Undo restores ratings and review visibility for the affected group.
+
+### Acceptance Criteria
+
+- `Needs Review` is a distinct mode, not only a hidden grid filter.
+- The mode shows unresolved and deferred counts for the current catalog.
+- Queue items explain why they require review.
+- Low/medium-confidence burst groups and caution-bearing groups appear in the queue.
+- High-confidence groups without cautions stay out of the queue.
+- Users can accept a recommendation, keep top two, reject all but selected, choose a manual winner, mark reviewed, or defer.
+- Review states persist by stable group signature.
+- Deferred items can be found again through an explicit deferred view/filter.
+- Queue order is deterministic and prioritizes manual conflicts and low-confidence work.
+- Tests cover queue inclusion, state transitions, persistence by signature, and quick-action behavior.
+
+### Out Of Scope For This Task
+
+- A full decision ledger or historical audit sheet.
+- XMP sidecar export or external editing handoff.
+- New technical-risk scoring rules that require histogram work not already exposed to the ranking engine.
+- New RAW format support.
+- A broad redesign of RawCull's main navigation.
+- Training or preference-profile learning from accepted review decisions.
+
+Those features should follow after the queue proves that RawCull can separate normal browsing from uncertainty resolution in a way that feels clear and trustworthy.
