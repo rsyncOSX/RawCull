@@ -986,3 +986,119 @@ Required action tests:
 - Training or preference-profile learning from accepted review decisions.
 
 Those features should follow after the queue proves that RawCull can separate normal browsing from uncertainty resolution in a way that feels clear and trustworthy.
+
+## Document Review Notes — June 2026
+
+The following issues and enhancements were identified by cross-checking this document against the actual source snapshot on 7 June 2026. Items are grouped by section.
+
+### June Hardening — Confirmed Bugs
+
+**1. `overrideWinner` only checks winner presence, not full member set (confirmed)**
+
+`CullingModel.overrideWinner(for:in:)` uses `.last { groupNames.contains($0.winnerFileName) }`.
+This is confirmed in source. The fix described in step 6 of the June code plan is correct.
+
+**2. Direct `burstReviewStates = snapshot.reviewStates` assignment (confirmed)**
+
+`RawCullViewModel+BurstGrouping.swift` line 328 directly assigns `snapshot.reviewStates` without
+signature verification. This matches the bug described in the June section exactly.
+
+### June Hardening — Document Gaps
+
+**3. `BurstWinnerOverride` lives in `RawCullCore`, not only in `CullingModel`**
+
+`BurstWinnerOverride` is defined in `RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift`.
+The "Main Code Surfaces" list omits this file. Adding a `groupSignature` field or changing the struct
+requires a **RawCullCore package change**, which has test implications. Add
+`RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift` to the June code surfaces list.
+
+**4. `FileRecord` equality/hash is a latent data-loss bug, not just an open decision**
+
+`FileRecord.==` compares only `fileName`, `dateTagged`, `dateCopied`, and `rating`. The five
+sharpness and saliency fields (`sharpnessScore`, `saliencySubject`, `sharpnessScoringSignature`,
+`sharpnessFileSize`, `sharpnessModificationDate`) are excluded. Two records with the same name and
+rating but different sharpness data are considered equal. If `FileRecord` is placed in a `Set` or
+used as a `Dictionary` key, the second record is silently discarded.
+
+The document says "decide the intended equality/hash behavior." The phrasing understates the risk.
+The secondary hardening item should be prescriptive: either include all persisted fields in `==`, or
+remove `Hashable` to prevent accidental Set/Dict misuse.
+
+**5. `BurstGroupSignature` target module is unspecified**
+
+The June plan says the type should live "near the burst-analysis models" without specifying whether
+that means the `RawCullCore` package or the app target. This matters:
+
+- `BurstGroup` is defined in `RawCullCore`. If `BurstGroupSignature` lives only in the app target,
+  `BurstGroup` cannot reference it without a circular dependency.
+- The July `ReviewQueueItemKind.burstGroup(BurstGroupSignature)` will also need this type. Making
+  it a `RawCullCore` type keeps both the queue model and the burst model in the same layer.
+
+Add a note to the June plan: `BurstGroupSignature` should be defined in
+`RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift` alongside `BurstGroup` and
+`BurstWinnerOverride`.
+
+**6. Rsync "fragile placeholder trimming" is underdescribed**
+
+The secondary hardening item (line 312) mentions replacing "fragile source/destination placeholder
+trimming in `ArgumentsSynchronize.argumentsSynchronize(dryRun:)`" without explaining what the
+trimming does or what the failure mode is. This makes the item hard to act on. The doc should add a
+sentence describing the specific risk: what string manipulation is done today, and what input causes
+it to produce a malformed rsync argument silently.
+
+### July Review Queue — Blocking Dependency
+
+**7. `BurstReviewState` is missing three required cases — this is a `RawCullCore` change**
+
+`BurstReviewState` (in `RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift`) currently has
+only three cases: `.none`, `.manualWinnerOverride`, `.decisionApplied`. The July queue requires
+`.needsReview`, `.reviewed`, and `.deferred`.
+
+The July section says "Use `BurstReviewState` if it already covers the needed states." It does not.
+Adding three cases to a `RawCullCore` enum is a package API change and must be done before the
+review queue state model can be wired. This should appear as step 1 in the July concrete plan, and
+`RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift` should be added to the July "Main Code
+Surfaces" list.
+
+### July Review Queue — Document Gaps
+
+**8. No explicit gate requiring June completion before July begins**
+
+The July section says "the July work should build on the June stable-signature work." However,
+`ReviewQueueItemKind.burstGroup(BurstGroupSignature)` directly depends on `BurstGroupSignature`
+existing, which is a June deliverable. Add a clear prerequisite note at the start of the July
+section: do not begin July work until June acceptance criteria pass and the stable signature type is
+available in `RawCullCore`.
+
+**9. `ReviewQueuePriority.deferred` conflicts with the described queue filter model**
+
+`ReviewQueuePriority` has `case deferred = 4`. However, the document states that deferred items are
+excluded from the default unresolved queue and only visible through a separate deferred filter
+(Example 4, toolbar count split). Having `deferred` as a raw-value priority case implies the queue
+builder can produce it as a low-priority unresolved item, which conflicts with the "excluded unless
+deferred filter active" behavior.
+
+Consider either renaming the concept (e.g., a separate `ReviewQueueFilter` that includes `.deferred`
+as a filter mode, not a sort priority), or adding a clear doc comment that `deferred` is only used
+when the deferred filter is explicitly active and is never returned as part of the default unresolved
+priority ordering.
+
+**10. Undo step is underspecified**
+
+Step 7 in the July concrete plan says "undo should restore both enough to avoid a stale queue item."
+The word "enough" is vague. Since undo is always in-session (no catalog reload between the action
+and undo), undo can safely restore the prior `BurstReviewState` from `BurstUndoEntry` without
+needing signature matching. The step should specify this: undo restores the prior review state and
+prior ratings in memory; it does not need to re-verify group membership because regrouping cannot
+happen mid-session while undo is active.
+
+### Rest of Document
+
+**11. `sourcecode/` prefix in "Verified Current State" table**
+
+The source paths in the table (e.g., `sourcecode/RawCull/Actors/ScanFiles.swift`) use a
+`sourcecode/` prefix that matches the TechDocRawcull website mirror
+(`TechDocRawcull/sourcecode/...`), not the Xcode project layout (`RawCull/Actors/ScanFiles.swift`).
+A reader trying to open the cited files directly from the Xcode project will not find them at the
+listed paths. Consider adding a footnote: "Source paths are relative to the TechDocRawcull content
+mirror; in the Xcode project, omit the `sourcecode/` prefix."
