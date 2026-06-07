@@ -331,6 +331,176 @@ These items are smaller than burst identity, but they are part of the same "hard
 - Prune stale overrides only when the winner or member files no longer exist in the catalog; do not silently reattach them to a new group.
 - Bump `BurstAnalysisCache.schemaVersion` if the serialized cache shape changes.
 
+### Concrete Code Change Plan
+
+The burst-identity part can be implemented as a contained model-layer change. The important distinction is:
+
+- `groupID`: current-session lookup key for views, ranking results, and in-memory dictionaries.
+- `BurstGroupSignature`: stable persisted key for decisions that should survive regrouping, cache reload, and app restart.
+
+Suggested code plan:
+
+1. Add a canonical signature helper.
+
+   Add a small `Codable`, `Hashable`, `Sendable` value, probably near the burst-analysis models:
+
+   ```swift
+   struct BurstGroupSignature: Codable, Hashable, Sendable {
+       var memberKeys: [String]
+   }
+   ```
+
+   The initializer should sort member keys so `A, B, C` and `C, A, B` produce the same signature. The preferred key is a catalog-relative path, because it can distinguish duplicate names in nested folders. If RawCull only supports flat catalogs today, a filename-based signature is acceptable for the first implementation, but the code should be easy to switch to relative paths later.
+
+2. Add signature builders in `RawCullViewModel+BurstGrouping.swift`.
+
+   Add helpers along these lines:
+
+   ```swift
+   private func burstSignature(for groupFiles: [FileItem]) -> BurstGroupSignature
+   private func burstSignature(for group: BurstGroup, filesByID: [UUID: FileItem]) -> BurstGroupSignature?
+   ```
+
+   These helpers should be the only place that decides how a group becomes a stable identity. That keeps later duplicate-name or nested-folder changes local.
+
+3. Keep runtime review state by `groupID`, but persist by signature.
+
+   `RawCullViewModel.burstReviewStates` can stay as `[Int: BurstReviewState]` for current UI/ranking use. The cache should gain a signature-keyed representation, for example:
+
+   ```swift
+   var reviewStatesBySignature: [BurstGroupSignature: BurstReviewState]
+   ```
+
+   Then `saveBurstAnalysisCache(catalog:files:)` should derive `reviewStatesBySignature` from the current `similarityModel.burstGroups`, not simply encode `[Int: BurstReviewState]`.
+
+4. Rebuild runtime review state after cache load/remap.
+
+   `applyCachedBurstAnalysis(_:)` should not do this anymore:
+
+   ```swift
+   burstReviewStates = snapshot.reviewStates
+   ```
+
+   Instead, after cached groups are remapped to the current `FileItem.id` values, build each current group's signature and look it up in `snapshot.reviewStatesBySignature`. Only matching signatures should become entries in `burstReviewStates[group.id]`.
+
+5. Make `remapCachedSnapshot(_:to:)` stop trusting review-state group ids.
+
+   This method already remaps file IDs for groups, boundary evidence, candidates, and results. The hardening change is that it should either:
+
+   - drop old `reviewStates` entirely and let `applyCachedBurstAnalysis(_:)` rebuild them by signature, or
+   - return remapped runtime review states only after verifying each group's signature.
+
+   The first option is cleaner because it keeps persistence identity and runtime identity separate.
+
+6. Add the signature to manual winner overrides or derive it from `memberFileNames`.
+
+   `BurstWinnerOverride` already stores:
+
+   ```swift
+   winnerFileName
+   memberFileNames
+   ```
+
+   The minimum hardening change is to update `CullingModel.overrideWinner(for:in:)` so it compares the full canonical member set:
+
+   ```swift
+   let groupNames = Set(groupFiles.map(\.name))
+   return burstWinnerOverrides(in: catalog).last {
+       Set($0.memberFileNames) == groupNames &&
+       groupNames.contains($0.winnerFileName)
+   }
+   ```
+
+   A stronger version adds `groupSignature` to `BurstWinnerOverride` and populates it when saving new overrides. Existing saved overrides can still be matched from `memberFileNames`.
+
+7. Update `setManualBurstWinner(_:in:)`.
+
+   When saving a manual winner, continue saving the winner and member names, and also save the stable signature if the model gains a signature field. The saved override should represent "this winner for exactly this burst membership", not "this winner wherever it appears later."
+
+8. Update `applyManualWinnerOverrides(files:)`.
+
+   This method loops through current burst groups and applies overrides. After hardening, it should only mark `.manualWinnerOverride` when the override signature or canonical member set matches the current group. It should not set:
+
+   ```swift
+   burstReviewStates[group.id] = .manualWinnerOverride
+   ```
+
+   unless that exact membership check succeeds.
+
+9. Update undo only if needed.
+
+   `BurstUndoEntry` currently stores `groupID` and previous ratings. That is acceptable for an immediate in-session undo, because it is not persisted. If undo state ever becomes persisted or survives regrouping, it should also carry a `BurstGroupSignature`.
+
+10. Bump or migrate the burst cache schema.
+
+    `BurstAnalysisCache.schemaVersion` should increase if the JSON shape changes. Existing caches that only contain `[Int: BurstReviewState]` should either be ignored or decoded as legacy data without applying review state. Recomputing burst analysis is safer than restoring stale decisions.
+
+11. Add focused Swift Testing coverage.
+
+    Put pure persistence and override tests near `CullingModelTests`. Put cache/remap tests near view-model or burst-analysis tests, using isolated temporary catalogs and synthetic `FileItem` values. The tests should prove that changing group membership invalidates burst-level state while exact membership preserves it.
+
+### What Can Go Wrong If This Is Not Implemented
+
+The failure mode is usually not a crash. The risk is worse for a culling app: RawCull may look confident while using stale burst identity.
+
+Concrete scenarios:
+
+- The identity/similarity slider is changed.
+
+  Before the slider change, RawCull may have:
+
+  ```text
+  Group 1: A.ARW, B.ARW, C.ARW
+  Group 2: D.ARW, E.ARW
+  ```
+
+  After the slider change, RawCull may regroup the same files:
+
+  ```text
+  Group 1: A.ARW, B.ARW
+  Group 2: C.ARW, D.ARW, E.ARW
+  ```
+
+  If review state is tied only to `Group 1`, RawCull can treat the new `A, B` group as if the old `A, B, C` decision still applies. With stable signatures, the old signature `A+B+C` does not match the new signature `A+B`, so the group is treated as needing fresh evaluation.
+
+- A manual winner follows the file instead of the burst.
+
+  A photographer manually chooses `A.ARW` as winner for:
+
+  ```text
+  A.ARW, B.ARW, C.ARW
+  ```
+
+  Later, after regrouping, `A.ARW` appears in:
+
+  ```text
+  A.ARW, X.ARW, Y.ARW
+  ```
+
+  Without exact membership matching, RawCull can say "A.ARW was manually chosen before" and apply that choice to the new group. That is wrong because the user never chose `A.ARW` against `X.ARW` and `Y.ARW`.
+
+- A cached "decision applied" state can be restored to the wrong group.
+
+  If cached group ids are reused after file IDs are remapped, RawCull can show a group as already handled even though the current member files are different. A future review queue might then skip that group entirely.
+
+- One-click culling can act on stale confidence.
+
+  The ranking engine may have marked one old group as safe for one-click culling. If the group membership changes but the old state is reused, RawCull may allow keep/reject actions based on evidence from a different set of frames.
+
+- The future decision ledger can record the wrong history.
+
+  Once a ledger is added, a stale group identity problem becomes harder to unwind. The app could record that RawCull recommended, accepted, or rejected a group, while the persisted identity points to files that were not actually part of the user's original decision.
+
+- The future `Needs Review` queue can miss important work.
+
+  If `.decisionApplied`, `.manualWinnerOverride`, `.reviewed`, or `.deferred` states are restored by numeric id, the review queue may hide a newly formed group because an unrelated old group had already been handled.
+
+- User trust can be damaged without an obvious error message.
+
+  The dangerous part is that the UI can still look normal. The wrong badge, wrong manual winner, or wrong "already applied" state may appear plausible unless the photographer notices the specific membership change.
+
+Stable signatures make RawCull conservative: when a group changes, the old burst-level decision does not automatically follow it. File-level ratings can remain, but group-level decisions must match the actual member files.
+
 ### Test Coverage
 
 Use Swift Testing tests with isolated temporary paths and no production settings/cache state.
