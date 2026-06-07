@@ -33,6 +33,7 @@ nonisolated enum ComparisonGridKeyAction: Equatable {
     case zoomIn
     case zoomOut
     case toggleImageSource
+    case toggleInspector
     case toggleFocusMask
     case toggleFocusPoints
     case keepBest
@@ -66,8 +67,11 @@ nonisolated enum ComparisonGridKeyAction: Equatable {
         case "-":
             .zoomOut
 
-        case "J":
+        case "j", "J":
             .toggleImageSource
+
+        case "i", "I":
+            .toggleInspector
 
         case "f", "F":
             .toggleFocusMask

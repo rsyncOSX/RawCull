@@ -203,7 +203,7 @@ private struct BurstStatusBadgeView: View {
     }
 }
 
-private struct BatchBadgeSelectionItem: Identifiable {
+struct BatchBadgeSelectionItem: Identifiable {
     var id: String {
         label
     }
@@ -298,7 +298,7 @@ struct CullingGridView<Header: View>: View {
     // ── Burst-mode render cache ──────────────────────────────────────────
     // Recomputed only when `gridCacheKey` changes, so hover/selection
     // invalidations do not rebuild these O(n) / O(m·k) structures.
-    @State private var visibleBurstGroups: [VisibleBurstGroup] = []
+    @State private var visibleBurstGroups: [CullingGridVisibleBurstGroup] = []
     @State private var bestInGroup: [Int: BestInGroupInfo] = [:]
     @State private var hasSharpnessScoresSnapshot: Bool = false
 
@@ -390,75 +390,7 @@ struct CullingGridView<Header: View>: View {
                     }
                 }
 
-                // Progress view — shown during sharpness scoring
-                if viewModel.sharpnessModel.isScoring {
-                    ProgressCount(
-                        progress: Binding(
-                            get: { Double(viewModel.sharpnessModel.scoringProgress) },
-                            set: { _ in },
-                        ),
-                        estimatedSeconds: Binding(
-                            get: { viewModel.sharpnessModel.scoringEstimatedSeconds },
-                            set: { _ in },
-                        ),
-                        max: Double(viewModel.sharpnessModel.scoringTotal),
-                        statusText: "Scoring sharpness…",
-                    )
-                    .frame(maxWidth: 480)
-                    .padding(16)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
-                    )
-                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-                    .transition(.scale(scale: 0.95).combined(with: .opacity))
-                }
-
-                // Progress view — shown during indeterminate burst work
-                if viewModel.similarityModel.isGrouping || indeterminateBurstAnalysisRunning {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .fixedSize()
-                        Text(viewModel.burstAnalysisProgress.statusText)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 14)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
-                    )
-                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-                    .transition(.scale(scale: 0.95).combined(with: .opacity))
-                }
-
-                // Progress view — shown during similarity indexing
-                if viewModel.similarityModel.isIndexing {
-                    ProgressCount(
-                        progress: Binding(
-                            get: { Double(viewModel.similarityModel.indexingProgress) },
-                            set: { _ in },
-                        ),
-                        estimatedSeconds: Binding(
-                            get: { viewModel.similarityModel.indexingEstimatedSeconds },
-                            set: { _ in },
-                        ),
-                        max: Double(viewModel.similarityModel.indexingTotal),
-                        statusText: "Indexing similarity…",
-                    )
-                    .frame(maxWidth: 480)
-                    .padding(16)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
-                    )
-                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-                    .transition(.scale(scale: 0.95).combined(with: .opacity))
-                }
+                CullingGridProgressOverlay(viewModel: viewModel)
             }
         }
         .frame(minWidth: 400, minHeight: 400)
@@ -488,35 +420,16 @@ struct CullingGridView<Header: View>: View {
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .grid)
     }
 
-    private var indeterminateBurstAnalysisRunning: Bool {
-        viewModel.burstAnalysisProgress.isRunning && !viewModel.burstAnalysisProgress.isCountBased
-    }
-
     // MARK: - Selection handlers
 
     private func handleToggleSelection(for file: FileItem) {
-        let flags = NSEvent.modifierFlags
-        if flags.contains(.command) {
-            if viewModel.selectedFileIDs.contains(file.id) {
-                viewModel.selectedFileIDs.remove(file.id)
-            } else {
-                viewModel.selectedFileIDs.insert(file.id)
-                if let anchor = viewModel.selectedFileID {
-                    viewModel.selectedFileIDs.insert(anchor)
-                }
-            }
-            viewModel.selectedFileID = file.id
-        } else if flags.contains(.shift), let anchorID = viewModel.selectedFileID {
-            let ids = visibleSelectionIDs
-            if let from = ids.firstIndex(of: anchorID),
-               let to = ids.firstIndex(of: file.id) {
-                let range = from <= to ? from ... to : to ... from
-                viewModel.selectedFileIDs = Set(ids[range])
-            }
-        } else {
-            viewModel.selectedFileIDs = []
-            viewModel.selectedFileID = file.id
-        }
+        let next = CullingGridSelectionCoordinator.toggleSelection(
+            fileID: file.id,
+            state: selectionState,
+            visibleIDs: visibleSelectionIDs,
+            modifier: CullingGridSelectionModifier(flags: NSEvent.modifierFlags),
+        )
+        applySelectionState(next)
     }
 
     private func handleDoubleSelect(for file: FileItem) {
@@ -525,26 +438,20 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func selectFiles(matchingBadge badge: String) {
-        let matchingFiles = visibleSelectionFiles.filter { badgeLabels(for: $0).contains(badge) }
-        guard !matchingFiles.isEmpty else { return }
-
-        let matchingIDs = Set(matchingFiles.map(\.id))
-        let flags = NSEvent.modifierFlags
-        if flags.contains(.command) {
-            if matchingIDs.isSubset(of: viewModel.selectedFileIDs) {
-                viewModel.selectedFileIDs.subtract(matchingIDs)
-            } else {
-                viewModel.selectedFileIDs.formUnion(matchingIDs)
-            }
-        } else {
-            viewModel.selectedFileIDs = matchingIDs
-        }
-
-        if let selectedID = viewModel.selectedFileID,
-           viewModel.selectedFileIDs.contains(selectedID) {
-            return
-        }
-        viewModel.selectedFileID = visibleSelectionFiles.first { viewModel.selectedFileIDs.contains($0.id) }?.id
+        let matchingIDs = CullingGridSelectionCoordinator.matchingIDs(
+            forBadge: badge,
+            visibleFiles: visibleSelectionFiles,
+            burstGroupLookup: viewModel.similarityModel.burstGroupLookup,
+            burstAnalysisResults: viewModel.burstAnalysisResults,
+            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
+        )
+        let next = CullingGridSelectionCoordinator.selectFiles(
+            matchingIDs: matchingIDs,
+            state: selectionState,
+            visibleFiles: visibleSelectionFiles,
+            modifier: CullingGridSelectionModifier(flags: NSEvent.modifierFlags),
+        )
+        applySelectionState(next)
     }
 
     private func applyBatchRating() {
@@ -572,162 +479,58 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func zoomNavigationIDs(for file: FileItem) -> [FileItem.ID] {
-        if viewModel.showsBurstGroups,
-           let group = visibleBurstGroups.first(where: { group in
-               group.files.contains { $0.id == file.id }
-           }) {
-            return group.files.map(\.id)
-        }
-        return files.map(\.id)
+        CullingGridSelectionCoordinator.zoomNavigationIDs(
+            for: file,
+            showsBurstGroups: viewModel.showsBurstGroups,
+            visibleBurstGroups: visibleBurstGroups,
+            files: files,
+        )
     }
 
     private var badgeSelectionItems: [BatchBadgeSelectionItem] {
-        let counts = visibleSelectionFiles.reduce(into: [String: Int]()) { result, file in
-            for label in badgeLabels(for: file) {
-                result[label, default: 0] += 1
-            }
-        }
-        return counts
-            .map { BatchBadgeSelectionItem(label: $0.key, count: $0.value, color: badgeSelectionColor(for: $0.key)) }
-            .sorted { lhs, rhs in
-                let lhsRank = badgeSelectionSortRank(lhs.label)
-                let rhsRank = badgeSelectionSortRank(rhs.label)
-                if lhsRank != rhsRank { return lhsRank < rhsRank }
-                if lhs.count != rhs.count { return lhs.count > rhs.count }
-                return lhs.label.localizedStandardCompare(rhs.label) == .orderedAscending
-            }
+        CullingGridSelectionCoordinator.badgeSelectionItems(
+            visibleFiles: visibleSelectionFiles,
+            burstGroupLookup: viewModel.similarityModel.burstGroupLookup,
+            burstAnalysisResults: viewModel.burstAnalysisResults,
+            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
+        )
     }
 
-    private func badgeLabels(for file: FileItem) -> Set<String> {
-        var labels: Set<String> = []
-
-        if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
-           let analysis = viewModel.burstAnalysisResult(for: groupID),
-           let candidate = viewModel.burstCandidate(for: file),
-           let badge = BurstGroupPresentation.recommendationBadge(for: candidate, in: analysis) {
-            labels.insert(badge)
-        }
-
-        if let subject = viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
-           !subject.isEmpty {
-            labels.insert(String(subject.prefix(10)))
-        }
-
-        return labels
+    private var selectionState: CullingGridSelectionState {
+        CullingGridSelectionState(
+            selectedFileID: viewModel.selectedFileID,
+            selectedFileIDs: viewModel.selectedFileIDs,
+        )
     }
 
-    private func badgeSelectionSortRank(_ label: String) -> Int {
-        switch label {
-        case "Suggested best": 0
-        case "Check frame": 1
-        case "Manual": 3
-        default: 10
-        }
-    }
-
-    private func badgeSelectionColor(for label: String) -> Color {
-        switch label {
-        case "Suggested best": .orange
-        case "Manual": .orange
-        case "Check frame": .gray
-        default: .cyan
-        }
+    private func applySelectionState(_ state: CullingGridSelectionState) {
+        viewModel.selectedFileID = state.selectedFileID
+        viewModel.selectedFileIDs = state.selectedFileIDs
     }
 
     // MARK: - Burst grouping helpers
 
-    /// A burst group reduced to only the files currently visible (post rating-filter).
-    private struct VisibleBurstGroup: Identifiable {
-        let id: Int
-        let files: [FileItem]
-    }
-
-    /// Cheap content signature for the burst-mode render cache. Changes in
-    /// any of these fields invalidate `visibleBurstGroups` and
-    /// `bestInGroup`; unrelated mutations (hover, selection, progress text)
-    /// do not.
-    /// All stored properties are read via synthesized Hashable when the
-    /// struct drives `.onChange(of: gridCacheKey)` above; Periphery does
-    /// not see synthesized conformances as reads, hence the ignores.
-    private struct GridCacheKey: Hashable {
-        // periphery:ignore
-        let burstGroupsCount: Int
-        // periphery:ignore
-        let burstStructureHash: Int
-        // periphery:ignore
-        let filesCount: Int
-        // periphery:ignore
-        let filesFirstID: UUID?
-        // periphery:ignore
-        let filesLastID: UUID?
-        // periphery:ignore
-        let ratingFilter: GridRatingFilter
-        // periphery:ignore
-        let scoresCount: Int
-    }
-
-    private var gridCacheKey: GridCacheKey {
-        let groups = viewModel.similarityModel.burstGroups
-        var structureHasher = Hasher()
-        for g in groups {
-            structureHasher.combine(g.id)
-            structureHasher.combine(g.fileIDs.count)
-            if let result = viewModel.burstAnalysisResults[g.id] {
-                structureHasher.combine(result.recommendedFileID)
-                structureHasher.combine(result.reviewState.rawValue)
-            }
-        }
-        let currentFiles = files
-        return GridCacheKey(
-            burstGroupsCount: groups.count,
-            burstStructureHash: structureHasher.finalize(),
-            filesCount: currentFiles.count,
-            filesFirstID: currentFiles.first?.id,
-            filesLastID: currentFiles.last?.id,
+    private var gridCacheKey: CullingGridRenderCacheKey {
+        CullingGridRenderCacheKey(
+            burstGroups: viewModel.similarityModel.burstGroups,
+            files: files,
             ratingFilter: ratingFilter,
             scoresCount: viewModel.sharpnessModel.scores.count,
+            burstAnalysisResults: viewModel.burstAnalysisResults,
         )
     }
 
-    /// Rebuild the burst-mode render cache. Reads `maxScore` exactly once
-    /// (it is an O(n log n) computed property) and walks each burst group
-    /// a single time for both the visible-filter and best-in-group passes.
     private func recomputeGridCache() {
-        let currentFiles = files
-        let lookup = Dictionary(uniqueKeysWithValues: currentFiles.map { ($0.id, $0) })
-        let scores = viewModel.sharpnessModel.scores
-        let maxScore = viewModel.sharpnessModel.maxScore
-
-        var newVisible: [VisibleBurstGroup] = []
-        newVisible.reserveCapacity(viewModel.similarityModel.burstGroups.count)
-        var newBest: [Int: BestInGroupInfo] = [:]
-
-        for group in viewModel.similarityModel.burstGroups {
-            let visible = group.fileIDs.compactMap { lookup[$0] }
-            guard !visible.isEmpty else { continue }
-            newVisible.append(VisibleBurstGroup(id: group.id, files: visible))
-            if let result = viewModel.burstAnalysisResults[group.id],
-               result.reviewState == .manualWinnerOverride,
-               let winnerID = result.recommendedFileID,
-               let winner = visible.first(where: { $0.id == winnerID }) {
-                newBest[group.id] = RawCullViewModel.bestInGroupInfo(
-                    file: winner,
-                    scores: scores,
-                    maxScore: maxScore,
-                    isManualWinner: true,
-                )
-            } else if let info = RawCullViewModel.bestInGroupInfo(
-                files: visible,
-                scores: scores,
-                maxScore: maxScore,
-            ) {
-                newBest[group.id] = info
-            }
-        }
-
-        visibleBurstGroups = newVisible
-        bestInGroup = newBest
-        hasSharpnessScoresSnapshot = !scores.isEmpty
+        let cache = CullingGridRenderCache.rebuild(
+            files: files,
+            burstGroups: viewModel.similarityModel.burstGroups,
+            scores: viewModel.sharpnessModel.scores,
+            maxScore: viewModel.sharpnessModel.maxScore,
+            burstAnalysisResults: viewModel.burstAnalysisResults,
+        )
+        visibleBurstGroups = cache.visibleBurstGroups
+        bestInGroup = cache.bestInGroup
+        hasSharpnessScoresSnapshot = cache.hasSharpnessScoresSnapshot
     }
 
     /// Builds the thumbnail cell for a file inside a burst group.

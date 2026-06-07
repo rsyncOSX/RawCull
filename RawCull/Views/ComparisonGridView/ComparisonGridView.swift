@@ -122,23 +122,7 @@ struct ComparisonGridView: View {
             return .ignored
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJiIxXpP012345tTfFaAbB")) { press in
-            switch press.characters {
-            case "+": return increaseZoom()
-            case "-": return decreaseZoom()
-            case "j", "J": return toggleSelectedImageSource()
-            case "i", "I": showCandidateInspector.toggle(); return .handled
-            case "f", "F": return toggleSelectedFocusMask()
-            case "a", "A": return toggleSelectedFocusPoints()
-            case "b", "B": return applyBurstKeepBest()
-            case "x", "X": return applyRating(-1)
-            case "p", "P", "0": return applyRating(0)
-            case "1", "2": return applyRating(2)
-            case "3": return applyRating(3)
-            case "4": return applyRating(4)
-            case "5": return applyRating(5)
-            case "t", "T": return applyRating(3)
-            default: return .ignored
-            }
+            handleKeyPress(characters: press.characters)
         }
         .onAppear {
             isFocused = true
@@ -167,34 +151,35 @@ struct ComparisonGridView: View {
         }
     }
 
+    private var displayState: ComparisonGridDisplayState {
+        ComparisonGridDisplayState(
+            filteredFiles: viewModel.filteredFiles,
+            comparisonFileIDs: viewModel.comparisonFileIDs,
+            selectedFileID: viewModel.selectedFileID,
+            activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
+            finalistFocusActive: finalistFocusActive,
+            burstAnalysisResult: viewModel.burstAnalysisResult(for:),
+        )
+    }
+
     private var files: [FileItem] {
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.filteredFiles.map { ($0.id, $0) })
-        return comparisonDisplayFileIDs.compactMap { filesByID[$0] }
+        displayState.files
     }
 
     private var allComparisonFiles: [FileItem] {
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.filteredFiles.map { ($0.id, $0) })
-        return viewModel.comparisonFileIDs.prefix(4).compactMap { filesByID[$0] }
+        displayState.allComparisonFiles
     }
 
     private var comparisonDisplayFileIDs: [FileItem.ID] {
-        if finalistFocusActive {
-            let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: burstComparisonResult)
-            if !finalistIDs.isEmpty {
-                return finalistIDs
-            }
-        }
-        return Array(viewModel.comparisonFileIDs.prefix(4))
+        displayState.comparisonDisplayFileIDs
     }
 
     private var selectedComparisonFile: FileItem? {
-        guard let selectedID = viewModel.selectedFileID else { return nil }
-        return files.first { $0.id == selectedID }
+        displayState.selectedComparisonFile
     }
 
     private var burstComparisonResult: BurstAnalysisResult? {
-        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
-        return viewModel.burstAnalysisResult(for: groupID)
+        displayState.burstComparisonResult
     }
 
     private var canApplyOneClickCulling: Bool {
@@ -204,7 +189,7 @@ struct ComparisonGridView: View {
     }
 
     private var loadKey: String {
-        files.map(\.id.uuidString).joined(separator: ",")
+        displayState.loadKey
     }
 
     private func useThumbnailSourceBinding(for file: FileItem) -> Binding<Bool> {
@@ -219,118 +204,34 @@ struct ComparisonGridView: View {
     }
 
     private func loadImages() async {
-        let currentFiles = files
-        syncSourceStates(for: currentFiles)
-        imageStates = Dictionary(
-            uniqueKeysWithValues: currentFiles.map {
-                ($0.id, ComparisonImageState(id: $0.id, isLoading: true))
-            },
+        let result = await ComparisonGridImageCoordinator.loadImages(
+            files: files,
+            sourceFlags: useThumbnailSourceByFileID,
+            viewModel: viewModel,
         )
-
-        for file in currentFiles {
-            guard !Task.isCancelled else { return }
-            let useThumbnailSource = useThumbnailSourceByFileID[file.id] ?? false
-            let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
-                for: file,
-                useThumbnailSource: useThumbnailSource,
-            )
-            guard !Task.isCancelled else { return }
-
-            var state = ComparisonImageState(
-                id: file.id,
-                cgImage: cgImage,
-                nsImage: nsImage,
-                isLoading: false,
-            )
-            await populateFocusMask(in: &state, for: file)
-            imageStates[file.id] = state
-        }
-    }
-
-    private func syncSourceStates(for currentFiles: [FileItem]) {
-        let currentIDs = Set(currentFiles.map(\.id))
-        useThumbnailSourceByFileID = useThumbnailSourceByFileID.filter { currentIDs.contains($0.key) }
-        for file in currentFiles where useThumbnailSourceByFileID[file.id] == nil {
-            useThumbnailSourceByFileID[file.id] = false
-        }
+        imageStates = result.states
+        useThumbnailSourceByFileID = result.sourceFlags
     }
 
     private func reloadImage(for file: FileItem) async {
         imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
-
-        let useThumbnailSource = useThumbnailSourceByFileID[file.id] ?? false
-        let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+        let state = await ComparisonGridImageCoordinator.reloadImage(
             for: file,
-            useThumbnailSource: useThumbnailSource,
+            sourceFlags: useThumbnailSourceByFileID,
+            viewModel: viewModel,
         )
         guard !Task.isCancelled else { return }
-
-        var state = ComparisonImageState(
-            id: file.id,
-            cgImage: cgImage,
-            nsImage: nsImage,
-            isLoading: false,
-        )
-        await populateFocusMask(in: &state, for: file)
         imageStates[file.id] = state
     }
 
-    private func populateFocusMask(
-        in state: inout ComparisonImageState,
-        for file: FileItem,
-    ) async {
-        guard let cgImage = state.cgImage else { return }
-        let downscaled = cgImage.downscaled(toWidth: 1024)
-        let config = focusMaskConfig(for: file)
-        let focusResult = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-            from: downscaled ?? cgImage,
-            scale: 1.0,
-            configOverride: config,
-            afPoint: file.afFocusNormalized,
-        )
-        state.focusMask = focusResult.mask
-        state.sharpnessBreakdown = focusResult.breakdown
-        if let breakdown = focusResult.breakdown {
-            viewModel.sharpnessModel.breakdowns[file.id] = breakdown
-        }
-        if let saliency = focusResult.saliency {
-            viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
-        }
-    }
-
     private func regenerateFocusMasks() async {
-        for file in files {
-            guard !Task.isCancelled else { return }
-            guard let cgImage = imageStates[file.id]?.cgImage else { continue }
-            let downscaled = cgImage.downscaled(toWidth: 1024)
-            let config = focusMaskConfig(for: file)
-            let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-                from: downscaled ?? cgImage,
-                scale: 1.0,
-                configOverride: config,
-                afPoint: file.afFocusNormalized,
-            )
-            guard !Task.isCancelled else { return }
-            imageStates[file.id]?.focusMask = result.mask
-            imageStates[file.id]?.sharpnessBreakdown = result.breakdown
-            if let breakdown = result.breakdown {
-                viewModel.sharpnessModel.breakdowns[file.id] = breakdown
-            }
-            if let saliency = result.saliency {
-                viewModel.sharpnessModel.saliencyInfo[file.id] = saliency
-            }
-        }
-    }
-
-    private func focusMaskConfig(for file: FileItem) -> FocusDetectorConfig {
-        var config = viewModel.sharpnessModel.effectiveFocusConfig
-        config.iso = file.exifData?.isoValue ?? 400
-        config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        if let score = viewModel.sharpnessModel.scores[file.id],
-           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
-            config.guaranteeVisibleFocusEvidence = true
-        }
-        return config
+        let updatedStates = await ComparisonGridImageCoordinator.regenerateFocusMasks(
+            files: files,
+            states: imageStates,
+            viewModel: viewModel,
+        )
+        guard !Task.isCancelled else { return }
+        imageStates = updatedStates
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
@@ -443,12 +344,25 @@ struct ComparisonGridView: View {
         }
     }
 
+    private func handleKeyPress(characters: String) -> KeyPress.Result {
+        guard let action = ComparisonGridKeyAction.resolve(
+            characters: characters,
+            keyCode: 0,
+        ) else { return .ignored }
+
+        return handleKeyAction(action)
+    }
+
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
         guard let action = ComparisonGridKeyAction.resolve(
             characters: event.characters,
             keyCode: event.keyCode,
         ) else { return .ignored }
 
+        return handleKeyAction(action)
+    }
+
+    private func handleKeyAction(_ action: ComparisonGridKeyAction) -> KeyPress.Result {
         switch action {
         case let .navigate(direction):
             navigate(direction)
@@ -469,6 +383,10 @@ struct ComparisonGridView: View {
 
         case .toggleImageSource:
             return toggleSelectedImageSource()
+
+        case .toggleInspector:
+            showCandidateInspector.toggle()
+            return .handled
 
         case .toggleFocusMask:
             return toggleSelectedFocusMask()

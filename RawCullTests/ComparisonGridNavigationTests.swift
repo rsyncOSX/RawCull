@@ -64,7 +64,10 @@ struct ComparisonGridNavigationTests {
 
     @Test(.tags(.smoke))
     func `printable rating and toggle shortcuts resolve from characters`() {
+        #expect(ComparisonGridKeyAction.resolve(characters: "j", keyCode: 0) == .toggleImageSource)
         #expect(ComparisonGridKeyAction.resolve(characters: "J", keyCode: 0) == .toggleImageSource)
+        #expect(ComparisonGridKeyAction.resolve(characters: "i", keyCode: 0) == .toggleInspector)
+        #expect(ComparisonGridKeyAction.resolve(characters: "I", keyCode: 0) == .toggleInspector)
         #expect(ComparisonGridKeyAction.resolve(characters: "F", keyCode: 0) == .toggleFocusMask)
         #expect(ComparisonGridKeyAction.resolve(characters: "a", keyCode: 0) == .toggleFocusPoints)
         #expect(ComparisonGridKeyAction.resolve(characters: "B", keyCode: 0) == .keepBest)
