@@ -4,7 +4,7 @@ import SwiftUI
 typealias ComparisonFocusMaskResult = (
     mask: CGImage?,
     saliency: SaliencyInfo?,
-    breakdown: SharpnessBreakdown?
+    breakdown: SharpnessBreakdown?,
 )
 
 @MainActor
@@ -15,7 +15,7 @@ enum ComparisonGridImageCoordinator {
         viewModel: RawCullViewModel,
     ) async -> (
         states: [FileItem.ID: ComparisonImageState],
-        sourceFlags: [FileItem.ID: Bool]
+        sourceFlags: [FileItem.ID: Bool],
     ) {
         let syncedFlags = syncSourceStates(for: files, sourceFlags: sourceFlags)
         var states = Dictionary(
