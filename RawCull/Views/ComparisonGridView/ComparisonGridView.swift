@@ -7,7 +7,8 @@ struct ComparisonGridView: View {
     @Binding var showCandidateInspector: Bool
 
     @State private var imageStates: [FileItem.ID: ComparisonImageState] = [:]
-    @State private var interactionStates: [FileItem.ID: ComparisonPaneInteractionState] = [:]
+    @State private var viewportState = ComparisonViewportInteractionState()
+    @State private var useThumbnailSourceByFileID: [FileItem.ID: Bool] = [:]
     @State private var finalistFocusActive = false
     @State private var keyMonitor: Any?
     @State private var scrollPositionID: FileItem.ID?
@@ -47,7 +48,8 @@ struct ComparisonGridView: View {
                                         file: file,
                                         state: imageStates[file.id],
                                         focusPoints: focusPoints(for: file),
-                                        interactionState: interactionBinding(for: file),
+                                        viewportState: $viewportState,
+                                        useThumbnailSource: useThumbnailSourceBinding(for: file),
                                         markerSize: viewModel.focusPointMarkerSize,
                                         isSelected: viewModel.selectedFileID == file.id,
                                         rating: ratingDisplay(for: file),
@@ -205,20 +207,20 @@ struct ComparisonGridView: View {
         files.map(\.id.uuidString).joined(separator: ",")
     }
 
-    private func interactionBinding(for file: FileItem) -> Binding<ComparisonPaneInteractionState> {
+    private func useThumbnailSourceBinding(for file: FileItem) -> Binding<Bool> {
         Binding(
             get: {
-                interactionStates[file.id] ?? ComparisonPaneInteractionState()
+                useThumbnailSourceByFileID[file.id] ?? false
             },
             set: { newValue in
-                interactionStates[file.id] = newValue
+                useThumbnailSourceByFileID[file.id] = newValue
             },
         )
     }
 
     private func loadImages() async {
         let currentFiles = files
-        syncInteractionStates(for: currentFiles)
+        syncSourceStates(for: currentFiles)
         imageStates = Dictionary(
             uniqueKeysWithValues: currentFiles.map {
                 ($0.id, ComparisonImageState(id: $0.id, isLoading: true))
@@ -227,7 +229,7 @@ struct ComparisonGridView: View {
 
         for file in currentFiles {
             guard !Task.isCancelled else { return }
-            let useThumbnailSource = interactionStates[file.id]?.useThumbnailSource ?? false
+            let useThumbnailSource = useThumbnailSourceByFileID[file.id] ?? false
             let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
                 for: file,
                 useThumbnailSource: useThumbnailSource,
@@ -245,18 +247,18 @@ struct ComparisonGridView: View {
         }
     }
 
-    private func syncInteractionStates(for currentFiles: [FileItem]) {
+    private func syncSourceStates(for currentFiles: [FileItem]) {
         let currentIDs = Set(currentFiles.map(\.id))
-        interactionStates = interactionStates.filter { currentIDs.contains($0.key) }
-        for file in currentFiles where interactionStates[file.id] == nil {
-            interactionStates[file.id] = ComparisonPaneInteractionState()
+        useThumbnailSourceByFileID = useThumbnailSourceByFileID.filter { currentIDs.contains($0.key) }
+        for file in currentFiles where useThumbnailSourceByFileID[file.id] == nil {
+            useThumbnailSourceByFileID[file.id] = false
         }
     }
 
     private func reloadImage(for file: FileItem) async {
         imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
 
-        let useThumbnailSource = interactionStates[file.id]?.useThumbnailSource ?? false
+        let useThumbnailSource = useThumbnailSourceByFileID[file.id] ?? false
         let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
             for: file,
             useThumbnailSource: useThumbnailSource,
@@ -496,47 +498,48 @@ struct ComparisonGridView: View {
     }
 
     @discardableResult
-    private func updateSelectedInteraction(
-        _ update: (inout ComparisonPaneInteractionState) -> Void,
-    ) -> KeyPress.Result {
+    private func selectedFileIDForInteraction() -> FileItem.ID? {
         guard let selectedID = viewModel.selectedFileID,
               files.contains(where: { $0.id == selectedID })
-        else { return .ignored }
+        else { return nil }
 
-        var state = interactionStates[selectedID] ?? ComparisonPaneInteractionState()
-        update(&state)
-        interactionStates[selectedID] = state
-        return .handled
+        return selectedID
     }
 
     private func toggleSelectedFocusMask() -> KeyPress.Result {
-        updateSelectedInteraction { $0.showFocusMask.toggle() }
+        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        viewportState.showFocusMask.toggle()
+        return .handled
     }
 
     private func toggleSelectedFocusPoints() -> KeyPress.Result {
-        updateSelectedInteraction { $0.showFocusPoints.toggle() }
+        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        viewportState.showFocusPoints.toggle()
+        return .handled
     }
 
     private func toggleSelectedImageSource() -> KeyPress.Result {
-        updateSelectedInteraction { $0.useThumbnailSource.toggle() }
+        guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
+        useThumbnailSourceByFileID[selectedID, default: false].toggle()
+        return .handled
     }
 
     private func increaseZoom() -> KeyPress.Result {
-        updateSelectedInteraction { state in
-            withAnimation(.spring()) {
-                state.scale = min(5.0, state.scale + 0.4)
-                state.lastScale = state.scale
-            }
+        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        withAnimation(.spring()) {
+            viewportState.scale = min(5.0, viewportState.scale + 0.4)
+            viewportState.lastScale = viewportState.scale
         }
+        return .handled
     }
 
     private func decreaseZoom() -> KeyPress.Result {
-        updateSelectedInteraction { state in
-            withAnimation(.spring()) {
-                state.scale = max(0.5, state.scale - 0.4)
-                state.lastScale = state.scale
-            }
+        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        withAnimation(.spring()) {
+            viewportState.scale = max(0.5, viewportState.scale - 0.4)
+            viewportState.lastScale = viewportState.scale
         }
+        return .handled
     }
 }
 

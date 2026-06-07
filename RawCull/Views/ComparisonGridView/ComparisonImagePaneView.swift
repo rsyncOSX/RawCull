@@ -5,7 +5,8 @@ struct ComparisonImagePaneView: View {
     let file: FileItem
     let state: ComparisonImageState?
     let focusPoints: [FocusPoint]?
-    @Binding var interactionState: ComparisonPaneInteractionState
+    @Binding var viewportState: ComparisonViewportInteractionState
+    @Binding var useThumbnailSource: Bool
     let markerSize: CGFloat
     let isSelected: Bool
     let rating: RatingDisplay
@@ -51,7 +52,7 @@ struct ComparisonImagePaneView: View {
                 toggleZoom()
             }
             .onHover { isHovered = $0 }
-            .onChange(of: interactionState.useThumbnailSource) { _, _ in
+            .onChange(of: useThumbnailSource) { _, _ in
                 onSourceChange()
             }
             .animation(.easeInOut(duration: 0.16), value: showsPaneChrome)
@@ -96,23 +97,23 @@ struct ComparisonImagePaneView: View {
                 .simultaneousGesture(TapGesture().onEnded { onSelect() })
 
                 ImageOverlayControlsView(
-                    showFocusMask: $interactionState.showFocusMask,
+                    showFocusMask: $viewportState.showFocusMask,
                     focusMaskAvailable: focusMaskAvailable,
                     hasFocusPoints: hasFocusPoints,
-                    showFocusPoints: $interactionState.showFocusPoints,
+                    showFocusPoints: $viewportState.showFocusPoints,
                     showShortcutHints: true,
                     density: .compact,
                     showImageSourceToggle: true,
-                    useThumbnailSource: $interactionState.useThumbnailSource,
+                    useThumbnailSource: $useThumbnailSource,
                     inspectorIsPresented: inspectorIsPresented,
                     onToggleInspector: {
                         onSelect()
                         onToggleInspector()
                     },
-                    scale: interactionState.scale,
-                    canZoomOut: interactionState.scale > 0.5,
-                    canZoomIn: interactionState.scale < 5.0,
-                    canReset: interactionState.scale != 1.0 || interactionState.offset != .zero,
+                    scale: viewportState.scale,
+                    canZoomOut: viewportState.scale > 0.5,
+                    canZoomIn: viewportState.scale < 5.0,
+                    canReset: viewportState.scale != 1.0 || viewportState.offset != .zero,
                     onZoomOut: {
                         onSelect()
                         decreaseZoom()
@@ -179,23 +180,23 @@ struct ComparisonImagePaneView: View {
         AnyGesture(
             SimultaneousGesture(
                 MagnificationGesture()
-                    .onChanged { interactionState.scale = interactionState.lastScale * $0 }
+                    .onChanged { viewportState.scale = viewportState.lastScale * $0 }
                     .onEnded { _ in
-                        interactionState.lastScale = interactionState.scale
-                        if interactionState.scale < 1.0 {
+                        viewportState.lastScale = viewportState.scale
+                        if viewportState.scale < 1.0 {
                             withAnimation(.spring()) { resetToFit() }
                         }
                     },
                 DragGesture()
                     .onChanged { value in
-                        if interactionState.scale > 1.0 {
-                            interactionState.offset = CGSize(
-                                width: interactionState.lastOffset.width + value.translation.width,
-                                height: interactionState.lastOffset.height + value.translation.height,
+                        if viewportState.scale > 1.0 {
+                            viewportState.offset = CGSize(
+                                width: viewportState.lastOffset.width + value.translation.width,
+                                height: viewportState.lastOffset.height + value.translation.height,
                             )
                         }
                     }
-                    .onEnded { _ in interactionState.lastOffset = interactionState.offset },
+                    .onEnded { _ in viewportState.lastOffset = viewportState.offset },
             )
             .map { _ in () },
         )
@@ -264,7 +265,7 @@ struct ComparisonImagePaneView: View {
                     .scaledToFit()
                     .frame(width: size.width, height: size.height)
 
-                if interactionState.showFocusMask, let focusMask = state.focusMask {
+                if viewportState.showFocusMask, let focusMask = state.focusMask {
                     Image(decorative: focusMask, scale: 1.0, orientation: .up)
                         .resizable()
                         .scaledToFit()
@@ -276,8 +277,8 @@ struct ComparisonImagePaneView: View {
 
                 focusPointOverlay(imageSize: CGSize(width: cgImage.width, height: cgImage.height))
             }
-            .scaleEffect(interactionState.scale)
-            .offset(interactionState.offset)
+            .scaleEffect(viewportState.scale)
+            .offset(viewportState.offset)
         } else if let nsImage = state.nsImage {
             ZStack {
                 Image(nsImage: nsImage)
@@ -287,8 +288,8 @@ struct ComparisonImagePaneView: View {
 
                 focusPointOverlay(imageSize: nsImage.size)
             }
-            .scaleEffect(interactionState.scale)
-            .offset(interactionState.offset)
+            .scaleEffect(viewportState.scale)
+            .offset(viewportState.offset)
         } else {
             VStack(spacing: 8) {
                 if state.isLoading {
@@ -311,7 +312,7 @@ struct ComparisonImagePaneView: View {
 
     @ViewBuilder
     private func focusPointOverlay(imageSize: CGSize) -> some View {
-        if interactionState.showFocusPoints, let focusPoints {
+        if viewportState.showFocusPoints, let focusPoints {
             FocusOverlayView(
                 focusPoints: focusPoints,
                 imageSize: imageSize,
@@ -324,35 +325,35 @@ struct ComparisonImagePaneView: View {
 
     private func toggleZoom() {
         withAnimation(.spring()) {
-            interactionState.scale > 1.0 ? resetToFit() : zoomToTarget()
+            viewportState.scale > 1.0 ? resetToFit() : zoomToTarget()
         }
     }
 
     private func resetToFit() {
-        interactionState.scale = 1.0
-        interactionState.lastScale = 1.0
-        interactionState.offset = .zero
-        interactionState.lastOffset = .zero
+        viewportState.scale = 1.0
+        viewportState.lastScale = 1.0
+        viewportState.offset = .zero
+        viewportState.lastOffset = .zero
     }
 
     private func zoomToTarget() {
-        interactionState.scale = zoomLevel
-        interactionState.lastScale = zoomLevel
-        interactionState.offset = .zero
-        interactionState.lastOffset = .zero
+        viewportState.scale = zoomLevel
+        viewportState.lastScale = zoomLevel
+        viewportState.offset = .zero
+        viewportState.lastOffset = .zero
     }
 
     private func increaseZoom() {
         withAnimation(.spring()) {
-            interactionState.scale = min(5.0, interactionState.scale + 0.4)
-            interactionState.lastScale = interactionState.scale
+            viewportState.scale = min(5.0, viewportState.scale + 0.4)
+            viewportState.lastScale = viewportState.scale
         }
     }
 
     private func decreaseZoom() {
         withAnimation(.spring()) {
-            interactionState.scale = max(0.5, interactionState.scale - 0.4)
-            interactionState.lastScale = interactionState.scale
+            viewportState.scale = max(0.5, viewportState.scale - 0.4)
+            viewportState.lastScale = viewportState.scale
         }
     }
 }
