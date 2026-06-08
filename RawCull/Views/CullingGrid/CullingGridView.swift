@@ -247,13 +247,16 @@ private struct BurstGroupHeaderView: View {
     private var stateBadge: (title: String, color: Color)? {
         switch analysis?.reviewState {
         case .needsReview:
-            return ("Needs Review", .purple)
+            ("Needs Review", .purple)
+
         case .reviewed:
-            return ("Reviewed", .blue)
+            ("Reviewed", .blue)
+
         case .deferred:
-            return ("Deferred", .gray)
+            ("Deferred", .gray)
+
         default:
-            return nil
+            nil
         }
     }
 }

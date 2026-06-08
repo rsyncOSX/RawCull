@@ -430,12 +430,12 @@ struct SavedSettings: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let scoringQuality = (try? c.decode(SharpnessScoringQuality.self, forKey: .scoringQuality)) ?? .fast
-        self.init(
-            memoryCacheSizeMB: try c.decode(Int.self, forKey: .memoryCacheSizeMB),
+        try self.init(
+            memoryCacheSizeMB: c.decode(Int.self, forKey: .memoryCacheSizeMB),
             gridCacheSizeMB: (try? c.decode(Int.self, forKey: .gridCacheSizeMB)) ?? 400,
-            thumbnailSizeGrid: try c.decode(Int.self, forKey: .thumbnailSizeGrid),
-            thumbnailSizePreview: try c.decode(Int.self, forKey: .thumbnailSizePreview),
-            thumbnailSizeFullSize: try c.decode(Int.self, forKey: .thumbnailSizeFullSize),
+            thumbnailSizeGrid: c.decode(Int.self, forKey: .thumbnailSizeGrid),
+            thumbnailSizePreview: c.decode(Int.self, forKey: .thumbnailSizePreview),
+            thumbnailSizeFullSize: c.decode(Int.self, forKey: .thumbnailSizeFullSize),
             enableThumbnailSharpening: (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false,
             thumbnailSharpenAmount: (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0,
             showScoringBadge: (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false,

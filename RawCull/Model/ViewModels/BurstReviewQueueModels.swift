@@ -38,20 +38,21 @@ enum BurstReviewQueuePolicy {
     nonisolated static func includes(_ result: BurstAnalysisResult, filter: BurstReviewQueueFilter) -> Bool {
         switch filter {
         case .all:
-            return true
+            true
 
         case .needsReview:
-            return effectiveState(for: result) == .needsReview
+            effectiveState(for: result) == .needsReview
 
         case .deferred:
-            return effectiveState(for: result) == .deferred
+            effectiveState(for: result) == .deferred
 
         case .reviewed:
             switch effectiveState(for: result) {
             case .reviewed, .decisionApplied, .manualWinnerOverride:
-                return true
+                true
+
             default:
-                return false
+                false
             }
         }
     }
