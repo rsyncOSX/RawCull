@@ -73,10 +73,6 @@ struct ComparisonGridView: View {
                                 scrollPositionID = newID
                             }
                         }
-                        .onChange(of: viewModel.selectedFileID) { oldID, newID in
-                            guard oldID != newID else { return }
-                            viewportState.resetTransform()
-                        }
                         .onChange(of: scrollPositionID) { _, newID in
                             guard let newID,
                                   viewModel.selectedFileID != newID,
@@ -142,10 +138,12 @@ struct ComparisonGridView: View {
             await loadImages()
         }
         .onChange(of: viewModel.comparisonFileIDs) { _, _ in
+            viewportState.resetTransform()
             finalistFocusActive = false
             selectFirstComparisonFileIfNeeded()
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
+            viewportState.resetTransform()
             finalistFocusActive = false
             showCandidateInspector = false
         }
