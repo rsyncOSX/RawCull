@@ -62,11 +62,6 @@ final class SettingsViewModel {
     /// Drives `unsharpMask.intensity = amount * 0.4` and `sharpenLuminance.sharpness = amount * 0.3`.
     var thumbnailSharpenAmount: Float = 1.0
 
-    /// Show sharpness score badge on thumbnails (default: false = hidden, for scroll performance)
-    var showScoringBadge: Bool = false
-    /// Show cyan saliency badge on thumbnails (default: false = hidden)
-    var showSaliencyBadge: Bool = false
-
     // MARK: - Scoring Parameters
 
     /// Border inset fraction for sharpness scoring (default: 0.04)
@@ -151,8 +146,6 @@ final class SettingsViewModel {
                 self.thumbnailSizeFullSize = savedSettings.thumbnailSizeFullSize
                 self.enableThumbnailSharpening = savedSettings.enableThumbnailSharpening
                 self.thumbnailSharpenAmount = savedSettings.thumbnailSharpenAmount
-                self.showScoringBadge = savedSettings.showScoringBadge
-                self.showSaliencyBadge = savedSettings.showSaliencyBadge
                 self.scoringBorderInsetFraction = savedSettings.scoringBorderInsetFraction
                 self.scoringEnableSubjectClassification = savedSettings.scoringEnableSubjectClassification
                 self.scoringSalientWeight = savedSettings.scoringSalientWeight
@@ -196,8 +189,6 @@ final class SettingsViewModel {
                 thumbnailSizeFullSize: thumbnailSizeFullSize,
                 enableThumbnailSharpening: enableThumbnailSharpening,
                 thumbnailSharpenAmount: thumbnailSharpenAmount,
-                showScoringBadge: showScoringBadge,
-                showSaliencyBadge: showSaliencyBadge,
                 scoringBorderInsetFraction: scoringBorderInsetFraction,
                 scoringEnableSubjectClassification: scoringEnableSubjectClassification,
                 scoringSalientWeight: scoringSalientWeight,
@@ -320,8 +311,6 @@ final class SettingsViewModel {
                 thumbnailSizeFullSize: self.thumbnailSizeFullSize,
                 enableThumbnailSharpening: self.enableThumbnailSharpening,
                 thumbnailSharpenAmount: self.thumbnailSharpenAmount,
-                showScoringBadge: self.showScoringBadge,
-                showSaliencyBadge: self.showSaliencyBadge,
                 scoringBorderInsetFraction: self.scoringBorderInsetFraction,
                 scoringEnableSubjectClassification: self.scoringEnableSubjectClassification,
                 scoringSalientWeight: self.scoringSalientWeight,
@@ -355,8 +344,6 @@ struct SavedSettings: Codable {
     let thumbnailSizeFullSize: Int
     let enableThumbnailSharpening: Bool
     let thumbnailSharpenAmount: Float
-    let showScoringBadge: Bool
-    let showSaliencyBadge: Bool
 
     let scoringBorderInsetFraction: Float
     let scoringEnableSubjectClassification: Bool
@@ -382,8 +369,6 @@ struct SavedSettings: Codable {
         thumbnailSizeFullSize: Int,
         enableThumbnailSharpening: Bool = false,
         thumbnailSharpenAmount: Float = 1.0,
-        showScoringBadge: Bool = false,
-        showSaliencyBadge: Bool = false,
         scoringBorderInsetFraction: Float = 0.04,
         scoringEnableSubjectClassification: Bool = true,
         scoringSalientWeight: Float = 0.75,
@@ -406,8 +391,6 @@ struct SavedSettings: Codable {
         self.thumbnailSizeFullSize = thumbnailSizeFullSize > 0 ? min(thumbnailSizeFullSize, 20000) : 8700
         self.enableThumbnailSharpening = enableThumbnailSharpening
         self.thumbnailSharpenAmount = Self.clamp(thumbnailSharpenAmount, 0.0 ... 2.0)
-        self.showScoringBadge = showScoringBadge
-        self.showSaliencyBadge = showSaliencyBadge
         self.scoringBorderInsetFraction = Self.clamp(scoringBorderInsetFraction, 0.0 ... 0.10)
         self.scoringEnableSubjectClassification = scoringEnableSubjectClassification
         self.scoringSalientWeight = Self.clamp(scoringSalientWeight, 0.0 ... 1.0)
@@ -438,8 +421,6 @@ struct SavedSettings: Codable {
             thumbnailSizeFullSize: c.decode(Int.self, forKey: .thumbnailSizeFullSize),
             enableThumbnailSharpening: (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false,
             thumbnailSharpenAmount: (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0,
-            showScoringBadge: (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false,
-            showSaliencyBadge: (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false,
             scoringBorderInsetFraction: (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04,
             scoringEnableSubjectClassification: (try? c.decode(Bool.self, forKey: .scoringEnableSubjectClassification)) ?? true,
             scoringSalientWeight: (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75,

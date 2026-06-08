@@ -11,10 +11,6 @@ struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
     let toggleInspector: () -> Void
 
-    private var settings: SettingsViewModel {
-        SettingsViewModel.shared
-    }
-
     var body: some ToolbarContent {
         Group {
             ToolbarItem(placement: .status) {
@@ -37,28 +33,6 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
                 }
                 .help("Show inspector")
-            }
-
-            ToolbarItem(placement: .status) {
-                Toggle(isOn: Binding(
-                    get: { settings.showScoringBadge },
-                    set: { settings.showScoringBadge = $0; Task { await settings.saveSettings() } },
-                )) {
-                    Label("Sharpness Label", systemImage: "scope")
-                }
-                .toggleStyle(.button)
-                .help("Show simple sharpness labels on thumbnails")
-            }
-
-            ToolbarItem(placement: .status) {
-                Toggle(isOn: Binding(
-                    get: { settings.showSaliencyBadge },
-                    set: { settings.showSaliencyBadge = $0; Task { await settings.saveSettings() } },
-                )) {
-                    Label("Saliency Badge", systemImage: "eye.circle")
-                }
-                .toggleStyle(.button)
-                .help("Show saliency badge on thumbnails")
             }
 
             ToolbarItem(placement: .status) {

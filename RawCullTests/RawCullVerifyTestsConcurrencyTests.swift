@@ -157,11 +157,13 @@ enum ConcurrencyTests {
 
         @Test
         @MainActor
-        func `legacy settings JSON defaults scoring photo type to auto`() throws {
+        func `legacy settings JSON defaults scoring photo type to auto and ignores badge toggles`() throws {
             let data = Data("""
             {
               "gridCacheSizeMB" : 1750,
               "memoryCacheSizeMB" : 7000,
+              "showSaliencyBadge" : true,
+              "showScoringBadge" : true,
               "thumbnailSizeFullSize" : 8700,
               "thumbnailSizeGrid" : 240,
               "thumbnailSizePreview" : 1664
@@ -241,6 +243,7 @@ enum ConcurrencyTests {
 
             let data = try Data(contentsOf: url)
             let saved = try JSONDecoder().decode(SavedSettings.self, from: data)
+            let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
             #expect(saved.memoryCacheSizeMB == 1000)
             #expect(saved.gridCacheSizeMB == 2000)
@@ -250,6 +253,8 @@ enum ConcurrencyTests {
             #expect(saved.thumbnailSharpenAmount == 2.0)
             #expect(saved.scoringSalientWeight == 1.0)
             #expect(saved.focusMaskThreshold == 0.01)
+            #expect(json["showScoringBadge"] == nil)
+            #expect(json["showSaliencyBadge"] == nil)
         }
 
         @Test

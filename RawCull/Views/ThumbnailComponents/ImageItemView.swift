@@ -9,8 +9,6 @@ import OSLog
 import RawCullCore
 import SwiftUI
 
-// MARK: - Sharpness Badge
-
 enum SharpnessLabel {
     case sharp
     case good
@@ -37,101 +35,6 @@ enum SharpnessLabel {
         default:
             self = .soft
         }
-    }
-
-    var title: String {
-        switch self {
-        case .sharp: "Sharp"
-        case .good: "Good"
-        case .check: "Check"
-        case .soft: "Soft"
-        }
-    }
-
-    var helpText: String {
-        switch self {
-        case .sharp: "High relative sharpness"
-        case .good: "Likely usable sharpness"
-        case .check: "Review before keeping"
-        case .soft: "Likely soft"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .sharp, .good: .green
-        case .check: .yellow
-        case .soft: .red
-        }
-    }
-}
-
-extension SharpnessLabel: Equatable {
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        switch (lhs, rhs) {
-        case (.sharp, .sharp), (.good, .good), (.check, .check), (.soft, .soft):
-            true
-
-        default:
-            false
-        }
-    }
-}
-
-struct SharpnessBadgeView: View {
-    let score: Float
-    let maxScore: Float
-
-    private var label: SharpnessLabel {
-        SharpnessLabel(score: score, maxScore: maxScore)
-    }
-
-    var body: some View {
-        Text(label.title)
-            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(label.color.opacity(0.80), in: RoundedRectangle(cornerRadius: 3))
-            .help(label.helpText)
-            .accessibilityLabel("Sharpness")
-            .accessibilityValue(label.title)
-    }
-}
-
-// MARK: - Saliency Badge
-
-struct SaliencyBadgeView: View {
-    let info: SaliencyInfo
-
-    private var label: String {
-        if let subject = info.subjectLabel {
-            String(subject.prefix(10))
-        } else {
-            "subject"
-        }
-    }
-
-    var body: some View {
-        Text(label)
-            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(Color.cyan.opacity(0.80), in: RoundedRectangle(cornerRadius: 3))
-    }
-}
-
-// MARK: - No-Subject Badge
-
-struct NoSubjectBadgeView: View {
-    var body: some View {
-        Text("~")
-            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(Color.gray.opacity(0.70), in: RoundedRectangle(cornerRadius: 3))
     }
 }
 
@@ -253,9 +156,6 @@ struct BurstCandidateBadgeView: View {
 
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
-    private var settings: SettingsViewModel {
-        SettingsViewModel.shared
-    }
 
     let file: FileItem
     let isHovered: Bool
@@ -276,31 +176,6 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-                // Sharpness + saliency badges — bottom-left corner, gated by settings toggles
-                .overlay(alignment: .bottomLeading) {
-                    let hasScore = settings.showScoringBadge && viewModel.sharpnessModel.scores[file.id] != nil
-                    let hasSaliency = settings.showSaliencyBadge && viewModel.sharpnessModel.saliencyInfo[file.id] != nil
-                    if hasScore || hasSaliency {
-                        HStack(spacing: 3) {
-                            if settings.showScoringBadge, let score = viewModel.sharpnessModel.scores[file.id] {
-                                SharpnessBadgeView(
-                                    score: score,
-                                    maxScore: viewModel.sharpnessModel.maxScore,
-                                )
-                            }
-                            if settings.showSaliencyBadge {
-                                if let saliency = viewModel.sharpnessModel.saliencyInfo[file.id] {
-                                    SaliencyBadgeView(info: saliency)
-                                } else if hasScore {
-                                    // Scored but Vision found no salient subject —
-                                    // subject-weighting parameters had no effect on this photo.
-                                    NoSubjectBadgeView()
-                                }
-                            }
-                        }
-                        .padding(5)
-                    }
-                }
 
                 // Selection and picked badges — top-right corner
                 .overlay(alignment: .topTrailing) {
