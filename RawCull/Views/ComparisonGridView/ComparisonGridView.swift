@@ -479,35 +479,39 @@ private struct BurstComparisonEvidenceView: View {
     let onBack: () -> Void
 
     var body: some View {
-        VStack(spacing: 6) {
+        HStack(spacing: 8) {
             statusSummary
-                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(maxWidth: 440, alignment: .leading)
 
+            Spacer(minLength: 0)
             actionControls
-                .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .font(.caption)
+        .font(.caption2)
         .lineLimit(1)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
         .foregroundStyle(.white)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+        .frame(maxWidth: 760)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .shadow(color: .black.opacity(0.22), radius: 6, x: 0, y: 1)
     }
 
     private var statusSummary: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Text("Burst \(result.groupID + 1)")
-                .font(.subheadline.weight(.semibold))
+                .font(.caption.weight(.semibold))
+                .fixedSize(horizontal: true, vertical: false)
 
             Text(result.confidence.title)
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: true, vertical: false)
 
             if result.reviewState == .manualWinnerOverride {
                 Text("Manual winner")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.orange)
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
             if let firstReason = result.reasons.first {
@@ -523,7 +527,7 @@ private struct BurstComparisonEvidenceView: View {
             }
         }
         .lineLimit(1)
-        .minimumScaleFactor(0.8)
+        .truncationMode(.tail)
     }
 
     private var actionControls: some View {
