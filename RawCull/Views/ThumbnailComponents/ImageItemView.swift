@@ -38,19 +38,6 @@ enum SharpnessLabel {
     }
 }
 
-// MARK: - Picked Badge
-
-struct PickedBadgeView: View {
-    var body: some View {
-        Text("P")
-            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(Color.orange.opacity(0.85), in: RoundedRectangle(cornerRadius: 3))
-    }
-}
-
 // MARK: - Burst Candidate Badge
 
 struct BurstCandidateBadgeView: View {
@@ -176,21 +163,13 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-                // Selection and picked badges — top-right corner
+                // Selection badge — top-right corner
                 .overlay(alignment: .topTrailing) {
-                    if isSelected || isMultiSelected || isPicked {
-                        HStack(spacing: 4) {
-                            if isPicked {
-                                PickedBadgeView()
-                            }
-
-                            if isSelected || isMultiSelected {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: isSelected ? 17 : 15, weight: .bold))
-                                    .foregroundStyle(.white, selectionColor)
-                                    .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
-                            }
-                        }
+                    if isSelected || isMultiSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: isSelected ? 17 : 15, weight: .bold))
+                            .foregroundStyle(.white, selectionColor)
+                            .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
                         .padding(5)
                     }
                 }
@@ -283,10 +262,6 @@ struct ImageItemView: View {
 
     private var selectionColor: Color {
         isSelected ? Color.accentColor : Color.teal
-    }
-
-    private var isPicked: Bool {
-        viewModel.taggedNamesCache.contains(file.name) && viewModel.getRating(for: file) == 0
     }
 
     private var isSelected: Bool {
