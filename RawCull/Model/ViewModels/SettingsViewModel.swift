@@ -399,19 +399,19 @@ struct SavedSettings: Codable {
         focusMaskDilationRadius: Float = 1.0,
         focusMaskFeatherRadius: Float = 2.0,
     ) {
-        self.memoryCacheSizeMB = memoryCacheSizeMB
-        self.gridCacheSizeMB = gridCacheSizeMB
-        self.thumbnailSizeGrid = thumbnailSizeGrid
-        self.thumbnailSizePreview = thumbnailSizePreview
-        self.thumbnailSizeFullSize = thumbnailSizeFullSize
+        self.memoryCacheSizeMB = Self.clamp(memoryCacheSizeMB, 1000 ... 8000)
+        self.gridCacheSizeMB = Self.clamp(gridCacheSizeMB, 400 ... 2000)
+        self.thumbnailSizeGrid = Self.clamp(thumbnailSizeGrid, 100 ... 300)
+        self.thumbnailSizePreview = Self.clamp(thumbnailSizePreview, 1024 ... 1664)
+        self.thumbnailSizeFullSize = thumbnailSizeFullSize > 0 ? min(thumbnailSizeFullSize, 20000) : 8700
         self.enableThumbnailSharpening = enableThumbnailSharpening
-        self.thumbnailSharpenAmount = thumbnailSharpenAmount
+        self.thumbnailSharpenAmount = Self.clamp(thumbnailSharpenAmount, 0.0 ... 2.0)
         self.showScoringBadge = showScoringBadge
         self.showSaliencyBadge = showSaliencyBadge
-        self.scoringBorderInsetFraction = scoringBorderInsetFraction
+        self.scoringBorderInsetFraction = Self.clamp(scoringBorderInsetFraction, 0.0 ... 0.10)
         self.scoringEnableSubjectClassification = scoringEnableSubjectClassification
-        self.scoringSalientWeight = scoringSalientWeight
-        self.scoringSubjectSizeFactor = scoringSubjectSizeFactor
+        self.scoringSalientWeight = Self.clamp(scoringSalientWeight, 0.0 ... 1.0)
+        self.scoringSubjectSizeFactor = Self.clamp(scoringSubjectSizeFactor, 0.0 ... 3.0)
         self.scoringPhotoType = scoringPhotoType
         self.scoringQuality = scoringQuality
         self.scoringSource = scoringSource
@@ -419,41 +419,45 @@ struct SavedSettings: Codable {
             scoringThumbnailMaxPixelSize,
             for: scoringQuality,
         )
-        self.focusMaskPreBlurRadius = focusMaskPreBlurRadius
-        self.focusMaskThreshold = focusMaskThreshold
-        self.focusMaskEnergyMultiplier = focusMaskEnergyMultiplier
-        self.focusMaskErosionRadius = focusMaskErosionRadius
-        self.focusMaskDilationRadius = focusMaskDilationRadius
-        self.focusMaskFeatherRadius = focusMaskFeatherRadius
+        self.focusMaskPreBlurRadius = Self.clamp(focusMaskPreBlurRadius, 0.3 ... 4.0)
+        self.focusMaskThreshold = Self.clamp(focusMaskThreshold, 0.01 ... 0.70)
+        self.focusMaskEnergyMultiplier = Self.clamp(focusMaskEnergyMultiplier, 1.0 ... 20.0)
+        self.focusMaskErosionRadius = Self.clamp(focusMaskErosionRadius, 0.0 ... 2.0)
+        self.focusMaskDilationRadius = Self.clamp(focusMaskDilationRadius, 0.0 ... 3.0)
+        self.focusMaskFeatherRadius = max(focusMaskFeatherRadius, 0.0)
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        memoryCacheSizeMB = try c.decode(Int.self, forKey: .memoryCacheSizeMB)
-        gridCacheSizeMB = (try? c.decode(Int.self, forKey: .gridCacheSizeMB)) ?? 400
-        thumbnailSizeGrid = try c.decode(Int.self, forKey: .thumbnailSizeGrid)
-        thumbnailSizePreview = try c.decode(Int.self, forKey: .thumbnailSizePreview)
-        thumbnailSizeFullSize = try c.decode(Int.self, forKey: .thumbnailSizeFullSize)
-        enableThumbnailSharpening = (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false
-        thumbnailSharpenAmount = (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0
-        showScoringBadge = (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false
-        showSaliencyBadge = (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false
-        scoringBorderInsetFraction = (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04
-        scoringEnableSubjectClassification = (try? c.decode(Bool.self, forKey: .scoringEnableSubjectClassification)) ?? true
-        scoringSalientWeight = (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75
-        scoringSubjectSizeFactor = (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1
-        scoringPhotoType = (try? c.decode(SharpnessPhotoType.self, forKey: .scoringPhotoType)) ?? .auto
-        scoringQuality = (try? c.decode(SharpnessScoringQuality.self, forKey: .scoringQuality)) ?? .fast
-        scoringSource = (try? c.decode(SharpnessScoringSource.self, forKey: .scoringSource)) ?? .embeddedPreview
-        scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
-            (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512,
-            for: scoringQuality,
+        let scoringQuality = (try? c.decode(SharpnessScoringQuality.self, forKey: .scoringQuality)) ?? .fast
+        self.init(
+            memoryCacheSizeMB: try c.decode(Int.self, forKey: .memoryCacheSizeMB),
+            gridCacheSizeMB: (try? c.decode(Int.self, forKey: .gridCacheSizeMB)) ?? 400,
+            thumbnailSizeGrid: try c.decode(Int.self, forKey: .thumbnailSizeGrid),
+            thumbnailSizePreview: try c.decode(Int.self, forKey: .thumbnailSizePreview),
+            thumbnailSizeFullSize: try c.decode(Int.self, forKey: .thumbnailSizeFullSize),
+            enableThumbnailSharpening: (try? c.decode(Bool.self, forKey: .enableThumbnailSharpening)) ?? false,
+            thumbnailSharpenAmount: (try? c.decode(Float.self, forKey: .thumbnailSharpenAmount)) ?? 1.0,
+            showScoringBadge: (try? c.decode(Bool.self, forKey: .showScoringBadge)) ?? false,
+            showSaliencyBadge: (try? c.decode(Bool.self, forKey: .showSaliencyBadge)) ?? false,
+            scoringBorderInsetFraction: (try? c.decode(Float.self, forKey: .scoringBorderInsetFraction)) ?? 0.04,
+            scoringEnableSubjectClassification: (try? c.decode(Bool.self, forKey: .scoringEnableSubjectClassification)) ?? true,
+            scoringSalientWeight: (try? c.decode(Float.self, forKey: .scoringSalientWeight)) ?? 0.75,
+            scoringSubjectSizeFactor: (try? c.decode(Float.self, forKey: .scoringSubjectSizeFactor)) ?? 0.1,
+            scoringThumbnailMaxPixelSize: (try? c.decode(Int.self, forKey: .scoringThumbnailMaxPixelSize)) ?? 512,
+            scoringPhotoType: (try? c.decode(SharpnessPhotoType.self, forKey: .scoringPhotoType)) ?? .auto,
+            scoringQuality: scoringQuality,
+            scoringSource: (try? c.decode(SharpnessScoringSource.self, forKey: .scoringSource)) ?? .embeddedPreview,
+            focusMaskPreBlurRadius: (try? c.decode(Float.self, forKey: .focusMaskPreBlurRadius)) ?? 1.92,
+            focusMaskThreshold: (try? c.decode(Float.self, forKey: .focusMaskThreshold)) ?? 0.46,
+            focusMaskEnergyMultiplier: (try? c.decode(Float.self, forKey: .focusMaskEnergyMultiplier)) ?? 7.62,
+            focusMaskErosionRadius: (try? c.decode(Float.self, forKey: .focusMaskErosionRadius)) ?? 1.0,
+            focusMaskDilationRadius: (try? c.decode(Float.self, forKey: .focusMaskDilationRadius)) ?? 1.0,
+            focusMaskFeatherRadius: (try? c.decode(Float.self, forKey: .focusMaskFeatherRadius)) ?? 2.0,
         )
-        focusMaskPreBlurRadius = (try? c.decode(Float.self, forKey: .focusMaskPreBlurRadius)) ?? 1.92
-        focusMaskThreshold = (try? c.decode(Float.self, forKey: .focusMaskThreshold)) ?? 0.46
-        focusMaskEnergyMultiplier = (try? c.decode(Float.self, forKey: .focusMaskEnergyMultiplier)) ?? 7.62
-        focusMaskErosionRadius = (try? c.decode(Float.self, forKey: .focusMaskErosionRadius)) ?? 1.0
-        focusMaskDilationRadius = (try? c.decode(Float.self, forKey: .focusMaskDilationRadius)) ?? 1.0
-        focusMaskFeatherRadius = (try? c.decode(Float.self, forKey: .focusMaskFeatherRadius)) ?? 2.0
+    }
+
+    private static func clamp<T: Comparable>(_ value: T, _ range: ClosedRange<T>) -> T {
+        min(max(value, range.lowerBound), range.upperBound)
     }
 }

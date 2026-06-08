@@ -175,6 +175,84 @@ enum ConcurrencyTests {
         }
 
         @Test
+        @MainActor
+        func `extreme settings JSON decodes inside supported ranges`() throws {
+            let data = Data("""
+            {
+              "focusMaskDilationRadius" : 99,
+              "focusMaskEnergyMultiplier" : 99,
+              "focusMaskErosionRadius" : -1,
+              "focusMaskFeatherRadius" : -5,
+              "focusMaskPreBlurRadius" : 99,
+              "focusMaskThreshold" : 9,
+              "gridCacheSizeMB" : 99,
+              "memoryCacheSizeMB" : 99999,
+              "scoringBorderInsetFraction" : 9,
+              "scoringSalientWeight" : 9,
+              "scoringSubjectSizeFactor" : 9,
+              "scoringThumbnailMaxPixelSize" : -1,
+              "thumbnailSharpenAmount" : 99,
+              "thumbnailSizeFullSize" : -1,
+              "thumbnailSizeGrid" : 999,
+              "thumbnailSizePreview" : 99
+            }
+            """.utf8)
+
+            let settings = try JSONDecoder().decode(SavedSettings.self, from: data)
+
+            #expect(settings.memoryCacheSizeMB == 8000)
+            #expect(settings.gridCacheSizeMB == 400)
+            #expect(settings.thumbnailSizeGrid == 300)
+            #expect(settings.thumbnailSizePreview == 1024)
+            #expect(settings.thumbnailSizeFullSize == 8700)
+            #expect(settings.thumbnailSharpenAmount == 2.0)
+            #expect(settings.scoringBorderInsetFraction == 0.10)
+            #expect(settings.scoringSalientWeight == 1.0)
+            #expect(settings.scoringSubjectSizeFactor == 3.0)
+            #expect(settings.scoringThumbnailMaxPixelSize == 512)
+            #expect(settings.focusMaskPreBlurRadius == 4.0)
+            #expect(settings.focusMaskThreshold == 0.70)
+            #expect(settings.focusMaskEnergyMultiplier == 20.0)
+            #expect(settings.focusMaskErosionRadius == 0.0)
+            #expect(settings.focusMaskDilationRadius == 3.0)
+            #expect(settings.focusMaskFeatherRadius == 0.0)
+        }
+
+        @Test
+        @MainActor
+        func `save writes normalized settings`() async throws {
+            let url = makeIsolatedSettingsURL()
+            let root = url
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let viewModel = SettingsViewModel(settingsFileURL: url, loadOnInit: false)
+
+            viewModel.memoryCacheSizeMB = 42
+            viewModel.gridCacheSizeMB = 99999
+            viewModel.thumbnailSizeGrid = 1
+            viewModel.thumbnailSizePreview = 99999
+            viewModel.thumbnailSizeFullSize = -1
+            viewModel.thumbnailSharpenAmount = 99
+            viewModel.scoringSalientWeight = 99
+            viewModel.focusMaskThreshold = -1
+
+            await viewModel.saveSettings()
+
+            let data = try Data(contentsOf: url)
+            let saved = try JSONDecoder().decode(SavedSettings.self, from: data)
+
+            #expect(saved.memoryCacheSizeMB == 1000)
+            #expect(saved.gridCacheSizeMB == 2000)
+            #expect(saved.thumbnailSizeGrid == 100)
+            #expect(saved.thumbnailSizePreview == 1664)
+            #expect(saved.thumbnailSizeFullSize == 8700)
+            #expect(saved.thumbnailSharpenAmount == 2.0)
+            #expect(saved.scoringSalientWeight == 1.0)
+            #expect(saved.focusMaskThreshold == 0.01)
+        }
+
+        @Test
         func `asyncgetsettings returns value snapshot`() async {
             let viewModel = await makeIsolatedSettingsViewModel()
 
@@ -189,6 +267,24 @@ enum ConcurrencyTests {
             let snapshotMB = await MainActor.run { snapshot.memoryCacheSizeMB }
 
             #expect(snapshotMB == 5000)
+        }
+
+        @Test
+        @MainActor
+        func `asyncgetsettings returns normalized value snapshot`() async {
+            let viewModel = makeIsolatedSettingsViewModel()
+
+            viewModel.memoryCacheSizeMB = 42
+            viewModel.gridCacheSizeMB = 99999
+            viewModel.thumbnailSharpenAmount = -1
+            viewModel.scoringSubjectSizeFactor = 99
+
+            let snapshot = await viewModel.asyncgetsettings()
+
+            #expect(snapshot.memoryCacheSizeMB == 1000)
+            #expect(snapshot.gridCacheSizeMB == 2000)
+            #expect(snapshot.thumbnailSharpenAmount == 0.0)
+            #expect(snapshot.scoringSubjectSizeFactor == 3.0)
         }
     }
 

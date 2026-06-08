@@ -325,8 +325,12 @@ extension RawCullViewModel {
             preloadedScores: snapshot.sharpnessScores,
             preloadedSaliency: snapshot.saliencyInfo,
         )
-        burstReviewStates = snapshot.reviewStates
-        burstAnalysisResults = Dictionary(uniqueKeysWithValues: snapshot.results.map { ($0.groupID, $0) })
+        burstReviewStates = cachedReviewStates(from: snapshot)
+        burstAnalysisResults = Dictionary(uniqueKeysWithValues: snapshot.results.map { result in
+            var updated = result
+            updated.reviewState = burstReviewStates[result.groupID] ?? .none
+            return (updated.groupID, updated)
+        })
         applyManualWinnerOverrides(files: files)
     }
 
@@ -364,9 +368,47 @@ extension RawCullViewModel {
             groups: similarityModel.burstGroups,
             boundaryEvidence: similarityModel.burstBoundaryEvidence,
             results: Array(burstAnalysisResults.values).sorted { $0.groupID < $1.groupID },
-            reviewStates: burstReviewStates,
+            reviewStateSnapshots: reviewStateSnapshots(catalog: catalog, files: files),
         )
         await burstAnalysisCache.save(snapshot, catalog: catalog)
+    }
+
+    func cachedReviewStates(from snapshot: BurstAnalysisCacheSnapshot) -> [Int: BurstReviewState] {
+        guard let catalog = selectedSource?.url else { return [:] }
+        let savedStatesBySignature = Dictionary(
+            uniqueKeysWithValues: snapshot.reviewStateSnapshots.map { ($0.signature, $0.state) },
+        )
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+
+        var states: [Int: BurstReviewState] = [:]
+        for group in similarityModel.burstGroups {
+            guard let signature = burstSignature(for: group, filesByID: filesByID, catalog: catalog),
+                  let state = savedStatesBySignature[signature],
+                  state != .none
+            else { continue }
+            states[group.id] = state
+        }
+        return states
+    }
+
+    func reviewStateSnapshots(catalog: URL, files: [FileItem]) -> [BurstReviewStateSnapshot] {
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        return similarityModel.burstGroups.compactMap { group in
+            guard let state = burstReviewStates[group.id],
+                  state != .none,
+                  let signature = burstSignature(for: group, filesByID: filesByID, catalog: catalog)
+            else { return nil }
+            return BurstReviewStateSnapshot(signature: signature, state: state)
+        }
+    }
+
+    func burstSignature(
+        for group: BurstGroup,
+        filesByID: [UUID: FileItem],
+        catalog: URL?,
+    ) -> BurstGroupSignature? {
+        let groupFiles = group.fileIDs.compactMap { filesByID[$0] }
+        return BurstGroupSignature(files: groupFiles, catalog: catalog)
     }
 
     private func remapCachedSnapshot(
@@ -455,7 +497,7 @@ extension RawCullViewModel {
             groups: groups,
             boundaryEvidence: evidence,
             results: results,
-            reviewStates: snapshot.reviewStates,
+            reviewStateSnapshots: snapshot.reviewStateSnapshots,
         )
     }
 

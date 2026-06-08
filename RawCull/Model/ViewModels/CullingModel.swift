@@ -140,17 +140,21 @@ final class CullingModel {
     func upsertBurstWinnerOverride(_ override: BurstWinnerOverride, in catalog: URL) {
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
-        let newMembership = Set(override.memberFileNames)
+        let normalizedOverride = BurstWinnerOverride(
+            id: override.id,
+            winnerFileName: override.winnerFileName,
+            memberFileNames: Self.canonicalMemberNames(override.memberFileNames),
+        )
+        let newMembership = normalizedOverride.memberFileNames
 
         if savedFiles[catalogIndex].burstWinnerOverrides == nil {
             savedFiles[catalogIndex].burstWinnerOverrides = []
         }
 
         savedFiles[catalogIndex].burstWinnerOverrides?.removeAll { existing in
-            existing.winnerFileName == override.winnerFileName ||
-                Set(existing.memberFileNames) == newMembership
+            Self.canonicalMemberNames(existing.memberFileNames) == newMembership
         }
-        savedFiles[catalogIndex].burstWinnerOverrides?.append(override)
+        savedFiles[catalogIndex].burstWinnerOverrides?.append(normalizedOverride)
         scheduleSave()
     }
 
@@ -160,18 +164,31 @@ final class CullingModel {
     }
 
     func overrideWinner(for groupFiles: [FileItem], in catalog: URL) -> BurstWinnerOverride? {
-        let groupNames = Set(groupFiles.map(\.name))
+        let groupNames = Self.canonicalMemberNames(groupFiles.map(\.name))
         return burstWinnerOverrides(in: catalog)
-            .last { groupNames.contains($0.winnerFileName) }
+            .last {
+                Self.canonicalMemberNames($0.memberFileNames) == groupNames &&
+                    groupNames.contains($0.winnerFileName)
+            }
     }
 
     func pruneStaleBurstOverrides(validFileNames: Set<String>, in catalog: URL) {
         guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
         let original = savedFiles[index].burstWinnerOverrides ?? []
-        let pruned = original.filter { validFileNames.contains($0.winnerFileName) }
+        let pruned = original.filter {
+            validFileNames.contains($0.winnerFileName) &&
+                !$0.memberFileNames.isEmpty &&
+                $0.memberFileNames.allSatisfy { validFileNames.contains($0) }
+        }
         guard pruned.count != original.count else { return }
         savedFiles[index].burstWinnerOverrides = pruned
         scheduleSave()
+    }
+
+    nonisolated static func canonicalMemberNames(_ names: [String]) -> [String] {
+        names
+            .filter { !$0.isEmpty }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
     private func scheduleSave() {

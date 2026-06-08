@@ -14,7 +14,7 @@ struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var groups: [BurstGroup]
     var boundaryEvidence: [BurstBoundaryEvidence]
     var results: [BurstAnalysisResult]
-    var reviewStates: [Int: BurstReviewState]
+    var reviewStateSnapshots: [BurstReviewStateSnapshot]
 }
 
 struct SharpnessScoringSignature: Codable {
@@ -99,7 +99,7 @@ struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 2
+    nonisolated static let schemaVersion = 3
 
     private let cacheDirectory: URL
 

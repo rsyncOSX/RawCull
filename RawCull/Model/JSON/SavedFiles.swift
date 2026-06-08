@@ -109,18 +109,16 @@ struct FileRecord: Identifiable, Codable {
     var sharpnessModificationDate: Date?
 }
 
-extension FileRecord: Hashable, Equatable {
+extension FileRecord: Equatable {
     static func == (lhs: FileRecord, rhs: FileRecord) -> Bool {
         lhs.fileName == rhs.fileName &&
             lhs.dateTagged == rhs.dateTagged &&
             lhs.dateCopied == rhs.dateCopied &&
-            lhs.rating == rhs.rating
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(fileName)
-        hasher.combine(dateTagged)
-        hasher.combine(dateCopied)
-        hasher.combine(rating)
+            lhs.rating == rhs.rating &&
+            lhs.sharpnessScore == rhs.sharpnessScore &&
+            lhs.saliencySubject == rhs.saliencySubject &&
+            lhs.sharpnessScoringSignature == rhs.sharpnessScoringSignature &&
+            lhs.sharpnessFileSize == rhs.sharpnessFileSize &&
+            lhs.sharpnessModificationDate == rhs.sharpnessModificationDate
     }
 }

@@ -125,6 +125,105 @@ struct CullingModelTests {
     }
 
     @Test
+    func `manual winner override requires exact membership`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        model.upsertBurstWinnerOverride(
+            BurstWinnerOverride(
+                winnerFileName: "A.ARW",
+                memberFileNames: ["A.ARW", "B.ARW", "C.ARW"],
+            ),
+            in: catalog,
+        )
+
+        let matching = [
+            makeCullingTestFile("C.ARW"),
+            makeCullingTestFile("A.ARW"),
+            makeCullingTestFile("B.ARW")
+        ]
+        let changed = [
+            makeCullingTestFile("A.ARW"),
+            makeCullingTestFile("X.ARW"),
+            makeCullingTestFile("Y.ARW")
+        ]
+
+        #expect(model.overrideWinner(for: matching, in: catalog)?.winnerFileName == "A.ARW")
+        #expect(model.overrideWinner(for: changed, in: catalog) == nil)
+    }
+
+    @Test
+    func `upsert preserves same winner for different member sets`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.upsertBurstWinnerOverride(
+            BurstWinnerOverride(winnerFileName: "A.ARW", memberFileNames: ["A.ARW", "B.ARW"]),
+            in: catalog,
+        )
+        model.upsertBurstWinnerOverride(
+            BurstWinnerOverride(winnerFileName: "A.ARW", memberFileNames: ["A.ARW", "C.ARW"]),
+            in: catalog,
+        )
+
+        #expect(model.burstWinnerOverrides(in: catalog).count == 2)
+        #expect(model.overrideWinner(
+            for: [makeCullingTestFile("A.ARW"), makeCullingTestFile("B.ARW")],
+            in: catalog,
+        )?.winnerFileName == "A.ARW")
+        #expect(model.overrideWinner(
+            for: [makeCullingTestFile("A.ARW"), makeCullingTestFile("C.ARW")],
+            in: catalog,
+        )?.winnerFileName == "A.ARW")
+    }
+
+    @Test
+    func `prune removes overrides with missing winner or member`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.upsertBurstWinnerOverride(
+            BurstWinnerOverride(winnerFileName: "A.ARW", memberFileNames: ["A.ARW", "B.ARW"]),
+            in: catalog,
+        )
+        model.upsertBurstWinnerOverride(
+            BurstWinnerOverride(winnerFileName: "C.ARW", memberFileNames: ["C.ARW", "D.ARW"]),
+            in: catalog,
+        )
+
+        model.pruneStaleBurstOverrides(validFileNames: ["A.ARW"], in: catalog)
+
+        #expect(model.burstWinnerOverrides(in: catalog).isEmpty)
+    }
+
+    @Test
+    func `FileRecord equality includes persisted sharpness metadata`() {
+        let lhs = FileRecord(
+            fileName: "one.ARW",
+            dateTagged: "now",
+            dateCopied: nil,
+            rating: 3,
+            sharpnessScore: 0.5,
+            saliencySubject: "bird",
+            sharpnessScoringSignature: nil,
+            sharpnessFileSize: 10,
+            sharpnessModificationDate: Date(timeIntervalSince1970: 1),
+        )
+        let rhs = FileRecord(
+            fileName: "one.ARW",
+            dateTagged: "now",
+            dateCopied: nil,
+            rating: 3,
+            sharpnessScore: 0.9,
+            saliencySubject: "bird",
+            sharpnessScoringSignature: nil,
+            sharpnessFileSize: 10,
+            sharpnessModificationDate: Date(timeIntervalSince1970: 1),
+        )
+
+        #expect(lhs != rhs)
+    }
+
+    @Test
     func `updateRating recreates records after reset leaves empty catalog`() async {
         let recorder = SavedFilesRecorder()
         let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
@@ -356,4 +455,122 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.ratingCache == ["two.ARW": 5])
         #expect(viewModel.taggedNamesCache == ["two.ARW"])
     }
+
+    @Test
+    func `burst signatures are order independent and catalog relative`() throws {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let first = FileItem(
+            url: catalog.appendingPathComponent("day1/duplicate.ARW"),
+            name: "duplicate.ARW",
+            size: 1,
+            dateModified: Date(timeIntervalSince1970: 0),
+            exifData: nil,
+            afFocusNormalized: nil,
+        )
+        let second = FileItem(
+            url: catalog.appendingPathComponent("day2/duplicate.ARW"),
+            name: "duplicate.ARW",
+            size: 1,
+            dateModified: Date(timeIntervalSince1970: 0),
+            exifData: nil,
+            afFocusNormalized: nil,
+        )
+
+        let lhs = try #require(BurstGroupSignature(files: [first, second], catalog: catalog))
+        let rhs = try #require(BurstGroupSignature(files: [second, first], catalog: catalog))
+
+        #expect(lhs == rhs)
+        #expect(lhs.memberKeys == ["day1/duplicate.ARW", "day2/duplicate.ARW"])
+    }
+
+    @Test
+    func `cached review state restores by signature after file id remap`() throws {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let oldA = makeCullingTestFile("A.ARW")
+        let oldB = makeCullingTestFile("B.ARW")
+        let currentA = makeCullingTestFile("A.ARW")
+        let currentB = makeCullingTestFile("B.ARW")
+        let signature = try #require(BurstGroupSignature(files: [oldA, oldB], catalog: catalog.url))
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [currentA, currentB]
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 9, fileIDs: [currentA.id, currentB.id])]
+
+        let snapshot = makeBurstSnapshot(
+            catalog: catalog.url,
+            files: [oldA, oldB],
+            groups: [BurstGroup(id: 1, fileIDs: [oldA.id, oldB.id])],
+            results: [],
+            reviewStateSnapshots: [BurstReviewStateSnapshot(signature: signature, state: .decisionApplied)],
+        )
+
+        let states = viewModel.cachedReviewStates(from: snapshot)
+
+        #expect(states == [9: .decisionApplied])
+    }
+
+    @Test
+    func `cached review state ignores matching group id with changed membership`() throws {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let oldA = makeCullingTestFile("A.ARW")
+        let oldB = makeCullingTestFile("B.ARW")
+        let currentA = makeCullingTestFile("A.ARW")
+        let currentC = makeCullingTestFile("C.ARW")
+        let signature = try #require(BurstGroupSignature(files: [oldA, oldB], catalog: catalog.url))
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [currentA, currentC]
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: 1, fileIDs: [currentA.id, currentC.id])]
+
+        let snapshot = makeBurstSnapshot(
+            catalog: catalog.url,
+            files: [oldA, oldB],
+            groups: [BurstGroup(id: 1, fileIDs: [oldA.id, oldB.id])],
+            results: [],
+            reviewStateSnapshots: [BurstReviewStateSnapshot(signature: signature, state: .decisionApplied)],
+        )
+
+        let states = viewModel.cachedReviewStates(from: snapshot)
+
+        #expect(states.isEmpty)
+    }
+}
+
+@MainActor
+private func makeBurstSnapshot(
+    catalog: URL,
+    files: [FileItem],
+    groups: [BurstGroup],
+    results: [BurstAnalysisResult],
+    reviewStateSnapshots: [BurstReviewStateSnapshot],
+) -> BurstAnalysisCacheSnapshot {
+    BurstAnalysisCacheSnapshot(
+        schemaVersion: BurstAnalysisCache.schemaVersion,
+        algorithmVersion: BurstGroupingConfig.algorithmVersion,
+        catalogPath: catalog.path,
+        thumbnailMaxPixelSize: 512,
+        sharpnessSignature: BurstSharpnessSignature(
+            photoType: .auto,
+            scoringQuality: .fast,
+            thumbnailMaxPixelSize: 512,
+            config: FocusDetectorConfig(),
+        ),
+        files: files.map {
+            BurstAnalysisCacheFile(
+                id: $0.id,
+                path: $0.url.path,
+                size: $0.size,
+                modificationDate: $0.dateModified,
+            )
+        },
+        embeddings: [:],
+        sharpnessScores: [:],
+        saliencyInfo: [:],
+        groups: groups,
+        boundaryEvidence: [],
+        results: results,
+        reviewStateSnapshots: reviewStateSnapshots,
+    )
 }
