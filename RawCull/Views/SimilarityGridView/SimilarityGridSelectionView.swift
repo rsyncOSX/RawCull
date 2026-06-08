@@ -144,23 +144,6 @@ struct SimilarityGridSelectionView: View {
                     .frame(minWidth: 84, alignment: .leading)
                 }
 
-                Picker("Review Queue", selection: $viewModel.burstReviewQueueFilter) {
-                    ForEach(BurstReviewQueueFilter.allCases) { filter in
-                        Text(filter.title).tag(filter)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.mini)
-                .frame(width: 270)
-                .disabled(viewModel.burstAnalysisResults.isEmpty)
-                .help("Filter burst groups by review state")
-
-                Text("\(reviewCounts.needsReview) review · \(reviewCounts.deferred) deferred · \(reviewCounts.reviewed) done")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 170, alignment: .leading)
-
                 Button {
                     viewModel.similarityModel.burstModeActive = false
                     viewModel.burstReviewQueueFilter = .all

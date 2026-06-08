@@ -38,6 +38,10 @@ struct ScanStatsSheetView: View {
                         catalogSummarySection
                         Divider()
                         sharpnessSummarySection
+                        if !viewModel.burstAnalysisResults.isEmpty {
+                            Divider()
+                            burstReviewSummarySection
+                        }
                     }
                 }
                 .padding(20)
@@ -160,6 +164,23 @@ struct ScanStatsSheetView: View {
                     minorInfoRow("Mean score", String(format: "%.1f", mean))
                     minorInfoRow("Range", String(format: "%.1f – %.1f", minScore, maxScore))
                 }
+            }
+            .font(.caption)
+        }
+    }
+
+    private var burstReviewSummarySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Burst Review")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
+                let counts = viewModel.burstReviewQueueCounts
+                minorInfoRow("Total groups", "\(viewModel.similarityModel.burstGroups.count)")
+                minorInfoRow("Needs review", "\(counts.needsReview)")
+                minorInfoRow("Deferred", "\(counts.deferred)")
+                minorInfoRow("Reviewed", "\(counts.reviewed)")
             }
             .font(.caption)
         }
