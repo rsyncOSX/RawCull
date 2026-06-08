@@ -20,17 +20,17 @@ This roadmap was checked against the updated source snapshot on 6 June 2026.
 
 | Area | Done now | Source evidence |
 |---|---|---|
-| RAW format coverage | Sony ARW and Nikon NEF are registered format families; JPEG/JPG files are also recognized by the app-side supported-file enum. | `sourcecode/RawParserKit/Sources/RawParserKit/RawFormatRegistry.swift`, `sourcecode/RawCull/Extensions/SupportedFileType.swift` |
-| Catalog scan | Scan extracts file metadata, EXIF, dimensions, size class, and inline focus location in one task-group pass. | `sourcecode/RawCull/Actors/ScanFiles.swift` |
-| Thumbnail and preview pipeline | Thumbnail extraction, disk cache, memory cache, full-size preview cache, sidecar-first zoom loading, and explicit embedded-JPEG export are implemented. | `sourcecode/RawCull/Actors/RequestThumbnail.swift`, `sourcecode/RawCull/Actors/DiskCacheManager.swift`, `sourcecode/RawCull/Actors/FullSizeJPGDiskCache.swift`, `sourcecode/RawCull/Model/Handlers/ZoomPreviewHandler.swift` |
-| Sharpness and focus evidence | Sharpness scoring, saliency, AF-point weighting, focus-mask rendering, scoring quality/source options, and persisted scoring signatures are present. | `sourcecode/RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringModel.swift`, `sourcecode/RawCull/Model/ViewModels/FocusandSharpness/FocusMaskEngine+Scoring.swift` |
-| Burst intelligence | Burst grouping, ranking, confidence, reasons, cautions, manual winner overrides, one-click keep/reject actions, undo, and cache persistence are implemented. | `sourcecode/RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`, `sourcecode/RawCullCore/Sources/RawCullCore/BurstGroupingEngine.swift`, `sourcecode/RawCullCore/Sources/RawCullCore/BurstRankingEngine.swift`, `sourcecode/RawCull/Actors/BurstAnalysisCache.swift` |
-| Similarity review | Vision feature-print indexing, similar-image ranking, burst sensitivity, and similarity grid mode are implemented. | `sourcecode/RawCull/Model/ViewModels/SimilarityScoringModel.swift`, `sourcecode/RawCull/Views/SimilarityGridView/SimilarityGridView.swift` |
-| Comparison workflow | Top candidates can be opened in comparison mode with a candidate inspector showing score components, focus evidence, camera settings, reasons, cautions, and rank rows. | `sourcecode/RawCull/Views/ComparisonGridView/ComparisonGridView.swift`, `sourcecode/RawCull/Views/ComparisonGridView/CandidateInspectorView.swift` |
-| Persistence | `savedfiles.json` stores catalog records, ratings, scoring fields, and burst winner overrides. | `sourcecode/RawCull/Model/JSON/SavedFiles.swift`, `sourcecode/RawCull/Model/ViewModels/CullingModel.swift` |
-| Copy/export | Rated file lists can be passed to the rsync copy workflow, and embedded JPEG previews can be extracted beside RAW files. | `sourcecode/RawCull/Views/CopyFiles/CopyFilesView.swift`, `sourcecode/RawCull/Model/ParametersRsync/ExecuteCopyFiles.swift`, `sourcecode/RawCull/Actors/ExtractAndSaveJPGs.swift` |
-| Diagnostics | Memory diagnostics, raw-file parser diagnostics, scan stats, and histogram calculation exist. | `sourcecode/RawCull/Views/Diagnostics/MemoryDiagnosticsView.swift`, `sourcecode/RawCull/Model/Diagnostics/RawFileDiagnostics.swift`, `sourcecode/RawCull/Views/GridView/ScanStatsSheetView.swift`, `sourcecode/RawCull/Views/Histogram/HistogramView.swift` |
-| Package split | Pure models, burst logic, focus parsing, histogram calculation, and raw parser code are extracted into `RawCullCore` and `RawParserKit` with tests. | `sourcecode/RawCullCore/Tests/RawCullCoreTests/`, `sourcecode/RawParserKit/Tests/RawParserKitTests/` |
+| RAW format coverage | Sony ARW and Nikon NEF are registered format families; JPEG/JPG files are also recognized by the app-side supported-file enum. | `RawParserKit/Sources/RawParserKit/RawFormatRegistry.swift`, `RawCull/Extensions/SupportedFileType.swift` |
+| Catalog scan | Scan extracts file metadata, EXIF, dimensions, size class, and inline focus location in one task-group pass. | `RawCull/Actors/ScanFiles.swift` |
+| Thumbnail and preview pipeline | Thumbnail extraction, disk cache, memory cache, full-size preview cache, sidecar-first zoom loading, and explicit embedded-JPEG export are implemented. | `RawCull/Actors/RequestThumbnail.swift`, `RawCull/Actors/DiskCacheManager.swift`, `RawCull/Actors/FullSizeJPGDiskCache.swift`, `RawCull/Model/Handlers/ZoomPreviewHandler.swift` |
+| Sharpness and focus evidence | Sharpness scoring, saliency, AF-point weighting, focus-mask rendering, scoring quality/source options, and persisted scoring signatures are present. | `RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringModel.swift`, `RawCull/Model/ViewModels/FocusandSharpness/FocusMaskEngine+Scoring.swift` |
+| Burst intelligence | Burst grouping, ranking, confidence, reasons, cautions, manual winner overrides, one-click keep/reject actions, undo, and cache persistence are implemented. | `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`, `RawCullCore/Sources/RawCullCore/BurstGroupingEngine.swift`, `RawCullCore/Sources/RawCullCore/BurstRankingEngine.swift`, `RawCull/Actors/BurstAnalysisCache.swift` |
+| Similarity review | Vision feature-print indexing, similar-image ranking, burst sensitivity, and similarity grid mode are implemented. | `RawCull/Model/ViewModels/SimilarityScoringModel.swift`, `RawCull/Views/SimilarityGridView/SimilarityGridView.swift` |
+| Comparison workflow | Top candidates can be opened in comparison mode with a candidate inspector showing score components, focus evidence, camera settings, reasons, cautions, and rank rows. | `RawCull/Views/ComparisonGridView/ComparisonGridView.swift`, `RawCull/Views/ComparisonGridView/CandidateInspectorView.swift` |
+| Persistence | `savedfiles.json` stores catalog records, ratings, scoring fields, and burst winner overrides. | `RawCull/Model/JSON/SavedFiles.swift`, `RawCull/Model/ViewModels/CullingModel.swift` |
+| Copy/export | Rated file lists can be passed to the rsync copy workflow, and embedded JPEG previews can be extracted beside RAW files. | `RawCull/Views/CopyFiles/CopyFilesView.swift`, `RawCull/Model/ParametersRsync/ExecuteCopyFiles.swift`, `RawCull/Actors/ExtractAndSaveJPGs.swift` |
+| Diagnostics | Memory diagnostics, raw-file parser diagnostics, scan stats, and histogram calculation exist. | `RawCull/Views/Diagnostics/MemoryDiagnosticsView.swift`, `RawCull/Model/Diagnostics/RawFileDiagnostics.swift`, `RawCull/Views/GridView/ScanStatsSheetView.swift`, `RawCull/Views/Histogram/HistogramView.swift` |
+| Package split | Pure models, burst logic, focus parsing, histogram calculation, and raw parser code are extracted into `RawCullCore` and `RawParserKit` with tests. | `RawCullCore/Tests/RawCullCoreTests/`, `RawParserKit/Tests/RawParserKitTests/` |
 
 ## Product Direction
 
@@ -747,14 +747,3 @@ The remaining review notes are now part of the July review queue plan itself:
 - The queue must add explicit state support for `needsReview`, `reviewed`, and `deferred`.
 - Deferred items are handled through an explicit queue filter, not as a default unresolved sort priority.
 - Immediate undo restores prior ratings and prior review state in memory; it does not need signature rematching during the same session.
-
-### Rest of Document
-
-**11. `sourcecode/` prefix in "Verified Current State" table**
-
-The source paths in the table (e.g., `sourcecode/RawCull/Actors/ScanFiles.swift`) use a
-`sourcecode/` prefix that matches the TechDocRawcull website mirror
-(`TechDocRawcull/sourcecode/...`), not the Xcode project layout (`RawCull/Actors/ScanFiles.swift`).
-A reader trying to open the cited files directly from the Xcode project will not find them at the
-listed paths. Consider adding a footnote: "Source paths are relative to the TechDocRawcull content
-mirror; in the Xcode project, omit the `sourcecode/` prefix."
