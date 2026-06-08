@@ -230,10 +230,10 @@ Acceptance criteria:
 
 ## Implementation Order
 
-1. Fix stable identity and persistence issues before adding a review queue.
-2. Build the review queue from existing confidence and caution data.
-3. Add decision ledger persistence after the queue rules settle.
-4. Add XMP and manifest export using the ledger and current ratings.
+1. Build the review queue from existing confidence and caution data, using the completed stable-signature foundation.
+2. Add decision ledger persistence after the queue rules settle.
+3. Add XMP and manifest export using the ledger and current ratings.
+4. Add rsync/copy hardening as part of the editing-handoff phase.
 5. Add technical-risk warnings and feed them into review selection.
 6. Add local preference profiles once the recommendation inputs are stable.
 7. Research the next RAW format only after the workflow features are shippable.
@@ -249,299 +249,33 @@ Avoid these until the next phase is complete:
 
 ## Recommended Next Task
 
-Start with the June hardening work:
+Start the July review queue MVP.
 
-1. Introduce a stable burst group signature based on catalog-relative member names.
-2. Store review state and manual winner overrides against that signature.
-3. Add tests for cache remapping, regrouping, and manual override membership.
-4. Then build the `Needs Review` queue using the existing confidence, reasons, and cautions.
+June hardening has established stable burst identity, conservative manual override matching, signature-keyed cache review state, saved-settings normalization, and safer `FileRecord` equality. The next task is to turn that stable foundation into a visible `Needs Review` workflow for low-confidence, caution-bearing, deferred, or manually conflicted burst decisions.
 
-This is the best first step because it strengthens RawCull's most valuable feature: confident, explainable burst culling.
+## June Hardening Completed
 
-## June Hardening Work Details
+The June stabilization pass is complete and should no longer be treated as active roadmap work.
 
-This task is the stabilization pass that should happen before adding the `Needs Review` queue or a decision ledger. The current burst workflow already ranks candidates and tracks manual choices, but some of that state is still attached to transient runtime identities. The June work makes those decisions survive cache reloads, regrouping, and settings reloads without being applied to the wrong files.
+Completed outcomes:
 
-### Goal
+- Burst-level review state is keyed by stable group membership instead of transient numeric group ids.
+- Cached review state is restored only when the current group signature matches the saved signature.
+- Manual winner overrides require exact canonical group membership; winner presence alone is not enough.
+- Legacy manual overrides using `memberFileNames` remain readable under exact membership matching.
+- Saved settings are normalized after decode and before save/snapshot use.
+- `FileRecord` equality now accounts for persisted sharpness and saliency metadata instead of comparing only rating fields.
+- The relevant Swift Testing coverage was added for override matching, cache remapping, settings normalization, and `FileRecord` equality.
 
-Make RawCull's existing culling state stable enough that future review and ledger features can rely on it.
+Remaining work moved forward:
 
-The main outcome is that a burst decision is attached to the burst's actual member files, not to whatever numeric group id happened to be assigned in the latest analysis pass. A secondary outcome is to clean up nearby persistence assumptions that could otherwise become harder to fix once more state is built on top.
-
-### Primary Problem
-
-Burst groups currently have two identities:
-
-- A transient `Int` group id produced by the grouping pass.
-- The actual set of member files that the photographer sees and acts on.
-
-The transient id is useful for in-memory lookup, but it is not safe as a persistence key. If a cache is loaded, file IDs are remapped, grouping sensitivity changes, files are added or removed, or group ordering changes, the same `Int` can refer to a different member set. That can make cached review state or "decision applied" state drift onto the wrong group.
-
-Manual winner overrides have a related problem. `BurstWinnerOverride` stores `winnerFileName` and `memberFileNames`, but lookup currently accepts the last override whose winner appears in the current group. It does not require the saved member set to match the current group. If the winning file later belongs to a different group, RawCull can treat an old manual winner as valid for a different burst.
-
-### Required Scope
-
-1. Add a stable burst group signature.
-
-   The signature should be derived from catalog-relative member names or paths, sorted into a deterministic order. It should not use `FileItem.id`, scan order, or `BurstGroup.id`. Prefer catalog-relative paths if nested catalogs or duplicate file names are possible; otherwise document why file names are sufficient for the current catalog model. This signature is the persistence identity for burst-level state; the transient `Int` group id remains session/UI-only.
-
-2. Use the signature for persisted/reused burst state.
-
-   Review state such as `.decisionApplied` and `.manualWinnerOverride` should be stored and restored by stable signature. Runtime dictionaries may still use `Int` group id for view performance, but cache load/remap should only transfer persisted review state after the current group's signature matches the saved signature.
-
-3. Tighten manual winner override matching.
-
-   `CullingModel.overrideWinner(for:in:)` should require the saved member set to match the current group member set before returning an override. The winner must still be present, but winner presence alone is not enough. If a relaxed overlap rule is ever needed, it should be explicit and tested; the default June hardening behavior should be exact membership.
-
-4. Preserve backward compatibility.
-
-   Existing `savedfiles.json` files may contain `BurstWinnerOverride` values without a new signature field. Those records can still be interpreted through their saved `memberFileNames`, but they should be upgraded or matched using the same canonical membership logic. Existing burst analysis cache files should either be invalidated by schema version or decoded with a clear migration path.
-
-5. Keep one-click culling conservative.
-
-   `keepBestInGroup(from:)` and `keepTopTwoInGroup(from:)` should continue to require `canApplyOneClickCulling`. This task should not broaden automation rules; it only makes the state identity safer.
-
-### Secondary Hardening In Same June Batch
-
-These items are smaller than burst identity, but they are part of the same "hardening before new behavior" milestone:
-
-- Add a single saved-settings normalization path used after decode and before save. Clamp cache sizes, thumbnail sizes, scoring weights, focus-mask parameters, and sharpening values to the app's supported ranges before assigning them to `SettingsViewModel`.
-- Fix the latent `FileRecord` equality/hash risk. Either include all persisted fields, including sharpness and saliency metadata, in `==`/`hash(into:)`, or remove `Hashable` if records should never be used as set/diff identity. The current behavior must not allow two records with different persisted sharpness metadata to compare equal silently.
-- Defer rsync/copy hardening to a later copy/export pass. Do not include empty-list handling, include-pattern rewriting, or argument placeholder trimming in this June-focused batch.
-
-### Main Code Surfaces
-
-- `RawCull/Model/ViewModels/BurstAnalysisModels.swift`: shared burst support models such as `BurstGroupSignature`, plus any signature fields added to persisted burst-related records.
-- `RawCull/Model/ViewModels/CullingModel.swift`: `BurstWinnerOverride` persistence, lookup, pruning, and membership matching.
-- `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`: in-memory review state, manual override application, cached snapshot remapping, one-click actions, undo state, and cache save/load handoff.
-- `RawCull/Actors/BurstAnalysisCache.swift`: cached snapshot schema, review-state persistence, and schema-version invalidation or migration.
-- `RawCull/Model/JSON/SavedFiles.swift`: persisted override and `FileRecord` equality/hash decisions.
-- `RawCull/Model/ViewModels/SettingsViewModel.swift`: saved settings decode/save normalization.
-
-### Suggested Implementation Shape
-
-- Introduce a small shared `Codable`, `Hashable`, `Sendable` value type for canonical burst membership, for example `BurstGroupSignature`.
-- Build signatures from current `groupFiles` at action time and from cached snapshot file metadata at cache load time.
-- Store signatures in cache snapshots beside review states, or key review states by signature directly.
-- Keep the UI-facing `burstReviewStates` dictionary keyed by `groupID` only as a derived runtime map.
-- On cache remap, rebuild runtime review states by matching saved signatures to the current groups. Persisted review states must never be restored by numeric `groupID` alone.
-- On manual override lookup, compare canonical member sets before accepting a saved override. Winner presence alone is invalid.
-- Prune stale overrides only when the winner or member files no longer exist in the catalog; do not silently reattach them to a new group.
-- Bump `BurstAnalysisCache.schemaVersion` if the serialized cache shape changes.
-
-### Concrete Code Change Plan
-
-The burst-identity part can be implemented as a contained model-layer change. The important distinction is:
-
-- `groupID`: current-session lookup key for views, ranking results, and in-memory dictionaries.
-- `BurstGroupSignature`: stable persisted key for decisions that should survive regrouping, cache reload, and app restart.
-
-Suggested code plan:
-
-1. Add a canonical signature helper.
-
-   Add a small `Codable`, `Hashable`, `Sendable` value in `RawCull/Model/ViewModels/BurstAnalysisModels.swift` near the burst-analysis presentation/support models:
-
-   ```swift
-   struct BurstGroupSignature: Codable, Hashable, Sendable {
-       var memberKeys: [String]
-   }
-   ```
-
-   The initializer should sort canonical member keys so `A, B, C` and `C, A, B` produce the same signature. The preferred key is a catalog-relative path, because it can distinguish duplicate names in nested folders. If RawCull only supports flat catalogs today, a filename-based signature is acceptable for the first implementation, but the code should be easy to switch to relative paths later.
-
-2. Add signature builders in `RawCullViewModel+BurstGrouping.swift`.
-
-   Add helpers along these lines:
-
-   ```swift
-   private func burstSignature(for groupFiles: [FileItem]) -> BurstGroupSignature
-   private func burstSignature(for group: BurstGroup, filesByID: [UUID: FileItem]) -> BurstGroupSignature?
-   ```
-
-   These helpers should be the only place that decides how a group becomes a stable identity. That keeps later duplicate-name or nested-folder changes local.
-
-3. Keep runtime review state by `groupID`, but persist by signature.
-
-   `RawCullViewModel.burstReviewStates` can stay as `[Int: BurstReviewState]` for current UI/ranking use. The cache should gain a signature-keyed representation, for example:
-
-   ```swift
-   var reviewStatesBySignature: [BurstGroupSignature: BurstReviewState]
-   ```
-
-   Then `saveBurstAnalysisCache(catalog:files:)` should derive `reviewStatesBySignature` from the current `similarityModel.burstGroups`, not simply encode `[Int: BurstReviewState]`.
-
-4. Rebuild runtime review state after cache load/remap.
-
-   `applyCachedBurstAnalysis(_:)` should not do this anymore:
-
-   ```swift
-   burstReviewStates = snapshot.reviewStates
-   ```
-
-   Instead, after cached groups are remapped to the current `FileItem.id` values, build each current group's signature and look it up in `snapshot.reviewStatesBySignature`. Only matching signatures should become entries in `burstReviewStates[group.id]`.
-
-5. Make `remapCachedSnapshot(_:to:)` stop trusting review-state group ids.
-
-   This method already remaps file IDs for groups, boundary evidence, candidates, and results. The hardening change is that it should either:
-
-   - drop old `reviewStates` entirely and let `applyCachedBurstAnalysis(_:)` rebuild them by signature, or
-   - return remapped runtime review states only after verifying each group's signature.
-
-   The first option is cleaner because it keeps persistence identity and runtime identity separate.
-
-6. Add the signature to manual winner overrides or derive it from `memberFileNames`.
-
-   `BurstWinnerOverride` already stores:
-
-   ```swift
-   winnerFileName
-   memberFileNames
-   ```
-
-   The minimum hardening change is to update `CullingModel.overrideWinner(for:in:)` so it compares the full canonical member set:
-
-   ```swift
-   let groupNames = Set(groupFiles.map(\.name))
-   return burstWinnerOverrides(in: catalog).last {
-       Set($0.memberFileNames) == groupNames &&
-       groupNames.contains($0.winnerFileName)
-   }
-   ```
-
-   A stronger version adds `groupSignature` to `BurstWinnerOverride` and populates it when saving new overrides. Existing saved overrides can still be matched from `memberFileNames` by applying the same canonical membership logic.
-
-7. Update `setManualBurstWinner(_:in:)`.
-
-   When saving a manual winner, continue saving the winner and member names, and also save the stable signature if the model gains a signature field. The saved override should represent "this winner for exactly this burst membership", not "this winner wherever it appears later."
-
-8. Update `applyManualWinnerOverrides(files:)`.
-
-   This method loops through current burst groups and applies overrides. After hardening, it should only mark `.manualWinnerOverride` when the override signature or canonical member set matches the current group. It should not set:
-
-   ```swift
-   burstReviewStates[group.id] = .manualWinnerOverride
-   ```
-
-   unless that exact membership check succeeds.
-
-9. Update undo only if needed.
-
-   `BurstUndoEntry` currently stores `groupID` and previous ratings. That is acceptable for an immediate in-session undo, because it is not persisted. If undo state ever becomes persisted or survives regrouping, it should also carry a `BurstGroupSignature`.
-
-10. Bump or migrate the burst cache schema.
-
-    `BurstAnalysisCache.schemaVersion` should increase if the JSON shape changes. Existing caches that only contain `[Int: BurstReviewState]` should either be ignored or decoded as legacy data without applying review state. Recomputing burst analysis is safer than restoring stale decisions.
-
-11. Add focused Swift Testing coverage.
-
-    Put pure persistence and override tests near `CullingModelTests`. Put cache/remap tests near view-model or burst-analysis tests, using isolated temporary catalogs and synthetic `FileItem` values. The tests should prove that changing group membership invalidates burst-level state while exact membership preserves it.
-
-### What Can Go Wrong If This Is Not Implemented
-
-The failure mode is usually not a crash. The risk is worse for a culling app: RawCull may look confident while using stale burst identity.
-
-Concrete scenarios:
-
-- The identity/similarity slider is changed.
-
-  Before the slider change, RawCull may have:
-
-  ```text
-  Group 1: A.ARW, B.ARW, C.ARW
-  Group 2: D.ARW, E.ARW
-  ```
-
-  After the slider change, RawCull may regroup the same files:
-
-  ```text
-  Group 1: A.ARW, B.ARW
-  Group 2: C.ARW, D.ARW, E.ARW
-  ```
-
-  If review state is tied only to `Group 1`, RawCull can treat the new `A, B` group as if the old `A, B, C` decision still applies. With stable signatures, the old signature `A+B+C` does not match the new signature `A+B`, so the group is treated as needing fresh evaluation.
-
-- A manual winner follows the file instead of the burst.
-
-  A photographer manually chooses `A.ARW` as winner for:
-
-  ```text
-  A.ARW, B.ARW, C.ARW
-  ```
-
-  Later, after regrouping, `A.ARW` appears in:
-
-  ```text
-  A.ARW, X.ARW, Y.ARW
-  ```
-
-  Without exact membership matching, RawCull can say "A.ARW was manually chosen before" and apply that choice to the new group. That is wrong because the user never chose `A.ARW` against `X.ARW` and `Y.ARW`.
-
-- A cached "decision applied" state can be restored to the wrong group.
-
-  If cached group ids are reused after file IDs are remapped, RawCull can show a group as already handled even though the current member files are different. A future review queue might then skip that group entirely.
-
-- One-click culling can act on stale confidence.
-
-  The ranking engine may have marked one old group as safe for one-click culling. If the group membership changes but the old state is reused, RawCull may allow keep/reject actions based on evidence from a different set of frames.
-
-- The future decision ledger can record the wrong history.
-
-  Once a ledger is added, a stale group identity problem becomes harder to unwind. The app could record that RawCull recommended, accepted, or rejected a group, while the persisted identity points to files that were not actually part of the user's original decision.
-
-- The future `Needs Review` queue can miss important work.
-
-  If `.decisionApplied`, `.manualWinnerOverride`, `.reviewed`, or `.deferred` states are restored by numeric id, the review queue may hide a newly formed group because an unrelated old group had already been handled.
-
-- User trust can be damaged without an obvious error message.
-
-  The dangerous part is that the UI can still look normal. The wrong badge, wrong manual winner, or wrong "already applied" state may appear plausible unless the photographer notices the specific membership change.
-
-Stable signatures make RawCull conservative: when a group changes, the old burst-level decision does not automatically follow it. File-level ratings can remain, but group-level decisions must match the actual member files.
-
-### Test Coverage
-
-Use Swift Testing tests with isolated temporary paths and no production settings/cache state.
-
-Required burst tests:
-
-- Cached review state is restored to the matching member set after file IDs are remapped.
-- Cached review state is not restored when the same numeric group id now has different members.
-- Regrouping with changed membership does not apply `.decisionApplied` to the wrong group.
-- Manual winner override returns only when `memberFileNames` match the current group membership.
-- Manual winner override is ignored when the winner appears in a different current group.
-- Legacy overrides using only `memberFileNames` still match exact membership.
-
-Required secondary tests:
-
-- Decoding malformed or extreme settings produces normalized values inside supported ranges.
-- Saving settings writes normalized values, not out-of-range values.
-- `FileRecord` equality/hash behavior reflects the documented decision.
-
-### Acceptance Criteria
-
-- Burst review state cannot be transferred solely by numeric group id.
-- Manual winner overrides require matching group membership.
-- Cache reload and cache remapping preserve decisions only for the same burst members.
-- Existing saved manual overrides remain readable.
-- One-click culling behavior remains conservative and confidence-gated.
-- Settings loaded from disk cannot put scoring, focus-mask, thumbnail, or cache fields outside supported ranges.
-- Tests cover the identity, migration, settings, and `FileRecord` edge cases above.
-
-### Out Of Scope For This Task
-
-- Building the `Needs Review` queue UI.
-- Adding the decision ledger.
-- Changing burst ranking weights or confidence thresholds.
-- Adding XMP sidecars or export manifests.
-- Changing rsync copy setup, include-list generation, or argument construction.
-- Adding new RAW format support.
-
-Those features should follow after this hardening pass, because they will depend on stable group identity and trustworthy persisted decisions.
+- Build the July `Needs Review` queue on top of the stable burst signature and review-state cache.
+- Add the July-only review states and queue filters needed for `reviewed` and `deferred` workflows.
+- Keep rsync/copy hardening separate for the later editing-handoff/copy-export phase.
 
 ## July Review Queue MVP Details
 
-Prerequisite: do not begin July review queue implementation until the June acceptance criteria pass and the stable burst signature type is available to the review queue model. The queue's burst-item identity depends directly on the June hardening work.
+Prerequisite: June hardening is complete. The July queue should use the existing stable burst signature and signature-keyed review-state cache as its burst-item identity foundation.
 
 The July milestone should turn RawCull's existing evidence into a focused review workflow. After the June hardening pass, the app should know which burst decisions are safely attached to stable member sets. The next step is to use that stability to create a separate `Needs Review` surface for images and burst groups that should not be handled by blind grid browsing or automatic one-click culling.
 
@@ -622,17 +356,15 @@ The review queue should collect those cases into a small, prioritized list and m
 
    These rules should be conservative. It is better for the MVP queue to include a few extra ambiguous groups than to hide a decision that deserves attention.
 
-4. Add review states.
+4. Add review states and queue filters.
 
-   Use `BurstReviewState` if it already covers the needed states. If it does not, extend carefully rather than adding a parallel state model. The MVP needs at least:
+   The June work covers `.decisionApplied` and `.manualWinnerOverride`, but the queue still needs explicit states or an app-side review-state wrapper for:
 
    - `needsReview`: unresolved and visible in the queue.
    - `reviewed`: user inspected and intentionally closed the item without applying an automated decision.
    - `deferred`: user chose to leave the item for later.
-   - `decisionApplied`: user accepted or applied an action.
-   - `manualWinnerOverride`: user manually selected a winner.
 
-   State should persist by stable group signature. Runtime lookup can still map back to `group.id` for view performance.
+   State should persist by stable group signature. Runtime lookup can still map back to `group.id` for view performance. Keep deferred visibility as a queue filter, not as a default low-priority unresolved item.
 
 5. Add quick actions.
 
@@ -852,7 +584,12 @@ enum ReviewQueuePriority: Int, Codable, Sendable {
     case lowConfidence = 1
     case missingEvidence = 2
     case mediumConfidence = 3
-    case deferred = 4
+}
+
+enum ReviewQueueFilter: Codable, Sendable {
+    case unresolved
+    case deferred
+    case reviewed
 }
 ```
 
@@ -862,7 +599,7 @@ This can live in the app target at first. If the queue rules become pure and bro
 
 - `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`: current burst groups, review states, one-click actions, manual winner overrides, and cache interactions.
 - `RawCullCore/Sources/RawCullCore/BurstRankingEngine.swift`: confidence, score gaps, reasons, cautions, and recommendation evidence.
-- `RawCullCore/Sources/RawCullCore/BurstGroupingEngine.swift`: group membership and stable group signatures after the June work.
+- `RawCull/Model/ViewModels/BurstAnalysisModels.swift`: app-side stable burst signatures and review-state support models.
 - `RawCull/Views/ComparisonGridView/ComparisonGridView.swift`: candidate comparison UI that can be reused or opened from a review item.
 - `RawCull/Views/ComparisonGridView/CandidateInspectorView.swift`: evidence display for reasons, cautions, focus data, and score components.
 - `RawCull/Model/ViewModels/SimilarityScoringModel.swift`: current burst group source and similarity analysis state.
@@ -872,9 +609,9 @@ This can live in the app target at first. If the queue rules become pure and bro
 
 ### Concrete Code Change Plan
 
-1. Define queue item models.
+1. Define review state and queue item models.
 
-   Add lightweight models for queue item id, kind, priority, reasons, and recommended action. Keep the models `Sendable` where practical. Use stable signatures for burst identity.
+   Add explicit state support for `needsReview`, `reviewed`, and `deferred`, then add lightweight models for queue item id, kind, priority, filter, reasons, and recommended action. Keep the models `Sendable` where practical. Use stable signatures for burst identity.
 
 2. Add queue derivation.
 
@@ -898,7 +635,7 @@ This can live in the app target at first. If the queue rules become pure and bro
 
 7. Preserve undo behavior.
 
-   Existing immediate undo for burst actions should remain available. If an action changes ratings and review state, undo should restore both enough to avoid a stale queue item.
+   Existing immediate undo for burst actions should remain available. Because undo is in-session, it can restore prior ratings and prior review state from the undo entry without re-verifying group membership.
 
 8. Persist review states.
 
@@ -989,104 +726,27 @@ Those features should follow after the queue proves that RawCull can separate no
 
 The following issues and enhancements were identified by cross-checking this document against the actual source snapshot on 7 June 2026. Items are grouped by section.
 
-### June Hardening — Confirmed Bugs
+### June Hardening — Resolved
 
-**1. `overrideWinner` only checks winner presence, not full member set (confirmed)**
+The June hardening review items have been incorporated and implemented. The original confirmed bugs around manual winner matching and numeric review-state cache restoration are no longer active roadmap items.
 
-`CullingModel.overrideWinner(for:in:)` uses `.last { groupNames.contains($0.winnerFileName) }`.
-This is confirmed in source. The fix described in step 6 of the June code plan is correct.
+Resolved outcomes:
 
-**2. Direct `burstReviewStates = snapshot.reviewStates` assignment (confirmed)**
+- Manual winner overrides now require exact canonical burst membership instead of winner-file presence alone.
+- Cached burst review state is restored by stable burst signature, not by transient numeric group id.
+- `BurstGroupSignature` lives with the app-side burst analysis support models.
+- `FileRecord` equality no longer ignores persisted sharpness and saliency metadata.
+- Saved settings are normalized on decode and before save/snapshot use.
+- Rsync/copy hardening remains intentionally deferred to the later copy/export work and is not part of the completed June batch.
 
-`RawCullViewModel+BurstGrouping.swift` line 328 directly assigns `snapshot.reviewStates` without
-signature verification. This matches the bug described in the June section exactly.
+### July Review Queue — Folded Into Plan
 
-### June Hardening — Document Gaps
+The remaining review notes are now part of the July review queue plan itself:
 
-**3. Burst winner and signature model surface is not only `CullingModel`**
-
-The "Main Code Surfaces" list originally omitted `RawCull/Model/ViewModels/BurstAnalysisModels.swift`.
-Adding `BurstGroupSignature` or any signature-bearing burst support model requires changes near the
-existing burst-analysis models, not only in `CullingModel`. The June code surfaces list now includes
-that file.
-
-**4. `FileRecord` equality/hash is a latent data-loss bug, not just an open decision**
-
-`FileRecord.==` compares only `fileName`, `dateTagged`, `dateCopied`, and `rating`. The five
-sharpness and saliency fields (`sharpnessScore`, `saliencySubject`, `sharpnessScoringSignature`,
-`sharpnessFileSize`, `sharpnessModificationDate`) are excluded. Two records with the same name and
-rating but different sharpness data are considered equal. If `FileRecord` is placed in a `Set` or
-used as a `Dictionary` key, the second record is silently discarded.
-
-The document says "decide the intended equality/hash behavior." The phrasing understates the risk.
-The secondary hardening item should be prescriptive: either include all persisted fields in `==`, or
-remove `Hashable` to prevent accidental Set/Dict misuse.
-
-**5. `BurstGroupSignature` target file is now specified**
-
-The June plan previously said the type should live "near the burst-analysis models" without
-specifying a concrete file. This matters:
-
-- Cache snapshots, manual winner overrides, and the July review queue will all need the same
-  signature type.
-- Keeping the type near the existing burst-analysis support models avoids duplicate app-local
-  signature logic.
-
-The June plan now specifies `RawCull/Model/ViewModels/BurstAnalysisModels.swift` as the target file
-for `BurstGroupSignature`.
-
-**6. Rsync hardening is deferred out of the June batch**
-
-The secondary hardening item previously mentioned replacing fragile source/destination placeholder
-trimming in `ArgumentsSynchronize.argumentsSynchronize(dryRun:)`. That work is now intentionally
-deferred to a later copy/export hardening pass, along with rsync empty-list handling and include-list
-rewriting. The June batch should not touch `ArgumentsSynchronize.swift` or `ExecuteCopyFiles.swift`.
-
-### July Review Queue — Blocking Dependency
-
-**7. `BurstReviewState` is missing three required cases — this is a `RawCullCore` change**
-
-`BurstReviewState` (in `RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift`) currently has
-only three cases: `.none`, `.manualWinnerOverride`, `.decisionApplied`. The July queue requires
-`.needsReview`, `.reviewed`, and `.deferred`.
-
-The July section says "Use `BurstReviewState` if it already covers the needed states." It does not.
-Adding three cases to a `RawCullCore` enum is a package API change and must be done before the
-review queue state model can be wired. This should appear as step 1 in the July concrete plan, and
-`RawCullCore/Sources/RawCullCore/BurstAnalysisModels.swift` should be added to the July "Main Code
-Surfaces" list.
-
-### July Review Queue — Document Gaps
-
-**8. No explicit gate requiring June completion before July begins**
-
-The July section says "the July work should build on the June stable-signature work." However,
-`ReviewQueueItemKind.burstGroup(BurstGroupSignature)` directly depends on `BurstGroupSignature`
-existing, which is a June deliverable. Add a clear prerequisite note at the start of the July
-section: do not begin July work until June acceptance criteria pass and the stable signature type is
-available in `RawCullCore`.
-
-**9. `ReviewQueuePriority.deferred` conflicts with the described queue filter model**
-
-`ReviewQueuePriority` has `case deferred = 4`. However, the document states that deferred items are
-excluded from the default unresolved queue and only visible through a separate deferred filter
-(Example 4, toolbar count split). Having `deferred` as a raw-value priority case implies the queue
-builder can produce it as a low-priority unresolved item, which conflicts with the "excluded unless
-deferred filter active" behavior.
-
-Consider either renaming the concept (e.g., a separate `ReviewQueueFilter` that includes `.deferred`
-as a filter mode, not a sort priority), or adding a clear doc comment that `deferred` is only used
-when the deferred filter is explicitly active and is never returned as part of the default unresolved
-priority ordering.
-
-**10. Undo step is underspecified**
-
-Step 7 in the July concrete plan says "undo should restore both enough to avoid a stale queue item."
-The word "enough" is vague. Since undo is always in-session (no catalog reload between the action
-and undo), undo can safely restore the prior `BurstReviewState` from `BurstUndoEntry` without
-needing signature matching. The step should specify this: undo restores the prior review state and
-prior ratings in memory; it does not need to re-verify group membership because regrouping cannot
-happen mid-session while undo is active.
+- July starts from the completed June stable-signature foundation.
+- The queue must add explicit state support for `needsReview`, `reviewed`, and `deferred`.
+- Deferred items are handled through an explicit queue filter, not as a default unresolved sort priority.
+- Immediate undo restores prior ratings and prior review state in memory; it does not need signature rematching during the same session.
 
 ### Rest of Document
 
