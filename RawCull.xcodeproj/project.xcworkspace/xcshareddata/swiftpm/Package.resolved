@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawCullCore.git",
       "state" : {
-        "revision" : "225504157ac5493f64f9d3516cc78a8937c22646",
-        "version" : "1.0.0"
+        "revision" : "91138b766390dd60c537c4f3846f79bb83dead9c",
+        "version" : "1.1.0"
       }
     },
     {
