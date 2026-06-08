@@ -22,8 +22,7 @@ struct RatedPhotoGridView: View {
                     ForEach(ratedFiles, id: \.id) { file in
                         RatedImageItemView(
                             viewModel: viewModel,
-                            photo: file.name,
-                            photoURL: file.url,
+                            file: file,
                             catalogURL: catalogURL,
                             isSelected: viewModel.selectedFileID == file.id,
                             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),

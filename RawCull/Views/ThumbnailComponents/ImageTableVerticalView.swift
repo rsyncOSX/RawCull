@@ -31,7 +31,11 @@ struct ImageTableVerticalView: View {
                                         viewModel: viewModel,
                                         file: file,
                                         isHovered: hoveredFileID == file.id,
+                                        isSelected: viewModel.selectedFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
+                                        ratingValue: ratingValue(for: file),
+                                        ratingDisplay: ratingDisplay(for: file),
+                                        ratingColor: ratingColor(for: file),
                                         onSelect: {
                                             viewModel.selectFile(file)
                                         },
@@ -117,6 +121,28 @@ struct ImageTableVerticalView: View {
         guard !viewModel.sharpnessModel.sortBySharpness else { return filteredFiles }
         return filteredFiles.sorted { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private func ratingValue(for file: FileItem) -> Int {
+        viewModel.getRating(for: file)
+    }
+
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: ratingValue(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
+    }
+
+    private func ratingColor(for file: FileItem) -> Color? {
+        switch ratingValue(for: file) {
+        case -1: .red
+        case 2: .yellow
+        case 3: .green
+        case 4: .blue
+        case 5: .purple
+        default: nil
         }
     }
 

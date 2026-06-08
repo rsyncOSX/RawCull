@@ -5,7 +5,6 @@
 //  Created by Thomas Evensen on 21/01/2026.
 //
 
-import OSLog
 import SwiftUI
 
 struct RatedImageItemView: View {
@@ -15,8 +14,7 @@ struct RatedImageItemView: View {
 
     @Bindable var viewModel: RawCullViewModel
 
-    let photo: String
-    let photoURL: URL? // file URL — used only for thumbnail display
+    let file: FileItem
     let catalogURL: URL? // catalog (directory) URL — used for model lookups
     var isSelected: Bool = false
     var isMultiSelected: Bool = false
@@ -27,26 +25,16 @@ struct RatedImageItemView: View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading) {
                 ZStack {
-                    if let photoURL {
-                        ThumbnailImageView(
-                            url: photoURL,
-                            targetSize: settings.thumbnailSizeGrid,
-                            style: .list,
-                        )
-                        .frame(
-                            width: CGFloat(settings.thumbnailSizeGrid),
-                            height: CGFloat(settings.thumbnailSizeGrid),
-                        )
-                        .clipped()
-                    } else {
-                        ZStack {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.1))
-                                .frame(height: CGFloat(settings.thumbnailSizeGrid))
-
-                            Label("No image available", systemImage: "xmark")
-                        }
-                    }
+                    ThumbnailImageView(
+                        file: file,
+                        targetSize: gridCacheTargetSize,
+                        style: .grid,
+                    )
+                    .frame(
+                        width: CGFloat(settings.thumbnailSizeGrid),
+                        height: CGFloat(settings.thumbnailSizeGrid),
+                    )
+                    .clipped()
                 }
                 .background(setbackground() ? Color.blue.opacity(0.2) : Color.clear)
                 .overlay(alignment: .topTrailing) {
@@ -55,7 +43,6 @@ struct RatedImageItemView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.white, Color.teal)
                             .padding(5)
-                            .shadow(radius: 2)
                     }
                 }
                 .overlay(alignment: .topLeading) {
@@ -69,13 +56,9 @@ struct RatedImageItemView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
                 )
-                .shadow(
-                    color: isSelected ? Color.accentColor.opacity(0.65) : .clear,
-                    radius: isSelected ? 8 : 0,
-                )
                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
-                Text(photo)
+                Text(file.name)
                     .font(.caption)
                     .lineLimit(2)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
@@ -91,19 +74,13 @@ struct RatedImageItemView: View {
             RoundedRectangle(cornerRadius: 4)
                 .stroke(borderColor, lineWidth: borderWidth),
         )
-        .shadow(
-            color: isSelected ? Color.accentColor.opacity(0.75) : .clear,
-            radius: isSelected ? 12 : 0,
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isSelected || isMultiSelected ? borderColor.opacity(isSelected ? 0.14 : 0.1) : Color.clear),
         )
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelected() }
         .onTapGesture(count: 1) { onSelected() }
-        .onDisappear {
-            // Cancel loading when scrolled out of view
-            if let url = photoURL {
-                Logger.process.debugMessageOnly("PhotoItemView (in GRID) onAppear - RELEASE thumbnail for \(url)")
-            }
-        }
     }
 
     private var borderColor: Color {
@@ -137,7 +114,7 @@ struct RatedImageItemView: View {
     private var ratingValue: Int? {
         guard let catalogURL,
               let entry = cullingModel.savedFiles.first(where: { $0.catalog == catalogURL }),
-              let record = entry.filerecords?.first(where: { $0.fileName == photo })
+              let record = entry.filerecords?.first(where: { $0.fileName == file.name })
         else { return nil }
         return record.rating
     }
@@ -154,8 +131,12 @@ struct RatedImageItemView: View {
         }
         // Check if any filerecord has a matching fileName
         if let records = entry.filerecords {
-            return records.contains { $0.fileName == photo }
+            return records.contains { $0.fileName == file.name }
         }
         return false
+    }
+
+    private var gridCacheTargetSize: Int {
+        min(settings.thumbnailSizeGrid, 200)
     }
 }

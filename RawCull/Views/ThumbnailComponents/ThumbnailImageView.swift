@@ -23,7 +23,6 @@ struct ThumbnailImageView: View {
 
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = false
-    @State private var shimmerOffset: CGFloat = -1.0
 
     var body: some View {
         ZStack {
@@ -102,28 +101,9 @@ struct ThumbnailImageView: View {
         Rectangle()
             .fill(Color(white: 0.15))
             .overlay(
-                GeometryReader { geo in
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    .clear,
-                                    Color(white: 0.3).opacity(0.4),
-                                    .clear
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing,
-                            ),
-                        )
-                        .frame(width: geo.size.width * 0.5)
-                        .offset(x: shimmerOffset * geo.size.width)
-                }
-                .clipped(),
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.secondary),
             )
-            .onAppear {
-                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
-                    shimmerOffset = 1.5
-                }
-            }
     }
 }

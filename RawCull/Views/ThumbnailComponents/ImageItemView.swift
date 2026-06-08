@@ -146,8 +146,12 @@ struct ImageItemView: View {
 
     let file: FileItem
     let isHovered: Bool
+    let isSelected: Bool
     var isMultiSelected: Bool = false
     let thumbnailSize: Int
+    let ratingValue: Int
+    let ratingDisplay: RatingDisplay
+    let ratingColor: Color?
     var onSelect: () -> Void = {}
     var onDoubleSelect: () -> Void = {}
 
@@ -169,8 +173,7 @@ struct ImageItemView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: isSelected ? 17 : 15, weight: .bold))
                             .foregroundStyle(.white, selectionColor)
-                            .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
-                        .padding(5)
+                            .padding(5)
                     }
                 }
                 // Rating and burst recommendation badges — top-left corner
@@ -187,7 +190,7 @@ struct ImageItemView: View {
                             BurstCandidateBadgeView(
                                 candidate: candidate,
                                 analysis: analysis,
-                                rating: viewModel.getRating(for: file),
+                                rating: ratingValue,
                                 saliencyLabel: viewModel.sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
                             )
                         }
@@ -200,10 +203,6 @@ struct ImageItemView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(selectionColor, lineWidth: isSelectionHighlighted ? imageSelectionLineWidth : 0),
-            )
-            .shadow(
-                color: isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.75 : 0.45) : .clear,
-                radius: isSelected ? 9 : 5,
             )
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
@@ -228,11 +227,11 @@ struct ImageItemView: View {
             RoundedRectangle(cornerRadius: 4)
                 .stroke(borderColor, lineWidth: borderWidth),
         )
-        .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
-        .shadow(
-            color: isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.8 : 0.5) : .clear,
-            radius: isSelected ? 12 : 7,
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isSelectionHighlighted ? selectionColor.opacity(isSelected ? 0.16 : 0.12) : Color.clear),
         )
+        .shadow(color: .black.opacity(isSelectionHighlighted ? 0.18 : 0.28), radius: isSelectionHighlighted ? 1 : 3, y: 1)
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
@@ -264,25 +263,4 @@ struct ImageItemView: View {
         isSelected ? Color.accentColor : Color.teal
     }
 
-    private var isSelected: Bool {
-        viewModel.selectedFileID == file.id
-    }
-
-    private var ratingColor: Color? {
-        switch viewModel.getRating(for: file) {
-        case -1: .red
-        case 2: .yellow
-        case 3: .green
-        case 4: .blue
-        case 5: .purple
-        default: nil
-        }
-    }
-
-    private var ratingDisplay: RatingDisplay {
-        RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
-        )
-    }
 }

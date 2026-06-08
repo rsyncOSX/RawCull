@@ -433,8 +433,12 @@ struct CullingGridView<Header: View>: View {
                                         viewModel: viewModel,
                                         file: file,
                                         isHovered: hoveredFileID == file.id,
+                                        isSelected: viewModel.selectedFileID == file.id,
                                         isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
                                         thumbnailSize: 200,
+                                        ratingValue: ratingValue(for: file),
+                                        ratingDisplay: ratingDisplay(for: file),
+                                        ratingColor: ratingColor(for: file),
                                         onSelect: { handleToggleSelection(for: file) },
                                         onDoubleSelect: { handleDoubleSelect(for: file) },
                                     )
@@ -618,8 +622,12 @@ struct CullingGridView<Header: View>: View {
             viewModel: viewModel,
             file: file,
             isHovered: hoveredFileID == file.id,
+            isSelected: viewModel.selectedFileID == file.id,
             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
             thumbnailSize: 200,
+            ratingValue: ratingValue(for: file),
+            ratingDisplay: ratingDisplay(for: file),
+            ratingColor: ratingColor(for: file),
             onSelect: { handleToggleSelection(for: file) },
             onDoubleSelect: { handleDoubleSelect(for: file) },
         )
@@ -684,6 +692,28 @@ struct CullingGridView<Header: View>: View {
 
         case let .rating(n):
             return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == n }
+        }
+    }
+
+    private func ratingValue(for file: FileItem) -> Int {
+        viewModel.getRating(for: file)
+    }
+
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: ratingValue(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
+    }
+
+    private func ratingColor(for file: FileItem) -> Color? {
+        switch ratingValue(for: file) {
+        case -1: .red
+        case 2: .yellow
+        case 3: .green
+        case 4: .blue
+        case 5: .purple
+        default: nil
         }
     }
 }
