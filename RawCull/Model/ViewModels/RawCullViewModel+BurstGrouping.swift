@@ -185,6 +185,32 @@ extension RawCullViewModel {
         }
     }
 
+    // MARK: - Review queue
+
+    var burstReviewQueueCounts: BurstReviewQueueCounts {
+        BurstReviewQueuePolicy.counts(for: burstAnalysisResults.values)
+    }
+
+    var filteredBurstGroupsForReviewQueue: [BurstGroup] {
+        guard burstReviewQueueFilter != .all else { return similarityModel.burstGroups }
+        return similarityModel.burstGroups.filter { group in
+            guard let result = burstAnalysisResults[group.id] else { return false }
+            return BurstReviewQueuePolicy.includes(result, filter: burstReviewQueueFilter)
+        }
+    }
+
+    func markBurstGroupNeedsReview(groupID: Int) {
+        setBurstReviewState(.needsReview, groupID: groupID)
+    }
+
+    func markBurstGroupReviewed(groupID: Int) {
+        setBurstReviewState(.reviewed, groupID: groupID)
+    }
+
+    func deferBurstGroup(groupID: Int) {
+        setBurstReviewState(.deferred, groupID: groupID)
+    }
+
     // MARK: - Shared pure helpers
 
     /// Pick the frame with the highest sharpness score. Returns nil only when
@@ -311,10 +337,30 @@ extension RawCullViewModel {
             burstReviewStates[groupID] = .manualWinnerOverride
             return
         }
-        burstReviewStates[groupID] = .decisionApplied
+        setBurstReviewState(.decisionApplied, groupID: groupID, persist: false)
+        persistBurstReviewStates()
+    }
+
+    private func setBurstReviewState(
+        _ state: BurstReviewState,
+        groupID: Int,
+        persist: Bool = true,
+    ) {
+        burstReviewStates[groupID] = state
         if var result = burstAnalysisResults[groupID] {
-            result.reviewState = .decisionApplied
+            result.reviewState = state
             burstAnalysisResults[groupID] = result
+        }
+        if persist {
+            persistBurstReviewStates()
+        }
+    }
+
+    private func persistBurstReviewStates() {
+        guard let catalog = selectedSource?.url else { return }
+        let currentFiles = burstOrderedFiles
+        Task {
+            await saveBurstAnalysisCache(catalog: catalog, files: currentFiles)
         }
     }
 
@@ -340,6 +386,7 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress()
         burstAnalysisResults = [:]
         burstReviewStates = [:]
+        burstReviewQueueFilter = .all
         activeBurstComparisonGroupID = nil
         lastBurstUndoEntry = nil
         comparisonFileIDs = []

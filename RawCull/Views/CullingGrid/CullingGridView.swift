@@ -48,6 +48,10 @@ private struct BurstGroupHeaderView: View {
             if let presentation {
                 BurstStatusBadgeView(title: presentation.confidenceLabel, color: badgeColor)
 
+                if let stateBadge {
+                    BurstStatusBadgeView(title: stateBadge.title, color: stateBadge.color)
+                }
+
                 if presentation.showsAppliedStatus {
                     BurstStatusBadgeView(title: "Applied", color: .blue)
                 }
@@ -101,6 +105,8 @@ private struct BurstGroupHeaderView: View {
             compareButton(prominent: true)
         }
 
+        reviewStateButtons
+
         if viewModel.lastBurstUndoEntry?.groupID == analysis?.groupID {
             Button("Undo") {
                 viewModel.undoLastBurstAction()
@@ -108,6 +114,56 @@ private struct BurstGroupHeaderView: View {
             .font(.caption)
             .controlSize(.mini)
             .help("Undo the last burst action")
+        }
+    }
+
+    @ViewBuilder
+    private var reviewStateButtons: some View {
+        if let groupID = analysis?.groupID {
+            Divider().frame(height: 14)
+
+            switch analysis?.reviewState {
+            case .deferred:
+                Button("Needs Review") {
+                    viewModel.markBurstGroupNeedsReview(groupID: groupID)
+                }
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Return this burst to the active review queue")
+
+                Button("Reviewed") {
+                    viewModel.markBurstGroupReviewed(groupID: groupID)
+                }
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Mark this burst as reviewed")
+
+            case .reviewed:
+                Button("Needs Review") {
+                    viewModel.markBurstGroupNeedsReview(groupID: groupID)
+                }
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Return this burst to the active review queue")
+
+            case .decisionApplied, .manualWinnerOverride:
+                EmptyView()
+
+            default:
+                Button("Reviewed") {
+                    viewModel.markBurstGroupReviewed(groupID: groupID)
+                }
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Mark this burst as reviewed")
+
+                Button("Defer") {
+                    viewModel.deferBurstGroup(groupID: groupID)
+                }
+                .font(.caption)
+                .controlSize(.mini)
+                .help("Defer this burst for later review")
+            }
         }
     }
 
@@ -185,6 +241,19 @@ private struct BurstGroupHeaderView: View {
         case .high: return .green
         case .medium: return .orange
         case .low, .none: return .gray
+        }
+    }
+
+    private var stateBadge: (title: String, color: Color)? {
+        switch analysis?.reviewState {
+        case .needsReview:
+            return ("Needs Review", .purple)
+        case .reviewed:
+            return ("Reviewed", .blue)
+        case .deferred:
+            return ("Deferred", .gray)
+        default:
+            return nil
         }
     }
 }
@@ -512,9 +581,10 @@ struct CullingGridView<Header: View>: View {
 
     private var gridCacheKey: CullingGridRenderCacheKey {
         CullingGridRenderCacheKey(
-            burstGroups: viewModel.similarityModel.burstGroups,
+            burstGroups: reviewFilteredBurstGroups,
             files: files,
             ratingFilter: ratingFilter,
+            reviewQueueFilter: viewModel.burstReviewQueueFilter,
             scoresCount: viewModel.sharpnessModel.scores.count,
             burstAnalysisResults: viewModel.burstAnalysisResults,
         )
@@ -523,7 +593,7 @@ struct CullingGridView<Header: View>: View {
     private func recomputeGridCache() {
         let cache = CullingGridRenderCache.rebuild(
             files: files,
-            burstGroups: viewModel.similarityModel.burstGroups,
+            burstGroups: reviewFilteredBurstGroups,
             scores: viewModel.sharpnessModel.scores,
             maxScore: viewModel.sharpnessModel.maxScore,
             burstAnalysisResults: viewModel.burstAnalysisResults,
@@ -531,6 +601,10 @@ struct CullingGridView<Header: View>: View {
         visibleBurstGroups = cache.visibleBurstGroups
         bestInGroup = cache.bestInGroup
         hasSharpnessScoresSnapshot = cache.hasSharpnessScoresSnapshot
+    }
+
+    private var reviewFilteredBurstGroups: [BurstGroup] {
+        viewModel.filteredBurstGroupsForReviewQueue
     }
 
     /// Builds the thumbnail cell for a file inside a burst group.

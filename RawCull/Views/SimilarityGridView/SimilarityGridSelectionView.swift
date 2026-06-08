@@ -39,6 +39,7 @@ struct SimilarityGridSelectionView: View {
         let burstAnalysisIsBusy = analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
         let inBurstMode = viewModel.similarityModel.burstModeActive
         let sharpnessControlsDisabled = viewModel.sharpnessModel.isScoring || isIndexing || isGrouping || burstAnalysisIsBusy
+        let reviewCounts = viewModel.burstReviewQueueCounts
 
         if !inBurstMode {
             SharpnessIntentControlsView(
@@ -143,8 +144,26 @@ struct SimilarityGridSelectionView: View {
                     .frame(minWidth: 84, alignment: .leading)
                 }
 
+                Picker("Review Queue", selection: $viewModel.burstReviewQueueFilter) {
+                    ForEach(BurstReviewQueueFilter.allCases) { filter in
+                        Text(filter.title).tag(filter)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.mini)
+                .frame(width: 270)
+                .disabled(viewModel.burstAnalysisResults.isEmpty)
+                .help("Filter burst groups by review state")
+
+                Text("\(reviewCounts.needsReview) review · \(reviewCounts.deferred) deferred · \(reviewCounts.reviewed) done")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 170, alignment: .leading)
+
                 Button {
                     viewModel.similarityModel.burstModeActive = false
+                    viewModel.burstReviewQueueFilter = .all
                 } label: {
                     Label("Exit Groups", systemImage: "xmark.circle")
                 }
@@ -190,6 +209,17 @@ struct SimilarityGridSelectionView: View {
                 .font(.caption)
                 .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
                 .help("Group burst sequences and recommend best frames")
+
+                if reviewCounts.needsReview > 0 {
+                    Button {
+                        viewModel.similarityModel.burstModeActive = true
+                        viewModel.burstReviewQueueFilter = .needsReview
+                    } label: {
+                        Label("\(reviewCounts.needsReview) Need Review", systemImage: "tray.full")
+                    }
+                    .font(.caption)
+                    .help("Show burst groups that need review")
+                }
             }
         }
 

@@ -70,6 +70,7 @@ extension RawCullViewModel {
         sharpnessModel.reset()
         similarityModel.reset()
         ratingFilter = .all
+        burstReviewQueueFilter = .all
 
         let scan = ScanFiles()
         let onProgress = countingScannedFiles

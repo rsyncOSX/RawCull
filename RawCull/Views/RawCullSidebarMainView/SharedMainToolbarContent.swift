@@ -81,6 +81,16 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
 
             ToolbarItem(placement: .status) {
+                Button(action: selectReviewQueueMode) {
+                    Label("Review", systemImage: "tray.full")
+                }
+                .help("Show burst groups that need review")
+                .disabled(viewModel.selectedSource == nil ||
+                    viewModel.burstReviewQueueCounts.needsReview == 0 ||
+                    viewModel.creatingthumbnails)
+            }
+
+            ToolbarItem(placement: .status) {
                 Button(action: selectComparisonGridMode) {
                     Label("Compare", systemImage: "rectangle.split.2x1")
                 }
@@ -175,6 +185,15 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func selectSimilarityGridMode() {
         viewModel.ratingFilter = .all
+        viewModel.burstReviewQueueFilter = .all
+        Task(priority: .background) { await viewModel.handleSortOrderChange() }
+        viewModel.selectMainViewMode(.similarityGrid)
+    }
+
+    private func selectReviewQueueMode() {
+        viewModel.ratingFilter = .all
+        viewModel.burstReviewQueueFilter = .needsReview
+        viewModel.similarityModel.burstModeActive = true
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.similarityGrid)
     }

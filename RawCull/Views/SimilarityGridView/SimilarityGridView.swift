@@ -60,7 +60,7 @@ struct SimilarityGridView: View {
         if viewModel.showsBurstGroups,
            !viewModel.similarityModel.burstGroups.isEmpty {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
-            return viewModel.similarityModel.burstGroups.flatMap { group in
+            return viewModel.filteredBurstGroupsForReviewQueue.flatMap { group in
                 group.fileIDs.compactMap { visible[$0] }
             }
         }

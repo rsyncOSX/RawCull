@@ -20,12 +20,15 @@ struct CullingGridRenderCacheKey: Hashable {
     // periphery:ignore
     let ratingFilter: GridRatingFilter
     // periphery:ignore
+    let reviewQueueFilter: BurstReviewQueueFilter
+    // periphery:ignore
     let scoresCount: Int
 
     init(
         burstGroups: [BurstGroup],
         files: [FileItem],
         ratingFilter: GridRatingFilter,
+        reviewQueueFilter: BurstReviewQueueFilter,
         scoresCount: Int,
         burstAnalysisResults: [Int: BurstAnalysisResult],
     ) {
@@ -45,6 +48,7 @@ struct CullingGridRenderCacheKey: Hashable {
         self.filesFirstID = files.first?.id
         self.filesLastID = files.last?.id
         self.ratingFilter = ratingFilter
+        self.reviewQueueFilter = reviewQueueFilter
         self.scoresCount = scoresCount
     }
 }
