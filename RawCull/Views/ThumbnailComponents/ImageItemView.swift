@@ -176,7 +176,6 @@ struct ImageItemView: View {
                 )
                 .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
                 .clipped()
-
                 // Selection and picked badges — top-right corner
                 .overlay(alignment: .topTrailing) {
                     if isSelected || isMultiSelected || isPicked {

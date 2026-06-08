@@ -175,10 +175,6 @@ struct ComparisonGridView: View {
         displayState.allComparisonFiles
     }
 
-    private var comparisonDisplayFileIDs: [FileItem.ID] {
-        displayState.comparisonDisplayFileIDs
-    }
-
     private var selectedComparisonFile: FileItem? {
         displayState.selectedComparisonFile
     }
