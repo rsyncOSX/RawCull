@@ -475,6 +475,23 @@ private struct BurstComparisonEvidenceView: View {
     let onBack: () -> Void
 
     var body: some View {
+        VStack(spacing: 6) {
+            statusSummary
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            actionControls
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.caption)
+        .lineLimit(1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .foregroundStyle(.white)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+    }
+
+    private var statusSummary: some View {
         HStack(spacing: 8) {
             Text("Burst \(result.groupID + 1)")
                 .font(.subheadline.weight(.semibold))
@@ -500,39 +517,34 @@ private struct BurstComparisonEvidenceView: View {
                     .foregroundStyle(.orange)
                     .help(cautionHelp)
             }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
 
-            Spacer(minLength: 4)
-
-            HStack(spacing: 6) {
-                if finalistFocusActive {
-                    Button("Show All", action: onShowAll)
-                }
-                Button("Back To Group", action: onBack)
-                Button("Inspect Finalists", action: onInspectFinalists)
-                    .disabled(result.candidates.isEmpty)
-                Button("Set Manual Winner") {
-                    if let selectedFile {
-                        onSetManualWinner(selectedFile)
-                    }
-                }
-                .disabled(!selectedFileIsInResult)
-                .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
-                if canApplyOneClickCulling {
-                    Button("Keep Best", action: onKeepBest)
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                    Button("Keep Top 2", action: onKeepTopTwo)
+    private var actionControls: some View {
+        HStack(spacing: 6) {
+            if finalistFocusActive {
+                Button("Show All", action: onShowAll)
+            }
+            Button("Back To Group", action: onBack)
+            Button("Inspect Finalists", action: onInspectFinalists)
+                .disabled(result.candidates.isEmpty)
+            Button("Set Manual Winner") {
+                if let selectedFile {
+                    onSetManualWinner(selectedFile)
                 }
             }
-            .controlSize(.mini)
+            .disabled(!selectedFileIsInResult)
+            .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
+            if canApplyOneClickCulling {
+                Button("Keep Best", action: onKeepBest)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                Button("Keep Top 2", action: onKeepTopTwo)
+            }
         }
-        .font(.caption)
-        .lineLimit(1)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .foregroundStyle(.white)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+        .controlSize(.mini)
     }
 
     private var evidenceHelp: String {
