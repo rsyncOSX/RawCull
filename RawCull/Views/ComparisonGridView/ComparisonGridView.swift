@@ -73,6 +73,10 @@ struct ComparisonGridView: View {
                                 scrollPositionID = newID
                             }
                         }
+                        .onChange(of: viewModel.selectedFileID) { oldID, newID in
+                            guard oldID != newID else { return }
+                            viewportState.resetTransform()
+                        }
                         .onChange(of: scrollPositionID) { _, newID in
                             guard let newID,
                                   viewModel.selectedFileID != newID,

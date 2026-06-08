@@ -55,6 +55,7 @@ struct ComparisonImagePaneView: View {
                 onSourceChange()
             }
             .animation(.easeInOut(duration: 0.16), value: showsPaneChrome)
+            .clipped()
         }
         .background(Color.black.opacity(0.97))
     }
@@ -314,10 +315,7 @@ struct ComparisonImagePaneView: View {
     }
 
     private func resetToFit() {
-        viewportState.scale = 1.0
-        viewportState.lastScale = 1.0
-        viewportState.offset = .zero
-        viewportState.lastOffset = .zero
+        viewportState.resetTransform()
     }
 
     private func zoomToTarget() {
