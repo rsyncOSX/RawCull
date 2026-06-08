@@ -30,7 +30,7 @@ struct ScanStatsSheetView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    cullingStatusSection
+                    primarySummarySection
 
                     Divider()
 
@@ -47,11 +47,21 @@ struct ScanStatsSheetView: View {
                 .padding(20)
             }
         }
-        .frame(width: 460)
+        .frame(width: 760)
         .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: Primary summary
+
+    private var primarySummarySection: some View {
+        HStack(alignment: .top, spacing: 28) {
+            cullingStatusSection
+                .frame(width: 260, alignment: .topLeading)
+
+            burstLabelGuideSection
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
 
     private var cullingStatusSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -111,6 +121,20 @@ struct ScanStatsSheetView: View {
                     .font(.caption)
                     .foregroundStyle(needRating == 0 ? Color.secondary : Color.orange)
             }
+        }
+    }
+
+    private var burstLabelGuideSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Burst Label Guide")
+                .font(.headline)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 5) {
+                ForEach(burstLabelGuideRows, id: \.label) { row in
+                    guideRow(row.label, row.description)
+                }
+            }
+            .font(.caption)
         }
     }
 
@@ -215,7 +239,42 @@ struct ScanStatsSheetView: View {
         }
     }
 
+    private func guideRow(_ label: String, _ description: String) -> some View {
+        GridRow {
+            Text(label)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .gridColumnAlignment(.leading)
+            Text(description)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .gridColumnAlignment(.leading)
+        }
+    }
+
     // MARK: Computed properties
+
+    private var burstLabelGuideRows: [(label: String, description: String)] {
+        [
+            ("Burst N", "The numbered burst group currently open for review."),
+            ("High confidence", "RawCull found a clear best frame and one-click culling is safe."),
+            ("Review recommended", "RawCull suggests a frame, but the group should be inspected."),
+            ("Low confidence", "RawCull cannot choose safely; manual review is needed."),
+            ("Evidence", "Reasons RawCull favors the suggested frame."),
+            ("Caution", "Signals that make the recommendation less certain."),
+            ("Needs Review", "The group is in the active review queue."),
+            ("Reviewed", "You marked the group as checked."),
+            ("Deferred", "You postponed the group for later."),
+            ("Manual winner", "Your selected winner overrides the automatic pick."),
+            ("Applied", "A burst culling action has already been applied."),
+            ("Best / Suggested / Check frame", "Recommendation badges for automatic picks."),
+            ("Manual / Auto best", "Manual choice and original automatic best badges."),
+            ("Keeper / Top 2 / Rejected", "Culling outcomes applied to burst frames."),
+            ("Subject labels", "Saliency hints such as person when a subject is classified.")
+        ]
+    }
 
     private var cullingStats: (rejected: Int, kept: Int, r2: Int, r3: Int, r4: Int, r5: Int, unrated: Int, total: Int) {
         guard let catalog = viewModel.selectedSource?.url else {
