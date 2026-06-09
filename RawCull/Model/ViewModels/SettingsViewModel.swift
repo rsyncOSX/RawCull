@@ -11,6 +11,13 @@ import OSLog
 // Observable settings manager for app configuration
 // Persists settings to JSON in Application Support directory
 
+enum CacheSettingsLimits {
+    static let memoryMinMB = 1000
+    static let memoryMaxMB = 8000
+    static let gridMinMB = 400
+    static let gridMaxMB = 2000
+}
+
 @Observable @MainActor
 final class SettingsViewModel {
     @MainActor static let shared = SettingsViewModel()
@@ -39,11 +46,11 @@ final class SettingsViewModel {
 
     // MARK: - Memory Cache Settings
 
-    /// Maximum memory cache size in MB (default: 4000)
-    var memoryCacheSizeMB: Int = 4000
+    /// Maximum memory cache size in MB.
+    var memoryCacheSizeMB: Int = CacheSettingsLimits.memoryMaxMB
 
-    /// Maximum grid (200px) memory cache size in MB (default: 400)
-    var gridCacheSizeMB: Int = 400
+    /// Maximum grid (200px) memory cache size in MB.
+    var gridCacheSizeMB: Int = CacheSettingsLimits.gridMaxMB
 
     // MARK: - Thumbnail Size Settings
 
@@ -256,8 +263,8 @@ final class SettingsViewModel {
     /// Reset settings to defaults
     func resetToDefaultsMemoryCache() async {
         await MainActor.run {
-            self.memoryCacheSizeMB = 5000
-            self.gridCacheSizeMB = 400
+            self.memoryCacheSizeMB = CacheSettingsLimits.memoryMaxMB
+            self.gridCacheSizeMB = CacheSettingsLimits.gridMaxMB
         }
         await saveSettings()
     }
@@ -363,7 +370,7 @@ struct SavedSettings: Codable {
 
     init(
         memoryCacheSizeMB: Int,
-        gridCacheSizeMB: Int = 400,
+        gridCacheSizeMB: Int = CacheSettingsLimits.gridMaxMB,
         thumbnailSizeGrid: Int,
         thumbnailSizePreview: Int,
         thumbnailSizeFullSize: Int,
@@ -384,8 +391,8 @@ struct SavedSettings: Codable {
         focusMaskDilationRadius: Float = 1.0,
         focusMaskFeatherRadius: Float = 2.0,
     ) {
-        self.memoryCacheSizeMB = Self.clamp(memoryCacheSizeMB, 1000 ... 8000)
-        self.gridCacheSizeMB = Self.clamp(gridCacheSizeMB, 400 ... 2000)
+        self.memoryCacheSizeMB = CacheSettingsLimits.memoryMaxMB
+        self.gridCacheSizeMB = CacheSettingsLimits.gridMaxMB
         self.thumbnailSizeGrid = Self.clamp(thumbnailSizeGrid, 100 ... 300)
         self.thumbnailSizePreview = Self.clamp(thumbnailSizePreview, 1024 ... 1664)
         self.thumbnailSizeFullSize = thumbnailSizeFullSize > 0 ? min(thumbnailSizeFullSize, 20000) : 8700
@@ -415,7 +422,7 @@ struct SavedSettings: Codable {
         let scoringQuality = (try? c.decode(SharpnessScoringQuality.self, forKey: .scoringQuality)) ?? .fast
         try self.init(
             memoryCacheSizeMB: c.decode(Int.self, forKey: .memoryCacheSizeMB),
-            gridCacheSizeMB: (try? c.decode(Int.self, forKey: .gridCacheSizeMB)) ?? 400,
+            gridCacheSizeMB: (try? c.decode(Int.self, forKey: .gridCacheSizeMB)) ?? CacheSettingsLimits.gridMaxMB,
             thumbnailSizeGrid: c.decode(Int.self, forKey: .thumbnailSizeGrid),
             thumbnailSizePreview: c.decode(Int.self, forKey: .thumbnailSizePreview),
             thumbnailSizeFullSize: c.decode(Int.self, forKey: .thumbnailSizeFullSize),

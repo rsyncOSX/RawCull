@@ -13,10 +13,8 @@ struct CacheSettingsTab: View {
         SettingsViewModel.shared
     }
 
-    @State private var showResetConfirmation = false
     @State private var showPruneConfirmation = false
     @State private var showPruneJPGConfirmation = false
-    @State private var showSaveSettingsConfirmation = false
     @State private var currentDiskCacheSize: Int = 0
     @State private var currentFullSizeJPGCacheSize: Int = 0
     @State private var currentGridCacheSize: Int = 0
@@ -27,7 +25,6 @@ struct CacheSettingsTab: View {
     @State private var isPruningDiskCache = false
     @State private var isPruningJPGCache = false
 
-    @State private var cacheConfig: CacheConfig?
     @State private var memoryModel = MemoryViewModel()
 
     var body: some View {
@@ -39,130 +36,32 @@ struct CacheSettingsTab: View {
                         Text("Memory & Disk Cache")
                             .font(.system(size: 14, weight: .semibold))
                         Divider()
-                        // Cache Size
+
                         VStack(alignment: .leading, spacing: 8) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Adjust memory cache")
-                                    .font(.system(size: 10, weight: .regular))
-                                    .foregroundStyle(.secondary)
-                            }
+                            limitRow(
+                                icon: "memorychip",
+                                title: "Memory cache",
+                                value: "\(formatMegabytes(settingsManager.memoryCacheSizeMB)) max",
+                                detail: "Approx \(displayValue(for: settingsManager.memoryCacheSizeMB)) preview images",
+                            )
 
-                            HStack(spacing: 16) {
-                                // Cache Size
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "memorychip")
-                                            .font(.system(size: 10, weight: .medium))
-                                        Text("Memory")
-                                            .font(.system(size: 10, weight: .medium))
-                                        Spacer()
-                                        // Only the label uses the converted display value
-                                        Text("Approx images in memory cache: " +
-                                            displayValue(for: settingsManager.memoryCacheSizeMB))
-                                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                    }
-                                    // slider still uses the real internal values (1000 ... 8000)
-                                    Slider(
-                                        value: Binding<Double>(
-                                            get: { Double(settingsManager.memoryCacheSizeMB) },
-                                            set: { settingsManager.memoryCacheSizeMB = Int($0) },
-                                        ),
-                                        in: 1000 ... 8000,
-                                        step: 250,
-                                    )
-                                    .frame(height: 18)
+                            limitRow(
+                                icon: "square.grid.2x2",
+                                title: "Grid cache",
+                                value: "\(formatMegabytes(settingsManager.gridCacheSizeMB)) max",
+                                detail: "Approx \(gridDisplayValue(for: settingsManager.gridCacheSizeMB)) grid thumbnails",
+                            )
 
-                                    HStack(spacing: 4) {
-                                        Text("Free: " +
-                                            formatBytes(Int(freeMemoryBytes())))
-                                            .font(.system(size: 10, weight: .regular))
-                                            .foregroundStyle(.secondary)
+                            limitRow(
+                                icon: "gauge.with.dots.needle.50percent",
+                                title: "Supported limits",
+                                value: "\(formatMegabytes(CacheSettingsLimits.memoryMinMB))-\(formatMegabytes(CacheSettingsLimits.memoryMaxMB)) memory, \(formatMegabytes(CacheSettingsLimits.gridMinMB))-\(formatMegabytes(CacheSettingsLimits.gridMaxMB)) grid",
+                                detail: "RawCull uses the maximum cache limits by default.",
+                            )
 
-                                        Spacer()
-                                    }
-                                }
-                            }
+                            Divider()
 
-                            HStack(spacing: 16) {
-                                // Grid Cache Size (200px thumbnails)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "square.grid.2x2")
-                                            .font(.system(size: 10, weight: .medium))
-                                        Text("Grid cache (200px)")
-                                            .font(.system(size: 10, weight: .medium))
-                                        Spacer()
-                                        Text("Max capacity: ~" +
-                                            gridDisplayValue(for: settingsManager.gridCacheSizeMB))
-                                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                    }
-                                    Slider(
-                                        value: Binding<Double>(
-                                            get: { Double(settingsManager.gridCacheSizeMB) },
-                                            set: { settingsManager.gridCacheSizeMB = Int($0) },
-                                        ),
-                                        in: 400 ... 2000,
-                                        step: 50,
-                                    )
-                                    .frame(height: 18)
-                                }
-                            }
-
-                            // Current Disk Cache Size
-                            SettingsCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack(spacing: 8) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "internaldrive")
-                                                .font(.system(size: 12, weight: .medium))
-                                            Text("Current use: ")
-                                                .font(.system(size: 12, weight: .medium))
-
-                                            if isLoadingDiskCacheSize {
-                                                ProgressView()
-                                                    .fixedSize()
-                                            } else {
-                                                Text(formatBytes(currentDiskCacheSize))
-                                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                            }
-                                        }
-
-                                        Spacer()
-                                    }
-
-                                    HStack(spacing: 8) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "internaldrive")
-                                                .font(.system(size: 12, weight: .medium))
-                                            Text("Full-size JPG cache: ")
-                                                .font(.system(size: 12, weight: .medium))
-                                            Text(formatBytes(currentFullSizeJPGCacheSize))
-                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        }
-
-                                        Spacer()
-                                    }
-
-                                    HStack(spacing: 8) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "memorychip")
-                                                .font(.system(size: 12, weight: .medium))
-                                            Text("Grid cache (200px): ")
-                                                .font(.system(size: 12, weight: .medium))
-                                            Text(formatBytes(currentGridCacheSize))
-                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                            Text("/ \(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit))")
-                                                .font(.system(size: 12, weight: .regular))
-                                                .foregroundStyle(.secondary)
-                                            Text("· \(currentGridCacheCount) thumbnails")
-                                                .font(.system(size: 12, weight: .regular))
-                                                .foregroundStyle(.secondary)
-                                        }
-
-                                        Spacer()
-                                    }
-                                }
-                            }
+                            cacheUseRows
                         }
                     }
                 }
@@ -171,77 +70,14 @@ struct CacheSettingsTab: View {
             Spacer()
 
             HStack {
-                SettingsResetSaveButtons(
-                    showResetConfirmation: $showResetConfirmation,
-                    showSaveConfirmation: $showSaveSettingsConfirmation,
-                    resetMessage: "Are you sure you want to reset all settings to their default values?",
-                    saveMessage: "Save Settings to disk?",
-                    onReset: { Task { await resetCacheSettings() } },
-                    onSave: { Task { await saveCacheSettings() } },
-                ) {
-                    // Prune Disk Cache Button
-                    Button(
-                        action: { showPruneConfirmation = true },
-                        label: {
-                            Label("Prune Disk Cache", systemImage: "trash")
-                                .font(.system(size: 12, weight: .medium))
-                        },
-                    )
-                    .buttonStyle(RefinedGlassButtonStyle())
-                    .confirmationDialog(
-                        "Prune Disk Cache",
-                        isPresented: $showPruneConfirmation,
-                        actions: {
-                            Button("Prune", role: .destructive) {
-                                pruneDiskCache()
-                            }
-                            Button("Cancel", role: .cancel) {}
-                        },
-                        message: {
-                            Text("Are you sure you want to prune the disk cache?")
-                        },
-                    )
-
-                    // Prune Full-size JPG Cache Button
-                    Button(
-                        action: { showPruneJPGConfirmation = true },
-                        label: {
-                            Label("Prune JPG Cache", systemImage: "trash")
-                                .font(.system(size: 12, weight: .medium))
-                        },
-                    )
-                    .buttonStyle(RefinedGlassButtonStyle())
-                    .confirmationDialog(
-                        "Prune JPG Cache",
-                        isPresented: $showPruneJPGConfirmation,
-                        actions: {
-                            Button("Prune", role: .destructive) {
-                                pruneJPGCache()
-                            }
-                            Button("Cancel", role: .cancel) {}
-                        },
-                        message: {
-                            Text("Are you sure you want to prune the full-size JPG cache?")
-                        },
-                    )
-                }
+                clearDiskCacheButton
+                clearJPGCacheButton
             }
             .onAppear(perform: refreshDiskCacheSize)
             .task {
                 await SharedMemoryCache.shared.refreshConfig()
-                cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
-            }
-            .task(id: settingsManager.memoryCacheSizeMB) {
-                await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
-                await SharedMemoryCache.shared.refreshConfig()
-                cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
                 currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
                 currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
-                // await updateImageCapacity()
-            }
-            .task(id: settingsManager.gridCacheSizeMB) {
-                await SharedMemoryCache.shared.refreshConfig()
-                cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
                 currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
                 currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
             }
@@ -276,6 +112,126 @@ struct CacheSettingsTab: View {
                     await memoryModel.updateMemoryStats()
                 }
             }
+        }
+    }
+
+    private var cacheUseRows: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: "internaldrive")
+                    .font(.system(size: 12, weight: .medium))
+                Text("Thumbnail disk cache:")
+                    .font(.system(size: 12, weight: .medium))
+                if isLoadingDiskCacheSize {
+                    ProgressView()
+                        .fixedSize()
+                } else {
+                    Text(formatBytes(currentDiskCacheSize))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                }
+                Spacer()
+            }
+
+            cacheUseRow(
+                icon: "photo",
+                title: "Full-size JPG cache:",
+                value: formatBytes(currentFullSizeJPGCacheSize),
+            )
+
+            cacheUseRow(
+                icon: "square.grid.2x2",
+                title: "Grid cache:",
+                value: "\(formatBytes(currentGridCacheSize)) / \(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit)) · \(currentGridCacheCount) thumbnails",
+            )
+
+            cacheUseRow(
+                icon: "memorychip",
+                title: "Memory cache:",
+                value: "\(formatBytes(currentMemCacheSize)) / \(formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit)) · \(currentMemCacheCount) previews",
+            )
+
+            Text("Free memory: \(formatBytes(Int(freeMemoryBytes())))")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var clearDiskCacheButton: some View {
+        Button(
+            action: { showPruneConfirmation = true },
+            label: {
+                Label(isPruningDiskCache ? "Clearing..." : "Clear Disk Cache", systemImage: "trash")
+                    .font(.system(size: 12, weight: .medium))
+            },
+        )
+        .disabled(isPruningDiskCache)
+        .buttonStyle(RefinedGlassButtonStyle())
+        .confirmationDialog(
+            "Clear Disk Cache",
+            isPresented: $showPruneConfirmation,
+            actions: {
+                Button("Clear", role: .destructive) {
+                    pruneDiskCache()
+                }
+                Button("Cancel", role: .cancel) {}
+            },
+            message: {
+                Text("Are you sure you want to clear the thumbnail disk cache?")
+            },
+        )
+    }
+
+    private var clearJPGCacheButton: some View {
+        Button(
+            action: { showPruneJPGConfirmation = true },
+            label: {
+                Label(isPruningJPGCache ? "Clearing..." : "Clear JPG Cache", systemImage: "trash")
+                    .font(.system(size: 12, weight: .medium))
+            },
+        )
+        .disabled(isPruningJPGCache)
+        .buttonStyle(RefinedGlassButtonStyle())
+        .confirmationDialog(
+            "Clear JPG Cache",
+            isPresented: $showPruneJPGConfirmation,
+            actions: {
+                Button("Clear", role: .destructive) {
+                    pruneJPGCache()
+                }
+                Button("Cancel", role: .cancel) {}
+            },
+            message: {
+                Text("Are you sure you want to clear the full-size JPG cache?")
+            },
+        )
+    }
+
+    private func limitRow(icon: String, title: String, value: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                Spacer()
+                Text(value)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+            }
+            Text(detail)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func cacheUseRow(icon: String, title: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+            Text(value)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+            Spacer()
         }
     }
 
@@ -325,29 +281,13 @@ struct CacheSettingsTab: View {
         }
     }
 
-    private func saveCacheSettings() async {
-        await settingsManager.saveSettings()
-        await refreshCacheLimits()
-    }
-
-    private func resetCacheSettings() async {
-        await settingsManager.resetToDefaultsMemoryCache()
-        await refreshCacheLimits()
-    }
-
-    private func refreshCacheLimits() async {
-        await SharedMemoryCache.shared.setCacheCostsFromSavedSettings()
-        await SharedMemoryCache.shared.refreshConfig()
-        cacheConfig = await SharedMemoryCache.shared.getCacheCostsAfterSettingsUpdate()
-        currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
-        currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
-        currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
-        currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
-    }
-
     private func formatBytes(_ bytes: Int) -> String {
         if bytes == 0 { return "0 B" }
         return ByteCountFormatStyle(style: .memory).format(Int64(bytes))
+    }
+
+    private func formatMegabytes(_ megabytes: Int) -> String {
+        formatBytes(megabytes * 1024 * 1024)
     }
 
     private func gridDisplayValue(for megabytes: Int) -> String {
