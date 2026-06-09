@@ -57,31 +57,6 @@ struct FocusSettingsTab: View {
                         )
                     }
                 }
-
-                // Focus Points Section
-                SettingsCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Focus Points")
-                            .font(.system(size: 14, weight: .semibold))
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text("Marker Size")
-                                    .font(.caption)
-                                Spacer()
-                                Text(vm.focusPointMarkerSize, format: .number.precision(.fractionLength(0)))
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                            Slider(value: $vm.focusPointMarkerSize, in: 32 ... 100, step: 4)
-                                .controlSize(.small)
-                            Text("Size of focus point markers in the overlay")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
             }
 
             Spacer()
@@ -107,7 +82,6 @@ struct FocusSettingsTab: View {
         viewModel.sharpnessModel.focusMaskModel.config.erosionRadius = d.erosionRadius
         viewModel.sharpnessModel.focusMaskModel.config.dilationRadius = d.dilationRadius
         viewModel.sharpnessModel.focusMaskModel.config.featherRadius = d.featherRadius
-        viewModel.focusPointMarkerSize = 40
         Task { await saveSettings() }
     }
 

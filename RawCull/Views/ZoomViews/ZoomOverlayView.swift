@@ -631,7 +631,6 @@ struct ZoomOverlayView: View {
             FocusOverlayView(
                 focusPoints: focusPoints,
                 imageSize: imageSize,
-                markerSize: viewModel.focusPointMarkerSize,
             )
             .scaleEffect(currentScale)
             .offset(offset)

@@ -32,7 +32,6 @@ struct ComparisonGridView: View {
                                         focusPoints: focusPoints(for: file),
                                         viewportState: $viewportState,
                                         useThumbnailSource: useThumbnailSourceBinding(for: file),
-                                        markerSize: viewModel.focusPointMarkerSize,
                                         isSelected: viewModel.selectedFileID == file.id,
                                         rating: ratingDisplay(for: file),
                                         exifSummary: ExifSummary.make(from: file.exifData),

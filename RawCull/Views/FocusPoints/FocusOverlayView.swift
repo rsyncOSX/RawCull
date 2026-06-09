@@ -12,8 +12,8 @@ import SwiftUI
 struct FocusOverlayView: View {
     let focusPoints: [FocusPoint]
     var imageSize: CGSize?
-    var markerSize: CGFloat = 64
-    var markerColor: Color = .yellow
+    var markerSize: CGFloat = 16
+    var markerColor: Color = .red
     var lineWidth: CGFloat = 2.5
 
     var body: some View {

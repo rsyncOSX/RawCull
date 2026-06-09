@@ -112,7 +112,6 @@ struct MainThumbnailImageView: View {
                                 FocusOverlayView(
                                     focusPoints: focusPoints,
                                     imageSize: currentImageSize,
-                                    markerSize: viewModel.focusPointMarkerSize,
                                 )
                                 .scaleEffect(viewModel.scale)
                                 .offset(viewModel.offset)

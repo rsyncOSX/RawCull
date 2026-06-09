@@ -7,7 +7,6 @@ struct ComparisonImagePaneView: View {
     let focusPoints: [FocusPoint]?
     @Binding var viewportState: ComparisonViewportInteractionState
     @Binding var useThumbnailSource: Bool
-    let markerSize: CGFloat
     let isSelected: Bool
     let rating: RatingDisplay
     let exifSummary: ExifSummary
@@ -301,7 +300,6 @@ struct ComparisonImagePaneView: View {
             FocusOverlayView(
                 focusPoints: focusPoints,
                 imageSize: imageSize,
-                markerSize: markerSize,
             )
             .allowsHitTesting(false)
             .transition(.opacity.combined(with: .blurReplace))
