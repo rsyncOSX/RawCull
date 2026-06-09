@@ -9,6 +9,7 @@ import AppKit
 import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
+import RawCullCore
 
 struct ImageTableVerticalView: View {
     private var settings: SettingsViewModel {
@@ -16,7 +17,7 @@ struct ImageTableVerticalView: View {
     }
 
     @Bindable var viewModel: RawCullViewModel
-    @State private var hoveredFileID: FileItem.ID?
+    @State private var hoveredFileKey: String?
 
     var body: some View {
         VStack(alignment: .center) {
@@ -30,7 +31,7 @@ struct ImageTableVerticalView: View {
                                     ImageItemView(
                                         viewModel: viewModel,
                                         file: file,
-                                        isHovered: hoveredFileID == file.id,
+                                        isHovered: hoveredFileKey == file.id.uuidString,
                                         isSelected: viewModel.selectedFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         ratingValue: ratingValue(for: file),
@@ -52,7 +53,7 @@ struct ImageTableVerticalView: View {
                                     )
                                     .id(file.id)
                                     .onHover { isHovered in
-                                        hoveredFileID = isHovered ? file.id : nil
+                                        hoveredFileKey = isHovered ? file.id.uuidString : nil
                                     }
                                 }
                             }

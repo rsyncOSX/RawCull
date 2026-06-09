@@ -43,7 +43,7 @@ struct FocusPointMarker: Shape {
     var imageSize: CGSize?
 
     /// Returns the actual rendered rect of an aspect-fit image inside a container.
-    private func aspectFitRect(imageSize: CGSize, in containerRect: CGRect) -> CGRect {
+    private nonisolated func aspectFitRect(imageSize: CGSize, in containerRect: CGRect) -> CGRect {
         let imageAspect = imageSize.width / imageSize.height
         let containerAspect = containerRect.width / containerRect.height
         if imageAspect > containerAspect {
@@ -59,7 +59,7 @@ struct FocusPointMarker: Shape {
         }
     }
 
-    func path(in rect: CGRect) -> Path {
+    nonisolated func path(in rect: CGRect) -> Path {
         // Use the actual image bounds within the container so the marker aligns
         // correctly regardless of aspect-ratio mismatch (letterbox / pillarbox).
         let drawRect: CGRect = if let imageSize, imageSize.width > 0, imageSize.height > 0 {

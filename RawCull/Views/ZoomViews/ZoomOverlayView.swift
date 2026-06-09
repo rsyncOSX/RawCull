@@ -9,6 +9,7 @@
 
 import AppKit
 import SwiftUI
+import RawCullCore
 
 nonisolated enum ZoomOverlayKeyAction: Equatable {
     case navigatePrevious

@@ -3,7 +3,7 @@ import SwiftUI
 struct HistogramPath: Shape {
     let bins: [CGFloat]
 
-    func path(in rect: CGRect) -> Path {
+    nonisolated func path(in rect: CGRect) -> Path {
         var path = Path()
 
         guard !bins.isEmpty else { return path }

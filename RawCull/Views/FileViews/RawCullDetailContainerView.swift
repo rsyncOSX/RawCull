@@ -1,4 +1,5 @@
 import SwiftUI
+import RawCullCore
 
 struct RawCullDetailContainerView: View {
     @Bindable var viewModel: RawCullViewModel
