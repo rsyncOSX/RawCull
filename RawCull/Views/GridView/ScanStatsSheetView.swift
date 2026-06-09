@@ -29,34 +29,30 @@ struct ScanStatsSheetView: View {
             Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    primarySummarySection
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 14) {
-                        catalogSummarySection
-                        Divider()
-                        sharpnessSummarySection
-                        if !viewModel.burstAnalysisResults.isEmpty {
-                            Divider()
-                            burstReviewSummarySection
-                        }
-                    }
-                }
-                .padding(20)
+                summaryContent
+                    .padding(20)
             }
         }
         .frame(width: 800)
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    // MARK: Primary summary
+    // MARK: Summary layout
 
-    private var primarySummarySection: some View {
+    private var summaryContent: some View {
         HStack(alignment: .top, spacing: 28) {
-            cullingStatusSection
-                .frame(width: 260, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: 14) {
+                cullingStatusSection
+                Divider()
+                catalogSummarySection
+                Divider()
+                sharpnessSummarySection
+                if !viewModel.burstAnalysisResults.isEmpty {
+                    Divider()
+                    burstReviewSummarySection
+                }
+            }
+            .frame(width: 260, alignment: .topLeading)
 
             burstLabelGuideSection
                 .frame(maxWidth: .infinity, alignment: .topLeading)
