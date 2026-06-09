@@ -47,7 +47,7 @@ struct ScanStatsSheetView: View {
                 .padding(20)
             }
         }
-        .frame(width: 760)
+        .frame(width: 800)
         .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -258,7 +258,7 @@ struct ScanStatsSheetView: View {
 
     private var burstLabelGuideRows: [(label: String, description: String)] {
         [
-            ("Burst N", "The numbered burst group currently open for review."),
+            // ("Burst N", "The numbered burst group currently open for review."),
             ("High confidence", "RawCull found a clear best frame and one-click culling is safe."),
             ("Review recommended", "RawCull suggests a frame, but the group should be inspected."),
             ("Low confidence", "RawCull cannot choose safely; manual review is needed."),
