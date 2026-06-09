@@ -24,6 +24,6 @@ struct GridThumbnailSelectionView: View {
 
                 Divider().frame(height: 20)
             }
-        } 
+        }
     }
 }

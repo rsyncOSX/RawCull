@@ -10,7 +10,6 @@ enum BurstReviewQueueFilter: String, CaseIterable, Identifiable {
     var id: String {
         rawValue
     }
-
 }
 
 struct BurstReviewQueueCounts: Equatable {

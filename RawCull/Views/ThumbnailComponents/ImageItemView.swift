@@ -262,5 +262,4 @@ struct ImageItemView: View {
     private var selectionColor: Color {
         isSelected ? Color.accentColor : Color.teal
     }
-
 }
