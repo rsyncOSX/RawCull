@@ -260,15 +260,6 @@ final class SettingsViewModel {
         }
     }
 
-    /// Reset settings to defaults
-    func resetToDefaultsMemoryCache() async {
-        await MainActor.run {
-            self.memoryCacheSizeMB = CacheSettingsLimits.memoryMaxMB
-            self.gridCacheSizeMB = CacheSettingsLimits.gridMaxMB
-        }
-        await saveSettings()
-    }
-
     func resetToDefaultsThumbnails() async {
         await MainActor.run {
             self.thumbnailSizeGrid = 200
@@ -369,8 +360,8 @@ struct SavedSettings: Codable {
     let focusMaskFeatherRadius: Float
 
     init(
-        memoryCacheSizeMB: Int,
-        gridCacheSizeMB: Int = CacheSettingsLimits.gridMaxMB,
+        memoryCacheSizeMB _: Int,
+        gridCacheSizeMB _: Int = CacheSettingsLimits.gridMaxMB,
         thumbnailSizeGrid: Int,
         thumbnailSizePreview: Int,
         thumbnailSizeFullSize: Int,

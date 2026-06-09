@@ -11,14 +11,6 @@ enum BurstReviewQueueFilter: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var title: String {
-        switch self {
-        case .all: "All"
-        case .needsReview: "Needs Review"
-        case .deferred: "Deferred"
-        case .reviewed: "Reviewed"
-        }
-    }
 }
 
 struct BurstReviewQueueCounts: Equatable {

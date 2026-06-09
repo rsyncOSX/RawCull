@@ -134,10 +134,6 @@ actor SharedMemoryCache {
 
     private var memoryPressureSource: DispatchSourceMemoryPressure?
 
-    // MARK: - Get settings
-
-    private var savedSettings: SavedSettings? // Kept for getCacheCostsAfterSettingsUpdate
-
     /// Only using the memory pressure warning
     private var fileHandlers: FileHandlers?
 
@@ -214,8 +210,6 @@ actor SharedMemoryCache {
     /// `countLimit` is deliberately set to a very high value (10 000) so the
     /// byte-budget is the binding constraint — NSCache applies `min(count, cost)`
     /// and we want cost to do the evicting, not item count.
-    /// (The duplicate formula in `setCacheCostsFromSavedSettings` is intentional
-    /// — that path predates `calculateConfig`; both use the same expression.)
     func calculateConfig(from settings: SavedSettings) -> CacheConfig {
         let memoryCacheSizeMB = settings.memoryCacheSizeMB // 5000 MB default  - 20,000 MB max
 
@@ -231,33 +225,6 @@ actor SharedMemoryCache {
             countLimit: countLimit,
             gridTotalCostLimit: gridTotalCostLimit,
         )
-    }
-
-    /// This function is executed as part of init, calculates new Cache Costs from
-    /// saved settings.
-    func setCacheCostsFromSavedSettings() async {
-        savedSettings = await SettingsViewModel.shared.asyncgetsettings()
-        if let settings = savedSettings {
-            let memoryCacheSizeMB = settings.memoryCacheSizeMB // 500MB default
-
-            // totalCostLimit is the PRIMARY memory constraint (based on allocated MB)
-            // countLimit is set very high (10000) so memory, not item count, limits the cache
-            let totalCostLimit = memoryCacheSizeMB * 1024 * 1024
-            let countLimit = 10000 // Very high so totalCostLimit is the real constraint
-            let gridTotalCostLimit = settings.gridCacheSizeMB * 1024 * 1024
-
-            let config = CacheConfig(
-                totalCostLimit: totalCostLimit,
-                countLimit: countLimit,
-                gridTotalCostLimit: gridTotalCostLimit,
-            )
-            applyConfig(config)
-        }
-    }
-
-    func getCacheCostsAfterSettingsUpdate() async -> CacheConfig? {
-        guard let settings = savedSettings else { return nil }
-        return calculateConfig(from: settings)
     }
 
     /// In SharedMemoryCache
@@ -562,7 +529,6 @@ actor SharedMemoryCache {
     #if DEBUG
         func resetForTesting(config: CacheConfig? = nil) async {
             setupTask = nil
-            savedSettings = nil
             fileHandlers = nil
             if memoryPressureSource != nil {
                 memoryPressureSource?.cancel()
