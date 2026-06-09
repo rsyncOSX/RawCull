@@ -3,7 +3,7 @@
 //  RawCull
 //
 //  Similarity-focused grid. Header exposes similarity indexing, burst grouping,
-//  and the automatic sharpness-scoring prerequisite toggle.
+//  and automatic sharpness-scoring prerequisites.
 //
 
 import AppKit
@@ -12,7 +12,6 @@ import SwiftUI
 struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
-    @State private var autoSharpnessScoring: Bool = true
     @State private var analyzeBurstsRequested: Bool = false
 
     /// Debounced regroup task for the burst-sensitivity slider — mirrors
@@ -166,17 +165,9 @@ struct SimilarityGridSelectionView: View {
                 .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
                 .help("Delete saved burst analysis for this catalog and recompute from scratch")
             } else {
-                Toggle(isOn: $autoSharpnessScoring) {
-                    Label("Auto Sharpness", systemImage: "scope")
-                }
-                .toggleStyle(.button)
-                .font(.caption)
-                .disabled(sharpnessControlsDisabled)
-                .help("Auto-run sharpness scoring before similarity actions when scores are missing")
-
                 Button {
                     analyzeBurstsRequested = true
-                    Task {
+                    runWithAutoScoring {
                         defer { analyzeBurstsRequested = false }
                         await viewModel.analyzeBursts()
                     }
@@ -194,14 +185,33 @@ struct SimilarityGridSelectionView: View {
                 .help("Group burst sequences and recommend best frames")
 
                 if reviewCounts.needsReview > 0 {
-                    Button {
-                        viewModel.similarityModel.burstModeActive = true
-                        viewModel.burstReviewQueueFilter = .needsReview
-                    } label: {
-                        Label("\(reviewCounts.needsReview) Need Review", systemImage: "tray.full")
-                    }
-                    .font(.caption)
-                    .help("Show burst groups that need review")
+                    reviewQueueButton(
+                        count: reviewCounts.needsReview,
+                        title: "Need Review",
+                        systemImage: "tray.full",
+                        filter: .needsReview,
+                        help: "Show burst groups that need review",
+                    )
+                }
+
+                if reviewCounts.reviewed > 0 {
+                    reviewQueueButton(
+                        count: reviewCounts.reviewed,
+                        title: "Reviewed",
+                        systemImage: "checkmark.circle",
+                        filter: .reviewed,
+                        help: "Show reviewed burst groups",
+                    )
+                }
+
+                if reviewCounts.deferred > 0 {
+                    reviewQueueButton(
+                        count: reviewCounts.deferred,
+                        title: "Deferred",
+                        systemImage: "clock",
+                        filter: .deferred,
+                        help: "Show deferred burst groups",
+                    )
                 }
             }
         }
@@ -215,13 +225,31 @@ struct SimilarityGridSelectionView: View {
         }
     }
 
-    /// Runs `action` after first computing sharpness scores when the toggle
-    /// is on and scores are missing. If scoring is already in flight,
+    @ViewBuilder
+    private func reviewQueueButton(
+        count: Int,
+        title: String,
+        systemImage: String,
+        filter: BurstReviewQueueFilter,
+        help: String,
+    ) -> some View {
+        Button {
+            viewModel.similarityModel.burstModeActive = true
+            viewModel.burstReviewQueueFilter = filter
+        } label: {
+            Label("\(count) \(title)", systemImage: systemImage)
+        }
+        .font(.caption)
+        .help(help)
+    }
+
+    /// Runs `action` after first computing sharpness scores when scores are missing.
+    /// If scoring is already in flight,
     /// `scoreFiles` awaits the existing task, so rapid actions cannot bypass
     /// the prerequisite.
     private func runWithAutoScoring(_ action: @escaping @MainActor () async -> Void) {
         Task {
-            if autoSharpnessScoring, viewModel.sharpnessModel.scores.isEmpty {
+            if viewModel.sharpnessModel.scores.isEmpty {
                 await viewModel.calibrateAndScoreCurrentCatalog()
             }
             await action()
