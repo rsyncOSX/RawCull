@@ -6,7 +6,7 @@ RawCull is a macOS photo review and culling application for Sony ARW RAW files, 
 
 ## Requirements
 
-- macOS Sequoia or later
+- macOS Tahoe or later
 - **Apple Silicon** (M-series) only
 
 ## Installation
