@@ -19,6 +19,18 @@ private actor SavedFilesRecorder {
     }
 }
 
+private actor SharpnessScoreURLRecorder {
+    private var fileNames: [String] = []
+
+    func record(_ fileName: String) {
+        fileNames.append(fileName)
+    }
+
+    func recordedFileNames() -> [String] {
+        fileNames
+    }
+}
+
 private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -> FileItem {
     let exif = scoreAperture.map {
         ExifMetadata(
@@ -457,6 +469,110 @@ struct RawCullViewModelCullingTests {
 
         viewModel.ratingFilter = .rejected
         #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+    }
+
+    @Test
+    func `sharpness scoring targets selected thumbnails before rating filter`() {
+        let viewModel = RawCullViewModel()
+        let twoStar = makeCullingTestFile("B-two-star.ARW")
+        let selectedLater = makeCullingTestFile("C-selected.ARW")
+        let selectedEarlier = makeCullingTestFile("A-selected.ARW")
+        viewModel.files = [twoStar, selectedLater, selectedEarlier]
+        viewModel.filteredFiles = [twoStar, selectedLater, selectedEarlier]
+        viewModel.ratingCache = [twoStar.name: 2]
+        viewModel.ratingFilter = .stars(2)
+        viewModel.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
+
+        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == ["C-selected.ARW", "A-selected.ARW"])
+    }
+
+    @Test
+    func `sharpness scoring targets active star rating in visible order`() {
+        let viewModel = RawCullViewModel()
+        let firstVisible = makeCullingTestFile("D-two-star.ARW")
+        let secondVisible = makeCullingTestFile("B-two-star.ARW")
+        let fourStar = makeCullingTestFile("A-four-star.ARW")
+        viewModel.files = [secondVisible, fourStar, firstVisible]
+        viewModel.filteredFiles = [firstVisible, secondVisible, fourStar]
+        viewModel.ratingCache = [
+            firstVisible.name: 2,
+            secondVisible.name: 2,
+            fourStar.name: 4
+        ]
+        viewModel.ratingFilter = .stars(2)
+
+        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == ["D-two-star.ARW", "B-two-star.ARW"])
+    }
+
+    @Test
+    func `sharpness scoring falls back to filename sorted catalog for non-star filters`() {
+        let viewModel = RawCullViewModel()
+        let rejected = makeCullingTestFile("C-rejected.ARW")
+        let keeper = makeCullingTestFile("A-keeper.ARW")
+        let rated = makeCullingTestFile("B-rated.ARW")
+        viewModel.files = [rejected, keeper, rated]
+        viewModel.filteredFiles = [rated]
+        viewModel.ratingCache = [
+            rejected.name: -1,
+            rated.name: 3
+        ]
+
+        let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
+
+        viewModel.ratingFilter = .all
+        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
+
+        viewModel.ratingFilter = .keepers
+        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
+
+        viewModel.ratingFilter = .rejected
+        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == expectedNames)
+    }
+
+    @Test
+    func `sharpness scoring appends hidden selected files after visible selected files`() {
+        let viewModel = RawCullViewModel()
+        let visibleSelected = makeCullingTestFile("C-visible-selected.ARW")
+        let visibleUnselected = makeCullingTestFile("B-visible-unselected.ARW")
+        let hiddenSelected = makeCullingTestFile("A-hidden-selected.ARW")
+        viewModel.files = [visibleSelected, visibleUnselected, hiddenSelected]
+        viewModel.filteredFiles = [visibleSelected, visibleUnselected]
+        viewModel.selectedFileIDs = [visibleSelected.id, hiddenSelected.id]
+
+        #expect(viewModel.sharpnessScoringTargetFiles.map(\.name) == [
+            "C-visible-selected.ARW",
+            "A-hidden-selected.ARW"
+        ])
+    }
+
+    @Test
+    func `calibrateAndScoreCurrentCatalog scores and persists only target files`() async {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let selectedVisible = makeCullingTestFile("B-selected-visible.ARW")
+        let selectedHidden = makeCullingTestFile("A-selected-hidden.ARW")
+        let unselected = makeCullingTestFile("C-unselected.ARW")
+        let recorder = SharpnessScoreURLRecorder()
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [unselected, selectedHidden, selectedVisible]
+        viewModel.filteredFiles = [selectedVisible, unselected]
+        viewModel.selectedFileIDs = [selectedVisible.id, selectedHidden.id]
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.sharpnessModel = SharpnessScoringModel { url, _, _, _ in
+            await recorder.record(url.lastPathComponent)
+            return (0.75, nil, nil)
+        }
+
+        await viewModel.calibrateAndScoreCurrentCatalog()
+
+        let scoredFileNames = await recorder.recordedFileNames()
+        #expect(Set(scoredFileNames) == ["A-selected-hidden.ARW", "B-selected-visible.ARW"])
+        #expect(Set(viewModel.sharpnessModel.scores.keys) == [selectedHidden.id, selectedVisible.id])
+
+        let records = viewModel.cullingModel.savedFiles.first?.filerecords ?? []
+        #expect(Set(records.compactMap(\.fileName)) == ["A-selected-hidden.ARW", "B-selected-visible.ARW"])
+        #expect(!records.contains { $0.fileName == unselected.name })
     }
 
     @Test

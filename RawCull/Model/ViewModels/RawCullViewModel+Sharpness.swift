@@ -7,10 +7,29 @@ import Foundation
 import RawCullCore
 
 extension RawCullViewModel {
+    var sharpnessScoringTargetFiles: [FileItem] {
+        burstAnalysisOrderedFiles()
+    }
+
+    var sharpnessScoringTargetDescription: String {
+        let count = sharpnessScoringTargetFiles.count
+        let fileLabel = count == 1 ? "file" : "files"
+
+        if !selectedFileIDs.isEmpty {
+            return "\(count) selected \(fileLabel)"
+        }
+
+        if case let .stars(rating) = ratingFilter {
+            return "\(count) \(rating)-star \(fileLabel)"
+        }
+
+        return "\(count) catalog \(fileLabel)"
+    }
+
     /// Auto-calibrates focus config from the current catalog, then scores and re-sorts.
     /// After a successful (non-cancelled) run, scores and saliency are persisted to SavedFiles.
     func calibrateAndScoreCurrentCatalog() async {
-        await calibrateAndScoreFiles(files)
+        await calibrateAndScoreFiles(sharpnessScoringTargetFiles)
     }
 
     /// Auto-calibrates and scores only the files participating in burst analysis.
