@@ -10,12 +10,22 @@ extension RawCullViewModel {
     /// Auto-calibrates focus config from the current catalog, then scores and re-sorts.
     /// After a successful (non-cancelled) run, scores and saliency are persisted to SavedFiles.
     func calibrateAndScoreCurrentCatalog() async {
+        await calibrateAndScoreFiles(files)
+    }
+
+    /// Auto-calibrates and scores only the files participating in burst analysis.
+    /// Used by rating- or selection-scoped burst reanalysis to avoid scoring the full catalog.
+    func calibrateAndScoreBurstFiles(_ files: [FileItem]) async {
+        await calibrateAndScoreFiles(files)
+    }
+
+    private func calibrateAndScoreFiles(_ files: [FileItem]) async {
         await sharpnessModel.calibrateFromBurst(files)
         await sharpnessModel.scoreFiles(files)
         // scores is cleared at the start of scoreFiles and only written on clean completion —
         // an empty dict means the run was cancelled, so skip the write.
         if !sharpnessModel.scores.isEmpty {
-            persistScoringResultsInMemory()
+            persistScoringResultsInMemory(files: files)
         }
         await handleSortOrderChange()
     }
@@ -23,6 +33,10 @@ extension RawCullViewModel {
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
     func persistScoringResultsInMemory() {
+        persistScoringResultsInMemory(files: files)
+    }
+
+    private func persistScoringResultsInMemory(files: [FileItem]) {
         guard let catalog = selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo

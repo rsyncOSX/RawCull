@@ -406,6 +406,60 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `burst analysis targets selected thumbnails before rating filter`() {
+        let viewModel = RawCullViewModel()
+        let twoStar = makeCullingTestFile("B-two-star.ARW")
+        let selectedLater = makeCullingTestFile("C-selected.ARW")
+        let selectedEarlier = makeCullingTestFile("A-selected.ARW")
+        viewModel.files = [twoStar, selectedLater, selectedEarlier]
+        viewModel.ratingCache = [twoStar.name: 2]
+        viewModel.ratingFilter = .stars(2)
+        viewModel.selectedFileIDs = [selectedLater.id, selectedEarlier.id]
+
+        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == ["A-selected.ARW", "C-selected.ARW"])
+    }
+
+    @Test
+    func `burst analysis targets exact active star rating`() {
+        let viewModel = RawCullViewModel()
+        let twoStar = makeCullingTestFile("B-two-star.ARW")
+        let fourStar = makeCullingTestFile("A-four-star.ARW")
+        let unrated = makeCullingTestFile("C-unrated.ARW")
+        viewModel.files = [twoStar, fourStar, unrated]
+        viewModel.ratingCache = [
+            twoStar.name: 2,
+            fourStar.name: 4
+        ]
+        viewModel.ratingFilter = .stars(2)
+
+        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == ["B-two-star.ARW"])
+    }
+
+    @Test
+    func `burst analysis keeps full catalog for unscoped filters`() {
+        let viewModel = RawCullViewModel()
+        let rejected = makeCullingTestFile("C-rejected.ARW")
+        let keeper = makeCullingTestFile("A-keeper.ARW")
+        let rated = makeCullingTestFile("B-rated.ARW")
+        viewModel.files = [rejected, keeper, rated]
+        viewModel.ratingCache = [
+            rejected.name: -1,
+            rated.name: 3
+        ]
+
+        let expectedNames = ["A-keeper.ARW", "B-rated.ARW", "C-rejected.ARW"]
+
+        viewModel.ratingFilter = .all
+        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+
+        viewModel.ratingFilter = .keepers
+        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+
+        viewModel.ratingFilter = .rejected
+        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+    }
+
+    @Test
     func `extractRatedfilenames returns files at or above requested rating`() {
         let viewModel = RawCullViewModel()
         let files = [
