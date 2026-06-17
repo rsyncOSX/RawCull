@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
+import ImageIO
 @testable import RawCull
 import Testing
+import UniformTypeIdentifiers
 
 private func makeCacheTestRoot(_ name: String = #function) throws -> URL {
     let safeName = name
@@ -29,6 +31,84 @@ private func makeCacheTestCGImage(width: Int = 32, height: Int = 24, color: NSCo
     context.setFillColor(color.cgColor)
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
     return try #require(context.makeImage())
+}
+
+private func makeOrientedJPEGData(width: Int, height: Int, orientation: Int) throws -> Data {
+    let image = try makeCacheTestCGImage(width: width, height: height)
+    let data = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(
+        data,
+        UTType.jpeg.identifier as CFString,
+        1,
+        nil,
+    ))
+    let properties: [CFString: Any] = [
+        kCGImagePropertyOrientation: orientation
+    ]
+    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    #expect(CGImageDestinationFinalize(destination))
+    return data as Data
+}
+
+private func writeOrientedJPEG(
+    root: URL,
+    name: String,
+    width: Int,
+    height: Int,
+    orientation: Int,
+) throws -> (URL, Data) {
+    let data = try makeOrientedJPEGData(width: width, height: height, orientation: orientation)
+    let url = root.appendingPathComponent(name)
+    try data.write(to: url)
+    return (url, data)
+}
+
+struct OrientationNormalizedImageLoaderTests {
+    @Test
+    func `URL decode applies right orientation to portrait dimensions`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (url, _) = try writeOrientedJPEG(
+            root: root,
+            name: "right.jpg",
+            width: 80,
+            height: 40,
+            orientation: 6,
+        )
+
+        let image = try #require(OrientationNormalizedImageLoader.loadCGImage(from: url))
+
+        #expect(image.width == 40)
+        #expect(image.height == 80)
+    }
+
+    @Test
+    func `URL decode keeps up orientation dimensions unchanged`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (url, _) = try writeOrientedJPEG(
+            root: root,
+            name: "up.jpg",
+            width: 80,
+            height: 40,
+            orientation: 1,
+        )
+
+        let image = try #require(OrientationNormalizedImageLoader.loadCGImage(from: url))
+
+        #expect(image.width == 80)
+        #expect(image.height == 40)
+    }
+
+    @Test
+    func `data decode applies right orientation to portrait dimensions`() throws {
+        let data = try makeOrientedJPEGData(width: 80, height: 40, orientation: 6)
+
+        let image = try #require(OrientationNormalizedImageLoader.loadCGImage(from: data))
+
+        #expect(image.width == 40)
+        #expect(image.height == 80)
+    }
 }
 
 struct DiskCacheManagerTests {
@@ -108,6 +188,21 @@ struct FullSizeJPGDiskCacheTests {
         #expect(loaded?.width == 64)
         #expect(loaded?.height == 48)
         #expect(await cache.getDiskCacheSize() > 0)
+    }
+
+    @Test
+    func `load full size JPEG applies cached orientation metadata`() async throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = FullSizeJPGDiskCache(cacheDirectory: root)
+        let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let data = try makeOrientedJPEGData(width: 80, height: 40, orientation: 6)
+
+        await cache.save(data, for: source)
+        let loaded = try #require(await cache.load(for: source))
+
+        #expect(loaded.width == 40)
+        #expect(loaded.height == 80)
     }
 
     @Test

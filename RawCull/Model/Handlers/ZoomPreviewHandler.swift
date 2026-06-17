@@ -5,10 +5,8 @@
 //  Created by Thomas Evensen on 08/02/2026.
 //
 
-import ImageIO
 import RawParserKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Type to handle JPG/preview extraction and window opening
 enum ZoomPreviewHandler {
@@ -109,7 +107,7 @@ enum ZoomPreviewHandler {
             .appendingPathExtension(SupportedFileType.jpg.rawValue)
 
         let sidecarImage = await Task.detached(priority: .userInitiated) {
-            loadCGImage(from: sidecarJPGURL)
+            OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
         }.value
 
         guard !Task.isCancelled else { return nil }
@@ -126,7 +124,14 @@ enum ZoomPreviewHandler {
               let format = RawFormatRegistry.format(for: rawURL)
         else { return nil }
 
-        let extracted = await format.extractFullJPEG(from: rawURL, fullSize: false)
+        let orientedPreview = await Task.detached(priority: .userInitiated) {
+            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
+        }.value
+        let extracted = if let orientedPreview {
+            orientedPreview
+        } else {
+            await format.extractFullJPEG(from: rawURL, fullSize: false)
+        }
         guard !Task.isCancelled else { return nil }
 
         if let extracted,
@@ -147,43 +152,12 @@ enum ZoomPreviewHandler {
         let jpegData = try await SonyRawFormat.createFullSizeJPEG(from: rawURL, quality: 1.0)
         try Task.checkCancellation()
 
-        guard let image = loadCGImage(from: jpegData) else {
+        guard let image = OrientationNormalizedImageLoader.loadCGImage(from: jpegData) else {
             throw DevelopedRAWError.decodingFailed
         }
 
         await fullSizeCache.save(jpegData, for: rawURL, variant: .developedRAW)
         try Task.checkCancellation()
         return image
-    }
-
-    private nonisolated static func loadCGImage(from url: URL) -> CGImage? {
-        // Disable source-level AND decode-level ImageIO caching. Without this, ImageIO
-        // retains the decoded pixel buffer (~188 MB for a 50 MP JPEG) in a process-level
-        // cache that is NOT subject to ARC — setting cgImage = nil in onDisappear does not
-        // free it. CGImageSourceRemoveCacheAtIndex acts as a belt-and-suspenders eviction
-        // before imageSource goes out of scope.
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
-            return nil
-        }
-        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
-            return nil
-        }
-        CGImageSourceRemoveCacheAtIndex(imageSource, 0)
-        return cgImage
-    }
-
-    private nonisolated static func loadCGImage(from data: Data) -> CGImage? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
-            return nil
-        }
-        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
-            return nil
-        }
-        CGImageSourceRemoveCacheAtIndex(imageSource, 0)
-        return cgImage
     }
 }

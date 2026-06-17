@@ -10,7 +10,7 @@ actor FullSizeJPGDiskCache {
         case developedRAW
     }
 
-    private static let cacheKeyVersion = "v2-jpgfromraw"
+    private static let cacheKeyVersion = "v3-oriented-jpgfromraw"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -54,16 +54,7 @@ actor FullSizeJPGDiskCache {
         let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         return await Task.detached(priority: .userInitiated) {
-            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-            guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, sourceOptions) else {
-                return nil
-            }
-            let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-            guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
-                return nil
-            }
-            CGImageSourceRemoveCacheAtIndex(imageSource, 0)
-            return cgImage
+            OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
         }.value
     }
 

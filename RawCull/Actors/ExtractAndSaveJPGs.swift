@@ -84,7 +84,15 @@ actor ExtractAndSaveJPGs {
         if Task.isCancelled { return } // ← NEW
 
         guard let format = RawFormatRegistry.format(for: url) else { return }
-        if let cgImage = await format.extractFullJPEG(from: url, fullSize: false) {
+        let orientedPreview = await Task.detached(priority: .userInitiated) {
+            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
+        }.value
+        let cgImage = if let orientedPreview {
+            orientedPreview
+        } else {
+            await format.extractFullJPEG(from: url, fullSize: false)
+        }
+        if let cgImage {
             if Task.isCancelled { return } // ← NEW: critical one
 
             guard let jpegData = SaveJPGImage.jpegData(from: cgImage) else { return }

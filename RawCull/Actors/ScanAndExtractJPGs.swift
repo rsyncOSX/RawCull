@@ -94,7 +94,16 @@ actor ScanAndExtractJPGs {
 
         if Task.isCancelled { return }
 
-        guard let extracted = await format.extractFullJPEG(from: url, fullSize: false) else {
+        let orientedPreview = await Task.detached(priority: .userInitiated) {
+            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
+        }.value
+        let extracted = if let orientedPreview {
+            orientedPreview
+        } else {
+            await format.extractFullJPEG(from: url, fullSize: false)
+        }
+
+        guard let extracted else {
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)
