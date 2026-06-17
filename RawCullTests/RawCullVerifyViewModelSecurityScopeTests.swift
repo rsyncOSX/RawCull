@@ -1,5 +1,6 @@
 import Foundation
 @testable import RawCull
+import RawCullCore
 import Testing
 
 @MainActor
@@ -103,5 +104,37 @@ struct RawCullViewModelSecurityScopeTests {
 
         #expect(stopped == [url])
         #expect(!viewModel.hasActiveSecurityScopedAccess(for: url))
+    }
+
+    @Test
+    func `empty catalog scan clears active load state and security scope`() async throws {
+        let viewModel = RawCullViewModel()
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("rawcull-empty-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
+        var stopped: [URL] = []
+
+        viewModel.startSecurityScopedResource = { _ in true }
+        viewModel.stopSecurityScopedResource = { stopped.append($0) }
+
+        viewModel.selectedSource = source
+        viewModel.currentselectedSource = source
+        viewModel.activeCatalogLoadURL = url
+        #expect(viewModel.startSecurityScopedAccess(for: url))
+
+        await viewModel.handleSourceChange(url: url)
+
+        #expect(viewModel.files.isEmpty)
+        #expect(viewModel.filteredFiles.isEmpty)
+        #expect(!viewModel.scanning)
+        #expect(viewModel.currentselectedSource == nil)
+        #expect(viewModel.activeCatalogLoadURL == nil)
+        #expect(!viewModel.hasActiveSecurityScopedAccess(for: url))
+        #expect(stopped == [url])
     }
 }

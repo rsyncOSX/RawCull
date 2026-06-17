@@ -22,6 +22,8 @@ extension RawCullMainView {
     }
 
     func handlePickerResult(_ result: Result<URL, Error>) {
+        viewModel.isShowingPicker = false
+
         if case let .success(url) = result {
             let source = ARWSourceCatalog(name: url.lastPathComponent, url: url)
             viewModel.sources.append(source)

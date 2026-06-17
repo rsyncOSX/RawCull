@@ -108,6 +108,8 @@ extension RawCullViewModel {
 
         guard !files.isEmpty else {
             scanning = false
+            currentselectedSource = nil
+            stopActiveSecurityScopedAccess()
             if activeCatalogLoadURL == url {
                 catalogLoadTask = nil
                 activeCatalogLoadURL = nil

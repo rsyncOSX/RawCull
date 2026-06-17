@@ -41,6 +41,12 @@ struct SidebarARWCatalogFileView: View {
                     Label("No Files Found", systemImage: "folder.badge.plus")
                 } description: {
                     Text("This folder has no RAW images. Try a different folder.")
+                } actions: {
+                    Button {
+                        isShowingPicker = true
+                    } label: {
+                        Label("Add Catalog", systemImage: "plus")
+                    }
                 }
             } else {
                 ZStack {
