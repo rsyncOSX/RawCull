@@ -225,7 +225,6 @@ struct SimilarityGridSelectionView: View {
         }
     }
 
-    @ViewBuilder
     private func reviewQueueButton(
         count: Int,
         title: String,

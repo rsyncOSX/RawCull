@@ -8,8 +8,8 @@
 //
 
 import AppKit
-import SwiftUI
 import RawCullCore
+import SwiftUI
 
 nonisolated enum ZoomOverlayKeyAction: Equatable {
     case navigatePrevious

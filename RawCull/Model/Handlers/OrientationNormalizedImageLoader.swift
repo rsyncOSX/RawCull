@@ -2,9 +2,7 @@ import Foundation
 import ImageIO
 import RawParserKit
 
-
 enum OrientationNormalizedImageLoader {
-
     // MARK: - Public API
 
     /// Loads a full-size CGImage with EXIF orientation applied.
@@ -48,9 +46,11 @@ enum OrientationNormalizedImageLoader {
         let index = 0
         let decodeOptions: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
-            kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceShouldCacheImmediately: false
         ]
-        guard let image = CGImageSourceCreateImageAtIndex(imageSource, index, decodeOptions as CFDictionary) else {
+        guard let image = CGImageSourceCreateImageAtIndex(imageSource, index,
+                                                          decodeOptions as CFDictionary)
+        else {
             return nil
         }
 
@@ -83,7 +83,7 @@ enum OrientationNormalizedImageLoader {
 
         // For orientations 5–8 the image is transposed (width and height swap)
         let transposed = orientation >= 5
-        let destWidth  = transposed ? h : w
+        let destWidth = transposed ? h : w
         let destHeight = transposed ? w : h
 
         guard let context = CGContext(
@@ -93,7 +93,7 @@ enum OrientationNormalizedImageLoader {
             bitsPerComponent: image.bitsPerComponent,
             bytesPerRow: 0,
             space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: image.bitmapInfo.rawValue
+            bitmapInfo: image.bitmapInfo.rawValue,
         ) else { return image }
 
         context.interpolationQuality = .none
@@ -105,25 +105,32 @@ enum OrientationNormalizedImageLoader {
         case 2: // flip horizontal
             context.translateBy(x: CGFloat(destWidth), y: 0)
             context.scaleBy(x: -1, y: 1)
+
         case 3: // rotate 180
             context.translateBy(x: CGFloat(destWidth), y: CGFloat(destHeight))
             context.rotate(by: .pi)
+
         case 4: // flip vertical
             context.translateBy(x: 0, y: CGFloat(destHeight))
             context.scaleBy(x: 1, y: -1)
+
         case 5: // transpose (rotate 90 CCW + flip horizontal)
             context.rotate(by: -.pi / 2)
             context.scaleBy(x: -1, y: 1)
+
         case 6: // rotate 90 CW
             context.translateBy(x: CGFloat(destWidth), y: 0)
             context.rotate(by: .pi / 2)
+
         case 7: // transverse (rotate 90 CW + flip horizontal)
             context.translateBy(x: CGFloat(destWidth), y: CGFloat(destHeight))
             context.rotate(by: .pi / 2)
             context.scaleBy(x: -1, y: 1)
+
         case 8: // rotate 90 CCW
             context.translateBy(x: 0, y: CGFloat(destHeight))
             context.rotate(by: -.pi / 2)
+
         default:
             break
         }

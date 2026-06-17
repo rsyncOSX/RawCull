@@ -7,9 +7,9 @@
 
 import AppKit
 import OSLog
+import RawCullCore
 import SwiftUI
 import UniformTypeIdentifiers
-import RawCullCore
 
 struct ImageTableVerticalView: View {
     private var settings: SettingsViewModel {
