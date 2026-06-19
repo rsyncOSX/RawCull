@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 @testable import RawCull
 import Testing
@@ -159,6 +160,19 @@ struct ZoomOverlayKeyActionTests {
     }
 }
 
+@Suite("ThumbnailKeyAction")
+struct ThumbnailKeyActionTests {
+    @Test(.tags(.smoke), arguments: ["z", "Z"])
+    func `Z resolves to actual-pixels inspection`(characters: String) {
+        #expect(ThumbnailKeyAction.resolve(characters: characters) == .inspectActualPixels)
+    }
+
+    @Test(.tags(.smoke))
+    func `unmapped thumbnail key is ignored`() {
+        #expect(ThumbnailKeyAction.resolve(characters: "j") == nil)
+    }
+}
+
 @Suite("ImageSourceSelectionState")
 struct ImageSourceSelectionStateTests {
     @Test(.tags(.smoke), arguments: [ImagePreviewSource.embeddedJPG, .developedRAW])
@@ -211,6 +225,85 @@ struct ImageSourceSelectionStateTests {
     }
 }
 
+@MainActor
+@Suite("ZoomOverlayLaunchContext")
+struct ZoomOverlayLaunchContextTests {
+    @Test
+    func `default zoom overlay launch context preserves existing behavior`() {
+        let viewModel = RawCullViewModel()
+
+        viewModel.openZoomOverlay()
+
+        #expect(viewModel.zoomOverlayLaunchContext == .default)
+        #expect(viewModel.zoomOverlayLaunchContext.initialSource == .thumbnail)
+        #expect(viewModel.zoomOverlayLaunchContext.initialZoomMode == .fit)
+        #expect(viewModel.zoomOverlayLaunchContext.showFocusPointsOnOpen == false)
+    }
+
+    @Test
+    func `actual-pixels launch context requests embedded JPG and focus points`() {
+        let viewModel = RawCullViewModel()
+
+        viewModel.openZoomOverlay(
+            initialSource: .embeddedJPG,
+            initialZoomMode: .actualPixels,
+            showFocusPointsOnOpen: true,
+        )
+
+        #expect(viewModel.zoomOverlayLaunchContext.initialSource == .embeddedJPG)
+        #expect(viewModel.zoomOverlayLaunchContext.initialZoomMode == .actualPixels)
+        #expect(viewModel.zoomOverlayLaunchContext.showFocusPointsOnOpen)
+    }
+}
+
+@Suite("ZoomViewportMath")
+struct ZoomViewportMathTests {
+    @Test(.tags(.smoke))
+    func `actual-pixels scale maps fitted preview back to image pixels`() {
+        let scale = ZoomViewportMath.actualPixelsScale(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1500, height: 1000),
+        )
+
+        #expect(scale == 4.0)
+    }
+
+    @Test(.tags(.smoke))
+    func `actual-pixels scale maps fit-upscaled preview back to image pixels`() {
+        let scale = ZoomViewportMath.actualPixelsScale(
+            imageSize: CGSize(width: 800, height: 600),
+            viewportSize: CGSize(width: 1600, height: 1200),
+        )
+
+        #expect(scale == 0.5)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus point pan centers a normalized point when there is room`() {
+        let transform = ZoomViewportMath.actualPixelsTransform(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1500, height: 1000),
+            normalizedFocusPoint: CGPoint(x: 0.40, y: 0.50),
+        )
+
+        #expect(transform.scale == 4.0)
+        #expect(transform.offset.width == 600.0)
+        #expect(transform.offset.height == 0.0)
+    }
+
+    @Test(.tags(.smoke))
+    func `missing focus point keeps actual-pixels view centered`() {
+        let transform = ZoomViewportMath.actualPixelsTransform(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1500, height: 1000),
+            normalizedFocusPoint: nil,
+        )
+
+        #expect(transform.scale == 4.0)
+        #expect(transform.offset == .zero)
+    }
+}
+
 @Suite("LoupeImageKeyAction")
 struct LoupeImageKeyActionTests {
     @Test(.tags(.smoke), arguments: ["j", "J"])
@@ -221,6 +314,11 @@ struct LoupeImageKeyActionTests {
     @Test(.tags(.smoke), arguments: ["r", "R"])
     func `R resolves to developed RAW`(characters: String) {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleDevelopedRAW)
+    }
+
+    @Test(.tags(.smoke), arguments: ["z", "Z"])
+    func `Z resolves to actual-pixels inspection`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .inspectActualPixels)
     }
 }
 

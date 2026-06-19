@@ -5,6 +5,7 @@ nonisolated enum LoupeImageKeyAction: Equatable {
     case zoomOut
     case toggleEmbeddedJPG
     case toggleDevelopedRAW
+    case inspectActualPixels
 
     nonisolated static func resolve(characters: String?) -> LoupeImageKeyAction? {
         switch characters {
@@ -19,6 +20,9 @@ nonisolated enum LoupeImageKeyAction: Equatable {
 
         case "r", "R":
             .toggleDevelopedRAW
+
+        case "z", "Z":
+            .inspectActualPixels
 
         default:
             nil
@@ -178,7 +182,7 @@ struct MainThumbnailImageView: View {
                         .focusable()
                         .focused($isImageFocused)
                         .focusEffectDisabled(true)
-                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrR")) { press in
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRzZ")) { press in
                             handleKeyAction(LoupeImageKeyAction.resolve(characters: press.characters))
                         }
                         .onAppear { isImageFocused = true }
@@ -341,6 +345,14 @@ struct MainThumbnailImageView: View {
 
         case .toggleDevelopedRAW:
             sourceSelection.toggleExtractionSource(.developedRAW)
+            return .handled
+
+        case .inspectActualPixels:
+            viewModel.openZoomOverlay(
+                initialSource: .embeddedJPG,
+                initialZoomMode: .actualPixels,
+                showFocusPointsOnOpen: true,
+            )
             return .handled
         }
     }

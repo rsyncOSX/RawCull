@@ -12,6 +12,20 @@ enum ThumbnailNavigationAxis {
     case grid // ↑← prev / ↓→ next
 }
 
+nonisolated enum ThumbnailKeyAction: Equatable {
+    case inspectActualPixels
+
+    nonisolated static func resolve(characters: String?) -> ThumbnailKeyAction? {
+        switch characters {
+        case "z", "Z":
+            .inspectActualPixels
+
+        default:
+            nil
+        }
+    }
+}
+
 struct ThumbnailKeyNavigationModifier: ViewModifier {
     let viewModel: RawCullViewModel
     let axis: ThumbnailNavigationAxis
@@ -25,6 +39,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                     guard !(NSApp.keyWindow?.firstResponder is NSText),
                           viewModel.mainViewMode != .comparisonGrid,
                           !viewModel.zoomOverlayVisible,
+                          event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                           viewModel.selectedFile != nil else { return event }
 
                     let files: [FileItem] = {
@@ -53,6 +68,15 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         : event.keyCode == 125 || event.keyCode == 124 // grid: ↓ or →
 
                     switch event.keyCode {
+                    case _ where ThumbnailKeyAction.resolve(characters: event.characters) == .inspectActualPixels:
+                        viewModel.openZoomOverlay(
+                            navigationIDs: files.map(\.id),
+                            initialSource: .embeddedJPG,
+                            initialZoomMode: .actualPixels,
+                            showFocusPointsOnOpen: true,
+                        )
+                        return nil
+
                     case _ where isPrev:
                         guard let current = viewModel.selectedFile,
                               let idx = files.firstIndex(where: { $0.id == current.id }),

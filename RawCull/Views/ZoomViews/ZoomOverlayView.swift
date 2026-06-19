@@ -115,6 +115,80 @@ nonisolated struct ZoomOverlayNavigationContext: Equatable {
     }
 }
 
+nonisolated struct ZoomViewportTransform: Equatable {
+    var scale: CGFloat
+    var offset: CGSize
+}
+
+nonisolated enum ZoomViewportMath {
+    static func aspectFitRect(imageSize: CGSize, in viewportSize: CGSize) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0,
+              viewportSize.width > 0, viewportSize.height > 0
+        else { return .zero }
+
+        let scale = min(viewportSize.width / imageSize.width, viewportSize.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(
+            x: (viewportSize.width - size.width) / 2,
+            y: (viewportSize.height - size.height) / 2,
+            width: size.width,
+            height: size.height,
+        )
+    }
+
+    static func actualPixelsScale(imageSize: CGSize, viewportSize: CGSize) -> CGFloat {
+        let fitRect = aspectFitRect(imageSize: imageSize, in: viewportSize)
+        guard fitRect.width > 0, fitRect.height > 0 else { return 1.0 }
+        let fitScale = min(fitRect.width / imageSize.width, fitRect.height / imageSize.height)
+        guard fitScale > 0, fitScale.isFinite else { return 1.0 }
+        return 1.0 / fitScale
+    }
+
+    static func actualPixelsTransform(
+        imageSize: CGSize,
+        viewportSize: CGSize,
+        normalizedFocusPoint: CGPoint?,
+    ) -> ZoomViewportTransform {
+        let scale = actualPixelsScale(imageSize: imageSize, viewportSize: viewportSize)
+        guard let normalizedFocusPoint else {
+            return ZoomViewportTransform(scale: scale, offset: .zero)
+        }
+
+        let fitRect = aspectFitRect(imageSize: imageSize, in: viewportSize)
+        guard fitRect.width > 0, fitRect.height > 0 else {
+            return ZoomViewportTransform(scale: scale, offset: .zero)
+        }
+
+        let point = CGPoint(
+            x: fitRect.minX + normalizedFocusPoint.x * fitRect.width,
+            y: fitRect.minY + normalizedFocusPoint.y * fitRect.height,
+        )
+        let viewportCenter = CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
+        let desiredOffset = CGSize(
+            width: (viewportCenter.x - point.x) * scale,
+            height: (viewportCenter.y - point.y) * scale,
+        )
+        let scaledImageSize = CGSize(width: fitRect.width * scale, height: fitRect.height * scale)
+        return ZoomViewportTransform(
+            scale: scale,
+            offset: clampedOffset(desiredOffset, scaledImageSize: scaledImageSize, viewportSize: viewportSize),
+        )
+    }
+
+    private static func clampedOffset(
+        _ offset: CGSize,
+        scaledImageSize: CGSize,
+        viewportSize: CGSize,
+    ) -> CGSize {
+        let maxX = max(0, (scaledImageSize.width - viewportSize.width) / 2)
+        let maxY = max(0, (scaledImageSize.height - viewportSize.height) / 2)
+        return CGSize(
+            width: min(max(offset.width, -maxX), maxX),
+            height: min(max(offset.height, -maxY), maxY),
+        )
+    }
+}
+
 struct ZoomOverlayView: View {
     @Bindable var viewModel: RawCullViewModel
 
@@ -134,6 +208,7 @@ struct ZoomOverlayView: View {
     @State private var rawMessageTask: Task<Void, Never>?
     @State private var maskTask: Task<Void, Never>?
     @State private var keyMonitor: Any?
+    @State private var pendingInitialZoomMode: ZoomOverlayInitialZoomMode?
     @FocusState private var isImageFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
@@ -226,7 +301,7 @@ struct ZoomOverlayView: View {
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
                         focusMaskAvailable: focusMask != nil,
-                        hasFocusPoints: focusPoints != nil,
+                        hasFocusPoints: focusTarget != nil,
                         showFocusPoints: $showFocusPoints,
                         showShortcutHints: true,
                         showImageSourceToggle: true,
@@ -294,6 +369,7 @@ struct ZoomOverlayView: View {
         .onAppear {
             isImageFocused = true
             installKeyMonitor()
+            applyLaunchContext()
             reload()
         }
         .onDisappear {
@@ -309,6 +385,7 @@ struct ZoomOverlayView: View {
             guard viewModel.zoomOverlayVisible else { return }
             sourceSelection.resetForNewImage()
             clearRAWMessage()
+            pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
             reload()
         }
         .task(id: viewModel.zoomOverlayCGImage?.hashValue) {
@@ -327,6 +404,15 @@ struct ZoomOverlayView: View {
     }
 
     // MARK: - Reload
+
+    private func applyLaunchContext() {
+        let context = viewModel.zoomOverlayLaunchContext
+        sourceSelection.select(context.initialSource)
+        pendingInitialZoomMode = context.initialZoomMode
+        if context.showFocusPointsOnOpen {
+            showFocusPoints = focusTarget != nil
+        }
+    }
 
     private func reload() {
         guard let file = viewModel.selectedFile else { return }
@@ -403,7 +489,7 @@ struct ZoomOverlayView: View {
         guard let currentZoomIndex else { return }
         let newIndex = currentZoomIndex + delta
         guard orderedZoomFiles.indices.contains(newIndex) else { return }
-        recenterForNavigatedImage()
+        prepareForNavigatedImage()
         viewModel.selectedFileID = orderedZoomFiles[newIndex].id
     }
 
@@ -575,6 +661,12 @@ struct ZoomOverlayView: View {
         .scaleEffect(currentScale)
         .offset(offset)
         .gesture(zoomPanGesture)
+        .onAppear {
+            applyPendingInitialZoomIfNeeded(imageSize: CGSize(width: image.width, height: image.height), viewportSize: size)
+        }
+        .onChange(of: viewModel.zoomOverlayCGImage?.hashValue) { _, _ in
+            applyPendingInitialZoomIfNeeded(imageSize: CGSize(width: image.width, height: image.height), viewportSize: size)
+        }
         .onTapGesture(count: 2) {
             withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
         }
@@ -618,9 +710,16 @@ struct ZoomOverlayView: View {
 
     // MARK: - Focus point overlay
 
+    private var focusTarget: CGPoint? {
+        if let point = focusPoints?.first {
+            return CGPoint(x: point.normalizedX, y: point.normalizedY)
+        }
+        return viewModel.selectedFile?.afFocusNormalized
+    }
+
     @ViewBuilder
     private func focusPoint() -> some View {
-        if showFocusPoints, let focusPoints {
+        if showFocusPoints, let focusTarget {
             let imageSize: CGSize? = {
                 if let cg = viewModel.zoomOverlayCGImage {
                     return CGSize(width: cg.width, height: cg.height)
@@ -629,10 +728,14 @@ struct ZoomOverlayView: View {
                 }
                 return nil
             }()
-            FocusOverlayView(
-                focusPoints: focusPoints,
+            FocusPointMarker(
+                normalizedX: focusTarget.x,
+                normalizedY: focusTarget.y,
+                boxSize: 16,
                 imageSize: imageSize,
             )
+            .stroke(.red, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 0)
             .scaleEffect(currentScale)
             .offset(offset)
             .allowsHitTesting(false)
@@ -684,13 +787,28 @@ struct ZoomOverlayView: View {
         currentScale = 1.0; lastScale = 1.0; offset = .zero; lastOffset = .zero
     }
 
-    private func recenterForNavigatedImage() {
+    private func prepareForNavigatedImage() {
         offset = .zero
         lastOffset = .zero
+        pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
     }
 
     private func zoomToTarget() {
         currentScale = zoomLevel; lastScale = zoomLevel; offset = .zero; lastOffset = .zero
+    }
+
+    private func applyPendingInitialZoomIfNeeded(imageSize: CGSize, viewportSize: CGSize) {
+        guard pendingInitialZoomMode == .actualPixels else { return }
+        let transform = ZoomViewportMath.actualPixelsTransform(
+            imageSize: imageSize,
+            viewportSize: viewportSize,
+            normalizedFocusPoint: focusTarget,
+        )
+        currentScale = transform.scale
+        lastScale = transform.scale
+        offset = transform.offset
+        lastOffset = transform.offset
+        pendingInitialZoomMode = nil
     }
 
     private func increaseZoom() {
