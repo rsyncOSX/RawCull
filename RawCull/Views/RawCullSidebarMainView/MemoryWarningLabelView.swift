@@ -15,7 +15,7 @@ struct MemoryWarningLabelView: View {
         style: WarningStyle = .full,
         memoryWarningOpacity: Binding<Double> = .constant(0.8),
         onAppearAction: @escaping () -> Void = {},
-        onClose: (() -> Void)? = nil
+        onClose: (() -> Void)? = nil,
     ) {
         self.style = style
         self._memoryWarningOpacity = memoryWarningOpacity

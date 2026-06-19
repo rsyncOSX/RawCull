@@ -202,7 +202,7 @@ struct RawCullMainView: View {
                         dismissedSoftMemoryWarning = true
                     },
                 )
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .task {
