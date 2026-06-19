@@ -11,6 +11,8 @@ struct RawCullMainView: View {
     @Bindable var viewModel: RawCullViewModel
 
     @State private var memoryWarningOpacity: Double = 0.3
+    @State private var dismissedMemoryPressureWarning = false
+    @State private var dismissedSoftMemoryWarning = false
     @State private var memoryMonitorModel = MemoryViewModel(pressureThresholdFactor: 0.85)
     @State var columnVisibility = NavigationSplitViewVisibility.doubleColumn
 
@@ -183,15 +185,23 @@ struct RawCullMainView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if viewModel.memoryPressureWarning {
+            if viewModel.memoryPressureWarning, !dismissedMemoryPressureWarning {
                 MemoryWarningLabelView(
                     style: .full,
                     memoryWarningOpacity: $memoryWarningOpacity,
                     onAppearAction: startMemoryWarningFlash,
+                    onClose: {
+                        dismissedMemoryPressureWarning = true
+                    },
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
-            } else if viewModel.softMemoryWarning {
-                MemoryWarningLabelView(style: .soft)
+            } else if viewModel.softMemoryWarning, !dismissedSoftMemoryWarning {
+                MemoryWarningLabelView(
+                    style: .soft,
+                    onClose: {
+                        dismissedSoftMemoryWarning = true
+                    },
+                )
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
@@ -204,6 +214,7 @@ struct RawCullMainView: View {
                     let macOSLevel = SharedMemoryCache.shared.currentPressureLevel
                     viewModel.softMemoryWarning = macOSLevel == .normal
                 } else {
+                    dismissedSoftMemoryWarning = false
                     viewModel.softMemoryWarning = false
                 }
             }
@@ -211,6 +222,8 @@ struct RawCullMainView: View {
         .onChange(of: viewModel.memoryPressureWarning) { _, newValue in
             if newValue {
                 startMemoryWarningFlash()
+            } else {
+                dismissedMemoryPressureWarning = false
             }
         }
     }

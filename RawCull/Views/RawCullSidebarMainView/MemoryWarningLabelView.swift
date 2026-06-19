@@ -9,11 +9,18 @@ struct MemoryWarningLabelView: View {
     let style: WarningStyle
     @Binding var memoryWarningOpacity: Double
     let onAppearAction: () -> Void
+    let onClose: (() -> Void)?
 
-    init(style: WarningStyle = .full, memoryWarningOpacity: Binding<Double> = .constant(0.8), onAppearAction: @escaping () -> Void = {}) {
+    init(
+        style: WarningStyle = .full,
+        memoryWarningOpacity: Binding<Double> = .constant(0.8),
+        onAppearAction: @escaping () -> Void = {},
+        onClose: (() -> Void)? = nil
+    ) {
         self.style = style
         self._memoryWarningOpacity = memoryWarningOpacity
         self.onAppearAction = onAppearAction
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -32,6 +39,19 @@ struct MemoryWarningLabelView: View {
             }
 
             Spacer()
+
+            if let onClose {
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.headline)
+                        .symbolRenderingMode(.hierarchical)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close memory warning")
+                .help("Close")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
