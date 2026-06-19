@@ -43,7 +43,7 @@ struct ComparisonGridView: View {
                                         inspectorIsPresented: showCandidateInspector,
                                         onSelect: { viewModel.selectedFileID = file.id },
                                         onRate: { rating in
-                                            viewModel.updateRating(for: file, rating: rating)
+                                            viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
                                         },
                                         onToggleInspector: {
                                             showCandidateInspector.toggle()
@@ -310,7 +310,7 @@ struct ComparisonGridView: View {
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let file = selectedComparisonFile else { return .ignored }
-        viewModel.updateRating(for: file, rating: rating)
+        viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
         return .handled
     }
 

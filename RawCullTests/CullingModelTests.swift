@@ -606,6 +606,72 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `updateRatingAndAdvance rates current file and selects next visible file`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.selectedFileID = files[0].id
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRatingAndAdvance(for: files[0], rating: 3, in: files)
+
+        #expect(viewModel.selectedFileID == files[1].id)
+        #expect(viewModel.ratingCache == ["one.ARW": 3])
+        #expect(viewModel.cullingModel.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
+        #expect(viewModel.cullingModel.savedFiles.first?.filerecords?.first?.rating == 3)
+    }
+
+    @Test
+    func `updateRatingAndAdvance leaves last visible file selected`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.selectedFileID = files[1].id
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRatingAndAdvance(for: files[1], rating: 5, in: files)
+
+        #expect(viewModel.selectedFileID == files[1].id)
+        #expect(viewModel.ratingCache == ["two.ARW": 5])
+    }
+
+    @Test
+    func `updateRatingAndAdvance without catalog leaves rating and selection unchanged`() {
+        let viewModel = RawCullViewModel()
+        let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
+        viewModel.files = files
+        viewModel.selectedFileID = files[0].id
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRatingAndAdvance(for: files[0], rating: 4, in: files)
+
+        #expect(viewModel.selectedFileID == files[0].id)
+        #expect(viewModel.ratingCache.isEmpty)
+        #expect(viewModel.cullingModel.savedFiles.isEmpty)
+    }
+
+    @Test
+    func `updateRatingAndAdvance with file outside visible order does not change selection`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let visible = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
+        let hidden = makeCullingTestFile("hidden.ARW")
+        viewModel.selectedSource = catalog
+        viewModel.files = visible + [hidden]
+        viewModel.selectedFileID = visible[0].id
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRatingAndAdvance(for: hidden, rating: 2, in: visible)
+
+        #expect(viewModel.selectedFileID == visible[0].id)
+        #expect(viewModel.ratingCache == ["hidden.ARW": 2])
+    }
+
+    @Test
     func `clearCurrentCatalogCullingState allows rating same catalog again`() {
         let viewModel = RawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))

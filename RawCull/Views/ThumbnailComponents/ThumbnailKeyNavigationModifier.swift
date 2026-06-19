@@ -75,11 +75,8 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
-                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRating(for: current, rating: -1)
-                        if idx + 1 < files.count {
-                            viewModel.selectedFileID = files[idx + 1].id
-                        }
+                              files.contains(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRatingAndAdvance(for: current, rating: -1, in: files)
                         return nil
 
                     case 35: // p / P — keep (rating 0), advance to next
@@ -90,23 +87,20 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
-                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRating(for: current, rating: 0)
-                        if idx + 1 < files.count {
-                            viewModel.selectedFileID = files[idx + 1].id
-                        }
+                              files.contains(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRatingAndAdvance(for: current, rating: 0, in: files)
                         return nil
 
-                    case 29: // 0 — keep (rating 0)
+                    case 29: // 0 — keep (rating 0), advance to next
                         let multiIDs = viewModel.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 0)
                             viewModel.selectedFileIDs = []
                             return nil
                         }
-                        if let file = viewModel.selectedFile {
-                            viewModel.updateRating(for: file, rating: 0)
-                        }
+                        guard let current = viewModel.selectedFile,
+                              files.contains(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRatingAndAdvance(for: current, rating: 0, in: files)
                         return nil
 
                     case 18, 19, 20, 21, 23: // 1→2, 2, 3, 4, 5 — set rating and advance to next
@@ -124,23 +118,20 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                             return nil
                         }
                         guard let current = viewModel.selectedFile,
-                              let idx = files.firstIndex(where: { $0.id == current.id }) else { return nil }
-                        viewModel.updateRating(for: current, rating: rating)
-                        if idx + 1 < files.count {
-                            viewModel.selectedFileID = files[idx + 1].id
-                        }
+                              files.contains(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRatingAndAdvance(for: current, rating: rating, in: files)
                         return nil
 
-                    case 17: // t — default tag (rating 3, green)
+                    case 17: // t — default tag (rating 3, green), advance to next
                         let multiIDs = viewModel.selectedFileIDs
                         if multiIDs.count > 1 {
                             viewModel.updateRating(for: files.filter { multiIDs.contains($0.id) }, rating: 3)
                             viewModel.selectedFileIDs = []
                             return nil
                         }
-                        if let file = viewModel.selectedFile {
-                            viewModel.updateRating(for: file, rating: 3)
-                        }
+                        guard let current = viewModel.selectedFile,
+                              files.contains(where: { $0.id == current.id }) else { return nil }
+                        viewModel.updateRatingAndAdvance(for: current, rating: 3, in: files)
                         return nil
 
                     default:

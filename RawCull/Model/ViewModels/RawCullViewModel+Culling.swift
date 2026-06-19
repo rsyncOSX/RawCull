@@ -62,6 +62,23 @@ extension RawCullViewModel {
         rebuildRatingCache()
     }
 
+    func updateRatingAndAdvance(for file: FileItem, rating: Int, in orderedFiles: [FileItem]) {
+        guard selectedSource != nil else { return }
+        let nextFileID = orderedFiles
+            .firstIndex { $0.id == file.id }
+            .flatMap { index -> FileItem.ID? in
+                let nextIndex = index + 1
+                guard orderedFiles.indices.contains(nextIndex) else { return nil }
+                return orderedFiles[nextIndex].id
+            }
+
+        updateRating(for: file, rating: rating)
+
+        if let nextFileID {
+            selectedFileID = nextFileID
+        }
+    }
+
     func updateRating(for files: [FileItem], rating: Int) {
         guard let selectedSource else { return }
         cullingModel.updateRatings(fileNames: files.map(\.name), rating: rating, in: selectedSource.url)
