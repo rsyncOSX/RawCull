@@ -418,6 +418,49 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `preselectFirstVisibleFileByName selects alphabetically first visible file`() {
+        let viewModel = RawCullViewModel()
+        let c = makeCullingTestFile("C.ARW")
+        let a = makeCullingTestFile("A.ARW")
+        let b = makeCullingTestFile("B.ARW")
+        viewModel.files = [c, a, b]
+        viewModel.filteredFiles = [c, a, b]
+
+        viewModel.preselectFirstVisibleFileByName()
+
+        #expect(viewModel.selectedFileID == a.id)
+    }
+
+    @Test
+    func `preselectFirstVisibleFileByName replaces previous selection`() {
+        let viewModel = RawCullViewModel()
+        let previous = makeCullingTestFile("previous.ARW")
+        let c = makeCullingTestFile("C.ARW")
+        let a = makeCullingTestFile("A.ARW")
+        let b = makeCullingTestFile("B.ARW")
+        viewModel.files = [previous, c, a, b]
+        viewModel.filteredFiles = [c, a, b]
+        viewModel.selectedFileID = previous.id
+
+        viewModel.preselectFirstVisibleFileByName()
+
+        #expect(viewModel.selectedFileID == a.id)
+    }
+
+    @Test
+    func `preselectFirstVisibleFileByName clears selection when no files are visible`() {
+        let viewModel = RawCullViewModel()
+        let previous = makeCullingTestFile("previous.ARW")
+        viewModel.files = [previous]
+        viewModel.filteredFiles = []
+        viewModel.selectedFileID = previous.id
+
+        viewModel.preselectFirstVisibleFileByName()
+
+        #expect(viewModel.selectedFileID == nil)
+    }
+
+    @Test
     func `burst analysis targets selected thumbnails before rating filter`() {
         let viewModel = RawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")

@@ -13,6 +13,9 @@ extension RawCullViewModel {
             return
         }
 
+        selectedFileID = nil
+        selectedFileIDs = []
+
         cancelCatalogLoad()
         currentselectedSource = source
 
@@ -105,6 +108,7 @@ extension RawCullViewModel {
 
         files = scannedFiles
         filteredFiles = applyFilters(to: sortedFiles)
+        preselectFirstVisibleFileByName()
 
         guard !files.isEmpty else {
             scanning = false
@@ -200,6 +204,14 @@ extension RawCullViewModel {
 
     func isActiveCatalogLoad(_ url: URL) -> Bool {
         activeCatalogLoadURL == url && selectedSource?.url == url
+    }
+
+    func preselectFirstVisibleFileByName() {
+        selectedFileID = filteredFiles
+            .min { lhs, rhs in
+                lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }?
+            .id
     }
 
     /// Applies the active rating filter and sharpness sort to a pre-sorted file list.
