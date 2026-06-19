@@ -36,6 +36,7 @@ nonisolated enum ComparisonGridKeyAction: Equatable {
     case toggleInspector
     case toggleFocusMask
     case toggleFocusPoints
+    case inspectActualPixels
     case keepBest
     case rating(Int)
 
@@ -78,6 +79,9 @@ nonisolated enum ComparisonGridKeyAction: Equatable {
 
         case "a", "A":
             .toggleFocusPoints
+
+        case "z", "Z":
+            .inspectActualPixels
 
         case "b", "B":
             .keepBest

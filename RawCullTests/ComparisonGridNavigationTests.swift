@@ -80,4 +80,9 @@ struct ComparisonGridNavigationTests {
         #expect(ComparisonGridKeyAction.resolve(characters: "4", keyCode: 0) == .rating(4))
         #expect(ComparisonGridKeyAction.resolve(characters: "5", keyCode: 0) == .rating(5))
     }
+
+    @Test(.tags(.smoke), arguments: ["z", "Z"])
+    func `Z resolves to actual-pixels inspection`(characters: String) {
+        #expect(ComparisonGridKeyAction.resolve(characters: characters, keyCode: 0) == .inspectActualPixels)
+    }
 }

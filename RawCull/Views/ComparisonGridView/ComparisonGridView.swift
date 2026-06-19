@@ -121,7 +121,7 @@ struct ComparisonGridView: View {
             }
             return .ignored
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJiIxXpP012345tTfFaAbB")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJiIxXpP012345tTfFaAzZbB")) { press in
             handleKeyPress(characters: press.characters)
         }
         .onAppear {
@@ -392,6 +392,9 @@ struct ComparisonGridView: View {
         case .toggleFocusPoints:
             return toggleSelectedFocusPoints()
 
+        case .inspectActualPixels:
+            return inspectSelectedActualPixels()
+
         case .keepBest:
             return applyBurstKeepBest()
 
@@ -437,6 +440,17 @@ struct ComparisonGridView: View {
     private func toggleSelectedImageSource() -> KeyPress.Result {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         useThumbnailSourceByFileID[selectedID, default: false].toggle()
+        return .handled
+    }
+
+    private func inspectSelectedActualPixels() -> KeyPress.Result {
+        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        viewModel.openZoomOverlay(
+            navigationIDs: files.map(\.id),
+            initialSource: .embeddedJPG,
+            initialZoomMode: .actualPixels,
+            showFocusPointsOnOpen: true,
+        )
         return .handled
     }
 
