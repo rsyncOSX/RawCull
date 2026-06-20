@@ -14,7 +14,6 @@ struct ScoringParametersSheetView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Title bar
             HStack {
                 Label("Scoring Parameters", systemImage: "slider.horizontal.3")
                     .font(.title3.bold())
@@ -41,103 +40,141 @@ struct ScoringParametersSheetView: View {
 
             Divider()
 
-            Form {
-                Section("Scoring Resolution") {
-                    Picker("Quality", selection: $scoringQuality) {
-                        ForEach(SharpnessScoringQuality.allCases) { quality in
-                            Text(quality.title).tag(quality)
-                        }
+            ScrollView {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(spacing: 16) {
+                        scoringResolutionSection
+                        borderSection
                     }
-                    .pickerStyle(.inline)
-                    .onChange(of: scoringQuality) { _, newValue in
-                        if newValue == .highPrecision {
-                            thumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
-                        } else if thumbnailMaxPixelSize <= 0 {
-                            thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
-                        }
-                    }
-                    Text("Fast preserves today's scoring path. Balanced and High Precision decode larger previews and blend a fine-detail pass for better small-subject ranking at higher compute cost.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .top)
 
-                    Picker("Thumbnail size", selection: $thumbnailMaxPixelSize) {
-                        if scoringQuality == .highPrecision {
-                            ForEach(SharpnessScoringSizeOption.allCases) { option in
-                                Text(option.title).tag(option.rawValue)
-                            }
-                        } else {
-                            Text("512 px  (fast)").tag(512)
-                            Text("768 px").tag(768)
-                            Text("1024 px  (accurate)").tag(1024)
-                        }
+                    VStack(spacing: 16) {
+                        subjectDetectionSection
+                        subjectWeightingSection
                     }
-                    .pickerStyle(.inline)
-                    Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Picker("Source", selection: $scoringSource) {
-                        ForEach(SharpnessScoringSource.allCases) { source in
-                            Text(source.title).tag(source)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                    Text(scoringSource.help)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
-
-                Section("Border") {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text("Border inset")
-                                .font(.caption)
-                            Spacer()
-                            Text("\(Int((config.borderInsetFraction * 100).rounded()))%")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(value: $config.borderInsetFraction, in: 0.0 ... 0.10, step: 0.01)
-                            .controlSize(.small)
-                        Text("Excludes the outer N% of pixels on each edge from scoring, preventing blur-border artifacts from inflating the score")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section("Subject Detection") {
-                    Toggle("Classify subject during scoring", isOn: $config.enableSubjectClassification)
-                    Text("Runs an additional Vision classification pass to label each thumbnail with the detected subject (e.g. \"animal\", \"bird\"). Adds ~10–20% to scoring time. Disable for faster re-scores when the badge label is not needed.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Subject Weighting") {
-                    LabeledSlider(
-                        label: "Subject weight",
-                        value: $config.salientWeight,
-                        range: 0.0 ... 1.0,
-                        hint: "0 = full-frame score only · 1 = subject region only. Higher values make the score reflect how sharp the subject is rather than the background",
-                    )
-
-                    LabeledSlider(
-                        label: "Subject size bonus",
-                        value: $config.subjectSizeFactor,
-                        range: 0.0 ... 3.0,
-                        hint: "Gives a proportional score bonus for larger subjects in frame (closer subjects fill more of the frame). 0 = disabled",
-                    )
-                }
+                .padding(20)
             }
-            .formStyle(.grouped)
         }
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(minWidth: 680, idealWidth: 720, maxWidth: 780, maxHeight: 620)
         .onAppear {
             thumbnailMaxPixelSize = SharpnessScoringSizeOption.normalizedPixelSize(
                 thumbnailMaxPixelSize,
                 for: scoringQuality,
             )
         }
+    }
+
+    private var scoringResolutionSection: some View {
+        GroupBox("Scoring Resolution") {
+            VStack(alignment: .leading, spacing: 12) {
+                Picker("Quality", selection: $scoringQuality) {
+                    ForEach(SharpnessScoringQuality.allCases) { quality in
+                        Text(quality.title).tag(quality)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: scoringQuality) { _, newValue in
+                    if newValue == .highPrecision {
+                        thumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
+                    } else if thumbnailMaxPixelSize <= 0 {
+                        thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
+                    }
+                }
+
+                Text("Fast preserves today's scoring path. Balanced and High Precision decode larger previews and blend a fine-detail pass for better small-subject ranking at higher compute cost.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Picker("Thumbnail size", selection: $thumbnailMaxPixelSize) {
+                    if scoringQuality == .highPrecision {
+                        ForEach(SharpnessScoringSizeOption.allCases) { option in
+                            Text(option.title).tag(option.rawValue)
+                        }
+                    } else {
+                        Text("512 px").tag(512)
+                        Text("768 px").tag(768)
+                        Text("1024 px").tag(1024)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text("Larger thumbnails give more accurate sharpness scores, especially at high ISO, but scoring takes proportionally longer.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Picker("Source", selection: $scoringSource) {
+                    ForEach(SharpnessScoringSource.allCases) { source in
+                        Text(source.title).tag(source)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(scoringSource.help)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var borderSection: some View {
+        GroupBox("Border") {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("Border inset")
+                        .font(.caption)
+                    Spacer()
+                    Text("\(Int((config.borderInsetFraction * 100).rounded()))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $config.borderInsetFraction, in: 0.0 ... 0.10, step: 0.01)
+                    .controlSize(.small)
+                Text("Excludes the outer N% of pixels on each edge from scoring, preventing blur-border artifacts from inflating the score")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var subjectDetectionSection: some View {
+        GroupBox("Subject Detection") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Classify subject during scoring", isOn: $config.enableSubjectClassification)
+                Text("Runs an additional Vision classification pass to label each thumbnail with the detected subject, such as animal or bird. Adds 10-20% to scoring time. Disable for faster re-scores when the badge label is not needed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var subjectWeightingSection: some View {
+        GroupBox("Subject Weighting") {
+            VStack(spacing: 12) {
+                LabeledSlider(
+                    label: "Subject weight",
+                    value: $config.salientWeight,
+                    range: 0.0 ... 1.0,
+                    hint: "0 = full-frame score only · 1 = subject region only. Higher values make the score reflect how sharp the subject is rather than the background",
+                )
+
+                LabeledSlider(
+                    label: "Subject size bonus",
+                    value: $config.subjectSizeFactor,
+                    range: 0.0 ... 3.0,
+                    hint: "Gives a proportional score bonus for larger subjects in frame (closer subjects fill more of the frame). 0 = disabled",
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func saveScoringSettings() {
