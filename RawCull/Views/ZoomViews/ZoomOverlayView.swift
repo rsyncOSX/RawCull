@@ -141,7 +141,7 @@ nonisolated enum ZoomViewportMath {
         guard fitRect.width > 0, fitRect.height > 0 else { return 1.0 }
         let fitScale = min(fitRect.width / imageSize.width, fitRect.height / imageSize.height)
         guard fitScale > 0, fitScale.isFinite else { return 1.0 }
-        return 1.0 / fitScale
+        return 0.6 / fitScale
     }
 
     static func actualPixelsTransform(
