@@ -118,15 +118,15 @@ enum ConcurrencyTests {
             let savedPhotoType = await MainActor.run { savedSettings.scoringPhotoType }
             let savedQuality = await MainActor.run { savedSettings.scoringQuality }
 
-            #expect(savedMB == 8000)
-            #expect(savedGridCache == 2000)
+            #expect(savedMB == 1000)
+            #expect(savedGridCache == 1500)
             #expect(savedGrid == 200)
             #expect(savedPhotoType == .portrait)
             #expect(savedQuality == .highPrecision)
         }
 
         @Test
-        func `save during initial load normalizes persisted grid cache size to maximum`() async throws {
+        func `save during initial load preserves persisted cache maximums`() async throws {
             let url = makeIsolatedSettingsURL()
             let data = Data("""
             {
@@ -152,7 +152,7 @@ enum ConcurrencyTests {
             let savedSettings = await viewModel.asyncgetsettings()
             let savedGridCache = await MainActor.run { savedSettings.gridCacheSizeMB }
 
-            #expect(savedGridCache == 2000)
+            #expect(savedGridCache == 1750)
         }
 
         @Test
@@ -203,7 +203,7 @@ enum ConcurrencyTests {
             let settings = try JSONDecoder().decode(SavedSettings.self, from: data)
 
             #expect(settings.memoryCacheSizeMB == 8000)
-            #expect(settings.gridCacheSizeMB == 2000)
+            #expect(settings.gridCacheSizeMB == 400)
             #expect(settings.thumbnailSizeGrid == 300)
             #expect(settings.thumbnailSizePreview == 1024)
             #expect(settings.thumbnailSizeFullSize == 8700)
@@ -243,7 +243,7 @@ enum ConcurrencyTests {
             let saved = try JSONDecoder().decode(SavedSettings.self, from: data)
             let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-            #expect(saved.memoryCacheSizeMB == 8000)
+            #expect(saved.memoryCacheSizeMB == 1000)
             #expect(saved.gridCacheSizeMB == 2000)
             #expect(saved.thumbnailSizeGrid == 100)
             #expect(saved.thumbnailSizePreview == 1664)
@@ -269,7 +269,7 @@ enum ConcurrencyTests {
             }
             let snapshotMB = await MainActor.run { snapshot.memoryCacheSizeMB }
 
-            #expect(snapshotMB == 8000)
+            #expect(snapshotMB == 5000)
         }
 
         @Test
@@ -284,7 +284,7 @@ enum ConcurrencyTests {
 
             let snapshot = await viewModel.asyncgetsettings()
 
-            #expect(snapshot.memoryCacheSizeMB == 8000)
+            #expect(snapshot.memoryCacheSizeMB == 1000)
             #expect(snapshot.gridCacheSizeMB == 2000)
             #expect(snapshot.thumbnailSharpenAmount == 0.0)
             #expect(snapshot.scoringSubjectSizeFactor == 3.0)

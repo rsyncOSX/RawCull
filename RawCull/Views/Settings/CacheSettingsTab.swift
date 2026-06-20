@@ -42,21 +42,21 @@ struct CacheSettingsTab: View {
                                 icon: "memorychip",
                                 title: "Memory cache",
                                 value: "\(formatMegabytes(settingsManager.memoryCacheSizeMB)) max",
-                                detail: "Approx \(displayValue(for: settingsManager.memoryCacheSizeMB)) preview images",
+                                detail: "\(formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit)) live · approx \(displayValue(for: SharedMemoryCache.shared.memoryCache.totalCostLimit / (1024 * 1024))) previews",
                             )
 
                             limitRow(
                                 icon: "square.grid.2x2",
                                 title: "Grid cache",
                                 value: "\(formatMegabytes(settingsManager.gridCacheSizeMB)) max",
-                                detail: "Approx \(gridDisplayValue(for: settingsManager.gridCacheSizeMB)) grid thumbnails",
+                                detail: "\(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit)) live · approx \(gridDisplayValue(for: SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit / (1024 * 1024))) thumbnails",
                             )
 
                             limitRow(
                                 icon: "gauge.with.dots.needle.50percent",
                                 title: "Supported limits",
                                 value: "\(formatMegabytes(CacheSettingsLimits.memoryMinMB))-\(formatMegabytes(CacheSettingsLimits.memoryMaxMB)) memory, \(formatMegabytes(CacheSettingsLimits.gridMinMB))-\(formatMegabytes(CacheSettingsLimits.gridMaxMB)) grid",
-                                detail: "RawCull uses the maximum cache limits by default.",
+                                detail: "RawCull adapts cache usage to available memory, prioritizing smooth grid browsing.",
                             )
 
                             Divider()

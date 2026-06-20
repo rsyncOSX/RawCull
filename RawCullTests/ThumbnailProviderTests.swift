@@ -100,6 +100,8 @@ struct RequestThumbnailTests {
 }
 
 struct CacheConfigTests {
+    private let mb = CacheRecommendationPolicy.megabyte
+
     @Test
     func `production config uses larger limits than testing config`() {
         let production = CacheConfig.production
@@ -120,6 +122,91 @@ struct CacheConfigTests {
         #expect(config.totalCostLimit == 1_000_000)
         #expect(config.countLimit == 25)
         #expect(config.gridTotalCostLimit == 2_000_000)
+    }
+
+    @Test
+    func `sixteen GB low free memory keeps adaptive baseline`() {
+        let physical = UInt64(16 * 1024 * mb)
+        let used = UInt64(13 * 1024 * mb)
+
+        let limits = CacheRecommendationPolicy.adaptiveLimits(
+            physicalMemoryBytes: physical,
+            usedMemoryBytes: used,
+            userPreviewMaxMB: 4096,
+            userGridMaxMB: 1024,
+            pressureLevel: .normal,
+        )
+
+        #expect(limits.previewMB == 2048)
+        #expect(limits.gridMB == 768)
+    }
+
+    @Test
+    func `sixteen GB with five point six GB free prioritizes grid cache`() {
+        let physical = UInt64(16 * 1024 * mb)
+        let used = UInt64((16 * 1024 - 5734) * mb)
+
+        let limits = CacheRecommendationPolicy.adaptiveLimits(
+            physicalMemoryBytes: physical,
+            usedMemoryBytes: used,
+            userPreviewMaxMB: 4096,
+            userGridMaxMB: 1024,
+            pressureLevel: .normal,
+        )
+
+        #expect(limits.previewMB == 3072)
+        #expect(limits.gridMB == 1024)
+    }
+
+    @Test
+    func `sixteen GB high free memory caps at safe tier`() {
+        let physical = UInt64(16 * 1024 * mb)
+        let used = UInt64(6 * 1024 * mb)
+
+        let limits = CacheRecommendationPolicy.adaptiveLimits(
+            physicalMemoryBytes: physical,
+            usedMemoryBytes: used,
+            userPreviewMaxMB: 8000,
+            userGridMaxMB: 2000,
+            pressureLevel: .normal,
+        )
+
+        #expect(limits.previewMB == 4096)
+        #expect(limits.gridMB == 1024)
+    }
+
+    @Test
+    func `adaptive cache respects user maximums`() {
+        let physical = UInt64(16 * 1024 * mb)
+        let used = UInt64(8 * 1024 * mb)
+
+        let limits = CacheRecommendationPolicy.adaptiveLimits(
+            physicalMemoryBytes: physical,
+            usedMemoryBytes: used,
+            userPreviewMaxMB: 2500,
+            userGridMaxMB: 900,
+            pressureLevel: .normal,
+        )
+
+        #expect(limits.previewMB == 2500)
+        #expect(limits.gridMB == 900)
+    }
+
+    @Test
+    func `warning pressure shrinks adaptive baseline`() {
+        let physical = UInt64(16 * 1024 * mb)
+        let used = UInt64(8 * 1024 * mb)
+
+        let limits = CacheRecommendationPolicy.adaptiveLimits(
+            physicalMemoryBytes: physical,
+            usedMemoryBytes: used,
+            userPreviewMaxMB: 4096,
+            userGridMaxMB: 1024,
+            pressureLevel: .warning,
+        )
+
+        #expect(limits.previewMB == 1280)
+        #expect(limits.gridMB == 512)
     }
 }
 

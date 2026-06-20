@@ -82,7 +82,7 @@ actor SharedMemoryCache {
     // MARK: - Memory pressure level
 
     /// The kernel-reported memory pressure level.
-    enum MemoryPressureLevel {
+    enum MemoryPressureLevel: Equatable {
         case normal, warning, critical
 
         var label: String {
@@ -211,20 +211,47 @@ actor SharedMemoryCache {
     /// byte-budget is the binding constraint — NSCache applies `min(count, cost)`
     /// and we want cost to do the evicting, not item count.
     func calculateConfig(from settings: SavedSettings) -> CacheConfig {
-        let memoryCacheSizeMB = settings.memoryCacheSizeMB // 5000 MB default  - 20,000 MB max
+        let limits = CacheRecommendationPolicy.adaptiveLimits(
+            physicalMemoryBytes: ProcessInfo.processInfo.physicalMemory,
+            usedMemoryBytes: Self.usedSystemMemoryBytes(),
+            userPreviewMaxMB: settings.memoryCacheSizeMB,
+            userGridMaxMB: settings.gridCacheSizeMB,
+            pressureLevel: currentPressureLevel,
+        )
 
         // totalCostLimit is the PRIMARY memory constraint (based on allocated MB)
         // countLimit is set very high (10000) so memory, not item count, limits the cache
-        // This allows ~500+ images at ~18MB each with default 10GB allocation
-        let totalCostLimit = memoryCacheSizeMB * 1024 * 1024
+        let totalCostLimit = limits.previewMB * CacheRecommendationPolicy.megabyte
         let countLimit = 10000 // Very high so totalCostLimit is the real constraint
-        let gridTotalCostLimit = settings.gridCacheSizeMB * 1024 * 1024
+        let gridTotalCostLimit = limits.gridMB * CacheRecommendationPolicy.megabyte
 
         return CacheConfig(
             totalCostLimit: totalCostLimit,
             countLimit: countLimit,
             gridTotalCostLimit: gridTotalCostLimit,
         )
+    }
+
+    private nonisolated static func usedSystemMemoryBytes() -> UInt64 {
+        let total = ProcessInfo.processInfo.physicalMemory
+        var stat = vm_statistics64()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size,
+        )
+
+        let result = withUnsafeMutablePointer(to: &stat) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+            }
+        }
+
+        guard result == KERN_SUCCESS else { return 0 }
+
+        let pageSize = UInt64(getpagesize())
+        let wired = UInt64(stat.wire_count)
+        let active = UInt64(stat.active_count)
+        let compressed = UInt64(stat.compressor_page_count)
+        return min((wired + active + compressed) * pageSize, total)
     }
 
     /// In SharedMemoryCache
