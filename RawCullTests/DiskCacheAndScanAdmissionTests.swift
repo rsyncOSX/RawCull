@@ -50,6 +50,20 @@ private func makeOrientedJPEGData(width: Int, height: Int, orientation: Int) thr
     return data as Data
 }
 
+private func makeJPEGData(width: Int, height: Int) throws -> Data {
+    let image = try makeCacheTestCGImage(width: width, height: height)
+    let data = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(
+        data,
+        UTType.jpeg.identifier as CFString,
+        1,
+        nil,
+    ))
+    CGImageDestinationAddImage(destination, image, nil)
+    #expect(CGImageDestinationFinalize(destination))
+    return data as Data
+}
+
 private func writeOrientedJPEG(
     root: URL,
     name: String,
@@ -163,6 +177,50 @@ struct OrientationNormalizedImageLoaderTests {
 
         #expect(oriented.width == 40)
         #expect(oriented.height == 80)
+    }
+
+    @Test
+    func `embedded preview uses its own orientation before source orientation`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (sourceURL, _) = try writeOrientedJPEG(
+            root: root,
+            name: "source-right.jpg",
+            width: 80,
+            height: 40,
+            orientation: 6,
+        )
+        let embeddedData = try makeOrientedJPEGData(width: 80, height: 40, orientation: 1)
+
+        let image = try #require(OrientationNormalizedImageLoader.loadEmbeddedPreview(
+            from: embeddedData,
+            sourceURL: sourceURL,
+        ))
+
+        #expect(image.width == 80)
+        #expect(image.height == 40)
+    }
+
+    @Test
+    func `embedded preview falls back to source orientation when missing its own orientation`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (sourceURL, _) = try writeOrientedJPEG(
+            root: root,
+            name: "source-right.jpg",
+            width: 80,
+            height: 40,
+            orientation: 6,
+        )
+        let embeddedData = try makeJPEGData(width: 80, height: 40)
+
+        let image = try #require(OrientationNormalizedImageLoader.loadEmbeddedPreview(
+            from: embeddedData,
+            sourceURL: sourceURL,
+        ))
+
+        #expect(image.width == 40)
+        #expect(image.height == 80)
     }
 }
 

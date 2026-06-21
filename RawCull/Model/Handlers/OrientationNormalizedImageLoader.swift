@@ -52,10 +52,24 @@ enum OrientationNormalizedImageLoader {
         else {
             return nil
         }
-        guard let image = loadUnorientedCGImage(from: data) else {
+        return loadEmbeddedPreview(from: data, sourceURL: rawURL)
+    }
+
+    nonisolated static func loadEmbeddedPreview(from data: Data, sourceURL: URL) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
             return nil
         }
-        return applyingSourceOrientation(to: image, from: rawURL)
+        defer { removeCachedImages(from: imageSource) }
+
+        if exifOrientationIfPresent(from: imageSource, index: 0) != nil {
+            return loadDirectImage(from: imageSource)
+        }
+
+        guard let image = loadUnorientedCGImage(from: imageSource) else {
+            return nil
+        }
+        return applyingSourceOrientation(to: image, from: sourceURL)
     }
 
     // MARK: - Private
@@ -112,6 +126,10 @@ enum OrientationNormalizedImageLoader {
         }
         defer { removeCachedImages(from: imageSource) }
 
+        return loadUnorientedCGImage(from: imageSource)
+    }
+
+    private nonisolated static func loadUnorientedCGImage(from imageSource: CGImageSource) -> CGImage? {
         let decodeOptions: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
             kCGImageSourceShouldCacheImmediately: false
@@ -120,8 +138,12 @@ enum OrientationNormalizedImageLoader {
     }
 
     private nonisolated static func exifOrientation(from imageSource: CGImageSource, index: Int) -> Int {
+        exifOrientationIfPresent(from: imageSource, index: index) ?? 1
+    }
+
+    private nonisolated static func exifOrientationIfPresent(from imageSource: CGImageSource, index: Int) -> Int? {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil) as? [CFString: Any] else {
-            return 1
+            return nil
         }
         // Orientation can live at the top level or inside the TIFF dictionary
         if let orientation = properties[kCGImagePropertyOrientation] as? Int {
@@ -131,7 +153,7 @@ enum OrientationNormalizedImageLoader {
            let orientation = tiff[kCGImagePropertyTIFFOrientation] as? Int {
             return orientation
         }
-        return 1 // default: no rotation
+        return nil
     }
 
     /// Applies EXIF orientation (1–8) by redrawing into a correctly sized CGContext.
