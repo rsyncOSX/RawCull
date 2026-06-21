@@ -163,7 +163,6 @@ final class RawCullViewModel {
     @ObservationIgnored var processedURLs: Set<URL> = []
 
     var memoryPressureWarning: Bool = false
-    var softMemoryWarning: Bool = false
 
     /// O(1) lookup: filename → rating for the current source catalog.
     /// Rebuilt by rebuildRatingCache() after any culling state change.
