@@ -52,7 +52,10 @@ enum OrientationNormalizedImageLoader {
         else {
             return nil
         }
-        return loadCGImage(from: data)
+        guard let image = loadUnorientedCGImage(from: data) else {
+            return nil
+        }
+        return applyingSourceOrientation(to: image, from: rawURL)
     }
 
     // MARK: - Private
@@ -100,6 +103,20 @@ enum OrientationNormalizedImageLoader {
 
         let orientation = exifOrientation(from: imageSource, index: index)
         return applyOrientation(to: image, orientation: orientation)
+    }
+
+    private nonisolated static func loadUnorientedCGImage(from data: Data) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
+            return nil
+        }
+        defer { removeCachedImages(from: imageSource) }
+
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: false
+        ]
+        return CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions as CFDictionary)
     }
 
     private nonisolated static func exifOrientation(from imageSource: CGImageSource, index: Int) -> Int {

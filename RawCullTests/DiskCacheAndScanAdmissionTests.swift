@@ -145,6 +145,25 @@ struct OrientationNormalizedImageLoaderTests {
         #expect(image.width == 80)
         #expect(image.height == 40)
     }
+
+    @Test
+    func `source orientation can be baked into a decoded image`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (sourceURL, _) = try writeOrientedJPEG(
+            root: root,
+            name: "source-orientation.jpg",
+            width: 80,
+            height: 40,
+            orientation: 6,
+        )
+        let image = try makeCacheTestCGImage(width: 80, height: 40)
+
+        let oriented = try #require(OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: sourceURL))
+
+        #expect(oriented.width == 40)
+        #expect(oriented.height == 80)
+    }
 }
 
 struct DiskCacheManagerTests {

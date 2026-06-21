@@ -130,10 +130,14 @@ enum ZoomPreviewHandler {
         let orientedPreview = await Task.detached(priority: .userInitiated) {
             OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
         }.value
-        let extracted = if let orientedPreview {
+        let extracted: CGImage? = if let orientedPreview {
             orientedPreview
         } else {
-            await format.extractFullJPEG(from: rawURL, fullSize: false)
+            if let image = await format.extractFullJPEG(from: rawURL, fullSize: false) {
+                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
+            } else {
+                nil
+            }
         }
         guard !Task.isCancelled else { return nil }
 

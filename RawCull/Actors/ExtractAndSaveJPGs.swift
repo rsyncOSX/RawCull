@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 import OSLog
 import RawParserKit
 
@@ -87,10 +88,14 @@ actor ExtractAndSaveJPGs {
         let orientedPreview = await Task.detached(priority: .userInitiated) {
             OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
         }.value
-        let cgImage = if let orientedPreview {
+        let cgImage: CGImage? = if let orientedPreview {
             orientedPreview
         } else {
-            await format.extractFullJPEG(from: url, fullSize: false)
+            if let image = await format.extractFullJPEG(from: url, fullSize: false) {
+                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
+            } else {
+                nil
+            }
         }
         if let cgImage {
             if Task.isCancelled { return } // ← NEW: critical one
