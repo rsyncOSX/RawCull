@@ -197,22 +197,22 @@ enum OrientationNormalizedImageLoader {
             context.translateBy(x: 0, y: CGFloat(destHeight))
             context.scaleBy(x: 1, y: -1)
 
-        case 5: // transpose (rotate 90 CCW + flip horizontal)
-            context.rotate(by: -.pi / 2)
-            context.scaleBy(x: -1, y: 1)
-
-        case 6: // rotate 90 CW
-            context.translateBy(x: CGFloat(destWidth), y: 0)
-            context.rotate(by: .pi / 2)
-
-        case 7: // transverse (rotate 90 CW + flip horizontal)
+        case 5: // transpose
             context.translateBy(x: CGFloat(destWidth), y: CGFloat(destHeight))
             context.rotate(by: .pi / 2)
             context.scaleBy(x: -1, y: 1)
 
-        case 8: // rotate 90 CCW
+        case 6: // rotate 90 CW
             context.translateBy(x: 0, y: CGFloat(destHeight))
             context.rotate(by: -.pi / 2)
+
+        case 7: // transverse
+            context.rotate(by: -.pi / 2)
+            context.scaleBy(x: -1, y: 1)
+
+        case 8: // rotate 90 CCW
+            context.translateBy(x: CGFloat(destWidth), y: 0)
+            context.rotate(by: .pi / 2)
 
         default:
             break

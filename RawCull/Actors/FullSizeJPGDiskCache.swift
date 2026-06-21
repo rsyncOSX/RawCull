@@ -10,7 +10,7 @@ actor FullSizeJPGDiskCache {
         case developedRAW
     }
 
-    private static let cacheKeyVersion = "v4-embedded-jpg-orientation"
+    private static let cacheKeyVersion = "v5-embedded-jpg-orientation"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {

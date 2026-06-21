@@ -33,6 +33,97 @@ private func makeCacheTestCGImage(width: Int = 32, height: Int = 24, color: NSCo
     return try #require(context.makeImage())
 }
 
+enum CornerColor: String {
+    case red
+    case green
+    case blue
+    case yellow
+}
+
+struct CornerColors: Equatable {
+    let topLeft: CornerColor
+    let topRight: CornerColor
+    let bottomLeft: CornerColor
+    let bottomRight: CornerColor
+}
+
+private func makeQuadrantTestCGImage(width: Int = 80, height: Int = 60) throws -> CGImage {
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let context = try #require(CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+    ))
+    let halfWidth = width / 2
+    let halfHeight = height / 2
+
+    context.setFillColor(NSColor.red.cgColor)
+    context.fill(CGRect(x: 0, y: halfHeight, width: halfWidth, height: halfHeight))
+    context.setFillColor(NSColor.green.cgColor)
+    context.fill(CGRect(x: halfWidth, y: halfHeight, width: halfWidth, height: halfHeight))
+    context.setFillColor(NSColor.blue.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: halfWidth, height: halfHeight))
+    context.setFillColor(NSColor.yellow.cgColor)
+    context.fill(CGRect(x: halfWidth, y: 0, width: halfWidth, height: halfHeight))
+
+    return try #require(context.makeImage())
+}
+
+private func makeOrientedQuadrantJPEGData(orientation: Int) throws -> Data {
+    let image = try makeQuadrantTestCGImage()
+    let data = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(
+        data,
+        UTType.jpeg.identifier as CFString,
+        1,
+        nil,
+    ))
+    let properties: [CFString: Any] = [
+        kCGImagePropertyOrientation: orientation,
+        kCGImageDestinationLossyCompressionQuality: 0.95,
+    ]
+    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    #expect(CGImageDestinationFinalize(destination))
+    return data as Data
+}
+
+private func cornerColors(of image: CGImage) throws -> CornerColors {
+    var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+    let context = try #require(CGContext(
+        data: &pixels,
+        width: image.width,
+        height: image.height,
+        bitsPerComponent: 8,
+        bytesPerRow: image.width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+    ))
+    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+
+    func colorAt(x: Int, y: Int) -> CornerColor {
+        let index = (y * image.width + x) * 4
+        let red = pixels[index]
+        let green = pixels[index + 1]
+        let blue = pixels[index + 2]
+
+        if red > 180, green > 140, blue < 120 { return .yellow }
+        if red > 180, green < 120, blue < 120 { return .red }
+        if red < 120, green > 100, blue < 120 { return .green }
+        return .blue
+    }
+
+    return CornerColors(
+        topLeft: colorAt(x: 2, y: 2),
+        topRight: colorAt(x: image.width - 3, y: 2),
+        bottomLeft: colorAt(x: 2, y: image.height - 3),
+        bottomRight: colorAt(x: image.width - 3, y: image.height - 3),
+    )
+}
+
 private func makeOrientedJPEGData(width: Int, height: Int, orientation: Int) throws -> Data {
     let image = try makeCacheTestCGImage(width: width, height: height)
     let data = NSMutableData()
@@ -78,6 +169,31 @@ private func writeOrientedJPEG(
 }
 
 struct OrientationNormalizedImageLoaderTests {
+    @Test(arguments: [
+        (1, CornerColors(topLeft: .red, topRight: .green, bottomLeft: .blue, bottomRight: .yellow)),
+        (2, CornerColors(topLeft: .green, topRight: .red, bottomLeft: .yellow, bottomRight: .blue)),
+        (3, CornerColors(topLeft: .yellow, topRight: .blue, bottomLeft: .green, bottomRight: .red)),
+        (4, CornerColors(topLeft: .blue, topRight: .yellow, bottomLeft: .red, bottomRight: .green)),
+        (5, CornerColors(topLeft: .red, topRight: .blue, bottomLeft: .green, bottomRight: .yellow)),
+        (6, CornerColors(topLeft: .blue, topRight: .red, bottomLeft: .yellow, bottomRight: .green)),
+        (7, CornerColors(topLeft: .yellow, topRight: .green, bottomLeft: .blue, bottomRight: .red)),
+        (8, CornerColors(topLeft: .green, topRight: .yellow, bottomLeft: .red, bottomRight: .blue)),
+    ])
+    func `URL decode applies EXIF orientation to pixels`(
+        orientation: Int,
+        expectedCorners: CornerColors,
+    ) throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let data = try makeOrientedQuadrantJPEGData(orientation: orientation)
+        let url = root.appendingPathComponent("oriented-\(orientation).jpg")
+        try data.write(to: url)
+
+        let image = try #require(OrientationNormalizedImageLoader.loadCGImage(from: url))
+
+        #expect(try cornerColors(of: image) == expectedCorners)
+    }
+
     @Test
     func `URL decode applies right orientation to portrait dimensions`() throws {
         let root = try makeCacheTestRoot()
