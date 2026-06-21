@@ -21,12 +21,12 @@ Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6
 
 ## Latest release
 
-v2.0.5 — June 17, 2026 — in active development
-v2.1.6 - June 20, 2026 on GitHub
+- v2.0.5 — June 17, 2026 — on Apple App Store
+- v2.1.6 - June 21, 2026 on GitHub
 
 ## Camera body compatibility
 
-Primary [Sony Fullformat, Nikon Fullformat](https://rawcull.netlify.app/docs/) is experimental.
+Primary [Sony Fullformat](https://rawcull.netlify.app/docs/) is experimental.
 
 ## Documentation
 
