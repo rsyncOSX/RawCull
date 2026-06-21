@@ -42,6 +42,8 @@ struct RawCullApp: App {
         .commands {
             SidebarCommands()
 
+            RawCullCommands()
+
             MenuCommands()
         }
 
@@ -55,10 +57,28 @@ struct RawCullApp: App {
                 .environment(viewModel)
         }
         .defaultSize(width: 720, height: 480)
+
+        Window("About RawCull", id: "about-window") {
+            AboutRawCullView()
+                .background(.windowBackground)
+        }
+        .windowResizability(.contentSize)
     }
 
     private func performCleanupTask() {
         Logger.process.debugMessageOnly("RawCullApp: performCleanupTask(), shutting down, doing clean up")
         viewModel.stopActiveSecurityScopedAccess()
+    }
+}
+
+private struct RawCullCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About RawCull") {
+                openWindow(id: "about-window")
+            }
+        }
     }
 }
