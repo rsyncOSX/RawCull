@@ -26,6 +26,24 @@ enum OrientationNormalizedImageLoader {
         return loadDirectImage(from: imageSource)
     }
 
+    nonisolated static func loadThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
+        loadThumbnail(from: url, maxPixelSize: maxPixelSize, createIfAbsent: true)
+    }
+
+    nonisolated static func loadEmbeddedThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
+        loadThumbnail(from: url, maxPixelSize: maxPixelSize, createIfAbsent: false)
+    }
+
+    nonisolated static func applyingSourceOrientation(to image: CGImage, from url: URL) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return image
+        }
+        defer { removeCachedImages(from: imageSource) }
+        let orientation = exifOrientation(from: imageSource, index: 0)
+        return applyOrientation(to: image, orientation: orientation)
+    }
+
     nonisolated static func loadSonyEmbeddedPreview(from rawURL: URL) -> CGImage? {
         guard rawURL.pathExtension.localizedCaseInsensitiveCompare(SupportedFileType.arw.rawValue) == .orderedSame,
               let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: rawURL),
@@ -38,6 +56,32 @@ enum OrientationNormalizedImageLoader {
     }
 
     // MARK: - Private
+
+    private nonisolated static func loadThumbnail(from url: URL, maxPixelSize: Int, createIfAbsent: Bool) -> CGImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
+            return nil
+        }
+        defer { removeCachedImages(from: imageSource) }
+        return loadThumbnail(from: imageSource, maxPixelSize: maxPixelSize, createIfAbsent: createIfAbsent)
+    }
+
+    private nonisolated static func loadThumbnail(
+        from imageSource: CGImageSource,
+        maxPixelSize: Int,
+        createIfAbsent: Bool,
+    ) -> CGImage? {
+        let boundedMaxPixelSize = max(maxPixelSize, 1)
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: createIfAbsent,
+            kCGImageSourceCreateThumbnailFromImageAlways: false,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: boundedMaxPixelSize,
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(imageSource, 0, decodeOptions as CFDictionary)
+    }
 
     /// Direct decode without thumbnail pipeline. Reads EXIF orientation and
     /// applies it via CGContext rotation, keeping peak memory to one bitmap

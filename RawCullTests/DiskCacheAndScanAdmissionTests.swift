@@ -109,6 +109,42 @@ struct OrientationNormalizedImageLoaderTests {
         #expect(image.width == 40)
         #expect(image.height == 80)
     }
+
+    @Test
+    func `bounded thumbnail decode applies right orientation to portrait dimensions`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (url, _) = try writeOrientedJPEG(
+            root: root,
+            name: "right-thumbnail.jpg",
+            width: 80,
+            height: 40,
+            orientation: 6,
+        )
+
+        let image = try #require(OrientationNormalizedImageLoader.loadThumbnail(from: url, maxPixelSize: 80))
+
+        #expect(image.width == 40)
+        #expect(image.height == 80)
+    }
+
+    @Test
+    func `bounded thumbnail decode keeps up orientation dimensions unchanged`() throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let (url, _) = try writeOrientedJPEG(
+            root: root,
+            name: "up-thumbnail.jpg",
+            width: 80,
+            height: 40,
+            orientation: 1,
+        )
+
+        let image = try #require(OrientationNormalizedImageLoader.loadThumbnail(from: url, maxPixelSize: 80))
+
+        #expect(image.width == 80)
+        #expect(image.height == 40)
+    }
 }
 
 struct DiskCacheManagerTests {
@@ -129,6 +165,21 @@ struct DiskCacheManagerTests {
         #expect(Int(loaded?.size.width ?? 0) == 40)
         #expect(Int(loaded?.size.height ?? 0) == 30)
         #expect(size > 0)
+    }
+
+    @Test
+    func `load thumbnail JPEG applies cached orientation metadata`() async throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = DiskCacheManager(cacheDirectory: root)
+        let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let data = try makeOrientedJPEGData(width: 80, height: 40, orientation: 6)
+
+        await cache.save(data, for: source)
+        let loaded = try #require(await cache.load(for: source))
+
+        #expect(Int(loaded.size.width) == 40)
+        #expect(Int(loaded.size.height) == 80)
     }
 
     @Test

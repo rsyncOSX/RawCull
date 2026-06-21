@@ -5,6 +5,7 @@ import OSLog
 import UniformTypeIdentifiers
 
 actor DiskCacheManager {
+    private static let cacheKeyVersion = "v2-oriented-thumbnails"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -25,15 +26,17 @@ actor DiskCacheManager {
 
     /// Deterministic cache filename derived from the source file's path.
     ///
-    /// Formula: `cacheDirectory / MD5(sourceURL.standardized.path.utf8).hex + ".jpg"`.
+    /// Formula: `cacheDirectory / MD5(cacheKeyVersion + sourceURL.standardized.path.utf8).hex + ".jpg"`.
     /// MD5 is used as a non-cryptographic filename hash — we only need a
     /// fixed-width, filesystem-safe string with a vanishingly small collision
     /// rate across one user's catalog. `CryptoKit.Insecure.MD5` makes the
-    /// "not-for-security" intent explicit. `standardized` resolves `..`/`.`
-    /// components so two URLs pointing at the same file always hash identically.
+    /// "not-for-security" intent explicit. The version prefix invalidates
+    /// thumbnails cached before EXIF orientation was applied. `standardized`
+    /// resolves `..`/`.` components so two URLs pointing at the same file always
+    /// hash identically.
     private func cacheURL(for sourceURL: URL) -> URL {
         let standardizedPath = sourceURL.standardized.path
-        let data = Data(standardizedPath.utf8)
+        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)".utf8)
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
@@ -43,8 +46,8 @@ actor DiskCacheManager {
         let fileURL = cacheURL(for: sourceURL)
 
         return await Task.detached(priority: .userInitiated) {
-            guard let data = try? Data(contentsOf: fileURL) else { return nil }
-            return NSImage(data: data)
+            guard let image = OrientationNormalizedImageLoader.loadCGImage(from: fileURL) else { return nil }
+            return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
         }.value
     }
 

@@ -160,12 +160,21 @@ actor ScanAndCreateThumbnails {
 
             let costPerPixel = SharedMemoryCache.shared.costPerPixel
 
-            guard let format = RawFormatRegistry.format(for: url) else { return }
-            let cgImage = try await format.extractThumbnail(
+            let cgImage: CGImage
+            if let image = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
                 from: url,
-                maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel,
-            )
+                maxPixelSize: targetSize,
+            ) {
+                cgImage = image
+            } else {
+                guard let format = RawFormatRegistry.format(for: url) else { return }
+                let image = try await format.extractThumbnail(
+                    from: url,
+                    maxDimension: CGFloat(targetSize),
+                    qualityCost: costPerPixel,
+                )
+                cgImage = OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
+            }
 
             if Task.isCancelled { return }
 

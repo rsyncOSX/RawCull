@@ -85,14 +85,26 @@ actor RequestThumbnail {
 
         let costPerPixel = memoryCache.costPerPixel
 
-        guard let format = RawFormatRegistry.format(for: url) else {
-            throw ThumbnailError.invalidSource
-        }
-        let cgImage = try await format.extractThumbnail(
+        let cgImage: CGImage
+        if let image = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
             from: url,
-            maxDimension: CGFloat(targetSize),
-            qualityCost: costPerPixel,
-        )
+            maxPixelSize: targetSize,
+        ) {
+            cgImage = image
+        } else {
+            guard let format = RawFormatRegistry.format(for: url) else {
+                throw ThumbnailError.invalidSource
+            }
+            let image = try await format.extractThumbnail(
+                from: url,
+                maxDimension: CGFloat(targetSize),
+                qualityCost: costPerPixel,
+            )
+            guard let oriented = OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) else {
+                throw ThumbnailError.generationFailed
+            }
+            cgImage = oriented
+        }
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
         // Cold extraction: not in RAM, not on disk, decoded from ARW source.
