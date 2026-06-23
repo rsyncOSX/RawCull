@@ -25,7 +25,7 @@ Or download from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6
 
 ## Camera body compatibility
 
-Primary [Sony Fullformat](https://rawcull.netlify.app/docs/) is experimental.
+Primary [Sony Fullformat](https://rawcull.netlify.app/docs/).
 
 ## Documentation
 
