@@ -1045,6 +1045,51 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `burst cache round trips a large snapshot off the main actor`() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullLargeCacheTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let cache = BurstAnalysisCache(cacheDirectory: directory)
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let files = (0 ..< 500).map { index in
+            makeCullingTestFile("cache-\(index).ARW")
+        }
+        let groups = stride(from: 0, to: files.count, by: 5).enumerated().map { groupID, start in
+            BurstGroup(id: groupID, fileIDs: files[start ..< min(start + 5, files.count)].map(\.id))
+        }
+        var snapshot = makeBurstSnapshot(
+            catalog: catalog,
+            files: files,
+            groups: groups,
+            results: groups.map { group in
+                makeCullingBurstResult(
+                    groupID: group.id,
+                    files: group.fileIDs.compactMap { id in files.first { $0.id == id } },
+                )
+            },
+            reviewStateSnapshots: [],
+        )
+        snapshot.embeddings = Dictionary(uniqueKeysWithValues: files.map { file in
+            (file.id, Data(repeating: UInt8(file.name.count % 255), count: 256))
+        })
+        snapshot.sharpnessScores = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
+            (file.id, Float(index) / Float(files.count))
+        })
+
+        await cache.save(snapshot, catalog: catalog)
+        let loaded = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: snapshot.thumbnailMaxPixelSize,
+            sharpnessSignature: snapshot.sharpnessSignature,
+            similaritySignature: snapshot.similaritySignature,
+        )
+
+        #expect(loaded == snapshot)
+    }
+
+    @Test
     func `review state persistence keeps completed analysis scope`() async throws {
         let viewModel = RawCullViewModel()
         let catalog = ARWSourceCatalog(

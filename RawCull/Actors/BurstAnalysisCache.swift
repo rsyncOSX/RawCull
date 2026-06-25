@@ -1,7 +1,7 @@
 import Foundation
 import RawCullCore
 
-struct BurstAnalysisCacheSnapshot: Codable, Equatable {
+nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable, Sendable {
     var schemaVersion: Int
     var algorithmVersion: Int
     var catalogPath: String
@@ -25,7 +25,7 @@ nonisolated struct BurstSimilaritySignature: Codable, Equatable, Sendable {
     var embeddingPipelineVersion: Int
 }
 
-struct SharpnessScoringSignature: Codable {
+nonisolated struct SharpnessScoringSignature: Codable, Sendable {
     nonisolated static let currentAlgorithmVersion = 3
     nonisolated static let currentISOScalingPolicyVersion = 1
     nonisolated static let currentApertureHintPolicyVersion = 1
@@ -98,7 +98,7 @@ extension SharpnessScoringSignature: Equatable {
 
 typealias BurstSharpnessSignature = SharpnessScoringSignature
 
-struct BurstAnalysisCacheFile: Codable, Equatable {
+nonisolated struct BurstAnalysisCacheFile: Codable, Equatable, Sendable {
     var id: UUID
     var path: String
     var size: Int64
@@ -136,9 +136,7 @@ actor BurstAnalysisCache {
         do {
             let data = try Data(contentsOf: url)
             guard !Task.isCancelled else { return nil }
-            let snapshot = try await MainActor.run {
-                try JSONDecoder().decode(BurstAnalysisCacheSnapshot.self, from: data)
-            }
+            let snapshot = try JSONDecoder().decode(BurstAnalysisCacheSnapshot.self, from: data)
             guard !Task.isCancelled else { return nil }
             guard isValid(
                 snapshot,
@@ -160,9 +158,7 @@ actor BurstAnalysisCache {
         guard !Task.isCancelled else { return }
         do {
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-            let data = try await MainActor.run {
-                try JSONEncoder().encode(snapshot)
-            }
+            let data = try JSONEncoder().encode(snapshot)
             guard !Task.isCancelled else { return }
             try data.write(to: cacheURL(for: catalog), options: [.atomic])
         } catch {
