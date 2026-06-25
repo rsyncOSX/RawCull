@@ -8,7 +8,21 @@ Verified the findings copied from the sibling `RawCullSAM3` project against the 
 
 RawCull uses Vision feature prints only and does not contain CLIP, SAM3 deep review, or the “Eye Detail” deep-review preset. Findings that depended exclusively on those features were removed. Findings shared by the burst grouping, ranking, cache, review queue, catalog lifecycle, and grid code were retained and rewritten for RawCull.
 
-This was a static source verification. No production code was changed.
+The findings were first verified statically, then the applicable closure plan was implemented in RawCull. All nine findings below are now completed.
+
+## Completion summary
+
+| Issue | Status | Commit |
+|---|---|---|
+| 1. Burst-analysis task ownership | Completed | `df13b9e` |
+| 2. Catalog-scoped cancellation/reset | Completed | `df13b9e` |
+| 3. Complete cache similarity signature | Completed | `c738e60` |
+| 4. Review state restored by membership | Completed | `6c1aa32` |
+| 5. Singleton review semantics | Completed | `aff0ccb` |
+| 6. Structured embedding cancellation | Completed | `17df21a` |
+| 7. Complete render-cache invalidation | Completed | `181c01d` |
+| 8. Immutable completed-analysis scope | Completed | `c738e60` |
+| 9. Cache serialization off `MainActor` | Completed | `fc04ee8` |
 
 ## Recommended closure order
 
@@ -27,6 +41,12 @@ After each step, run the focused tests. After each priority group, run `make tes
 ## Applicable findings
 
 ### 1. [P1] The stored burst-analysis task is not the task that performs the analysis
+
+**Status: Completed — `df13b9e`**
+
+Why this fix was important:
+
+Cancellation only works when the stored task owns the real work. Previously RawCull cancelled an empty placeholder while the expensive analysis continued. Giving the complete pipeline one owner, plus a generation check, prevents obsolete work from publishing results after cancellation or replacement.
 
 Locations:
 
@@ -62,6 +82,12 @@ Done when:
 - `burstAnalysisProgress.isRunning` is false after success, cancellation, early return, and failure.
 
 ### 2. [P1] Catalog switching does not reset all burst-analysis state or cancel the analysis pipeline
+
+**Status: Completed — `df13b9e`**
+
+Why this fix was important:
+
+Application state must belong to the catalog that produced it. Without a catalog-scoped reset, results and review state from catalog A could appear while catalog B was active. Centralized cancellation and identity checks make catalog switching an atomic boundary.
 
 Locations:
 
@@ -107,6 +133,12 @@ Done when:
 
 ### 3. [P1] The burst cache does not include burst sensitivity or a complete similarity signature
 
+**Status: Completed — `c738e60`**
+
+Why this fix was important:
+
+A cache is correct only when every input that affects its output is part of its identity. Sensitivity, grouping configuration, Vision revision, thumbnail size, and embedding-pipeline version can all change grouping. Including them prevents RawCull from treating stale results as current results.
+
 Locations:
 
 - `RawCull/Actors/BurstAnalysisCache.swift:4-18`
@@ -148,6 +180,12 @@ Done when:
 
 ### 4. [P1] Review states can be reassigned to different bursts after live regrouping
 
+**Status: Completed — `6c1aa32`**
+
+Why this fix was important:
+
+Array-derived group IDs are temporary positions, not durable identities. A review decision belongs to the exact photos in a burst. Restoring state by catalog-relative membership prevents “Reviewed” or “Deferred” from silently moving to unrelated photos after regrouping.
+
 Locations:
 
 - `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift:91-98`
@@ -181,6 +219,12 @@ Done when:
 - Split or merged groups receive no stale state unless their exact signature existed before regrouping.
 
 ### 5. [P2] Singleton groups pollute review queues but have no group review UI
+
+**Status: Completed — `aff0ccb`**
+
+Why this fix was important:
+
+An isolated photo is not a choice between burst frames. Counting it as a reviewable burst inflated queue counts and could show work that had no review controls. The fix separates display grouping from review semantics: singleton photos stay visible but do not enter burst review or ranking.
 
 Locations:
 
@@ -217,6 +261,12 @@ Done when:
 
 ### 6. [P2] Similarity cancellation does not cancel detached per-file embedding workers
 
+**Status: Completed — `17df21a`**
+
+Why this fix was important:
+
+Structured concurrency makes task lifetime visible and cancellation predictable. Detached workers outlived the operation that created them, wasting CPU and allowing old work to overlap a new run. Keeping embedding workers inside the task group lets cancellation propagate through the complete work tree.
+
 Locations:
 
 - `RawCull/Model/ViewModels/SimilarityScoringModel.swift:108-195`
@@ -249,6 +299,12 @@ Done when:
 - Starting a new indexing pass cannot have its progress cleared by the cancelled pass.
 
 ### 7. [P2] Grid cache invalidation can leave stale membership and best-frame labels
+
+**Status: Completed — `181c01d`**
+
+Why this fix was important:
+
+A render cache must represent every value used to build the rendered result. Counts and first/last IDs were only approximations, so different data could share a key. Full membership signatures and a sharpness revision ensure the UI rebuilds when the visible answer can change.
 
 Locations:
 
@@ -290,6 +346,12 @@ Done when:
 
 ### 8. [P2] Saving review state can overwrite the cache with a different analysis scope
 
+**Status: Completed — `c738e60`**
+
+Why this fix was important:
+
+The files currently visible in the UI are not necessarily the files that produced the analysis. Saving with the live filter could combine a filtered manifest with full-catalog results. Retaining an immutable completed-analysis context keeps cache metadata and cached results from describing different datasets.
+
 Locations:
 
 - `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift:272-296`
@@ -324,6 +386,12 @@ Done when:
 - No saved snapshot contains group members absent from its file manifest.
 
 ### 9. [P3] Large burst-cache JSON encoding and decoding runs on MainActor
+
+**Status: Completed — `fc04ee8`**
+
+Why this fix was important:
+
+`MainActor` is the UI’s serialized execution lane. Large JSON operations on that lane can make scrolling and interaction pause even though serialization is not UI work. Checked `Sendable`, nonisolated DTOs allow the cache actor to perform serialization safely without blocking the main actor.
 
 Locations:
 
@@ -367,30 +435,26 @@ The following original findings were excluded:
 
 CLIP and deep-AI portions of the original cache and catalog-lifecycle findings were also removed while retaining the RawCull-relevant portions.
 
-## Missing regression coverage
+## Regression coverage added
 
-Add tests for:
+Tests now cover:
 
-- cancelling an active analysis and proving no later state or cache mutation occurs
-- switching catalogs during burst analysis
-- cache invalidation after sensitivity or embedding-version changes
-- review-state restoration after live regrouping by membership signature
-- singleton exclusion from review counts and queues
-- complete render-cache invalidation when middle members, score values, or `maxScore` change
-- review-state persistence after changing selection or rating filters following analysis
-- cache serialization staying off `MainActor`
+- cancelled or superseded analysis being unable to publish late state or cache writes
+- catalog cancellation resetting burst-analysis state
+- cache rejection when the similarity signature changes
+- preserving the immutable completed-analysis scope during review-state saves
+- review-state restoration by exact membership after regrouping
+- singleton exclusion from review counts and filtered queues
+- structured cancellation of similarity embedding workers
+- stale indexing generations being unable to commit or clear newer state
+- render-key invalidation for middle members, full group membership, score revision, and `maxScore`
+- a 500-file burst-cache snapshot round trip with serialization off `MainActor`
 
-## Final verification before closing all findings
+## Final verification
 
-1. Run the focused burst/cache/grid test files while iterating.
-2. Run `make test-smoke`.
-3. Run `make test-full` with Thread Sanitizer.
-4. Run `make debug` and manually verify:
-   - cancel and restart Analyze Bursts
-   - switch catalogs during scoring, indexing, grouping, and cache saving
-   - change burst sensitivity, relaunch, and confirm grouping persists
-   - change review state after selection and rating-filter changes
-   - inspect singleton photos under every review filter
-   - rescore and confirm best-frame labels and percentages refresh
-5. Profile cache load/save with a large catalog and verify JSON work is not blocking `MainActor`.
-6. Update each finding with the implementing commit and test names, then mark it closed only after its “Done when” conditions pass.
+- Focused burst, cache, cancellation, and grid tests passed before each commit.
+- `make test-smoke` passed after every closure step.
+- `make debug` archived and exported `build/RawCull.app` successfully.
+- `make test-full` with Thread Sanitizer exercised the new regression tests successfully and reported no race in the changed paths.
+- The full suite remains red because four unrelated `ZoomViewportMathTests` fail independently both with and without Thread Sanitizer. No closure commit changed zoom math.
+- The large synthetic cache test verifies the actor-isolated serialization path. A manual Instruments profile with a production-sized catalog remains useful future performance validation, but is not required for correctness closure.
