@@ -58,6 +58,21 @@ private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -
     )
 }
 
+private func makeCullingBurstResult(groupID: Int, file: FileItem) -> BurstAnalysisResult {
+    BurstAnalysisResult(
+        groupID: groupID,
+        fileIDs: [file.id],
+        candidates: [],
+        recommendedFileID: file.id,
+        secondBestFileID: nil,
+        confidence: .low,
+        reviewState: .needsReview,
+        isSafeForOneClickCulling: false,
+        reasons: [],
+        cautions: [],
+    )
+}
+
 @MainActor
 struct CullingModelTests {
     @Test
@@ -814,6 +829,98 @@ struct RawCullViewModelCullingTests {
         let states = viewModel.cachedReviewStates(from: snapshot)
 
         #expect(states.isEmpty)
+    }
+
+    @Test
+    func `cancelled burst analysis cannot apply a late cache result`() async {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let first = makeCullingTestFile("A.ARW")
+        let second = makeCullingTestFile("B.ARW")
+        let gate = BurstCacheLoadGate()
+        let snapshot = makeBurstSnapshot(
+            catalog: catalog.url,
+            files: [first, second],
+            groups: [BurstGroup(id: 0, fileIDs: [first.id, second.id])],
+            results: [],
+            reviewStateSnapshots: [],
+        )
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [first, second]
+        viewModel.filteredFiles = [first, second]
+        viewModel.burstAnalysisCacheLoad = { _, _, _, _ in
+            await gate.load()
+        }
+
+        let analysis = Task { await viewModel.analyzeBursts() }
+        await gate.waitUntilStarted()
+
+        viewModel.cancelAndResetBurstAnalysis()
+        await gate.resume(returning: snapshot)
+        await analysis.value
+
+        #expect(viewModel.burstAnalysisTask == nil)
+        #expect(!viewModel.burstAnalysisProgress.isRunning)
+        #expect(viewModel.similarityModel.burstGroups.isEmpty)
+        #expect(viewModel.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstReviewStates.isEmpty)
+    }
+
+    @Test
+    func `catalog cancellation resets all burst analysis state`() {
+        let viewModel = RawCullViewModel()
+        let file = makeCullingTestFile("A.ARW")
+        viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
+        viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, file: file)]
+        viewModel.burstReviewStates = [1: .deferred]
+        viewModel.burstReviewQueueFilter = .deferred
+        viewModel.activeBurstComparisonGroupID = 1
+        viewModel.lastBurstUndoEntry = BurstUndoEntry(groupID: 1, previousRatingsByFileName: [file.name: 0])
+        viewModel.comparisonFileIDs = [file.id]
+
+        viewModel.cancelCatalogLoad()
+
+        #expect(!viewModel.burstAnalysisProgress.isRunning)
+        #expect(viewModel.burstAnalysisResults.isEmpty)
+        #expect(viewModel.burstReviewStates.isEmpty)
+        #expect(viewModel.burstReviewQueueFilter == .all)
+        #expect(viewModel.activeBurstComparisonGroupID == nil)
+        #expect(viewModel.lastBurstUndoEntry == nil)
+        #expect(viewModel.comparisonFileIDs.isEmpty)
+    }
+}
+
+private actor BurstCacheLoadGate {
+    private var started = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var resultWaiter: CheckedContinuation<BurstAnalysisCacheSnapshot?, Never>?
+
+    func load() async -> BurstAnalysisCacheSnapshot? {
+        started = true
+        for waiter in startWaiters {
+            waiter.resume()
+        }
+        startWaiters.removeAll()
+
+        return await withCheckedContinuation { continuation in
+            resultWaiter = continuation
+        }
+    }
+
+    func waitUntilStarted() async {
+        guard !started else { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func resume(returning snapshot: BurstAnalysisCacheSnapshot?) {
+        resultWaiter?.resume(returning: snapshot)
+        resultWaiter = nil
     }
 }
 

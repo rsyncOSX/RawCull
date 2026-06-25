@@ -196,7 +196,21 @@ final class RawCullViewModel {
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
     @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
+    @ObservationIgnored var burstAnalysisGeneration: Int = 0
     @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
+    @ObservationIgnored var burstAnalysisCacheLoad: @MainActor (
+        URL,
+        [FileItem],
+        Int,
+        BurstSharpnessSignature
+    ) async -> BurstAnalysisCacheSnapshot? = { catalog, files, thumbnailMaxPixelSize, sharpnessSignature in
+        await BurstAnalysisCache.shared.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            sharpnessSignature: sharpnessSignature,
+        )
+    }
 
     // MARK: - Computed
 

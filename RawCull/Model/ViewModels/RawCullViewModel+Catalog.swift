@@ -40,6 +40,7 @@ extension RawCullViewModel {
         catalogLoadTask = nil
         activeCatalogLoadURL = nil
         currentselectedSource = nil
+        cancelAndResetBurstAnalysis()
         stopActiveSecurityScopedAccess()
 
         preloadTask?.cancel()
@@ -57,9 +58,6 @@ extension RawCullViewModel {
             Task { await actor.cancelExtraction() }
         }
         currentScanAndExtractJPGsActor = nil
-
-        sharpnessModel.reset()
-        similarityModel.reset()
 
         creatingthumbnails = false
         scanning = false

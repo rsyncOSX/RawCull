@@ -121,13 +121,16 @@ actor BurstAnalysisCache {
         thumbnailMaxPixelSize: Int,
         sharpnessSignature: BurstSharpnessSignature,
     ) async -> BurstAnalysisCacheSnapshot? {
+        guard !Task.isCancelled else { return nil }
         let url = cacheURL(for: catalog)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         do {
             let data = try Data(contentsOf: url)
+            guard !Task.isCancelled else { return nil }
             let snapshot = try await MainActor.run {
                 try JSONDecoder().decode(BurstAnalysisCacheSnapshot.self, from: data)
             }
+            guard !Task.isCancelled else { return nil }
             guard isValid(
                 snapshot,
                 catalog: catalog,
@@ -144,11 +147,13 @@ actor BurstAnalysisCache {
     }
 
     func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+        guard !Task.isCancelled else { return }
         do {
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
             let data = try await MainActor.run {
                 try JSONEncoder().encode(snapshot)
             }
+            guard !Task.isCancelled else { return }
             try data.write(to: cacheURL(for: catalog), options: [.atomic])
         } catch {
             return

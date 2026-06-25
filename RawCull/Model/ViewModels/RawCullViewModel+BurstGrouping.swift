@@ -24,25 +24,50 @@ extension RawCullViewModel {
     /// persist the analysis artifacts.
     func analyzeBursts() async {
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
-
-        burstAnalysisTask?.cancel()
-        burstAnalysisTask = Task {}
-
         let sorted = burstAnalysisTargetFiles
         guard !sorted.isEmpty else { return }
+
+        burstAnalysisTask?.cancel()
+        burstAnalysisGeneration &+= 1
+        let generation = burstAnalysisGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.runBurstAnalysis(
+                catalog: catalog,
+                files: sorted,
+                generation: generation,
+            )
+        }
+        burstAnalysisTask = task
+
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func runBurstAnalysis(
+        catalog: URL,
+        files sorted: [FileItem],
+        generation: Int,
+    ) async {
+        defer { finishBurstAnalysis(generation: generation) }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
-        if let snapshot = await burstAnalysisCache.load(
-            catalog: catalog,
-            files: sorted,
-            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
-            sharpnessSignature: currentBurstSharpnessSignature,
+        if let snapshot = await burstAnalysisCacheLoad(
+            catalog,
+            sorted,
+            sharpnessModel.effectiveThumbnailMaxPixelSize,
+            currentBurstSharpnessSignature,
         ) {
+            guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
             applyCachedBurstAnalysis(remapCachedSnapshot(snapshot, to: sorted), files: sorted)
-            burstAnalysisProgress = BurstAnalysisProgress()
             return
         }
 
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         if sorted.contains(where: { sharpnessModel.scores[$0.id] == nil }) {
             burstAnalysisProgress = BurstAnalysisProgress(
                 step: .scoringSharpness,
@@ -51,7 +76,7 @@ extension RawCullViewModel {
             await calibrateAndScoreBurstFiles(sorted)
         }
 
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         if sorted.contains(where: { similarityModel.embeddings[$0.id] == nil }) {
             burstAnalysisProgress = BurstAnalysisProgress(
                 step: .indexingSimilarity,
@@ -60,17 +85,28 @@ extension RawCullViewModel {
             await similarityModel.indexFiles(sorted)
         }
 
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         burstAnalysisProgress = BurstAnalysisProgress(step: .grouping)
         await similarityModel.groupBursts(files: sorted)
 
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
         recomputeBurstRankings(files: sorted)
 
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         burstAnalysisProgress = BurstAnalysisProgress(step: .savingCache)
         await saveBurstAnalysisCache(catalog: catalog, files: sorted)
+    }
+
+    private func isCurrentBurstAnalysis(generation: Int, catalog: URL) -> Bool {
+        !Task.isCancelled
+            && burstAnalysisGeneration == generation
+            && selectedSource?.url == catalog
+    }
+
+    private func finishBurstAnalysis(generation: Int) {
+        guard burstAnalysisGeneration == generation else { return }
+        burstAnalysisTask = nil
         burstAnalysisProgress = BurstAnalysisProgress()
     }
 
@@ -403,8 +439,13 @@ extension RawCullViewModel {
     }
 
     func clearLoadedBurstAnalysisForReindex() {
+        cancelAndResetBurstAnalysis()
+    }
+
+    func cancelAndResetBurstAnalysis() {
         burstAnalysisTask?.cancel()
         burstAnalysisTask = nil
+        burstAnalysisGeneration &+= 1
         burstAnalysisProgress = BurstAnalysisProgress()
         burstAnalysisResults = [:]
         burstReviewStates = [:]
