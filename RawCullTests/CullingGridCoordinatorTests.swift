@@ -166,6 +166,54 @@ struct CullingGridCoordinatorTests {
         #expect(cache.bestInGroup[3]?.isManualWinner == true)
     }
 
+    @Test
+    func `render cache key tracks complete membership and score revisions`() {
+        let first = makeGridTestFile("first.ARW")
+        let middle = makeGridTestFile("middle.ARW")
+        let replacement = makeGridTestFile("replacement.ARW")
+        let last = makeGridTestFile("last.ARW")
+        let group = BurstGroup(id: 1, fileIDs: [first.id, middle.id, last.id])
+
+        func key(
+            groups: [BurstGroup] = [group],
+            files: [FileItem] = [first, middle, last],
+            scoreRevision: Int = 4,
+            maxScore: Float = 0.8,
+        ) -> CullingGridRenderCacheKey {
+            CullingGridRenderCacheKey(
+                burstGroups: groups,
+                files: files,
+                ratingFilter: .all,
+                reviewQueueFilter: .all,
+                scoresCount: 3,
+                scoreRevision: scoreRevision,
+                maxScore: maxScore,
+                burstAnalysisResults: [:],
+            )
+        }
+
+        let baseline = key()
+        #expect(baseline != key(groups: [BurstGroup(id: 1, fileIDs: [first.id, replacement.id, last.id])]))
+        #expect(baseline != key(files: [first, replacement, last]))
+        #expect(baseline != key(scoreRevision: 5))
+        #expect(baseline != key(maxScore: 0.9))
+    }
+
+    @Test
+    func `sharpness score revision advances for replacement and incremental mutation`() {
+        let model = SharpnessScoringModel()
+        let fileID = UUID()
+        let initialRevision = model.scoreRevision
+
+        model.scores = [fileID: 0.4]
+        let replacementRevision = model.scoreRevision
+        model.scores[fileID] = 0.7
+
+        #expect(replacementRevision == initialRevision + 1)
+        #expect(model.scoreRevision == replacementRevision + 1)
+        #expect(model.maxScore == 0.7)
+    }
+
     @Test(.tags(.smoke))
     func `thumbnail source flags are pruned and initialized for comparison files`() {
         let first = makeGridTestFile("first.ARW")

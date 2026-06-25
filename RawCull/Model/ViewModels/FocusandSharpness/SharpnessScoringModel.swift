@@ -22,9 +22,13 @@ final class SharpnessScoringModel {
     /// persisted scores. `didSet` refreshes `maxScore` so read sites in view
     /// bodies are O(1) instead of re-sorting the full score set per cell.
     var scores: [UUID: Float] = [:] {
-        didSet { recomputeMaxScore() }
+        didSet {
+            recomputeMaxScore()
+            scoreRevision &+= 1
+        }
     }
 
+    private(set) var scoreRevision: Int = 0
     var saliencyInfo: [UUID: SaliencyInfo] = [:]
     var breakdowns: [UUID: SharpnessBreakdown] = [:]
     var isScoring: Bool = false

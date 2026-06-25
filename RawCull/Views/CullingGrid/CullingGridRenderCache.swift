@@ -14,15 +14,17 @@ struct CullingGridRenderCacheKey: Hashable {
     // periphery:ignore
     let filesCount: Int
     // periphery:ignore
-    let filesFirstID: UUID?
-    // periphery:ignore
-    let filesLastID: UUID?
+    let filesStructureHash: Int
     // periphery:ignore
     let ratingFilter: GridRatingFilter
     // periphery:ignore
     let reviewQueueFilter: BurstReviewQueueFilter
     // periphery:ignore
     let scoresCount: Int
+    // periphery:ignore
+    let scoreRevision: Int
+    // periphery:ignore
+    let maxScore: Float
 
     init(
         burstGroups: [BurstGroup],
@@ -30,26 +32,36 @@ struct CullingGridRenderCacheKey: Hashable {
         ratingFilter: GridRatingFilter,
         reviewQueueFilter: BurstReviewQueueFilter,
         scoresCount: Int,
+        scoreRevision: Int,
+        maxScore: Float,
         burstAnalysisResults: [Int: BurstAnalysisResult],
     ) {
         var structureHasher = Hasher()
         for group in burstGroups {
             structureHasher.combine(group.id)
             structureHasher.combine(group.fileIDs.count)
+            for fileID in group.fileIDs {
+                structureHasher.combine(fileID)
+            }
             if let result = burstAnalysisResults[group.id] {
                 structureHasher.combine(result.recommendedFileID)
                 structureHasher.combine(result.reviewState.rawValue)
             }
         }
+        var filesHasher = Hasher()
+        for file in files {
+            filesHasher.combine(file.id)
+        }
 
         self.burstGroupsCount = burstGroups.count
         self.burstStructureHash = structureHasher.finalize()
         self.filesCount = files.count
-        self.filesFirstID = files.first?.id
-        self.filesLastID = files.last?.id
+        self.filesStructureHash = filesHasher.finalize()
         self.ratingFilter = ratingFilter
         self.reviewQueueFilter = reviewQueueFilter
         self.scoresCount = scoresCount
+        self.scoreRevision = scoreRevision
+        self.maxScore = maxScore
     }
 }
 
