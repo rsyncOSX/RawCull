@@ -137,11 +137,34 @@ extension RawCullViewModel {
     /// Requires embeddings to already be computed — no-ops otherwise.
     func reGroupBursts() async {
         guard !similarityModel.embeddings.isEmpty else { return }
-        let sorted = burstAnalysisTargetFiles
+        guard let catalog = selectedSource?.url else { return }
+        let sorted = completedBurstAnalysisContext
+            .flatMap(filesForCompletedBurstAnalysis)
+            ?? burstAnalysisTargetFiles
         guard !sorted.isEmpty else { return }
         guard !Task.isCancelled else { return }
+
+        let savedStatesBySignature = Dictionary(
+            uniqueKeysWithValues: reviewStateSnapshots(catalog: catalog, files: sorted)
+                .map { ($0.signature, $0.state) },
+        )
         await similarityModel.groupBursts(files: sorted)
+        guard !Task.isCancelled, selectedSource?.url == catalog else { return }
+        burstReviewStates = restoredBurstReviewStates(
+            savedStatesBySignature: savedStatesBySignature,
+            groups: similarityModel.burstGroups,
+            files: sorted,
+            catalog: catalog,
+        )
         recomputeBurstRankings(files: sorted)
+
+        let generation = completedBurstAnalysisContext?.generation ?? burstAnalysisGeneration
+        completedBurstAnalysisContext = makeCompletedBurstAnalysisContext(
+            catalog: catalog,
+            files: sorted,
+            generation: generation,
+        )
+        await saveBurstAnalysisCache(catalog: catalog, files: sorted, generation: generation)
     }
 
     // MARK: - User actions
@@ -553,6 +576,26 @@ extension RawCullViewModel {
             else { return nil }
             return BurstReviewStateSnapshot(signature: signature, state: state)
         }
+    }
+
+    func restoredBurstReviewStates(
+        savedStatesBySignature: [BurstGroupSignature: BurstReviewState],
+        groups: [BurstGroup],
+        files: [FileItem],
+        catalog: URL,
+    ) -> [Int: BurstReviewState] {
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        return Dictionary(uniqueKeysWithValues: groups.compactMap { group in
+            guard let signature = burstSignature(
+                for: group,
+                filesByID: filesByID,
+                catalog: catalog,
+            ),
+            let state = savedStatesBySignature[signature],
+            state != .none
+            else { return nil }
+            return (group.id, state)
+        })
     }
 
     func burstSignature(

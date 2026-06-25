@@ -971,6 +971,54 @@ struct RawCullViewModelCullingTests {
         #expect(saved.groups == [group])
         #expect(saved.results.first?.fileIDs == [first.id, second.id])
     }
+
+    @Test
+    func `live regroup review state follows membership instead of group id`() throws {
+        let viewModel = RawCullViewModel()
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let first = makeCullingTestFile("A.ARW")
+        let second = makeCullingTestFile("B.ARW")
+        let third = makeCullingTestFile("C.ARW")
+        let originalSignature = try #require(
+            BurstGroupSignature(files: [first, second], catalog: catalog),
+        )
+        let saved: [BurstGroupSignature: BurstReviewState] = [
+            originalSignature: .deferred
+        ]
+
+        let restored = viewModel.restoredBurstReviewStates(
+            savedStatesBySignature: saved,
+            groups: [
+                BurstGroup(id: 7, fileIDs: [first.id, second.id]),
+                BurstGroup(id: 0, fileIDs: [third.id]),
+            ],
+            files: [first, second, third],
+            catalog: catalog,
+        )
+
+        #expect(restored == [7: .deferred])
+    }
+
+    @Test
+    func `live regroup drops state when reused group id has changed membership`() throws {
+        let viewModel = RawCullViewModel()
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let first = makeCullingTestFile("A.ARW")
+        let second = makeCullingTestFile("B.ARW")
+        let third = makeCullingTestFile("C.ARW")
+        let originalSignature = try #require(
+            BurstGroupSignature(files: [first, second], catalog: catalog),
+        )
+
+        let restored = viewModel.restoredBurstReviewStates(
+            savedStatesBySignature: [originalSignature: .reviewed],
+            groups: [BurstGroup(id: 0, fileIDs: [first.id, third.id])],
+            files: [first, second, third],
+            catalog: catalog,
+        )
+
+        #expect(restored.isEmpty)
+    }
 }
 
 private actor BurstCacheLoadGate {
