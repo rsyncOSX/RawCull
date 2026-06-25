@@ -197,19 +197,33 @@ final class RawCullViewModel {
     var zoomExtractionTask: Task<Void, Never>?
     @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
     @ObservationIgnored var burstAnalysisGeneration: Int = 0
+    @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
     @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
     @ObservationIgnored var burstAnalysisCacheLoad: @MainActor (
         URL,
         [FileItem],
         Int,
-        BurstSharpnessSignature
-    ) async -> BurstAnalysisCacheSnapshot? = { catalog, files, thumbnailMaxPixelSize, sharpnessSignature in
+        BurstSharpnessSignature,
+        BurstSimilaritySignature
+    ) async -> BurstAnalysisCacheSnapshot? = {
+        catalog,
+        files,
+        thumbnailMaxPixelSize,
+        sharpnessSignature,
+        similaritySignature in
         await BurstAnalysisCache.shared.load(
             catalog: catalog,
             files: files,
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
             sharpnessSignature: sharpnessSignature,
+            similaritySignature: similaritySignature,
         )
+    }
+    @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
+        BurstAnalysisCacheSnapshot,
+        URL
+    ) async -> Void = { snapshot, catalog in
+        await BurstAnalysisCache.shared.save(snapshot, catalog: catalog)
     }
 
     // MARK: - Computed

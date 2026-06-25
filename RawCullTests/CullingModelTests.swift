@@ -58,12 +58,12 @@ private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -
     )
 }
 
-private func makeCullingBurstResult(groupID: Int, file: FileItem) -> BurstAnalysisResult {
+private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAnalysisResult {
     BurstAnalysisResult(
         groupID: groupID,
-        fileIDs: [file.id],
+        fileIDs: files.map(\.id),
         candidates: [],
-        recommendedFileID: file.id,
+        recommendedFileID: files.first?.id,
         secondBestFileID: nil,
         confidence: .low,
         reviewState: .needsReview,
@@ -852,7 +852,7 @@ struct RawCullViewModelCullingTests {
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
-        viewModel.burstAnalysisCacheLoad = { _, _, _, _ in
+        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in
             await gate.load()
         }
 
@@ -875,7 +875,7 @@ struct RawCullViewModelCullingTests {
         let viewModel = RawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
         viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
-        viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, file: file)]
+        viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, files: [file])]
         viewModel.burstReviewStates = [1: .deferred]
         viewModel.burstReviewQueueFilter = .deferred
         viewModel.activeBurstComparisonGroupID = 1
@@ -891,6 +891,85 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.activeBurstComparisonGroupID == nil)
         #expect(viewModel.lastBurstUndoEntry == nil)
         #expect(viewModel.comparisonFileIDs.isEmpty)
+    }
+
+    @Test
+    func `burst cache rejects a different similarity signature`() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let cache = BurstAnalysisCache(cacheDirectory: directory)
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let files = [makeCullingTestFile("A.ARW"), makeCullingTestFile("B.ARW")]
+        let originalSignature = makeBurstSimilaritySignature(sensitivity: 0.25)
+        let snapshot = makeBurstSnapshot(
+            catalog: catalog,
+            files: files,
+            groups: [],
+            results: [],
+            reviewStateSnapshots: [],
+            similaritySignature: originalSignature,
+        )
+
+        await cache.save(snapshot, catalog: catalog)
+
+        let matching = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: snapshot.sharpnessSignature,
+            similaritySignature: originalSignature,
+        )
+        let mismatching = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: snapshot.sharpnessSignature,
+            similaritySignature: makeBurstSimilaritySignature(sensitivity: 0.10),
+        )
+
+        #expect(matching != nil)
+        #expect(mismatching == nil)
+    }
+
+    @Test
+    func `review state persistence keeps completed analysis scope`() async throws {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let first = makeCullingTestFile("A.ARW")
+        let second = makeCullingTestFile("B.ARW")
+        let group = BurstGroup(id: 0, fileIDs: [first.id, second.id])
+        let result = makeCullingBurstResult(groupID: 0, files: [first, second])
+        let snapshot = makeBurstSnapshot(
+            catalog: catalog.url,
+            files: [first, second],
+            groups: [group],
+            results: [result],
+            reviewStateSnapshots: [],
+        )
+        let recorder = BurstCacheSaveRecorder()
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [first, second]
+        viewModel.filteredFiles = [first, second]
+        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in snapshot }
+        viewModel.burstAnalysisCacheSave = { savedSnapshot, _ in
+            await recorder.record(savedSnapshot)
+        }
+
+        await viewModel.analyzeBursts()
+        viewModel.selectedFileIDs = [first.id]
+        viewModel.filteredFiles = [first]
+        viewModel.markBurstGroupReviewed(groupID: 0)
+
+        let saved = try #require(await recorder.waitForSnapshot())
+        #expect(saved.files.map(\.path) == [first.url.path, second.url.path])
+        #expect(saved.groups == [group])
+        #expect(saved.results.first?.fileIDs == [first.id, second.id])
     }
 }
 
@@ -924,6 +1003,37 @@ private actor BurstCacheLoadGate {
     }
 }
 
+private actor BurstCacheSaveRecorder {
+    private var snapshot: BurstAnalysisCacheSnapshot?
+    private var waiters: [CheckedContinuation<BurstAnalysisCacheSnapshot, Never>] = []
+
+    func record(_ snapshot: BurstAnalysisCacheSnapshot) {
+        self.snapshot = snapshot
+        for waiter in waiters {
+            waiter.resume(returning: snapshot)
+        }
+        waiters.removeAll()
+    }
+
+    func waitForSnapshot() async -> BurstAnalysisCacheSnapshot? {
+        if let snapshot { return snapshot }
+        return await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+}
+
+private func makeBurstSimilaritySignature(
+    sensitivity: Float = 0.25,
+) -> BurstSimilaritySignature {
+    BurstSimilaritySignature(
+        groupingConfig: BurstGroupingConfig(visualDistanceThreshold: sensitivity),
+        embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+        visionFeaturePrintRevision: Int(SimilarityScoringModel.featurePrintRevision),
+        embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
+    )
+}
+
 @MainActor
 private func makeBurstSnapshot(
     catalog: URL,
@@ -931,6 +1041,7 @@ private func makeBurstSnapshot(
     groups: [BurstGroup],
     results: [BurstAnalysisResult],
     reviewStateSnapshots: [BurstReviewStateSnapshot],
+    similaritySignature: BurstSimilaritySignature = makeBurstSimilaritySignature(),
 ) -> BurstAnalysisCacheSnapshot {
     BurstAnalysisCacheSnapshot(
         schemaVersion: BurstAnalysisCache.schemaVersion,
@@ -943,6 +1054,7 @@ private func makeBurstSnapshot(
             thumbnailMaxPixelSize: 512,
             config: FocusDetectorConfig(),
         ),
+        similaritySignature: similaritySignature,
         files: files.map {
             BurstAnalysisCacheFile(
                 id: $0.id,

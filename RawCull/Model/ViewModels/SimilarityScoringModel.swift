@@ -24,6 +24,10 @@ private let kEstimationWindowSize = 10
 
 @Observable @MainActor
 final class SimilarityScoringModel {
+    nonisolated static let embeddingThumbnailMaxPixelSize = 512
+    nonisolated static let embeddingPipelineVersion = 1
+    nonisolated static let featurePrintRevision = VNGenerateImageFeaturePrintRequestRevision2
+
     // MARK: State
 
     /// Archived VNFeaturePrintObservation data keyed by FileItem.id.
@@ -105,7 +109,10 @@ final class SimilarityScoringModel {
     /// Compute Vision feature-print embeddings for all files using thumbnail-resolution
     /// images (same thumbnail size used by sharpness scoring).
     /// Already-embedded files are skipped for efficiency.
-    func indexFiles(_ files: [FileItem], thumbnailMaxPixelSize: Int = 512) async {
+    func indexFiles(
+        _ files: [FileItem],
+        thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+    ) async {
         guard !files.isEmpty else { return }
 
         isIndexing = true
@@ -387,7 +394,7 @@ final class SimilarityScoringModel {
             }
 
             let request = VNGenerateImageFeaturePrintRequest()
-            request.revision = VNGenerateImageFeaturePrintRequestRevision2
+            request.revision = Self.featurePrintRevision
 
             request.imageCropAndScaleOption = .scaleFill
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])

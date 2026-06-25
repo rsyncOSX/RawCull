@@ -34,6 +34,14 @@ struct BurstReviewStateSnapshot: Codable, Equatable {
     let state: BurstReviewState
 }
 
+struct CompletedBurstAnalysisContext: Equatable {
+    let catalog: URL
+    let orderedFileIDs: [UUID]
+    let orderedFilePaths: [String]
+    let similaritySignature: BurstSimilaritySignature
+    let generation: Int
+}
+
 enum BurstGroupPrimaryAction: Equatable {
     case keepBest
     case compare
