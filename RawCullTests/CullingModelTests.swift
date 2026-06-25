@@ -31,6 +31,61 @@ private actor SharpnessScoreURLRecorder {
     }
 }
 
+private actor SimilarityEmbeddingCancellationProbe {
+    private var startedCount = 0
+    private var cancelledCount = 0
+
+    func embedding() async -> Data? {
+        startedCount += 1
+        do {
+            try await Task.sleep(for: .seconds(30))
+            return Data([1])
+        } catch is CancellationError {
+            cancelledCount += 1
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    func waitUntilStarted(_ count: Int) async {
+        while startedCount < count {
+            await Task.yield()
+        }
+    }
+
+    func counts() -> (started: Int, cancelled: Int) {
+        (startedCount, cancelledCount)
+    }
+}
+
+private actor SimilarityEmbeddingSuspensionProbe {
+    private var startedCount = 0
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func suspendIgnoringCancellation() async -> Data? {
+        startedCount += 1
+        await withCheckedContinuation { continuation in
+            continuations.append(continuation)
+        }
+        return Data([1])
+    }
+
+    func waitUntilStarted(_ count: Int) async {
+        while startedCount < count {
+            await Task.yield()
+        }
+    }
+
+    func releaseAll() {
+        let pending = continuations
+        continuations.removeAll()
+        for continuation in pending {
+            continuation.resume()
+        }
+    }
+}
+
 private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -> FileItem {
     let exif = scoreAperture.map {
         ExifMetadata(
@@ -75,6 +130,62 @@ private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAna
 
 @MainActor
 struct CullingModelTests {
+    @Test
+    func `similarity indexing cancellation stops structured embedding workers`() async {
+        let probe = SimilarityEmbeddingCancellationProbe()
+        let model = SimilarityScoringModel { _, _ in
+            await probe.embedding()
+        }
+        let files = (0 ..< 8).map { makeCullingTestFile("cancel-\($0).ARW") }
+
+        let indexingTask = Task {
+            await model.indexFiles(files)
+        }
+        await probe.waitUntilStarted(4)
+        model.cancelIndexing()
+        await indexingTask.value
+        let counts = await probe.counts()
+
+        #expect(counts.started == 4)
+        #expect(counts.cancelled == 4)
+        #expect(model.embeddings.isEmpty)
+        #expect(model.isIndexing == false)
+        #expect(model.indexingProgress == 0)
+        #expect(model.indexingTotal == 0)
+    }
+
+    @Test
+    func `superseded similarity indexing cannot commit or clear newer run state`() async {
+        let probe = SimilarityEmbeddingSuspensionProbe()
+        let model = SimilarityScoringModel { url, _ in
+            if url.lastPathComponent.hasPrefix("slow") {
+                return await probe.suspendIgnoringCancellation()
+            }
+            return Data([2])
+        }
+        let slowFile = makeCullingTestFile("slow.ARW")
+        let fastFile = makeCullingTestFile("fast.ARW")
+
+        let oldRun = Task {
+            await model.indexFiles([slowFile])
+        }
+        await probe.waitUntilStarted(1)
+        await model.indexFiles([fastFile])
+
+        #expect(model.embeddings[fastFile.id] == Data([2]))
+        #expect(model.embeddings[slowFile.id] == nil)
+        #expect(model.isIndexing == false)
+
+        await probe.releaseAll()
+        await oldRun.value
+
+        #expect(model.embeddings[fastFile.id] == Data([2]))
+        #expect(model.embeddings[slowFile.id] == nil)
+        #expect(model.isIndexing == false)
+        #expect(model.indexingProgress == 0)
+        #expect(model.indexingTotal == 0)
+    }
+
     @Test
     func `updateRating creates catalog record and debounced save snapshot`() async {
         let recorder = SavedFilesRecorder()

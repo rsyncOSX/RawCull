@@ -24,6 +24,8 @@ private let kEstimationWindowSize = 10
 
 @Observable @MainActor
 final class SimilarityScoringModel {
+    typealias EmbeddingProvider = @Sendable (URL, Int) async -> Data?
+
     nonisolated static let embeddingThumbnailMaxPixelSize = 512
     nonisolated static let embeddingPipelineVersion = 1
     nonisolated static let featurePrintRevision = VNGenerateImageFeaturePrintRequestRevision2
@@ -72,10 +74,18 @@ final class SimilarityScoringModel {
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<Void, Never>?
+    @ObservationIgnored private var _indexingGeneration: Int = 0
+    @ObservationIgnored private let embeddingProvider: EmbeddingProvider
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration: Int = 0
     @ObservationIgnored private var _adjacentDistanceCache: [String: Float] = [:]
     @ObservationIgnored private var _adjacentDistanceCacheSignature: Int = 0
+
+    init(
+        embeddingProvider: @escaping EmbeddingProvider = SimilarityScoringModel.computeEmbedding,
+    ) {
+        self.embeddingProvider = embeddingProvider
+    }
 
     // MARK: - Public API
 
@@ -100,6 +110,7 @@ final class SimilarityScoringModel {
     func cancelIndexing() {
         _indexingTask?.cancel()
         _indexingTask = nil
+        _indexingGeneration &+= 1
         isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
@@ -115,16 +126,19 @@ final class SimilarityScoringModel {
     ) async {
         guard !files.isEmpty else { return }
 
+        _indexingTask?.cancel()
+        _indexingGeneration &+= 1
+        let generation = _indexingGeneration
         isIndexing = true
         indexingProgress = 0
         indexingTotal = files.count
         indexingEstimatedSeconds = 0
-        defer { isIndexing = false }
-
         // Separate files that need embedding from those already done.
         let toIndex = files.filter { embeddings[$0.id] == nil }
         if toIndex.isEmpty {
+            _indexingTask = nil
             indexingProgress = files.count
+            isIndexing = false
             return
         }
         indexingTotal = toIndex.count
@@ -133,6 +147,7 @@ final class SimilarityScoringModel {
         var iterator = toIndex.makeIterator()
         var active = 0
         let maxConcurrent = 4
+        let embeddingProvider = self.embeddingProvider
 
         let workTask = Task {
             await withTaskGroup(of: (UUID, Data?).self) { group in
@@ -140,7 +155,7 @@ final class SimilarityScoringModel {
                     let url = file.url
                     let id = file.id
                     group.addTask(priority: .userInitiated) {
-                        let data = await Self.computeEmbedding(url: url, maxPixelSize: thumbSize)
+                        let data = await embeddingProvider(url, thumbSize)
                         return (id, data)
                     }
                     active += 1
@@ -153,7 +168,14 @@ final class SimilarityScoringModel {
 
                 for await (id, data) in group {
                     active -= 1
-                    guard !Task.isCancelled else { break }
+                    guard !Task.isCancelled else {
+                        group.cancelAll()
+                        break
+                    }
+                    guard self._indexingGeneration == generation else {
+                        group.cancelAll()
+                        break
+                    }
 
                     if let data { localEmbeddings[id] = data }
                     completedCount += 1
@@ -176,7 +198,7 @@ final class SimilarityScoringModel {
                         let url = file.url
                         let id = file.id
                         group.addTask(priority: .userInitiated) {
-                            let data = await Self.computeEmbedding(url: url, maxPixelSize: thumbSize)
+                            let data = await embeddingProvider(url, thumbSize)
                             return (id, data)
                         }
                         active += 1
@@ -184,6 +206,7 @@ final class SimilarityScoringModel {
                 }
 
                 guard !Task.isCancelled else { return }
+                guard self._indexingGeneration == generation else { return }
                 // Merge newly computed embeddings with any pre-existing ones.
                 for (id, data) in localEmbeddings {
                     self.embeddings[id] = data
@@ -194,9 +217,14 @@ final class SimilarityScoringModel {
 
         _indexingTask = workTask
         await workTask.value
+        guard _indexingGeneration == generation else { return }
         _indexingTask = nil
-        guard !workTask.isCancelled else { return }
+        guard !workTask.isCancelled else {
+            isIndexing = false
+            return
+        }
 
+        isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
@@ -384,30 +412,33 @@ final class SimilarityScoringModel {
 
     /// Decode a thumbnail from a Sony ARW file and compute a Vision feature print.
     /// Returns the archived Data for the VNFeaturePrintObservation, or nil on failure.
+    @concurrent
     nonisolated static func computeEmbedding(url: URL, maxPixelSize: Int) async -> Data? {
-        await Task.detached(priority: .userInitiated) {
-            guard let cgImage = await decodeRawParserKitThumbnail(at: url, maxPixelSize: maxPixelSize)
-                ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize)
-            else {
-                Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
-                return nil
-            }
+        guard !Task.isCancelled else { return nil }
+        let rawParserImage = await decodeRawParserKitThumbnail(at: url, maxPixelSize: maxPixelSize)
+        guard !Task.isCancelled else { return nil }
+        guard let cgImage = rawParserImage ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize) else {
+            Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
+            return nil
+        }
+        guard !Task.isCancelled else { return nil }
 
-            let request = VNGenerateImageFeaturePrintRequest()
-            request.revision = Self.featurePrintRevision
+        let request = VNGenerateImageFeaturePrintRequest()
+        request.revision = Self.featurePrintRevision
 
-            request.imageCropAndScaleOption = .scaleFill
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                Logger.process.warning("SimilarityScoringModel: Vision feature-print request failed for \(url.lastPathComponent): \(error)")
-                return nil
-            }
+        request.imageCropAndScaleOption = .scaleFill
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            Logger.process.warning("SimilarityScoringModel: Vision feature-print request failed for \(url.lastPathComponent): \(error)")
+            return nil
+        }
 
-            guard let obs = request.results?.first as? VNFeaturePrintObservation else { return nil }
-            return try? NSKeyedArchiver.archivedData(withRootObject: obs, requiringSecureCoding: true)
-        }.value
+        guard !Task.isCancelled,
+              let obs = request.results?.first as? VNFeaturePrintObservation
+        else { return nil }
+        return try? NSKeyedArchiver.archivedData(withRootObject: obs, requiringSecureCoding: true)
     }
 
     nonisolated static func computeAdjacentDistances(
