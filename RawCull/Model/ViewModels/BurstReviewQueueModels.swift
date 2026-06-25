@@ -27,7 +27,8 @@ enum BurstReviewQueuePolicy {
     }
 
     nonisolated static func includes(_ result: BurstAnalysisResult, filter: BurstReviewQueueFilter) -> Bool {
-        switch filter {
+        guard result.fileIDs.count > 1 else { return false }
+        return switch filter {
         case .all:
             true
 
@@ -50,6 +51,7 @@ enum BurstReviewQueuePolicy {
 
     nonisolated static func counts(for results: some Sequence<BurstAnalysisResult>) -> BurstReviewQueueCounts {
         results.reduce(into: BurstReviewQueueCounts()) { counts, result in
+            guard result.fileIDs.count > 1 else { return }
             switch effectiveState(for: result) {
             case .needsReview:
                 counts.needsReview += 1

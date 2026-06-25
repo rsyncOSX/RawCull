@@ -266,6 +266,7 @@ extension RawCullViewModel {
     var filteredBurstGroupsForReviewQueue: [BurstGroup] {
         guard burstReviewQueueFilter != .all else { return similarityModel.burstGroups }
         return similarityModel.burstGroups.filter { group in
+            guard group.fileIDs.count > 1 else { return false }
             guard let result = burstAnalysisResults[group.id] else { return false }
             return BurstReviewQueuePolicy.includes(result, filter: burstReviewQueueFilter)
         }
@@ -368,7 +369,7 @@ extension RawCullViewModel {
     private func recomputeBurstRankings(files: [FileItem]) {
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let results = BurstRankingEngine.rank(
-            groups: similarityModel.burstGroups,
+            groups: similarityModel.burstGroups.filter { $0.fileIDs.count > 1 },
             filesByID: filesByID,
             scores: sharpnessModel.scores,
             maxScore: sharpnessModel.maxScore,

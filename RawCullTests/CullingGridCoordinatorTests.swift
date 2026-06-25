@@ -50,7 +50,7 @@ private func makeBurstResult(
 
 private func makeReviewQueueResult(
     groupID: Int,
-    fileID: FileItem.ID = UUID(),
+    fileIDs: [FileItem.ID] = [UUID(), UUID()],
     confidence: BurstDecisionConfidence,
     reviewState: BurstReviewState = .none,
     cautions: [String] = [],
@@ -58,9 +58,9 @@ private func makeReviewQueueResult(
 ) -> BurstAnalysisResult {
     BurstAnalysisResult(
         groupID: groupID,
-        fileIDs: [fileID],
+        fileIDs: fileIDs,
         candidates: [],
-        recommendedFileID: fileID,
+        recommendedFileID: fileIDs.first,
         secondBestFileID: nil,
         confidence: confidence,
         reviewState: reviewState,
@@ -208,19 +208,32 @@ struct CullingGridCoordinatorTests {
     @Test(.tags(.smoke))
     func `view model filters burst groups by review queue state`() {
         let reviewFile = makeGridTestFile("review.ARW")
+        let reviewPeer = makeGridTestFile("review-peer.ARW")
         let deferredFile = makeGridTestFile("deferred.ARW")
+        let deferredPeer = makeGridTestFile("deferred-peer.ARW")
         let reviewedFile = makeGridTestFile("reviewed.ARW")
+        let reviewedPeer = makeGridTestFile("reviewed-peer.ARW")
         let viewModel = RawCullViewModel()
 
         viewModel.similarityModel.burstGroups = [
-            BurstGroup(id: 1, fileIDs: [reviewFile.id]),
-            BurstGroup(id: 2, fileIDs: [deferredFile.id]),
-            BurstGroup(id: 3, fileIDs: [reviewedFile.id])
+            BurstGroup(id: 1, fileIDs: [reviewFile.id, reviewPeer.id]),
+            BurstGroup(id: 2, fileIDs: [deferredFile.id, deferredPeer.id]),
+            BurstGroup(id: 3, fileIDs: [reviewedFile.id, reviewedPeer.id])
         ]
         viewModel.burstAnalysisResults = [
-            1: makeReviewQueueResult(groupID: 1, fileID: reviewFile.id, confidence: .low),
-            2: makeReviewQueueResult(groupID: 2, fileID: deferredFile.id, confidence: .low, reviewState: .deferred),
-            3: makeReviewQueueResult(groupID: 3, fileID: reviewedFile.id, confidence: .low, reviewState: .reviewed)
+            1: makeReviewQueueResult(groupID: 1, fileIDs: [reviewFile.id, reviewPeer.id], confidence: .low),
+            2: makeReviewQueueResult(
+                groupID: 2,
+                fileIDs: [deferredFile.id, deferredPeer.id],
+                confidence: .low,
+                reviewState: .deferred,
+            ),
+            3: makeReviewQueueResult(
+                groupID: 3,
+                fileIDs: [reviewedFile.id, reviewedPeer.id],
+                confidence: .low,
+                reviewState: .reviewed,
+            )
         ]
 
         viewModel.burstReviewQueueFilter = .needsReview
@@ -231,5 +244,35 @@ struct CullingGridCoordinatorTests {
 
         viewModel.burstReviewQueueFilter = .reviewed
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [3])
+    }
+
+    @Test
+    func `singleton groups remain visible in all but are excluded from review queues`() {
+        let viewModel = RawCullViewModel()
+        let singleton = makeGridTestFile("single.ARW")
+        let first = makeGridTestFile("burst-a.ARW")
+        let second = makeGridTestFile("burst-b.ARW")
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 0, fileIDs: [singleton.id]),
+            BurstGroup(id: 1, fileIDs: [first.id, second.id]),
+        ]
+        viewModel.burstAnalysisResults = [
+            0: makeReviewQueueResult(
+                groupID: 0,
+                fileIDs: [singleton.id],
+                confidence: .low,
+            ),
+            1: makeReviewQueueResult(
+                groupID: 1,
+                fileIDs: [first.id, second.id],
+                confidence: .low,
+            ),
+        ]
+
+        #expect(viewModel.burstReviewQueueCounts.needsReview == 1)
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [0, 1])
+
+        viewModel.burstReviewQueueFilter = .needsReview
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1])
     }
 }
