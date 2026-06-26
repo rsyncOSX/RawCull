@@ -5,7 +5,6 @@
 //  Created by Thomas Evensen on 07/06/2024.
 //
 
-import RsyncAnalyse
 import SwiftUI
 
 struct DetailsView: View {
@@ -96,7 +95,7 @@ struct RsyncOutputRowView: View {
             return AnyView(
                 Table(records) {
                     TableColumn("Output from rsync (\(records.count) rows)") { data in
-                        OpenRsyncOutputRowView(record: data.record)
+                        ItemizedOutputRow(record: data.record)
                     }
                 },
             )
