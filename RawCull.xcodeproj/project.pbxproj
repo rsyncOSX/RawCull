@@ -401,7 +401,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.2.1;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
@@ -461,7 +461,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.2.1;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
