@@ -15,7 +15,6 @@
 		E97E976D2F210EAB001A4239 /* RawCullicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E97E975D2F210EAB001A4239 /* RawCullicon.icon */; };
 		E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E9B609842F28FA3600704081 /* DecodeEncodeGeneric */; };
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
-		E9D876E62F3B053B00119643 /* RsyncAnalyse in Frameworks */ = {isa = PBXBuildFile; productRef = E9D876E52F3B053B00119643 /* RsyncAnalyse */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,7 +58,6 @@
 				E9634D6F2FD1D1B9009E567D /* RawParserKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
-				E9D876E62F3B053B00119643 /* RsyncAnalyse in Frameworks */,
 				E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -119,7 +117,6 @@
 				E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */,
 				E92712B22F2CF57E00A681D0 /* RsyncArguments */,
 				E952AA612F2E37170081987F /* ParseRsyncOutput */,
-				E9D876E52F3B053B00119643 /* RsyncAnalyse */,
 				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
 				E9634D6E2FD1D1B9009E567D /* RawParserKit */,
 			);
@@ -184,7 +181,6 @@
 				E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */,
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
-				E9D876E42F3B053B00119643 /* XCRemoteSwiftPackageReference "RsyncAnalyse" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */,
 			);
@@ -616,14 +612,6 @@
 				version = 1.0.0;
 			};
 		};
-		E9D876E42F3B053B00119643 /* XCRemoteSwiftPackageReference "RsyncAnalyse" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/RsyncAnalyse";
-			requirement = {
-				kind = exactVersion;
-				version = 1.0.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -656,11 +644,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */;
 			productName = RsyncProcessStreaming;
-		};
-		E9D876E52F3B053B00119643 /* RsyncAnalyse */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9D876E42F3B053B00119643 /* XCRemoteSwiftPackageReference "RsyncAnalyse" */;
-			productName = RsyncAnalyse;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
