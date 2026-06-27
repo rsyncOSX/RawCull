@@ -3,8 +3,8 @@
 //  RawCull
 //
 
-import Foundation
 import CoreGraphics
+import Foundation
 import OSLog
 import RawParserKit
 

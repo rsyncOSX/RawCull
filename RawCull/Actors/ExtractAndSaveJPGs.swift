@@ -5,8 +5,8 @@
 //  Created by Thomas Evensen on 26/01/2026.
 //
 
-import Foundation
 import CoreGraphics
+import Foundation
 import OSLog
 import RawParserKit
 

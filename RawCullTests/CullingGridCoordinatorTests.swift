@@ -291,7 +291,7 @@ struct CullingGridCoordinatorTests {
         let second = makeGridTestFile("burst-b.ARW")
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 0, fileIDs: [singleton.id]),
-            BurstGroup(id: 1, fileIDs: [first.id, second.id]),
+            BurstGroup(id: 1, fileIDs: [first.id, second.id])
         ]
         viewModel.burstAnalysisResults = [
             0: makeReviewQueueResult(
@@ -303,7 +303,7 @@ struct CullingGridCoordinatorTests {
                 groupID: 1,
                 fileIDs: [first.id, second.id],
                 confidence: .low,
-            ),
+            )
         ]
 
         #expect(viewModel.burstReviewQueueCounts.needsReview == 1)

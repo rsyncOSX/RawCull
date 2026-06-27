@@ -547,8 +547,8 @@ extension RawCullViewModel {
                 filesByID: filesByID,
                 catalog: catalog,
             ),
-            let state = savedStatesBySignature[signature],
-            state != .none
+                let state = savedStatesBySignature[signature],
+                state != .none
             else { return nil }
             return (group.id, state)
         })

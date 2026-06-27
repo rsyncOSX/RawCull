@@ -84,7 +84,7 @@ private func makeOrientedQuadrantJPEGData(orientation: Int) throws -> Data {
     ))
     let properties: [CFString: Any] = [
         kCGImagePropertyOrientation: orientation,
-        kCGImageDestinationLossyCompressionQuality: 0.95,
+        kCGImageDestinationLossyCompressionQuality: 0.95
     ]
     CGImageDestinationAddImage(destination, image, properties as CFDictionary)
     #expect(CGImageDestinationFinalize(destination))
@@ -177,7 +177,7 @@ struct OrientationNormalizedImageLoaderTests {
         (5, CornerColors(topLeft: .red, topRight: .blue, bottomLeft: .green, bottomRight: .yellow)),
         (6, CornerColors(topLeft: .blue, topRight: .red, bottomLeft: .yellow, bottomRight: .green)),
         (7, CornerColors(topLeft: .yellow, topRight: .green, bottomLeft: .blue, bottomRight: .red)),
-        (8, CornerColors(topLeft: .green, topRight: .yellow, bottomLeft: .red, bottomRight: .blue)),
+        (8, CornerColors(topLeft: .green, topRight: .yellow, bottomLeft: .red, bottomRight: .blue))
     ])
     func `URL decode applies EXIF orientation to pixels`(
         orientation: Int,

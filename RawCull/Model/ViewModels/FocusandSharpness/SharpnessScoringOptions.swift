@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
     case auto
     case birdsWildlife
     case portrait
@@ -71,7 +71,7 @@ nonisolated enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable
     }
 }
 
-nonisolated enum SharpnessScoringQuality: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum SharpnessScoringQuality: String, CaseIterable, Codable, Identifiable {
     case fast
     case balanced
     case highPrecision
@@ -121,7 +121,7 @@ nonisolated enum SharpnessScoringQuality: String, CaseIterable, Codable, Identif
     }
 }
 
-nonisolated enum SharpnessScoringSource: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum SharpnessScoringSource: String, CaseIterable, Codable, Identifiable {
     case embeddedPreview
     case rawDemosaic
 

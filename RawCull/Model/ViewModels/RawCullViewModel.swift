@@ -204,7 +204,7 @@ final class RawCullViewModel {
         [FileItem],
         Int,
         BurstSharpnessSignature,
-        BurstSimilaritySignature
+        BurstSimilaritySignature,
     ) async -> BurstAnalysisCacheSnapshot? = {
         catalog,
         files,
@@ -219,9 +219,10 @@ final class RawCullViewModel {
             similaritySignature: similaritySignature,
         )
     }
+
     @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
         BurstAnalysisCacheSnapshot,
-        URL
+        URL,
     ) async -> Void = { snapshot, catalog in
         await BurstAnalysisCache.shared.save(snapshot, catalog: catalog)
     }

@@ -1005,7 +1005,7 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
-    func `burst cache rejects a different similarity signature`() async throws {
+    func `burst cache rejects a different similarity signature`() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -1045,7 +1045,7 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
-    func `burst cache round trips a large snapshot off the main actor`() async throws {
+    func `burst cache round trips a large snapshot off the main actor`() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullLargeCacheTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -1146,7 +1146,7 @@ struct RawCullViewModelCullingTests {
             savedStatesBySignature: saved,
             groups: [
                 BurstGroup(id: 7, fileIDs: [first.id, second.id]),
-                BurstGroup(id: 0, fileIDs: [third.id]),
+                BurstGroup(id: 0, fileIDs: [third.id])
             ],
             files: [first, second, third],
             catalog: catalog,

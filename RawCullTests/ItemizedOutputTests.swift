@@ -7,8 +7,8 @@
 import Testing
 
 struct ItemizedOutputTests {
-    @Test("Classifies rsync itemized output")
-    func classifiesOutput() throws {
+    @Test
+    func `Classifies rsync itemized output`() throws {
         let added = try #require(ItemizedOutputRecord(">f+++++++++ new-file.ARW"))
         let directory = try #require(ItemizedOutputRecord("cd+++++++++ new-folder/"))
         let updated = try #require(ItemizedOutputRecord(">f.st...... changed.ARW"))
@@ -23,8 +23,8 @@ struct ItemizedOutputTests {
         #expect(deleted.path == "removed.ARW")
     }
 
-    @Test("Supports openrsync itemized output")
-    func supportsOpenRsync() throws {
+    @Test
+    func `Supports openrsync itemized output`() throws {
         let added = try #require(ItemizedOutputRecord(">f+++++++ file.ARW"))
         let metadata = try #require(ItemizedOutputRecord(".d..t.... folder/"))
 
@@ -32,8 +32,8 @@ struct ItemizedOutputTests {
         #expect(metadata.kind == .metadata)
     }
 
-    @Test("Ignores empty and summary lines")
-    func ignoresNonItemizedOutput() {
+    @Test
+    func `Ignores empty and summary lines`() {
         #expect(ItemizedOutputRecord("") == nil)
         #expect(ItemizedOutputRecord("Number of files: 10 (reg: 8, dir: 2)") == nil)
         #expect(ItemizedOutputRecord("sent 1,234 bytes  received 56 bytes  2,580.00 bytes/sec") == nil)
