@@ -20,7 +20,16 @@ struct ComparisonGridView: View {
                 .ignoresSafeArea()
 
             if files.count > 1 {
-                ZStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if burstComparisonResult != nil {
+                        BurstComparisonEvidenceView(
+                            inspectorIsPresented: showCandidateInspector,
+                            onBack: viewModel.returnToActiveBurstGroupView,
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                    }
+
                     GeometryReader { geometry in
                         ScrollView(.horizontal) {
                             LazyHStack(spacing: 0) {
@@ -79,17 +88,6 @@ struct ComparisonGridView: View {
                             else { return }
                             viewModel.selectedFileID = newID
                         }
-                    }
-
-                    if burstComparisonResult != nil {
-                        BurstComparisonEvidenceView(
-                            inspectorIsPresented: showCandidateInspector,
-                            onBack: viewModel.returnToActiveBurstGroupView,
-                        )
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .padding(.horizontal, 8)
-                        .padding(.top, 8)
-                        .zIndex(2)
                     }
                 }
             } else {
