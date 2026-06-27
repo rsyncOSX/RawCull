@@ -138,32 +138,21 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `render cache filters visible burst files and marks manual winner`() {
+    func `render cache filters visible burst files`() {
         let winner = makeGridTestFile("winner.ARW")
         let hidden = makeGridTestFile("hidden.ARW")
         let visible = makeGridTestFile("visible.ARW")
         let group = BurstGroup(id: 3, fileIDs: [winner.id, hidden.id, visible.id])
-        let result = makeBurstResult(
-            groupID: 3,
-            fileIDs: group.fileIDs,
-            recommendedFileID: winner.id,
-            reviewState: .manualWinnerOverride,
-        )
 
         let cache = CullingGridRenderCache.rebuild(
             files: [winner, visible],
             burstGroups: [group],
             scores: [winner.id: 0.7, visible.id: 0.4],
-            maxScore: 0.7,
-            burstAnalysisResults: [3: result],
         )
 
         #expect(cache.visibleBurstGroups.map(\.id) == [3])
         #expect(cache.visibleBurstGroups.first?.files.map(\.id) == [winner.id, visible.id])
         #expect(cache.hasSharpnessScoresSnapshot)
-        #expect(cache.bestInGroup[3]?.fileName == "winner.ARW")
-        #expect(cache.bestInGroup[3]?.percent == 100)
-        #expect(cache.bestInGroup[3]?.isManualWinner == true)
     }
 
     @Test

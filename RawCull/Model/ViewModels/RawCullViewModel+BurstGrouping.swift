@@ -6,16 +6,6 @@
 import Foundation
 import RawCullCore
 
-/// Precomputed "best frame" info for a burst group — consumed by the
-/// grid's burst-section header so the header body does no scoring math
-/// on redraw.
-struct BestInGroupInfo: Equatable {
-    let fileName: String
-    /// Percentage of `maxScore`, or nil when scores are missing or maxScore ≤ 0.
-    let percent: Int?
-    let isManualWinner: Bool
-}
-
 extension RawCullViewModel {
     // MARK: - Intelligent burst analysis
 
@@ -294,41 +284,6 @@ extension RawCullViewModel {
         scores: [UUID: Float],
     ) -> FileItem? {
         files.max(by: { (scores[$0.id] ?? 0) < (scores[$1.id] ?? 0) })
-    }
-
-    /// Compute the precomputed display info for a burst group's "best" frame.
-    /// Returns nil when scores are empty or the group is empty.
-    ///
-    /// `percent` is `Int(min(score / maxScore, 1.0) · 100)` — i.e. the
-    /// best frame's sharpness as a percentage of the catalog-wide
-    /// normalization denominator (`SharpnessScoringModel.maxScore`, the
-    /// p90 of all scores for n ≥ 10). Clamped to `≤ 100` so a score that
-    /// happens to exceed the p90 doesn't render above 100 %.
-    nonisolated static func bestInGroupInfo(
-        files: [FileItem],
-        scores: [UUID: Float],
-        maxScore: Float,
-    ) -> BestInGroupInfo? {
-        guard !scores.isEmpty, let best = sharpestFile(in: files, scores: scores) else { return nil }
-        return bestInGroupInfo(file: best, scores: scores, maxScore: maxScore, isManualWinner: false)
-    }
-
-    nonisolated static func bestInGroupInfo(
-        file: FileItem,
-        scores: [UUID: Float],
-        maxScore: Float,
-        isManualWinner: Bool,
-    ) -> BestInGroupInfo {
-        let percent: Int? = if let score = scores[file.id], maxScore > 0 {
-            Int(min(score / maxScore, 1.0) * 100)
-        } else {
-            nil
-        }
-        return BestInGroupInfo(
-            fileName: file.name,
-            percent: percent,
-            isManualWinner: isManualWinner,
-        )
     }
 
     func burstAnalysisResult(for groupID: Int) -> BurstAnalysisResult? {
