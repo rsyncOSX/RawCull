@@ -3,6 +3,9 @@ retain_objc_accessible: true
 retain_public: false
 schemes:
 - RawCull
+exclude_tests: true
+exclude_targets:
+- RawCullTests
 index_exclude:
 - RawCull/Model/ParametersRsync/SynchronizeConfiguration.swift 
 - RawCull/Model/ParametersRsync/RemoteDataNumbers.swift
