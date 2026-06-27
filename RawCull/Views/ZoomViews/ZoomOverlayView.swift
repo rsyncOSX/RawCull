@@ -99,6 +99,7 @@ nonisolated struct ZoomOverlayNavigationContext: Equatable {
         self.orderedFileIDs = orderedFileIDs.filter { seen.insert($0).inserted }
     }
 
+    // periphery:ignore
     func destinationID(from currentID: FileItem.ID, delta: Int) -> FileItem.ID? {
         guard let currentIndex = orderedFileIDs.firstIndex(of: currentID) else { return nil }
         let destinationIndex = currentIndex + delta
@@ -106,10 +107,12 @@ nonisolated struct ZoomOverlayNavigationContext: Equatable {
         return orderedFileIDs[destinationIndex]
     }
 
+    // periphery:ignore
     func canNavigatePrevious(from currentID: FileItem.ID) -> Bool {
         destinationID(from: currentID, delta: -1) != nil
     }
 
+    // periphery:ignore
     func canNavigateNext(from currentID: FileItem.ID) -> Bool {
         destinationID(from: currentID, delta: 1) != nil
     }

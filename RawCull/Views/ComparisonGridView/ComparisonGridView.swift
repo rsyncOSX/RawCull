@@ -284,6 +284,7 @@ struct ComparisonGridView: View {
         viewModel.selectedFileID = files[0].id
     }
 
+    // periphery:ignore
     private func inspectFinalists() {
         let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: burstComparisonResult)
         guard !finalistIDs.isEmpty else { return }
@@ -292,6 +293,7 @@ struct ComparisonGridView: View {
         showCandidateInspector = true
     }
 
+    // periphery:ignore
     private func showAllCandidates() {
         finalistFocusActive = false
         selectFirstComparisonFileIfNeeded()

@@ -137,6 +137,7 @@ final class CullingModel {
         scheduleSave()
     }
 
+    // periphery:ignore
     func upsertBurstWinnerOverride(_ override: BurstWinnerOverride, in catalog: URL) {
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)

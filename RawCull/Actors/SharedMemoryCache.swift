@@ -391,6 +391,7 @@ actor SharedMemoryCache {
         _memCount.withLock { $0 += 1 }
     }
 
+    // periphery:ignore
     nonisolated func removeAllObjects() {
         memoryCache.removeAllObjects()
         _memCost.withLock { $0 = 0 }
@@ -424,6 +425,7 @@ actor SharedMemoryCache {
         _gridCount.withLock { $0 += 1 }
     }
 
+    // periphery:ignore
     nonisolated func removeAllGridObjects() {
         gridThumbnailCache.removeAllObjects()
         _gridCost.withLock { $0 = 0 }
@@ -525,6 +527,7 @@ actor SharedMemoryCache {
         await fullSizeJPGCache.pruneCache(maxAgeInDays: maxAgeInDays)
     }
 
+    // periphery:ignore
     func clearCaches() async {
         // let hitRate = cacheMemory + cacheDisk > 0 ? Double(cacheMemory) / Double(cacheMemory + cacheDisk) * 100 : 0
         // let hitRateStr = String(format: "%.1f", hitRate)
@@ -554,6 +557,7 @@ actor SharedMemoryCache {
     }
 
     #if DEBUG
+        // periphery:ignore
         func resetForTesting(config: CacheConfig? = nil) async {
             setupTask = nil
             fileHandlers = nil

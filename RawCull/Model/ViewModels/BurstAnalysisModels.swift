@@ -27,6 +27,14 @@ nonisolated struct BurstGroupSignature: Codable, Hashable {
         let relativePath = String(filePath.dropFirst(prefix.count))
         return relativePath.isEmpty ? file.name : relativePath
     }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.memberKeys == rhs.memberKeys
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(memberKeys)
+    }
 }
 
 nonisolated struct BurstReviewStateSnapshot: Codable, Equatable {

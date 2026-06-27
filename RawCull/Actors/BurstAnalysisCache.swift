@@ -23,6 +23,13 @@ nonisolated struct BurstSimilaritySignature: Codable, Equatable {
     var embeddingThumbnailMaxPixelSize: Int
     var visionFeaturePrintRevision: Int
     var embeddingPipelineVersion: Int
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.groupingConfig == rhs.groupingConfig
+            && lhs.embeddingThumbnailMaxPixelSize == rhs.embeddingThumbnailMaxPixelSize
+            && lhs.visionFeaturePrintRevision == rhs.visionFeaturePrintRevision
+            && lhs.embeddingPipelineVersion == rhs.embeddingPipelineVersion
+    }
 }
 
 nonisolated struct SharpnessScoringSignature: Codable {

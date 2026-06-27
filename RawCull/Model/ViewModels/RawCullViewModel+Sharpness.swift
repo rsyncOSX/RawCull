@@ -51,6 +51,7 @@ extension RawCullViewModel {
 
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
+    // periphery:ignore
     func persistScoringResultsInMemory() {
         persistScoringResultsInMemory(files: files)
     }

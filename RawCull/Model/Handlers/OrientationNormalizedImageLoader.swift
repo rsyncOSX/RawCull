@@ -26,6 +26,7 @@ enum OrientationNormalizedImageLoader {
         return loadDirectImage(from: imageSource)
     }
 
+    // periphery:ignore
     nonisolated static func loadThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
         loadThumbnail(from: url, maxPixelSize: maxPixelSize, createIfAbsent: true)
     }
@@ -117,16 +118,6 @@ enum OrientationNormalizedImageLoader {
 
         let orientation = exifOrientation(from: imageSource, index: index)
         return applyOrientation(to: image, orientation: orientation)
-    }
-
-    private nonisolated static func loadUnorientedCGImage(from data: Data) -> CGImage? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
-            return nil
-        }
-        defer { removeCachedImages(from: imageSource) }
-
-        return loadUnorientedCGImage(from: imageSource)
     }
 
     private nonisolated static func loadUnorientedCGImage(from imageSource: CGImageSource) -> CGImage? {

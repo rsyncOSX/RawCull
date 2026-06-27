@@ -45,18 +45,22 @@ final class FocusMaskModel {
         )
     }
 
+    // periphery:ignore
     nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
         FocusMaskEngine.robustTailScore(samples)
     }
 
+    // periphery:ignore
     nonisolated static func microContrast(_ samples: [Float]) -> Float {
         FocusMaskEngine.microContrast(samples)
     }
 
+    // periphery:ignore
     nonisolated static func isoScalingFactor(iso: Int) -> Float {
         FocusMaskEngine.isoScalingFactor(iso: iso)
     }
 
+    // periphery:ignore
     nonisolated static func classifyFocusFailure(
         globalScore: Float?,
         subjectScore: Float?,

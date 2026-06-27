@@ -9,7 +9,6 @@ import Foundation
 
 nonisolated enum CacheRecommendationPolicy {
     static let megabyte = 1024 * 1024
-    static let sixteenGB = 16 * 1024 * megabyte
     static let thirtyTwoGB = 32 * 1024 * megabyte
     static let sixtyFourGB = 64 * 1024 * megabyte
     static let freeReserveMB = 3 * 1024
@@ -109,11 +108,13 @@ struct CacheConfig {
         self.gridTotalCostLimit = gridTotalCostLimit
     }
 
+    // periphery:ignore
     nonisolated static let production = CacheConfig(
         totalCostLimit: 500 * 1024 * 1024, // ~500 MB for ~112 1024x1024 images
         countLimit: 1000,
     )
 
+    // periphery:ignore
     nonisolated static let testing = CacheConfig(
         totalCostLimit: 100_000, // Very small for testing evictions
         countLimit: 5,
