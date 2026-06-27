@@ -81,21 +81,12 @@ struct ComparisonGridView: View {
                         }
                     }
 
-                    if let burstComparisonResult {
+                    if burstComparisonResult != nil {
                         BurstComparisonEvidenceView(
-                            result: burstComparisonResult,
-                            selectedFile: selectedComparisonFile,
-                            canApplyOneClickCulling: canApplyOneClickCulling,
-                            onKeepBest: { viewModel.keepBestInGroup(from: allComparisonFiles) },
-                            onKeepTopTwo: { viewModel.keepTopTwoInGroup(from: allComparisonFiles) },
-                            finalistFocusActive: finalistFocusActive,
-                            onInspectFinalists: inspectFinalists,
-                            onShowAll: showAllCandidates,
-                            onSetManualWinner: { file in
-                                viewModel.setManualBurstWinner(file, in: allComparisonFiles)
-                            },
+                            inspectorIsPresented: showCandidateInspector,
                             onBack: viewModel.returnToActiveBurstGroupView,
                         )
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                         .padding(.horizontal, 8)
                         .padding(.top, 8)
                         .zIndex(2)
@@ -474,104 +465,27 @@ struct ComparisonGridView: View {
 }
 
 private struct BurstComparisonEvidenceView: View {
-    let result: BurstAnalysisResult
-    let selectedFile: FileItem?
-    let canApplyOneClickCulling: Bool
-    let onKeepBest: () -> Void
-    let onKeepTopTwo: () -> Void
-    let finalistFocusActive: Bool
-    let onInspectFinalists: () -> Void
-    let onShowAll: () -> Void
-    let onSetManualWinner: (FileItem) -> Void
+    let inspectorIsPresented: Bool
     let onBack: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            statusSummary
-                .frame(maxWidth: 440, alignment: .leading)
+        VStack(alignment: .leading, spacing: 4) {
+            Button("Back To Group", action: onBack)
+                .controlSize(.mini)
 
-            Spacer(minLength: 0)
-            actionControls
+            Text(inspectorHint)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-        .font(.caption2)
-        .lineLimit(1)
+        .font(.caption2.weight(.semibold))
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
         .foregroundStyle(.white)
-        .frame(maxWidth: 760)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
         .shadow(color: .black.opacity(0.22), radius: 6, x: 0, y: 1)
     }
 
-    private var statusSummary: some View {
-        HStack(spacing: 6) {
-            Text("Burst \(result.groupID + 1)")
-                .font(.caption.weight(.semibold))
-                .fixedSize(horizontal: true, vertical: false)
-
-            Text(result.confidence.title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: true, vertical: false)
-
-            if result.reviewState == .manualWinnerOverride {
-                Text("Manual winner")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-
-            if let firstReason = result.reasons.first {
-                Text("Evidence: \(firstReason)")
-                    .foregroundStyle(.secondary)
-                    .help(evidenceHelp)
-            }
-
-            if let firstCaution = result.cautions.first {
-                Text("Caution: \(firstCaution)")
-                    .foregroundStyle(.orange)
-                    .help(cautionHelp)
-            }
-        }
-        .lineLimit(1)
-        .truncationMode(.tail)
-    }
-
-    private var actionControls: some View {
-        HStack(spacing: 6) {
-            if finalistFocusActive {
-                Button("Show All", action: onShowAll)
-            }
-            Button("Back To Group", action: onBack)
-            Button("Inspect Finalists", action: onInspectFinalists)
-                .disabled(result.candidates.isEmpty)
-            Button("Set Manual Winner") {
-                if let selectedFile {
-                    onSetManualWinner(selectedFile)
-                }
-            }
-            .disabled(!selectedFileIsInResult)
-            .help(selectedFileIsInResult ? "Save the selected frame as the manual burst winner" : "Select a frame in this burst")
-            if canApplyOneClickCulling {
-                Button("Keep Best", action: onKeepBest)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                Button("Keep Top 2", action: onKeepTopTwo)
-            }
-        }
-        .controlSize(.mini)
-    }
-
-    private var evidenceHelp: String {
-        result.reasons.joined(separator: "\n")
-    }
-
-    private var cautionHelp: String {
-        result.cautions.joined(separator: "\n")
-    }
-
-    private var selectedFileIsInResult: Bool {
-        guard let selectedFile else { return false }
-        return result.fileIDs.contains(selectedFile.id)
+    private var inspectorHint: String {
+        inspectorIsPresented ? "Press I to close Inspector" : "Press I to open Inspector"
     }
 }
