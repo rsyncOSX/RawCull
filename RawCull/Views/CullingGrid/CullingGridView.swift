@@ -33,8 +33,6 @@ private struct BurstGroupHeaderView: View {
 
     var body: some View {
         HStack(spacing: 3) {
-            Spacer(minLength: 6)
-
             Button("Open burst") {
                 viewModel.compareBurstGroup(files)
             }
@@ -55,6 +53,8 @@ private struct BurstGroupHeaderView: View {
                 .controlSize(.mini)
                 .help("Defer this burst for later review")
             }
+
+            Spacer(minLength: 6)
         }
         .font(.caption2.weight(.semibold))
         .padding(.horizontal, 6)
