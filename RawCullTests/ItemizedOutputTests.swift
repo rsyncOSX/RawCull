@@ -6,6 +6,7 @@
 @testable import RawCull
 import Testing
 
+@MainActor
 struct ItemizedOutputTests {
     @Test
     func `Classifies rsync itemized output`() throws {

@@ -5,9 +5,7 @@
 //  Created by Thomas Evensen on 21/01/2026.
 //
 
-import OSLog
 import SwiftUI
-import UniformTypeIdentifiers
 
 extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
@@ -31,29 +29,4 @@ extension RawCullMainView {
         }
     }
 
-    func extractFilteredFilesJPGS() {
-        Task {
-            // Using the same property to start the progressview.
-            // The text in the Progress is computed to check which
-            // of the current..Actor is != nil
-            viewModel.creatingthumbnails = true
-
-            let handlers = CreateFileHandlers().createFileHandlers(
-                fileHandler: viewModel.fileHandler,
-                maxfilesHandler: viewModel.maxfilesHandler,
-                estimatedTimeHandler: viewModel.estimatedTimeHandler,
-                memorypressurewarning: { _ in },
-                onExtractionNeeded: {},
-            )
-
-            let extract = ExtractAndSaveJPGs(sortedfiles: viewModel.filteredFiles)
-            await extract.setFileHandlers(handlers)
-            viewModel.currentExtractAndSaveJPGsActor = extract
-
-            await extract.extractAndSavejpgs()
-
-            viewModel.currentExtractAndSaveJPGsActor = nil // ← NEW: clean up
-            viewModel.creatingthumbnails = false
-        }
-    }
 }

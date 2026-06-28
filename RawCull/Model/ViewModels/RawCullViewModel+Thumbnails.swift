@@ -26,6 +26,72 @@ extension RawCullViewModel {
         creatingthumbnails = true
     }
 
+    var selectedFilesForJPGExtraction: [FileItem] {
+        if !selectedFileIDs.isEmpty {
+            return filteredFiles.filter { selectedFileIDs.contains($0.id) }
+        }
+
+        guard let selectedFileID else { return [] }
+        if let file = filteredFiles.first(where: { $0.id == selectedFileID }) {
+            return [file]
+        }
+        return files.first(where: { $0.id == selectedFileID }).map { [$0] } ?? []
+    }
+
+    func presentExtractJPGsSheet() {
+        guard !sources.isEmpty else { return }
+        if extractJPGDestination == nil ||
+            !sources.contains(where: { $0.url == extractJPGDestination?.url }) {
+            extractJPGDestination = selectedSource ?? sources.first
+        }
+        activeSheet = .extractJPGs
+    }
+
+    func startSelectedJPGExtraction(destination: ARWSourceCatalog, exportMode: ExtractJPGExportMode) {
+        let exportFiles = selectedFilesForJPGExtraction
+        guard currentScanAndExtractJPGsActor == nil,
+              currentScanAndCreateThumbnailsActor == nil,
+              currentExtractAndSaveJPGsActor == nil,
+              !exportFiles.isEmpty
+        else { return }
+
+        progress = 0
+        max = Double(exportFiles.count)
+        estimatedSeconds = 0
+        creatingthumbnails = true
+
+        let handlers = CreateFileHandlers().createFileHandlers(
+            fileHandler: fileHandler,
+            maxfilesHandler: maxfilesHandler,
+            estimatedTimeHandler: estimatedTimeHandler,
+            memorypressurewarning: { _ in },
+            onExtractionNeeded: {},
+        )
+
+        let destinationURL = destination.url
+        let destinationAccessStarted = startSecurityScopedResource(destinationURL)
+        let extract = ExtractAndSaveJPGs(
+            files: exportFiles,
+            destinationCatalogURL: destinationURL,
+            exportMode: exportMode,
+        )
+        currentExtractAndSaveJPGsActor = extract
+
+        Task(priority: .background) {
+            await extract.setFileHandlers(handlers)
+            await extract.extractAndSavejpgs()
+
+            await MainActor.run {
+                if destinationAccessStarted {
+                    self.stopSecurityScopedResource(destinationURL)
+                }
+                guard self.currentExtractAndSaveJPGsActor === extract else { return }
+                self.currentExtractAndSaveJPGsActor = nil
+                self.creatingthumbnails = false
+            }
+        }
+    }
+
     func startScanAndExtractJPGs() {
         guard currentScanAndExtractJPGsActor == nil,
               currentScanAndCreateThumbnailsActor == nil,

@@ -30,6 +30,51 @@ actor SaveJPGImage {
         }.value
     }
 
+    /// Saves pre-encoded JPEG data into a selected destination catalog.
+    func save(
+        _ jpegData: Data,
+        originalURL: URL,
+        destinationCatalogURL: URL,
+        exportMode: ExtractJPGExportMode,
+    ) async {
+        let outputURL = Self.outputURL(
+            for: originalURL,
+            in: destinationCatalogURL,
+            exportMode: exportMode,
+        )
+
+        Logger.process.info("ExtractEmbeddedPreview: Attempting to save to \(outputURL.path)")
+
+        await Task.detached(priority: .background) {
+            do {
+                try jpegData.write(to: outputURL, options: .atomic)
+                Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
+            } catch {
+                Logger.process.error("ExtractEmbeddedPreview: Failed to write JPEG at \(outputURL.path): \(error)")
+            }
+        }.value
+    }
+
+    nonisolated static func outputURL(
+        for originalURL: URL,
+        in destinationCatalogURL: URL,
+        exportMode: ExtractJPGExportMode,
+    ) -> URL {
+        let baseName = originalURL.deletingPathExtension().lastPathComponent
+        let outputName: String
+        switch exportMode {
+        case .embeddedJPG:
+            outputName = baseName
+
+        case .demosaicedRAW:
+            outputName = "\(baseName)_demosaic"
+        }
+
+        return destinationCatalogURL
+            .appendingPathComponent(outputName)
+            .appendingPathExtension(SupportedFileType.jpg.rawValue)
+    }
+
     /// Encodes a `CGImage` to JPEG data at export quality.
     /// Call this before sending the result to the save actor so `CGImage` does not
     /// cross actor/task boundaries.

@@ -5,7 +5,6 @@ import OSLog
 import RawCullCore
 
 enum AlertType {
-    case extractJPGs
     case createJPGDiskCache
     case clearRatedFiles
 }
@@ -54,6 +53,7 @@ struct ZoomOverlayLaunchContext: Equatable {
 enum ActiveSheet: String, Identifiable {
     case stats
     case scoringParams
+    case extractJPGs
 
     var id: String {
         rawValue
@@ -96,6 +96,8 @@ final class RawCullViewModel {
 
     var focusaborttask: Bool = false
     var focusExtractJPGs: Bool = false
+    var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
+    var extractJPGDestination: ARWSourceCatalog?
 
     var showcopyARWFilesView: Bool = false
     var alertType: AlertType?
@@ -231,7 +233,6 @@ final class RawCullViewModel {
 
     var alertTitle: String {
         switch alertType {
-        case .extractJPGs: "Extract JPGs"
         case .createJPGDiskCache: "Create JPG Disk Cache"
         case .clearRatedFiles: "Clear Rated Images"
         case .none: ""
@@ -240,8 +241,6 @@ final class RawCullViewModel {
 
     var alertMessage: String {
         switch alertType {
-        case .extractJPGs: "Are you sure you want to extract JPG images from ARW files?"
-
         case .createJPGDiskCache:
             "RawCull will create missing extracted JPG preview cache images for \(files.count) RAW files in this catalog. Existing cached images will be skipped."
 

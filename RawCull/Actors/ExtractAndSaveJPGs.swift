@@ -10,6 +10,22 @@ import Foundation
 import OSLog
 import RawParserKit
 
+nonisolated enum ExtractJPGExportMode: String, CaseIterable, Identifiable, Sendable {
+    case embeddedJPG
+    case demosaicedRAW
+
+    var id: String {
+        rawValue
+    }
+
+    var label: String {
+        switch self {
+        case .embeddedJPG: "Embedded JPG"
+        case .demosaicedRAW: "Demosaiced RAW"
+        }
+    }
+}
+
 actor ExtractAndSaveJPGs {
     // Track the current preload task so we can cancel it
 
@@ -24,13 +40,25 @@ actor ExtractAndSaveJPGs {
     private var estimationStartIndex = 10 // After 10 items, we can estimate
 
     private var filteredFilesURLs: [URL]?
+    private let destinationCatalogURL: URL?
+    private let exportMode: ExtractJPGExportMode
 
     /// Used in time remaining
     private var lastItemTime: Date?
 
     init(sortedfiles: [FileItem]) {
+        destinationCatalogURL = nil
+        exportMode = .embeddedJPG
         if !sortedfiles.isEmpty {
             filteredFilesURLs = sortedfiles.map(\.url)
+        }
+    }
+
+    init(files: [FileItem], destinationCatalogURL: URL, exportMode: ExtractJPGExportMode) {
+        self.destinationCatalogURL = destinationCatalogURL
+        self.exportMode = exportMode
+        if !files.isEmpty {
+            filteredFilesURLs = files.map(\.url)
         }
     }
 
@@ -84,29 +112,54 @@ actor ExtractAndSaveJPGs {
     private func processSingleExtraction(_ url: URL) async {
         if Task.isCancelled { return } // ← NEW
 
-        guard let format = RawFormatRegistry.format(for: url) else { return }
-        let orientedPreview = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
-        }.value
-        let cgImage: CGImage? = if let orientedPreview {
-            orientedPreview
-        } else {
-            if let image = await format.extractFullJPEG(from: url, fullSize: false) {
-                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
-            } else {
-                nil
-            }
-        }
-        if let cgImage {
+        switch exportMode {
+        case .embeddedJPG:
+            guard let cgImage = await embeddedJPEGImage(from: url) else { return }
             if Task.isCancelled { return } // ← NEW: critical one
 
             guard let jpegData = SaveJPGImage.jpegData(from: cgImage) else { return }
 
-            await SaveJPGImage().save(jpegData, originalURL: url)
+            await save(jpegData, originalURL: url)
 
-            let newCount = incrementAndGetCount()
-            await fileHandlers?.fileHandler(newCount)
-            await updateEstimatedTime(itemsProcessed: newCount)
+        case .demosaicedRAW:
+            guard let jpegData = try? await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0) else { return }
+            if Task.isCancelled { return }
+
+            await save(jpegData, originalURL: url)
+        }
+
+        let newCount = incrementAndGetCount()
+        await fileHandlers?.fileHandler(newCount)
+        await updateEstimatedTime(itemsProcessed: newCount)
+    }
+
+    private func embeddedJPEGImage(from url: URL) async -> CGImage? {
+        guard let format = RawFormatRegistry.format(for: url) else { return nil }
+        let orientedPreview = await Task.detached(priority: .userInitiated) {
+            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
+        }.value
+
+        if let orientedPreview {
+            return orientedPreview
+        }
+
+        if let image = await format.extractFullJPEG(from: url, fullSize: false) {
+            return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
+        }
+
+        return nil
+    }
+
+    private func save(_ jpegData: Data, originalURL: URL) async {
+        if let destinationCatalogURL {
+            await SaveJPGImage().save(
+                jpegData,
+                originalURL: originalURL,
+                destinationCatalogURL: destinationCatalogURL,
+                exportMode: exportMode,
+            )
+        } else {
+            await SaveJPGImage().save(jpegData, originalURL: originalURL)
         }
     }
 
