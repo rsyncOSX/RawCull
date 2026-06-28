@@ -61,6 +61,45 @@ struct ExtractJPGsSelectionTests {
         #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
         #expect(!viewModel.creatingthumbnails)
     }
+
+    @Test
+    func `present extract jpgs defaults destination to selected source only when empty`() {
+        let viewModel = RawCullViewModel()
+        let source = ARWSourceCatalog(
+            name: "Source",
+            url: URL(fileURLWithPath: "/tmp/source", isDirectory: true),
+        )
+
+        viewModel.sources = [source]
+        viewModel.selectedSource = source
+
+        viewModel.presentExtractJPGsSheet()
+
+        #expect(viewModel.extractJPGDestination == source)
+        #expect(viewModel.activeSheet == .extractJPGs)
+    }
+
+    @Test
+    func `present extract jpgs preserves destination outside source catalogs`() {
+        let viewModel = RawCullViewModel()
+        let source = ARWSourceCatalog(
+            name: "Source",
+            url: URL(fileURLWithPath: "/tmp/source", isDirectory: true),
+        )
+        let externalDestination = ARWSourceCatalog(
+            name: "Exports",
+            url: URL(fileURLWithPath: "/tmp/exports", isDirectory: true),
+        )
+
+        viewModel.sources = [source]
+        viewModel.selectedSource = source
+        viewModel.extractJPGDestination = externalDestination
+
+        viewModel.presentExtractJPGsSheet()
+
+        #expect(viewModel.extractJPGDestination == externalDestination)
+        #expect(viewModel.activeSheet == .extractJPGs)
+    }
 }
 
 struct ExtractJPGsOutputURLTests {

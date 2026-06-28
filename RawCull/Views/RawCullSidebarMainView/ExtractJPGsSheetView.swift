@@ -1,11 +1,23 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ExtractJPGsSheetView: View {
     @Bindable var viewModel: RawCullViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var isChoosingDestination = false
 
     private var selectedFiles: [FileItem] {
         viewModel.selectedFilesForJPGExtraction
+    }
+
+    private var destinationOptions: [ARWSourceCatalog] {
+        guard let destination = viewModel.extractJPGDestination,
+              !viewModel.sources.contains(where: { $0.url == destination.url })
+        else {
+            return viewModel.sources
+        }
+
+        return viewModel.sources + [destination]
     }
 
     private var canExtract: Bool {
@@ -28,8 +40,20 @@ struct ExtractJPGsSheetView: View {
                 .pickerStyle(.segmented)
 
                 Picker("Destination", selection: $viewModel.extractJPGDestination) {
-                    ForEach(viewModel.sources) { source in
+                    ForEach(destinationOptions) { source in
                         Text(source.name).tag(Optional(source))
+                    }
+                }
+
+                LabeledContent("Folder") {
+                    HStack {
+                        Text(viewModel.extractJPGDestination?.url.path(percentEncoded: false) ?? "No folder selected")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        Button("Choose...") {
+                            isChoosingDestination = true
+                        }
                     }
                 }
 
@@ -61,6 +85,14 @@ struct ExtractJPGsSheetView: View {
         }
         .padding(24)
         .frame(width: 440)
+        .fileImporter(isPresented: $isChoosingDestination, allowedContentTypes: [.folder]) { result in
+            if case let .success(url) = result {
+                viewModel.extractJPGDestination = ARWSourceCatalog(
+                    name: url.lastPathComponent,
+                    url: url,
+                )
+            }
+        }
     }
 
     private var sourceSummary: String {

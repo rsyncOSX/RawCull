@@ -40,8 +40,7 @@ extension RawCullViewModel {
 
     func presentExtractJPGsSheet() {
         guard !sources.isEmpty else { return }
-        if extractJPGDestination == nil ||
-            !sources.contains(where: { $0.url == extractJPGDestination?.url }) {
+        if extractJPGDestination == nil {
             extractJPGDestination = selectedSource ?? sources.first
         }
         activeSheet = .extractJPGs
