@@ -18,6 +18,10 @@ struct RawCullMainView: View {
     @State private var nsImage: NSImage?
     @State private var showCandidateInspector = false
 
+    private var showsJPGExtractionProgressOverlay: Bool {
+        viewModel.currentExtractAndSaveJPGsActor != nil && viewModel.mainViewMode != .loupe
+    }
+
     var body: some View {
         ZStack {
             Group {
@@ -43,6 +47,30 @@ struct RawCullMainView: View {
                 ZoomOverlayView(viewModel: viewModel)
                     .transition(.opacity)
                     .zIndex(10)
+            }
+
+            if showsJPGExtractionProgressOverlay {
+                VStack {
+                    Spacer()
+
+                    ProgressCount(
+                        progress: $viewModel.progress,
+                        estimatedSeconds: $viewModel.estimatedSeconds,
+                        max: viewModel.max,
+                        statusText: "Extracting JPGs",
+                    )
+                    .frame(maxWidth: 480)
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.12), lineWidth: 1),
+                    )
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                    .padding(.bottom, 24)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(12)
             }
         }
         .sheet(item: $viewModel.activeSheet) { sheet in
