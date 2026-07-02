@@ -46,14 +46,6 @@ actor ExtractAndSaveJPGs {
     /// Used in time remaining
     private var lastItemTime: Date?
 
-    init(sortedfiles: [FileItem]) {
-        destinationCatalogURL = nil
-        exportMode = .embeddedJPG
-        if !sortedfiles.isEmpty {
-            filteredFilesURLs = sortedfiles.map(\.url)
-        }
-    }
-
     init(files: [FileItem], destinationCatalogURL: URL, exportMode: ExtractJPGExportMode) {
         self.destinationCatalogURL = destinationCatalogURL
         self.exportMode = exportMode
