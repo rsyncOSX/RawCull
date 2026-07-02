@@ -198,6 +198,74 @@ RawCull is a well-structured Swift 6 codebase. The actor-per-concern architectur
 
 ---
 
+## Verification comments — 2026-07-02
+
+1. **Confirmed.** `OpencatalogView` assigns `selecteditem = url.path` before security-scope and bookmark creation succeed, while `ExecuteCopyFiles.getAccessedURL` prefers the stored bookmark over the fallback path. If the new bookmark is not saved, UI state and persisted copy target can diverge.
+
+2. **Partially confirmed / wording update.** The fixed include file path and "log error but continue" write-failure path are confirmed. The current `extractTaggedfilenames()` / `extractRatedfilenames(_:)` implementations return empty arrays, not `nil`, so the stale-file-list case is now mainly from a missing `sidebarRawCullViewModel`, a write failure, or concurrent runs sharing `Documents/copyfilelist.txt`.
+
+3. **Confirmed.** `writeincludefilelist` joins raw filenames into an rsync `--include-from` filter file with no escaping. That file is parsed as rsync filter syntax, not as a literal filename list.
+
+4. **Confirmed.** `ScanAndCreateThumbnails.downscale(_:to:)` uses `NSImage.lockFocus()` and `draw` inside an actor path that is not main-actor isolated.
+
+5. **Confirmed.** Both cache key functions hash only cache version, standardized source path, and variant. They do not include source size, modification date, inode, or any validation metadata.
+
+6. **Partially confirmed.** `DiscoverFiles.discoverFiles` does not acquire security-scoped access itself. In the normal catalog-preload flow, `RawCullViewModel` currently holds catalog access while calling it, so the immediate user-visible failure is less certain than stated; the API is still fragile because this dependency is implicit.
+
+7. **Confirmed.** `startCatalogLoad` / `cancelCatalogLoad` clear selection and task state but not `files`, `filteredFiles`, `focusPoints`, rating caches, or comparison/burst state. Early failure or empty-catalog paths can leave previous catalog data visible until a later successful load replaces it.
+
+8. **Confirmed.** `handleSortOrderChange()` and `handleSearchTextChange()` await sorting and then assign `filteredFiles` without a task handle, generation token, or "latest request" check.
+
+9. **Confirmed.** `SimilarityScoringModel.rankSimilar` snapshots embeddings, runs a detached pass, and commits `anchorFileID` / `distances` / `sortBySimilarity` without cancellation or generation protection for superseded anchor requests.
+
+10. **Confirmed.** `captureUndo` stores `getRating(for:)`, which collapses missing records to `0`, and `undoLastBurstAction` restores through `applyRatings`, which upserts explicit records.
+
+11. **Confirmed.** `asyncgetsettings()` returns a `MainActor.run` snapshot and does not call `ensureLoaded()`. `applyStoredScoringSettings()` has its own workaround comment, which reinforces the race.
+
+12. **Not fully verifiable from this checkout.** RawCull is pinned to `rsyncOSX/RawParserKit` 1.1.0 (`f0c8601...`), and RawCull calls `SonyMakerNoteParser.embeddedJPEGLocations` / `readEmbeddedJPEGData` in the reported paths. The parser source is not vendored in this repo, so the exact offset/length validation claim needs confirmation in the RawParserKit package.
+
+13. **Confirmed.** `buildAmplifiedLaplacian` returns the color-matrix output using the Gaussian-expanded/laplacian extent, and `computeSharpnessAnalysis` renders and samples `boosted.extent` rather than cropping back to `inputImage.extent`.
+
+14. **Confirmed.** `CullingGridView` has a local `@State ratingFilter = .all`; its `files` property uses that local state, while sibling navigation paths use `viewModel.passesRatingFilter`.
+
+15. **Confirmed.** The command-toggle path removes an already-selected file from `selectedFileIDs` and then immediately sets `selectedFileID = fileID`. The rated-grid copy has the same pattern.
+
+16. **Confirmed.** Comparison focus-point lookup matches on `sourceFile == file.name`; duplicate basenames can collide or suppress display because the code requires exactly one match.
+
+17. **Confirmed.** `HistogramView` uses graceful logging in `.onChange`, but the initial `.task` still calls `fatalError` when `NSImage` cannot produce a `CGImage`.
+
+18. **Confirmed with nuance.** `ZoomOverlayView.increaseZoom/decreaseZoom` update only `currentScale`, not `lastScale`. In `MainThumbnailImageView`, the keyboard handlers do update `lastScale`, but the currently wired `ImageOverlayControlsView` zoom button closures update only `viewModel.scale`, so the active button path still has the stale-base problem.
+
+19. **Confirmed.** `CopyFilesView` sets `copyFilesinProgress = true` before `startcopyfiles`; `startcopyfiles` can return early on validation/bookmark/argument failures without notifying the view.
+
+20. **Confirmed.** `CopyDataResult` carries output rows only, not exit status or startup/error state, and `copyResultView` always renders the green success treatment.
+
+21. **Confirmed.** The focused command binding is installed at `RawCullMainView`, but the abort side effect is only mounted through `AbortTaskFocusView` inside `RawCullDetailContainerView` for loupe mode.
+
+22. **Confirmed.** The sharpening enable toggle saves immediately, while thumbnail-size and sharpening-amount sliders remain draft values until the Save button.
+
+23. **Confirmed.** `ThumbnailLoader.thumbnailLoader(file:targetSize:)` ignores the `targetSize` parameter and passes `settings.thumbnailSizePreview`. `cachedSettings` is populated once and never invalidated.
+
+24. **Confirmed.** `RequestThumbnail` has no in-flight map. Actor reentrancy around awaited disk/extraction work allows duplicate callers for the same URL/size to observe misses and repeat work.
+
+25. **Confirmed.** `CullingModel.loadSavedFiles()` runs on `@MainActor` and calls the synchronous `ReadSavedFilesJSON.readjsonfilesavedfiles()` path during catalog load.
+
+26. **Confirmed.** The catalog-preload handlers in `handleSourceChange` are URL-gated, but the JPG extraction and warm-cache handlers created in `RawCullViewModel+Thumbnails` call shared progress mutators directly. Their final cleanup is identity-gated; intermediate progress callbacks are not.
+
+27. **Partially confirmed.** RawCull-side diagnostics are `@MainActor` and call parser diagnostics synchronously. The exact "read whole RAW with `Int.max`" detail lives in RawParserKit and needs upstream-source confirmation, but moving RawCull diagnostics off-main is justified from the local code alone.
+
+28. **Confirmed with nuance.** There are cancellation checks between many stages, but synchronous calls such as Vision request execution, Core Image rendering, and decode/extraction calls cannot be interrupted mid-call once started.
+
+29. **Confirmed.** `ThumbnailImageView.task(id:)` awaits `loadThumbnail()` and assigns the result without checking `Task.isCancelled` or verifying that the original URL/file identity still matches.
+
+30. **Confirmed.** Comparison reload and focus-mask regeneration tasks are launched untracked from view callbacks. The functions check `Task.isCancelled`, but nothing stores/cancels superseded tasks or versions commits.
+
+31. **Confirmed.** `HistogramPath` uses `rect.width / bins.count` and plots the last sample at `(bins.count - 1) * stepX`, one bin short of `rect.maxX`.
+
+32. **Confirmed.** `RsyncOutputRowView` drops `min(11, originalRecords.count)` rows unconditionally, so any output with 11 or fewer rows becomes empty.
+
+---
+
 ## Recommended closure order
 
 1. **P0s (1–3)** — folder/bookmark commit ordering and rsync include-list/filter safety. These directly risk copying the wrong files or to the wrong place; fix and add regression tests before anything else.
