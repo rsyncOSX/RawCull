@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import ImageIO
 import OSLog
 import RawCullCore
 import RawParserKit
@@ -19,20 +18,6 @@ struct DecodeFocusPoints: Codable {
         case sourceFile = "SourceFile"
         case focusLocation = "FocusLocation"
     }
-}
-
-private struct ImageIOSupplementalExif: Sendable {
-    let fNumber: Double?
-    let iso: Int?
-    let pixelWidth: Int?
-    let pixelHeight: Int?
-    let compression: Int?
-    let cameraModel: String?
-    let shutterSpeed: String?
-    let focalLength: String?
-    let aperture: String?
-    let isoDescription: String?
-    let lensModel: String?
 }
 
 actor ScanFiles {
@@ -86,7 +71,7 @@ actor ScanFiles {
                             size: Int64(res?.fileSize ?? 0),
                             dateModified: res?.contentModificationDate ?? Date(),
                             exifData: exifData,
-                            afFocusNormalized: focusStr.flatMap { FocusPointParser.normalizedPoint(from: $0) },
+                            afFocusNormalized: focusStr.flatMap(Self.normalizedFocusPoint(from:)),
                         )
                         let focusPoint: DecodeFocusPoints? = focusStr.map {
                             DecodeFocusPoints(sourceFile: fileURL.lastPathComponent, focusLocation: $0)
@@ -152,111 +137,30 @@ actor ScanFiles {
         }
     }
 
-    private nonisolated func extractExifData(from url: URL, format: any RawFormat.Type) async -> ExifMetadata? {
-        let parserExif = await RawParserKit.RawImageLoader.shared.exifInfo(for: url)
-        let imageIOExif = supplementalExifData(from: url)
-        guard parserExif != nil || imageIOExif != nil else { return nil }
-        let parserExposure = await parserExif?.exposure
-        let parserFocalLength = await parserExif?.focalLength
-        let parserAperture = await parserExif?.aperture
-        let parserISO = await parserExif?.iso
-        let parserCamera = await parserExif?.camera
-        let parserLens = await parserExif?.lens
-
-        let cameraModel = imageIOExif?.cameraModel
-        let pixelWidth = imageIOExif?.pixelWidth
-        let pixelHeight = imageIOExif?.pixelHeight
-        let rawSizeClass: String? = if let pixelWidth, let pixelHeight {
-            sizeClass(width: pixelWidth, height: pixelHeight, camera: cameraModel ?? "", format: format)
-        } else {
-            nil
-        }
-
+    private nonisolated func extractExifData(from url: URL, format _: any RawFormat.Type) async -> ExifMetadata? {
+        guard let metadata = await RawParserKit.RawImageLoader.shared.metadata(for: url) else { return nil }
         return ExifMetadata(
-            shutterSpeed: parserExposure ?? imageIOExif?.shutterSpeed,
-            focalLength: parserFocalLength ?? imageIOExif?.focalLength,
-            aperture: parserAperture ?? imageIOExif?.aperture,
-            apertureValue: imageIOExif?.fNumber,
-            iso: parserISO.map { "ISO \($0)" } ?? imageIOExif?.isoDescription,
-            isoValue: imageIOExif?.iso,
-            camera: parserCamera ?? cameraModel,
-            lensModel: parserLens ?? imageIOExif?.lensModel,
-            rawFileType: imageIOExif?.compression.map { format.rawFileTypeString(compressionCode: $0) },
-            rawSizeClass: rawSizeClass,
-            pixelWidth: pixelWidth,
-            pixelHeight: pixelHeight,
+            shutterSpeed: metadata.exposure,
+            focalLength: metadata.focalLength,
+            aperture: metadata.aperture,
+            apertureValue: metadata.apertureValue,
+            iso: metadata.isoValue.map { "ISO \($0)" } ?? metadata.iso.map(Self.isoDescription(from:)),
+            isoValue: metadata.isoValue,
+            camera: metadata.camera,
+            lensModel: metadata.lens,
+            rawFileType: metadata.rawFileType,
+            rawSizeClass: metadata.rawSizeClass,
+            pixelWidth: metadata.pixelWidth,
+            pixelHeight: metadata.pixelHeight,
         )
     }
 
-    private nonisolated func supplementalExifData(from url: URL) -> ImageIOSupplementalExif? {
-        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
-              let exifDict = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
-              let tiffDict = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
-        else {
-            return nil
-        }
-
-        let fNumber = exifDict[kCGImagePropertyExifFNumber] as? NSNumber
-        let rawISO = (exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int])?.first
-        // pixelWidth/Height are top-level properties, not inside kCGImagePropertyTIFFDictionary
-        let pixelWidth = properties[kCGImagePropertyPixelWidth] as? Int
-        let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int
-        let compressionValue = tiffDict[kCGImagePropertyTIFFCompression] as? Int
-        let cameraModel = tiffDict[kCGImagePropertyTIFFModel] as? String
-        return ImageIOSupplementalExif(
-            fNumber: fNumber?.doubleValue,
-            iso: rawISO,
-            pixelWidth: pixelWidth,
-            pixelHeight: pixelHeight,
-            compression: compressionValue,
-            cameraModel: cameraModel,
-            shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
-            focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),
-            aperture: formatAperture(fNumber),
-            isoDescription: formatISO(rawISO),
-            lensModel: exifDict[kCGImagePropertyExifLensModel] as? String,
-        )
+    private nonisolated static func normalizedFocusPoint(from focusLocation: String) -> CGPoint? {
+        guard let point = RawFocusPoint(focusLocation: focusLocation) else { return nil }
+        return CGPoint(x: point.normalizedX, y: point.normalizedY)
     }
 
-    private nonisolated func formatShutterSpeed(_ value: Any?) -> String? {
-        guard let speed = value as? NSNumber else { return nil }
-        let speedValue = speed.doubleValue
-        if speedValue >= 1 {
-            return String(format: "%.1f\"", speedValue)
-        } else {
-            return String(format: "1/%.0f", 1 / speedValue)
-        }
-    }
-
-    private nonisolated func formatFocalLength(_ value: Any?) -> String? {
-        guard let focal = value as? NSNumber else { return nil }
-        return String(format: "%.1fmm", focal.doubleValue)
-    }
-
-    private nonisolated func formatAperture(_ value: Any?) -> String? {
-        guard let aperture = value as? NSNumber else { return nil }
-        return String(format: "ƒ/%.1f", aperture.doubleValue)
-    }
-
-    nonisolated func formatISO(_ iso: Int?) -> String? {
-        guard let iso else { return nil }
-        return "ISO \(iso)"
-    }
-
-    /// Classifies pixel dimensions as L / M / S using per-body MP thresholds
-    /// looked up from the resolved `RawFormat`. Each conformer owns its own
-    /// table of body-specific thresholds.
-    private nonisolated func sizeClass(
-        width: Int,
-        height: Int,
-        camera: String,
-        format: any RawFormat.Type,
-    ) -> String {
-        let mp = Double(width * height) / 1_000_000
-        let (lThresh, mThresh) = format.sizeClassThresholds(camera: camera)
-        if mp >= lThresh { return "L" }
-        if mp >= mThresh { return "M" }
-        return "S"
+    private nonisolated static func isoDescription(from value: String) -> String {
+        value.hasPrefix("ISO ") ? value : "ISO \(value)"
     }
 }

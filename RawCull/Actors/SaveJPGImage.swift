@@ -8,6 +8,7 @@
 import Foundation
 import ImageIO
 import OSLog
+import RawParserKit
 import UniformTypeIdentifiers
 
 actor SaveJPGImage {
@@ -72,7 +73,7 @@ actor SaveJPGImage {
 
         return destinationCatalogURL
             .appendingPathComponent(outputName)
-            .appendingPathExtension(SupportedFileType.jpg.rawValue)
+            .appendingPathExtension(RawParserKit.SupportedFileType.jpg.rawValue)
     }
 
     /// Encodes a `CGImage` to JPEG data at export quality.

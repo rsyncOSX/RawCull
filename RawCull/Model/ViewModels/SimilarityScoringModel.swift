@@ -512,11 +512,11 @@ final class SimilarityScoringModel {
     /// Prefer RawParserKit's registered vendor extractor. It owns embedded-JPEG
     /// fallbacks for RAW formats that ImageIO cannot decode directly.
     private nonisolated static func decodeRawParserKitThumbnail(at url: URL, maxPixelSize: Int) async -> CGImage? {
-        guard let image = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+        guard let image = await RawParserKit.RawImageLoader.shared.thumbnailCGImage(
             for: url,
-            targetSize: maxPixelSize,
+            maxPixelSize: maxPixelSize,
         ) else { return nil }
 
-        return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        return image
     }
 }

@@ -157,9 +157,9 @@ actor ScanAndCreateThumbnails {
         if Task.isCancelled { return }
         notifyExtractionNeeded()
 
-        guard let image = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+        guard let image = await RawParserKit.RawImageLoader.shared.thumbnail(
             for: url,
-            targetSize: targetSize,
+            maxPixelSize: targetSize,
         ),
             let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return }

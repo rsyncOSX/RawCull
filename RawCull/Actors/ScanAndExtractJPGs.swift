@@ -88,7 +88,7 @@ actor ScanAndExtractJPGs {
 
         if Task.isCancelled { return }
 
-        guard let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: url) else {
+        guard let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: url) else {
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)

@@ -83,14 +83,12 @@ actor RequestThumbnail {
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        let cgImage: CGImage
-        guard let decodedImage = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+        guard let cgImage = await RawParserKit.RawImageLoader.shared.thumbnailCGImage(
             for: url,
-            targetSize: targetSize,
+            maxPixelSize: targetSize,
         ) else {
-            throw ThumbnailError.invalidSource
+            throw RawParserKit.ThumbnailError.invalidSource
         }
-        cgImage = try await nsImageToCGImage(decodedImage)
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
         // Cold extraction: not in RAM, not on disk, decoded from ARW source.
@@ -130,7 +128,7 @@ actor RequestThumbnail {
                   let bitmapRep = NSBitmapImageRep(data: tiffData),
                   let cgImage = bitmapRep.cgImage
             else {
-                throw ThumbnailError.generationFailed
+                throw RawParserKit.ThumbnailError.generationFailed
             }
             return cgImage
         }.value

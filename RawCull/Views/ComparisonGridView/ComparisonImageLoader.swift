@@ -13,7 +13,7 @@ enum ComparisonImageLoader {
 
         let filejpg = file.url
             .deletingPathExtension()
-            .appendingPathExtension(SupportedFileType.jpg.rawValue)
+            .appendingPathExtension(RawParserKit.SupportedFileType.jpg.rawValue)
         if let cgImage = OrientationNormalizedImageLoader.loadCGImage(from: filejpg) {
             return (cgImage, nil)
         }
@@ -26,7 +26,7 @@ enum ComparisonImageLoader {
 
         guard !Task.isCancelled else { return (nil, nil) }
 
-        guard let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: file.url) else {
+        guard let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: file.url) else {
             return (nil, nil)
         }
 

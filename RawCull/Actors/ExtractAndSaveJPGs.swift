@@ -126,7 +126,7 @@ actor ExtractAndSaveJPGs {
     }
 
     private func embeddedJPEGImage(from url: URL) async -> CGImage? {
-        await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: url)
+        await RawParserKit.RawImageLoader.shared.previewImage(for: url)
     }
 
     private func save(_ jpegData: Data, originalURL: URL) async {

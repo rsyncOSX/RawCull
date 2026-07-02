@@ -112,7 +112,7 @@ enum ZoomPreviewHandler {
 
         guard !Task.isCancelled else { return nil }
 
-        let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: rawURL)
+        let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: rawURL)
         guard !Task.isCancelled else { return nil }
 
         if let extracted,
