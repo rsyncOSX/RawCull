@@ -86,29 +86,9 @@ actor ScanAndExtractJPGs {
             return
         }
 
-        guard let format = RawFormatRegistry.format(for: url) else {
-            let newCount = incrementAndGetCount()
-            notifyFileHandler(newCount)
-            updateEstimatedTime(itemsProcessed: newCount)
-            return
-        }
-
         if Task.isCancelled { return }
 
-        let orientedPreview = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
-        }.value
-        let extracted: CGImage? = if let orientedPreview {
-            orientedPreview
-        } else {
-            if let image = await format.extractFullJPEG(from: url, fullSize: false) {
-                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
-            } else {
-                nil
-            }
-        }
-
-        guard let extracted else {
+        guard let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: url) else {
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)

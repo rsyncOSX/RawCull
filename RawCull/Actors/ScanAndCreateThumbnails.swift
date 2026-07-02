@@ -154,59 +154,42 @@ actor ScanAndCreateThumbnails {
         }
 
         // C. Extract from source file
-        do {
-            if Task.isCancelled { return }
-            notifyExtractionNeeded()
+        if Task.isCancelled { return }
+        notifyExtractionNeeded()
 
-            let costPerPixel = SharedMemoryCache.shared.costPerPixel
+        guard let image = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+            for: url,
+            targetSize: targetSize,
+        ),
+            let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return }
 
-            let cgImage: CGImage
-            if let image = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
-                from: url,
-                maxPixelSize: targetSize,
-            ) {
-                cgImage = image
-            } else {
-                guard let format = RawFormatRegistry.format(for: url) else { return }
-                let image = try await format.extractThumbnail(
-                    from: url,
-                    maxDimension: CGFloat(targetSize),
-                    qualityCost: costPerPixel,
-                )
-                cgImage = OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
-            }
+        if Task.isCancelled { return }
 
-            if Task.isCancelled { return }
+        // Invariant (uniform across branches A/B/C): scan never admits to
+        // memoryCache. RequestThumbnail is the only admitter, so LRU
+        // ordering tracks UI traffic. On an over-cap catalog (e.g. 635
+        // files at the 20 GB cap), scan-side admission would self-evict
+        // ~180 items and the user would pay a near-100% boomerang rate
+        // on first browse. The disk JPEG saved below lets RequestThumbnail
+        // branch B serve subsequent UI requests without cold extraction.
+        storeInGridCache(image, for: url)
+        let newCount = incrementAndGetCount()
+        notifyFileHandler(newCount)
+        updateEstimatedTime(itemsProcessed: newCount)
 
-            let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+        // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
-            // Invariant (uniform across branches A/B/C): scan never admits to
-            // memoryCache. RequestThumbnail is the only admitter, so LRU
-            // ordering tracks UI traffic. On an over-cap catalog (e.g. 635
-            // files at the 20 GB cap), scan-side admission would self-evict
-            // ~180 items and the user would pay a near-100% boomerang rate
-            // on first browse. The disk JPEG saved below lets RequestThumbnail
-            // branch B serve subsequent UI requests without cold extraction.
-            storeInGridCache(image, for: url)
-            let newCount = incrementAndGetCount()
-            notifyFileHandler(newCount)
-            updateEstimatedTime(itemsProcessed: newCount)
+        // Encode to Data here, inside the actor, before crossing the task boundary.
+        // `Data` is Sendable; `CGImage` is not.
+        guard let jpegData = DiskCacheManager.jpegData(from: cgImage) else {
+            // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
+            return
+        }
 
-            // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
-
-            // Encode to Data here, inside the actor, before crossing the task boundary.
-            // `Data` is Sendable; `CGImage` is not.
-            guard let jpegData = DiskCacheManager.jpegData(from: cgImage) else {
-                // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
-                return
-            }
-
-            let dcache = diskCache
-            Task.detached(priority: .background) {
-                await dcache.save(jpegData, for: url)
-            }
-        } catch {
-            // Logger.process.warning("Failed: \(url.lastPathComponent)")
+        let dcache = diskCache
+        Task.detached(priority: .background) {
+            await dcache.save(jpegData, for: url)
         }
     }
 

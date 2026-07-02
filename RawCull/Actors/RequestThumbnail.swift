@@ -83,28 +83,14 @@ actor RequestThumbnail {
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        let costPerPixel = memoryCache.costPerPixel
-
         let cgImage: CGImage
-        if let image = OrientationNormalizedImageLoader.loadEmbeddedThumbnail(
-            from: url,
-            maxPixelSize: targetSize,
-        ) {
-            cgImage = image
-        } else {
-            guard let format = RawFormatRegistry.format(for: url) else {
-                throw ThumbnailError.invalidSource
-            }
-            let image = try await format.extractThumbnail(
-                from: url,
-                maxDimension: CGFloat(targetSize),
-                qualityCost: costPerPixel,
-            )
-            guard let oriented = OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) else {
-                throw ThumbnailError.generationFailed
-            }
-            cgImage = oriented
+        guard let decodedImage = await RawParserKit.RawImageLoader.shared.thumbnail200px(
+            for: url,
+            targetSize: targetSize,
+        ) else {
+            throw ThumbnailError.invalidSource
         }
+        cgImage = try await nsImageToCGImage(decodedImage)
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
         // Cold extraction: not in RAM, not on disk, decoded from ARW source.

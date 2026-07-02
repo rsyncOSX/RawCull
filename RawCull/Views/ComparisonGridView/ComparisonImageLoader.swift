@@ -26,28 +26,16 @@ enum ComparisonImageLoader {
 
         guard !Task.isCancelled else { return (nil, nil) }
 
-        if let format = RawFormatRegistry.format(for: file.url) {
-            let orientedPreview = await Task.detached(priority: .userInitiated) {
-                OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: file.url)
-            }.value
-            let extracted: CGImage? = if let orientedPreview {
-                orientedPreview
-            } else {
-                if let image = await format.extractFullJPEG(from: file.url, fullSize: false) {
-                    OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: file.url) ?? image
-                } else {
-                    nil
-                }
-            }
-
-            guard let extracted else { return (nil, nil) }
-            if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-                await fullSizeCache.save(jpegData, for: file.url)
-            }
-            return (extracted, nil)
+        guard let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: file.url) else {
+            return (nil, nil)
         }
 
-        return (nil, nil)
+        guard !Task.isCancelled else { return (nil, nil) }
+
+        if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
+            await fullSizeCache.save(jpegData, for: file.url)
+        }
+        return (extracted, nil)
     }
 
     private static func loadThumbnail(for file: FileItem) async -> (CGImage?, NSImage?) {

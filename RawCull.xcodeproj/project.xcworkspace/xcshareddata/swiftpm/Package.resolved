@@ -29,15 +29,6 @@
       }
     },
     {
-      "identity" : "rawparserkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RawParserKit.git",
-      "state" : {
-        "revision" : "408a5eb280fe882c859fff28935015bc21578f5d",
-        "version" : "1.1.5"
-      }
-    },
-    {
       "identity" : "rsyncarguments",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RsyncArguments",

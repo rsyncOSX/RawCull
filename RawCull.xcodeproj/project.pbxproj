@@ -182,7 +182,7 @@
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
-				E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */,
+				E9634D6D2FD1D1B9009E567D /* XCLocalSwiftPackageReference "../RawParserKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -563,6 +563,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E9634D6D2FD1D1B9009E567D /* XCLocalSwiftPackageReference "../RawParserKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RawParserKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -586,14 +593,6 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.1.0;
-			};
-		};
-		E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.1.5;
 			};
 		};
 		E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
@@ -632,7 +631,7 @@
 		};
 		E9634D6E2FD1D1B9009E567D /* RawParserKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E9634D6D2FD1D1B9009E567D /* XCRemoteSwiftPackageReference "RawParserKit" */;
+			package = E9634D6D2FD1D1B9009E567D /* XCLocalSwiftPackageReference "../RawParserKit" */;
 			productName = RawParserKit;
 		};
 		E9B609842F28FA3600704081 /* DecodeEncodeGeneric */ = {

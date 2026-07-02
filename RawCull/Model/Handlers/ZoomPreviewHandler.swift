@@ -105,40 +105,14 @@ enum ZoomPreviewHandler {
     }
 
     static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
-        let sidecarJPGURL = rawURL
-            .deletingPathExtension()
-            .appendingPathExtension(SupportedFileType.jpg.rawValue)
-
-        let sidecarImage = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
-        }.value
-
-        guard !Task.isCancelled else { return nil }
-        if let sidecarImage {
-            return sidecarImage
-        }
-
         if let cached = await fullSizeCache.load(for: rawURL) {
             guard !Task.isCancelled else { return nil }
             return cached
         }
 
-        guard !Task.isCancelled,
-              let format = RawFormatRegistry.format(for: rawURL)
-        else { return nil }
+        guard !Task.isCancelled else { return nil }
 
-        let orientedPreview = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: rawURL)
-        }.value
-        let extracted: CGImage? = if let orientedPreview {
-            orientedPreview
-        } else {
-            if let image = await format.extractFullJPEG(from: rawURL, fullSize: false) {
-                OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: rawURL) ?? image
-            } else {
-                nil
-            }
-        }
+        let extracted = await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: rawURL)
         guard !Task.isCancelled else { return nil }
 
         if let extracted,

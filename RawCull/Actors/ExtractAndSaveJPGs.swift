@@ -134,20 +134,7 @@ actor ExtractAndSaveJPGs {
     }
 
     private func embeddedJPEGImage(from url: URL) async -> CGImage? {
-        guard let format = RawFormatRegistry.format(for: url) else { return nil }
-        let orientedPreview = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadSonyEmbeddedPreview(from: url)
-        }.value
-
-        if let orientedPreview {
-            return orientedPreview
-        }
-
-        if let image = await format.extractFullJPEG(from: url, fullSize: false) {
-            return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url) ?? image
-        }
-
-        return nil
+        await RawParserKit.RawImageLoader.shared.extractembeddedJPG(for: url)
     }
 
     private func save(_ jpegData: Data, originalURL: URL) async {
