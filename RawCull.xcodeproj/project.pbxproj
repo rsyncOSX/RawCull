@@ -10,7 +10,7 @@
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
 		E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
-		E9634D6F2FD1D1B9009E567D /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6E2FD1D1B9009E567D /* RawParserKit */; };
+		E96E8BE92FF6973200F6E034 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E96E8BE82FF6973200F6E034 /* RawParserKit */; };
 		E97E976C2F210EAB001A4239 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E97E975C2F210EAB001A4239 /* Assets.xcassets */; };
 		E97E976D2F210EAB001A4239 /* RawCullicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E97E975D2F210EAB001A4239 /* RawCullicon.icon */; };
 		E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E9B609842F28FA3600704081 /* DecodeEncodeGeneric */; };
@@ -55,10 +55,10 @@
 			files = (
 				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
-				E9634D6F2FD1D1B9009E567D /* RawParserKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
 				E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */,
+				E96E8BE92FF6973200F6E034 /* RawParserKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,7 +118,7 @@
 				E92712B22F2CF57E00A681D0 /* RsyncArguments */,
 				E952AA612F2E37170081987F /* ParseRsyncOutput */,
 				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
-				E9634D6E2FD1D1B9009E567D /* RawParserKit */,
+				E96E8BE82FF6973200F6E034 /* RawParserKit */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -182,7 +182,7 @@
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
-				E9634D6D2FD1D1B9009E567D /* XCLocalSwiftPackageReference "../RawParserKit" */,
+				E96E8BE72FF6973200F6E034 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -563,13 +563,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		E9634D6D2FD1D1B9009E567D /* XCLocalSwiftPackageReference "../RawParserKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RawParserKit;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -593,6 +586,14 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.1.0;
+			};
+		};
+		E96E8BE72FF6973200F6E034 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.0;
 			};
 		};
 		E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
@@ -629,9 +630,9 @@
 			package = E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */;
 			productName = RawCullCore;
 		};
-		E9634D6E2FD1D1B9009E567D /* RawParserKit */ = {
+		E96E8BE82FF6973200F6E034 /* RawParserKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E9634D6D2FD1D1B9009E567D /* XCLocalSwiftPackageReference "../RawParserKit" */;
+			package = E96E8BE72FF6973200F6E034 /* XCRemoteSwiftPackageReference "RawParserKit" */;
 			productName = RawParserKit;
 		};
 		E9B609842F28FA3600704081 /* DecodeEncodeGeneric */ = {
