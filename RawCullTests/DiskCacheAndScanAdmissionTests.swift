@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import ImageIO
+import RawParserKit
 @testable import RawCull
 import Testing
 import UniformTypeIdentifiers

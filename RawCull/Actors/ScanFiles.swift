@@ -21,6 +21,20 @@ struct DecodeFocusPoints: Codable {
     }
 }
 
+private struct ImageIOSupplementalExif: Sendable {
+    let fNumber: Double?
+    let iso: Int?
+    let pixelWidth: Int?
+    let pixelHeight: Int?
+    let compression: Int?
+    let cameraModel: String?
+    let shutterSpeed: String?
+    let focalLength: String?
+    let aperture: String?
+    let isoDescription: String?
+    let lensModel: String?
+}
+
 actor ScanFiles {
     /// Store raw decoded data
     var decodedFocusPoints: [DecodeFocusPoints]?
@@ -64,7 +78,7 @@ actor ScanFiles {
                     group.addTask {
                         guard !Task.isCancelled else { return nil }
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
-                        let exifData = self.extractExifData(from: fileURL, format: format)
+                        let exifData = await self.extractExifData(from: fileURL, format: format)
                         let focusStr = format.focusLocation(from: fileURL)
                         let fileItem = FileItem(
                             url: fileURL,
@@ -138,7 +152,43 @@ actor ScanFiles {
         }
     }
 
-    private nonisolated func extractExifData(from url: URL, format: any RawFormat.Type) -> ExifMetadata? {
+    private nonisolated func extractExifData(from url: URL, format: any RawFormat.Type) async -> ExifMetadata? {
+        let parserExif = await RawParserKit.RawImageLoader.shared.exifInfo(for: url)
+        let imageIOExif = supplementalExifData(from: url)
+        guard parserExif != nil || imageIOExif != nil else { return nil }
+        let parserExposure = await parserExif?.exposure
+        let parserFocalLength = await parserExif?.focalLength
+        let parserAperture = await parserExif?.aperture
+        let parserISO = await parserExif?.iso
+        let parserCamera = await parserExif?.camera
+        let parserLens = await parserExif?.lens
+
+        let cameraModel = imageIOExif?.cameraModel
+        let pixelWidth = imageIOExif?.pixelWidth
+        let pixelHeight = imageIOExif?.pixelHeight
+        let rawSizeClass: String? = if let pixelWidth, let pixelHeight {
+            sizeClass(width: pixelWidth, height: pixelHeight, camera: cameraModel ?? "", format: format)
+        } else {
+            nil
+        }
+
+        return ExifMetadata(
+            shutterSpeed: parserExposure ?? imageIOExif?.shutterSpeed,
+            focalLength: parserFocalLength ?? imageIOExif?.focalLength,
+            aperture: parserAperture ?? imageIOExif?.aperture,
+            apertureValue: imageIOExif?.fNumber,
+            iso: parserISO.map { "ISO \($0)" } ?? imageIOExif?.isoDescription,
+            isoValue: imageIOExif?.iso,
+            camera: parserCamera ?? cameraModel,
+            lensModel: parserLens ?? imageIOExif?.lensModel,
+            rawFileType: imageIOExif?.compression.map { format.rawFileTypeString(compressionCode: $0) },
+            rawSizeClass: rawSizeClass,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
+        )
+    }
+
+    private nonisolated func supplementalExifData(from url: URL) -> ImageIOSupplementalExif? {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
               let exifDict = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
@@ -154,24 +204,18 @@ actor ScanFiles {
         let pixelHeight = properties[kCGImagePropertyPixelHeight] as? Int
         let compressionValue = tiffDict[kCGImagePropertyTIFFCompression] as? Int
         let cameraModel = tiffDict[kCGImagePropertyTIFFModel] as? String
-        let rawSizeClass: String? = if let pixelWidth, let pixelHeight {
-            sizeClass(width: pixelWidth, height: pixelHeight, camera: cameraModel ?? "", format: format)
-        } else {
-            nil
-        }
-        return ExifMetadata(
+        return ImageIOSupplementalExif(
+            fNumber: fNumber?.doubleValue,
+            iso: rawISO,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
+            compression: compressionValue,
+            cameraModel: cameraModel,
             shutterSpeed: formatShutterSpeed(exifDict[kCGImagePropertyExifExposureTime]),
             focalLength: formatFocalLength(exifDict[kCGImagePropertyExifFocalLength]),
             aperture: formatAperture(fNumber),
-            apertureValue: fNumber.map { $0.doubleValue },
-            iso: formatISO(rawISO),
-            isoValue: rawISO,
-            camera: cameraModel,
+            isoDescription: formatISO(rawISO),
             lensModel: exifDict[kCGImagePropertyExifLensModel] as? String,
-            rawFileType: compressionValue.map { format.rawFileTypeString(compressionCode: $0) },
-            rawSizeClass: rawSizeClass,
-            pixelWidth: pixelWidth,
-            pixelHeight: pixelHeight,
         )
     }
 
