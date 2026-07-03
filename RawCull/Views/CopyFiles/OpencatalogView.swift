@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct OpencatalogView: View {
     @Binding var selecteditem: String
     @State private var isImporting: Bool = false
+    @State private var selectionErrorMessage: String?
     let catalogs: Bool
     let bookmarkKey: String
 
@@ -14,10 +15,10 @@ struct OpencatalogView: View {
         }, label: {
             if catalogs {
                 Image(systemName: "folder.fill")
-                    .foregroundColor(Color(.blue))
+                    .foregroundStyle(.blue)
             } else {
                 Image(systemName: "text.document.fill")
-                    .foregroundColor(Color(.blue))
+                    .foregroundStyle(.blue)
             }
         })
         .fileImporter(isPresented: $isImporting,
@@ -26,15 +27,13 @@ struct OpencatalogView: View {
                           switch result {
                           case let .success(url):
                               Logger.process.debugMessageOnly("Selected URL: \(url.path)")
-                              selecteditem = url.path
 
-                              // Start accessing FIRST
                               guard url.startAccessingSecurityScopedResource() else {
                                   Logger.process.errorMessageOnly(": Failed to start accessing security-scoped resource")
+                                  clearBookmarkAndShowError("RawCull could not access the selected folder. Please choose the folder again.")
                                   return
                               }
 
-                              // Try to create bookmark
                               do {
                                   let bookmarkData = try url.bookmarkData(
                                       options: .withSecurityScope,
@@ -42,20 +41,28 @@ struct OpencatalogView: View {
                                       relativeTo: nil,
                                   )
                                   UserDefaults.standard.set(bookmarkData, forKey: bookmarkKey)
+                                  selecteditem = url.path
                                   Logger.process.debugMessageOnly("Bookmark saved for key: \(bookmarkKey)")
                                   Logger.process.debugMessageOnly("Bookmark data size: \(bookmarkData.count) bytes")
                               } catch {
-                                  Logger.process.warning("WARNING: Could not create bookmark, but path is still set: \(error)")
-                                  // Path is still accessible via selecteditem
+                                  Logger.process.errorMessageOnly(": Could not create bookmark: \(error)")
+                                  clearBookmarkAndShowError("RawCull could not save access to the selected folder. Please choose the folder again.")
                               }
 
-                              // Stop accessing (will be restarted when rsync runs)
                               url.stopAccessingSecurityScopedResource()
 
                           case let .failure(error):
                               Logger.process.errorMessageOnly(": File picker error: \(error)")
+                              selectionErrorMessage = error.localizedDescription
                           }
                       })
+                      .alert("Folder Not Saved", isPresented: selectionErrorIsPresented) {
+                          Button("OK", role: .cancel) {
+                              selectionErrorMessage = nil
+                          }
+                      } message: {
+                          Text(selectionErrorMessage ?? "")
+                      }
     }
 
     var uutype: UTType {
@@ -64,5 +71,21 @@ struct OpencatalogView: View {
         } else {
             .item
         }
+    }
+
+    private var selectionErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { selectionErrorMessage != nil },
+            set: { newValue in
+                if !newValue {
+                    selectionErrorMessage = nil
+                }
+            },
+        )
+    }
+
+    private func clearBookmarkAndShowError(_ message: String) {
+        UserDefaults.standard.removeObject(forKey: bookmarkKey)
+        selectionErrorMessage = message
     }
 }

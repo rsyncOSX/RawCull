@@ -17,16 +17,17 @@ struct CopyFilesView: View {
     @Binding var sheetType: SheetType?
     @Binding var showcopytask: Bool
 
-    @State var sourcecatalog: String = ""
-    @State var destinationcatalog: String = ""
+    @State private var sourcecatalog: String = ""
+    @State private var destinationcatalog: String = ""
 
     @State private var executionManager: ExecuteCopyFiles?
-    @State var dryrun: Bool = true
-    @State var copytaggedfiles: Bool = true
-    @State var copyratedfiles: Int = 1
+    @State private var dryrun: Bool = true
+    @State private var copytaggedfiles: Bool = true
+    @State private var copyratedfiles: Int = 1
 
     @State private var copyFilesinProgress: Bool = false
     @State private var showResult: Bool = false
+    @State private var startupErrorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -71,7 +72,6 @@ struct CopyFilesView: View {
                     guard !sourcecatalog.isEmpty,
                           !destinationcatalog.isEmpty else { return }
                     showResult = false
-                    copyFilesinProgress = true
                     executeCopyFiles()
                 }
                 .disabled(copyFilesinProgress || sourcecatalog.isEmpty || destinationcatalog.isEmpty)
@@ -83,6 +83,13 @@ struct CopyFilesView: View {
         }
         .onDisappear {
             closeExecutionManager()
+        }
+        .alert("Copy Not Started", isPresented: startupErrorIsPresented) {
+            Button("OK", role: .cancel) {
+                startupErrorMessage = nil
+            }
+        } message: {
+            Text(startupErrorMessage ?? "")
         }
     }
 
@@ -119,6 +126,8 @@ struct CopyFilesView: View {
     }
 
     private func executeCopyFiles() {
+        startupErrorMessage = nil
+
         let configuration = SynchronizeConfiguration()
 
         executionManager = ExecuteCopyFiles(
@@ -133,10 +142,19 @@ struct CopyFilesView: View {
             handleCompletion(result: result)
         }
 
-        executionManager?.startcopyfiles(
+        guard let executionManager else { return }
+
+        switch executionManager.startcopyfiles(
             fallbacksource: sourcecatalog,
             fallbackdest: destinationcatalog,
-        )
+        ) {
+        case .success:
+            copyFilesinProgress = true
+        case let .failure(failure):
+            copyFilesinProgress = false
+            startupErrorMessage = failure.localizedDescription
+            self.executionManager = nil
+        }
     }
 
     private func handleCompletion(result: CopyDataResult) {
@@ -163,5 +181,16 @@ struct CopyFilesView: View {
         executionManager?.close()
         executionManager = nil
         copyFilesinProgress = false
+    }
+
+    private var startupErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { startupErrorMessage != nil },
+            set: { newValue in
+                if !newValue {
+                    startupErrorMessage = nil
+                }
+            },
+        )
     }
 }
