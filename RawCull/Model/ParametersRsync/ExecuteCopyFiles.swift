@@ -123,14 +123,8 @@ final class ExecuteCopyFiles {
             return .failure(.includeFileWriteFailed(error.localizedDescription))
         }
 
-        // Add filter file if needed
-        let includeparameter = "--include-from=" + savePath.path
-        arguments.append(includeparameter)
-
-        if dryrun == false {
-            arguments.append("--include=*/")
-        }
-        arguments.append("--exclude=*")
+        arguments.append("--from0")
+        arguments.append("--files-from=" + savePath.path)
 
         // Add itemize parameter to get a nice formatted output
         let itemizeparameter = "--itemize-changes"
@@ -293,14 +287,14 @@ final class ExecuteCopyFiles {
             throw CopyStartupFailure.applicationSupportDirectoryUnavailable
         }
 
-        let URLpath = directory.appendingPathComponent("copyfilelist-\(UUID().uuidString).txt")
+        let URLpath = directory.appendingPathComponent("copyfilelist-\(UUID().uuidString).list0")
         Logger.process.debugMessageOnly("ExecuteCopyFiles: writing copyfilelist at \(URLpath.path)")
         do {
             try writeincludefilelist(filelist, to: URLpath)
             includeListURL = URLpath
             return URLpath
         } catch {
-            Logger.process.errorMessageOnly(": Failed to write filter file: \(error)")
+            Logger.process.errorMessageOnly(": Failed to write copy-list file: \(error)")
             throw CopyStartupFailure.includeFileWriteFailed(error.localizedDescription)
         }
     }
@@ -320,9 +314,13 @@ final class ExecuteCopyFiles {
     }
 
     private func writeincludefilelist(_ filelist: [String], to URLpath: URL) throws {
-        let newlogadata = filelist.joined(separator: "\n") + "\n"
-        guard let newdata = newlogadata.data(using: .utf8) else {
-            throw NSError(domain: "ExecuteCopyFiles", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode log data"])
+        var newdata = Data()
+        for filename in filelist {
+            guard let encodedFilename = filename.data(using: .utf8) else {
+                throw NSError(domain: "ExecuteCopyFiles", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode filename"])
+            }
+            newdata.append(encodedFilename)
+            newdata.append(0)
         }
         do {
             try newdata.write(to: URLpath, options: .atomic)

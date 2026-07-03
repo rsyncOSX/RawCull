@@ -72,6 +72,8 @@ struct ExecuteCopyFilesStartupTests {
         #expect(firstURL != secondURL)
         #expect(firstURL.lastPathComponent.hasPrefix("copyfilelist-"))
         #expect(secondURL.lastPathComponent.hasPrefix("copyfilelist-"))
+        #expect(firstURL.pathExtension == "list0")
+        #expect(secondURL.pathExtension == "list0")
         #expect(!firstURL.path.contains("/Documents/"))
         #expect(!secondURL.path.contains("/Documents/"))
         #expect(FileManager.default.fileExists(atPath: firstURL.path))
@@ -94,6 +96,31 @@ struct ExecuteCopyFilesStartupTests {
 
         #expect(!FileManager.default.fileExists(atPath: includeListURL.path))
         #expect(manager.includeListURL == nil)
+    }
+
+    @Test
+    func `copy list is nul separated for literal rsync files-from matching`() throws {
+        let directory = try temporaryDirectory()
+        let viewModel = RawCullViewModel()
+        let manager = makeManager(viewModel: viewModel, includeListDirectory: directory)
+        let fileNames = [
+            "normal.ARW",
+            "[bracket]*question?.ARW",
+            "#not-a-comment!.ARW",
+            "+not-a-filter-rule.ARW",
+        ]
+
+        let includeListURL = try manager.writeIncludeFileForCurrentOperation(fileNames)
+        let data = try Data(contentsOf: includeListURL)
+        let expected = fileNames.reduce(into: Data()) { partialResult, fileName in
+            partialResult.append(Data(fileName.utf8))
+            partialResult.append(0)
+        }
+
+        #expect(data == expected)
+        #expect(!data.contains(10))
+
+        manager.close()
     }
 
     private func makeManager(
