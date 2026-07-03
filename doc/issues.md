@@ -266,6 +266,19 @@ RawCull is a well-structured Swift 6 codebase. The actor-per-concern architectur
 
 ---
 
+## Re-verification — 2026-07-03
+
+Re-checked all 32 items against the current repository state. Since the 2026-07-02 verification pass, `RawCull/` source has not changed; the only relevant update is the `rsyncOSX/RawParserKit` SPM dependency being bumped from `1.1.0` to `1.2.5`.
+
+- **All 32 issues remain open.** File/line citations still match current code for every item (no meaningful line drift).
+- **Item 12** (unvalidated embedded-JPEG offset/length from Sony MakerNote) was re-checked directly against RawParserKit `1.2.5` source (`embeddedJPEGLocations`, `locateJPEG`, `tagDataRange`, `readEmbeddedJPEGData`). None of these perform an `offset + length <= fileSize` bounds check before reading — the upstream fix has not landed yet. Status updated from "not fully verifiable" to **confirmed still open**.
+- **Item 27**'s local (`@MainActor`) portion is unchanged and confirmed open; the upstream "read whole RAW with `Int.max`" detail still lives in RawParserKit and remains unconfirmed pending package fix.
+- **Item 18** nuance holds: some zoom helper paths now keep `lastScale` in sync, but the actively-wired `ImageOverlayControlsView` button closures still only update `viewModel.scale`, so the bug is still reachable via the button UI path.
+
+No closure-order changes are warranted — proceed with the plan below.
+
+---
+
 ## Recommended closure order
 
 1. **P0s (1–3)** — folder/bookmark commit ordering and rsync include-list/filter safety. These directly risk copying the wrong files or to the wrong place; fix and add regression tests before anything else.
