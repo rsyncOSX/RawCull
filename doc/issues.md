@@ -288,3 +288,60 @@ No closure-order changes are warranted — proceed with the plan below.
 5. **P2 group (23–32)** — performance/maintainability items; batch these opportunistically alongside nearby feature work.
 
 After each group, run `make test-smoke`; after P0/P1 closure, run `make test-full`.
+
+---
+
+## Effort evaluation — 2026-07-03
+
+Complexity reflects design/concurrency risk, not just line count. Effort assumes one engineer familiar with the codebase, including a smoke/full test pass. "Files to update" lists code that must change; test files are additional if `RawCullTests/` already covers the area.
+
+| # | Issue | Files to update | Complexity | Effort |
+|---|---|---|---|---|
+| 1 | Folder selection commits before bookmark succeeds | `Views/CopyFiles/OpencatalogView.swift` | Low — reorder state assignment, add error path | 1–2h |
+| 2 | Stale/wrong rsync include file reused on failure | `Model/ParametersRsync/ExecuteCopyFiles.swift` | Medium — must abort pipeline on failure, move to unique per-operation path in Application Support, add cleanup | 3–4h |
+| 3 | `--include-from` unsafe for literal filenames | `Model/ParametersRsync/ExecuteCopyFiles.swift` | Medium-High — switch to `--files-from`/NUL-separated literal mode or write correct escaping; touches the rsync argument-building path and needs careful manual verification with real filenames (spaces, brackets, `#`) | 4–6h |
+| 4 | Off-main AppKit drawing in thumbnail downscale | `Actors/ScanAndCreateThumbnails.swift` | Medium — replace `NSImage.lockFocus` with `CGContext`/vImage path; must preserve exact output quality/aspect behavior used elsewhere | 3–5h |
+| 5 | Disk thumbnail caches never invalidate on file replacement | `Actors/DiskCacheManager.swift`, `Actors/FullSizeJPGDiskCache.swift` | Medium — change cache key derivation (adds mtime/size to key or a validation check on load); touches on-disk key format, may need a cache-version bump to avoid orphaned entries | 3–5h |
+| 6 | `DiscoverFiles` doesn't acquire security-scoped access | `Actors/DiscoverFiles.swift`, `Actors/ScanAndCreateThumbnails.swift` | Low — add start/stop scoped-access pair or document caller contract | 1–2h |
+| 7 | Catalog switch leaves stale state visible | `Model/ViewModels/RawCullViewModel+Catalog.swift` | Medium — must audit all catalog-scoped state (`files`, `filteredFiles`, `focusPoints`, rating caches, burst/comparison state) and clear consistently across success/failure/cancel/empty paths without breaking existing generation-token flow | 4–6h |
+| 8 | Sort/search async races have no stale-result protection | `Model/ViewModels/RawCullViewModel+Catalog.swift` | Medium — apply the existing generation-token pattern (already proven in `+BurstGrouping.swift`) to `handleSortOrderChange`/`handleSearchTextChange` | 2–3h |
+| 9 | Similarity ranking has no stale-result protection | `Model/ViewModels/SimilarityScoringModel.swift` | Medium — same generation-token pattern applied to `rankSimilar`; file is large (521 lines) so needs careful review of all commit sites for `anchorFileID`/`distances`/`sortBySimilarity` | 3–4h |
+| 10 | Burst undo can't restore "unrated" state | `Model/ViewModels/BurstAnalysisModels.swift`, `Model/ViewModels/RawCullViewModel+BurstGrouping.swift` | Medium-High — requires a tri-state prior-rating representation (`nil` vs `0`), threading through `captureUndo`/`undoLastBurstAction`/`applyRatings`, and a delete-record path; touches a large, already-hardened file (707 lines) so regression risk is real | 4–6h |
+| 11 | `asyncgetsettings()` races initial JSON load | `Model/ViewModels/SettingsViewModel.swift` | Low — await `ensureLoaded()` inside `asyncgetsettings()`; small, well-isolated change but must verify no deadlock/re-entrancy with `loadTask` | 1–2h |
+| 12 | Unvalidated MakerNote JPEG offset/length (upstream) | `RawParserKit` package (external repo `rsyncOSX/RawParserKit`), then bump SPM version pin in RawCull | Medium — fix lives outside this repo; requires PR to RawParserKit, release, then a one-line dependency bump here. Cross-repo coordination adds overhead beyond the code change itself | 3–5h (mostly upstream) + 0.5h version bump |
+| 13 | Sharpness scoring samples Gaussian-expanded extent, not true bounds | `Model/ViewModels/FocusandSharpness/FocusMaskEngine+Scoring.swift` | High — must crop Laplacian back to `inputImage.extent` before render/sample and recompute all full-frame/AF/saliency rectangles consistently; file is 939 lines with tightly-coupled scoring math, and any change risks shifting existing sharpness scores/thresholds tuned against current (buggy) behavior — needs before/after score comparison on a real image set | 6–10h |
+| 14 | Grid rating filter disconnected from app-wide filter | `Views/CullingGrid/CullingGridView.swift`, `Views/GridView/GridThumbnailView.swift`, `Views/SimilarityGridView/SimilarityGridView.swift`, `Views/ThumbnailComponents/ThumbnailKeyNavigationModifier.swift` | Medium — remove local `@State ratingFilter`, rewire to `viewModel.ratingFilter`/`passesRatingFilter`; spans 4 files so must check every call site for behavior parity | 3–4h |
+| 15 | Command-click deselection leaves stale primary selection | `Views/CullingGrid/CullingGridSelectionCoordinator.swift`, `Views/RatedGridView/RatedPhotoGridView.swift` | Low — add retarget/clear logic when the removed item was primary; duplicated logic in 2 files, keep them consistent | 1–2h |
+| 16 | Comparison focus-point lookup collides on duplicate basenames | `Views/ComparisonGridView/ComparisonGridView.swift`, `Views/ComparisonGridView/CandidateInspectorContext.swift` | Medium — switch matching key from filename to `FileItem.ID`/full path; need to verify focus-point data model carries that identity end-to-end | 2–3h |
+| 17 | Histogram initial load `fatalError` crash | `Views/Histogram/HistogramView.swift` | Low — replace `fatalError` with the existing `.onChange` graceful-return pattern (63-line file) | 0.5–1h |
+| 18 | Zoom buttons desync pinch-gesture `lastScale` | `Views/ZoomViews/ZoomOverlayView.swift`, `Views/ThumbnailComponents/MainThumbnailImageView.swift` | Low-Medium — update `lastScale` in the actively-wired `ImageOverlayControlsView` button closures; large file (842 lines) but change is localized to the zoom button handlers | 1–2h |
+| 19 | Copy sheet can get stuck in "Copying…" on startup failure | `Views/CopyFiles/CopyFilesView.swift` (and `Model/ParametersRsync/ExecuteCopyFiles.swift` for return signature) | Medium — change `startcopyfiles` to return `Bool`/`Result`/throw and add a failure branch that resets `copyFilesinProgress` + surfaces an alert; overlaps with #2/#3 fixes in the same rsync path, consider bundling | 2–3h |
+| 20 | Copy completion UI has no failure state | `Views/CopyFiles/CopyFilesView.swift`, plus `CopyDataResult` model definition | Medium — extend `CopyDataResult` with exit status/error detail, branch UI rendering; needs coordination with rsync process wrapper (`RsyncProcessStreaming` package) to know if exit status is even exposed today | 3–5h |
+| 21 | Cmd-K abort only wired in loupe mode | `Main/RawCullMainView.swift`, `Views/FileViews/RawCullDetailContainerView.swift`, `Views/Tools/MenuCommands.swift` | Low-Medium — move abort handling to `RawCullMainView` root via `.onChange`, mirroring existing extract-JPG command flow; must verify no double-handling remains in `AbortTaskFocusView` | 2–3h |
+| 22 | Thumbnail settings persist partially (torn autosave) | `Views/Settings/ThumbnailSizesTab.swift` | Low — unify persistence model (all-autosave or all-draft-until-Save); small 113-line file, mostly a design-consistency decision | 1–2h |
+| 23 | `ThumbnailLoader` ignores requested size, freezes settings | `Actors/ThumbnailLoader.swift` | Low-Medium — pass `targetSize` through to `RequestThumbnail`; add settings-change invalidation for `cachedSettings` (singleton lifetime consideration) | 2–3h |
+| 24 | Missing in-flight thumbnail request coalescing | `Actors/RequestThumbnail.swift` | Medium — add a keyed in-flight `Task` map, await shared task for duplicate requests, clean up on completion/cancellation; concurrency-sensitive, needs care around actor reentrancy | 3–4h |
+| 25 | Saved-files JSON loaded synchronously on MainActor | `Model/ViewModels/CullingModel.swift`, `Model/ViewModels/RawCullViewModel+Catalog.swift` | Low-Medium — move `loadSavedFiles()` decode to a background task, publish snapshot back on MainActor; watch ordering vs. catalog-switch state clearing (#7) | 2–3h |
+| 26 | JPG extraction/warm-cache progress not identity-gated | `Model/ViewModels/RawCullViewModel+Thumbnails.swift` | Medium — add generation/identity gating to intermediate progress callbacks, matching the pattern already used for catalog preload and burst analysis | 2–3h |
+| 27 | Raw diagnostics blocks UI reading whole RAW on MainActor | `Model/Diagnostics/RawFileDiagnostics.swift`, `Model/ViewModels/RawCullViewModel+Diagnostics.swift` | Low-Medium (RawCull side only) — move diagnostics generation to `Task.detached`, hop to MainActor only for final string; upstream `Int.max` read fix is a separate RawParserKit-side task (see #12) | 2–3h (local) + upstream coordination |
+| 28 | Cancelling sharpness scoring doesn't stop in-flight work promptly | `Model/ViewModels/FocusandSharpness/SharpnessScoringModel.swift`, `FocusMaskEngine+Scoring.swift`, `FocusMaskEngine+MaskGeneration.swift` | High — requires segmenting synchronous Vision/CoreImage calls and adding cancellation checks between smaller units of work across 3 large, math-heavy files; risk of subtly changing scoring output while refactoring | 5–8h |
+| 29 | Shared thumbnail view applies stale async results | `Views/ThumbnailComponents/ThumbnailImageView.swift` | Low — add `Task.isCancelled` + identity re-check after await in a 109-line file | 1h |
+| 30 | Comparison grid launches uncancelled async refreshes | `Views/ComparisonGridView/ComparisonGridView.swift` | Medium — introduce per-view/per-file task handles with cancel-and-replace or request versioning; 491-line file with several existing async entry points to update consistently | 3–4h |
+| 31 | Histogram path never reaches last bin's full width | `Views/Histogram/HistogramPath.swift` | Low — one-line spacing fix (`bins.count - 1`) in a 31-line file, verify visually against real histogram data | 0.5h |
+| 32 | Rsync details view drops rows for small outputs | `Views/OutputViews/DetailsView.swift` | Low-Medium — replace unconditional trailing-row trim with content/pattern-based footer detection; need sample rsync outputs of varying sizes to validate the new matching logic | 2–3h |
+
+### Rollup by severity
+
+| Severity | Issues | Estimated total effort |
+|---|---|---|
+| P0 (1–3) | 3 | 8–12h |
+| P1 (4–22) | 19 | 55–80h |
+| P2 (23–32) | 10 | 22–33h |
+| **Total** | **32** | **~85–125h** (roughly 2.5–3.5 engineer-weeks, excluding upstream RawParserKit turnaround time for #12/#27) |
+
+### Notes on estimate risk
+
+- **#12 and #27** depend partly on the external `rsyncOSX/RawParserKit` repository; effort here is bounded for the RawCull-side changes but the total wall-clock time depends on turnaround for the upstream PR/release/version bump.
+- **#13 and #28** (sharpness pipeline) carry the highest regression risk in this list — both touch the scoring math directly, and any change should be validated with a before/after score comparison on a fixed real-photo test set, not just unit tests, before merging.
+- **#10** (burst undo tri-state) and **#7** (catalog switch state leak) touch large, already-hardened files (`RawCullViewModel+BurstGrouping.swift` at 707 lines, `+Catalog.swift` at 243 lines); budget extra review time even though the diffs themselves may be small.
+- Several P1 items (**#8, #9, #26**) are mechanical applications of the existing generation-token pattern from `+BurstGrouping.swift` and can likely be batched by one engineer in a single focused session rather than estimated independently.
