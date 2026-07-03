@@ -23,13 +23,22 @@ struct DecodeFocusPoints: Codable {
 actor ScanFiles {
     /// Store raw decoded data
     var decodedFocusPoints: [DecodeFocusPoints]?
+    private let rawLoader: any RawImageLoading
+
+    init(rawLoader: any RawImageLoading = RawParserKitImageLoader.shared) {
+        self.rawLoader = rawLoader
+    }
 
     func scanFiles(
         url: URL,
         onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil,
     ) async -> [FileItem] {
-        guard url.startAccessingSecurityScopedResource() else { return [] }
-        defer { url.stopAccessingSecurityScopedResource() }
+        let didStartSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
 
         var discoveredCount = 0
         // Logger.process.debugThreadOnly("ScanFiles: func scanFiles()")
@@ -47,6 +56,7 @@ actor ScanFiles {
 
             // Single-pass: extract EXIF and Sony MakerNote focus point in the same task per file,
             // eliminating the second file-open pass that extractNativeFocusPoints() previously required.
+            let rawLoader = rawLoader
             let pairs: [(FileItem, DecodeFocusPoints?)] = await withTaskGroup(
                 of: (FileItem, DecodeFocusPoints?)?.self,
             ) { group in
@@ -55,7 +65,7 @@ actor ScanFiles {
                         group.cancelAll()
                         break
                     }
-                    guard let format = RawFormatRegistry.format(for: fileURL) else { continue }
+                    guard RawFormatRegistry.format(for: fileURL) != nil else { continue }
                     discoveredCount += 1
                     let progress = onProgress
                     let count = discoveredCount
@@ -63,15 +73,15 @@ actor ScanFiles {
                     group.addTask {
                         guard !Task.isCancelled else { return nil }
                         let res = try? fileURL.resourceValues(forKeys: Set(keys))
-                        let exifData = await self.extractExifData(from: fileURL, format: format)
-                        let focusStr = format.focusLocation(from: fileURL)
+                        let metadata = await rawLoader.fileMetadata(for: fileURL)
+                        let focusStr = metadata?.focusLocation
                         let fileItem = FileItem(
                             url: fileURL,
                             name: res?.name ?? fileURL.lastPathComponent,
                             size: Int64(res?.fileSize ?? 0),
                             dateModified: res?.contentModificationDate ?? Date(),
-                            exifData: exifData,
-                            afFocusNormalized: focusStr.flatMap(Self.normalizedFocusPoint(from:)),
+                            exifData: metadata?.exifMetadata,
+                            afFocusNormalized: metadata?.focusPoint,
                         )
                         let focusPoint: DecodeFocusPoints? = focusStr.map {
                             DecodeFocusPoints(sourceFile: fileURL.lastPathComponent, focusLocation: $0)
@@ -137,30 +147,4 @@ actor ScanFiles {
         }
     }
 
-    private nonisolated func extractExifData(from url: URL, format _: any RawFormat.Type) async -> ExifMetadata? {
-        guard let metadata = await RawParserKit.RawImageLoader.shared.metadata(for: url) else { return nil }
-        return ExifMetadata(
-            shutterSpeed: metadata.exposure,
-            focalLength: metadata.focalLength,
-            aperture: metadata.aperture,
-            apertureValue: metadata.apertureValue,
-            iso: metadata.isoValue.map { "ISO \($0)" } ?? metadata.iso.map(Self.isoDescription(from:)),
-            isoValue: metadata.isoValue,
-            camera: metadata.camera,
-            lensModel: metadata.lens,
-            rawFileType: metadata.rawFileType,
-            rawSizeClass: metadata.rawSizeClass,
-            pixelWidth: metadata.pixelWidth,
-            pixelHeight: metadata.pixelHeight,
-        )
-    }
-
-    private nonisolated static func normalizedFocusPoint(from focusLocation: String) -> CGPoint? {
-        guard let point = RawFocusPoint(focusLocation: focusLocation) else { return nil }
-        return CGPoint(x: point.normalizedX, y: point.normalizedY)
-    }
-
-    private nonisolated static func isoDescription(from value: String) -> String {
-        value.hasPrefix("ISO ") ? value : "ISO \(value)"
-    }
 }

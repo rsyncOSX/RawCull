@@ -105,22 +105,7 @@ enum ZoomPreviewHandler {
     }
 
     static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
-        if let cached = await fullSizeCache.load(for: rawURL) {
-            guard !Task.isCancelled else { return nil }
-            return cached
-        }
-
-        guard !Task.isCancelled else { return nil }
-
-        let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: rawURL)
-        guard !Task.isCancelled else { return nil }
-
-        if let extracted,
-           let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-            await fullSizeCache.save(jpegData, for: rawURL)
-        }
-
-        return extracted
+        await FullSizePreviewLoader.shared.loadEmbeddedPreview(for: rawURL)
     }
 
     static func loadDevelopedRAWPreview(for rawURL: URL) async throws -> CGImage {

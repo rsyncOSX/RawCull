@@ -7,7 +7,6 @@
 
 import AppKit
 import Foundation
-import RawParserKit
 
 // import OSLog
 
@@ -29,6 +28,7 @@ actor ScanAndCreateThumbnails {
 
     private var savedSettings: SavedSettings?
     private var setupTask: Task<Void, Never>?
+    private let rawLoader: any RawImageLoading
 
     /// Timestamp of the last completed item, used for rolling ETA calculation.
     private var lastItemTime: Date?
@@ -38,8 +38,10 @@ actor ScanAndCreateThumbnails {
     init(
         config _: CacheConfig? = nil,
         diskCache: DiskCacheManager? = nil,
+        rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
+        self.rawLoader = rawLoader
         // Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
     }
 
@@ -93,7 +95,7 @@ actor ScanAndCreateThumbnails {
             await fileHandlers?.maxfilesHandler(urls.count)
 
             return await withTaskGroup(of: Void.self) { group in
-                let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
+                let maxConcurrent = RawImageLoadingConcurrency.batchExtractionLimit
 
                 for (index, url) in urls.enumerated() {
                     if Task.isCancelled {
@@ -157,7 +159,7 @@ actor ScanAndCreateThumbnails {
         if Task.isCancelled { return }
         notifyExtractionNeeded()
 
-        guard let image = await RawParserKit.RawImageLoader.shared.thumbnail(
+        guard let image = await rawLoader.thumbnailImage(
             for: url,
             maxPixelSize: targetSize,
         ),

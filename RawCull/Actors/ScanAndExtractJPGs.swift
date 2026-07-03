@@ -6,7 +6,6 @@
 import CoreGraphics
 import Foundation
 import OSLog
-import RawParserKit
 
 actor ScanAndExtractJPGs {
     private var extractTask: Task<Int, Never>?
@@ -19,12 +18,18 @@ actor ScanAndExtractJPGs {
 
     private let urls: [URL]
     private let fullSizeCache: FullSizeJPGDiskCache
+    private let rawLoader: any RawImageLoading
 
     private static let minimumSamplesBeforeEstimation = 10
 
-    init(urls: [URL], fullSizeCache: FullSizeJPGDiskCache? = nil) {
+    init(
+        urls: [URL],
+        fullSizeCache: FullSizeJPGDiskCache? = nil,
+        rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
+    ) {
         self.urls = urls
         self.fullSizeCache = fullSizeCache ?? SharedMemoryCache.shared.fullSizeJPGDiskCache
+        self.rawLoader = rawLoader
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
@@ -50,7 +55,7 @@ actor ScanAndExtractJPGs {
             await fileHandlers?.maxfilesHandler(urls.count)
 
             return await withTaskGroup(of: Void.self) { group in
-                let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
+                let maxConcurrent = RawImageLoadingConcurrency.batchExtractionLimit
 
                 for (index, url) in urls.enumerated() {
                     if Task.isCancelled {
@@ -88,7 +93,7 @@ actor ScanAndExtractJPGs {
 
         if Task.isCancelled { return }
 
-        guard let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: url) else {
+        guard let extracted = await rawLoader.previewCGImage(for: url) else {
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
             updateEstimatedTime(itemsProcessed: newCount)

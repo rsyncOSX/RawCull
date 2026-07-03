@@ -8,7 +8,6 @@
 import AppKit
 import Foundation
 import OSLog
-import RawParserKit
 
 actor RequestThumbnail {
     static let shared = RequestThumbnail()
@@ -16,13 +15,16 @@ actor RequestThumbnail {
     private var setupTask: Task<Void, Never>?
     private let diskCache: DiskCacheManager
     private let memoryCache: SharedMemoryCache
+    private let rawLoader: any RawImageLoading
 
     init(
         diskCache: DiskCacheManager? = nil,
         memoryCache: SharedMemoryCache = .shared,
+        rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
         self.memoryCache = memoryCache
+        self.rawLoader = rawLoader
     }
 
     private func ensureReady() async {
@@ -83,11 +85,11 @@ actor RequestThumbnail {
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        guard let cgImage = await RawParserKit.RawImageLoader.shared.thumbnailCGImage(
+        guard let cgImage = await rawLoader.thumbnailCGImage(
             for: url,
             maxPixelSize: targetSize,
         ) else {
-            throw RawParserKit.ThumbnailError.invalidSource
+            throw RawImageLoadingError.invalidSource
         }
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
@@ -128,7 +130,7 @@ actor RequestThumbnail {
                   let bitmapRep = NSBitmapImageRep(data: tiffData),
                   let cgImage = bitmapRep.cgImage
             else {
-                throw RawParserKit.ThumbnailError.generationFailed
+                throw RawImageLoadingError.generationFailed
             }
             return cgImage
         }.value

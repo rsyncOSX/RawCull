@@ -2,40 +2,12 @@ import RawParserKit
 import SwiftUI
 
 enum ComparisonImageLoader {
-    private static var fullSizeCache: FullSizeJPGDiskCache {
-        SharedMemoryCache.shared.fullSizeJPGDiskCache
-    }
-
     static func loadImage(for file: FileItem, useThumbnailSource: Bool = false) async -> (CGImage?, NSImage?) {
         if useThumbnailSource {
             return await loadThumbnail(for: file)
         }
 
-        let filejpg = file.url
-            .deletingPathExtension()
-            .appendingPathExtension(RawParserKit.SupportedFileType.jpg.rawValue)
-        if let cgImage = OrientationNormalizedImageLoader.loadCGImage(from: filejpg) {
-            return (cgImage, nil)
-        }
-
-        guard !Task.isCancelled else { return (nil, nil) }
-
-        if let cached = await fullSizeCache.load(for: file.url) {
-            return (cached, nil)
-        }
-
-        guard !Task.isCancelled else { return (nil, nil) }
-
-        guard let extracted = await RawParserKit.RawImageLoader.shared.previewImage(for: file.url) else {
-            return (nil, nil)
-        }
-
-        guard !Task.isCancelled else { return (nil, nil) }
-
-        if let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-            await fullSizeCache.save(jpegData, for: file.url)
-        }
-        return (extracted, nil)
+        return (await FullSizePreviewLoader.shared.loadEmbeddedPreview(for: file.url), nil)
     }
 
     private static func loadThumbnail(for file: FileItem) async -> (CGImage?, NSImage?) {

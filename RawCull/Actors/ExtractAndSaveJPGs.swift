@@ -42,13 +42,20 @@ actor ExtractAndSaveJPGs {
     private var filteredFilesURLs: [URL]?
     private let destinationCatalogURL: URL?
     private let exportMode: ExtractJPGExportMode
+    private let previewLoader: any FullSizePreviewLoading
 
     /// Used in time remaining
     private var lastItemTime: Date?
 
-    init(files: [FileItem], destinationCatalogURL: URL, exportMode: ExtractJPGExportMode) {
+    init(
+        files: [FileItem],
+        destinationCatalogURL: URL,
+        exportMode: ExtractJPGExportMode,
+        previewLoader: any FullSizePreviewLoading = FullSizePreviewLoader.shared,
+    ) {
         self.destinationCatalogURL = destinationCatalogURL
         self.exportMode = exportMode
+        self.previewLoader = previewLoader
         if !files.isEmpty {
             filteredFilesURLs = files.map(\.url)
         }
@@ -72,7 +79,7 @@ actor ExtractAndSaveJPGs {
                 await fileHandlers?.maxfilesHandler(filteredFilesURLs.count)
 
                 return await withTaskGroup(of: Void.self) { group in
-                    let maxConcurrent = ProcessInfo.processInfo.activeProcessorCount * 2
+                    let maxConcurrent = RawImageLoadingConcurrency.batchExtractionLimit
 
                     for (index, url) in filteredFilesURLs.enumerated() {
                         if Task.isCancelled {
@@ -126,7 +133,7 @@ actor ExtractAndSaveJPGs {
     }
 
     private func embeddedJPEGImage(from url: URL) async -> CGImage? {
-        await RawParserKit.RawImageLoader.shared.previewImage(for: url)
+        await previewLoader.loadEmbeddedPreview(for: url)
     }
 
     private func save(_ jpegData: Data, originalURL: URL) async {
