@@ -23,19 +23,21 @@ RawCull is a well-structured Swift 6 codebase. The actor-per-concern architectur
 
 ## P0 — Critical (crash, data loss, or security)
 
-### 1. New folder selections can silently copy to the old bookmarked folder
+**Status: ✅ All P0 items (1–3) completed** — fixed in commits `0b34922` (Fix issue p0:1 and p0:2) and `16b38d0` (Fix issue p0:3), 2026-07-03. Both commits touch `ExecuteCopyFiles.swift`, `CopyFilesView.swift`, `OpencatalogView.swift`, and add regression coverage in `RawCullTests/ExecuteCopyFilesStartupTests.swift`.
+
+### 1. New folder selections can silently copy to the old bookmarked folder ✅ Fixed
 - **Severity:** P0
 - **File(s):** `RawCull/Views/CopyFiles/OpencatalogView.swift:27-53`
 - **Description:** `selecteditem` is updated before `startAccessingSecurityScopedResource()` and bookmark creation succeed. If either step fails, the old bookmark in `UserDefaults` is left in place. The copy pipeline prefers the stored bookmark over the displayed fallback path, so the UI can show the newly chosen folder while rsync still reads/writes the previously bookmarked folder — a silent wrong-destination (or wrong-source) copy.
 - **Fix Plan:** Only commit the new path/UI state after security-scope access and bookmark save both succeed. If either step fails, clear the old bookmark for that key and surface an error instead of leaving mismatched UI and persisted state.
 
-### 2. Rsync can reuse a stale or wrong include file, copying the wrong photos
+### 2. Rsync can reuse a stale or wrong include file, copying the wrong photos ✅ Fixed
 - **Severity:** P0 (data safety: user-selected files vs. actually-copied files can diverge)
 - **File(s):** `RawCull/Model/ParametersRsync/ExecuteCopyFiles.swift:24-28, 65-71, 103-119, 229-235`
 - **Description:** The include list always lives at a fixed path (`Documents/copyfilelist.txt`). If `extractTaggedfilenames()`/`extractRatedfilenames()` returns `nil`, or `writeincludefilelist` fails, the code logs and still launches rsync — meaning rsync can run against an old file list from a previous operation and copy files the user didn't intend. The fixed path also makes concurrent copy operations race with each other.
 - **Fix Plan:** Treat "no file list" or "failed to write include file" as a hard failure and abort before starting rsync. Use a per-operation unique path in Application Support (not a fixed, shared Documents path), and delete it during cleanup.
 
-### 3. `--include-from` file is unsafe for literal filenames (rsync filter injection)
+### 3. `--include-from` file is unsafe for literal filenames (rsync filter injection) ✅ Fixed
 - **Severity:** P0 (can broaden or narrow the copy set beyond user intent)
 - **File(s):** `RawCull/Model/ParametersRsync/ExecuteCopyFiles.swift:65-71, 229-235`
 - **Description:** The include file is built by joining raw filenames with newlines. rsync filter files interpret wildcard/meta characters (`*`, `?`, `[`, `]`, `!`, leading `+`/`-`/`#`, etc.), so filenames containing those characters won't be matched literally, and can unintentionally include or exclude other files.
@@ -200,7 +202,7 @@ RawCull is a well-structured Swift 6 codebase. The actor-per-concern architectur
 
 ## Recommended closure order
 
-1. **P0s (1–3)** — folder/bookmark commit ordering and rsync include-list/filter safety. These directly risk copying the wrong files or to the wrong place; fix and add regression tests before anything else.
+1. ~~**P0s (1–3)** — folder/bookmark commit ordering and rsync include-list/filter safety.~~ ✅ **Done** (`0b34922`, `16b38d0`, 2026-07-03) — regression tests added in `ExecuteCopyFilesStartupTests.swift`.
 2. **P1 concurrency/state-leak group (7–11)** — catalog switch state leak, sort/search and similarity ranking stale-result races, burst-undo tri-state, settings-load race. These share the same "generation/identity-gated commit" pattern already proven in the burst-analysis pipeline — apply it consistently.
 3. **P1 binary-safety group (12–13)** — untrusted MakerNote offset validation and the Laplacian-extent crop bug, since both affect score/AF correctness on real camera files.
 4. **P1 UI-correctness group (14–22)** — grid filter desync, selection/focus-point/zoom bugs, copy status/spinner/error surfacing, Cmd-K abort scope, settings autosave — each is independent and can be fixed/tested in isolation.
@@ -253,7 +255,7 @@ Complexity reflects design/concurrency risk, not just line count. Effort assumes
 
 | Severity | Issues | Estimated total effort |
 |---|---|---|
-| P0 (1–3) | 3 | 8–12h |
+| P0 (1–3) | 3 | 8–12h — ✅ **completed** 2026-07-03 |
 | P1 (4–22) | 19 | 55–80h |
 | P2 (23–32) | 10 | 22–33h |
 | **Total** | **32** | **~85–125h** (roughly 2.5–3.5 engineer-weeks, excluding upstream RawParserKit turnaround time for #12/#27) |
