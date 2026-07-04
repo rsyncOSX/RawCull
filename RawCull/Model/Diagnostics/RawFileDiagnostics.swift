@@ -2,8 +2,7 @@ import Foundation
 import ImageIO
 import RawParserKit
 
-@MainActor
-enum RawFileDiagnostics {
+nonisolated enum RawFileDiagnostics {
     static func log(for file: FileItem) -> String {
         var logger = RawFileDiagnosticLogger()
         logger.line("RAW FILE DIAGNOSTICS")
@@ -12,7 +11,7 @@ enum RawFileDiagnostics {
         logger.line("extension: \(file.url.pathExtension.lowercased())")
         logger.line("sizeBytes: \(file.size)")
         logger.line("sizeFormatted: \(file.formattedSize)")
-        logger.line("dateModified: \(Self.dateFormatter.string(from: file.dateModified))")
+        logger.line("dateModified: \(formattedDate(file.dateModified))")
 
         if FileManager.default.fileExists(atPath: file.url.path) {
             logger.line("fileExists: yes")
@@ -35,11 +34,11 @@ enum RawFileDiagnostics {
         return logger.output
     }
 
-    private static let dateFormatter: ISO8601DateFormatter = {
+    private static func formattedDate(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
+        return formatter.string(from: date)
+    }
 
     private static func formatName(_ format: any RawFormat.Type) -> String {
         switch format {
@@ -218,7 +217,7 @@ enum RawFileDiagnostics {
     }
 }
 
-private struct RawFileDiagnosticLogger {
+nonisolated private struct RawFileDiagnosticLogger {
     private var lines: [String] = []
 
     var output: String {
