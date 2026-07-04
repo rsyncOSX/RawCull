@@ -543,7 +543,12 @@ extension FocusMaskEngine {
         config: FocusDetectorConfig,
     ) -> SharpnessAnalysis? {
         guard !Task.isCancelled else { return nil }
-        guard let boosted = buildScoringLaplacian(from: inputImage, config: config) else { return nil }
+        guard let rawBoosted = buildScoringLaplacian(from: inputImage, config: config) else { return nil }
+        // The Gaussian pre-blur pads its output extent beyond the source image
+        // bounds. Crop back to the true image extent so every subsequent pixel
+        // width/height, border inset, and normalized AF/saliency rectangle is
+        // computed against the real photo bounds rather than the blur-expanded one.
+        let boosted = rawBoosted.cropped(to: inputImage.extent)
 
         let extent = boosted.extent
         let width = Int(extent.width)

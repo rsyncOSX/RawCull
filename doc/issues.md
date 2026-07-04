@@ -93,10 +93,12 @@ RawCull is a well-structured Swift 6 codebase. The actor-per-concern architectur
 - **Fix Plan:** Validate JPEG offset/length against the actual file size before returning and again before reading; reject absurd lengths and out-of-range offsets.
 - **Note:** `SonyMakerNoteParser` lives in the separate remote SPM package [`rsyncOSX/RawParserKit`](https://github.com/rsyncOSX/RawParserKit), not in this repo. This fix (and #27 below) must land in that package and be picked up via a version bump here.
 
-### 13. Sharpness scoring samples against the Gaussian-expanded extent instead of true image bounds
+### 13. Sharpness scoring samples against the Gaussian-expanded extent instead of true image bounds ✅ Fixed
+- **Severity:** P1
 - **File(s):** `RawCull/Model/ViewModels/FocusandSharpness/FocusMaskEngine+Scoring.swift:548-585, 593-650, 678-699, 878-889`
 - **Description:** `buildAmplifiedLaplacian` leaves the blur-expanded `CIImage` extent intact, and `computeSharpnessAnalysis` renders/samples that expanded bitmap. Border exclusion ends up too small, and AF/saliency regions are shifted/widened relative to true photo bounds — biasing scores, especially at high ISO / larger blur radii.
 - **Fix Plan:** Crop the Laplacian back to `inputImage.extent` before rendering/sampling; compute all full-frame/AF/saliency rectangles against the original extent only.
+- **Fix:** `computeSharpnessAnalysis` now crops the Laplacian returned by `buildScoringLaplacian` to `inputImage.extent` before deriving `width`/`height` and rendering the sample bitmap, so the border inset and every normalized AF/saliency rectangle (`pixelRect`, `analyzeRegion`, `patchRankings`) are computed against the true photo bounds instead of the Gaussian-blur-padded extent. The mask-generation path (`FocusMaskEngine+MaskGeneration.swift`) already used `scaledImage.extent` correctly and needed no change.
 
 ### 14. Grid rating filter is disconnected from the app-wide filter
 - **File(s):** `RawCull/Views/CullingGrid/CullingGridView.swift:154, 464-478`; `RawCull/Views/GridView/GridThumbnailView.swift:54-69`; `RawCull/Views/SimilarityGridView/SimilarityGridView.swift:55-70`; `RawCull/Views/ThumbnailComponents/ThumbnailKeyNavigationModifier.swift:49-60`
