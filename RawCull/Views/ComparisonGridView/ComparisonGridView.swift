@@ -7,11 +7,14 @@ struct ComparisonGridView: View {
     @Binding var showCandidateInspector: Bool
 
     @State private var imageStates: [FileItem.ID: ComparisonImageState] = [:]
-    @State private var viewportState = ComparisonViewportInteractionState()
+    // Per-file viewport state so zoom/pan/focus-mask visibility from one
+    // frame doesn't bleed into the next when arrowing through a burst.
+    @State private var viewportStatesByFileID: [FileItem.ID: ComparisonViewportInteractionState] = [:]
     @State private var useThumbnailSourceByFileID: [FileItem.ID: Bool] = [:]
     @State private var finalistFocusActive = false
     @State private var keyMonitor: Any?
     @State private var scrollPositionID: FileItem.ID?
+    @State private var scrollSettleTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -39,7 +42,7 @@ struct ComparisonGridView: View {
                                         file: file,
                                         state: imageStates[file.id],
                                         focusPoints: focusPoints(for: file),
-                                        viewportState: $viewportState,
+                                        viewportState: viewportStateBinding(for: file),
                                         useThumbnailSource: useThumbnailSourceBinding(for: file),
                                         isSelected: viewModel.selectedFileID == file.id,
                                         rating: ratingDisplay(for: file),
@@ -77,16 +80,26 @@ struct ComparisonGridView: View {
                                   scrollPositionID != newID,
                                   files.contains(where: { $0.id == newID })
                             else { return }
-                            withAnimation {
+                            withAnimation(.easeOut(duration: 0.15)) {
                                 scrollPositionID = newID
                             }
                         }
                         .onChange(of: scrollPositionID) { _, newID in
-                            guard let newID,
-                                  viewModel.selectedFileID != newID,
-                                  files.contains(where: { $0.id == newID })
-                            else { return }
-                            viewModel.selectedFileID = newID
+                            // Debounce: .viewAligned scroll position can update several
+                            // times mid-drag. Only commit selectedFileID once the value
+                            // has been stable for a short beat, so heavy recomputation
+                            // (rating lookups, sharpness breakdown dictionaries) doesn't
+                            // run on every intermediate frame of a swipe.
+                            scrollSettleTask?.cancel()
+                            scrollSettleTask = Task {
+                                try? await Task.sleep(for: .milliseconds(120))
+                                guard !Task.isCancelled else { return }
+                                guard let newID,
+                                      viewModel.selectedFileID != newID,
+                                      files.contains(where: { $0.id == newID })
+                                else { return }
+                                viewModel.selectedFileID = newID
+                            }
                         }
                     }
                 }
@@ -101,15 +114,12 @@ struct ComparisonGridView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
-        .onKeyPress(.leftArrow) { navigate(.left); return .handled }
-        .onKeyPress(.rightArrow) { navigate(.right); return .handled }
-        .onKeyPress(.escape) {
-            if viewModel.activeBurstComparisonGroupID != nil {
-                viewModel.returnToActiveBurstGroupView()
-                return .handled
-            }
-            return .ignored
-        }
+        // Arrow keys and Escape are now handled exclusively by the NSEvent
+        // monitor below via ComparisonGridKeyAction, so they respect the same
+        // guards (mainViewMode, zoomOverlayVisible, modifier flags) as every
+        // other key. Previously these had a separate, unguarded SwiftUI
+        // .onKeyPress path that could fire even when the monitor's guard
+        // conditions said it shouldn't.
         .onKeyPress(characters: CharacterSet(charactersIn: "+-jJiIxXpP012345tTfFaAzZbB")) { press in
             handleKeyPress(characters: press.characters)
         }
@@ -120,18 +130,19 @@ struct ComparisonGridView: View {
         }
         .onDisappear {
             removeKeyMonitor()
+            scrollSettleTask?.cancel()
         }
         .task(id: loadKey) {
             selectFirstComparisonFileIfNeeded()
             await loadImages()
         }
         .onChange(of: viewModel.comparisonFileIDs) { _, _ in
-            viewportState.resetTransform()
+            viewportStatesByFileID = [:]
             finalistFocusActive = false
             selectFirstComparisonFileIfNeeded()
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
-            viewportState.resetTransform()
+            viewportStatesByFileID = [:]
             finalistFocusActive = false
             showCandidateInspector = false
         }
@@ -175,6 +186,14 @@ struct ComparisonGridView: View {
         ) ?? false
     }
 
+    // NOTE: if `loadKey` (in ComparisonGridDisplayState) depends on
+    // `selectedFileID`, every arrow-key press will re-trigger `loadImages()`
+    // for the ENTIRE comparison set, not just re-select within already
+    // loaded state. For Sony ARW frames that's a full re-decode of every
+    // pane on each navigation — likely the single biggest source of
+    // perceived lag. Worth confirming loadKey is derived only from the
+    // *set* of comparison file IDs (e.g. comparisonFileIDs / activeBurstComparisonGroupID),
+    // not from selectedFileID.
     private var loadKey: String {
         displayState.loadKey
     }
@@ -186,6 +205,17 @@ struct ComparisonGridView: View {
             },
             set: { newValue in
                 useThumbnailSourceByFileID[file.id] = newValue
+            },
+        )
+    }
+
+    private func viewportStateBinding(for file: FileItem) -> Binding<ComparisonViewportInteractionState> {
+        Binding(
+            get: {
+                viewportStatesByFileID[file.id] ?? ComparisonViewportInteractionState()
+            },
+            set: { newValue in
+                viewportStatesByFileID[file.id] = newValue
             },
         )
     }
@@ -417,14 +447,18 @@ struct ComparisonGridView: View {
     }
 
     private func toggleSelectedFocusMask() -> KeyPress.Result {
-        guard selectedFileIDForInteraction() != nil else { return .ignored }
-        viewportState.showFocusMask.toggle()
+        guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
+        var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+        state.showFocusMask.toggle()
+        viewportStatesByFileID[selectedID] = state
         return .handled
     }
 
     private func toggleSelectedFocusPoints() -> KeyPress.Result {
-        guard selectedFileIDForInteraction() != nil else { return .ignored }
-        viewportState.showFocusPoints.toggle()
+        guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
+        var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+        state.showFocusPoints.toggle()
+        viewportStatesByFileID[selectedID] = state
         return .handled
     }
 
@@ -446,19 +480,23 @@ struct ComparisonGridView: View {
     }
 
     private func increaseZoom() -> KeyPress.Result {
-        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
-            viewportState.scale = min(5.0, viewportState.scale + 0.4)
-            viewportState.lastScale = viewportState.scale
+            var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+            state.scale = min(5.0, state.scale + 0.4)
+            state.lastScale = state.scale
+            viewportStatesByFileID[selectedID] = state
         }
         return .handled
     }
 
     private func decreaseZoom() -> KeyPress.Result {
-        guard selectedFileIDForInteraction() != nil else { return .ignored }
+        guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
-            viewportState.scale = max(0.5, viewportState.scale - 0.4)
-            viewportState.lastScale = viewportState.scale
+            var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+            state.scale = max(0.5, state.scale - 0.4)
+            state.lastScale = state.scale
+            viewportStatesByFileID[selectedID] = state
         }
         return .handled
     }
