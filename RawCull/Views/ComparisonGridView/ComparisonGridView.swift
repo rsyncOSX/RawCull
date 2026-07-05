@@ -114,15 +114,6 @@ struct ComparisonGridView: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled(true)
-        // Arrow keys and Escape are now handled exclusively by the NSEvent
-        // monitor below via ComparisonGridKeyAction, so they respect the same
-        // guards (mainViewMode, zoomOverlayVisible, modifier flags) as every
-        // other key. Previously these had a separate, unguarded SwiftUI
-        // .onKeyPress path that could fire even when the monitor's guard
-        // conditions said it shouldn't.
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJiIxXpP012345tTfFaAzZbB")) { press in
-            handleKeyPress(characters: press.characters)
-        }
         .onAppear {
             isFocused = true
             installKeyMonitor()
@@ -186,14 +177,6 @@ struct ComparisonGridView: View {
         ) ?? false
     }
 
-    // NOTE: if `loadKey` (in ComparisonGridDisplayState) depends on
-    // `selectedFileID`, every arrow-key press will re-trigger `loadImages()`
-    // for the ENTIRE comparison set, not just re-select within already
-    // loaded state. For Sony ARW frames that's a full re-decode of every
-    // pane on each navigation — likely the single biggest source of
-    // perceived lag. Worth confirming loadKey is derived only from the
-    // *set* of comparison file IDs (e.g. comparisonFileIDs / activeBurstComparisonGroupID),
-    // not from selectedFileID.
     private var loadKey: String {
         displayState.loadKey
     }
@@ -347,13 +330,17 @@ struct ComparisonGridView: View {
     private func installKeyMonitor() {
         removeKeyMonitor()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard viewModel.mainViewMode == .comparisonGrid,
-                  !viewModel.zoomOverlayVisible,
-                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  !(NSApp.keyWindow?.firstResponder is NSText) else { return event }
+            guard canHandleKeyboardShortcut(event: event) else { return event }
 
             return handleKeyEvent(event) == .handled ? nil : event
         }
+    }
+
+    private func canHandleKeyboardShortcut(event: NSEvent) -> Bool {
+        viewModel.mainViewMode == .comparisonGrid
+            && !viewModel.zoomOverlayVisible
+            && event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+            && !(NSApp.keyWindow?.firstResponder is NSText)
     }
 
     private func removeKeyMonitor() {
@@ -361,15 +348,6 @@ struct ComparisonGridView: View {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
         }
-    }
-
-    private func handleKeyPress(characters: String) -> KeyPress.Result {
-        guard let action = ComparisonGridKeyAction.resolve(
-            characters: characters,
-            keyCode: 0,
-        ) else { return .ignored }
-
-        return handleKeyAction(action)
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
