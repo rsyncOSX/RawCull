@@ -17,6 +17,7 @@ struct RawCullMainView: View {
     @State private var cgImage: CGImage?
     @State private var nsImage: NSImage?
     @State private var showCandidateInspector = false
+    @State private var showsDetailedBurstComparison = false
 
     private var showsJPGExtractionProgressOverlay: Bool {
         viewModel.currentExtractAndSaveJPGsActor != nil && viewModel.mainViewMode != .loupe
@@ -132,6 +133,11 @@ struct RawCullMainView: View {
                 )
             } else {
                 gridthumbnailviewmodel.close()
+            }
+        }
+        .onChange(of: viewModel.activeBurstComparisonGroupID) { oldGroupID, newGroupID in
+            if oldGroupID != newGroupID {
+                showsDetailedBurstComparison = false
             }
         }
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
@@ -298,33 +304,45 @@ struct RawCullMainView: View {
 
     // MARK: - Comparison grid mode
 
+    @ViewBuilder
     private var comparisonGridSplit: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            RAWCatalogSidebarView(
-                sources: $viewModel.sources,
-                selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
-                cullingModel: viewModel.cullingModel,
-            )
-        } detail: {
-            ComparisonGridView(
+        if let groupID = viewModel.activeBurstComparisonGroupID,
+           !showsDetailedBurstComparison
+        {
+            BurstCullingWorkspaceView(
                 viewModel: viewModel,
-                showCandidateInspector: $showCandidateInspector,
+                groupID: groupID,
+                onCompare: { showsDetailedBurstComparison = true },
             )
-            .navigationTitle("Compare images")
-            .toolbar { toolbarContent }
-            .inspector(isPresented: $showCandidateInspector) {
-                CandidateInspectorView(context: candidateInspectorContext)
+            .navigationTitle((viewModel.selectedSource?.name ?? "Catalog") + " — Burst")
+        } else {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                RAWCatalogSidebarView(
+                    sources: $viewModel.sources,
+                    selectedSource: $viewModel.selectedSource,
+                    isShowingPicker: $viewModel.isShowingPicker,
+                    cullingModel: viewModel.cullingModel,
+                )
+            } detail: {
+                ComparisonGridView(
+                    viewModel: viewModel,
+                    showCandidateInspector: $showCandidateInspector,
+                )
+                .navigationTitle("Compare images")
+                .toolbar { toolbarContent }
+                .inspector(isPresented: $showCandidateInspector) {
+                    CandidateInspectorView(context: candidateInspectorContext)
+                }
             }
-        }
-        .task {
-            columnVisibility = .detailOnly
-        }
-        .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
-            handlePickerResult(result)
-        }
-        .task(id: viewModel.selectedSource) {
-            viewModel.startCatalogLoad(for: viewModel.selectedSource)
+            .task {
+                columnVisibility = .detailOnly
+            }
+            .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
+                handlePickerResult(result)
+            }
+            .task(id: viewModel.selectedSource) {
+                viewModel.startCatalogLoad(for: viewModel.selectedSource)
+            }
         }
     }
 

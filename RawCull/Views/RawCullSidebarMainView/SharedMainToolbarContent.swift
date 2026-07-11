@@ -12,125 +12,132 @@ struct SharedMainToolbarContent: ToolbarContent {
     let toggleInspector: () -> Void
 
     var body: some ToolbarContent {
-        Group {
-            ToolbarItem(placement: .status) {
-                Button(action: openCopyView) {
-                    Label("Copy", systemImage: "document.on.document")
+        if !usesBurstWorkspaceChrome {
+            Group {
+                ToolbarItem(placement: .status) {
+                    Button(action: openCopyView) {
+                        Label("Copy", systemImage: "document.on.document")
+                    }
+                    .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
+                    .help("Copy tagged images to destination...")
                 }
-                .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
-                .help("Copy tagged images to destination...")
+
+                ToolbarItem(placement: .status) {
+                    Button(action: toggleshowsavedfiles) {
+                        Label("Saved Files", systemImage: "square.and.arrow.down")
+                    }
+                    .help("Show saved files")
+                }
+
+                ToolbarItem(placement: .status) {
+                    Button(action: toggleInspector) {
+                        Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                    .help("Show inspector")
+                }
+
+                ToolbarItem(placement: .status) {
+                    Button {
+                        viewModel.activeSheet = .scoringParams
+                    } label: {
+                        Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+                    }
+                    .help("Configure sharpness scoring parameters")
+                }
+
+                ToolbarItem(placement: .status) {
+                    Button {
+                        viewModel.activeSheet = .stats
+                    } label: {
+                        Label("Statistics", systemImage: "info.circle")
+                    }
+                    .help("Show scan statistics")
+                    .disabled(viewModel.files.isEmpty)
+                }
+
+                ToolbarItem(placement: .status) {
+                    Button(action: selectReviewQueueMode) {
+                        Label("Review", systemImage: "tray.full")
+                    }
+                    .help("Show burst groups that need review")
+                    .disabled(viewModel.selectedSource == nil ||
+                        viewModel.burstReviewQueueCounts.needsReview == 0 ||
+                        viewModel.creatingthumbnails)
+                }
+
+                ToolbarItem(placement: .status) {
+                    Button(action: selectComparisonGridMode) {
+                        Label("Compare", systemImage: "rectangle.split.2x1")
+                    }
+                    .help("Compare selected thumbnails")
+                    .disabled(viewModel.selectedFileIDs.count <= 1 ||
+                        viewModel.selectedSource == nil ||
+                        viewModel.creatingthumbnails)
+                }
+
+                ToolbarItem(placement: .status) {
+                    RatingFilterButtons(
+                        activeRating: activeRatingInt,
+                        onSelect: applyRatingFilter,
+                        onClear: {
+                            viewModel.ratingFilter = .all
+                            Task(priority: .background) { await viewModel.handleSortOrderChange() }
+                        },
+                    )
+                    .padding(.trailing, 8)
+                    .disabled(viewModel.selectedSource == nil)
+                }
             }
 
-            ToolbarItem(placement: .status) {
-                Button(action: toggleshowsavedfiles) {
-                    Label("Saved Files", systemImage: "square.and.arrow.down")
-                }
-                .help("Show saved files")
-            }
-
-            ToolbarItem(placement: .status) {
-                Button(action: toggleInspector) {
-                    Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
-                }
-                .help("Show inspector")
-            }
-
-            ToolbarItem(placement: .status) {
+            // Trailing mode switcher — Loupe / Grid / Rated Grid.
+            ToolbarItemGroup(placement: .status) {
                 Button {
-                    viewModel.activeSheet = .scoringParams
+                    viewModel.selectMainViewMode(.loupe)
                 } label: {
-                    Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+                    Label("Loupe", systemImage: "rectangle.center.inset.filled")
                 }
-                .help("Configure sharpness scoring parameters")
-            }
+                .help("Loupe view")
+                .disabled(viewModel.mainViewMode == .loupe)
 
-            ToolbarItem(placement: .status) {
                 Button {
-                    viewModel.activeSheet = .stats
+                    selectSimilarityGridMode()
                 } label: {
-                    Label("Statistics", systemImage: "info.circle")
+                    Label("Similarity", systemImage: "photo.stack")
                 }
-                .help("Show scan statistics")
-                .disabled(viewModel.files.isEmpty)
-            }
-
-            ToolbarItem(placement: .status) {
-                Button(action: selectReviewQueueMode) {
-                    Label("Review", systemImage: "tray.full")
-                }
-                .help("Show burst groups that need review")
+                .help("Similarity & burst grouping grid")
                 .disabled(viewModel.selectedSource == nil ||
-                    viewModel.burstReviewQueueCounts.needsReview == 0 ||
+                    viewModel.filteredFiles.isEmpty ||
+                    viewModel.mainViewMode == .similarityGrid ||
                     viewModel.creatingthumbnails)
-            }
 
-            ToolbarItem(placement: .status) {
-                Button(action: selectComparisonGridMode) {
-                    Label("Compare", systemImage: "rectangle.split.2x1")
+                Button {
+                    selectGridMode()
+                } label: {
+                    Label("Grid", systemImage: "square.grid.2x2")
                 }
-                .help("Compare selected thumbnails")
-                .disabled(viewModel.selectedFileIDs.count <= 1 ||
-                    viewModel.selectedSource == nil ||
+                .help("Thumbnail grid")
+                .disabled(viewModel.selectedSource == nil ||
+                    viewModel.filteredFiles.isEmpty ||
+                    viewModel.mainViewMode == .grid ||
+                    viewModel.creatingthumbnails)
+
+                Button {
+                    viewModel.selectMainViewMode(.ratedGrid)
+                } label: {
+                    Label("Rated", systemImage: "star.square.fill")
+                }
+                .help("Rated images grid")
+                .disabled(viewModel.selectedSource == nil ||
+                    !showGridtaggedThumbnailWindow() ||
+                    viewModel.mainViewMode == .ratedGrid ||
                     viewModel.creatingthumbnails)
             }
-
-            ToolbarItem(placement: .status) {
-                RatingFilterButtons(
-                    activeRating: activeRatingInt,
-                    onSelect: applyRatingFilter,
-                    onClear: {
-                        viewModel.ratingFilter = .all
-                        Task(priority: .background) { await viewModel.handleSortOrderChange() }
-                    },
-                )
-                .padding(.trailing, 8)
-                .disabled(viewModel.selectedSource == nil)
-            }
         }
+    }
 
-        // Trailing mode switcher — Loupe / Grid / Rated Grid.
-        ToolbarItemGroup(placement: .status) {
-            Button {
-                viewModel.selectMainViewMode(.loupe)
-            } label: {
-                Label("Loupe", systemImage: "rectangle.center.inset.filled")
-            }
-            .help("Loupe view")
-            .disabled(viewModel.mainViewMode == .loupe)
-
-            Button {
-                selectSimilarityGridMode()
-            } label: {
-                Label("Similarity", systemImage: "photo.stack")
-            }
-            .help("Similarity & burst grouping grid")
-            .disabled(viewModel.selectedSource == nil ||
-                viewModel.filteredFiles.isEmpty ||
-                viewModel.mainViewMode == .similarityGrid ||
-                viewModel.creatingthumbnails)
-
-            Button {
-                selectGridMode()
-            } label: {
-                Label("Grid", systemImage: "square.grid.2x2")
-            }
-            .help("Thumbnail grid")
-            .disabled(viewModel.selectedSource == nil ||
-                viewModel.filteredFiles.isEmpty ||
-                viewModel.mainViewMode == .grid ||
-                viewModel.creatingthumbnails)
-
-            Button {
-                viewModel.selectMainViewMode(.ratedGrid)
-            } label: {
-                Label("Rated", systemImage: "star.square.fill")
-            }
-            .help("Rated images grid")
-            .disabled(viewModel.selectedSource == nil ||
-                !showGridtaggedThumbnailWindow() ||
-                viewModel.mainViewMode == .ratedGrid ||
-                viewModel.creatingthumbnails)
-        }
+    private var usesBurstWorkspaceChrome: Bool {
+        viewModel.mainViewMode == .similarityGrid
+            || viewModel.activeBurstComparisonGroupID != nil
     }
 
     private var activeRatingInt: Int? {

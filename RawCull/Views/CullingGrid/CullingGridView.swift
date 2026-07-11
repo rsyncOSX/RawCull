@@ -27,6 +27,7 @@ enum GridRatingFilter: Hashable {
 
 /// Renders a single burst-group section header with the review workflow actions.
 private struct BurstGroupHeaderView: View {
+    let groupNumber: Int
     let files: [FileItem]
     let analysis: BurstAnalysisResult?
     let isCollapsed: Bool
@@ -45,7 +46,7 @@ private struct BurstGroupHeaderView: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 12) {
             Button(action: onToggleCollapsed) {
                 Label(
                     isCollapsed ? "Expand burst" : "Collapse burst",
@@ -56,34 +57,40 @@ private struct BurstGroupHeaderView: View {
             .buttonStyle(.plain)
             .help(isCollapsed ? "Show every frame in this burst" : "Show only the top three ranked frames")
 
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("Burst \(groupNumber.formatted(.number.precision(.integerLength(2))))")
+                    .font(.headline)
+                Text("\(files.count) frames")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                if isCollapsed, hiddenCount > 0 {
+                    Text("·  +\(hiddenCount) more")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("\(hiddenCount) more frames hidden")
+                }
+            }
+
+            Spacer(minLength: 12)
+
             Button {
                 viewModel.compareBurstGroup(files)
             } label: {
-                Label("Open burst", systemImage: "rectangle.stack")
+                Label("Open burst", systemImage: "arrow.right")
             }
-            .controlSize(.mini)
+            .controlSize(.regular)
             .buttonStyle(.borderedProminent)
             .help("Open this burst for review")
 
-            if isCollapsed, hiddenCount > 0 {
-                Text("+\(hiddenCount) more")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .accessibilityLabel("\(hiddenCount) more frames hidden")
-            }
-
             if let groupID = analysis?.groupID {
-                Spacer(minLength: 6)
-
                 Button {
                     onReviewed(groupID)
                 } label: {
                     Label("Mark Reviewed", systemImage: isReviewed ? "checkmark.circle.fill" : "checkmark.circle")
                 }
-                .controlSize(.mini)
-                .buttonStyle(.borderedProminent)
-                .tint(isReviewed ? .green : .gray.opacity(0.45))
+                .controlSize(.regular)
+                .buttonStyle(.bordered)
+                .tint(isReviewed ? .green : nil)
                 .help("Mark this burst as reviewed")
                 .accessibilityValue(isReviewed ? "Selected" : "Not selected")
 
@@ -92,18 +99,15 @@ private struct BurstGroupHeaderView: View {
                 } label: {
                     Label("Defer", systemImage: isDeferred ? "clock.badge.checkmark.fill" : "clock.arrow.circlepath")
                 }
-                .controlSize(.mini)
-                .buttonStyle(.borderedProminent)
-                .tint(isDeferred ? .orange : .gray.opacity(0.45))
+                .controlSize(.regular)
+                .buttonStyle(.bordered)
+                .tint(isDeferred ? .orange : nil)
                 .help("Defer this burst for later review")
                 .accessibilityValue(isDeferred ? "Selected" : "Not selected")
             }
-
-            Spacer(minLength: 6)
         }
-        .font(.caption2.weight(.semibold))
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 
@@ -130,7 +134,7 @@ private struct BatchBadgeSelectionControlsView: View {
         (2, "2"),
         (3, "3"),
         (4, "4"),
-        (5, "5")
+        (5, "5"),
     ]
 
     var body: some View {
@@ -231,8 +235,36 @@ struct CullingGridView<Header: View>: View {
                 }
                 Spacer()
             }
-            .padding()
-            .background(Color.gray.opacity(0.1))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
+
+            if viewModel.showsBurstGroups {
+                HStack(spacing: 14) {
+                    Button {
+                        viewModel.similarityModel.burstModeActive = false
+                    } label: {
+                        Label("Burst Groups", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+
+                    Text(reviewQueueTitle)
+                        .font(.callout.monospaced())
+                        .foregroundStyle(.secondary)
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Text("\(visibleBurstGroups.count) bursts visible")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Text("·  pick of burst highlighted")
+                        .font(.callout.monospaced())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            }
 
             ZStack {
                 // Grid view
@@ -242,7 +274,7 @@ struct CullingGridView<Header: View>: View {
                             if viewModel.showsBurstGroups {
                                 LazyVStack(spacing: 16) {
                                     ForEach(visibleBurstGroups) { group in
-                                        burstGroupCard(group)
+                                        burstGroupCard(group, number: burstNumber(for: group.id))
                                     }
                                 }
                             } else {
@@ -273,7 +305,8 @@ struct CullingGridView<Header: View>: View {
                                 }
                             }
                         }
-                        .padding()
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
                     }
                     .onAppear {
                         guard let id = viewModel.selectedFileID else { return }
@@ -437,6 +470,24 @@ struct CullingGridView<Header: View>: View {
         viewModel.filteredBurstGroupsForReviewQueue
     }
 
+    private var reviewQueueTitle: String {
+        switch viewModel.burstReviewQueueFilter {
+        case .all: "All bursts"
+        case .singleImages: "Single Images"
+        case .needsReview: "Needs Review"
+        case .deferred: "Deferred"
+        case .markedReviewed: "Marked Reviewed"
+        case .reviewed: "Reviewed"
+        }
+    }
+
+    private func burstNumber(for groupID: Int) -> Int {
+        guard let index = viewModel.similarityModel.burstGroups.firstIndex(where: { $0.id == groupID }) else {
+            return groupID + 1
+        }
+        return index + 1
+    }
+
     /// Builds the thumbnail cell for a file inside a burst group.
     /// Extracted into a helper so the `@ViewBuilder` closure in the `ForEach` remains
     /// simple enough for Swift's type-checker.
@@ -456,7 +507,7 @@ struct CullingGridView<Header: View>: View {
         )
     }
 
-    private func burstGroupCard(_ group: CullingGridVisibleBurstGroup) -> some View {
+    private func burstGroupCard(_ group: CullingGridVisibleBurstGroup, number: Int) -> some View {
         let analysis = viewModel.burstAnalysisResult(for: group.id)
         let collapsed = isBurstGroupCollapsed(group.id)
         let shownFiles = BurstGroupCleanViewPolicy.visibleFiles(
@@ -465,9 +516,10 @@ struct CullingGridView<Header: View>: View {
             isCollapsed: collapsed,
         )
 
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 0) {
             if group.files.count > 1 {
                 BurstGroupHeaderView(
+                    groupNumber: number,
                     files: group.files,
                     analysis: analysis,
                     isCollapsed: collapsed,
@@ -479,20 +531,23 @@ struct CullingGridView<Header: View>: View {
                 )
             }
 
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)],
-                spacing: 12,
-            ) {
-                ForEach(shownFiles, id: \.id) { file in
-                    burstCell(file: file)
-                        .id(file.id)
-                        .onHover { isHovering in
-                            hoveredFileID = isHovering ? file.id : nil
+            if !collapsed || cleanViewEnabled {
+                Divider()
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(shownFiles, id: \.id) { file in
+                            burstCell(file: file)
+                                .id(file.id)
+                                .onHover { isHovering in
+                                    hoveredFileID = isHovering ? file.id : nil
+                                }
                         }
+                    }
+                    .padding(16)
                 }
+                .scrollIndicators(.hidden)
             }
         }
-        .padding(10)
         .background(.quaternary.opacity(0.45), in: .rect(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
