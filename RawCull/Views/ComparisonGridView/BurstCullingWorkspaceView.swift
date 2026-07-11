@@ -6,6 +6,9 @@ struct BurstCullingWorkspaceView: View {
     let groupID: Int
     let onCompare: () -> Void
 
+    @State private var imageState: ComparisonImageState?
+    @State private var viewportState = ComparisonViewportInteractionState()
+    @State private var sourceSelection = ImageSourceSelectionState()
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -39,6 +42,19 @@ struct BurstCullingWorkspaceView: View {
         .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
         .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
+            handleKeyAction(ZoomOverlayKeyAction.resolve(
+                characters: press.characters,
+                keyCode: 0,
+                navigationAxis: .horizontal,
+            ))
+        }
+        .task(id: imageLoadKey) {
+            await loadSelectedImage()
+        }
+        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
+            Task { await regenerateFocusMask() }
+        }
     }
 
     private var workspaceHeader: some View {
@@ -82,6 +98,12 @@ struct BurstCullingWorkspaceView: View {
             Image(systemName: "arrow.left.square")
             Image(systemName: "arrow.right.square")
             Text("frame")
+            keyCap("+/-")
+            Text("zoom")
+            keyCap("J/R")
+            Text("source")
+            keyCap("F/A")
+            Text("focus")
             keyCap("2–5")
             Text("rate")
             keyCap("P")
@@ -100,25 +122,33 @@ struct BurstCullingWorkspaceView: View {
             Color.black.opacity(0.2)
 
             if let selectedFile {
-                ThumbnailImageView(
+                ComparisonImagePaneView(
                     file: selectedFile,
-                    targetSize: 1600,
-                    style: .grid,
-                    showsShimmer: true,
-                    contentMode: .fit,
+                    state: imageState,
+                    focusPoints: focusPoints(for: selectedFile),
+                    viewportState: $viewportState,
+                    useThumbnailSource: thumbnailSourceBinding,
+                    isSelected: true,
+                    rating: ratingDisplay(for: selectedFile),
+                    exifSummary: ExifSummary.make(from: selectedFile.exifData),
+                    saliencyLabel: nil,
+                    burstAnalysis: nil,
+                    burstCandidate: nil,
+                    burstRating: viewModel.getRating(for: selectedFile),
+                    sharpnessContext: nil,
+                    onSelect: {},
+                    onRate: applyRating,
+                    onSourceChange: {
+                        sourceSelection.select(thumbnailSourceBinding.wrappedValue ? .thumbnail : .embeddedJPG)
+                    },
+                    showsChrome: false,
+                    allowsDoubleClickZoom: false,
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(48)
                 .overlay(alignment: .topLeading) {
                     tagStrip(for: selectedFile)
                         .padding(64)
-                }
-                .onTapGesture(count: 2) {
-                    viewModel.openZoomOverlay(
-                        navigationIDs: files.map(\.id),
-                        initialSource: .embeddedJPG,
-                        initialZoomMode: .fit,
-                    )
                 }
             } else {
                 ContentUnavailableView("No burst frame", systemImage: "photo")
@@ -175,8 +205,8 @@ struct BurstCullingWorkspaceView: View {
         ScrollView {
             VStack(spacing: 16) {
                 inspectorCard("Rating") {
-                    WorkspaceRatingButtons(
-                        currentRating: selectedRating,
+                    RatingActionBarView(
+                        currentRating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
                         onSelect: applyRating,
                     )
                 }
@@ -312,15 +342,6 @@ struct BurstCullingWorkspaceView: View {
         guard let selectedFile else { return 0 }
         return files.firstIndex { $0.id == selectedFile.id } ?? 0
     }
-    private var selectedRating: Int? {
-        guard let selectedFile else { return nil }
-        let rating = viewModel.getRating(for: selectedFile)
-        if rating == 0, !viewModel.taggedNamesCache.contains(selectedFile.name) {
-            return nil
-        }
-        return rating
-    }
-
     private var burstNumber: Int {
         (viewModel.similarityModel.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
     }
@@ -351,12 +372,119 @@ struct BurstCullingWorkspaceView: View {
 
     private func navigate(by delta: Int) {
         guard let destination = navigationDestination(by: delta) else { return }
+        viewportState.offset = .zero
+        viewportState.lastOffset = .zero
+        sourceSelection.resetForNewImage()
         viewModel.selectedFileID = destination.id
     }
 
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
-        viewModel.updateRating(for: selectedFile, rating: rating)
+        viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: files)
+    }
+
+    private var imageLoadKey: String {
+        "\(selectedFile?.id.description ?? "none")|\(sourceTitle)"
+    }
+
+    private var sourceTitle: String {
+        switch sourceSelection.selected {
+        case .thumbnail: "thumbnail"
+        case .embeddedJPG: "jpg"
+        case .developedRAW: "raw"
+        }
+    }
+
+    private var thumbnailSourceBinding: Binding<Bool> {
+        Binding(
+            get: { sourceSelection.selected == .thumbnail },
+            set: { sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
+        )
+    }
+
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: viewModel.getRating(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
+    }
+
+    private func focusPoints(for file: FileItem) -> [FocusPoint]? {
+        guard let points = viewModel.focusPoints?.first(where: { $0.sourceFile == file.name }) else { return nil }
+        return points.focusPoints
+    }
+
+    private func loadSelectedImage() async {
+        guard let selectedFile else {
+            imageState = nil
+            return
+        }
+
+        imageState = ComparisonImageState(id: selectedFile.id, isLoading: true)
+        switch sourceSelection.selected {
+        case .thumbnail, .embeddedJPG:
+            imageState = await ComparisonGridImageCoordinator.reloadImage(
+                for: selectedFile,
+                sourceFlags: [selectedFile.id: sourceSelection.selected == .thumbnail],
+                viewModel: viewModel,
+            )
+
+        case .developedRAW:
+            do {
+                let image = try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: selectedFile.url)
+                imageState = ComparisonImageState(id: selectedFile.id, cgImage: image)
+                await regenerateFocusMask()
+            } catch is CancellationError {
+                return
+            } catch {
+                sourceSelection.markDevelopedRAWUnavailable()
+            }
+        }
+    }
+
+    private func regenerateFocusMask() async {
+        guard let selectedFile, let imageState else { return }
+        let states = await ComparisonGridImageCoordinator.regenerateFocusMasks(
+            files: [selectedFile],
+            states: [selectedFile.id: imageState],
+            viewModel: viewModel,
+        )
+        guard !Task.isCancelled else { return }
+        self.imageState = states[selectedFile.id]
+    }
+
+    private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
+        guard let action else { return .ignored }
+
+        switch action {
+        case .navigatePrevious:
+            navigate(by: -1)
+        case .navigateNext:
+            navigate(by: 1)
+        case .escape:
+            viewModel.returnToActiveBurstGroupView()
+        case .zoomIn:
+            withAnimation(.spring()) {
+                viewportState.scale = min(5.0, viewportState.scale + 0.4)
+                viewportState.lastScale = viewportState.scale
+            }
+        case .zoomOut:
+            withAnimation(.spring()) {
+                viewportState.scale = max(0.5, viewportState.scale - 0.4)
+                viewportState.lastScale = viewportState.scale
+            }
+        case .toggleEmbeddedJPG:
+            sourceSelection.toggleExtractionSource(.embeddedJPG)
+        case .toggleDevelopedRAW:
+            sourceSelection.toggleExtractionSource(.developedRAW)
+        case .toggleFocusMask:
+            viewportState.showFocusMask.toggle()
+        case .toggleFocusPoints:
+            viewportState.showFocusPoints.toggle()
+        case let .rating(rating):
+            applyRating(rating)
+        }
+        return .handled
     }
 }
 
@@ -400,35 +528,6 @@ private struct BurstFilmstripThumbnail: View {
                     isSelected ? Color.accentColor : Color(nsColor: .separatorColor),
                     lineWidth: isSelected ? 3 : 1,
                 )
-        }
-    }
-}
-
-private struct WorkspaceRatingButtons: View {
-    let currentRating: Int?
-    let onSelect: (Int) -> Void
-
-    private let ratings: [(value: Int, title: String)] = [
-        (-1, "X"), (0, "P"), (2, "2"), (3, "3"), (4, "4"), (5, "5"),
-    ]
-
-    var body: some View {
-        HStack(spacing: 7) {
-            ForEach(ratings, id: \.value) { rating in
-                Button(rating.title) { onSelect(rating.value) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .tint(currentRating == rating.value ? .accentColor : nil)
-                    .accessibilityLabel(help(for: rating.value))
-            }
-        }
-    }
-
-    private func help(for rating: Int) -> String {
-        switch rating {
-        case -1: "Reject"
-        case 0: "Pick"
-        default: "\(rating) stars"
         }
     }
 }

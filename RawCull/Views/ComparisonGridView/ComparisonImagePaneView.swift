@@ -18,6 +18,8 @@ struct ComparisonImagePaneView: View {
     let onSelect: () -> Void
     let onRate: (Int) -> Void
     let onSourceChange: () -> Void
+    var showsChrome = true
+    var allowsDoubleClickZoom = true
 
     @State private var isHovered = false
 
@@ -44,6 +46,7 @@ struct ComparisonImagePaneView: View {
             .gesture(zoomPanGesture)
             .onTapGesture(count: 1, perform: onSelect)
             .onTapGesture(count: 2) {
+                guard allowsDoubleClickZoom else { return }
                 onSelect()
                 toggleZoom()
             }
@@ -58,7 +61,7 @@ struct ComparisonImagePaneView: View {
     }
 
     private var showsPaneChrome: Bool {
-        isSelected || isHovered
+        showsChrome && (isSelected || isHovered)
     }
 
     private var focusMaskAvailable: Bool {
