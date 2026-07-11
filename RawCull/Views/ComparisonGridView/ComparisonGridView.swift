@@ -52,13 +52,9 @@ struct ComparisonGridView: View {
                                         burstCandidate: burstCandidate(for: file, in: burstAnalysis),
                                         burstRating: viewModel.getRating(for: file),
                                         sharpnessContext: sharpnessContext(for: file),
-                                        inspectorIsPresented: showCandidateInspector,
                                         onSelect: { viewModel.selectedFileID = file.id },
                                         onRate: { rating in
                                             viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
-                                        },
-                                        onToggleInspector: {
-                                            showCandidateInspector.toggle()
                                         },
                                         onSourceChange: {
                                             Task {

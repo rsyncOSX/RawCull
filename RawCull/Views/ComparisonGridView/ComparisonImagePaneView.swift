@@ -15,10 +15,8 @@ struct ComparisonImagePaneView: View {
     let burstCandidate: BurstCandidateScore?
     let burstRating: Int
     let sharpnessContext: SharpnessComparisonContext?
-    let inspectorIsPresented: Bool
     let onSelect: () -> Void
     let onRate: (Int) -> Void
-    let onToggleInspector: () -> Void
     let onSourceChange: () -> Void
 
     @State private var isHovered = false
@@ -93,13 +91,7 @@ struct ComparisonImagePaneView: View {
                     hasFocusPoints: hasFocusPoints,
                     showFocusPoints: $viewportState.showFocusPoints,
                     showShortcutHints: true,
-                    showImageSourceToggle: true,
                     useThumbnailSource: $useThumbnailSource,
-                    inspectorIsPresented: inspectorIsPresented,
-                    onToggleInspector: {
-                        onSelect()
-                        onToggleInspector()
-                    },
                     scale: viewportState.scale,
                     canZoomOut: viewportState.scale > 0.5,
                     canZoomIn: viewportState.scale < 5.0,
