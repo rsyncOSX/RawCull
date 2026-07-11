@@ -56,13 +56,13 @@ struct OpencatalogView: View {
                               selectionErrorMessage = error.localizedDescription
                           }
                       })
-                      .alert("Folder Not Saved", isPresented: selectionErrorIsPresented) {
-                          Button("OK", role: .cancel) {
-                              selectionErrorMessage = nil
-                          }
-                      } message: {
-                          Text(selectionErrorMessage ?? "")
-                      }
+        .alert("Folder Not Saved", isPresented: selectionErrorIsPresented) {
+            Button("OK", role: .cancel) {
+                selectionErrorMessage = nil
+            }
+        } message: {
+            Text(selectionErrorMessage ?? "")
+        }
     }
 
     var uutype: UTType {

@@ -696,7 +696,9 @@ struct ZoomOverlayView: View {
                 .onChanged { currentScale = lastScale * $0 }
                 .onEnded { _ in
                     lastScale = currentScale
-                    if currentScale < 1.0 { withAnimation(.spring()) { resetToFit() } }
+                    if currentScale < 1.0 {
+                        withAnimation(.spring()) { resetToFit() }
+                    }
                 },
             DragGesture()
                 .onChanged { value in

@@ -26,7 +26,9 @@ actor ThumbnailLoader {
 
     /// Cached settings so we don't hammer the settings actor
     func getSettings() async -> SavedSettings {
-        if let cachedSettings { return cachedSettings }
+        if let cachedSettings {
+            return cachedSettings
+        }
         let settings = await SettingsViewModel.shared.asyncgetsettings()
         cachedSettings = settings
         return settings

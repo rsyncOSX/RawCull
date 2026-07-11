@@ -102,7 +102,7 @@ private struct BurstGroupsHomeView: View {
     @Binding var analyzeBurstsRequested: Bool
 
     private let columns = [
-        GridItem(.adaptive(minimum: 160, maximum: 210), spacing: 12),
+        GridItem(.adaptive(minimum: 160, maximum: 210), spacing: 12)
     ]
 
     var body: some View {

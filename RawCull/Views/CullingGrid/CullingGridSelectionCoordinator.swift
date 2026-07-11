@@ -111,8 +111,12 @@ enum CullingGridSelectionCoordinator {
             .sorted { lhs, rhs in
                 let lhsRank = badgeSelectionSortRank(lhs.label)
                 let rhsRank = badgeSelectionSortRank(rhs.label)
-                if lhsRank != rhsRank { return lhsRank < rhsRank }
-                if lhs.count != rhs.count { return lhs.count > rhs.count }
+                if lhsRank != rhsRank {
+                    return lhsRank < rhsRank
+                }
+                if lhs.count != rhs.count {
+                    return lhs.count > rhs.count
+                }
                 return lhs.label.localizedStandardCompare(rhs.label) == .orderedAscending
             }
     }

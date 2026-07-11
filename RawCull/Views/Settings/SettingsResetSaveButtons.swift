@@ -35,48 +35,46 @@ struct SettingsResetSaveButtons<Middle: View>: View {
     }
 
     var body: some View {
-        Group {
-            Button(
-                action: { showResetConfirmation = true },
-                label: {
-                    Label("Reset to Defaults", systemImage: "arrow.uturn.backward")
-                        .font(.system(size: 12, weight: .medium))
-                },
-            )
-            .buttonStyle(RefinedGlassButtonStyle())
-            .confirmationDialog(
-                "Reset Settings",
-                isPresented: $showResetConfirmation,
-                actions: {
-                    Button("Reset", role: .destructive, action: onReset)
-                    Button("Cancel", role: .cancel) {}
-                },
-                message: {
-                    Text(resetMessage)
-                },
-            )
+        Button(
+            action: { showResetConfirmation = true },
+            label: {
+                Label("Reset to Defaults", systemImage: "arrow.uturn.backward")
+                    .font(.system(size: 12, weight: .medium))
+            },
+        )
+        .buttonStyle(RefinedGlassButtonStyle())
+        .confirmationDialog(
+            "Reset Settings",
+            isPresented: $showResetConfirmation,
+            actions: {
+                Button("Reset", role: .destructive, action: onReset)
+                Button("Cancel", role: .cancel) {}
+            },
+            message: {
+                Text(resetMessage)
+            },
+        )
 
-            middle
+        middle
 
-            Button(
-                action: { showSaveConfirmation = true },
-                label: {
-                    Label("Save Settings", systemImage: "square.and.arrow.down.fill")
-                        .font(.system(size: 12, weight: .medium))
-                },
-            )
-            .buttonStyle(RefinedGlassButtonStyle())
-            .confirmationDialog(
-                "Save Settings",
-                isPresented: $showSaveConfirmation,
-                actions: {
-                    Button("Save", role: .destructive, action: onSave)
-                    Button("Cancel", role: .cancel) {}
-                },
-                message: {
-                    Text(saveMessage)
-                },
-            )
-        }
+        Button(
+            action: { showSaveConfirmation = true },
+            label: {
+                Label("Save Settings", systemImage: "square.and.arrow.down.fill")
+                    .font(.system(size: 12, weight: .medium))
+            },
+        )
+        .buttonStyle(RefinedGlassButtonStyle())
+        .confirmationDialog(
+            "Save Settings",
+            isPresented: $showSaveConfirmation,
+            actions: {
+                Button("Save", role: .destructive, action: onSave)
+                Button("Cancel", role: .cancel) {}
+            },
+            message: {
+                Text(saveMessage)
+            },
+        )
     }
 }

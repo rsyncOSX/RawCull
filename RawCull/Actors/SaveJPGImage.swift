@@ -54,13 +54,12 @@ actor SaveJPGImage {
         exportMode: ExtractJPGExportMode,
     ) -> URL {
         let baseName = originalURL.deletingPathExtension().lastPathComponent
-        let outputName: String
-        switch exportMode {
+        let outputName: String = switch exportMode {
         case .embeddedJPG:
-            outputName = baseName
+            baseName
 
         case .demosaicedRAW:
-            outputName = "\(baseName)_demosaic"
+            "\(baseName)_demosaic"
         }
 
         return destinationCatalogURL

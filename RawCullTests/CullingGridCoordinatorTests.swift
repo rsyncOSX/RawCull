@@ -337,7 +337,7 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 2, fileIDs: deferredFiles.map(\.id)),
             BurstGroup(id: 3, fileIDs: [secondSingle.id]),
             BurstGroup(id: 4, fileIDs: reviewedFiles.map(\.id)),
-            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id)),
+            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id))
         ]
         viewModel.burstAnalysisResults = [
             1: makeReviewQueueResult(groupID: 1, fileIDs: needsReviewFiles.map(\.id), confidence: .low),
@@ -359,7 +359,7 @@ struct CullingGridCoordinatorTests {
                 confidence: .high,
                 reviewState: .decisionApplied,
                 isSafeForOneClickCulling: true,
-            ),
+            )
         ]
 
         #expect(viewModel.burstGroupsHomeCounts == BurstGroupsHomeCounts(
@@ -384,7 +384,7 @@ struct CullingGridCoordinatorTests {
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 0, fileIDs: [firstSingle.id]),
             BurstGroup(id: 1, fileIDs: burstFiles.map(\.id)),
-            BurstGroup(id: 2, fileIDs: [secondSingle.id]),
+            BurstGroup(id: 2, fileIDs: [secondSingle.id])
         ]
 
         viewModel.burstReviewQueueFilter = .singleImages

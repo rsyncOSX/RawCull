@@ -217,14 +217,18 @@ private actor SharpnessScoringGate {
     }
 
     func waitForStartedCount(_ count: Int) async throws {
-        if startedCount >= count { return }
+        if startedCount >= count {
+            return
+        }
         await withCheckedContinuation { continuation in
             startedWaiters.append((count, continuation))
         }
     }
 
     func waitUntilReleased() async {
-        if released { return }
+        if released {
+            return
+        }
         await withCheckedContinuation { continuation in
             releaseWaiters.append(continuation)
         }

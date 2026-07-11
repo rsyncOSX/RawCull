@@ -122,12 +122,16 @@ actor ExtractAndSaveJPGs {
     }
 
     private func processSingleExtraction(_ url: URL) async {
-        if Task.isCancelled { return } // ← NEW
+        if Task.isCancelled {
+            return
+        } // ← NEW
 
         switch exportMode {
         case .embeddedJPG:
             guard let cgImage = await embeddedJPEGImage(from: url) else { return }
-            if Task.isCancelled { return } // ← NEW: critical one
+            if Task.isCancelled {
+                return
+            } // ← NEW: critical one
 
             guard let jpegData = SaveJPGImage.jpegData(from: cgImage) else { return }
 
@@ -135,7 +139,9 @@ actor ExtractAndSaveJPGs {
 
         case .demosaicedRAW:
             guard let jpegData = try? await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0) else { return }
-            if Task.isCancelled { return }
+            if Task.isCancelled {
+                return
+            }
 
             guard await save(jpegData, originalURL: url) else { return }
         }

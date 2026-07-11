@@ -2,8 +2,8 @@ import CryptoKit
 import Foundation
 import ImageIO
 import OSLog
-import UniformTypeIdentifiers
 import RawParserKit
+import UniformTypeIdentifiers
 
 actor FullSizeJPGDiskCache {
     nonisolated enum Variant: String {

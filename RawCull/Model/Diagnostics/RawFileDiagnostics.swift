@@ -130,7 +130,9 @@ nonisolated enum RawFileDiagnostics {
             logLocation("sony.thumbnail", locations.thumbnail, to: &logger)
             logLocation("sony.preview", locations.preview, to: &logger)
             logLocation("sony.fullJPEG", locations.fullJPEG, to: &logger)
-            if let failure = jpeg.failure { logger.error("Sony embedded JPEG parser: \(failure)") }
+            if let failure = jpeg.failure {
+                logger.error("Sony embedded JPEG parser: \(failure)")
+            }
 
             let focus = SonyMakerNoteParser.focusLocationDiagnostics(from: url)
             logger.line("")
@@ -150,7 +152,9 @@ nonisolated enum RawFileDiagnostics {
             let locations = jpeg.value ?? .init()
             logLocation("nikon.preview", locations.preview, to: &logger)
             logLocation("nikon.ifd1JPEG", locations.ifd1JPEG, to: &logger)
-            if let failure = jpeg.failure { logger.error("Nikon embedded JPEG parser: \(failure)") }
+            if let failure = jpeg.failure {
+                logger.error("Nikon embedded JPEG parser: \(failure)")
+            }
 
             let focus = NikonMakerNoteParser.focusLocationDiagnostics(from: url)
             logger.line("")
@@ -193,9 +197,15 @@ nonisolated enum RawFileDiagnostics {
     }
 
     private static func intValue(_ value: Any?) -> Int? {
-        if let value = value as? Int { return value }
-        if let value = value as? Double { return Int(value) }
-        if let value = value as? NSNumber { return value.intValue }
+        if let value = value as? Int {
+            return value
+        }
+        if let value = value as? Double {
+            return Int(value)
+        }
+        if let value = value as? NSNumber {
+            return value.intValue
+        }
         return nil
     }
 
@@ -217,7 +227,7 @@ nonisolated enum RawFileDiagnostics {
     }
 }
 
-nonisolated private struct RawFileDiagnosticLogger {
+private nonisolated struct RawFileDiagnosticLogger {
     private var lines: [String] = []
 
     var output: String {

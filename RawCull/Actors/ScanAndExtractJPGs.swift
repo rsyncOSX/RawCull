@@ -82,7 +82,9 @@ actor ScanAndExtractJPGs {
     }
 
     private func processSingleFile(_ url: URL) async {
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
 
         if await fullSizeCache.contains(for: url) {
             let newCount = incrementAndGetCount()
@@ -91,7 +93,9 @@ actor ScanAndExtractJPGs {
             return
         }
 
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
 
         guard let extracted = await rawLoader.previewCGImage(for: url) else {
             let newCount = incrementAndGetCount()
@@ -100,7 +104,9 @@ actor ScanAndExtractJPGs {
             return
         }
 
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
 
         guard let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) else {
             let newCount = incrementAndGetCount()

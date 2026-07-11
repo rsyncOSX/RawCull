@@ -12,7 +12,9 @@ private actor SavedFilesRecorder {
 
     func waitForSnapshotCount(_ count: Int) async -> [[SavedFiles]] {
         for _ in 0 ..< 200 {
-            if snapshots.count >= count { return snapshots }
+            if snapshots.count >= count {
+                return snapshots
+            }
             try? await Task.sleep(nanoseconds: 1_000_000)
         }
         return snapshots
@@ -1263,7 +1265,9 @@ private actor BurstCacheSaveRecorder {
     }
 
     func waitForSnapshot() async -> BurstAnalysisCacheSnapshot? {
-        if let snapshot { return snapshot }
+        if let snapshot {
+            return snapshot
+        }
         return await withCheckedContinuation { continuation in
             waiters.append(continuation)
         }

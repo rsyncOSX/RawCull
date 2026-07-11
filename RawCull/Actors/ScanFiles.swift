@@ -146,5 +146,4 @@ actor ScanFiles {
             return sorted.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
     }
-
 }

@@ -364,11 +364,17 @@ struct MainThumbnailImageView: View {
         let requestedSource = sourceSelection.selected
         guard requestedSource != .thumbnail else {
             isLoadingSource = false
-            if showFocusMask { generateFocusMaskIfNeeded() }
+            if showFocusMask {
+                generateFocusMaskIfNeeded()
+            }
             return
         }
-        if requestedSource == .embeddedJPG, embeddedJPGImage != nil { return }
-        if requestedSource == .developedRAW, developedRAWImage != nil { return }
+        if requestedSource == .embeddedJPG, embeddedJPGImage != nil {
+            return
+        }
+        if requestedSource == .developedRAW, developedRAWImage != nil {
+            return
+        }
 
         isLoadingSource = true
         sourceTask = Task {
@@ -390,7 +396,9 @@ struct MainThumbnailImageView: View {
                     developedRAWImage = loadedImage
                 }
                 isLoadingSource = false
-                if showFocusMask { generateFocusMaskIfNeeded() }
+                if showFocusMask {
+                    generateFocusMaskIfNeeded()
+                }
             } catch is CancellationError {
                 return
             } catch {

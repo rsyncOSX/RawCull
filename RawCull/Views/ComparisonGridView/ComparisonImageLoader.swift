@@ -7,7 +7,7 @@ enum ComparisonImageLoader {
             return await loadThumbnail(for: file)
         }
 
-        return (await FullSizePreviewLoader.shared.loadEmbeddedPreview(for: file.url), nil)
+        return await (FullSizePreviewLoader.shared.loadEmbeddedPreview(for: file.url), nil)
     }
 
     private static func loadThumbnail(for file: FileItem) async -> (CGImage?, NSImage?) {

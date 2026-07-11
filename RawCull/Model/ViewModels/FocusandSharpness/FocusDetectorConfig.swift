@@ -123,8 +123,12 @@ extension FocusDetectorConfig.ApertureHint {
     /// Derives the hint from an EXIF f-number for aperture-aware scoring.
     nonisolated static func from(aperture: Double?) -> Self {
         guard let a = aperture else { return .mid }
-        if a <= 5.6 { return .wide }
-        if a >= 8.0 { return .landscape }
+        if a <= 5.6 {
+            return .wide
+        }
+        if a >= 8.0 {
+            return .landscape
+        }
         return .mid
     }
 }

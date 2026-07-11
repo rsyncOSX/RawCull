@@ -39,7 +39,7 @@ struct ExecuteCopyFilesStartupTests {
     }
 
     @Test
-    func `missing view model fails before copy starts`() throws {
+    func `missing view model fails before copy starts`() {
         let manager: ExecuteCopyFiles
         do {
             let viewModel = RawCullViewModel()
@@ -107,7 +107,7 @@ struct ExecuteCopyFilesStartupTests {
             "normal.ARW",
             "[bracket]*question?.ARW",
             "#not-a-comment!.ARW",
-            "+not-a-filter-rule.ARW",
+            "+not-a-filter-rule.ARW"
         ]
 
         let includeListURL = try manager.writeIncludeFileForCurrentOperation(fileNames)

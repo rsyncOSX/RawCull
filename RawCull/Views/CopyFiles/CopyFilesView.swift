@@ -150,6 +150,7 @@ struct CopyFilesView: View {
         ) {
         case .success:
             copyFilesinProgress = true
+
         case let .failure(failure):
             copyFilesinProgress = false
             startupErrorMessage = failure.localizedDescription

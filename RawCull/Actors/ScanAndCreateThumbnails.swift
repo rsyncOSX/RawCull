@@ -124,7 +124,9 @@ actor ScanAndCreateThumbnails {
     // MARK: - Single File Processing
 
     private func processSingleFile(_ url: URL, targetSize: Int, itemIndex _: Int) async {
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
 
         // A. Check RAM
         if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL) {
@@ -139,7 +141,9 @@ actor ScanAndCreateThumbnails {
             return
         }
 
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
 
         // B. Check Disk
         if let diskImage = await diskCache.load(for: url) {
@@ -156,7 +160,9 @@ actor ScanAndCreateThumbnails {
         }
 
         // C. Extract from source file
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
         notifyExtractionNeeded()
 
         guard let image = await rawLoader.thumbnailImage(
@@ -166,7 +172,9 @@ actor ScanAndCreateThumbnails {
             let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return }
 
-        if Task.isCancelled { return }
+        if Task.isCancelled {
+            return
+        }
 
         // Invariant (uniform across branches A/B/C): scan never admits to
         // memoryCache. RequestThumbnail is the only admitter, so LRU

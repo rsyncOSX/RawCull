@@ -212,22 +212,30 @@ extension FocusMaskEngine {
         case .afCenter:
             if let afCenterRect {
                 [(afCenterRect, afWeightedSource(for: afCenterRect))]
-            } else { [] }
+            } else {
+                []
+            }
 
         case .afNeighborhood:
             if let afNeighborhoodRect {
                 [(afNeighborhoodRect, afWeightedSource(for: afNeighborhoodRect))]
-            } else { [] }
+            } else {
+                []
+            }
 
         case .afPoint:
             if let afRect = selection.afRect {
                 [(afRect, afWeightedSource(for: afRect))]
-            } else { [] }
+            } else {
+                []
+            }
 
         case .saliency:
             if let saliencyRect = selection.saliencyRect {
                 [(saliencyRect, boostedLaplacian)]
-            } else { [] }
+            } else {
+                []
+            }
 
         case .mixed:
             [
@@ -479,7 +487,9 @@ extension FocusMaskEngine {
                 continue
             }
             selected.append(candidate)
-            if selected.count == 3 { break }
+            if selected.count == 3 {
+                break
+            }
         }
         return selected
     }
@@ -503,7 +513,9 @@ extension FocusMaskEngine {
 
         var y = boundedRegion.minY
         while y + patchHeight <= boundedRegion.maxY + 0.5 {
-            if Task.isCancelled { return [] }
+            if Task.isCancelled {
+                return []
+            }
             var x = boundedRegion.minX
             while x + patchWidth <= boundedRegion.maxX + 0.5 {
                 rects.append(CGRect(x: x, y: y, width: patchWidth, height: patchHeight))

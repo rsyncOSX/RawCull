@@ -28,5 +28,4 @@ extension RawCullMainView {
             viewModel.selectedSource = source
         }
     }
-
 }

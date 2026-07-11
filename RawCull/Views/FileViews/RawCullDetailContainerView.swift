@@ -25,6 +25,5 @@ struct RawCullDetailContainerView: View {
                 abort: abort,
             )
         }
-
     }
 }

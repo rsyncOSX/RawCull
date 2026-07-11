@@ -90,7 +90,9 @@ extension RawCullViewModel {
                 && fileRecord.sharpnessModificationDate.map { abs($0.timeIntervalSince(file.dateModified)) < 0.001 } == true
             guard fileRecord.sharpnessScoringSignature == sharpnessModel.scoringSignature, metadataMatches else { continue }
 
-            if let score = fileRecord.sharpnessScore { sharpnessModel.scores[file.id] = score }
+            if let score = fileRecord.sharpnessScore {
+                sharpnessModel.scores[file.id] = score
+            }
 
             if let subjectLabel = fileRecord.saliencySubject {
                 // Create saliency info with the subject label

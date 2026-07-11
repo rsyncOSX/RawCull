@@ -231,11 +231,21 @@ extension FocusMaskEngine {
         }
 
         let ranked = candidates.map(metrics).sorted { lhs, rhs in
-            if lhs.overlapsAF != rhs.overlapsAF { return lhs.overlapsAF }
-            if visionAFPoint != nil, lhs.distanceToAF != rhs.distanceToAF { return lhs.distanceToAF < rhs.distanceToAF }
-            if lhs.candidate.confidence != rhs.candidate.confidence { return lhs.candidate.confidence > rhs.candidate.confidence }
-            if lhs.detail != rhs.detail { return lhs.detail > rhs.detail }
-            if lhs.area != rhs.area { return lhs.area > rhs.area }
+            if lhs.overlapsAF != rhs.overlapsAF {
+                return lhs.overlapsAF
+            }
+            if visionAFPoint != nil, lhs.distanceToAF != rhs.distanceToAF {
+                return lhs.distanceToAF < rhs.distanceToAF
+            }
+            if lhs.candidate.confidence != rhs.candidate.confidence {
+                return lhs.candidate.confidence > rhs.candidate.confidence
+            }
+            if lhs.detail != rhs.detail {
+                return lhs.detail > rhs.detail
+            }
+            if lhs.area != rhs.area {
+                return lhs.area > rhs.area
+            }
             let l = lhs.candidate.normalizedRect
             let r = rhs.candidate.normalizedRect
             return l.minX == r.minX ? l.minY < r.minY : l.minX < r.minX
@@ -320,7 +330,9 @@ extension FocusMaskEngine {
         let p90 = p(0.90)
         let p97 = p(0.97)
 
-        if p97 <= p90 { return max(0, p90 - p20) }
+        if p97 <= p90 {
+            return max(0, p90 - p20)
+        }
 
         var sum: Float = 0
         var cnt = 0
@@ -581,11 +593,15 @@ extension FocusMaskEngine {
         var full = [Float]()
         full.reserveCapacity(innerW * innerH)
         for row in borderRows ..< (height - borderRows) {
-            if row & 0x3F == 0, Task.isCancelled { return nil }
+            if row & 0x3F == 0, Task.isCancelled {
+                return nil
+            }
             let base = row * width
             for col in borderCols ..< (width - borderCols) {
                 let v = redAt(base + col)
-                if v.isFinite { full.append(v) }
+                if v.isFinite {
+                    full.append(v)
+                }
             }
         }
 
@@ -621,7 +637,9 @@ extension FocusMaskEngine {
             var innerCnt = 0
 
             for row in rowStart ..< rowEnd {
-                if row & 0x3F == 0, Task.isCancelled { return RegionAnalysis(samples: [], borderFraction: 1.0) }
+                if row & 0x3F == 0, Task.isCancelled {
+                    return RegionAnalysis(samples: [], borderFraction: 1.0)
+                }
                 let base = row * width
                 for col in colStart ..< colEnd {
                     let v = redAt(base + col)

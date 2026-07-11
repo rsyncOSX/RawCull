@@ -1,8 +1,8 @@
 import AppKit
 import Foundation
 import ImageIO
-import RawParserKit
 @testable import RawCull
+import RawParserKit
 import Testing
 import UniformTypeIdentifiers
 
@@ -111,9 +111,15 @@ private func cornerColors(of image: CGImage) throws -> CornerColors {
         let green = pixels[index + 1]
         let blue = pixels[index + 2]
 
-        if red > 180, green > 140, blue < 120 { return .yellow }
-        if red > 180, green < 120, blue < 120 { return .red }
-        if red < 120, green > 100, blue < 120 { return .green }
+        if red > 180, green > 140, blue < 120 {
+            return .yellow
+        }
+        if red > 180, green < 120, blue < 120 {
+            return .red
+        }
+        if red < 120, green > 100, blue < 120 {
+            return .green
+        }
         return .blue
     }
 

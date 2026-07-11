@@ -2,8 +2,8 @@ import AppKit
 import CryptoKit
 import Foundation
 import OSLog
-import UniformTypeIdentifiers
 import RawParserKit
+import UniformTypeIdentifiers
 
 actor DiskCacheManager {
     private static let cacheKeyVersion = "v2-oriented-thumbnails"

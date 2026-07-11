@@ -221,9 +221,15 @@ final class SharpnessScoringModel {
                     active -= 1
                     guard !Task.isCancelled else { break }
 
-                    if let score { localScores[id] = score }
-                    if let saliency { localSaliency[id] = saliency }
-                    if let breakdown { localBreakdowns[id] = breakdown }
+                    if let score {
+                        localScores[id] = score
+                    }
+                    if let saliency {
+                        localSaliency[id] = saliency
+                    }
+                    if let breakdown {
+                        localBreakdowns[id] = breakdown
+                    }
                     completedCount += 1
 
                     self.scoringProgress = completedCount

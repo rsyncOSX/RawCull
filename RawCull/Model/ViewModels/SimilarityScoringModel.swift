@@ -177,7 +177,9 @@ final class SimilarityScoringModel {
                         break
                     }
 
-                    if let data { localEmbeddings[id] = data }
+                    if let data {
+                        localEmbeddings[id] = data
+                    }
                     completedCount += 1
                     self.indexingProgress = completedCount
 
@@ -360,7 +362,9 @@ final class SimilarityScoringModel {
         let output = await work.value
 
         // Drop our handle only if we're still the current job.
-        if _groupingTask == work { _groupingTask = nil }
+        if _groupingTask == work {
+            _groupingTask = nil
+        }
 
         // Only the latest generation's result is allowed to touch state, and
         // we flip isGrouping off here (not via defer) so a cancelled run does
@@ -449,11 +453,15 @@ final class SimilarityScoringModel {
         var observations: [UUID: VNFeaturePrintObservation] = [:]
 
         for index in files.indices.dropFirst() {
-            if index & 0x3F == 0, Task.isCancelled { return distances }
+            if index & 0x3F == 0, Task.isCancelled {
+                return distances
+            }
             let previousID = files[index - 1].id
             let currentID = files[index].id
             let key = BurstPairKey.cacheKey(previousID: previousID, currentID: currentID)
-            if distances[key] != nil { continue }
+            if distances[key] != nil {
+                continue
+            }
 
             guard let previous = observation(for: previousID, embeddings: embeddings, observations: &observations),
                   let current = observation(for: currentID, embeddings: embeddings, observations: &observations)
@@ -472,7 +480,9 @@ final class SimilarityScoringModel {
         embeddings: [UUID: Data],
         observations: inout [UUID: VNFeaturePrintObservation],
     ) -> VNFeaturePrintObservation? {
-        if let observation = observations[id] { return observation }
+        if let observation = observations[id] {
+            return observation
+        }
         guard let data = embeddings[id],
               let observation = try? NSKeyedUnarchiver.unarchivedObject(
                   ofClass: VNFeaturePrintObservation.self,

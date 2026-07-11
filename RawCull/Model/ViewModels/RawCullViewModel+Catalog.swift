@@ -230,11 +230,17 @@ extension RawCullViewModel {
             let anchorID = similarityModel.anchorFileID
             result.sort { lhs, rhs in
                 // Anchor image always sorts first; use stable tie-breaking by name.
-                if lhs.id == anchorID { return true }
-                if rhs.id == anchorID { return false }
+                if lhs.id == anchorID {
+                    return true
+                }
+                if rhs.id == anchorID {
+                    return false
+                }
                 let dl = distances[lhs.id] ?? .greatestFiniteMagnitude
                 let dr = distances[rhs.id] ?? .greatestFiniteMagnitude
-                if dl != dr { return dl < dr }
+                if dl != dr {
+                    return dl < dr
+                }
                 return lhs.name < rhs.name
             }
         }

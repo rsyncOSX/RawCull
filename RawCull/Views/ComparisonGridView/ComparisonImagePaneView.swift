@@ -180,8 +180,12 @@ struct ComparisonImagePaneView: View {
     }
 
     private func deltaStyle(for value: Int) -> Color {
-        if value > 0 { return .green }
-        if value < 0 { return .red }
+        if value > 0 {
+            return .green
+        }
+        if value < 0 {
+            return .red
+        }
         return .white.opacity(0.8)
     }
 

@@ -84,14 +84,22 @@ struct RatedImageItemView: View {
     }
 
     private var borderColor: Color {
-        if isSelected { return Color.accentColor }
-        if isMultiSelected { return Color.teal }
+        if isSelected {
+            return Color.accentColor
+        }
+        if isMultiSelected {
+            return Color.teal
+        }
         return Color(white: 0.18)
     }
 
     private var borderWidth: CGFloat {
-        if isSelected { return 2.5 }
-        if isMultiSelected { return 2.0 }
+        if isSelected {
+            return 2.5
+        }
+        if isMultiSelected {
+            return 2.0
+        }
         return 1
     }
 

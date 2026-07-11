@@ -240,14 +240,22 @@ struct ImageItemView: View {
     }
 
     private var borderColor: Color {
-        if isSelected { return Color.accentColor }
-        if isMultiSelected { return Color.teal }
+        if isSelected {
+            return Color.accentColor
+        }
+        if isMultiSelected {
+            return Color.teal
+        }
         return Color(white: isHovered ? 0.35 : 0.18)
     }
 
     private var borderWidth: CGFloat {
-        if isSelected { return 3.5 }
-        if isMultiSelected { return 3.0 }
+        if isSelected {
+            return 3.5
+        }
+        if isMultiSelected {
+            return 3.0
+        }
         return 1
     }
 

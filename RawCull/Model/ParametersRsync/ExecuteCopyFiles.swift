@@ -26,18 +26,25 @@ enum CopyStartupFailure: Error, Equatable, LocalizedError {
         switch self {
         case .rsyncArgumentsUnavailable:
             "Unable to prepare rsync arguments."
+
         case .missingViewModel:
             "Unable to read the selected photo list."
+
         case .noMatchingFiles:
             "No matching files to copy."
+
         case .applicationSupportDirectoryUnavailable:
             "Unable to create RawCull's copy-list folder."
+
         case let .includeFileWriteFailed(message):
             "Unable to write the copy-list file: \(message)"
+
         case .sourceAccessFailed:
             "Unable to access the selected source folder."
+
         case .destinationAccessFailed:
             "Unable to access the selected destination folder."
+
         case let .processLaunchFailed(message):
             "Unable to start rsync: \(message)"
         }

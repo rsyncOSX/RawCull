@@ -87,7 +87,9 @@ final class MemoryDiagnosticsViewModel {
             await self?.captureSample(viewModel: viewModel)
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.samplingInterval)
-                if Task.isCancelled { break }
+                if Task.isCancelled {
+                    break
+                }
                 await self?.captureSample(viewModel: viewModel)
             }
         }

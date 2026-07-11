@@ -282,7 +282,9 @@ struct CacheSettingsTab: View {
     }
 
     private func formatBytes(_ bytes: Int) -> String {
-        if bytes == 0 { return "0 B" }
+        if bytes == 0 {
+            return "0 B"
+        }
         return ByteCountFormatStyle(style: .memory).format(Int64(bytes))
     }
 

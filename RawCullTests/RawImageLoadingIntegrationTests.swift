@@ -112,8 +112,8 @@ struct RawImageLoadingIntegrationTests {
 
     @Test
     func `full size preview loader saves extracted preview and reuses disk cache`() async throws {
-        let fakeLoader = FakeRawImageLoader(
-            previewCGImageResult: try makeRawImageLoadingTestCGImage(width: 40, height: 30),
+        let fakeLoader = try FakeRawImageLoader(
+            previewCGImageResult: makeRawImageLoadingTestCGImage(width: 40, height: 30),
         )
         let root = try makeRawImageLoadingTestRoot()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -131,8 +131,8 @@ struct RawImageLoadingIntegrationTests {
 
     @Test
     func `full size preview loader prefers sidecar jpg before raw extraction`() async throws {
-        let fakeLoader = FakeRawImageLoader(
-            previewCGImageResult: try makeRawImageLoadingTestCGImage(width: 40, height: 30),
+        let fakeLoader = try FakeRawImageLoader(
+            previewCGImageResult: makeRawImageLoadingTestCGImage(width: 40, height: 30),
         )
         let root = try makeRawImageLoadingTestRoot()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -152,8 +152,8 @@ struct RawImageLoadingIntegrationTests {
 
     @Test
     func `cancelled full size preview load does not save extracted image`() async throws {
-        let fakeLoader = FakeRawImageLoader(
-            previewCGImageResult: try makeRawImageLoadingTestCGImage(width: 40, height: 30),
+        let fakeLoader = try FakeRawImageLoader(
+            previewCGImageResult: makeRawImageLoadingTestCGImage(width: 40, height: 30),
             suspendPreviewUntilCancelled: true,
         )
         let root = try makeRawImageLoadingTestRoot()
