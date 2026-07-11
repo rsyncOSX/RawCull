@@ -254,8 +254,40 @@ extension RawCullViewModel {
         BurstReviewQueuePolicy.counts(for: burstAnalysisResults.values)
     }
 
+    var burstGroupsHomeCounts: BurstGroupsHomeCounts {
+        let reviewCounts = burstReviewQueueCounts
+        return BurstGroupsHomeCounts(
+            singleImages: similarityModel.burstGroups.reduce(into: 0) { count, group in
+                if group.fileIDs.count == 1 {
+                    count += 1
+                }
+            },
+            deferred: reviewCounts.deferred,
+            markedReviewed: burstAnalysisResults.values.count { result in
+                result.fileIDs.count > 1 && result.reviewState == .reviewed
+            },
+            needsReview: reviewCounts.needsReview,
+        )
+    }
+
+    var hasCompletedBurstAnalysis: Bool {
+        completedBurstAnalysisContext != nil
+            && !burstAnalysisProgress.isRunning
+            && !similarityModel.isGrouping
+    }
+
     var filteredBurstGroupsForReviewQueue: [BurstGroup] {
-        guard burstReviewQueueFilter != .all else { return similarityModel.burstGroups }
+        switch burstReviewQueueFilter {
+        case .all:
+            return similarityModel.burstGroups
+
+        case .singleImages:
+            return similarityModel.burstGroups.filter { $0.fileIDs.count == 1 }
+
+        case .needsReview, .deferred, .markedReviewed, .reviewed:
+            break
+        }
+
         return similarityModel.burstGroups.filter { group in
             guard group.fileIDs.count > 1 else { return false }
             guard let result = burstAnalysisResults[group.id] else { return false }

@@ -3,8 +3,10 @@ import RawCullCore
 
 enum BurstReviewQueueFilter: String, CaseIterable, Identifiable {
     case all
+    case singleImages
     case needsReview
     case deferred
+    case markedReviewed
     case reviewed
 
     var id: String {
@@ -16,6 +18,13 @@ struct BurstReviewQueueCounts: Equatable {
     var needsReview: Int = 0
     var deferred: Int = 0
     var reviewed: Int = 0
+}
+
+struct BurstGroupsHomeCounts: Equatable {
+    var singleImages: Int = 0
+    var deferred: Int = 0
+    var markedReviewed: Int = 0
+    var needsReview: Int = 0
 }
 
 enum BurstReviewQueuePolicy {
@@ -32,11 +41,17 @@ enum BurstReviewQueuePolicy {
         case .all:
             true
 
+        case .singleImages:
+            false
+
         case .needsReview:
             effectiveState(for: result) == .needsReview
 
         case .deferred:
             effectiveState(for: result) == .deferred
+
+        case .markedReviewed:
+            result.reviewState == .reviewed
 
         case .reviewed:
             switch effectiveState(for: result) {

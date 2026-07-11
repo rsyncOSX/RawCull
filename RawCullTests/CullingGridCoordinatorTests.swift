@@ -322,6 +322,77 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
+    func `burst home counts singleton images and live review states`() {
+        let firstSingle = makeGridTestFile("single-one.ARW")
+        let secondSingle = makeGridTestFile("single-two.ARW")
+        let needsReviewFiles = [makeGridTestFile("needs-one.ARW"), makeGridTestFile("needs-two.ARW")]
+        let deferredFiles = [makeGridTestFile("deferred-one.ARW"), makeGridTestFile("deferred-two.ARW")]
+        let reviewedFiles = [makeGridTestFile("reviewed-one.ARW"), makeGridTestFile("reviewed-two.ARW")]
+        let appliedFiles = [makeGridTestFile("applied-one.ARW"), makeGridTestFile("applied-two.ARW")]
+        let viewModel = RawCullViewModel()
+
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 0, fileIDs: [firstSingle.id]),
+            BurstGroup(id: 1, fileIDs: needsReviewFiles.map(\.id)),
+            BurstGroup(id: 2, fileIDs: deferredFiles.map(\.id)),
+            BurstGroup(id: 3, fileIDs: [secondSingle.id]),
+            BurstGroup(id: 4, fileIDs: reviewedFiles.map(\.id)),
+            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id)),
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(groupID: 1, fileIDs: needsReviewFiles.map(\.id), confidence: .low),
+            2: makeReviewQueueResult(
+                groupID: 2,
+                fileIDs: deferredFiles.map(\.id),
+                confidence: .low,
+                reviewState: .deferred,
+            ),
+            4: makeReviewQueueResult(
+                groupID: 4,
+                fileIDs: reviewedFiles.map(\.id),
+                confidence: .low,
+                reviewState: .reviewed,
+            ),
+            5: makeReviewQueueResult(
+                groupID: 5,
+                fileIDs: appliedFiles.map(\.id),
+                confidence: .high,
+                reviewState: .decisionApplied,
+                isSafeForOneClickCulling: true,
+            ),
+        ]
+
+        #expect(viewModel.burstGroupsHomeCounts == BurstGroupsHomeCounts(
+            singleImages: 2,
+            deferred: 1,
+            markedReviewed: 1,
+            needsReview: 1,
+        ))
+
+        viewModel.markBurstGroupReviewed(groupID: 1)
+
+        #expect(viewModel.burstGroupsHomeCounts.markedReviewed == 2)
+        #expect(viewModel.burstGroupsHomeCounts.needsReview == 0)
+    }
+
+    @Test(.tags(.smoke))
+    func `single image category excludes every multi-image burst`() {
+        let firstSingle = makeGridTestFile("single-first.ARW")
+        let secondSingle = makeGridTestFile("single-second.ARW")
+        let burstFiles = [makeGridTestFile("burst-first.ARW"), makeGridTestFile("burst-second.ARW")]
+        let viewModel = RawCullViewModel()
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 0, fileIDs: [firstSingle.id]),
+            BurstGroup(id: 1, fileIDs: burstFiles.map(\.id)),
+            BurstGroup(id: 2, fileIDs: [secondSingle.id]),
+        ]
+
+        viewModel.burstReviewQueueFilter = .singleImages
+
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [0, 2])
+    }
+
+    @Test(.tags(.smoke))
     func `review and defer actions toggle back to persisted neutral state`() {
         let viewModel = RawCullViewModel()
         let first = makeGridTestFile("toggle-first.ARW")

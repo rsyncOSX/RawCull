@@ -63,7 +63,8 @@ final class SimilarityScoringModel {
     var burstGroupLookup: [UUID: Int] = [:]
     /// Distance threshold for burst clustering. Lower = tighter groups.
     var burstSensitivity: Float = 0.25
-    /// When true, the grid renders burst group section headers.
+    /// When true, the grid renders a selected burst-group category instead of
+    /// the burst-groups home view.
     var burstModeActive: Bool = false
     /// True while groupBursts() is running.
     var isGrouping: Bool = false
@@ -312,7 +313,7 @@ final class SimilarityScoringModel {
 
     /// Cluster `files` into burst groups using a sequential O(n) distance pass.
     /// `files` must be sorted by filename (= shot order) before calling.
-    /// Sets `burstModeActive = true` on completion.
+    /// Preserves the current home/category presentation on completion.
     ///
     /// Cancels any in-flight grouping work at the top so a dragging slider
     /// does not spawn multiple concurrent unarchive passes over the full
@@ -325,7 +326,6 @@ final class SimilarityScoringModel {
             burstGroups = []
             burstGroupLookup = [:]
             burstBoundaryEvidence = []
-            burstModeActive = true
             return
         }
 
@@ -386,7 +386,6 @@ final class SimilarityScoringModel {
             },
         )
         _adjacentDistanceCacheSignature = signature
-        burstModeActive = true
         Logger.process.debugMessageOnly("SimilarityScoringModel: \(burstGroups.count) burst groups from \(files.count) files (threshold \(threshold))")
     }
 
@@ -404,7 +403,6 @@ final class SimilarityScoringModel {
             },
         )
         _adjacentDistanceCacheSignature = 0
-        burstModeActive = !snapshot.groups.isEmpty
     }
 
     // MARK: - Static helpers (nonisolated, used from detached tasks)

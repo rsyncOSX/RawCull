@@ -84,7 +84,9 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`candidate context resolves selected rank saliency scores and focus points`()' \
 	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus uses recommended finalists without mutating source ids`()' \
 	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus falls back to ranked candidates when recommendation ids are missing`()' \
-	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus falls back to file ids when candidates are missing`()'
+	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus falls back to file ids when candidates are missing`()' \
+	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
+	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()'
 PERFORMANCE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
 
