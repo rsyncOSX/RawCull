@@ -272,8 +272,22 @@ extension RawCullViewModel {
         setBurstReviewState(.reviewed, groupID: groupID)
     }
 
+    @discardableResult
+    func toggleBurstGroupReviewed(groupID: Int) -> Bool {
+        let isActive = burstAnalysisResults[groupID]?.reviewState == .reviewed
+        setBurstReviewState(isActive ? .none : .reviewed, groupID: groupID)
+        return !isActive
+    }
+
     func deferBurstGroup(groupID: Int) {
         setBurstReviewState(.deferred, groupID: groupID)
+    }
+
+    @discardableResult
+    func toggleBurstGroupDeferred(groupID: Int) -> Bool {
+        let isActive = burstAnalysisResults[groupID]?.reviewState == .deferred
+        setBurstReviewState(isActive ? .none : .deferred, groupID: groupID)
+        return !isActive
     }
 
     // MARK: - Shared pure helpers
@@ -396,7 +410,13 @@ extension RawCullViewModel {
         groupID: Int,
         persist: Bool = true,
     ) {
-        burstReviewStates[groupID] = state
+        switch state {
+        case .none:
+            burstReviewStates.removeValue(forKey: groupID)
+
+        default:
+            burstReviewStates[groupID] = state
+        }
         if var result = burstAnalysisResults[groupID] {
             result.reviewState = state
             burstAnalysisResults[groupID] = result

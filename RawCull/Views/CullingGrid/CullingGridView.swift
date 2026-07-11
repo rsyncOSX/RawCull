@@ -522,13 +522,18 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func markBurstGroupReviewed(_ groupID: Int) {
-        viewModel.markBurstGroupReviewed(groupID: groupID)
-        expandedBurstGroupIDs.remove(groupID)
-        collapsedBurstGroupIDs.insert(groupID)
+        let isActive = viewModel.toggleBurstGroupReviewed(groupID: groupID)
+        if isActive {
+            expandedBurstGroupIDs.remove(groupID)
+            collapsedBurstGroupIDs.insert(groupID)
+        } else {
+            collapsedBurstGroupIDs.remove(groupID)
+            expandedBurstGroupIDs.insert(groupID)
+        }
     }
 
     private func deferBurstGroup(_ groupID: Int) {
-        viewModel.deferBurstGroup(groupID: groupID)
+        viewModel.toggleBurstGroupDeferred(groupID: groupID)
         collapsedBurstGroupIDs.remove(groupID)
         expandedBurstGroupIDs.insert(groupID)
     }

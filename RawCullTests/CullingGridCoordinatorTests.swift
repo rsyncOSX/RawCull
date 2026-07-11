@@ -321,6 +321,38 @@ struct CullingGridCoordinatorTests {
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [3])
     }
 
+    @Test(.tags(.smoke))
+    func `review and defer actions toggle back to persisted neutral state`() {
+        let viewModel = RawCullViewModel()
+        let first = makeGridTestFile("toggle-first.ARW")
+        let second = makeGridTestFile("toggle-second.ARW")
+        let catalog = URL(fileURLWithPath: "/tmp/toggle-catalog")
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 1, fileIDs: [first.id, second.id])
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(
+                groupID: 1,
+                fileIDs: [first.id, second.id],
+                confidence: .low,
+            )
+        ]
+
+        #expect(viewModel.toggleBurstGroupReviewed(groupID: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState == .reviewed)
+
+        #expect(!viewModel.toggleBurstGroupReviewed(groupID: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState.rawValue == BurstReviewState.none.rawValue)
+        #expect(viewModel.reviewStateSnapshots(catalog: catalog, files: [first, second]).isEmpty)
+
+        #expect(viewModel.toggleBurstGroupDeferred(groupID: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState == .deferred)
+
+        #expect(!viewModel.toggleBurstGroupDeferred(groupID: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState.rawValue == BurstReviewState.none.rawValue)
+        #expect(viewModel.reviewStateSnapshots(catalog: catalog, files: [first, second]).isEmpty)
+    }
+
     @Test
     func `singleton groups remain visible in all but are excluded from review queues`() {
         let viewModel = RawCullViewModel()
