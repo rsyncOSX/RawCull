@@ -136,8 +136,7 @@ struct SharedMainToolbarContent: ToolbarContent {
     }
 
     private var usesBurstWorkspaceChrome: Bool {
-        viewModel.mainViewMode == .similarityGrid
-            || viewModel.activeBurstComparisonGroupID != nil
+        viewModel.activeBurstComparisonGroupID != nil
     }
 
     private var activeRatingInt: Int? {
