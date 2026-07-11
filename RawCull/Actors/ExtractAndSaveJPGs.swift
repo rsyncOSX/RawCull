@@ -29,7 +29,7 @@ nonisolated enum ExtractJPGExportMode: String, CaseIterable, Identifiable, Senda
 actor ExtractAndSaveJPGs {
     // Track the current preload task so we can cancel it
 
-    private var extractJPEGSTask: Task<Int, Never>?
+    private var extractJPEGSTask: Task<JPGExportResult, Never>?
     private var successCount = 0
 
     private var fileHandlers: FileHandlers?
@@ -43,6 +43,8 @@ actor ExtractAndSaveJPGs {
     private let destinationCatalogURL: URL?
     private let exportMode: ExtractJPGExportMode
     private let previewLoader: any FullSizePreviewLoading
+    private let saveHandler: @Sendable (Data, URL, URL, ExtractJPGExportMode) async throws -> Void
+    private var failures: [JPGExportFailure] = []
 
     /// Used in time remaining
     private var lastItemTime: Date?
@@ -52,10 +54,20 @@ actor ExtractAndSaveJPGs {
         destinationCatalogURL: URL,
         exportMode: ExtractJPGExportMode,
         previewLoader: any FullSizePreviewLoading = FullSizePreviewLoader.shared,
+        saveHandler: @escaping @Sendable (Data, URL, URL, ExtractJPGExportMode) async throws -> Void = {
+            data, source, destination, mode in
+            try await SaveJPGImage().save(
+                data,
+                originalURL: source,
+                destinationCatalogURL: destination,
+                exportMode: mode,
+            )
+        },
     ) {
         self.destinationCatalogURL = destinationCatalogURL
         self.exportMode = exportMode
         self.previewLoader = previewLoader
+        self.saveHandler = saveHandler
         if !files.isEmpty {
             filteredFilesURLs = files.map(\.url)
         }
@@ -66,12 +78,13 @@ actor ExtractAndSaveJPGs {
     }
 
     @discardableResult
-    func extractAndSavejpgs() async -> Int {
+    func extractAndSavejpgs() async -> JPGExportResult {
         cancelExtractJPGSTask()
 
         if let filteredFilesURLs {
             let task = Task {
                 successCount = 0
+                failures = []
                 processingTimes = []
                 // let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
                 totalFilesToProcess = filteredFilesURLs.count
@@ -97,7 +110,7 @@ actor ExtractAndSaveJPGs {
                     }
 
                     await group.waitForAll()
-                    return successCount
+                    return JPGExportResult(succeeded: successCount, failures: failures)
                 }
             }
 
@@ -105,7 +118,7 @@ actor ExtractAndSaveJPGs {
             return await task.value
         }
 
-        return 0
+        return JPGExportResult(succeeded: 0, failures: [])
     }
 
     private func processSingleExtraction(_ url: URL) async {
@@ -118,13 +131,13 @@ actor ExtractAndSaveJPGs {
 
             guard let jpegData = SaveJPGImage.jpegData(from: cgImage) else { return }
 
-            await save(jpegData, originalURL: url)
+            guard await save(jpegData, originalURL: url) else { return }
 
         case .demosaicedRAW:
             guard let jpegData = try? await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0) else { return }
             if Task.isCancelled { return }
 
-            await save(jpegData, originalURL: url)
+            guard await save(jpegData, originalURL: url) else { return }
         }
 
         let newCount = incrementAndGetCount()
@@ -136,16 +149,14 @@ actor ExtractAndSaveJPGs {
         await previewLoader.loadEmbeddedPreview(for: url)
     }
 
-    private func save(_ jpegData: Data, originalURL: URL) async {
-        if let destinationCatalogURL {
-            await SaveJPGImage().save(
-                jpegData,
-                originalURL: originalURL,
-                destinationCatalogURL: destinationCatalogURL,
-                exportMode: exportMode,
-            )
-        } else {
-            await SaveJPGImage().save(jpegData, originalURL: originalURL)
+    private func save(_ jpegData: Data, originalURL: URL) async -> Bool {
+        guard let destinationCatalogURL else { return false }
+        do {
+            try await saveHandler(jpegData, originalURL, destinationCatalogURL, exportMode)
+            return true
+        } catch {
+            failures.append(JPGExportFailure(fileName: originalURL.lastPathComponent, message: error.localizedDescription))
+            return false
         }
     }
 
@@ -177,4 +188,14 @@ actor ExtractAndSaveJPGs {
         successCount += 1
         return successCount
     }
+}
+
+nonisolated struct JPGExportFailure: Sendable, Equatable {
+    let fileName: String
+    let message: String
+}
+
+nonisolated struct JPGExportResult: Sendable, Equatable {
+    let succeeded: Int
+    let failures: [JPGExportFailure]
 }

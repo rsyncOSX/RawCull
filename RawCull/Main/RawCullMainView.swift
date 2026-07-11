@@ -107,6 +107,22 @@ struct RawCullMainView: View {
                 showcopytask: $viewModel.showcopyARWFilesView,
             )
         }
+        .alert(item: $viewModel.operationFailurePresentation) { presentation in
+            Alert(
+                title: Text(presentation.title),
+                message: Text(presentation.message),
+                dismissButton: .default(Text("OK")),
+            )
+        }
+        .alert("Changes Not Saved", isPresented: persistenceErrorIsPresented) {
+            Button("Retry") {
+                Task {
+                    await viewModel.cullingModel.retryPersistence()
+                }
+            }
+        } message: {
+            Text("RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")")
+        }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
                 gridthumbnailviewmodel.open(
@@ -125,6 +141,13 @@ struct RawCullMainView: View {
             viewModel.focusExtractJPGs = false
             viewModel.presentExtractJPGsSheet()
         }
+    }
+
+    private var persistenceErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.cullingModel.persistenceError != nil },
+            set: { _ in },
+        )
     }
 
     // MARK: - Loupe mode (3-column split)

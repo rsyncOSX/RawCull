@@ -26,12 +26,12 @@ actor WriteSavedFilesJSON {
     }
 
     /// Write saved files to persistent storage.
-    static func write(_ savedFiles: [SavedFiles]?, to savedFilesURL: URL? = nil) async {
+    static func write(_ savedFiles: [SavedFiles]?, to savedFilesURL: URL? = nil) async throws {
         guard let savedFiles else { return }
         if let savedFilesURL {
-            await WriteSavedFilesJSON(savedFilesURL: savedFilesURL).performWrite(savedFiles)
+            try await WriteSavedFilesJSON(savedFilesURL: savedFilesURL).performWrite(savedFiles)
         } else {
-            await shared.performWrite(savedFiles)
+            try await shared.performWrite(savedFiles)
         }
     }
 
@@ -39,40 +39,16 @@ actor WriteSavedFilesJSON {
         self.savedFilesURL = savedFilesURL
     }
 
-    private func performWrite(_ savedFiles: [SavedFiles]) async {
+    private func performWrite(_ savedFiles: [SavedFiles]) async throws {
         Logger.process.debugThreadOnly("WriteSavedFilesJSON write")
-        await encodeJSONData(savedFiles)
-    }
-
-    private func writeJSONToPersistentStore(jsonData: Data?) async {
-        if let jsonData {
-            do {
-                let fileURL = savePath
-                try FileManager.default.createDirectory(
-                    at: fileURL.deletingLastPathComponent(),
-                    withIntermediateDirectories: true,
-                    attributes: nil,
-                )
-                try jsonData.write(to: fileURL, options: .atomic)
-            } catch let err {
-                let error = err
-                await Logger.process.errorMessageOnly(
-                    "WriteSavedFilesJSON: some ERROR writing filerecords to permanent storage \(error)",
-                )
-            }
-        }
-    }
-
-    private func encodeJSONData(_ savedFiles: [SavedFiles]) async {
         let encodejsondata = EncodeGeneric()
-        do {
-            let encodeddata = try encodejsondata.encode(savedFiles)
-            await writeJSONToPersistentStore(jsonData: encodeddata)
-        } catch let err {
-            let error = err
-            await Logger.process.errorMessageOnly(
-                "WriteSavedFilesJSON: some ERROR encoding filerecords \(error)",
-            )
-        }
+        let encodedData = try encodejsondata.encode(savedFiles)
+        let fileURL = savePath
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+            attributes: nil,
+        )
+        try encodedData.write(to: fileURL, options: .atomic)
     }
 }

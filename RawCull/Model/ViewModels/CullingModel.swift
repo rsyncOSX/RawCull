@@ -31,15 +31,17 @@ struct CullingScoringResult {
 @Observable @MainActor
 final class CullingModel {
     private(set) var savedFiles = [SavedFiles]()
+    private(set) var persistenceError: String?
+    private(set) var hasUnsavedChanges = false
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private let saveDelayNanoseconds: UInt64
-    @ObservationIgnored private let saveHandler: @Sendable ([SavedFiles]) async -> Void
+    @ObservationIgnored private let saveHandler: @Sendable ([SavedFiles]) async throws -> Void
 
     init(
         saveDelayNanoseconds: UInt64 = 350_000_000,
-        saveHandler: @escaping @Sendable ([SavedFiles]) async -> Void = { savedFiles in
-            await WriteSavedFilesJSON.write(savedFiles)
+        saveHandler: @escaping @Sendable ([SavedFiles]) async throws -> Void = { savedFiles in
+            try await WriteSavedFilesJSON.write(savedFiles)
         },
     ) {
         self.saveDelayNanoseconds = saveDelayNanoseconds
@@ -195,9 +197,9 @@ final class CullingModel {
     private func scheduleSave() {
         let snapshot = savedFiles
         let delay = saveDelayNanoseconds
-        let saveHandler = saveHandler
 
         saveTask?.cancel()
+        hasUnsavedChanges = true
         saveTask = Task {
             do {
                 try await Task.sleep(nanoseconds: delay)
@@ -205,7 +207,33 @@ final class CullingModel {
                 return
             }
             guard !Task.isCancelled else { return }
-            await saveHandler(snapshot)
+            await persist(snapshot)
+        }
+    }
+
+    func retryPersistence() async {
+        saveTask?.cancel()
+        saveTask = nil
+        await persist(savedFiles)
+    }
+
+    func flushPersistence() async {
+        guard hasUnsavedChanges else { return }
+        saveTask?.cancel()
+        saveTask = nil
+        await persist(savedFiles)
+    }
+
+    private func persist(_ snapshot: [SavedFiles]) async {
+        do {
+            try await saveHandler(snapshot)
+            guard snapshot == savedFiles else { return }
+            hasUnsavedChanges = false
+            persistenceError = nil
+        } catch {
+            hasUnsavedChanges = true
+            persistenceError = error.localizedDescription
+            Logger.process.errorMessageOnly("CullingModel: failed to persist saved files: \(error)")
         }
     }
 

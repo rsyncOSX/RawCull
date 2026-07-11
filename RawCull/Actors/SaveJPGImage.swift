@@ -16,18 +16,14 @@ actor SaveJPGImage {
     /// - Parameters:
     ///   - jpegData: JPEG data encoded by the caller before crossing actor boundaries.
     ///   - originalURL: The URL of the source ARW file (used to generate the filename).
-    func save(_ jpegData: Data, originalURL: URL) async {
+    func save(_ jpegData: Data, originalURL: URL) async throws {
         let outputURL = originalURL.deletingPathExtension().appendingPathExtension("jpg")
 
         Logger.process.info("ExtractEmbeddedPreview: Attempting to save to \(outputURL.path)")
 
-        await Task.detached(priority: .background) {
-            do {
-                try jpegData.write(to: outputURL, options: .atomic)
-                Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
-            } catch {
-                Logger.process.error("ExtractEmbeddedPreview: Failed to write JPEG at \(outputURL.path): \(error)")
-            }
+        try await Task.detached(priority: .background) {
+            try jpegData.write(to: outputURL, options: .atomic)
+            Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
         }.value
     }
 
@@ -37,7 +33,7 @@ actor SaveJPGImage {
         originalURL: URL,
         destinationCatalogURL: URL,
         exportMode: ExtractJPGExportMode,
-    ) async {
+    ) async throws {
         let outputURL = Self.outputURL(
             for: originalURL,
             in: destinationCatalogURL,
@@ -46,13 +42,9 @@ actor SaveJPGImage {
 
         Logger.process.info("ExtractEmbeddedPreview: Attempting to save to \(outputURL.path)")
 
-        await Task.detached(priority: .background) {
-            do {
-                try jpegData.write(to: outputURL, options: .atomic)
-                Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
-            } catch {
-                Logger.process.error("ExtractEmbeddedPreview: Failed to write JPEG at \(outputURL.path): \(error)")
-            }
+        try await Task.detached(priority: .background) {
+            try jpegData.write(to: outputURL, options: .atomic)
+            Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
         }.value
     }
 

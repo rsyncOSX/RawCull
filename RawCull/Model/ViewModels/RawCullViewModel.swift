@@ -65,6 +65,12 @@ struct RawDiagnosticsPresentation: Identifiable {
     let log: String
 }
 
+struct OperationFailurePresentation: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+}
+
 @Observable @MainActor
 final class RawCullViewModel {
     /// Remember previous selected source to avoid a new rescan of
@@ -183,6 +189,7 @@ final class RawCullViewModel {
     var activeSheet: ActiveSheet?
 
     var rawDiagnosticsPresentation: RawDiagnosticsPresentation?
+    var operationFailurePresentation: OperationFailurePresentation?
 
     /// Closure to count scanning files
     var countingScannedFiles: (@Sendable (Int) -> Void)?

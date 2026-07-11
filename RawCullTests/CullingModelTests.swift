@@ -19,6 +19,23 @@ private actor SavedFilesRecorder {
     }
 }
 
+private actor FailingThenSuccessfulSave {
+    private var attempts = 0
+    private var savedSnapshots: [[SavedFiles]] = []
+
+    func save(_ snapshot: [SavedFiles]) throws {
+        attempts += 1
+        if attempts == 1 {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        savedSnapshots.append(snapshot)
+    }
+
+    func state() -> (attempts: Int, snapshots: [[SavedFiles]]) {
+        (attempts, savedSnapshots)
+    }
+}
+
 private actor SharpnessScoreURLRecorder {
     private var fileNames: [String] = []
 
@@ -202,6 +219,32 @@ struct CullingModelTests {
         #expect(model.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
         #expect(model.savedFiles.first?.filerecords?.first?.rating == 3)
         #expect(snapshots.last?.first?.filerecords?.first?.rating == 3)
+    }
+
+    @Test
+    func `failed persistence remains dirty and retry saves newest snapshot`() async {
+        let saver = FailingThenSuccessfulSave()
+        let model = CullingModel(saveDelayNanoseconds: 0) { snapshot in
+            try await saver.save(snapshot)
+        }
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
+        for _ in 0 ..< 200 where model.persistenceError == nil {
+            await Task.yield()
+        }
+
+        #expect(model.hasUnsavedChanges)
+        #expect(model.persistenceError != nil)
+
+        model.updateRating(fileName: "two.ARW", rating: 5, in: catalog)
+        await model.retryPersistence()
+
+        let state = await saver.state()
+        #expect(state.attempts >= 2)
+        #expect(state.snapshots.last?.first?.filerecords?.count == 2)
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.persistenceError == nil)
     }
 
     @Test
@@ -397,7 +440,7 @@ struct SavedFilesJSONTests {
             )
         ]
 
-        await WriteSavedFilesJSON.write(savedFiles, to: fileURL)
+        try await WriteSavedFilesJSON.write(savedFiles, to: fileURL)
 
         #expect(FileManager.default.fileExists(atPath: fileURL.path))
         let data = try Data(contentsOf: fileURL)

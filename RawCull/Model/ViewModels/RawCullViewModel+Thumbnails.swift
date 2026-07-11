@@ -69,6 +69,14 @@ extension RawCullViewModel {
 
         let destinationURL = destination.url
         let destinationAccessStarted = startSecurityScopedResource(destinationURL)
+        guard destinationAccessStarted else {
+            creatingthumbnails = false
+            operationFailurePresentation = OperationFailurePresentation(
+                title: "Export Not Started",
+                message: "RawCull could not access the selected destination folder. Choose the folder again and retry.",
+            )
+            return
+        }
         let extract = ExtractAndSaveJPGs(
             files: exportFiles,
             destinationCatalogURL: destinationURL,
@@ -78,15 +86,20 @@ extension RawCullViewModel {
 
         Task(priority: .background) {
             await extract.setFileHandlers(handlers)
-            await extract.extractAndSavejpgs()
+            let result = await extract.extractAndSavejpgs()
 
             await MainActor.run {
-                if destinationAccessStarted {
-                    self.stopSecurityScopedResource(destinationURL)
-                }
+                self.stopSecurityScopedResource(destinationURL)
                 guard self.currentExtractAndSaveJPGsActor === extract else { return }
                 self.currentExtractAndSaveJPGsActor = nil
                 self.creatingthumbnails = false
+                if !result.failures.isEmpty {
+                    let firstFailure = result.failures[0]
+                    self.operationFailurePresentation = OperationFailurePresentation(
+                        title: "Export Incomplete",
+                        message: "\(result.failures.count) of \(result.succeeded + result.failures.count) JPG files could not be saved. First failure: \(firstFailure.fileName): \(firstFailure.message)",
+                    )
+                }
             }
         }
     }

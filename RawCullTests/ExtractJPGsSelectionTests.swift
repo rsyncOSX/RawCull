@@ -63,6 +63,26 @@ struct ExtractJPGsSelectionTests {
     }
 
     @Test
+    func `denied destination access blocks extraction and presents error`() {
+        let viewModel = RawCullViewModel()
+        let file = makeExtractJPGTestFile("A.ARW")
+        let destination = ARWSourceCatalog(
+            name: "Destination",
+            url: URL(fileURLWithPath: "/tmp/destination", isDirectory: true),
+        )
+        viewModel.files = [file]
+        viewModel.filteredFiles = [file]
+        viewModel.selectedFileID = file.id
+        viewModel.startSecurityScopedResource = { _ in false }
+
+        viewModel.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
+
+        #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
+        #expect(!viewModel.creatingthumbnails)
+        #expect(viewModel.operationFailurePresentation?.title == "Export Not Started")
+    }
+
+    @Test
     func `present extract jpgs defaults destination to selected source only when empty`() {
         let viewModel = RawCullViewModel()
         let source = ARWSourceCatalog(
@@ -129,5 +149,27 @@ struct ExtractJPGsOutputURLTests {
         )
 
         #expect(outputURL == destination.appendingPathComponent("Alpha_demosaic.jpg"))
+    }
+
+    @Test
+    func `save propagates destination write failure`() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCull-export-failure-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("not a directory".utf8).write(to: root)
+
+        var didThrow = false
+        do {
+            try await SaveJPGImage().save(
+                Data([0xFF, 0xD8, 0xFF, 0xD9]),
+                originalURL: URL(fileURLWithPath: "/tmp/source/Alpha.ARW"),
+                destinationCatalogURL: root,
+                exportMode: .embeddedJPG,
+            )
+        } catch {
+            didThrow = true
+        }
+
+        #expect(didThrow)
     }
 }
