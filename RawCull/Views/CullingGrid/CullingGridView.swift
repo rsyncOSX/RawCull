@@ -29,28 +29,61 @@ enum GridRatingFilter: Hashable {
 private struct BurstGroupHeaderView: View {
     let files: [FileItem]
     let analysis: BurstAnalysisResult?
+    let isCollapsed: Bool
+    let hiddenCount: Int
+    let onToggleCollapsed: () -> Void
+    let onReviewed: (Int) -> Void
+    let onDeferred: (Int) -> Void
     @Bindable var viewModel: RawCullViewModel
 
     var body: some View {
-        HStack(spacing: 3) {
-            Button("Open burst") {
+        HStack(spacing: 6) {
+            Button(action: onToggleCollapsed) {
+                Label(
+                    isCollapsed ? "Expand burst" : "Collapse burst",
+                    systemImage: isCollapsed ? "chevron.right" : "chevron.down",
+                )
+                .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .help(isCollapsed ? "Show every frame in this burst" : "Show only the top three ranked frames")
+
+            Button {
                 viewModel.compareBurstGroup(files)
+            } label: {
+                Label("Open burst", systemImage: "rectangle.stack")
             }
             .controlSize(.mini)
             .buttonStyle(.borderedProminent)
             .help("Open this burst for review")
 
+            if isCollapsed, hiddenCount > 0 {
+                Text("+\(hiddenCount) more")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .accessibilityLabel("\(hiddenCount) more frames hidden")
+            }
+
             if let groupID = analysis?.groupID {
-                Button("Reviewed") {
-                    viewModel.markBurstGroupReviewed(groupID: groupID)
+                Spacer(minLength: 6)
+
+                Button {
+                    onReviewed(groupID)
+                } label: {
+                    Label("Mark Reviewed", systemImage: "checkmark.circle")
                 }
                 .controlSize(.mini)
+                .buttonStyle(.bordered)
                 .help("Mark this burst as reviewed")
 
-                Button("Defer") {
-                    viewModel.deferBurstGroup(groupID: groupID)
+                Button {
+                    onDeferred(groupID)
+                } label: {
+                    Label("Defer", systemImage: "clock.arrow.circlepath")
                 }
                 .controlSize(.mini)
+                .buttonStyle(.bordered)
                 .help("Defer this burst for later review")
             }
 
@@ -153,6 +186,9 @@ struct CullingGridView<Header: View>: View {
     @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var batchRating: Int = 3
+    @State private var cleanViewEnabled: Bool = true
+    @State private var expandedBurstGroupIDs: Set<Int> = []
+    @State private var collapsedBurstGroupIDs: Set<Int> = []
 
     // ── Burst-mode render cache ──────────────────────────────────────────
     // Recomputed only when `gridCacheKey` changes, so hover/selection
@@ -173,6 +209,14 @@ struct CullingGridView<Header: View>: View {
                         onApplyRating: applyBatchRating,
                     )
                 }
+                if viewModel.showsBurstGroups {
+                    Toggle(isOn: $cleanViewEnabled) {
+                        Label("Clean View", systemImage: "rectangle.3.group")
+                    }
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    .help("Show only the top three ranked frames in each burst")
+                }
                 Spacer()
             }
             .padding()
@@ -182,53 +226,37 @@ struct CullingGridView<Header: View>: View {
                 // Grid view
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVGrid(
-                            columns: [
-                                GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)
-                            ],
-                            spacing: 12,
-                        ) {
+                        Group {
                             if viewModel.showsBurstGroups {
-                                // ── Burst grouping mode ───────────────────────────
-                                ForEach(visibleBurstGroups) { vg in
-                                    Section {
-                                        ForEach(vg.files, id: \.id) { file in
-                                            burstCell(file: file)
-                                                .id(file.id)
-                                                .onHover { isHovering in
-                                                    hoveredFileID = isHovering ? file.id : nil
-                                                }
-                                        }
-                                    } header: {
-                                        if vg.files.count > 1 {
-                                            BurstGroupHeaderView(
-                                                files: vg.files,
-                                                analysis: viewModel.burstAnalysisResult(for: vg.id),
-                                                viewModel: viewModel,
-                                            )
-                                            .padding(.top, 4)
-                                        }
+                                LazyVStack(spacing: 16) {
+                                    ForEach(visibleBurstGroups) { group in
+                                        burstGroupCard(group)
                                     }
                                 }
                             } else {
-                                // ── Flat mode (default) ───────────────────────────
-                                ForEach(files, id: \.id) { file in
-                                    ImageItemView(
-                                        viewModel: viewModel,
-                                        file: file,
-                                        isHovered: hoveredFileID == file.id,
-                                        isSelected: viewModel.selectedFileID == file.id,
-                                        isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
-                                        thumbnailSize: 200,
-                                        ratingValue: ratingValue(for: file),
-                                        ratingDisplay: ratingDisplay(for: file),
-                                        ratingColor: ratingColor(for: file),
-                                        onSelect: { handleToggleSelection(for: file) },
-                                        onDoubleSelect: { handleDoubleSelect(for: file) },
-                                    )
-                                    .id(file.id)
-                                    .onHover { isHovered in
-                                        hoveredFileID = isHovered ? file.id : nil
+                                LazyVGrid(
+                                    columns: [GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)],
+                                    spacing: 12,
+                                ) {
+                                    // ── Flat mode (default) ───────────────────────────
+                                    ForEach(files, id: \.id) { file in
+                                        ImageItemView(
+                                            viewModel: viewModel,
+                                            file: file,
+                                            isHovered: hoveredFileID == file.id,
+                                            isSelected: viewModel.selectedFileID == file.id,
+                                            isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
+                                            thumbnailSize: 200,
+                                            ratingValue: ratingValue(for: file),
+                                            ratingDisplay: ratingDisplay(for: file),
+                                            ratingColor: ratingColor(for: file),
+                                            onSelect: { handleToggleSelection(for: file) },
+                                            onDoubleSelect: { handleDoubleSelect(for: file) },
+                                        )
+                                        .id(file.id)
+                                        .onHover { isHovered in
+                                            hoveredFileID = isHovered ? file.id : nil
+                                        }
                                     }
                                 }
                             }
@@ -414,6 +442,83 @@ struct CullingGridView<Header: View>: View {
             onSelect: { handleToggleSelection(for: file) },
             onDoubleSelect: { handleDoubleSelect(for: file) },
         )
+    }
+
+    private func burstGroupCard(_ group: CullingGridVisibleBurstGroup) -> some View {
+        let analysis = viewModel.burstAnalysisResult(for: group.id)
+        let collapsed = isBurstGroupCollapsed(group.id)
+        let shownFiles = BurstGroupCleanViewPolicy.visibleFiles(
+            in: group.files,
+            rankedFileIDs: analysis?.candidates.map(\.fileID) ?? [],
+            isCollapsed: collapsed,
+        )
+
+        return VStack(alignment: .leading, spacing: 8) {
+            if group.files.count > 1 {
+                BurstGroupHeaderView(
+                    files: group.files,
+                    analysis: analysis,
+                    isCollapsed: collapsed,
+                    hiddenCount: group.files.count - shownFiles.count,
+                    onToggleCollapsed: { toggleBurstGroup(group.id) },
+                    onReviewed: markBurstGroupReviewed,
+                    onDeferred: deferBurstGroup,
+                    viewModel: viewModel,
+                )
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: CGFloat(200)), spacing: 12)],
+                spacing: 12,
+            ) {
+                ForEach(shownFiles, id: \.id) { file in
+                    burstCell(file: file)
+                        .id(file.id)
+                        .onHover { isHovering in
+                            hoveredFileID = isHovering ? file.id : nil
+                        }
+                }
+            }
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.45), in: .rect(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(.separator.opacity(0.55), lineWidth: 1)
+        }
+        .animation(.easeInOut(duration: 0.18), value: collapsed)
+    }
+
+    private func isBurstGroupCollapsed(_ groupID: Int) -> Bool {
+        cleanViewEnabled
+            ? !expandedBurstGroupIDs.contains(groupID)
+            : collapsedBurstGroupIDs.contains(groupID)
+    }
+
+    private func toggleBurstGroup(_ groupID: Int) {
+        if cleanViewEnabled {
+            if expandedBurstGroupIDs.contains(groupID) {
+                expandedBurstGroupIDs.remove(groupID)
+            } else {
+                expandedBurstGroupIDs.insert(groupID)
+            }
+        } else if collapsedBurstGroupIDs.contains(groupID) {
+            collapsedBurstGroupIDs.remove(groupID)
+        } else {
+            collapsedBurstGroupIDs.insert(groupID)
+        }
+    }
+
+    private func markBurstGroupReviewed(_ groupID: Int) {
+        viewModel.markBurstGroupReviewed(groupID: groupID)
+        expandedBurstGroupIDs.remove(groupID)
+        collapsedBurstGroupIDs.insert(groupID)
+    }
+
+    private func deferBurstGroup(_ groupID: Int) {
+        viewModel.deferBurstGroup(groupID: groupID)
+        collapsedBurstGroupIDs.remove(groupID)
+        expandedBurstGroupIDs.insert(groupID)
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {

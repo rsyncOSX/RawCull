@@ -155,6 +155,44 @@ struct CullingGridCoordinatorTests {
         #expect(cache.hasSharpnessScoresSnapshot)
     }
 
+    @Test(.tags(.smoke))
+    func `clean view shows the top three ranked visible files`() {
+        let first = makeGridTestFile("first.ARW")
+        let second = makeGridTestFile("second.ARW")
+        let third = makeGridTestFile("third.ARW")
+        let fourth = makeGridTestFile("fourth.ARW")
+
+        let collapsed = BurstGroupCleanViewPolicy.visibleFiles(
+            in: [first, second, third, fourth],
+            rankedFileIDs: [third.id, first.id, fourth.id, second.id],
+            isCollapsed: true,
+        )
+        let expanded = BurstGroupCleanViewPolicy.visibleFiles(
+            in: [first, second, third, fourth],
+            rankedFileIDs: [third.id, first.id, fourth.id, second.id],
+            isCollapsed: false,
+        )
+
+        #expect(collapsed.map(\.id) == [third.id, first.id, fourth.id])
+        #expect(expanded.map(\.id) == [first.id, second.id, third.id, fourth.id])
+    }
+
+    @Test
+    func `clean view fills missing rankings in original order`() {
+        let first = makeGridTestFile("first.ARW")
+        let second = makeGridTestFile("second.ARW")
+        let third = makeGridTestFile("third.ARW")
+        let fourth = makeGridTestFile("fourth.ARW")
+
+        let visible = BurstGroupCleanViewPolicy.visibleFiles(
+            in: [first, second, third, fourth],
+            rankedFileIDs: [third.id],
+            isCollapsed: true,
+        )
+
+        #expect(visible.map(\.id) == [third.id, first.id, second.id])
+    }
+
     @Test
     func `render cache key tracks complete membership and score revisions`() {
         let first = makeGridTestFile("first.ARW")

@@ -6,11 +6,15 @@ Since you want to improve the satisfaction of the **bursts/groups view** without
 
 ### 1. Group Separation (Container Cards)
 
+**Implemented:** Each burst now renders in a subtle rounded container with a separator stroke, keeping the header and its adaptive thumbnail grid visually anchored as one group.
+
 Right now, the burst groups are separated by a thin margin and a small text header (`Open burst | Reviewed | Defer`). When scrolling quickly, the rows can blend together into a single wall of thumbnails.
 
 * **The Fix:** Place each burst group inside a subtle, slightly lighter or darker **background container (a card)** with rounded corners, or add a distinct horizontal separator line between groups. This visually anchors each burst as a single "event" or "sequence."
 
 ### 2. Collapsible Stacks (The "Clean View" Toggle)
+
+**Implemented:** Clean View is enabled by default and collapses every burst to its top three analysis-ranked frames. Each header can independently expand or collapse its burst and displays a `+N more` badge for hidden frames.
 
 If a photographer takes a burst of 40 frames, a single burst will take up multiple rows and push other groups off the screen.
 
@@ -23,6 +27,8 @@ In `Screenshot 2026-07-06 at 12.59.06.jpg`, the image `_DSC7127.ARW` has an oran
 * **The Fix:** Give the AI's top-recommended image (or the user's picked image) a subtle visual promotion. You could automatically sort the "Suggested" image to be the **very first thumbnail** on the left of the burst, or give its border a unique color (like a soft gold/orange tint) to immediately draw the eye to the best shot.
 
 ### 4. Direct Action on Headers
+
+**Implemented:** Burst headers now use labeled icon buttons for opening, marking reviewed, and deferring. Marking a burst reviewed collapses it immediately; deferring keeps it expanded. The disclosure button directly expands or collapses the group.
 
 The buttons `Open burst`, `Reviewed`, and `Defer` currently look like static text labels or tabs rather than primary actions.
 
