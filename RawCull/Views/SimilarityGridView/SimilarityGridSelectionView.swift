@@ -88,21 +88,6 @@ struct SimilarityGridSelectionView: View {
         .font(.caption)
         .help("Return to the burst groups home")
 
-        Button {
-            analyzeBurstsRequested = true
-            viewModel.similarityModel.burstModeActive = false
-            viewModel.burstReviewQueueFilter = .all
-            Task {
-                defer { analyzeBurstsRequested = false }
-                await viewModel.reindexBurstAnalysis()
-            }
-        } label: {
-            Label("Reanalyze Bursts", systemImage: "arrow.clockwise")
-        }
-        .font(.caption)
-        .disabled(isGrouping || burstAnalysisIsBusy || viewModel.files.isEmpty)
-        .help("Delete saved burst analysis for this catalog and recompute from scratch")
-
         if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
             HStack {
                 ProgressView()
