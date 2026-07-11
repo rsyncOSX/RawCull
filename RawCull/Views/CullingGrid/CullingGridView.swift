@@ -36,6 +36,14 @@ private struct BurstGroupHeaderView: View {
     let onDeferred: (Int) -> Void
     @Bindable var viewModel: RawCullViewModel
 
+    private var isReviewed: Bool {
+        analysis?.reviewState == .reviewed
+    }
+
+    private var isDeferred: Bool {
+        analysis?.reviewState == .deferred
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             Button(action: onToggleCollapsed) {
@@ -71,20 +79,24 @@ private struct BurstGroupHeaderView: View {
                 Button {
                     onReviewed(groupID)
                 } label: {
-                    Label("Mark Reviewed", systemImage: "checkmark.circle")
+                    Label("Mark Reviewed", systemImage: isReviewed ? "checkmark.circle.fill" : "checkmark.circle")
                 }
                 .controlSize(.mini)
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(isReviewed ? .green : .gray.opacity(0.45))
                 .help("Mark this burst as reviewed")
+                .accessibilityValue(isReviewed ? "Selected" : "Not selected")
 
                 Button {
                     onDeferred(groupID)
                 } label: {
-                    Label("Defer", systemImage: "clock.arrow.circlepath")
+                    Label("Defer", systemImage: isDeferred ? "clock.badge.checkmark.fill" : "clock.arrow.circlepath")
                 }
                 .controlSize(.mini)
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(isDeferred ? .orange : .gray.opacity(0.45))
                 .help("Defer this burst for later review")
+                .accessibilityValue(isDeferred ? "Selected" : "Not selected")
             }
 
             Spacer(minLength: 6)
