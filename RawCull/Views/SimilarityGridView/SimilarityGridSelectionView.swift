@@ -32,26 +32,6 @@ struct SimilarityGridSelectionView: View {
 
     @ViewBuilder
     private var burstGroupHeaderControls: some View {
-        let isIndexing = viewModel.similarityModel.isIndexing
-        let isGrouping = viewModel.similarityModel.isGrouping
-        let burstAnalysisIsBusy = analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
-        let sharpnessControlsDisabled = viewModel.sharpnessModel.isScoring
-            || isIndexing
-            || isGrouping
-            || burstAnalysisIsBusy
-
-        Text("Scoring in Scoring Parameters.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-        Button {
-            viewModel.activeSheet = .scoringParams
-        } label: {
-            Label("Scoring Parameters", systemImage: "slider.horizontal.3")
-        }
-        .buttonStyle(.bordered)
-        .disabled(sharpnessControlsDisabled)
-
         HStack(spacing: 8) {
             Text("Similarity")
                 .font(.caption.monospaced())
@@ -85,32 +65,8 @@ struct SimilarityGridSelectionView: View {
             .foregroundStyle(.secondary)
             .frame(minWidth: 84, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.quaternary.opacity(0.7), in: .capsule)
 
         Spacer(minLength: 8)
-
-        Button {
-            viewModel.similarityModel.burstModeActive = false
-            viewModel.burstReviewQueueFilter = .all
-        } label: {
-            Label("Exit Groups", systemImage: "xmark.circle")
-        }
-        .buttonStyle(.bordered)
-        .help("Return to the burst groups home")
-
-        Button {
-            analyzeBurstsRequested = true
-            Task {
-                defer { analyzeBurstsRequested = false }
-                await viewModel.analyzeBursts()
-            }
-        } label: {
-            Label("Reanalyze Bursts", systemImage: "arrow.clockwise")
-        }
-        .buttonStyle(.bordered)
-        .disabled(sharpnessControlsDisabled)
 
         if viewModel.sharpnessModel.isCalibratingSharpnessScoring {
             HStack {
