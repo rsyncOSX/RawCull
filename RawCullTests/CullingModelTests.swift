@@ -837,6 +837,26 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.cullingModel.savedFiles.first?.filerecords?.first?.rating == 3)
     }
 
+    @Test(arguments: [-1, 0, 2, 3, 4, 5])
+    func `updateRatingAndAdvance marks active burst reviewed`(_ rating: Int) {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
+        let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
+        let groupID = 7
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.selectedFileID = files[0].id
+        viewModel.activeBurstComparisonGroupID = groupID
+        viewModel.burstAnalysisResults[groupID] = makeCullingBurstResult(groupID: groupID, files: files)
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRatingAndAdvance(for: files[0], rating: rating, in: files)
+
+        #expect(viewModel.ratingCache == [files[0].name: rating])
+        #expect(viewModel.burstReviewStates[groupID] == .reviewed)
+        #expect(viewModel.burstAnalysisResults[groupID]?.reviewState == .reviewed)
+    }
+
     @Test
     func `updateRatingAndAdvance leaves last visible file selected`() {
         let viewModel = RawCullViewModel()

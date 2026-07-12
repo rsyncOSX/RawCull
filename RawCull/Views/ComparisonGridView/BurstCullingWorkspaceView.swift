@@ -73,17 +73,36 @@ struct BurstCullingWorkspaceView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
 
-            Button {
-                viewModel.markBurstGroupReviewed(groupID: groupID)
-            } label: {
-                Label("Mark Reviewed", systemImage: "checkmark")
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            reviewButton
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
+    }
+
+    @ViewBuilder
+    private var reviewButton: some View {
+        if isReviewed {
+            reviewButtonContent
+                .buttonStyle(.borderedProminent)
+        } else {
+            reviewButtonContent
+                .buttonStyle(.bordered)
+        }
+    }
+
+    private var reviewButtonContent: some View {
+        Button {
+            viewModel.toggleBurstGroupReviewed(groupID: groupID)
+        } label: {
+            Label(
+                "Mark Reviewed",
+                systemImage: isReviewed ? "checkmark.circle.fill" : "checkmark.circle",
+            )
+        }
+        .controlSize(.large)
+        .help(isReviewed ? "Unmark this burst as reviewed" : "Mark this burst as reviewed")
+        .accessibilityValue(isReviewed ? "Selected" : "Not selected")
     }
 
     private var shortcutBar: some View {
@@ -331,6 +350,10 @@ struct BurstCullingWorkspaceView: View {
 
     private var analysis: BurstAnalysisResult? {
         viewModel.burstAnalysisResult(for: groupID)
+    }
+
+    private var isReviewed: Bool {
+        analysis?.reviewState == .reviewed
     }
 
     private var selectedFile: FileItem? {
