@@ -365,6 +365,7 @@ struct BurstCullingWorkspaceView: View {
         guard let selectedFile else { return 0 }
         return files.firstIndex { $0.id == selectedFile.id } ?? 0
     }
+
     private var burstNumber: Int {
         (viewModel.similarityModel.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
     }
@@ -482,28 +483,37 @@ struct BurstCullingWorkspaceView: View {
         switch action {
         case .navigatePrevious:
             navigate(by: -1)
+
         case .navigateNext:
             navigate(by: 1)
+
         case .escape:
             viewModel.returnToActiveBurstGroupView()
+
         case .zoomIn:
             withAnimation(.spring()) {
                 viewportState.scale = min(5.0, viewportState.scale + 0.4)
                 viewportState.lastScale = viewportState.scale
             }
+
         case .zoomOut:
             withAnimation(.spring()) {
                 viewportState.scale = max(0.5, viewportState.scale - 0.4)
                 viewportState.lastScale = viewportState.scale
             }
+
         case .toggleEmbeddedJPG:
             sourceSelection.toggleExtractionSource(.embeddedJPG)
+
         case .toggleDevelopedRAW:
             sourceSelection.toggleExtractionSource(.developedRAW)
+
         case .toggleFocusMask:
             viewportState.showFocusMask.toggle()
+
         case .toggleFocusPoints:
             viewportState.showFocusPoints.toggle()
+
         case let .rating(rating):
             applyRating(rating)
         }

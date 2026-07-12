@@ -307,8 +307,7 @@ struct RawCullMainView: View {
     @ViewBuilder
     private var comparisonGridSplit: some View {
         if let groupID = viewModel.activeBurstComparisonGroupID,
-           !showsDetailedBurstComparison
-        {
+           !showsDetailedBurstComparison {
             BurstCullingWorkspaceView(
                 viewModel: viewModel,
                 groupID: groupID,
