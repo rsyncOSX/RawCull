@@ -347,12 +347,34 @@ struct ComparisonGridView: View {
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> KeyPress.Result {
+        let burstAction = viewModel.activeBurstComparisonGroupID == nil
+            ? nil
+            : BurstReviewKeyAction.resolve(characters: event.characters)
+        if let burstAction {
+            return handleBurstReviewKeyAction(burstAction)
+        }
+
         guard let action = ComparisonGridKeyAction.resolve(
             characters: event.characters,
             keyCode: event.keyCode,
         ) else { return .ignored }
 
         return handleKeyAction(action)
+    }
+
+    private func handleBurstReviewKeyAction(_ action: BurstReviewKeyAction) -> KeyPress.Result {
+        switch action {
+        case .previousImage:
+            navigate(.left)
+
+        case .nextImage:
+            navigate(.right)
+
+        case .nextGroup:
+            guard let groupID = viewModel.activeBurstComparisonGroupID else { return .ignored }
+            viewModel.advanceToNextBurstGroup(after: groupID)
+        }
+        return .handled
     }
 
     private func handleKeyAction(_ action: ComparisonGridKeyAction) -> KeyPress.Result {
@@ -498,6 +520,7 @@ private struct BurstComparisonEvidenceView: View {
     }
 
     private var inspectorHint: String {
-        inspectorIsPresented ? "Press I to close Inspector" : "Press I to open Inspector"
+        let inspectorAction = inspectorIsPresented ? "Press I to close Inspector" : "Press I to open Inspector"
+        return "\(inspectorAction)  ·  P/N frame  ·  G next burst"
     }
 }

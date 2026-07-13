@@ -86,3 +86,17 @@ struct ComparisonGridNavigationTests {
         #expect(ComparisonGridKeyAction.resolve(characters: characters, keyCode: 0) == .inspectActualPixels)
     }
 }
+
+@Suite("BurstReviewKeyAction")
+struct BurstReviewKeyActionTests {
+    @Test(.tags(.smoke))
+    func `n p and g resolve burst review navigation`() {
+        #expect(BurstReviewKeyAction.resolve(characters: "n") == .nextImage)
+        #expect(BurstReviewKeyAction.resolve(characters: "N") == .nextImage)
+        #expect(BurstReviewKeyAction.resolve(characters: "p") == .previousImage)
+        #expect(BurstReviewKeyAction.resolve(characters: "P") == .previousImage)
+        #expect(BurstReviewKeyAction.resolve(characters: "g") == .nextGroup)
+        #expect(BurstReviewKeyAction.resolve(characters: "G") == .nextGroup)
+        #expect(BurstReviewKeyAction.resolve(characters: "0") == nil)
+    }
+}

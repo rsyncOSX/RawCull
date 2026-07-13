@@ -1,6 +1,21 @@
 import RawCullCore
 import SwiftUI
 
+nonisolated enum BurstReviewKeyAction: Equatable {
+    case previousImage
+    case nextImage
+    case nextGroup
+
+    nonisolated static func resolve(characters: String?) -> BurstReviewKeyAction? {
+        switch characters {
+        case "p", "P": .previousImage
+        case "n", "N": .nextImage
+        case "g", "G": .nextGroup
+        default: nil
+        }
+    }
+}
+
 struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
     let groupID: Int
@@ -42,18 +57,19 @@ struct BurstCullingWorkspaceView: View {
         .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
         .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
-            handleKeyAction(ZoomOverlayKeyAction.resolve(
-                characters: press.characters,
-                keyCode: 0,
-                navigationAxis: .horizontal,
-            ))
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpPnNgG012345tT")) { press in
+            handleKeyPress(press.characters)
         }
         .task(id: imageLoadKey) {
             await loadSelectedImage()
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             Task { await regenerateFocusMask() }
+        }
+        .onChange(of: groupID) { _, _ in
+            viewportState = ComparisonViewportInteractionState()
+            sourceSelection.resetForNewImage()
+            selectFirstFileIfNeeded()
         }
     }
 
@@ -114,9 +130,10 @@ struct BurstCullingWorkspaceView: View {
 
             Spacer()
 
-            Image(systemName: "arrow.left.square")
-            Image(systemName: "arrow.right.square")
+            keyCap("P/N")
             Text("frame")
+            keyCap("G")
+            Text("next group")
             keyCap("+/-")
             Text("zoom")
             keyCap("J/R")
@@ -125,7 +142,7 @@ struct BurstCullingWorkspaceView: View {
             Text("focus")
             keyCap("2–5")
             Text("rate")
-            keyCap("P")
+            keyCap("0")
             Text("pick")
             keyCap("X")
             Text("reject")
@@ -518,6 +535,28 @@ struct BurstCullingWorkspaceView: View {
             applyRating(rating)
         }
         return .handled
+    }
+
+    private func handleKeyPress(_ characters: String) -> KeyPress.Result {
+        if let action = BurstReviewKeyAction.resolve(characters: characters) {
+            switch action {
+            case .previousImage:
+                navigate(by: -1)
+
+            case .nextImage:
+                navigate(by: 1)
+
+            case .nextGroup:
+                viewModel.advanceToNextBurstGroup(after: groupID)
+            }
+            return .handled
+        }
+
+        return handleKeyAction(ZoomOverlayKeyAction.resolve(
+            characters: characters,
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ))
     }
 }
 

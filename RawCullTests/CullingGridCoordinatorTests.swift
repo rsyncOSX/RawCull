@@ -322,6 +322,44 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
+    func `next burst navigation follows the review queue and skips single images`() {
+        let first = [makeGridTestFile("first-a.ARW"), makeGridTestFile("first-b.ARW")]
+        let single = makeGridTestFile("single.ARW")
+        let reviewed = [makeGridTestFile("reviewed-a.ARW"), makeGridTestFile("reviewed-b.ARW")]
+        let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
+        let viewModel = RawCullViewModel()
+        viewModel.files = first + [single] + reviewed + next
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 1, fileIDs: first.map(\.id)),
+            BurstGroup(id: 2, fileIDs: [single.id]),
+            BurstGroup(id: 3, fileIDs: reviewed.map(\.id)),
+            BurstGroup(id: 4, fileIDs: next.map(\.id))
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(
+                groupID: 1,
+                fileIDs: first.map(\.id),
+                confidence: .low,
+                reviewState: .reviewed,
+            ),
+            3: makeReviewQueueResult(
+                groupID: 3,
+                fileIDs: reviewed.map(\.id),
+                confidence: .low,
+                reviewState: .reviewed,
+            ),
+            4: makeReviewQueueResult(groupID: 4, fileIDs: next.map(\.id), confidence: .low)
+        ]
+        viewModel.burstReviewQueueFilter = .needsReview
+
+        #expect(viewModel.advanceToNextBurstGroup(after: 1))
+        #expect(viewModel.activeBurstComparisonGroupID == 4)
+        #expect(viewModel.selectedFileID == next[0].id)
+        #expect(!viewModel.advanceToNextBurstGroup(after: 4))
+        #expect(viewModel.activeBurstComparisonGroupID == 4)
+    }
+
+    @Test(.tags(.smoke))
     func `burst home counts singleton images and live review states`() {
         let firstSingle = makeGridTestFile("single-one.ARW")
         let secondSingle = makeGridTestFile("single-two.ARW")

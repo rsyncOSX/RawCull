@@ -221,8 +221,39 @@ extension RawCullViewModel {
     func compareBurstGroup(_ groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
+        activateBurstGroup(groupID: groupID, groupFiles: groupFiles)
+    }
+
+    @discardableResult
+    func advanceToNextBurstGroup(after currentGroupID: Int) -> Bool {
+        guard let currentIndex = similarityModel.burstGroups.firstIndex(where: { $0.id == currentGroupID })
+        else { return false }
+
+        let eligibleGroupIDs = Set(
+            filteredBurstGroupsForReviewQueue
+                .filter { $0.fileIDs.count > 1 }
+                .map(\.id),
+        )
+        guard let nextGroup = similarityModel.burstGroups
+            .dropFirst(currentIndex + 1)
+            .first(where: { $0.fileIDs.count > 1 && eligibleGroupIDs.contains($0.id) })
+        else { return false }
+
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        let groupFiles = nextGroup.fileIDs.compactMap { filesByID[$0] }
+        guard groupFiles.count > 1 else { return false }
+        activateBurstGroup(groupID: nextGroup.id, groupFiles: groupFiles)
+        return true
+    }
+
+    private func activateBurstGroup(groupID: Int, groupFiles: [FileItem]) {
         activeBurstComparisonGroupID = groupID
-        let rankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID) ?? groupFiles.map(\.id)
+        let savedRankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID)
+        let rankedIDs = if let savedRankedIDs, !savedRankedIDs.isEmpty {
+            savedRankedIDs
+        } else {
+            groupFiles.map(\.id)
+        }
         comparisonFileIDs = Array(rankedIDs.prefix(4))
         selectedFileID = comparisonFileIDs.first
         selectMainViewMode(.comparisonGrid)
