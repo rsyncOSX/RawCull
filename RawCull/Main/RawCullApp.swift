@@ -62,7 +62,7 @@ struct RawCullApp: App {
             AboutRawCullView()
                 .background(.windowBackground)
         }
-        .windowResizability(.contentSize)
+        .defaultSize(width: 840, height: 720)
     }
 
     private func performCleanupTask() {
