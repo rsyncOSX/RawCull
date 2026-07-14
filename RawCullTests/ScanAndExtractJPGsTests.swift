@@ -17,7 +17,7 @@ private final class ScanAndExtractJPGsProgressRecorder {
 struct ScanAndExtractJPGsTests {
     @Test
     func `unsupported files are counted as processed`() async {
-        let recorder = await ScanAndExtractJPGsProgressRecorder()
+        let recorder = ScanAndExtractJPGsProgressRecorder()
         let urls = (0 ..< 3).map { index in
             URL(fileURLWithPath: "/tmp/rawcull-scan-extract-\(UUID().uuidString)-\(index).txt")
         }

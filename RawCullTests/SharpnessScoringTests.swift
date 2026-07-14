@@ -44,6 +44,7 @@ struct SharpnessScoringTests {
     }
 
     @Test(.tags(.smoke))
+    @MainActor
     func `sharpness label maps threshold boundaries`() {
         #expect(SharpnessLabel(score: 0.85, maxScore: 1.0) == .sharp)
         #expect(SharpnessLabel(score: 0.65, maxScore: 1.0) == .good)
@@ -52,6 +53,7 @@ struct SharpnessScoringTests {
     }
 
     @Test(.tags(.smoke))
+    @MainActor
     func `sharpness label clamps and handles invalid denominator`() {
         #expect(SharpnessLabel(score: 1.4, maxScore: 1.0) == .sharp)
         #expect(SharpnessLabel(score: 0.5, maxScore: 0.0) == .soft)

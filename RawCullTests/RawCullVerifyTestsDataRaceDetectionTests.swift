@@ -134,7 +134,7 @@ struct DataRaceDetectionTests {
                         await cache.updateCacheMemory()
 
                     case 2:
-                        _ = await delegate.getEvictionCount()
+                        _ = delegate.getEvictionCount()
 
                     default:
                         _ = await settings.asyncgetsettings()
