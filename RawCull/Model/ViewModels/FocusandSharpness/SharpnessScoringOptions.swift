@@ -1,4 +1,5 @@
 import Foundation
+import PhotoAnalysisKit
 
 nonisolated enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable {
     case auto
@@ -21,53 +22,23 @@ nonisolated enum SharpnessPhotoType: String, CaseIterable, Codable, Identifiable
         }
     }
 
-    nonisolated func applying(to config: FocusDetectorConfig) -> FocusDetectorConfig {
-        var c = config
+    nonisolated var packagePreset: SharpnessPreset {
         switch self {
         case .auto:
-            return c
+            .automatic
 
         case .birdsWildlife:
-            c.preBlurRadius = 2.2
-            c.borderInsetFraction = 0.05
-            c.salientWeight = 0.85
-            c.explicitSalientWeightOverride = 0.85
-            c.subjectSizeFactor = 0.05
-            c.silhouettePenaltyStrength = 0.55
-            c.afRegionRadius = 0.06
-            c.enableSubjectClassification = true
-            c.isolateMaskToSubject = true
+            .birdsAndWildlife
 
         case .portrait:
-            c.preBlurRadius = min(c.preBlurRadius, 1.7)
-            c.salientWeight = 0.80
-            c.explicitSalientWeightOverride = 0.80
-            c.subjectSizeFactor = 0.08
-            c.silhouettePenaltyStrength = 0.25
-            c.afRegionRadius = 0.10
-            c.enableSubjectClassification = true
-            c.isolateMaskToSubject = true
+            .portrait
 
         case .landscape:
-            c.preBlurRadius = min(c.preBlurRadius, 1.55)
-            c.salientWeight = 0.35
-            c.explicitSalientWeightOverride = 0.35
-            c.subjectSizeFactor = 0.0
-            c.silhouettePenaltyStrength = 0.15
-            c.afRegionRadius = 0.0
-            c.isolateMaskToSubject = false
+            .landscape
 
         case .generalAction:
-            c.preBlurRadius = 2.0
-            c.salientWeight = 0.65
-            c.explicitSalientWeightOverride = 0.65
-            c.subjectSizeFactor = 0.05
-            c.silhouettePenaltyStrength = 0.40
-            c.afRegionRadius = 0.09
-            c.enableSubjectClassification = true
-            c.isolateMaskToSubject = true
+            .generalAction
         }
-        return c
     }
 }
 
@@ -104,20 +75,17 @@ nonisolated enum SharpnessScoringQuality: String, CaseIterable, Codable, Identif
         }
     }
 
-    nonisolated func applying(to config: FocusDetectorConfig) -> FocusDetectorConfig {
-        var c = config
+    nonisolated var packageQuality: SharpnessQuality {
         switch self {
         case .fast:
-            c.fineDetailBlendWeight = 0.0
+            .fast
 
         case .balanced:
-            c.fineDetailBlendWeight = max(c.fineDetailBlendWeight, 0.25)
+            .balanced
 
         case .highPrecision:
-            c.fineDetailBlendWeight = max(c.fineDetailBlendWeight, 0.45)
-            c.enableSubjectClassification = true
+            .highPrecision
         }
-        return c
     }
 }
 

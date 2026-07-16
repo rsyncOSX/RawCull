@@ -1,4 +1,5 @@
 import Foundation
+import PhotoAnalysisKit
 import RawCullCore
 
 nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
@@ -32,74 +33,57 @@ nonisolated struct BurstSimilaritySignature: Codable, Equatable {
     }
 }
 
-nonisolated struct SharpnessScoringSignature: Codable {
-    nonisolated static let currentAlgorithmVersion = 4
-    nonisolated static let currentISOScalingPolicyVersion = 1
-    nonisolated static let currentApertureHintPolicyVersion = 1
-    nonisolated static let stableScoringEnergyMultiplier = FocusDetectorConfig.stableScoringEnergyMultiplier
-
-    var algorithmVersion: Int
-    var isoScalingPolicyVersion: Int
-    var apertureHintPolicyVersion: Int
-    var scoringPhotoType: SharpnessPhotoType
-    var scoringQuality: SharpnessScoringQuality
+nonisolated struct SharpnessScoringSignature: Codable, Equatable {
+    /// Nil only when decoding the legacy RawCull-owned signature. Legacy values
+    /// remain readable but compare stale against every current package descriptor.
+    var analysisDescriptor: SharpnessAnalysisDescriptor?
     var scoringSource: SharpnessScoringSource
     var thumbnailMaxPixelSize: Int
-    var preBlurRadius: Float
-    var borderInsetFraction: Float
-    var salientWeight: Float
-    var explicitSalientWeightOverride: Float?
-    var subjectSizeFactor: Float
-    var silhouettePenaltyStrength: Float
-    var afRegionRadius: Float
-    var fineDetailBlendWeight: Float
-    var stableScoringEnergyMultiplier: Float
 
     @MainActor
     init(
-        photoType: SharpnessPhotoType,
-        scoringQuality: SharpnessScoringQuality,
         scoringSource: SharpnessScoringSource = .embeddedPreview,
         thumbnailMaxPixelSize: Int,
         config: FocusDetectorConfig,
     ) {
-        self.algorithmVersion = Self.currentAlgorithmVersion
-        self.isoScalingPolicyVersion = Self.currentISOScalingPolicyVersion
-        self.apertureHintPolicyVersion = Self.currentApertureHintPolicyVersion
-        self.scoringPhotoType = photoType
-        self.scoringQuality = scoringQuality
+        analysisDescriptor = PhotoAnalyzer.sharpnessDescriptor(for: config)
         self.scoringSource = scoringSource
         self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
-        self.preBlurRadius = config.preBlurRadius
-        self.borderInsetFraction = config.borderInsetFraction
-        self.salientWeight = config.salientWeight
-        self.explicitSalientWeightOverride = config.explicitSalientWeightOverride
-        self.subjectSizeFactor = config.subjectSizeFactor
-        self.silhouettePenaltyStrength = config.silhouettePenaltyStrength
-        self.afRegionRadius = config.afRegionRadius
-        self.fineDetailBlendWeight = config.fineDetailBlendWeight
-        self.stableScoringEnergyMultiplier = Self.stableScoringEnergyMultiplier
     }
-}
 
-extension SharpnessScoringSignature: Equatable {
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.algorithmVersion == rhs.algorithmVersion
-            && lhs.isoScalingPolicyVersion == rhs.isoScalingPolicyVersion
-            && lhs.apertureHintPolicyVersion == rhs.apertureHintPolicyVersion
-            && lhs.scoringPhotoType.rawValue == rhs.scoringPhotoType.rawValue
-            && lhs.scoringQuality.rawValue == rhs.scoringQuality.rawValue
-            && lhs.scoringSource.rawValue == rhs.scoringSource.rawValue
-            && lhs.thumbnailMaxPixelSize == rhs.thumbnailMaxPixelSize
-            && lhs.preBlurRadius == rhs.preBlurRadius
-            && lhs.borderInsetFraction == rhs.borderInsetFraction
-            && lhs.salientWeight == rhs.salientWeight
-            && lhs.explicitSalientWeightOverride == rhs.explicitSalientWeightOverride
-            && lhs.subjectSizeFactor == rhs.subjectSizeFactor
-            && lhs.silhouettePenaltyStrength == rhs.silhouettePenaltyStrength
-            && lhs.afRegionRadius == rhs.afRegionRadius
-            && lhs.fineDetailBlendWeight == rhs.fineDetailBlendWeight
-            && lhs.stableScoringEnergyMultiplier == rhs.stableScoringEnergyMultiplier
+    private enum CodingKeys: String, CodingKey {
+        case analysisDescriptor
+        case scoringSource
+        case thumbnailMaxPixelSize
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        analysisDescriptor = try values.decodeIfPresent(
+            SharpnessAnalysisDescriptor.self,
+            forKey: .analysisDescriptor,
+        )
+        scoringSource = (try? values.decode(
+            SharpnessScoringSource.self,
+            forKey: .scoringSource,
+        )) ?? .embeddedPreview
+        thumbnailMaxPixelSize = (try? values.decode(
+            Int.self,
+            forKey: .thumbnailMaxPixelSize,
+        )) ?? 0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encodeIfPresent(
+            analysisDescriptor,
+            forKey: .analysisDescriptor,
+        )
+        try values.encode(scoringSource, forKey: .scoringSource)
+        try values.encode(
+            thumbnailMaxPixelSize,
+            forKey: .thumbnailMaxPixelSize,
+        )
     }
 }
 

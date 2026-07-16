@@ -1,5 +1,5 @@
 {
-  "originHash" : "495da2bbbd2a3055b496d304caef1d52f9e117e91d58beeb382419144cec9971",
+  "originHash" : "8e65291a9b94458b45a0987c697cf101cfd5e2e3eb7d6df02cbe247383570b59",
   "pins" : [
     {
       "identity" : "decodeencodegeneric",
@@ -17,15 +17,6 @@
       "state" : {
         "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847",
         "version" : "1.0.0"
-      }
-    },
-    {
-      "identity" : "photoanalysiskit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/PhotoAnalysisKit.git",
-      "state" : {
-        "revision" : "50f198aae61c87dd1b001709a2e90f16365184c1",
-        "version" : "1.0.1"
       }
     },
     {

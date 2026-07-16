@@ -1321,8 +1321,6 @@ private func makeBurstSnapshot(
         catalogPath: catalog.path,
         thumbnailMaxPixelSize: 512,
         sharpnessSignature: BurstSharpnessSignature(
-            photoType: .auto,
-            scoringQuality: .fast,
             thumbnailMaxPixelSize: 512,
             config: FocusDetectorConfig(),
         ),

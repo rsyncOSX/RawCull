@@ -75,10 +75,10 @@ struct SharpnessScoringTests {
     @MainActor
     func `photo type presets map to expected scoring emphasis`() {
         let base = FocusDetectorConfig.birdsInFlight
-        let wildlife = SharpnessPhotoType.birdsWildlife.applying(to: base)
-        let portrait = SharpnessPhotoType.portrait.applying(to: base)
-        let landscape = SharpnessPhotoType.landscape.applying(to: base)
-        let action = SharpnessPhotoType.generalAction.applying(to: base)
+        let wildlife = SharpnessPhotoType.birdsWildlife.packagePreset.applying(to: base)
+        let portrait = SharpnessPhotoType.portrait.packagePreset.applying(to: base)
+        let landscape = SharpnessPhotoType.landscape.packagePreset.applying(to: base)
+        let action = SharpnessPhotoType.generalAction.packagePreset.applying(to: base)
 
         #expect(wildlife.afRegionRadius == 0.06)
         #expect(wildlife.explicitSalientWeightOverride == 0.85)
@@ -126,6 +126,63 @@ struct SharpnessScoringTests {
 
         model.thumbnailMaxPixelSize = 1536
         #expect(model.effectiveThumbnailMaxPixelSize == 1536)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `scoring signature uses package analysis descriptor`() throws {
+        let model = SharpnessScoringModel()
+        model.photoType = .portrait
+        model.scoringQuality = .balanced
+        model.scoringSource = .rawDemosaic
+        model.thumbnailMaxPixelSize = 1536
+
+        let signature = model.scoringSignature
+        let descriptor = try #require(signature.analysisDescriptor)
+
+        #expect(
+            descriptor
+                == PhotoAnalyzer.sharpnessDescriptor(
+                    for: model.effectiveFocusConfig,
+                ),
+        )
+        #expect(signature.scoringSource == .rawDemosaic)
+        #expect(signature.thumbnailMaxPixelSize == 1536)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `legacy scoring signature decodes as stale`() throws {
+        let legacy = """
+        {
+          "algorithmVersion": 4,
+          "isoScalingPolicyVersion": 1,
+          "apertureHintPolicyVersion": 1,
+          "scoringPhotoType": "auto",
+          "scoringQuality": "fast",
+          "scoringSource": "embeddedPreview",
+          "thumbnailMaxPixelSize": 512,
+          "preBlurRadius": 1.92,
+          "borderInsetFraction": 0.04,
+          "salientWeight": 0.75,
+          "subjectSizeFactor": 0.1,
+          "silhouettePenaltyStrength": 0.55,
+          "afRegionRadius": 0.12,
+          "fineDetailBlendWeight": 0.0,
+          "stableScoringEnergyMultiplier": 7.62
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(
+            SharpnessScoringSignature.self,
+            from: Data(legacy.utf8),
+        )
+        let current = SharpnessScoringModel().scoringSignature
+
+        #expect(decoded.analysisDescriptor == nil)
+        #expect(decoded.scoringSource == .embeddedPreview)
+        #expect(decoded.thumbnailMaxPixelSize == 512)
+        #expect(decoded != current)
     }
 
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))

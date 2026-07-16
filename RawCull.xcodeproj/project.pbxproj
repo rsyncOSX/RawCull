@@ -186,7 +186,7 @@
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
-				E94D755E3008A930005B1B49 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
+				E94D755E3008A930005B1B49 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -569,6 +569,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E94D755E3008A930005B1B49 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PhotoAnalysisKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -576,14 +583,6 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.0.0;
-			};
-		};
-		E94D755E3008A930005B1B49 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.0.1;
 			};
 		};
 		E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */ = {
@@ -636,7 +635,7 @@
 		};
 		E94D755F3008A930005B1B49 /* PhotoAnalysisKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E94D755E3008A930005B1B49 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */;
+			package = E94D755E3008A930005B1B49 /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */;
 			productName = PhotoAnalysisKit;
 		};
 		E952AA612F2E37170081987F /* ParseRsyncOutput */ = {

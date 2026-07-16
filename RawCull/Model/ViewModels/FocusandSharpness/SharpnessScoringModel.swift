@@ -83,7 +83,9 @@ final class SharpnessScoringModel {
     }
 
     var effectiveFocusConfig: FocusDetectorConfig {
-        scoringQuality.applying(to: photoType.applying(to: focusMaskModel.config))
+        scoringQuality.packageQuality.applying(
+            to: photoType.packagePreset.applying(to: focusMaskModel.config),
+        )
     }
 
     var effectiveThumbnailMaxPixelSize: Int {
@@ -92,8 +94,6 @@ final class SharpnessScoringModel {
 
     var scoringSignature: SharpnessScoringSignature {
         SharpnessScoringSignature(
-            photoType: photoType,
-            scoringQuality: scoringQuality,
             scoringSource: scoringSource,
             thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
             config: effectiveFocusConfig,
