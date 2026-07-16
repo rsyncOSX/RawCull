@@ -36,9 +36,9 @@ struct PhotoAnalysisKitIntegrationTests {
         let anchor = makeIntegrationFile("anchor.ARW")
         let candidate = makeIntegrationFile("candidate.ARW")
         let model = SimilarityScoringModel()
-        model.embeddings = [
-            anchor.id: try JSONEncoder().encode(anchorPrint),
-            candidate.id: try JSONEncoder().encode(candidatePrint),
+        model.embeddings = try [
+            anchor.id: JSONEncoder().encode(anchorPrint),
+            candidate.id: JSONEncoder().encode(candidatePrint)
         ]
 
         await model.rankSimilar(to: anchor.id, using: [anchor, candidate])
@@ -103,8 +103,7 @@ private func makeIntegrationCheckerboard(size: Int = 128) -> CGImage? {
     let tile = 8
     for y in stride(from: 0, to: size, by: tile) {
         for x in stride(from: 0, to: size, by: tile)
-            where (x / tile + y / tile).isMultiple(of: 2)
-        {
+            where (x / tile + y / tile).isMultiple(of: 2) {
             context.fill(CGRect(x: x, y: y, width: tile, height: tile))
         }
     }

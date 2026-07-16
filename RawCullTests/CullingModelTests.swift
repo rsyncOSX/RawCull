@@ -153,8 +153,7 @@ private func makeCullingSharpnessImage(size: Int = 128) -> CGImage? {
     let tile = 8
     for y in stride(from: 0, to: size, by: tile) {
         for x in stride(from: 0, to: size, by: tile)
-            where (x / tile + y / tile).isMultiple(of: 2)
-        {
+            where (x / tile + y / tile).isMultiple(of: 2) {
             context.fill(CGRect(x: x, y: y, width: tile, height: tile))
         }
     }

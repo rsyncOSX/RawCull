@@ -175,7 +175,7 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
         guard !Task.isCancelled else { return nil }
         let context = CIContext(options: [
             .workingColorSpace: NSNull(),
-            .workingFormat: CIFormat.RGBAf,
+            .workingFormat: CIFormat.RGBAf
         ])
         return context.createCGImage(image, from: image.extent)
     }

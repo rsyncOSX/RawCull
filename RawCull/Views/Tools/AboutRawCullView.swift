@@ -26,7 +26,7 @@ struct AboutRawCullView: View {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 340), spacing: 16, alignment: .top)],
                     alignment: .leading,
-                    spacing: 16
+                    spacing: 16,
                 ) {
                     ForEach(shortcutSections) { section in
                         ShortcutSectionCard(section: section)
@@ -171,7 +171,9 @@ private struct ShortcutSection: Identifiable {
     let tint: Color
     let shortcuts: [ShortcutRow]
 
-    var id: String { title }
+    var id: String {
+        title
+    }
 
     static let all = [
         ShortcutSection(
@@ -187,8 +189,8 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
                 ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
                 ShortcutRow(["4"], "Apply rating 4 and advance"),
-                ShortcutRow(["5"], "Apply rating 5 and advance"),
-            ]
+                ShortcutRow(["5"], "Apply rating 5 and advance")
+            ],
         ),
         ShortcutSection(
             title: "Burst Groups",
@@ -200,8 +202,8 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["B"], "Keep the best photo in the burst"),
                 ShortcutRow(["2"], "Keep the top two photos in the burst"),
                 ShortcutRow(["U"], "Undo the last burst action"),
-                ShortcutRow(["Esc"], "Leave burst grouping"),
-            ]
+                ShortcutRow(["Esc"], "Leave burst grouping")
+            ],
         ),
         ShortcutSection(
             title: "Image Preview",
@@ -212,8 +214,8 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["+", "-"], "Zoom in or out"),
                 ShortcutRow(["J"], "Show the embedded JPEG"),
                 ShortcutRow(["R"], "Show the developed RAW preview"),
-                ShortcutRow(["Z"], "Open actual-pixel inspection"),
-            ]
+                ShortcutRow(["Z"], "Open actual-pixel inspection")
+            ],
         ),
         ShortcutSection(
             title: "Zoom Preview",
@@ -230,8 +232,8 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
                 ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
                 ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
-                ShortcutRow(["Esc"], "Close the zoom preview"),
-            ]
+                ShortcutRow(["Esc"], "Close the zoom preview")
+            ],
         ),
         ShortcutSection(
             title: "Manual Comparison",
@@ -249,8 +251,8 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["P", "0"], "Keep neutral and advance"),
                 ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
                 ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
-                ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
-            ]
+                ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance")
+            ],
         ),
         ShortcutSection(
             title: "Burst Review",
@@ -271,8 +273,8 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
                 ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
                 ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
-                ShortcutRow(["Esc"], "Return to the burst group"),
-            ]
+                ShortcutRow(["Esc"], "Return to the burst group")
+            ],
         ),
         ShortcutSection(
             title: "App Commands",
@@ -281,9 +283,9 @@ private struct ShortcutSection: Identifiable {
             tint: .green,
             shortcuts: [
                 ShortcutRow(["⌘J"], "Extract JPEGs"),
-                ShortcutRow(["⌘K"], "Abort the active task"),
-            ]
-        ),
+                ShortcutRow(["⌘K"], "Abort the active task")
+            ],
+        )
     ]
 }
 
@@ -296,7 +298,9 @@ private struct ShortcutRow: Identifiable {
         self.action = action
     }
 
-    var id: String { "\(keys.joined(separator: "-"))-\(action)" }
+    var id: String {
+        "\(keys.joined(separator: "-"))-\(action)"
+    }
 
     var accessibleKeys: String {
         keys.joined(separator: " or ")
