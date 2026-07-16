@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import PhotoAnalysisKit
 @testable import RawCull
@@ -131,6 +132,33 @@ private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -
         exifData: exif,
         afFocusNormalized: nil,
     )
+}
+
+private func makeCullingSharpnessImage(size: Int = 128) -> CGImage? {
+    guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(
+              data: nil,
+              width: size,
+              height: size,
+              bitsPerComponent: 8,
+              bytesPerRow: size * 4,
+              space: colorSpace,
+              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+          )
+    else { return nil }
+
+    context.setFillColor(gray: 0.08, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+    context.setFillColor(gray: 0.92, alpha: 1)
+    let tile = 8
+    for y in stride(from: 0, to: size, by: tile) {
+        for x in stride(from: 0, to: size, by: tile)
+            where (x / tile + y / tile).isMultiple(of: 2)
+        {
+            context.fill(CGRect(x: x, y: y, width: tile, height: tile))
+        }
+    }
+    return context.makeImage()
 }
 
 private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAnalysisResult {
@@ -761,7 +789,7 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
-    func `calibrateAndScoreCurrentCatalog scores and persists only target files`() async {
+    func `calibrateAndScoreCurrentCatalog scores and persists only target files`() async throws {
         let viewModel = RawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let selectedVisible = makeCullingTestFile("B-selected-visible.ARW")
@@ -774,10 +802,21 @@ struct RawCullViewModelCullingTests {
         viewModel.filteredFiles = [selectedVisible, unselected]
         viewModel.selectedFileIDs = [selectedVisible.id, selectedHidden.id]
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
-        viewModel.sharpnessModel = SharpnessScoringModel { url, _, _, _ in
-            await recorder.record(url.lastPathComponent)
-            return (0.75, nil, nil)
-        }
+        let image = try #require(makeCullingSharpnessImage())
+        let adapter = RawCullPhotoAnalysisAdapter(
+            inputLoaderOverride: { file, _, _ in
+                await recorder.record(file.url.lastPathComponent)
+                return PhotoAnalysisInput(
+                    image: image,
+                    iso: file.iso,
+                    aperture: file.aperture,
+                    normalizedAFPoint: file.normalizedAFPoint,
+                )
+            },
+        )
+        viewModel.sharpnessModel = SharpnessScoringModel(
+            analysisAdapterOverride: adapter,
+        )
 
         await viewModel.calibrateAndScoreCurrentCatalog()
 

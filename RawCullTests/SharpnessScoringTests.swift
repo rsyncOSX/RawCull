@@ -3,6 +3,7 @@
 //  RawCullVerifyTests
 //
 
+import CoreGraphics
 import Foundation
 import PhotoAnalysisKit
 @testable import RawCull
@@ -190,24 +191,20 @@ struct SharpnessScoringTests {
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {
         let gate = SharpnessScoringGate()
         let completion = SharpnessScoringCompletionProbe()
-        let model = SharpnessScoringModel { _, _, _, _ in
-            await gate.markStarted()
-            await gate.waitUntilReleased()
-            return (
-                score: 0.75,
-                saliency: SaliencyInfo(subjectLabel: "bird", subjectConfidence: 0.8),
-                breakdown: SharpnessBreakdown(
-                    finalScore: 0.75,
-                    globalScore: 0.65,
-                    subjectScore: 0.75,
-                    afPointScore: 0.80,
-                    blurGateSigma: 0.03,
-                    subjectLabel: "bird",
-                    subjectConfidence: 0.8,
-                    focusFailureKind: .none,
-                ),
-            )
-        }
+        let image = try #require(makeSharpnessTestImage())
+        let adapter = RawCullPhotoAnalysisAdapter(
+            inputLoaderOverride: { file, _, _ in
+                await gate.markStarted()
+                await gate.waitUntilReleased()
+                return PhotoAnalysisInput(
+                    image: image,
+                    iso: file.iso,
+                    aperture: file.aperture,
+                    normalizedAFPoint: file.normalizedAFPoint,
+                )
+            },
+        )
+        let model = SharpnessScoringModel(analysisAdapterOverride: adapter)
         let files = [makeSharpnessTestFile()]
 
         let first = Task { await model.scoreFiles(files) }
@@ -231,9 +228,8 @@ struct SharpnessScoringTests {
         #expect(await completion.isCompleted)
         #expect(await completion.completedAfterSort)
         #expect(await completion.completedAfterProgressReset)
-        #expect(model.scores[files[0].id] == 0.75)
-        #expect(model.saliencyInfo[files[0].id]?.subjectLabel == "bird")
-        #expect(model.breakdowns[files[0].id]?.subjectScore == 0.75)
+        #expect(model.scores[files[0].id] != nil)
+        #expect(model.breakdowns[files[0].id] != nil)
         #expect(model.sortBySharpness)
         #expect(model.scoringProgress == 0)
         #expect(model.scoringTotal == 0)
@@ -255,6 +251,33 @@ private func makeSharpnessTestFile() -> FileItem {
         exifData: nil,
         afFocusNormalized: nil,
     )
+}
+
+private func makeSharpnessTestImage(size: Int = 128) -> CGImage? {
+    guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(
+              data: nil,
+              width: size,
+              height: size,
+              bitsPerComponent: 8,
+              bytesPerRow: size * 4,
+              space: colorSpace,
+              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+          )
+    else { return nil }
+
+    context.setFillColor(gray: 0.08, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+    context.setFillColor(gray: 0.92, alpha: 1)
+    let tile = 8
+    for y in stride(from: 0, to: size, by: tile) {
+        for x in stride(from: 0, to: size, by: tile)
+            where (x / tile + y / tile).isMultiple(of: 2)
+        {
+            context.fill(CGRect(x: x, y: y, width: tile, height: tile))
+        }
+    }
+    return context.makeImage()
 }
 
 private actor SharpnessScoringGate {
@@ -332,14 +355,14 @@ struct FocusNumericHelperTests {
 
     @Test(.tags(.smoke))
     func `robust tail score empty returns nil`() {
-        #expect(FocusMaskModel.robustTailScore([]) == nil)
+        #expect(SharpnessMetrics.robustTailScore([]) == nil)
     }
 
     @Test(.tags(.smoke))
     func `robust tail score uniform returns zero`() throws {
         // All values identical → p20 == p90 == p97, so spread is zero.
         let samples = [Float](repeating: 0.5, count: 1000)
-        let score = FocusMaskModel.robustTailScore(samples)
+        let score = SharpnessMetrics.robustTailScore(samples)
         #expect(score != nil)
         #expect(try #require(score) < 1e-5)
     }
@@ -350,7 +373,7 @@ struct FocusNumericHelperTests {
         // Band (p90…p97) contains 7% of values → density 0.07 > minDensity 0.06 → factor = 1.0.
         let n = 1000
         let samples = (0 ..< n).map { Float($0) / Float(n - 1) }
-        let score = FocusMaskModel.robustTailScore(samples)
+        let score = SharpnessMetrics.robustTailScore(samples)
         #expect(score != nil)
         // Band mean of values in [0.90, 0.97] minus p20 (≈0.20) should be ≈ 0.735 * 1.0
         #expect(try #require(score) > 0.70)
@@ -365,7 +388,7 @@ struct FocusNumericHelperTests {
         let highCount = 55
         var samples = [Float](repeating: 0.0, count: n - highCount)
         samples += [Float](repeating: 1.0, count: highCount)
-        let score = FocusMaskModel.robustTailScore(samples)
+        let score = SharpnessMetrics.robustTailScore(samples)
         #expect(score != nil)
         #expect(try #require(score) < 0.10)
         #expect(try #require(score) > 0.01)
@@ -379,8 +402,8 @@ struct FocusNumericHelperTests {
         let dense = (0 ..< n).map { Float($0) / Float(n - 1) }
         var sparse = [Float](repeating: 0.0, count: 950)
         sparse += [Float](repeating: 1.0, count: 50)
-        let denseScore = FocusMaskModel.robustTailScore(dense)
-        let sparseScore = FocusMaskModel.robustTailScore(sparse)
+        let denseScore = SharpnessMetrics.robustTailScore(dense)
+        let sparseScore = SharpnessMetrics.robustTailScore(sparse)
         #expect(denseScore != nil)
         #expect(sparseScore != nil)
         #expect(try #require(denseScore) > sparseScore!)
@@ -390,20 +413,20 @@ struct FocusNumericHelperTests {
 
     @Test(.tags(.smoke))
     func `micro contrast empty returns zero`() {
-        #expect(FocusMaskModel.microContrast([]) == 0.0)
+        #expect(SharpnessMetrics.microContrast([]) == 0.0)
     }
 
     @Test(.tags(.smoke))
     func `micro contrast uniform returns zero`() {
         let samples = [Float](repeating: 0.5, count: 500)
-        #expect(FocusMaskModel.microContrast(samples) < 1e-5)
+        #expect(SharpnessMetrics.microContrast(samples) < 1e-5)
     }
 
     @Test(.tags(.smoke))
     func `micro contrast alternating known variance`() {
         // Values alternating 0 and 1: mean = 0.5, variance = 0.25, std-dev = 0.5.
         let samples: [Float] = (0 ..< 1000).map { $0 % 2 == 0 ? 0.0 : 1.0 }
-        let result = FocusMaskModel.microContrast(samples)
+        let result = SharpnessMetrics.microContrast(samples)
         #expect(abs(result - 0.5) < 0.01)
     }
 
@@ -413,7 +436,7 @@ struct FocusNumericHelperTests {
         var samples = [Float](repeating: 0.5, count: 100)
         samples.append(Float.nan)
         samples.append(Float.infinity)
-        #expect(FocusMaskModel.microContrast(samples) < 1e-5)
+        #expect(SharpnessMetrics.microContrast(samples) < 1e-5)
     }
 
     // MARK: - Scale invariance of robustTailScore
@@ -426,8 +449,8 @@ struct FocusNumericHelperTests {
         let n = 1000
         let base = (0 ..< n).map { Float($0) / Float(n - 1) }
         let scaled = base.map { $0 * 10 }
-        let a = try #require(FocusMaskModel.robustTailScore(base))
-        let b = try #require(FocusMaskModel.robustTailScore(scaled))
+        let a = try #require(SharpnessMetrics.robustTailScore(base))
+        let b = try #require(SharpnessMetrics.robustTailScore(scaled))
         // Allow 1% slack for percentile-index rounding noise.
         #expect(abs(b / a - 10) < 0.1)
     }
@@ -436,7 +459,7 @@ struct FocusNumericHelperTests {
 
     @Test(.tags(.smoke))
     func `focus failure classifier flags motion blur when all regions are weak`() {
-        let result = FocusMaskModel.classifyFocusFailure(
+        let result = SharpnessMetrics.classifyFocusFailure(
             globalScore: 0.03,
             subjectScore: 0.04,
             afPointScore: 0.05,
@@ -447,7 +470,7 @@ struct FocusNumericHelperTests {
 
     @Test(.tags(.smoke))
     func `focus failure classifier flags missed focus when subject trails frame`() {
-        let result = FocusMaskModel.classifyFocusFailure(
+        let result = SharpnessMetrics.classifyFocusFailure(
             globalScore: 0.30,
             subjectScore: 0.10,
             afPointScore: 0.11,
@@ -458,7 +481,7 @@ struct FocusNumericHelperTests {
 
     @Test(.tags(.smoke))
     func `focus failure classifier stays neutral for strong subject`() {
-        let result = FocusMaskModel.classifyFocusFailure(
+        let result = SharpnessMetrics.classifyFocusFailure(
             globalScore: 0.24,
             subjectScore: 0.22,
             afPointScore: 0.26,
@@ -529,31 +552,31 @@ struct ApertureHintTests {
 struct ISOScalingTests {
     @Test(.tags(.smoke))
     func `below 800 is flat at 1 point 0`() {
-        #expect(FocusMaskModel.isoScalingFactor(iso: 100) == 1.0)
-        #expect(FocusMaskModel.isoScalingFactor(iso: 400) == 1.0)
-        #expect(FocusMaskModel.isoScalingFactor(iso: 799) == 1.0)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 100) == 1.0)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 400) == 1.0)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 799) == 1.0)
     }
 
     @Test(.tags(.smoke))
     func `mid range ramps to 1 point 6 at 3200`() {
-        #expect(FocusMaskModel.isoScalingFactor(iso: 800) == 1.0)
-        let at2000 = FocusMaskModel.isoScalingFactor(iso: 2000)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 800) == 1.0)
+        let at2000 = SharpnessMetrics.isoScalingFactor(iso: 2000)
         #expect(abs(at2000 - 1.3) < 1e-4, "expected 1.3 at ISO 2000, got \(at2000)")
-        let at3200 = FocusMaskModel.isoScalingFactor(iso: 3200)
+        let at3200 = SharpnessMetrics.isoScalingFactor(iso: 3200)
         #expect(abs(at3200 - 1.6) < 1e-4, "expected 1.6 at ISO 3200, got \(at3200)")
     }
 
     @Test(.tags(.smoke))
     func `high range caps at 2 point 2`() {
-        #expect(FocusMaskModel.isoScalingFactor(iso: 6400) > 1.6)
-        #expect(FocusMaskModel.isoScalingFactor(iso: 12800) == 2.2)
-        #expect(FocusMaskModel.isoScalingFactor(iso: 51200) == 2.2)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 6400) > 1.6)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 12800) == 2.2)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 51200) == 2.2)
     }
 
     @Test(.tags(.smoke))
     func `monotonically non decreasing across range`() {
         let iso = [100, 200, 400, 800, 1600, 2000, 3200, 6400, 12800, 25600]
-        let factors = iso.map { FocusMaskModel.isoScalingFactor(iso: $0) }
+        let factors = iso.map { SharpnessMetrics.isoScalingFactor(iso: $0) }
         for i in 1 ..< factors.count {
             #expect(factors[i] >= factors[i - 1], "regression at ISO \(iso[i])")
         }
@@ -564,6 +587,6 @@ struct ISOScalingTests {
         // Regression guard: the previous sqrt(ISO/400) clamped to 3.0 produced 3.0 at
         // ISO 3600+, over-blurring real detail on A1-series bodies. The new curve must
         // stay well under 3.0 at ISO 6400.
-        #expect(FocusMaskModel.isoScalingFactor(iso: 6400) < 2.0)
+        #expect(SharpnessMetrics.isoScalingFactor(iso: 6400) < 2.0)
     }
 }

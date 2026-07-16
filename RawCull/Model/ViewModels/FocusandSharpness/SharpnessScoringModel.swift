@@ -10,13 +10,6 @@ import RawCullCore
 
 @Observable @MainActor
 final class SharpnessScoringModel {
-    typealias SharpnessScoreComputer = @Sendable (
-        URL,
-        FocusDetectorConfig,
-        Int,
-        CGPoint?,
-    ) async -> (score: Float?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?)
-
     /// Sharpness scores keyed by FileItem.id. Wholesale-replaced at the end
     /// of a scoring run; incremental inserts happen only when loading
     /// persisted scores. `didSet` refreshes `maxScore` so read sites in view
@@ -70,14 +63,16 @@ final class SharpnessScoringModel {
     }
 
     private var _scoringTask: Task<Void, Never>?
-    @ObservationIgnored private let scoreComputerOverride: SharpnessScoreComputer?
+    @ObservationIgnored private nonisolated let analysisAdapter: RawCullPhotoAnalysisAdapter
+    private var scoringCompletionTimes = [TimeInterval]()
+    private var lastScoringCompletionTime: Date?
     var isCalibratingSharpnessScoring: Bool = false
 
     private static let minimumSamplesBeforeEstimation = 10
     private static let estimationWindowSize = 10
 
-    init(scoreComputerOverride: SharpnessScoreComputer? = nil) {
-        self.scoreComputerOverride = scoreComputerOverride
+    init(analysisAdapterOverride: RawCullPhotoAnalysisAdapter? = nil) {
+        analysisAdapter = analysisAdapterOverride ?? RawCullPhotoAnalysisAdapter()
         // Default mode for wildlife
         focusMaskModel.config = .birdsInFlight
     }
@@ -124,6 +119,8 @@ final class SharpnessScoringModel {
         scoringProgress = 0
         scoringTotal = 0
         scoringEstimatedSeconds = 0
+        scoringCompletionTimes = []
+        lastScoringCompletionTime = nil
         sortBySharpness = false
     }
 
@@ -172,15 +169,24 @@ final class SharpnessScoringModel {
         scores = [:]
         saliencyInfo = [:]
         breakdowns = [:]
+        scoringCompletionTimes = []
+        lastScoringCompletionTime = nil
 
-        let analysisAdapter = RawCullPhotoAnalysisAdapter()
         let config = effectiveFocusConfig
         let thumbSize = effectiveThumbnailMaxPixelSize
         let scoringSource = scoringSource
-        let scoreComputerOverride = scoreComputerOverride
-        var iterator = files.makeIterator()
-        var active = 0
         let maxConcurrent = effectiveMaxConcurrentScoringTasks
+        let requests = files.map { file in
+            RawCullPhotoAnalysisRequest(
+                id: file.id,
+                file: RawCullPhotoAnalysisFile(
+                    url: file.url,
+                    iso: file.exifData?.isoValue ?? 400,
+                    aperture: file.exifData?.apertureValue,
+                    normalizedAFPoint: file.afFocusNormalized,
+                ),
+            )
+        }
 
         let workTask = Task {
             defer {
@@ -188,124 +194,73 @@ final class SharpnessScoringModel {
                 self.isScoring = false
             }
 
-            await withTaskGroup(of: (UUID, Float?, SaliencyInfo?, SharpnessBreakdown?).self) { group in
-                while active < maxConcurrent, let file = iterator.next() {
-                    let url = file.url
-                    let id = file.id
-                    let iso = file.exifData?.isoValue ?? 400
-                    let aperture = file.exifData?.apertureValue
-                    let afPoint = file.afFocusNormalized
-                    let hint = FocusDetectorConfig.ApertureHint.from(aperture: aperture)
-
-                    group.addTask(priority: .userInitiated) {
-                        var fileConfig = config
-                        fileConfig.iso = iso
-                        fileConfig.apertureHint = hint
-                        let result = if let scoreComputerOverride {
-                            await scoreComputerOverride(url, fileConfig, thumbSize, afPoint)
-                        } else {
-                            await analysisAdapter.analyze(
-                                file: RawCullPhotoAnalysisFile(
-                                    url: url,
-                                    iso: iso,
-                                    aperture: aperture,
-                                    normalizedAFPoint: afPoint,
-                                ),
-                                configuration: fileConfig,
-                                maximumPixelSize: thumbSize,
-                                source: scoringSource,
-                            )
-                        }
-                        return (id, result.score, result.saliency, result.breakdown)
+            guard let results = await analysisAdapter.analyzeBatch(
+                requests: requests,
+                configuration: config,
+                maximumPixelSize: thumbSize,
+                source: scoringSource,
+                maximumConcurrentTasks: maxConcurrent,
+                progress: { completedCount, totalCount in
+                    await MainActor.run {
+                        self.recordScoringProgress(
+                            completedCount: completedCount,
+                            totalCount: totalCount,
+                        )
                     }
-                    active += 1
-                }
+                },
+            ), !Task.isCancelled else { return }
 
-                var localScores: [UUID: Float] = [:]
-                var localSaliency: [UUID: SaliencyInfo] = [:]
-                var localBreakdowns: [UUID: SharpnessBreakdown] = [:]
-                var completedCount = 0
-                var completionTimes: [TimeInterval] = []
-                var lastCompletionTime: Date?
-
-                for await (id, score, saliency, breakdown) in group {
-                    active -= 1
-                    guard !Task.isCancelled else { break }
-
-                    if let score {
-                        localScores[id] = score
-                    }
-                    if let saliency {
-                        localSaliency[id] = saliency
-                    }
-                    if let breakdown {
-                        localBreakdowns[id] = breakdown
-                    }
-                    completedCount += 1
-
-                    self.scoringProgress = completedCount
-                    let now = Date()
-                    if let lastCompletionTime {
-                        completionTimes.append(now.timeIntervalSince(lastCompletionTime))
-                    }
-                    lastCompletionTime = now
-
-                    if completedCount >= Self.minimumSamplesBeforeEstimation, !completionTimes.isEmpty {
-                        let recentTimes = completionTimes.suffix(min(Self.estimationWindowSize, completionTimes.count))
-                        let avgSecondsPerCompletion = recentTimes.reduce(0, +) / Double(recentTimes.count)
-                        let remainingItems = files.count - completedCount
-                        self.scoringEstimatedSeconds = Swift.max(0, Int(avgSecondsPerCompletion * Double(remainingItems)))
-                    }
-
-                    if let file = iterator.next() {
-                        let url = file.url
-                        let id = file.id
-                        let iso = file.exifData?.isoValue ?? 400
-                        let aperture = file.exifData?.apertureValue
-                        let afPoint = file.afFocusNormalized
-                        let hint = FocusDetectorConfig.ApertureHint.from(aperture: aperture)
-
-                        group.addTask(priority: .userInitiated) {
-                            var fileConfig = config
-                            fileConfig.iso = iso
-                            fileConfig.apertureHint = hint
-                            let result = if let scoreComputerOverride {
-                                await scoreComputerOverride(url, fileConfig, thumbSize, afPoint)
-                            } else {
-                                await analysisAdapter.analyze(
-                                    file: RawCullPhotoAnalysisFile(
-                                        url: url,
-                                        iso: iso,
-                                        aperture: aperture,
-                                        normalizedAFPoint: afPoint,
-                                    ),
-                                    configuration: fileConfig,
-                                    maximumPixelSize: thumbSize,
-                                    source: scoringSource,
-                                )
-                            }
-                            return (id, result.score, result.saliency, result.breakdown)
-                        }
-                        active += 1
-                    }
-                }
-
-                guard !Task.isCancelled else { return }
-                self.scores = localScores
-                self.saliencyInfo = localSaliency
-                self.breakdowns = localBreakdowns
-            }
-
-            guard !Task.isCancelled else { return }
+            self.scores = Dictionary(
+                uniqueKeysWithValues: results.compactMap { result in
+                    result.score.map { (result.id, $0) }
+                },
+            )
+            self.saliencyInfo = Dictionary(
+                uniqueKeysWithValues: results.compactMap { result in
+                    result.saliency.map { (result.id, $0) }
+                },
+            )
+            self.breakdowns = Dictionary(
+                uniqueKeysWithValues: results.compactMap { result in
+                    result.breakdown.map { (result.id, $0) }
+                },
+            )
 
             self.sortBySharpness = true
             self.scoringProgress = 0
             self.scoringTotal = 0
             self.scoringEstimatedSeconds = 0
+            self.scoringCompletionTimes = []
+            self.lastScoringCompletionTime = nil
         }
 
         _scoringTask = workTask
         await workTask.value
+    }
+
+    private func recordScoringProgress(completedCount: Int, totalCount: Int) {
+        scoringProgress = completedCount
+        let now = Date()
+        if let lastScoringCompletionTime {
+            scoringCompletionTimes.append(
+                now.timeIntervalSince(lastScoringCompletionTime),
+            )
+        }
+        lastScoringCompletionTime = now
+
+        guard completedCount >= Self.minimumSamplesBeforeEstimation,
+              !scoringCompletionTimes.isEmpty
+        else { return }
+
+        let recentTimes = scoringCompletionTimes.suffix(
+            min(Self.estimationWindowSize, scoringCompletionTimes.count),
+        )
+        let averageSeconds = recentTimes.reduce(0, +) / Double(recentTimes.count)
+        let remainingItems = totalCount - completedCount
+        scoringEstimatedSeconds = max(
+            0,
+            Int(averageSeconds * Double(remainingItems)),
+        )
     }
 
     func applyPreloadedScores(

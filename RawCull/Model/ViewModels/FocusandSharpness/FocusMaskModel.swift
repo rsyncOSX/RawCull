@@ -65,36 +65,6 @@ final class FocusMaskModel {
         return (result.focusMask, saliency, breakdown)
     }
 
-    // periphery:ignore
-    nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
-        SharpnessMetrics.robustTailScore(samples)
-    }
-
-    // periphery:ignore
-    nonisolated static func microContrast(_ samples: [Float]) -> Float {
-        SharpnessMetrics.microContrast(samples)
-    }
-
-    // periphery:ignore
-    nonisolated static func isoScalingFactor(iso: Int) -> Float {
-        SharpnessMetrics.isoScalingFactor(iso: iso)
-    }
-
-    // periphery:ignore
-    nonisolated static func classifyFocusFailure(
-        globalScore: Float?,
-        subjectScore: Float?,
-        afPointScore: Float?,
-        blurGateSigma: Float,
-    ) -> FocusFailureKind {
-        SharpnessMetrics.classifyFocusFailure(
-            globalScore: globalScore,
-            subjectScore: subjectScore,
-            afPointScore: afPointScore,
-            blurGateSigma: blurGateSigma,
-        )
-    }
-
     func applyCalibration(_ result: FocusCalibrationResult) {
         var calibrated = config
         calibrated.threshold = result.threshold
