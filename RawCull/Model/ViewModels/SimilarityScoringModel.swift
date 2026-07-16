@@ -4,11 +4,10 @@
 //
 
 import Foundation
-import ImageIO
 import Observation
 import OSLog
+import PhotoAnalysisKit
 import RawCullCore
-import Vision
 
 // MARK: - Constants
 
@@ -26,14 +25,13 @@ final class SimilarityScoringModel {
     typealias EmbeddingProvider = @Sendable (URL, Int) async -> Data?
 
     nonisolated static let embeddingThumbnailMaxPixelSize = 512
-    nonisolated static let embeddingPipelineVersion = 1
-    nonisolated static let featurePrintRevision = VNGenerateImageFeaturePrintRequestRevision2
+    nonisolated static let embeddingPipelineVersion = 2
+    nonisolated static let featurePrintRevision = VisionFeaturePrintBackend().revision
 
     // MARK: State
 
-    /// Archived VNFeaturePrintObservation data keyed by FileItem.id.
-    /// Stored as NSKeyedArchiver-encoded Data to avoid holding many
-    /// large objects alive simultaneously.
+    /// Codable PhotoAnalysisKit feature prints keyed by FileItem.id.
+    /// Data storage keeps the in-memory and persisted RawCull cache compact.
     var embeddings: [UUID: Data] = [:]
 
     /// Raw distances from the current anchor image (lower = more similar).
@@ -236,8 +234,7 @@ final class SimilarityScoringModel {
     /// Applies a small saliency-subject mismatch penalty when both images have
     /// subject labels and the labels differ.
     ///
-    /// The heavy unarchiving + distance loop runs on the cooperative thread pool
-    /// (via Task.detached) to avoid blocking the main thread on large catalogs.
+    /// Feature-print decoding and distance calculation run away from the main actor.
     ///
     /// - Parameters:
     ///   - anchorID: The reference image's UUID.
@@ -256,39 +253,28 @@ final class SimilarityScoringModel {
         }
 
         let anchorLabel = saliencyInfo[anchorID]?.subjectLabel
-        // Snapshot both dicts before hopping off the main actor — both are [UUID: Sendable].
         let snapshot = embeddings
-        // Capture as a local so the file-scope constant (implicitly @MainActor under
-        // SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor) is safe to use inside Task.detached.
         let mismatchPenalty = kSubjectMismatchPenalty
 
-        let result: [UUID: Float]? = await Task.detached(priority: .userInitiated) {
-            // Unarchive the anchor inside the detached task so no NSObject crosses
-            // actor boundaries; anchorData (Data) is Sendable.
-            guard let anchor = try? NSKeyedUnarchiver.unarchivedObject(
-                ofClass: VNFeaturePrintObservation.self,
-                from: anchorData,
-            ) else {
-                Logger.process.warning("SimilarityScoringModel: failed to unarchive anchor embedding")
+        let result: [UUID: Float]? = await Task(priority: .userInitiated) { @concurrent in
+            let backend = VisionFeaturePrintBackend(revision: Self.featurePrintRevision)
+            guard let anchor = Self.decodeFeaturePrint(anchorData) else {
+                Logger.process.warning("SimilarityScoringModel: failed to decode anchor embedding")
                 return nil
             }
 
             var r: [UUID: Float] = [:]
             for (id, data) in snapshot where id != anchorID {
-                guard let obs = try? NSKeyedUnarchiver.unarchivedObject(
-                    ofClass: VNFeaturePrintObservation.self,
-                    from: data,
-                ) else { continue }
-
-                var d: Float = 0
-                // VNFeaturePrintObservation.computeDistance(_:to:) throws; skip on error.
-                guard (try? anchor.computeDistance(&d, to: obs)) != nil else { continue }
+                guard let featurePrint = Self.decodeFeaturePrint(data),
+                      let distance = try? backend.distance(from: anchor, to: featurePrint)
+                else { continue }
+                var d = distance
 
                 // Apply a small saliency-subject mismatch penalty so images of a
                 // different subject type are ranked slightly lower, while keeping
                 // the visual embedding as the dominant signal.
                 //   d_out = d_visual + kSubjectMismatchPenalty    (0.10, additive
-                //   in VNFeaturePrintObservation distance space — typical d ≈ 0.3–1.2
+                //   in Vision feature-print distance space — typical d ≈ 0.3–1.2
                 //   between unrelated images, so +0.10 is meaningful but not dominant).
                 if let al = anchorLabel, let cl = saliencyInfo[id]?.subjectLabel, al != cl {
                     d += mismatchPenalty
@@ -318,9 +304,9 @@ final class SimilarityScoringModel {
     /// Preserves the current home/category presentation on completion.
     ///
     /// Cancels any in-flight grouping work at the top so a dragging slider
-    /// does not spawn multiple concurrent unarchive passes over the full
-    /// embedding snapshot — otherwise the cooperative thread pool saturates
-    /// and the UI beach-balls on large catalogs.
+    /// does not spawn multiple concurrent feature-print decoding passes over
+    /// the full embedding snapshot. Otherwise, the cooperative thread pool
+    /// saturates and the UI beach-balls on large catalogs.
     func groupBursts(files: [FileItem]) async {
         guard !files.isEmpty else {
             _groupingTask?.cancel()
@@ -344,7 +330,7 @@ final class SimilarityScoringModel {
         let signature = cacheSignature(fileIDs: files.map(\.id), embeddingsCount: snapshot.count)
         let cachedAdjacentDistances = _adjacentDistanceCacheSignature == signature ? _adjacentDistanceCache : [:]
 
-        let work = Task.detached(priority: .userInitiated) { () -> BurstGroupingOutput? in
+        let work = Task(priority: .userInitiated) { @concurrent () -> BurstGroupingOutput? in
             let adjacentDistances = Self.computeAdjacentDistances(
                 files: files,
                 embeddings: snapshot,
@@ -409,37 +395,29 @@ final class SimilarityScoringModel {
         _adjacentDistanceCacheSignature = 0
     }
 
-    // MARK: - Static helpers (nonisolated, used from detached tasks)
+    // MARK: - Static helpers
 
-    /// Decode a thumbnail from a Sony ARW file and compute a Vision feature print.
-    /// Returns the archived Data for the VNFeaturePrintObservation, or nil on failure.
+    /// Decode a thumbnail through RawParserKit, then generate an opaque package feature print.
     @concurrent
     nonisolated static func computeEmbedding(url: URL, maxPixelSize: Int) async -> Data? {
         guard !Task.isCancelled else { return nil }
-        let rawParserImage = await decodeRawParserKitThumbnail(at: url, maxPixelSize: maxPixelSize)
-        guard !Task.isCancelled else { return nil }
-        guard let cgImage = rawParserImage ?? decodeThumbnail(at: url, maxPixelSize: maxPixelSize) else {
+        guard let cgImage = await RawParserKitImageLoader.shared.thumbnailCGImage(
+            for: url,
+            maxPixelSize: maxPixelSize,
+        ) else {
             Logger.process.debugMessageOnly("SimilarityScoringModel: could not decode image at \(url.lastPathComponent)")
             return nil
         }
         guard !Task.isCancelled else { return nil }
 
-        let request = VNGenerateImageFeaturePrintRequest()
-        request.revision = Self.featurePrintRevision
-
-        request.imageCropAndScaleOption = .scaleFill
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        let backend = VisionFeaturePrintBackend(revision: Self.featurePrintRevision)
         do {
-            try handler.perform([request])
+            let featurePrint = try await backend.featurePrint(for: cgImage)
+            return encodeFeaturePrint(featurePrint)
         } catch {
             Logger.process.warning("SimilarityScoringModel: Vision feature-print request failed for \(url.lastPathComponent): \(error)")
             return nil
         }
-
-        guard !Task.isCancelled,
-              let obs = request.results?.first as? VNFeaturePrintObservation
-        else { return nil }
-        return try? NSKeyedArchiver.archivedData(withRootObject: obs, requiringSecureCoding: true)
     }
 
     nonisolated static func computeAdjacentDistances(
@@ -450,7 +428,8 @@ final class SimilarityScoringModel {
         guard files.count > 1 else { return [:] }
 
         var distances = cached
-        var observations: [UUID: VNFeaturePrintObservation] = [:]
+        let backend = VisionFeaturePrintBackend(revision: featurePrintRevision)
+        var featurePrints: [UUID: VisionFeaturePrint] = [:]
 
         for index in files.indices.dropFirst() {
             if index & 0x3F == 0, Task.isCancelled {
@@ -463,34 +442,37 @@ final class SimilarityScoringModel {
                 continue
             }
 
-            guard let previous = observation(for: previousID, embeddings: embeddings, observations: &observations),
-                  let current = observation(for: currentID, embeddings: embeddings, observations: &observations)
+            guard let previous = featurePrint(for: previousID, embeddings: embeddings, featurePrints: &featurePrints),
+                  let current = featurePrint(for: currentID, embeddings: embeddings, featurePrints: &featurePrints),
+                  let distance = try? backend.distance(from: previous, to: current)
             else { continue }
-
-            var distance: Float = 0
-            guard (try? previous.computeDistance(&distance, to: current)) != nil else { continue }
             distances[key] = distance
         }
 
         return distances
     }
 
-    private nonisolated static func observation(
+    private nonisolated static func featurePrint(
         for id: UUID,
         embeddings: [UUID: Data],
-        observations: inout [UUID: VNFeaturePrintObservation],
-    ) -> VNFeaturePrintObservation? {
-        if let observation = observations[id] {
-            return observation
+        featurePrints: inout [UUID: VisionFeaturePrint],
+    ) -> VisionFeaturePrint? {
+        if let featurePrint = featurePrints[id] {
+            return featurePrint
         }
         guard let data = embeddings[id],
-              let observation = try? NSKeyedUnarchiver.unarchivedObject(
-                  ofClass: VNFeaturePrintObservation.self,
-                  from: data,
-              )
+              let featurePrint = decodeFeaturePrint(data)
         else { return nil }
-        observations[id] = observation
-        return observation
+        featurePrints[id] = featurePrint
+        return featurePrint
+    }
+
+    private nonisolated static func encodeFeaturePrint(_ featurePrint: VisionFeaturePrint) -> Data? {
+        try? JSONEncoder().encode(featurePrint)
+    }
+
+    private nonisolated static func decodeFeaturePrint(_ data: Data) -> VisionFeaturePrint? {
+        try? JSONDecoder().decode(VisionFeaturePrint.self, from: data)
     }
 
     private nonisolated func cacheSignature(fileIDs: [UUID], embeddingsCount: Int) -> Int {
@@ -500,30 +482,5 @@ final class SimilarityScoringModel {
             hasher.combine(id)
         }
         return hasher.finalize()
-    }
-
-    /// Decode an embedded thumbnail from a Sony ARW via CGImageSource.
-    private nonisolated static func decodeThumbnail(at url: URL, maxPixelSize: Int) -> CGImage? {
-        let srcOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, srcOptions as CFDictionary) else { return nil }
-        let thumbOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-            kCGImageSourceCreateThumbnailFromImageAlways: false,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
-    }
-
-    /// Prefer RawParserKit's registered vendor extractor. It owns embedded-JPEG
-    /// fallbacks for RAW formats that ImageIO cannot decode directly.
-    private nonisolated static func decodeRawParserKitThumbnail(at url: URL, maxPixelSize: Int) async -> CGImage? {
-        guard let image = await RawParserKitImageLoader.shared.thumbnailCGImage(
-            for: url,
-            maxPixelSize: maxPixelSize,
-        ) else { return nil }
-
-        return image
     }
 }

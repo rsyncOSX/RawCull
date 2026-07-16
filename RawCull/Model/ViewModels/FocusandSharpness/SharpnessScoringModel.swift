@@ -129,7 +129,13 @@ final class SharpnessScoringModel {
 
     func calibrateFromBurst(_ files: [FileItem]) async {
         isCalibratingSharpnessScoring = true
-        let fileEntries = files.map { (url: $0.url, iso: $0.exifData?.isoValue) }
+        let fileEntries = files.map {
+            (
+                url: $0.url,
+                iso: $0.exifData?.isoValue,
+                aperture: $0.exifData?.apertureValue,
+            )
+        }
         let calibrationConfig = effectiveFocusConfig
 
         guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
@@ -167,7 +173,7 @@ final class SharpnessScoringModel {
         saliencyInfo = [:]
         breakdowns = [:]
 
-        let engine = FocusMaskEngine()
+        let analysisAdapter = RawCullPhotoAnalysisAdapter()
         let config = effectiveFocusConfig
         let thumbSize = effectiveThumbnailMaxPixelSize
         let scoringSource = scoringSource
@@ -187,8 +193,9 @@ final class SharpnessScoringModel {
                     let url = file.url
                     let id = file.id
                     let iso = file.exifData?.isoValue ?? 400
+                    let aperture = file.exifData?.apertureValue
                     let afPoint = file.afFocusNormalized
-                    let hint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+                    let hint = FocusDetectorConfig.ApertureHint.from(aperture: aperture)
 
                     group.addTask(priority: .userInitiated) {
                         var fileConfig = config
@@ -197,12 +204,16 @@ final class SharpnessScoringModel {
                         let result = if let scoreComputerOverride {
                             await scoreComputerOverride(url, fileConfig, thumbSize, afPoint)
                         } else {
-                            await engine.computeSharpnessScore(
-                                fromRawURL: url,
-                                config: fileConfig,
-                                thumbnailMaxPixelSize: thumbSize,
-                                afPoint: afPoint,
-                                scoringSource: scoringSource,
+                            await analysisAdapter.analyze(
+                                file: RawCullPhotoAnalysisFile(
+                                    url: url,
+                                    iso: iso,
+                                    aperture: aperture,
+                                    normalizedAFPoint: afPoint,
+                                ),
+                                configuration: fileConfig,
+                                maximumPixelSize: thumbSize,
+                                source: scoringSource,
                             )
                         }
                         return (id, result.score, result.saliency, result.breakdown)
@@ -250,8 +261,9 @@ final class SharpnessScoringModel {
                         let url = file.url
                         let id = file.id
                         let iso = file.exifData?.isoValue ?? 400
+                        let aperture = file.exifData?.apertureValue
                         let afPoint = file.afFocusNormalized
-                        let hint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
+                        let hint = FocusDetectorConfig.ApertureHint.from(aperture: aperture)
 
                         group.addTask(priority: .userInitiated) {
                             var fileConfig = config
@@ -260,12 +272,16 @@ final class SharpnessScoringModel {
                             let result = if let scoreComputerOverride {
                                 await scoreComputerOverride(url, fileConfig, thumbSize, afPoint)
                             } else {
-                                await engine.computeSharpnessScore(
-                                    fromRawURL: url,
-                                    config: fileConfig,
-                                    thumbnailMaxPixelSize: thumbSize,
-                                    afPoint: afPoint,
-                                    scoringSource: scoringSource,
+                                await analysisAdapter.analyze(
+                                    file: RawCullPhotoAnalysisFile(
+                                        url: url,
+                                        iso: iso,
+                                        aperture: aperture,
+                                        normalizedAFPoint: afPoint,
+                                    ),
+                                    configuration: fileConfig,
+                                    maximumPixelSize: thumbSize,
+                                    source: scoringSource,
                                 )
                             }
                             return (id, result.score, result.saliency, result.breakdown)

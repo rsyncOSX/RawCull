@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
+		E94D75603008A930005B1B49 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E94D755F3008A930005B1B49 /* PhotoAnalysisKit */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
 		E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
 		E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
@@ -15,7 +16,6 @@
 		E97E976D2F210EAB001A4239 /* RawCullicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E97E975D2F210EAB001A4239 /* RawCullicon.icon */; };
 		E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E9B609842F28FA3600704081 /* DecodeEncodeGeneric */; };
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
-		E9C716463008A0C100EC1571 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9C716453008A0C100EC1571 /* PhotoAnalysisKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +56,7 @@
 			files = (
 				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
-				E9C716463008A0C100EC1571 /* PhotoAnalysisKit in Frameworks */,
+				E94D75603008A930005B1B49 /* PhotoAnalysisKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
 				E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */,
@@ -121,7 +121,7 @@
 				E952AA612F2E37170081987F /* ParseRsyncOutput */,
 				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
 				E95349CF2FF9902900A4C0C3 /* RawParserKit */,
-				E9C716453008A0C100EC1571 /* PhotoAnalysisKit */,
+				E94D755F3008A930005B1B49 /* PhotoAnalysisKit */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -186,7 +186,7 @@
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
-				E9C716443008A0C100EC1571 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
+				E94D755E3008A930005B1B49 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -578,6 +578,14 @@
 				version = 1.0.0;
 			};
 		};
+		E94D755E3008A930005B1B49 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.1;
+			};
+		};
 		E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/ParseRsyncOutput";
@@ -618,14 +626,6 @@
 				version = 1.0.0;
 			};
 		};
-		E9C716443008A0C100EC1571 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.0.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -633,6 +633,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */;
 			productName = RsyncArguments;
+		};
+		E94D755F3008A930005B1B49 /* PhotoAnalysisKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E94D755E3008A930005B1B49 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */;
+			productName = PhotoAnalysisKit;
 		};
 		E952AA612F2E37170081987F /* ParseRsyncOutput */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -658,11 +663,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */;
 			productName = RsyncProcessStreaming;
-		};
-		E9C716453008A0C100EC1571 /* PhotoAnalysisKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C716443008A0C100EC1571 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */;
-			productName = PhotoAnalysisKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

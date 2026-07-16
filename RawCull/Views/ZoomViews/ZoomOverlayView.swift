@@ -618,6 +618,9 @@ struct ZoomOverlayView: View {
             scale: 1.0,
             configOverride: config,
             afPoint: selectedFile.afFocusNormalized,
+            iso: selectedFile.exifData?.isoValue ?? 400,
+            aperture: selectedFile.exifData?.apertureValue,
+            scoringSource: sourceSelection.selected == .developedRAW ? .rawDemosaic : .embeddedPreview,
         )
         guard !Task.isCancelled else { return }
         await MainActor.run {

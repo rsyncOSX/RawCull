@@ -33,10 +33,10 @@ nonisolated struct BurstSimilaritySignature: Codable, Equatable {
 }
 
 nonisolated struct SharpnessScoringSignature: Codable {
-    nonisolated static let currentAlgorithmVersion = 3
+    nonisolated static let currentAlgorithmVersion = 4
     nonisolated static let currentISOScalingPolicyVersion = 1
     nonisolated static let currentApertureHintPolicyVersion = 1
-    nonisolated static let stableScoringEnergyMultiplier: Float = 7.62
+    nonisolated static let stableScoringEnergyMultiplier = FocusDetectorConfig.stableScoringEnergyMultiplier
 
     var algorithmVersion: Int
     var isoScalingPolicyVersion: Int

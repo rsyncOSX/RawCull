@@ -9,82 +9,13 @@ SIGNING_IDENTITY = "93M47F4H9T"
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
 SMOKE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/SimilarityDistanceOrderingTests/`rankSimilar returns nearest image first`()' \
-	'-only-testing:RawCullTests/SimilarityDistanceOrderingTests/`anchor is excluded from distances`()' \
-	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`rankSimilar with unknown anchor clears state`()' \
-	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`indexFiles with empty array leaves model unchanged`()' \
-	'-only-testing:RawCullTests/SimilarityEmptyStateTests/`initial sortBySimilarity is false`()' \
-	'-only-testing:RawCullTests/SimilaritySubjectMismatchTests/`subject mismatch increases distance`()' \
-	'-only-testing:RawCullTests/SimilarityCancellationTests/`cancelIndexing resets progress state`()' \
-	'-only-testing:RawCullTests/SimilarityCancellationTests/`reset clears all similarity state`()' \
-	'-only-testing:RawCullTests/SharpnessScoringTests/`max score small set uses maximum not minimum`()' \
-	'-only-testing:RawCullTests/SharpnessScoringTests/`max score single zero score has 1e-6 floor`()' \
-	'-only-testing:RawCullTests/SharpnessScoringTests/`max score large set uses P 90`()' \
-	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label maps threshold boundaries`()' \
-	'-only-testing:RawCullTests/SharpnessScoringTests/`sharpness label clamps and handles invalid denominator`()' \
-	'-only-testing:RawCullTests/SharpnessScoringTests/`RAW demosaic scoring source caps concurrency and keeps embedded default`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score empty returns nil`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score uniform returns zero`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score dense edges scores higher than sparse`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score dense edges full density factor`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score sparse edges scores low`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`robust tail score is scale proportional`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast empty returns zero`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast uniform returns zero`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast ignores non finite`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`micro contrast alternating known variance`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`adaptive AF threshold keeps low contrast local detail reachable`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`adaptive saliency threshold rises for broad high contrast edges`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`adaptive AF threshold is capped so strong body edges do not hide AF detail`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection prefers AF when strongest`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection prefers AF center when eye patch is strongest`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection uses AF neighborhood when center is weak`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection keeps wildlife AF when nearly strongest`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection uses saliency when AF is absent`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection keeps saliency when AF local scores are weak`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`focus evidence selection falls back to global without subject evidence`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF local rect stays constrained around focus point`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`AF pixel center matches overlay normalized coordinates`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`resolution scaling uses longest side regardless of orientation`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`visibility relaxation lowers threshold and reports coverage`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`generic decode normalization produces sRGB eight bit RGBA`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring size normalization clamps legacy and oversized values`(value:expected:)' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`conservative subject score keeps broad score dominant`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`conservative subject score preserves broad fallback without patches`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`saliency selection prefers AF overlap over confidence`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`saliency selection is deterministic without AF`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`saliency selection reports empty fallback`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring signature ignores visual controls and tracks score controls`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`scoring signature invalidates for every score affecting field and policy version`()' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests/`applying visual calibration does not change scoring signature`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF centered patch wins over slightly stronger distant patch`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF distant patch wins when detail exceeds override`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`saliency interior patch beats silhouette border`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`global evidence uses medium confidence when measurable`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`no viable patch is low confidence`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`diagnostics report visualized patch and AF distance`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`eye head heuristic rewards compact ring detail over linear edge`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`AF anchored heuristic penalizes lower patch beyond head window`()' \
-	'-only-testing:RawCullTests/FocusEvidencePatchOverlayTests/`saliency heuristic does not invent below AF penalty`()' \
-	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness can outweigh subject metadata when detail clearly leads`()' \
-	'-only-testing:RawCullTests/BurstRankingEngineTests/`burst relative sharpness is omitted for tiny sharpness spread`()' \
-	'-only-testing:RawCullTests/BurstRankingEngineTests/`best relative frame still needs absolute sharpness for high confidence`()' \
-	'-only-testing:RawCullTests/ApertureHintTests/`nil aperture maps to mid`()' \
-	'-only-testing:RawCullTests/ApertureHintTests/`wide boundary is inclusive at 5 point 6`()' \
-	'-only-testing:RawCullTests/ApertureHintTests/`landscape boundary is inclusive at f 8`()' \
-	'-only-testing:RawCullTests/ApertureHintTests/`landscape has widest gate window and lowest threshold`()' \
-	'-only-testing:RawCullTests/ApertureHintTests/`only landscape overrides salient weight and damps blur`()' \
-	'-only-testing:RawCullTests/ApertureHintTests/`blur gate span is positive for every hint`()' \
-	'-only-testing:RawCullTests/ISOScalingTests/`below 800 is flat at 1 point 0`()' \
-	'-only-testing:RawCullTests/ISOScalingTests/`mid range ramps to 1 point 6 at 3200`()' \
-	'-only-testing:RawCullTests/ISOScalingTests/`high range caps at 2 point 2`()' \
-	'-only-testing:RawCullTests/ISOScalingTests/`monotonically non decreasing across range`()' \
-	'-only-testing:RawCullTests/ISOScalingTests/`high ISO is less aggressive than old sqrt formula`()' \
-	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`exif footer omits missing fields and preserves display order`()' \
-	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`candidate context resolves selected rank saliency scores and focus points`()' \
-	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus uses recommended finalists without mutating source ids`()' \
-	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus falls back to ranked candidates when recommendation ids are missing`()' \
-	'-only-testing:RawCullTests/ComparisonCandidateInspectorTests/`finalist focus falls back to file ids when candidates are missing`()' \
+	'-only-testing:RawCullTests/PhotoAnalysisKitIntegrationTests' \
+	'-only-testing:RawCullTests/SharpnessScoringTests' \
+	'-only-testing:RawCullTests/FocusNumericHelperTests' \
+	'-only-testing:RawCullTests/ApertureHintTests' \
+	'-only-testing:RawCullTests/ISOScalingTests' \
+	'-only-testing:RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()' \
+	'-only-testing:RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()' \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()'
 PERFORMANCE_ONLY_TESTING = \
@@ -98,7 +29,7 @@ debug: clean archive-debug open-debug
 
 # Test targets
 test-smoke:
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke $(SMOKE_ONLY_TESTING)
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO $(SMOKE_ONLY_TESTING)
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES

@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import PhotoAnalysisKit
 @testable import RawCull
 import RawCullCore
 import Testing

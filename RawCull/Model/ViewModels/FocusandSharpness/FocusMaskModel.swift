@@ -1,33 +1,39 @@
 import AppKit
 import Observation
+import PhotoAnalysisKit
 import RawCullCore
 
 @Observable @MainActor
 final class FocusMaskModel {
     var config = FocusDetectorConfig()
 
-    private nonisolated let engine = FocusMaskEngine()
+    private nonisolated let analyzer = PhotoAnalyzer()
+    private nonisolated let fileAdapter = RawCullPhotoAnalysisAdapter()
 
     func generateFocusMask(
         from nsImage: NSImage,
         scale: CGFloat,
         configOverride: FocusDetectorConfig? = nil,
         afPoint: CGPoint? = nil,
+        iso: Int = 400,
+        aperture: Double? = nil,
         evidence: FocusEvidence? = nil,
     ) async -> NSImage? {
         guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
-        let originalSize = nsImage.size
-        let config = configOverride ?? self.config
-
-        guard let result = await engine.generateFocusMask(
-            from: cgImage,
+        let input = PhotoAnalysisInput(
+            image: cgImage,
+            iso: iso,
+            aperture: aperture,
+            normalizedAFPoint: afPoint,
+        )
+        guard let result = await analyzer.focusMask(
+            for: input,
             scale: scale,
-            config: config,
-            afPoint: afPoint,
+            configuration: configOverride ?? config,
             evidence: evidence,
         ) else { return nil }
 
-        return NSImage(cgImage: result, size: originalSize)
+        return NSImage(cgImage: result, size: nsImage.size)
     }
 
     func generateFocusMaskWithBreakdown(
@@ -35,29 +41,43 @@ final class FocusMaskModel {
         scale: CGFloat,
         configOverride: FocusDetectorConfig? = nil,
         afPoint: CGPoint? = nil,
+        iso: Int = 400,
+        aperture: Double? = nil,
+        scoringSource: SharpnessScoringSource = .embeddedPreview,
     ) async -> (mask: CGImage?, saliency: SaliencyInfo?, breakdown: SharpnessBreakdown?) {
-        let config = configOverride ?? self.config
-        return await engine.generateFocusMaskWithBreakdown(
-            from: cgImage,
-            scale: scale,
-            config: config,
-            afPoint: afPoint,
+        let input = PhotoAnalysisInput(
+            image: cgImage,
+            iso: iso,
+            aperture: aperture,
+            normalizedAFPoint: afPoint,
         )
+        let result = await analyzer.analyzeWithFocusMask(
+            input,
+            scale: scale,
+            configuration: configOverride ?? config,
+        )
+        let saliency = result.saliency.map {
+            SaliencyInfo(subjectLabel: $0.subjectLabel, subjectConfidence: $0.subjectConfidence)
+        }
+        let breakdown = result.breakdown.map {
+            SharpnessBreakdown(package: $0, scoringSource: scoringSource)
+        }
+        return (result.focusMask, saliency, breakdown)
     }
 
     // periphery:ignore
     nonisolated static func robustTailScore(_ samples: [Float]) -> Float? {
-        FocusMaskEngine.robustTailScore(samples)
+        SharpnessMetrics.robustTailScore(samples)
     }
 
     // periphery:ignore
     nonisolated static func microContrast(_ samples: [Float]) -> Float {
-        FocusMaskEngine.microContrast(samples)
+        SharpnessMetrics.microContrast(samples)
     }
 
     // periphery:ignore
     nonisolated static func isoScalingFactor(iso: Int) -> Float {
-        FocusMaskEngine.isoScalingFactor(iso: iso)
+        SharpnessMetrics.isoScalingFactor(iso: iso)
     }
 
     // periphery:ignore
@@ -67,7 +87,7 @@ final class FocusMaskModel {
         afPointScore: Float?,
         blurGateSigma: Float,
     ) -> FocusFailureKind {
-        FocusMaskEngine.classifyFocusFailure(
+        SharpnessMetrics.classifyFocusFailure(
             globalScore: globalScore,
             subjectScore: subjectScore,
             afPointScore: afPointScore,
@@ -75,16 +95,14 @@ final class FocusMaskModel {
         )
     }
 
-    @MainActor
     func applyCalibration(_ result: FocusCalibrationResult) {
-        var cfg = config
-        cfg.threshold = result.threshold
-        config = cfg
+        var calibrated = config
+        calibrated.threshold = result.threshold
+        config = calibrated
     }
 
-    @MainActor
     func calibrateAndApplyFromBurstParallel(
-        files: [(url: URL, iso: Int?)],
+        files: [(url: URL, iso: Int?, aperture: Double?)],
         baseConfigOverride: FocusDetectorConfig? = nil,
         thumbnailMaxPixelSize: Int = 512,
         scoringSource: SharpnessScoringSource = .embeddedPreview,
@@ -92,15 +110,22 @@ final class FocusMaskModel {
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
-        let base = baseConfigOverride ?? config
-        guard let result = await engine.calibrateFromBurstParallel(
-            files: files,
-            baseConfig: base,
-            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-            scoringSource: scoringSource,
+        let analysisFiles = files.map {
+            RawCullPhotoAnalysisFile(
+                url: $0.url,
+                iso: $0.iso ?? 400,
+                aperture: $0.aperture,
+                normalizedAFPoint: nil,
+            )
+        }
+        guard let result = await fileAdapter.calibrate(
+            files: analysisFiles,
+            baseConfiguration: baseConfigOverride ?? config,
+            maximumPixelSize: thumbnailMaxPixelSize,
+            source: scoringSource,
             thresholdPercentile: thresholdPercentile,
-            minSamples: minSamples,
-            maxConcurrentTasks: maxConcurrentTasks,
+            minimumSuccessfulImages: minSamples,
+            maximumConcurrentTasks: maxConcurrentTasks,
         ) else { return nil }
 
         applyCalibration(result)

@@ -439,6 +439,8 @@ struct MainThumbnailImageView: View {
             scale: 1.0,
             configOverride: config,
             afPoint: file?.afFocusNormalized,
+            iso: file?.exifData?.isoValue ?? 400,
+            aperture: file?.exifData?.apertureValue,
             evidence: file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence },
         )
         guard !Task.isCancelled else { return }

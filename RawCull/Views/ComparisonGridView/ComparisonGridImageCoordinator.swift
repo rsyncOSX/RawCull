@@ -127,6 +127,8 @@ enum ComparisonGridImageCoordinator {
             scale: 1.0,
             configOverride: config,
             afPoint: file.afFocusNormalized,
+            iso: file.exifData?.isoValue ?? 400,
+            aperture: file.exifData?.apertureValue,
         )
     }
 
