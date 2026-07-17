@@ -102,6 +102,10 @@ actor BurstAnalysisCache {
 
     private let cacheDirectory: URL
 
+    nonisolated var storageDirectory: URL {
+        cacheDirectory
+    }
+
     init(cacheDirectory: URL? = nil) {
         if let cacheDirectory {
             self.cacheDirectory = cacheDirectory
@@ -165,6 +169,52 @@ actor BurstAnalysisCache {
         } catch {
             return
         }
+    }
+
+    func getDiskCacheUsage() async -> (size: Int, fileCount: Int) {
+        let directory = cacheDirectory
+
+        return await Task.detached(priority: .utility) {
+            let fileManager = FileManager.default
+            let resourceKeys: Set<URLResourceKey> = [
+                .isRegularFileKey,
+                .totalFileAllocatedSizeKey,
+            ]
+
+            guard let urls = try? fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: Array(resourceKeys),
+                options: .skipsHiddenFiles,
+            ) else { return (0, 0) }
+
+            var size = 0
+            var fileCount = 0
+            for fileURL in urls {
+                guard let values = try? fileURL.resourceValues(forKeys: resourceKeys),
+                      values.isRegularFile == true
+                else { continue }
+                size += values.totalFileAllocatedSize ?? 0
+                fileCount += 1
+            }
+            return (size, fileCount)
+        }.value
+    }
+
+    func clear() async {
+        let directory = cacheDirectory
+
+        await Task.detached(priority: .utility) {
+            let fileManager = FileManager.default
+            guard let urls = try? fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: nil,
+                options: .skipsHiddenFiles,
+            ) else { return }
+
+            for fileURL in urls {
+                try? fileManager.removeItem(at: fileURL)
+            }
+        }.value
     }
 
     private func isValid(

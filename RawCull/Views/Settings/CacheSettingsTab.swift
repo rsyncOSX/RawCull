@@ -5,7 +5,7 @@
 //  Created by Thomas Evensen on 08/02/2026.
 //
 
-import OSLog
+import Foundation
 import SwiftUI
 
 struct CacheSettingsTab: View {
@@ -13,278 +13,131 @@ struct CacheSettingsTab: View {
         SettingsViewModel.shared
     }
 
-    @State private var showPruneConfirmation = false
-    @State private var showPruneJPGConfirmation = false
-    @State private var currentDiskCacheSize: Int = 0
-    @State private var currentFullSizeJPGCacheSize: Int = 0
-    @State private var currentGridCacheSize: Int = 0
-    @State private var currentGridCacheCount: Int = 0
-    @State private var currentMemCacheSize: Int = 0
-    @State private var currentMemCacheCount: Int = 0
-    @State private var isLoadingDiskCacheSize = false
-    @State private var isPruningDiskCache = false
-    @State private var isPruningJPGCache = false
-
+    @State private var currentThumbnailDiskCacheSize = 0
+    @State private var currentFullSizeJPGCacheSize = 0
+    @State private var currentBurstAnalysisCacheSize = 0
+    @State private var currentBurstAnalysisCacheCount = 0
+    @State private var currentGridCacheSize = 0
+    @State private var currentGridCacheCount = 0
+    @State private var currentPreviewCacheSize = 0
+    @State private var currentPreviewCacheCount = 0
+    @State private var isLoadingDiskCaches = false
+    @State private var cachePendingPurge: DiskCacheKind?
+    @State private var purgingCache: DiskCacheKind?
+    @State private var showPurgeConfirmation = false
     @State private var memoryModel = MemoryViewModel()
 
     var body: some View {
-        VStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 20) {
-                // Memory Cache Section
-                SettingsCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Memory & Disk Cache")
-                            .font(.system(size: 14, weight: .semibold))
-                        Divider()
+        ScrollView {
+            VStack(spacing: 16) {
+                MemoryCachesSection(
+                    previewSize: formatBytes(currentPreviewCacheSize),
+                    previewLimit: formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit),
+                    previewConfiguredLimit: formatMegabytes(settingsManager.memoryCacheSizeMB),
+                    previewCount: currentPreviewCacheCount,
+                    gridSize: formatBytes(currentGridCacheSize),
+                    gridLimit: formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit),
+                    gridConfiguredLimit: formatMegabytes(settingsManager.gridCacheSizeMB),
+                    gridCount: currentGridCacheCount,
+                    freeMemory: formatBytes(Int(freeMemoryBytes())),
+                )
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            limitRow(
-                                icon: "memorychip",
-                                title: "Memory cache",
-                                value: "\(formatMegabytes(settingsManager.memoryCacheSizeMB)) max",
-                                detail: "\(formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit)) live · approx \(displayValue(for: SharedMemoryCache.shared.memoryCache.totalCostLimit / (1024 * 1024))) previews",
-                            )
-
-                            limitRow(
-                                icon: "square.grid.2x2",
-                                title: "Grid cache",
-                                value: "\(formatMegabytes(settingsManager.gridCacheSizeMB)) max",
-                                detail: "\(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit)) live · approx \(gridDisplayValue(for: SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit / (1024 * 1024))) thumbnails",
-                            )
-
-                            limitRow(
-                                icon: "gauge.with.dots.needle.50percent",
-                                title: "Supported limits",
-                                value: "\(formatMegabytes(CacheSettingsLimits.memoryMinMB))-\(formatMegabytes(CacheSettingsLimits.memoryMaxMB)) memory, \(formatMegabytes(CacheSettingsLimits.gridMinMB))-\(formatMegabytes(CacheSettingsLimits.gridMaxMB)) grid",
-                                detail: "RawCull adapts cache usage to available memory, prioritizing smooth grid browsing.",
-                            )
-
-                            Divider()
-
-                            cacheUseRows
-                        }
-                    }
-                }
-            }
-
-            Spacer()
-
-            HStack {
-                clearDiskCacheButton
-                clearJPGCacheButton
-            }
-            .onAppear(perform: refreshDiskCacheSize)
-            .task {
-                await SharedMemoryCache.shared.refreshConfig()
-                currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
-                currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
-                currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
-                currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
-            }
-            .task {
-                let (timerStream, continuation) = AsyncStream.makeStream(of: Void.self)
-                let producer = Task {
-                    while !Task.isCancelled {
-                        continuation.yield()
-                        try? await Task.sleep(for: .seconds(5))
-                    }
-                    continuation.finish()
-                }
-                continuation.onTermination = { _ in producer.cancel() }
-                for await _ in timerStream {
-                    currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
-                    currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
-                    currentMemCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
-                    currentMemCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
-                }
-            }
-            .task {
-                let (timerStream, continuation) = AsyncStream.makeStream(of: Void.self)
-                let producer = Task {
-                    while !Task.isCancelled {
-                        continuation.yield()
-                        try? await Task.sleep(for: .seconds(2))
-                    }
-                    continuation.finish()
-                }
-                continuation.onTermination = { _ in producer.cancel() }
-                for await _ in timerStream {
-                    await memoryModel.updateMemoryStats()
-                }
+                DiskCachesSection(
+                    thumbnailSize: formatBytes(currentThumbnailDiskCacheSize),
+                    thumbnailPath: displayPath(SharedMemoryCache.shared.thumbnailDiskCacheDirectory),
+                    fullSizeJPGSize: formatBytes(currentFullSizeJPGCacheSize),
+                    fullSizeJPGPath: displayPath(SharedMemoryCache.shared.fullSizeJPGDiskCacheDirectory),
+                    burstAnalysisSize: formatBytes(currentBurstAnalysisCacheSize),
+                    burstAnalysisCount: currentBurstAnalysisCacheCount,
+                    burstAnalysisPath: displayPath(BurstAnalysisCache.shared.storageDirectory),
+                    isLoading: isLoadingDiskCaches,
+                    purgingCache: purgingCache,
+                    cachePendingPurge: $cachePendingPurge,
+                    showPurgeConfirmation: $showPurgeConfirmation,
+                )
             }
         }
-    }
-
-    private var cacheUseRows: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 4) {
-                Image(systemName: "internaldrive")
-                    .font(.system(size: 12, weight: .medium))
-                Text("Thumbnail disk cache:")
-                    .font(.system(size: 12, weight: .medium))
-                if isLoadingDiskCacheSize {
-                    ProgressView()
-                        .fixedSize()
-                } else {
-                    Text(formatBytes(currentDiskCacheSize))
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                }
-                Spacer()
-            }
-
-            cacheUseRow(
-                icon: "photo",
-                title: "Full-size JPG cache:",
-                value: formatBytes(currentFullSizeJPGCacheSize),
-            )
-
-            cacheUseRow(
-                icon: "square.grid.2x2",
-                title: "Grid cache:",
-                value: "\(formatBytes(currentGridCacheSize)) / \(formatBytes(SharedMemoryCache.shared.gridThumbnailCache.totalCostLimit)) · \(currentGridCacheCount) thumbnails",
-            )
-
-            cacheUseRow(
-                icon: "memorychip",
-                title: "Memory cache:",
-                value: "\(formatBytes(currentMemCacheSize)) / \(formatBytes(SharedMemoryCache.shared.memoryCache.totalCostLimit)) · \(currentMemCacheCount) previews",
-            )
-
-            Text("Free memory: \(formatBytes(Int(freeMemoryBytes())))")
-                .font(.system(size: 10, weight: .regular))
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var clearDiskCacheButton: some View {
-        Button(
-            action: { showPruneConfirmation = true },
-            label: {
-                Label(isPruningDiskCache ? "Clearing..." : "Clear Disk Cache", systemImage: "trash")
-                    .font(.system(size: 12, weight: .medium))
-            },
-        )
-        .disabled(isPruningDiskCache)
-        .buttonStyle(RefinedGlassButtonStyle())
         .confirmationDialog(
-            "Clear Disk Cache",
-            isPresented: $showPruneConfirmation,
-            actions: {
+            "Clear \(cachePendingPurge?.title ?? "Cache")?",
+            isPresented: $showPurgeConfirmation,
+        ) {
+            if let cachePendingPurge {
                 Button("Clear", role: .destructive) {
-                    pruneDiskCache()
+                    purge(cachePendingPurge)
                 }
-                Button("Cancel", role: .cancel) {}
-            },
-            message: {
-                Text("Are you sure you want to clear the thumbnail disk cache?")
-            },
-        )
-    }
+            }
+            Button("Cancel", role: .cancel) {
+                cachePendingPurge = nil
+            }
+        } message: {
+            Text(cachePendingPurge?.confirmationMessage ?? "The cache will be rebuilt as needed.")
+        }
+        .task {
+            await SharedMemoryCache.shared.refreshConfig()
+            refreshMemoryCacheUsage()
+            await memoryModel.updateMemoryStats()
+            await refreshDiskCacheUsage()
 
-    private var clearJPGCacheButton: some View {
-        Button(
-            action: { showPruneJPGConfirmation = true },
-            label: {
-                Label(isPruningJPGCache ? "Clearing..." : "Clear JPG Cache", systemImage: "trash")
-                    .font(.system(size: 12, weight: .medium))
-            },
-        )
-        .disabled(isPruningJPGCache)
-        .buttonStyle(RefinedGlassButtonStyle())
-        .confirmationDialog(
-            "Clear JPG Cache",
-            isPresented: $showPruneJPGConfirmation,
-            actions: {
-                Button("Clear", role: .destructive) {
-                    pruneJPGCache()
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    break
                 }
-                Button("Cancel", role: .cancel) {}
-            },
-            message: {
-                Text("Are you sure you want to clear the full-size JPG cache?")
-            },
+                refreshMemoryCacheUsage()
+                await memoryModel.updateMemoryStats()
+            }
+        }
+    }
+
+    private func refreshMemoryCacheUsage() {
+        currentPreviewCacheSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
+        currentPreviewCacheCount = SharedMemoryCache.shared.getMemoryCacheCount()
+        currentGridCacheSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
+        currentGridCacheCount = SharedMemoryCache.shared.getGridCacheCount()
+    }
+
+    private func refreshDiskCacheUsage() async {
+        isLoadingDiskCaches = true
+
+        async let thumbnailSize = SharedMemoryCache.shared.getDiskCacheSize()
+        async let fullSizeJPGSize = SharedMemoryCache.shared.getFullSizeJPGCacheSize()
+        async let burstAnalysisUsage = BurstAnalysisCache.shared.getDiskCacheUsage()
+        let (thumbnail, fullSizeJPG, burstAnalysis) = await (
+            thumbnailSize,
+            fullSizeJPGSize,
+            burstAnalysisUsage
         )
+
+        guard !Task.isCancelled else { return }
+        currentThumbnailDiskCacheSize = thumbnail
+        currentFullSizeJPGCacheSize = fullSizeJPG
+        currentBurstAnalysisCacheSize = burstAnalysis.size
+        currentBurstAnalysisCacheCount = burstAnalysis.fileCount
+        isLoadingDiskCaches = false
     }
 
-    private func limitRow(icon: String, title: String, value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(title)
-                    .font(.system(size: 10, weight: .medium))
-                Spacer()
-                Text(value)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-            }
-            Text(detail)
-                .font(.system(size: 10, weight: .regular))
-                .foregroundStyle(.secondary)
-        }
-    }
+    private func purge(_ cache: DiskCacheKind) {
+        cachePendingPurge = nil
+        purgingCache = cache
 
-    private func cacheUseRow(icon: String, title: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .medium))
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-            Text(value)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-            Spacer()
-        }
-    }
-
-    private func refreshDiskCacheSize() {
-        isLoadingDiskCacheSize = true
         Task {
-            let diskSize = await SharedMemoryCache.shared.getDiskCacheSize()
-            let jpgSize = await SharedMemoryCache.shared.getFullSizeJPGCacheSize()
-            let gridSize = SharedMemoryCache.shared.getGridCacheCurrentCost()
-            let gridCount = SharedMemoryCache.shared.getGridCacheCount()
-            let memSize = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
-            let memCount = SharedMemoryCache.shared.getMemoryCacheCount()
-            await MainActor.run {
-                currentDiskCacheSize = diskSize
-                currentFullSizeJPGCacheSize = jpgSize
-                currentGridCacheSize = gridSize
-                currentGridCacheCount = gridCount
-                currentMemCacheSize = memSize
-                currentMemCacheCount = memCount
-                isLoadingDiskCacheSize = false
+            switch cache {
+            case .thumbnails:
+                await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
+            case .fullSizeJPGs:
+                await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
+            case .burstAnalysis:
+                await BurstAnalysisCache.shared.clear()
             }
-        }
-    }
 
-    private func pruneDiskCache() {
-        isPruningDiskCache = true
-        Task {
-            await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
-            // Refresh the size after pruning
-            let size = await SharedMemoryCache.shared.getDiskCacheSize()
-            await MainActor.run {
-                currentDiskCacheSize = size
-                isPruningDiskCache = false
-            }
-        }
-    }
-
-    private func pruneJPGCache() {
-        isPruningJPGCache = true
-        Task {
-            await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
-            let size = await SharedMemoryCache.shared.getFullSizeJPGCacheSize()
-            await MainActor.run {
-                currentFullSizeJPGCacheSize = size
-                isPruningJPGCache = false
-            }
+            await refreshDiskCacheUsage()
+            purgingCache = nil
         }
     }
 
     private func formatBytes(_ bytes: Int) -> String {
-        if bytes == 0 {
-            return "0 B"
-        }
+        guard bytes > 0 else { return "0 B" }
         return ByteCountFormatStyle(style: .memory).format(Int64(bytes))
     }
 
@@ -292,18 +145,8 @@ struct CacheSettingsTab: View {
         formatBytes(megabytes * 1024 * 1024)
     }
 
-    private func gridDisplayValue(for megabytes: Int) -> String {
-        let bytes = megabytes * 1024 * 1024
-
-        if currentGridCacheCount > 0, currentGridCacheSize > 0 {
-            let avgNSCacheCost = max(1, currentGridCacheSize / currentGridCacheCount)
-            return String(max(1, bytes / avgNSCacheCost))
-        }
-
-        let s = settingsManager.thumbnailSizeGrid * 2
-        let costPerImage = Int(Double(s * s * SharedMemoryCache.shared.costPerPixel) * 1.1)
-        guard costPerImage > 0 else { return "0" }
-        return String(max(1, bytes / costPerImage))
+    private func displayPath(_ url: URL) -> String {
+        (url.path as NSString).abbreviatingWithTildeInPath
     }
 
     private func freeMemoryBytes() -> UInt64 {
@@ -312,19 +155,256 @@ struct CacheSettingsTab: View {
             ? physical - memoryModel.usedMemory
             : 0
     }
+}
 
-    private func displayValue(for megabytes: Int) -> String {
-        let bytes = megabytes * 1024 * 1024
+private enum DiskCacheKind: Hashable, Identifiable {
+    case thumbnails
+    case fullSizeJPGs
+    case burstAnalysis
 
-        if currentMemCacheCount > 0, currentMemCacheSize > 0 {
-            let avgNSCacheCost = max(1, currentMemCacheSize / currentMemCacheCount)
-            return String(max(1, bytes / avgNSCacheCost))
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .thumbnails: "Thumbnail Cache"
+        case .fullSizeJPGs: "Full-size JPG Cache"
+        case .burstAnalysis: "Burst Group Cache"
         }
-
-        let thumbnailSize = settingsManager.thumbnailSizePreview
-        let costPerPixel = SharedMemoryCache.shared.costPerPixel
-        let costPerImage = thumbnailSize * thumbnailSize * costPerPixel
-        guard costPerImage > 0 else { return "0" }
-        return String(max(1, bytes / costPerImage))
     }
+
+    var confirmationMessage: String {
+        switch self {
+        case .thumbnails:
+            "Cached thumbnails will be deleted and generated again when needed."
+        case .fullSizeJPGs:
+            "Cached full-size previews will be deleted and generated again when needed."
+        case .burstAnalysis:
+            "Saved burst groups and analysis results for all catalogs will be deleted and analyzed again when needed."
+        }
+    }
+}
+
+private struct MemoryCachesSection: View {
+    let previewSize: String
+    let previewLimit: String
+    let previewConfiguredLimit: String
+    let previewCount: Int
+    let gridSize: String
+    let gridLimit: String
+    let gridConfiguredLimit: String
+    let gridCount: Int
+    let freeMemory: String
+
+    var body: some View {
+        SettingsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("In Memory")
+                        .font(.headline)
+                    Text("Temporary image data kept in RAM and discarded when RawCull quits.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                MemoryCacheRow(
+                    icon: "photo",
+                    title: "Preview Cache",
+                    size: previewSize,
+                    detail: "\(previewCount) previews · \(previewLimit) current limit · \(previewConfiguredLimit) configured maximum",
+                )
+
+                MemoryCacheRow(
+                    icon: "square.grid.2x2",
+                    title: "Grid Thumbnail Cache",
+                    size: gridSize,
+                    detail: "\(gridCount) thumbnails · \(gridLimit) current limit · \(gridConfiguredLimit) configured maximum",
+                )
+
+                Divider()
+
+                Text("Supported configured limits: \(formatRange(CacheSettingsLimits.memoryMinMB, CacheSettingsLimits.memoryMaxMB)) for previews and \(formatRange(CacheSettingsLimits.gridMinMB, CacheSettingsLimits.gridMaxMB)) for grid thumbnails.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                Text("Free memory: \(freeMemory)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func formatRange(_ lower: Int, _ upper: Int) -> String {
+        let style = ByteCountFormatStyle(style: .memory)
+        let lowerValue = style.format(Int64(lower * 1024 * 1024))
+        let upperValue = style.format(Int64(upper * 1024 * 1024))
+        return "\(lowerValue)–\(upperValue)"
+    }
+}
+
+private struct MemoryCacheRow: View {
+    let icon: String
+    let title: String
+    let size: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(title)
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    Text(size)
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
+                }
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct DiskCachesSection: View {
+    let thumbnailSize: String
+    let thumbnailPath: String
+    let fullSizeJPGSize: String
+    let fullSizeJPGPath: String
+    let burstAnalysisSize: String
+    let burstAnalysisCount: Int
+    let burstAnalysisPath: String
+    let isLoading: Bool
+    let purgingCache: DiskCacheKind?
+    @Binding var cachePendingPurge: DiskCacheKind?
+    @Binding var showPurgeConfirmation: Bool
+
+    var body: some View {
+        SettingsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("On Disk")
+                        .font(.headline)
+                    Text("Persistent, purgeable cache data. RawCull rebuilds deleted data when it is needed again.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                DiskCacheRow(
+                    kind: .thumbnails,
+                    icon: "photo.stack",
+                    size: thumbnailSize,
+                    detail: "JPEG thumbnails",
+                    path: thumbnailPath,
+                    isLoading: isLoading,
+                    isPurging: purgingCache == .thumbnails,
+                    isPurgeInProgress: purgingCache != nil,
+                    cachePendingPurge: $cachePendingPurge,
+                    showPurgeConfirmation: $showPurgeConfirmation,
+                )
+
+                Divider()
+
+                DiskCacheRow(
+                    kind: .fullSizeJPGs,
+                    icon: "photo.on.rectangle.angled",
+                    size: fullSizeJPGSize,
+                    detail: "Full-size JPEG previews",
+                    path: fullSizeJPGPath,
+                    isLoading: isLoading,
+                    isPurging: purgingCache == .fullSizeJPGs,
+                    isPurgeInProgress: purgingCache != nil,
+                    cachePendingPurge: $cachePendingPurge,
+                    showPurgeConfirmation: $showPurgeConfirmation,
+                )
+
+                Divider()
+
+                DiskCacheRow(
+                    kind: .burstAnalysis,
+                    icon: "square.stack.3d.up",
+                    size: burstAnalysisSize,
+                    detail: "\(burstAnalysisCount) catalog \(burstAnalysisCount == 1 ? "snapshot" : "snapshots") with burst groups and analysis results",
+                    path: burstAnalysisPath,
+                    isLoading: isLoading,
+                    isPurging: purgingCache == .burstAnalysis,
+                    isPurgeInProgress: purgingCache != nil,
+                    cachePendingPurge: $cachePendingPurge,
+                    showPurgeConfirmation: $showPurgeConfirmation,
+                )
+            }
+        }
+    }
+}
+
+private struct DiskCacheRow: View {
+    let kind: DiskCacheKind
+    let icon: String
+    let size: String
+    let detail: String
+    let path: String
+    let isLoading: Bool
+    let isPurging: Bool
+    let isPurgeInProgress: Bool
+    @Binding var cachePendingPurge: DiskCacheKind?
+    @Binding var showPurgeConfirmation: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(kind.title)
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    if isLoading || isPurging {
+                        ProgressView()
+                            .controlSize(.small)
+                            .fixedSize()
+                    } else {
+                        Text(size)
+                            .font(.subheadline.monospacedDigit().weight(.semibold))
+                    }
+                }
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(path)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                cachePendingPurge = kind
+                showPurgeConfirmation = true
+            } label: {
+                Image(systemName: "trash")
+                    .frame(width: 22, height: 22)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .disabled(isLoading || isPurgeInProgress)
+            .help("Clear \(kind.title)")
+            .accessibilityLabel("Clear \(kind.title)")
+        }
+    }
+
 }

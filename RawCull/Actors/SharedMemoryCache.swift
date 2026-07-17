@@ -156,6 +156,14 @@ actor SharedMemoryCache {
         fullSizeJPGCache
     }
 
+    nonisolated var thumbnailDiskCacheDirectory: URL {
+        diskCache.cacheDirectory
+    }
+
+    nonisolated var fullSizeJPGDiskCacheDirectory: URL {
+        fullSizeJPGCache.cacheDirectory
+    }
+
     func setFileHandlers(_ fileHandlers: FileHandlers) {
         self.fileHandlers = fileHandlers
     }

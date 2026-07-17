@@ -14,25 +14,21 @@ struct SettingsView: View {
         Group {
             if settingsLoaded {
                 TabView {
-                    CacheSettingsTab()
-                        .tabItem {
-                            Label("Cache", systemImage: "memorychip.fill")
-                        }
+                    Tab("Cache", systemImage: "memorychip.fill") {
+                        CacheSettingsTab()
+                    }
 
-                    ThumbnailSizesTab()
-                        .tabItem {
-                            Label("Thumbnails", systemImage: "photo.fill")
-                        }
+                    Tab("Thumbnails", systemImage: "photo.fill") {
+                        ThumbnailSizesTab()
+                    }
 
-                    FocusSettingsTab()
-                        .tabItem {
-                            Label("Focus", systemImage: "viewfinder.circle")
-                        }
+                    Tab("Focus", systemImage: "viewfinder.circle") {
+                        FocusSettingsTab()
+                    }
 
-                    MemoryTab()
-                        .tabItem {
-                            Label("Memory", systemImage: "rectangle.compress.vertical")
-                        }
+                    Tab("Memory", systemImage: "rectangle.compress.vertical") {
+                        MemoryTab()
+                    }
                 }
             } else {
                 ProgressView("Loading Settings...")
@@ -40,7 +36,7 @@ struct SettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 520, height: 600)
+        .frame(width: 680, height: 680)
         .task {
             await SettingsViewModel.shared.ensureLoaded()
             settingsLoaded = true
