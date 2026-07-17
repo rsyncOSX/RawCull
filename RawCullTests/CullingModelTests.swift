@@ -1385,6 +1385,37 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `burst cache reports usage and clears every catalog snapshot`() async {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullUsageCacheTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let cache = BurstAnalysisCache(cacheDirectory: directory)
+        for index in 0 ..< 2 {
+            let catalog = URL(fileURLWithPath: "/tmp/catalog-\(index)-\(UUID().uuidString)")
+            let files = [makeCullingTestFile("\(index)-A.ARW"), makeCullingTestFile("\(index)-B.ARW")]
+            let snapshot = makeBurstSnapshot(
+                catalog: catalog,
+                files: files,
+                groups: [],
+                results: [],
+                reviewStateSnapshots: [],
+            )
+            await cache.save(snapshot, catalog: catalog)
+        }
+
+        let populatedUsage = await cache.getDiskCacheUsage()
+        #expect(populatedUsage.fileCount == 2)
+        #expect(populatedUsage.size > 0)
+
+        await cache.clear()
+
+        let clearedUsage = await cache.getDiskCacheUsage()
+        #expect(clearedUsage.fileCount == 0)
+        #expect(clearedUsage.size == 0)
+    }
+
+    @Test
     func `burst cache round trips a large snapshot off the main actor`() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullLargeCacheTests-\(UUID().uuidString)", isDirectory: true)

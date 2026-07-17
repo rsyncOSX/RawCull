@@ -18,6 +18,6 @@ struct SettingsCard<Content: View>: View {
         content
             .padding(12)
             .background(Color(.controlBackgroundColor))
-            .cornerRadius(8)
+            .clipShape(.rect(cornerRadius: 8))
     }
 }
