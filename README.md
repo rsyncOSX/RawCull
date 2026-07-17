@@ -2,22 +2,9 @@
 
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
-RawCull is a native macOS photo review and culling application for Sony ARW
-RAW files. It is built for Apple Silicon and combines fast embedded-preview
-loading with focus-point extraction, sharpness analysis, visual similarity,
-burst grouping, ratings, and selective export.
+RawCull is a native macOS photo review and culling application for Sony ARW RAW files. It is built for Apple Silicon and combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
-The application is written in Swift 6 with SwiftUI. Image parsing, analysis,
-shared culling models, JSON encoding, and rsync execution are separated into
-focused Swift packages so that RawCull primarily owns application state,
-workflow, caching, persistence, and presentation.
-
-## Current version
-
-- Current source version: **2.3.0**
-- Current build number: **227**
-- Latest tagged release: **v2.2.6**
-- PhotoAnalysisKit dependency: **1.2.0**
+The application is written in Swift 6 with SwiftUI. Image parsing, analysis, shared culling models, JSON encoding, and rsync execution are separated into focused Swift packages so that RawCull primarily owns application state, workflow, caching, persistence, and presentation.
 
 ## Requirements
 
@@ -26,10 +13,16 @@ workflow, caching, persistence, and presentation.
 - Xcode 26 or newer for development
 - Swift 6 language mode
 
-RawCull uses strict Swift concurrency and has
-`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. UI and observable application
-state are main-actor isolated, while scanning, decoding, caching, analysis,
-and persistence use actors or explicitly concurrent tasks.
+## Installation
+
+Install with Homebrew:
+
+```bash
+brew tap rsyncOSX/cask
+brew install --cask rawcull
+```
+
+RawCull is also available from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) and [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases).
 
 ## Main capabilities
 
@@ -50,19 +43,6 @@ and persistence use actors or explicitly concurrent tasks.
 - Export embedded or developed JPEG files.
 - Copy tagged or rated RAW files with streaming rsync progress.
 - Monitor thumbnail-cache usage and macOS memory-pressure events.
-
-## Installation
-
-Install with Homebrew:
-
-```bash
-brew tap rsyncOSX/cask
-brew install --cask rawcull
-```
-
-RawCull is also available from the
-[Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12)
-and [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases).
 
 ## Architecture overview
 
@@ -92,13 +72,11 @@ RawCull keeps application-specific policy outside the packages:
 - cache locations and file identity
 - ratings, tagging, burst decisions, and culling workflow
 
-The imported packages own reusable parsing, analysis, domain, serialization,
-and process-execution concerns.
+The imported packages own reusable parsing, analysis, domain, serialization, and process-execution concerns.
 
 ## Imported Swift packages
 
-All package requirements are exact versions in the Xcode project and are
-recorded in `Package.resolved`.
+All package requirements are exact versions in the Xcode project and are recorded in `Package.resolved`.
 
 | Package | Version | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
@@ -117,60 +95,41 @@ recorded in `Package.resolved`.
 PhotoAnalysisKit owns the complete reusable focus and sharpness pipeline:
 
 1. RawCull selects an embedded preview or a Core Image demosaiced RAW image.
-2. `RawCullPhotoAnalysisAdapter` supplies asynchronous
-   `PhotoAnalysisInput` providers.
-3. `PhotoAnalyzer.analyzeBatch` performs bounded concurrent analysis and
-   reports completion progress.
-4. `SharpnessScoringModel` publishes scores, saliency summaries, focus
-   breakdowns, and estimated time to the UI.
-5. `PhotoAnalyzer.calibrate` derives a visual focus threshold from a catalog or
-   burst.
-6. `PhotoAnalyzer.focusMask` and `analyzeWithFocusMask` generate the focus
-   overlay and its supporting evidence.
+2. `RawCullPhotoAnalysisAdapter` supplies asynchronous `PhotoAnalysisInput` providers.
+3. `PhotoAnalyzer.analyzeBatch` performs bounded concurrent analysis and reports completion progress.
+4. `SharpnessScoringModel` publishes scores, saliency summaries, focus breakdowns, and estimated time to the UI.
+5. `PhotoAnalyzer.calibrate` derives a visual focus threshold from a catalog or burst.
+6. `PhotoAnalyzer.focusMask` and `analyzeWithFocusMask` generate the focus overlay and its supporting evidence.
 
-Per-image ISO, aperture, and normalized AF position are passed through
-`PhotoAnalysisInput`. Photo-type and quality choices map to package-owned
-`SharpnessPreset` and `SharpnessQuality` values.
+Per-image ISO, aperture, and normalized AF position are passed through `PhotoAnalysisInput`. Photo-type and quality choices map to package-owned `SharpnessPreset` and `SharpnessQuality` values.
 
-Persistent sharpness results use
-`PhotoAnalyzer.sharpnessDescriptor(for:)`. RawCull layers the scoring source,
-decoded image size, source-file size, and modification date around that
-descriptor. This invalidates stale scores when either the package algorithm or
-the input file changes.
+Persistent sharpness results use `PhotoAnalyzer.sharpnessDescriptor(for:)`. RawCull layers the scoring source, decoded image size, source-file size, and modification date around that descriptor. This invalidates stale scores when either the package algorithm or the input file changes.
 
 PhotoAnalysisKit also provides RawCull's similarity backend:
 
-- `VisionFeaturePrintBackend.featurePrint(for:)` creates Codable Vision feature
-  prints.
+- `VisionFeaturePrintBackend.featurePrint(for:)` creates Codable Vision feature prints.
 - `VisionFeaturePrintBackend.distance(from:to:)` calculates visual distance.
-- Adjacent distances are passed to `BurstGroupingEngine.group` from
-  RawCullCore.
+- Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
-PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats,
-security-scoped URLs, application settings, cache directories, or ratings.
+PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
 
 ### RawParserKit
 
-RawParserKit is the boundary between camera RAW files and RawCull's application
-models.
+RawParserKit is the boundary between camera RAW files and RawCull's application models.
 
 `RawParserKitImageLoader` adapts package results to RawCull:
 
 - `RawImageLoader.metadata(for:)` becomes RawCullCore `ExifMetadata`.
-- `RawImageLoader.thumbnailCGImage` feeds thumbnail caching, sharpness scoring,
-  and feature-print generation.
+- `RawImageLoader.thumbnailCGImage` feeds thumbnail caching, sharpness scoring, and feature-print generation.
 - `RawImageLoader.thumbnail` supplies AppKit thumbnail images.
 - `RawImageLoader.previewImage` supplies embedded full-size previews.
 - MakerNote focus coordinates are converted to normalized `CGPoint` values.
 
-`RawFormatRegistry` is used for supported-file discovery. The diagnostic tools
-also call the Sony and Nikon MakerNote parsers directly to report embedded JPEG
-locations and focus metadata.
+`RawFormatRegistry` is used for supported-file discovery. The diagnostic tools also call the Sony and Nikon MakerNote parsers directly to report embedded JPEG locations and focus metadata.
 
 ### RawCullCore
 
-RawCullCore contains application-neutral domain types shared across RawCull
-workflows. RawCull uses aliases for its central models:
+RawCullCore contains application-neutral domain types shared across RawCull workflows. RawCull uses aliases for its central models:
 
 ```swift
 typealias FileItem = RawCullFileItem
@@ -178,28 +137,20 @@ typealias ARWSourceCatalog = RawCullSourceCatalog
 typealias ExifMetadata = RawCullCore.ExifMetadata
 ```
 
-The package also owns the burst-grouping contracts and algorithm. RawCull
-provides ordered files and adjacent visual distances, then stores and presents
-the resulting groups, candidate scores, confidence, cautions, and review state.
+The package also owns the burst-grouping contracts and algorithm. RawCull provides ordered files and adjacent visual distances, then stores and presents the resulting groups, candidate scores, confidence, cautions, and review state.
 
 ### Rsync packages
 
 The RAW copy workflow is divided into three package responsibilities:
 
 1. `RsyncArguments` builds the base rsync argument list.
-2. RawCull adds a NUL-separated `--files-from` list containing the selected
-   tagged or rated filenames and appends security-scoped source/destination
-   paths.
-3. `RsyncProcessStreaming` executes `/usr/bin/rsync`, streams progress, and
-   supports cancellation.
-4. `ParseRsyncOutput` converts the final output into file counts, transferred
-   sizes, created/deleted counts, and display-ready statistics.
+2. RawCull adds a NUL-separated `--files-from` list containing the selected tagged or rated filenames and appends security-scoped source/destination paths.
+3. `RsyncProcessStreaming` executes `/usr/bin/rsync`, streams progress, and supports cancellation.
+4. `ParseRsyncOutput` converts the final output into file counts, transferred sizes, created/deleted counts, and display-ready statistics.
 
 ### DecodeEncodeGeneric
 
-RawCull persists its saved catalog records as Codable JSON. `DecodeGeneric`
-loads the stored array, while `EncodeGeneric` creates the encoded data written
-atomically to Application Support.
+RawCull persists its saved catalog records as Codable JSON. `DecodeGeneric` loads the stored array, while `EncodeGeneric` creates the encoded data written atomically to Application Support.
 
 ## Apple framework imports
 
@@ -240,21 +191,15 @@ RawCull uses a two-tier thumbnail cache:
    `~/Library/Caches/no.blogspot.RawCull/Thumbnails/`.
 3. A cache miss is decoded through RawParserKit.
 
-Full-size embedded and developed previews use a separate disk cache. Memory
-pressure is monitored with `DispatchSourceMemoryPressure`, allowing RawCull to
-reduce cache pressure while keeping diagnostics available in the Memory
-Console.
+Full-size embedded and developed previews use a separate disk cache. Memory pressure is monitored with `DispatchSourceMemoryPressure`, allowing RawCull to reduce cache pressure while keeping diagnostics available in the Memory Console.
 
 ### Sharpness and focus
 
 1. RawCull creates package batch requests for the selected files.
-2. PhotoAnalysisKit invokes RawCull's decoding providers with bounded
-   concurrency and analyzes the resulting inputs.
-3. The package runs saliency, classification, Gaussian blur, Metal Laplacian
-   analysis, regional scoring, and failure classification.
+2. PhotoAnalysisKit invokes RawCull's decoding providers with bounded concurrency and analyzes the resulting inputs.
+3. The package runs saliency, classification, Gaussian blur, Metal Laplacian analysis, regional scoring, and failure classification.
 4. RawCull stores the scalar score, subject summary, and detailed breakdown.
-5. Focus-mask views request a package-rendered mask using existing evidence
-   when possible.
+5. Focus-mask views request a package-rendered mask using existing evidence when possible.
 
 ### Similarity and burst review
 
@@ -267,8 +212,7 @@ Console.
 
 ### Ratings, persistence, and copying
 
-Ratings, tags, saliency labels, sharpness signatures, and manual burst winners
-are stored in:
+Ratings, tags, saliency labels, sharpness signatures, and manual burst winners are stored in:
 
 ```text
 ~/Library/Application Support/RawCull/savedfiles.json
@@ -280,9 +224,7 @@ Settings are stored separately in:
 ~/Library/Application Support/RawCull/settings.json
 ```
 
-When copying selected RAW files, RawCull creates a temporary `--files-from`
-list, starts rsync with streaming handlers, updates progress, parses the final
-statistics, and releases both security-scoped folders during cleanup.
+When copying selected RAW files, RawCull creates a temporary `--files-from` list, starts rsync with streaming handlers, updates progress, parses the final statistics, and releases both security-scoped folders during cleanup.
 
 ## Concurrency model
 
@@ -360,9 +302,7 @@ xcodebuild \
 
 ## Tests
 
-Tests use Apple's Swift Testing framework.
-
-Fast package-integration and critical smoke coverage:
+Tests use Apple's Swift Testing framework. Fast package-integration and critical smoke coverage:
 
 ```bash
 make test-smoke
@@ -380,32 +320,14 @@ Performance and extreme-concurrency coverage:
 make test-performance
 ```
 
-The test suites cover package integration, sharpness and focus metrics,
-structured cancellation, latest-run-wins behavior, memory-cache counters,
-security-scoped access, disk caches, burst persistence, RAW parsing adapters,
-and copy startup/cleanup.
+The test suites cover package integration, sharpness and focus metrics, structured cancellation, latest-run-wins behavior, memory-cache counters, security-scoped access, disk caches, burst persistence, RAW parsing adapters, and copy startup/cleanup.
 
 ## Camera compatibility
 
-RawCull is primarily developed and tested for Sony Alpha 1 and Alpha 1 II ARW
-files. See the current
-[camera and RAW-format documentation](https://rawcull.netlify.app/docs/) for
-the supported camera bodies and file variants.
+RawCull is primarily developed and tested for Sony Alpha 1 and Alpha 1 II ARW files. See the current [camera and RAW-format documentation](https://rawcull.netlify.app/docs/) for the supported camera bodies and file variants.
 
 ## Documentation
 
 - [User documentation](https://rawcull.netlify.app)
 - [Release notes](https://rawcull.netlify.app/blog/)
 - [GitHub releases](https://github.com/rsyncOSX/RawCull/releases)
-
-## Screenshots
-
-Main catalog and culling interface:
-
-![RawCull main interface](images/rawcull.png)
-
-Focus mask and focus-point overlay:
-
-![RawCull image without focus mask](images/nomask.png)
-
-![RawCull focus mask and focus point](images/focusmask.png)
