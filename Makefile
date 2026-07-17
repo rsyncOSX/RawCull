@@ -17,9 +17,14 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()' \
 	'-only-testing:RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()' \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
-	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()'
+	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()' \
+	'-only-testing:RawCullTests/RawCullAIIntegrationTests' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionArtifactsAreDescriptorComplete()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/rankingPolicyIsPreserved()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/legacyCacheIsInvalidated()'
 PERFORMANCE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
+	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionIndexingAndRankingBenchmark()'
 
 # Default target is release build
 build: clean archive sign-app notarize staple prepare-dmg open

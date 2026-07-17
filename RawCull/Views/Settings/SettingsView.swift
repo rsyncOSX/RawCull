@@ -8,31 +8,33 @@
 import SwiftUI
 
 struct SettingsView: View {
+    let aiSettingsModel: RawCullAISettingsModel
+
     @State private var settingsLoaded = false
 
     var body: some View {
         Group {
             if settingsLoaded {
                 TabView {
-                    CacheSettingsTab()
-                        .tabItem {
-                            Label("Cache", systemImage: "memorychip.fill")
-                        }
+                    Tab("Cache", systemImage: "memorychip.fill") {
+                        CacheSettingsTab()
+                    }
 
-                    ThumbnailSizesTab()
-                        .tabItem {
-                            Label("Thumbnails", systemImage: "photo.fill")
-                        }
+                    Tab("Thumbnails", systemImage: "photo.fill") {
+                        ThumbnailSizesTab()
+                    }
 
-                    FocusSettingsTab()
-                        .tabItem {
-                            Label("Focus", systemImage: "viewfinder.circle")
-                        }
+                    Tab("Focus", systemImage: "viewfinder.circle") {
+                        FocusSettingsTab()
+                    }
 
-                    MemoryTab()
-                        .tabItem {
-                            Label("Memory", systemImage: "rectangle.compress.vertical")
-                        }
+                    Tab("AI", systemImage: "sparkles") {
+                        AISettingsTab(model: aiSettingsModel)
+                    }
+
+                    Tab("Memory", systemImage: "rectangle.compress.vertical") {
+                        MemoryTab()
+                    }
                 }
             } else {
                 ProgressView("Loading Settings...")

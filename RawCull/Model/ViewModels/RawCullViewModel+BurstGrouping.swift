@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import PhotoAIContracts
 import RawCullCore
 
 extension RawCullViewModel {
@@ -748,8 +749,9 @@ extension RawCullViewModel {
             groupingConfig: BurstGroupingConfig(
                 visualDistanceThreshold: similarityModel.burstSensitivity,
             ),
+            backendDescriptor: similarityModel.backendDescriptor,
+            artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
             embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
-            visionFeaturePrintRevision: Int(SimilarityScoringModel.featurePrintRevision),
             embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
         )
     }

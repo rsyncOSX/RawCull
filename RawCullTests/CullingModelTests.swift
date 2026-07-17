@@ -2,24 +2,33 @@ import CoreGraphics
 import Foundation
 import PhotoAnalysisKit
 @testable import RawCull
+import PhotoAIContracts
 import RawCullCore
 import Testing
 
 private actor SavedFilesRecorder {
     private var snapshots: [[SavedFiles]] = []
+    private var waiters: [(
+        count: Int,
+        continuation: CheckedContinuation<[[SavedFiles]], Never>
+    )] = []
 
     func record(_ savedFiles: [SavedFiles]) {
         snapshots.append(savedFiles)
+        let ready = waiters.filter { snapshots.count >= $0.count }
+        waiters.removeAll { snapshots.count >= $0.count }
+        for waiter in ready {
+            waiter.continuation.resume(returning: snapshots)
+        }
     }
 
     func waitForSnapshotCount(_ count: Int) async -> [[SavedFiles]] {
-        for _ in 0 ..< 200 {
-            if snapshots.count >= count {
-                return snapshots
-            }
-            try? await Task.sleep(nanoseconds: 1_000_000)
+        if snapshots.count >= count {
+            return snapshots
         }
-        return snapshots
+        return await withCheckedContinuation { continuation in
+            waiters.append((count, continuation))
+        }
     }
 }
 
@@ -80,6 +89,77 @@ private actor SimilarityEmbeddingCancellationProbe {
     }
 }
 
+private nonisolated struct CancellationSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+    let probe: SimilarityEmbeddingCancellationProbe
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var iterator = sources.makeIterator()
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        var failures: [RawCullSimilarityIndexingFailure] = []
+        var completed = 0
+
+        await withTaskGroup(
+            of: (AIImageSource, Data?).self,
+        ) { group in
+            for _ in 0 ..< min(4, sources.count) {
+                guard let source = iterator.next() else { break }
+                group.addTask {
+                    (source, await probe.embedding())
+                }
+            }
+
+            while let (source, payload) = await group.next() {
+                completed += 1
+                if let payload {
+                    artifacts[source.id] = makeSimilarityTestArtifact(
+                        source: source,
+                        payload: payload,
+                    )
+                } else {
+                    failures.append(
+                        RawCullSimilarityIndexingFailure(
+                            source: source,
+                            message: "Cancelled",
+                        ),
+                    )
+                }
+                await progress?(
+                    RawCullSimilarityIndexingProgress(
+                        completed: completed,
+                        total: sources.count,
+                        currentSourceID: source.id,
+                    ),
+                )
+
+                guard !Task.isCancelled,
+                      let next = iterator.next()
+                else { continue }
+                group.addTask {
+                    (next, await probe.embedding())
+                }
+            }
+        }
+
+        try Task.checkCancellation()
+        return RawCullSimilarityIndexingOutput(
+            artifacts: artifacts,
+            failures: failures,
+        )
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        similarityTestDistance(from: left, to: right)
+    }
+}
+
 private actor SimilarityEmbeddingSuspensionProbe {
     private var startedCount = 0
     private var continuations: [CheckedContinuation<Void, Never>] = []
@@ -105,6 +185,80 @@ private actor SimilarityEmbeddingSuspensionProbe {
             continuation.resume()
         }
     }
+}
+
+private nonisolated struct SuspendingSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+    let probe: SimilarityEmbeddingSuspensionProbe
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        for (offset, source) in sources.enumerated() {
+            let payload: Data
+            if source.url.lastPathComponent.hasPrefix("slow") {
+                payload = await probe.suspendIgnoringCancellation() ?? Data()
+            } else {
+                payload = Data([2])
+            }
+            artifacts[source.id] = makeSimilarityTestArtifact(
+                source: source,
+                payload: payload,
+            )
+            await progress?(
+                RawCullSimilarityIndexingProgress(
+                    completed: offset + 1,
+                    total: sources.count,
+                    currentSourceID: source.id,
+                ),
+            )
+        }
+        return RawCullSimilarityIndexingOutput(artifacts: artifacts, failures: [])
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        similarityTestDistance(from: left, to: right)
+    }
+}
+
+private nonisolated let similarityTestBackendDescriptor = SimilarityBackendDescriptor(
+    backend: "test-similarity",
+    modelFingerprint: "test-model-v1",
+    representation: "test-byte",
+    preprocessingVersion: "test-preprocess-v1",
+    normalizationVersion: "test-normalization-v1",
+    configurationVersion: "test-configuration-v1",
+)
+
+private nonisolated func makeSimilarityTestArtifact(
+    source: AIImageSource,
+    payload: Data = Data([1]),
+) -> SimilarityArtifact {
+    SimilarityArtifact(
+        descriptor: SimilarityArtifactDescriptor(
+            backend: similarityTestBackendDescriptor,
+            dimensions: payload.count,
+            sourceFingerprint: SourceFingerprint(source: source),
+        ),
+        payload: payload,
+    )
+}
+
+private nonisolated func similarityTestDistance(
+    from left: SimilarityArtifact,
+    to right: SimilarityArtifact,
+) -> Float? {
+    guard left.descriptor.isCompatibleForDistance(with: right.descriptor),
+          let leftByte = left.payload.first,
+          let rightByte = right.payload.first
+    else { return nil }
+    return Float(abs(Int(leftByte) - Int(rightByte))) / 255
 }
 
 private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -> FileItem {
@@ -180,9 +334,9 @@ struct CullingModelTests {
     @Test
     func `similarity indexing cancellation stops structured embedding workers`() async {
         let probe = SimilarityEmbeddingCancellationProbe()
-        let model = SimilarityScoringModel { _, _ in
-            await probe.embedding()
-        }
+        let model = SimilarityScoringModel(
+            similarityService: CancellationSimilarityService(probe: probe),
+        )
         let files = (0 ..< 8).map { makeCullingTestFile("cancel-\($0).ARW") }
 
         let indexingTask = Task {
@@ -204,12 +358,9 @@ struct CullingModelTests {
     @Test
     func `superseded similarity indexing cannot commit or clear newer run state`() async {
         let probe = SimilarityEmbeddingSuspensionProbe()
-        let model = SimilarityScoringModel { url, _ in
-            if url.lastPathComponent.hasPrefix("slow") {
-                return await probe.suspendIgnoringCancellation()
-            }
-            return Data([2])
-        }
+        let model = SimilarityScoringModel(
+            similarityService: SuspendingSimilarityService(probe: probe),
+        )
         let slowFile = makeCullingTestFile("slow.ARW")
         let fastFile = makeCullingTestFile("fast.ARW")
 
@@ -219,14 +370,14 @@ struct CullingModelTests {
         await probe.waitUntilStarted(1)
         await model.indexFiles([fastFile])
 
-        #expect(model.embeddings[fastFile.id] == Data([2]))
+        #expect(model.embeddings[fastFile.id]?.payload == Data([2]))
         #expect(model.embeddings[slowFile.id] == nil)
         #expect(model.isIndexing == false)
 
         await probe.releaseAll()
         await oldRun.value
 
-        #expect(model.embeddings[fastFile.id] == Data([2]))
+        #expect(model.embeddings[fastFile.id]?.payload == Data([2]))
         #expect(model.embeddings[slowFile.id] == nil)
         #expect(model.isIndexing == false)
         #expect(model.indexingProgress == 0)
@@ -1175,7 +1326,16 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [],
         )
         snapshot.embeddings = Dictionary(uniqueKeysWithValues: files.map { file in
-            (file.id, Data(repeating: UInt8(file.name.count % 255), count: 256))
+            (
+                file.id,
+                makeSimilarityTestArtifact(
+                    source: SimilarityScoringModel.source(for: file),
+                    payload: Data(
+                        repeating: UInt8(file.name.count % 255),
+                        count: 256,
+                    ),
+                )
+            )
         })
         snapshot.sharpnessScores = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
             (file.id, Float(index) / Float(files.count))
@@ -1338,8 +1498,9 @@ private func makeBurstSimilaritySignature(
 ) -> BurstSimilaritySignature {
     BurstSimilaritySignature(
         groupingConfig: BurstGroupingConfig(visualDistanceThreshold: sensitivity),
+        backendDescriptor: similarityTestBackendDescriptor,
+        artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
         embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
-        visionFeaturePrintRevision: Int(SimilarityScoringModel.featurePrintRevision),
         embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
     )
 }
@@ -1371,7 +1532,13 @@ private func makeBurstSnapshot(
                 modificationDate: $0.dateModified,
             )
         },
-        embeddings: [:],
+        embeddings: Dictionary(uniqueKeysWithValues: files.map { file in
+            let source = SimilarityScoringModel.source(for: file)
+            return (
+                file.id,
+                makeSimilarityTestArtifact(source: source)
+            )
+        }),
         sharpnessScores: [:],
         saliencyInfo: [:],
         groups: groups,

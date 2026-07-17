@@ -8,8 +8,8 @@ real application behavior, not test-framework setup checks.
 
 - Smoke tests: fast deterministic checks selected by `make test-smoke`.
 - Full tests: all test files with Thread Sanitizer enabled through `make test-full`.
-- Performance / stress tests: long-running thread-safety stress checks selected by
-  `make test-performance`.
+- Performance / stress tests: long-running thread-safety stress checks and the
+  PhotoAIKit Vision similarity benchmark selected by `make test-performance`.
 
 ## Shared Test Base
 
@@ -53,7 +53,8 @@ the suite name, tag, or test body.
 
 - RawCullVerify integration behavior around imported RAW parsing packages.
 - Thumbnail request/cache behavior, cancellation, and loader concurrency bounds.
-- Sharpness and similarity scoring numeric behavior.
+- Sharpness and similarity scoring numeric behavior, including the PhotoAIKit
+  Vision adapter and typed-artifact cache migration.
 - View-model navigation, zoom overlay, and security-scoped path behavior.
 - TSan-oriented stress tests for RawCullVerify shared cache state.
 
@@ -67,6 +68,11 @@ the suite name, tag, or test body.
   persistence/concurrency behavior.
 - `RawCullVerifyTestsDataRaceDetectionTests.swift`: TSan-focused shared cache stress
   coverage that deliberately exercises concurrent access paths.
+- `PhotoAIKitSimilarityMigrationTests.swift`: real Vision artifact generation,
+  RawCull ranking-policy parity, schema-4 invalidation/schema-5 rebuild, and the
+  indexing/ranking performance benchmark.
+- `RawCullAIIntegrationTests.swift`: canonical AI paths, Phase 1 capability state,
+  saved burst evidence scanning, and intentional placeholder-control behavior.
 - `RawCullVerifyViewModelSecurityScopeTests.swift`: security-scoped catalog access
   lifecycle behavior on the `@MainActor` `RawCullViewModel`.
 - `ScanAndExtractJPGsTests.swift`: scan/extraction coordination behavior.

@@ -1,5 +1,6 @@
 import Foundation
 import PhotoAnalysisKit
+import PhotoAIContracts
 import RawCullCore
 
 nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
@@ -10,7 +11,7 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var sharpnessSignature: BurstSharpnessSignature
     var similaritySignature: BurstSimilaritySignature
     var files: [BurstAnalysisCacheFile]
-    var embeddings: [UUID: Data]
+    var embeddings: [UUID: SimilarityArtifact]
     var sharpnessScores: [UUID: Float]
     var saliencyInfo: [UUID: SaliencyInfo]
     var groups: [BurstGroup]
@@ -21,14 +22,16 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
 
 nonisolated struct BurstSimilaritySignature: Codable, Equatable {
     var groupingConfig: BurstGroupingConfig
+    var backendDescriptor: SimilarityBackendDescriptor
+    var artifactSchemaVersion: Int
     var embeddingThumbnailMaxPixelSize: Int
-    var visionFeaturePrintRevision: Int
     var embeddingPipelineVersion: Int
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.groupingConfig == rhs.groupingConfig
+            && lhs.backendDescriptor == rhs.backendDescriptor
+            && lhs.artifactSchemaVersion == rhs.artifactSchemaVersion
             && lhs.embeddingThumbnailMaxPixelSize == rhs.embeddingThumbnailMaxPixelSize
-            && lhs.visionFeaturePrintRevision == rhs.visionFeaturePrintRevision
             && lhs.embeddingPipelineVersion == rhs.embeddingPipelineVersion
     }
 }
@@ -98,7 +101,7 @@ nonisolated struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 4
+    nonisolated static let schemaVersion = 6
 
     private let cacheDirectory: URL
 
@@ -181,14 +184,23 @@ actor BurstAnalysisCache {
               snapshot.thumbnailMaxPixelSize == thumbnailMaxPixelSize,
               snapshot.sharpnessSignature == sharpnessSignature,
               snapshot.similaritySignature == similaritySignature,
-              snapshot.files.count == files.count
+              snapshot.similaritySignature.artifactSchemaVersion
+              == SimilarityArtifactDescriptor.currentSchemaVersion,
+              snapshot.files.count == files.count,
+              snapshot.embeddings.count == files.count
         else { return false }
 
         let cached = Dictionary(uniqueKeysWithValues: snapshot.files.map { ($0.path, $0) })
         for file in files {
             guard let item = cached[file.url.path],
                   item.size == file.size,
-                  abs(item.modificationDate.timeIntervalSince(file.dateModified)) < 0.001
+                  abs(item.modificationDate.timeIntervalSince(file.dateModified)) < 0.001,
+                  let artifact = snapshot.embeddings[item.id],
+                  RawCullSimilarityArtifactValidation.isCurrent(
+                      artifact,
+                      for: SimilarityScoringModel.source(for: file),
+                      backend: similaritySignature.backendDescriptor,
+                  )
             else { return false }
         }
         return true

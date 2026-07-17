@@ -21,7 +21,22 @@ struct RawCullApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
-    @State private var viewModel = RawCullViewModel()
+    @State private var viewModel: RawCullViewModel
+    @State private var aiIntegration: RawCullAIIntegration
+    @State private var aiSettingsModel: RawCullAISettingsModel
+
+    init() {
+        let integration = RawCullAIIntegration()
+        _viewModel = State(
+            initialValue: RawCullViewModel(
+                similarityService: integration.visionSimilarityService,
+            ),
+        )
+        _aiIntegration = State(initialValue: integration)
+        _aiSettingsModel = State(
+            initialValue: RawCullAISettingsModel(integration: integration),
+        )
+    }
 
     var body: some Scene {
         Window("Photo Culling", id: "main-window") {
@@ -48,7 +63,7 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView()
+            SettingsView(aiSettingsModel: aiSettingsModel)
                 .environment(viewModel)
         }
 

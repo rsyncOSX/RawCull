@@ -143,8 +143,8 @@ final class RawCullViewModel {
     /// overlay and the sharpness scoring pipeline.
     var sharpnessModel = SharpnessScoringModel()
 
-    /// Similarity scoring model — Vision feature-print embeddings and distance ranking.
-    var similarityModel = SimilarityScoringModel()
+    /// Similarity scoring model — PhotoAIKit artifacts with RawCull-owned ranking policy.
+    var similarityModel: SimilarityScoringModel
 
     /// Intelligent burst culling analysis state.
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
@@ -234,6 +234,14 @@ final class RawCullViewModel {
         URL,
     ) async -> Void = { snapshot, catalog in
         await BurstAnalysisCache.shared.save(snapshot, catalog: catalog)
+    }
+
+    init(
+        similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+    ) {
+        self.similarityModel = SimilarityScoringModel(
+            similarityService: similarityService,
+        )
     }
 
     // MARK: - Computed
