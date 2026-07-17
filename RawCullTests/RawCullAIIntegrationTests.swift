@@ -24,7 +24,7 @@ struct RawCullAIIntegrationTests {
 
     @MainActor
     @Test("Composition root reports the complete Phase 1 capability surface")
-    func capabilitySurface() {
+    func capabilitySurface() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -35,7 +35,16 @@ struct RawCullAIIntegrationTests {
             allowsBundledModelFallback: false,
             maskWorkerExecutableNames: [],
         )
-        let capabilities = integration.capabilities()
+        let initialCapabilities = integration.capabilities()
+
+        #expect(initialCapabilities.sam3Model == .checking(
+            expectedLocations: [paths.sam3ModelDirectory],
+        ))
+        #expect(initialCapabilities.clipModel == .checking(
+            expectedLocations: [paths.clipModelDirectory],
+        ))
+
+        let capabilities = try await integration.refreshCapabilities()
 
         #expect(capabilities.sam3Model == .missing(
             expectedLocations: [paths.sam3ModelDirectory],
@@ -54,7 +63,7 @@ struct RawCullAIIntegrationTests {
     }
 
     @Test("Saved burst scan reads existing Vision cache evidence")
-    func savedBurstEvidence() throws {
+    func savedBurstEvidence() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -112,7 +121,7 @@ struct RawCullAIIntegrationTests {
             to: cacheDirectory.appendingPathComponent("invalid.json"),
         )
 
-        let result = RawCullSavedBurstEvidenceScanner(
+        let result = try await RawCullSavedBurstEvidenceScanner(
             cacheDirectory: cacheDirectory,
         ).scan()
         let evidence = try #require(result.evidence)
@@ -124,6 +133,88 @@ struct RawCullAIIntegrationTests {
         #expect(evidence.visionEmbeddingCount == 2)
         #expect(evidence.skippedCacheFileCount == 1)
         #expect(evidence.backend == .visionFeaturePrint)
+    }
+
+    @Test("Model validation is reused until candidate metadata changes")
+    func modelValidationCache() async throws {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true,
+        )
+
+        let assetURL = root.appendingPathComponent("model.aimodel")
+        try Data([1]).write(to: assetURL)
+        let metadata = ModelBundleMetadata(
+            name: "Test Model",
+            family: "test",
+            assets: ["main": assetURL.lastPathComponent],
+        )
+        try JSONEncoder().encode(metadata).write(
+            to: root.appendingPathComponent("metadata.json"),
+        )
+
+        let descriptor = ModelResourceDescriptor(
+            kind: "test",
+            bundleDescriptor: ModelBundleDescriptor(
+                family: "test",
+                fallbackName: "Test Model",
+                requiredRelativePaths: [],
+                acceptedAssetExtensions: ["aimodel"],
+            ),
+            preprocessingVersion: "test-v1",
+            configurationVersion: "test-v1",
+        )
+        let manager = RawCullAIModelResourceManager(
+            candidateURLs: [root],
+            factory: ModelProviderFactory(descriptor: descriptor) { _ in
+                CachedTestModelProvider()
+            },
+        )
+
+        let first = try await manager.load()
+        let second = try await manager.load()
+        let firstProvider = try #require(first.provider)
+        let secondProvider = try #require(second.provider)
+        #expect(firstProvider === secondProvider)
+
+        try Data([1, 2]).write(to: assetURL)
+        let changed = try await manager.load()
+        let changedProvider = try #require(changed.provider)
+        #expect(changedProvider !== firstProvider)
+    }
+
+    @MainActor
+    @Test("Cancelling Settings refresh cancels its evidence scan")
+    func settingsRefreshCancellation() async {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = isolatedPaths(root: root)
+        let integration = RawCullAIIntegration(
+            paths: paths,
+            bundle: .main,
+            allowsBundledModelFallback: false,
+            maskWorkerExecutableNames: [],
+        )
+        let probe = SavedEvidenceCancellationProbe()
+        let model = RawCullAISettingsModel(
+            integration: integration,
+            evidenceScan: {
+                try await probe.scan()
+            },
+        )
+
+        let refresh = Task {
+            await model.refresh()
+        }
+        await probe.waitUntilStarted()
+        refresh.cancel()
+        await refresh.value
+
+        #expect(await probe.didObserveCancellation())
+        #expect(model.isScanningSavedBurstData == false)
+        #expect(model.savedBurstEvidence == nil)
     }
 
     @MainActor
@@ -170,6 +261,34 @@ struct RawCullAIIntegrationTests {
             ),
             cachesRoot: root.appendingPathComponent("Caches", isDirectory: true),
         )
+    }
+}
+
+private final class CachedTestModelProvider: Sendable {}
+
+private actor SavedEvidenceCancellationProbe {
+    private var started = false
+    private var observedCancellation = false
+
+    func scan() async throws -> RawCullSavedBurstEvidenceScanResult {
+        started = true
+        do {
+            try await Task.sleep(for: .seconds(30))
+            return .success(.empty)
+        } catch is CancellationError {
+            observedCancellation = true
+            throw CancellationError()
+        }
+    }
+
+    func waitUntilStarted() async {
+        while !started {
+            await Task.yield()
+        }
+    }
+
+    func didObserveCancellation() -> Bool {
+        observedCancellation
     }
 }
 

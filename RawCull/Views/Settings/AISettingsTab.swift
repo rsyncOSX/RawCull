@@ -228,6 +228,12 @@ private struct AICapabilityStatusView: View {
 
     private var detailMessage: String {
         switch status {
+        case let .checking(expectedLocations):
+            guard let first = expectedLocations.first else {
+                return "Checking model resources."
+            }
+            return "Checking model resources at \(first.path)."
+
         case let .available(location):
             if let location {
                 return "\(availableMessage) Location: \(location.path)"
@@ -356,6 +362,7 @@ private struct SavedBurstSimilarityEvidenceView: View {
 private extension RawCullAICapabilityStatus {
     var displayTitle: String {
         switch self {
+        case .checking: "Checking..."
         case .available: "Available"
         case .missing: "Missing"
         case .invalid: "Invalid"
@@ -365,6 +372,7 @@ private extension RawCullAICapabilityStatus {
 
     var iconName: String {
         switch self {
+        case .checking: "arrow.triangle.2.circlepath"
         case .available: "checkmark.circle.fill"
         case .missing: "exclamationmark.circle"
         case .invalid: "xmark.circle.fill"
@@ -374,6 +382,7 @@ private extension RawCullAICapabilityStatus {
 
     var color: Color {
         switch self {
+        case .checking: .secondary
         case .available: .green
         case .missing, .unavailable: .orange
         case .invalid: .red
@@ -382,6 +391,7 @@ private extension RawCullAICapabilityStatus {
 
     var primaryLocation: URL? {
         switch self {
+        case let .checking(expectedLocations): expectedLocations.first
         case let .available(location): location
         case let .missing(expectedLocations): expectedLocations.first
         case let .invalid(location, _): location

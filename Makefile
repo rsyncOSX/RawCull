@@ -14,6 +14,7 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests' \
 	'-only-testing:RawCullTests/ApertureHintTests' \
 	'-only-testing:RawCullTests/ISOScalingTests' \
+	'-only-testing:RawCullTests/CullingModelTests/`cancelling similarity ranking stops its owned distance helper`()' \
 	'-only-testing:RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()' \
 	'-only-testing:RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()' \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \

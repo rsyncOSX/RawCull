@@ -55,6 +55,7 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
 
 /// A common, structured capability state for model resources and host services.
 nonisolated enum RawCullAICapabilityStatus: Equatable, Sendable {
+    case checking(expectedLocations: [URL])
     case available(location: URL?)
     case missing(expectedLocations: [URL])
     case invalid(location: URL?, reason: String)
@@ -132,7 +133,9 @@ nonisolated enum RawCullSavedBurstEvidenceScanResult: Equatable, Sendable {
 nonisolated struct RawCullSavedBurstEvidenceScanner: Sendable {
     let cacheDirectory: URL
 
-    func scan() -> RawCullSavedBurstEvidenceScanResult {
+    @concurrent
+    func scan() async throws -> RawCullSavedBurstEvidenceScanResult {
+        try Task.checkCancellation()
         let cacheFiles: [URL]
         do {
             cacheFiles = try FileManager.default.contentsOfDirectory(
@@ -156,9 +159,10 @@ nonisolated struct RawCullSavedBurstEvidenceScanner: Sendable {
         var skippedCacheFileCount = 0
 
         for url in cacheFiles {
-            guard !Task.isCancelled else { break }
+            try Task.checkCancellation()
             do {
                 let data = try Data(contentsOf: url, options: .mappedIfSafe)
+                try Task.checkCancellation()
                 let probe = try JSONDecoder().decode(
                     RawCullSavedBurstCacheProbe.self,
                     from: data,
@@ -170,7 +174,10 @@ nonisolated struct RawCullSavedBurstEvidenceScanner: Sendable {
 
                 var catalogClipCount = 0
                 var catalogVisionCount = 0
-                for artifact in probe.embeddings.values {
+                for (index, artifact) in probe.embeddings.values.enumerated() {
+                    if index & 0x3F == 0 {
+                        try Task.checkCancellation()
+                    }
                     switch artifact.descriptor.backend {
                     case "clip": catalogClipCount += 1
                     case "vision-feature-print": catalogVisionCount += 1
@@ -187,6 +194,8 @@ nonisolated struct RawCullSavedBurstEvidenceScanner: Sendable {
                     clipFallbackCatalogCount += 1
                 }
                 burstGroupCount += probe.groups.count { $0.fileIDs.count > 1 }
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 skippedCacheFileCount += 1
             }

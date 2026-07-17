@@ -4,6 +4,7 @@ import PhotoAnalysisKit
 @testable import RawCull
 import PhotoAIContracts
 import RawCullCore
+import Synchronization
 import Testing
 
 private actor SavedFilesRecorder {
@@ -227,6 +228,57 @@ private nonisolated struct SuspendingSimilarityService: RawCullSimilarityServici
     }
 }
 
+private final class SimilarityDistanceCancellationProbe: Sendable {
+    private struct State: Sendable {
+        var started = false
+        var observedCancellation = false
+    }
+
+    private let state = Mutex(State())
+
+    func distance() -> Float {
+        state.withLock { $0.started = true }
+        let deadline = Date().addingTimeInterval(2)
+        while !Task.isCancelled, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.001)
+        }
+        if Task.isCancelled {
+            state.withLock { $0.observedCancellation = true }
+        }
+        return 0
+    }
+
+    func waitUntilStarted() async {
+        while !state.withLock({ $0.started }) {
+            await Task.yield()
+        }
+    }
+
+    func didObserveCancellation() -> Bool {
+        state.withLock { $0.observedCancellation }
+    }
+}
+
+private nonisolated struct CancellationDistanceSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+    let probe: SimilarityDistanceCancellationProbe
+
+    func index(
+        sources _: [AIImageSource],
+        maxPixelSize _: Int,
+        progress _: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        RawCullSimilarityIndexingOutput(artifacts: [:], failures: [])
+    }
+
+    func distance(
+        from _: SimilarityArtifact,
+        to _: SimilarityArtifact,
+    ) throws -> Float? {
+        probe.distance()
+    }
+}
+
 private nonisolated let similarityTestBackendDescriptor = SimilarityBackendDescriptor(
     backend: "test-similarity",
     modelFingerprint: "test-model-v1",
@@ -331,6 +383,39 @@ private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAna
 
 @MainActor
 struct CullingModelTests {
+    @Test
+    func `cancelling similarity ranking stops its owned distance helper`() async {
+        let probe = SimilarityDistanceCancellationProbe()
+        let model = SimilarityScoringModel(
+            similarityService: CancellationDistanceSimilarityService(probe: probe),
+        )
+        let anchor = makeCullingTestFile("ranking-anchor.ARW")
+        let candidate = makeCullingTestFile("ranking-candidate.ARW")
+        let previousAnchorID = UUID()
+        let previousDistanceID = UUID()
+        model.embeddings = [
+            anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate)),
+        ]
+        model.anchorFileID = previousAnchorID
+        model.distances = [previousDistanceID: 0.5]
+
+        let ranking = Task {
+            await model.rankSimilar(
+                to: anchor.id,
+                using: [anchor, candidate],
+            )
+        }
+        await probe.waitUntilStarted()
+        ranking.cancel()
+        await ranking.value
+
+        #expect(probe.didObserveCancellation())
+        #expect(model.anchorFileID == previousAnchorID)
+        #expect(model.distances == [previousDistanceID: 0.5])
+        #expect(model.sortBySimilarity == false)
+    }
+
     @Test
     func `similarity indexing cancellation stops structured embedding workers`() async {
         let probe = SimilarityEmbeddingCancellationProbe()

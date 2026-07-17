@@ -20,36 +20,60 @@ final class RawCullAISettingsModel {
     }
 
     @ObservationIgnored private let integration: RawCullAIIntegration
-    @ObservationIgnored private let evidenceScanner: RawCullSavedBurstEvidenceScanner
+    @ObservationIgnored private let evidenceScan: @Sendable () async throws
+        -> RawCullSavedBurstEvidenceScanResult
+    @ObservationIgnored private var refreshGeneration = 0
 
     init(
         integration: RawCullAIIntegration,
         evidenceScanner: RawCullSavedBurstEvidenceScanner? = nil,
+        evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
     ) {
         self.integration = integration
-        self.evidenceScanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
+        let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
             cacheDirectory: integration.paths.burstAnalysisDirectory,
         )
+        self.evidenceScan = evidenceScan ?? {
+            try await scanner.scan()
+        }
         self.capabilities = integration.capabilities()
     }
 
     func refresh() async {
-        capabilities = integration.capabilities()
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
         isScanningSavedBurstData = true
-        defer { isScanningSavedBurstData = false }
+        defer {
+            if refreshGeneration == generation {
+                isScanningSavedBurstData = false
+            }
+        }
 
-        let scanner = evidenceScanner
-        let result = await Task { @concurrent in
-            scanner.scan()
-        }.value
-        guard !Task.isCancelled else { return }
-        switch result {
-        case let .success(evidence):
-            savedBurstEvidence = evidence
-            savedBurstScanFailure = nil
-        case let .failure(reason):
+        do {
+            async let refreshedCapabilities = integration.refreshCapabilities()
+            async let savedEvidence = evidenceScan()
+            let (capabilities, result) = try await (
+                refreshedCapabilities,
+                savedEvidence,
+            )
+            try Task.checkCancellation()
+            guard refreshGeneration == generation else { return }
+
+            self.capabilities = capabilities
+            switch result {
+            case let .success(evidence):
+                savedBurstEvidence = evidence
+                savedBurstScanFailure = nil
+            case let .failure(reason):
+                savedBurstEvidence = nil
+                savedBurstScanFailure = reason
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            guard refreshGeneration == generation else { return }
             savedBurstEvidence = nil
-            savedBurstScanFailure = reason
+            savedBurstScanFailure = String(describing: error)
         }
     }
 

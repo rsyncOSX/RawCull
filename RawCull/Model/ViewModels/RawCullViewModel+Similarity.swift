@@ -25,6 +25,7 @@ extension RawCullViewModel {
             using: files,
             saliencyInfo: sharpnessModel.saliencyInfo,
         )
+        guard !Task.isCancelled else { return }
         await handleSortOrderChange()
     }
 }

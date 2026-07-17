@@ -88,6 +88,8 @@ final class SimilarityScoringModel {
     @ObservationIgnored private var _indexingStartedAt: Date?
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration = 0
+    @ObservationIgnored private var _rankingTask: Task<SimilarityDistanceComputation, Never>?
+    @ObservationIgnored private var _rankingGeneration = 0
     @ObservationIgnored private var _adjacentDistanceCache: [String: Float] = [:]
     @ObservationIgnored private var _adjacentDistanceCacheSignature = 0
 
@@ -103,6 +105,9 @@ final class SimilarityScoringModel {
         cancelIndexing()
         _groupingTask?.cancel()
         _groupingTask = nil
+        _rankingTask?.cancel()
+        _rankingTask = nil
+        _rankingGeneration &+= 1
         embeddings = [:]
         distances = [:]
         anchorFileID = nil
@@ -257,6 +262,11 @@ final class SimilarityScoringModel {
         using _: [FileItem],
         saliencyInfo: [UUID: SaliencyInfo] = [:],
     ) async {
+        _rankingTask?.cancel()
+        _rankingTask = nil
+        _rankingGeneration &+= 1
+        let generation = _rankingGeneration
+
         guard let anchorArtifact = embeddings[anchorID] else {
             clearSimilarityRanking()
             return
@@ -267,8 +277,8 @@ final class SimilarityScoringModel {
         let service = similarityService
         let mismatchPenalty = kSubjectMismatchPenalty
 
-        let computation = await Task { @concurrent in
-            Self.computeDistances(
+        let work = Task { @concurrent in
+            await Self.computeDistances(
                 anchorID: anchorID,
                 anchorArtifact: anchorArtifact,
                 artifacts: snapshot,
@@ -277,9 +287,22 @@ final class SimilarityScoringModel {
                 saliencyInfo: saliencyInfo,
                 mismatchPenalty: mismatchPenalty,
             )
-        }.value
+        }
+        _rankingTask = work
+        let computation = await withTaskCancellationHandler {
+            await work.value
+        } onCancel: {
+            work.cancel()
+        }
 
-        guard !Task.isCancelled else { return }
+        if _rankingTask == work {
+            _rankingTask = nil
+        }
+
+        guard _rankingGeneration == generation,
+              !work.isCancelled,
+              !Task.isCancelled
+        else { return }
         if computation.failureCount > 0 {
             Logger.process.warning(
                 "SimilarityScoringModel: \(computation.failureCount) PhotoAIKit distance comparisons failed",
@@ -469,6 +492,7 @@ final class SimilarityScoringModel {
         return distances
     }
 
+    @concurrent
     private nonisolated static func computeDistances(
         anchorID: UUID,
         anchorArtifact: SimilarityArtifact,
@@ -477,7 +501,7 @@ final class SimilarityScoringModel {
         anchorLabel: String?,
         saliencyInfo: [UUID: SaliencyInfo],
         mismatchPenalty: Float,
-    ) -> SimilarityDistanceComputation {
+    ) async -> SimilarityDistanceComputation {
         var result: [UUID: Float] = [:]
         var failureCount = 0
         for (id, artifact) in artifacts where id != anchorID {

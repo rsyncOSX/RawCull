@@ -18,19 +18,22 @@ final class RawCullAIIntegration {
 
     let visionSimilarityProvider: VisionFeaturePrintBackend
     let visionSimilarityService: any RawCullSimilarityServicing
-    let clipSimilarityProvider: CoreAICLIPProvider?
+    private(set) var clipSimilarityProvider: CoreAICLIPProvider?
 
     let subjectMaskMemoryStore: SubjectMaskMemoryStore
     let subjectMaskDiskStore: SubjectMaskDiskStore?
-    let subjectMaskRepository: SubjectMaskRepository
-    let sam3Configuration: SubjectMaskRepositoryConfiguration
-    let sam3Segmentation: SegmentationService
-    let subjectMaskSelector: SubjectMaskSelector
+    private(set) var subjectMaskRepository: SubjectMaskRepository
+    private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
+    private(set) var sam3Segmentation: SegmentationService
+    private(set) var subjectMaskSelector: SubjectMaskSelector
 
     private let subjectMaskStorageCapability: RawCullAICapabilityStatus
     private let maskWorkerCapability: RawCullAICapabilityStatus
-    private let sam3ProviderInitializationFailure: String?
-    private let clipProviderInitializationFailure: String?
+    private let subjectMaskStores: [any SubjectMaskStoring]
+    private let defaultPrompt: SubjectSegmentationPrompt
+    private let inputMaxSide: Int
+    private var activeSAM3ModelIdentity: ModelIdentity?
+    private var capabilitySnapshot: RawCullAICapabilities
 
     init(
         paths: RawCullAIPaths = .live(),
@@ -38,40 +41,33 @@ final class RawCullAIIntegration {
         allowsBundledModelFallback: Bool? = nil,
         maskWorkerExecutableNames: [String] = ["RawCullAIMaskWorker"],
         defaultPrompt: SubjectSegmentationPrompt = .subject,
-        inputMaxSide: Int = 4_320,
+        inputMaxSide: Int = 4320,
     ) {
         self.paths = paths
         let allowsBundledModelFallback = allowsBundledModelFallback
             ?? Self.defaultAllowsBundledModelFallback
-
-        let sam3Manager = RawCullAIModelResourceManager(
-            candidateURLs: RawCullAIModelCandidates.urls(
-                installedDirectory: paths.sam3ModelDirectory,
-                resourceName: "SAM3",
-                bundle: bundle,
-                allowsBundledFallback: allowsBundledModelFallback,
-            ),
+        let sam3CandidateURLs = RawCullAIModelCandidates.urls(
+            installedDirectory: paths.sam3ModelDirectory,
+            resourceName: "SAM3",
+            bundle: bundle,
+            allowsBundledFallback: allowsBundledModelFallback,
+        )
+        let clipCandidateURLs = RawCullAIModelCandidates.urls(
+            installedDirectory: paths.clipModelDirectory,
+            resourceName: "CLIP",
+            bundle: bundle,
+            allowsBundledFallback: allowsBundledModelFallback,
+        )
+        self.sam3ModelResourceManager = RawCullAIModelResourceManager(
+            candidateURLs: sam3CandidateURLs,
             factory: CoreAISAM3Provider.factory,
         )
-        let clipManager = RawCullAIModelResourceManager(
-            candidateURLs: RawCullAIModelCandidates.urls(
-                installedDirectory: paths.clipModelDirectory,
-                resourceName: "CLIP",
-                bundle: bundle,
-                allowsBundledFallback: allowsBundledModelFallback,
-            ),
+        self.clipModelResourceManager = RawCullAIModelResourceManager(
+            candidateURLs: clipCandidateURLs,
             factory: CoreAICLIPProvider.factory,
         )
-        self.sam3ModelResourceManager = sam3Manager
-        self.clipModelResourceManager = clipManager
+        self.clipSimilarityProvider = nil
 
-        let sam3ProviderResult = Self.makeSAM3Provider(using: sam3Manager)
-        let sam3Provider = sam3ProviderResult.provider
-        self.sam3ProviderInitializationFailure = sam3ProviderResult.failure
-
-        let clipProviderResult = Self.makeCLIPProvider(using: clipManager)
-        self.clipSimilarityProvider = clipProviderResult.provider
-        self.clipProviderInitializationFailure = clipProviderResult.failure
         let visionProvider = VisionFeaturePrintBackend()
         self.visionSimilarityProvider = visionProvider
         self.visionSimilarityService = RawCullVisionSimilarityService(
@@ -89,7 +85,11 @@ final class RawCullAIIntegration {
         if let diskStore = diskStoreResult.store {
             stores.append(diskStore)
         }
+        self.subjectMaskStores = stores
+        self.defaultPrompt = defaultPrompt
+        self.inputMaxSide = inputMaxSide
 
+        let sam3Provider = UnavailableSAM3Provider()
         let configuration = SubjectMaskRepositoryConfiguration(
             defaultPrompt: defaultPrompt,
             modelIdentity: sam3Provider.modelIdentity,
@@ -113,26 +113,57 @@ final class RawCullAIIntegration {
             repository: repository,
             segmentationService: segmentation,
         )
-        self.maskWorkerCapability = Self.maskWorkerCapability(
+
+        let maskWorkerCapability = Self.maskWorkerCapability(
             in: bundle,
             executableNames: maskWorkerExecutableNames,
+        )
+        self.maskWorkerCapability = maskWorkerCapability
+        self.activeSAM3ModelIdentity = nil
+        self.capabilitySnapshot = RawCullAICapabilities(
+            sam3Model: .checking(expectedLocations: sam3CandidateURLs),
+            clipModel: .checking(expectedLocations: clipCandidateURLs),
+            visionFeaturePrint: .available(location: nil),
+            subjectMaskStorage: diskStoreResult.capability,
+            maskWorker: maskWorkerCapability,
         )
     }
 
     func capabilities() -> RawCullAICapabilities {
-        RawCullAICapabilities(
+        capabilitySnapshot
+    }
+
+    /// Refresh model resources outside the main actor and reuse validated
+    /// providers while their candidate bundle metadata remains unchanged.
+    @discardableResult
+    func refreshCapabilities() async throws -> RawCullAICapabilities {
+        async let sam3Load = sam3ModelResourceManager.load()
+        async let clipLoad = clipModelResourceManager.load()
+        let (sam3, clip) = try await (sam3Load, clipLoad)
+        try Task.checkCancellation()
+
+        if let provider = sam3.provider {
+            installSAM3ProviderIfNeeded(provider)
+        } else {
+            installUnavailableSAM3ProviderIfNeeded()
+        }
+        clipSimilarityProvider = clip.provider
+
+        let capabilities = RawCullAICapabilities(
             sam3Model: Self.capabilityStatus(
-                sam3ModelResourceManager.capability(),
-                providerInitializationFailure: sam3ProviderInitializationFailure,
+                sam3.capability,
+                providerInitializationFailure: sam3.providerInitializationFailure,
             ),
             clipModel: Self.capabilityStatus(
-                clipModelResourceManager.capability(),
-                providerInitializationFailure: clipProviderInitializationFailure,
+                clip.capability,
+                providerInitializationFailure: clip.providerInitializationFailure,
             ),
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
             maskWorker: maskWorkerCapability,
         )
+        capabilitySnapshot = capabilities
+        return capabilities
     }
 
     private static var defaultAllowsBundledModelFallback: Bool {
@@ -143,38 +174,12 @@ final class RawCullAIIntegration {
         #endif
     }
 
-    private static func makeSAM3Provider(
-        using manager: RawCullAIModelResourceManager<CoreAISAM3Provider>,
-    ) -> (provider: any SubjectSegmenting, failure: String?) {
-        do {
-            return (try manager.makeProvider(), nil)
-        } catch {
-            return (
-                UnavailableSAM3Provider(),
-                manager.installedResource() == nil ? nil : String(describing: error),
-            )
-        }
-    }
-
-    private static func makeCLIPProvider(
-        using manager: RawCullAIModelResourceManager<CoreAICLIPProvider>,
-    ) -> (provider: CoreAICLIPProvider?, failure: String?) {
-        do {
-            return (try manager.makeProvider(), nil)
-        } catch {
-            return (
-                nil,
-                manager.installedResource() == nil ? nil : String(describing: error),
-            )
-        }
-    }
-
     private static func makeSubjectMaskDiskStore(
         at directory: URL,
     ) -> (store: SubjectMaskDiskStore?, capability: RawCullAICapabilityStatus) {
         do {
-            return (
-                try SubjectMaskDiskStore(cacheDirectory: directory),
+            return try (
+                SubjectMaskDiskStore(cacheDirectory: directory),
                 .available(location: directory),
             )
         } catch {
@@ -218,6 +223,41 @@ final class RawCullAIIntegration {
         }
         return .unavailable(
             reason: "The source-controlled SAM 3 mask worker has not been added yet.",
+        )
+    }
+
+    private func installSAM3ProviderIfNeeded(_ provider: any SubjectSegmenting) {
+        guard activeSAM3ModelIdentity != provider.modelIdentity else { return }
+        activeSAM3ModelIdentity = provider.modelIdentity
+        installSAM3Provider(provider)
+    }
+
+    private func installUnavailableSAM3ProviderIfNeeded() {
+        guard activeSAM3ModelIdentity != nil else { return }
+        activeSAM3ModelIdentity = nil
+        installSAM3Provider(UnavailableSAM3Provider())
+    }
+
+    private func installSAM3Provider(_ provider: any SubjectSegmenting) {
+        let configuration = SubjectMaskRepositoryConfiguration(
+            defaultPrompt: defaultPrompt,
+            modelIdentity: provider.modelIdentity,
+            inputMaxSide: inputMaxSide,
+        )
+        let repository = SubjectMaskRepository(
+            configuration: configuration,
+            stores: subjectMaskStores,
+        )
+        sam3Configuration = configuration
+        subjectMaskRepository = repository
+        sam3Segmentation = SegmentationService(
+            provider: provider,
+            stores: subjectMaskStores,
+            maxSide: inputMaxSide,
+        )
+        subjectMaskSelector = SubjectMaskSelector(
+            repository: repository,
+            segmentationService: sam3Segmentation,
         )
     }
 }
