@@ -24,6 +24,12 @@ brew install --cask rawcull
 
 RawCull is also available from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) and [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases).
 
+## Documentation
+
+- [User documentation](https://rawcull.netlify.app)
+- [Release notes](https://rawcull.netlify.app/blog/)
+- [GitHub releases](https://github.com/rsyncOSX/RawCull/releases)
+
 ## Main capabilities
 
 - Discover and scan supported RAW files in a selected catalog.
@@ -321,13 +327,3 @@ make test-performance
 ```
 
 The test suites cover package integration, sharpness and focus metrics, structured cancellation, latest-run-wins behavior, memory-cache counters, security-scoped access, disk caches, burst persistence, RAW parsing adapters, and copy startup/cleanup.
-
-## Camera compatibility
-
-RawCull is primarily developed and tested for Sony Alpha 1 and Alpha 1 II ARW files. See the current [camera and RAW-format documentation](https://rawcull.netlify.app/docs/) for the supported camera bodies and file variants.
-
-## Documentation
-
-- [User documentation](https://rawcull.netlify.app)
-- [Release notes](https://rawcull.netlify.app/blog/)
-- [GitHub releases](https://github.com/rsyncOSX/RawCull/releases)
