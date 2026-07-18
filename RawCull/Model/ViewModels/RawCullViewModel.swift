@@ -244,6 +244,15 @@ final class RawCullViewModel {
         )
     }
 
+    func setSimilarityService(_ service: any RawCullSimilarityServicing) {
+        guard similarityModel.backendDescriptor != service.backendDescriptor
+            || similarityModel.artifactBackendDescriptors != service.artifactBackendDescriptors
+        else { return }
+
+        cancelAndResetBurstAnalysis()
+        similarityModel.setSimilarityService(service)
+    }
+
     // MARK: - Computed
 
     var alertTitle: String {

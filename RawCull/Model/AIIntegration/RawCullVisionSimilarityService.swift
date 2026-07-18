@@ -19,13 +19,26 @@ nonisolated struct RawCullSimilarityIndexingFailure: Equatable, Sendable {
 nonisolated struct RawCullSimilarityIndexingOutput: Sendable {
     let artifacts: [UUID: SimilarityArtifact]
     let failures: [RawCullSimilarityIndexingFailure]
+    let usedWholeBatchFallback: Bool
+
+    init(
+        artifacts: [UUID: SimilarityArtifact],
+        failures: [RawCullSimilarityIndexingFailure],
+        usedWholeBatchFallback: Bool = false,
+    ) {
+        self.artifacts = artifacts
+        self.failures = failures
+        self.usedWholeBatchFallback = usedWholeBatchFallback
+    }
 }
 
 /// Narrow application boundary consumed by RawCull's similarity feature model.
 /// RawCull owns source decoding and culling policy; PhotoAIKit owns artifacts,
-/// Vision generation, validation identity, and distance semantics.
+/// backend generation, validation identity, and distance semantics.
 nonisolated protocol RawCullSimilarityServicing: Sendable {
     var backendDescriptor: SimilarityBackendDescriptor { get }
+    var artifactBackendDescriptors: [SimilarityBackendDescriptor] { get }
+    var requiresHomogeneousBatch: Bool { get }
 
     func index(
         sources: [AIImageSource],
@@ -39,8 +52,15 @@ nonisolated protocol RawCullSimilarityServicing: Sendable {
     ) throws -> Float?
 }
 
-/// Vision-only Phase 2 service. CLIP selection remains intentionally disconnected
-/// until its Settings control and whole-batch fallback are implemented together.
+extension RawCullSimilarityServicing {
+    nonisolated var artifactBackendDescriptors: [SimilarityBackendDescriptor] {
+        [backendDescriptor]
+    }
+
+    nonisolated var requiresHomogeneousBatch: Bool { false }
+}
+
+/// Vision feature-print similarity service.
 nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
     static let defaultConcurrencyLimit = 4
 
@@ -96,6 +116,121 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
         to right: SimilarityArtifact,
     ) throws -> Float? {
         try backend.distance(from: left, to: right)
+    }
+}
+
+/// CLIP similarity with catalog-homogeneous Vision fallback.
+///
+/// PhotoAIKit retries the complete requested batch with Vision when any CLIP
+/// artifact fails. RawCull records CLIP as the selected backend while accepting
+/// either the CLIP descriptor or the exact Vision fallback descriptor in that
+/// batch's persisted artifacts.
+nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
+    static let defaultConcurrencyLimit = 2
+
+    let backendDescriptor: SimilarityBackendDescriptor
+    let artifactBackendDescriptors: [SimilarityBackendDescriptor]
+    let requiresHomogeneousBatch = true
+
+    private let primaryProvider: any ImageSimilarityArtifactProviding
+    private let primaryComparator: any ImageSimilarityArtifactComparing
+    private let fallbackProvider: any ImageSimilarityArtifactProviding
+    private let fallbackComparator: any ImageSimilarityArtifactComparing
+    private let concurrencyLimit: Int
+
+    init(
+        backend: any ImageSimilarityBackend,
+        visionBackend: VisionFeaturePrintBackend = VisionFeaturePrintBackend(),
+        concurrencyLimit: Int = Self.defaultConcurrencyLimit,
+    ) {
+        self.init(
+            primaryProvider: backend,
+            primaryComparator: backend,
+            fallbackProvider: RawCullParallelVisionArtifactProvider(
+                revision: visionBackend.revision,
+            ),
+            fallbackComparator: visionBackend,
+            concurrencyLimit: concurrencyLimit,
+        )
+    }
+
+    init(
+        primaryProvider: any ImageSimilarityArtifactProviding,
+        primaryComparator: any ImageSimilarityArtifactComparing,
+        fallbackProvider: any ImageSimilarityArtifactProviding,
+        fallbackComparator: any ImageSimilarityArtifactComparing,
+        concurrencyLimit: Int = Self.defaultConcurrencyLimit,
+    ) {
+        self.primaryProvider = primaryProvider
+        self.primaryComparator = primaryComparator
+        self.fallbackProvider = fallbackProvider
+        self.fallbackComparator = fallbackComparator
+        self.backendDescriptor = primaryProvider.backendDescriptor
+        self.artifactBackendDescriptors = [
+            primaryProvider.backendDescriptor,
+            fallbackProvider.backendDescriptor,
+        ]
+        self.concurrencyLimit = max(1, concurrencyLimit)
+    }
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)? = nil,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        let indexer = SimilarityArtifactIndexer(
+            primaryProvider: primaryProvider,
+            fallbackProvider: fallbackProvider,
+            decoder: RawCullSimilarityImageDecoder(maxPixelSize: maxPixelSize),
+            fallbackPolicy: .wholeBatch,
+            concurrencyLimit: concurrencyLimit,
+        )
+        let result = try await indexer.index(sources) { update in
+            await progress?(
+                RawCullSimilarityIndexingProgress(
+                    completed: update.completed,
+                    total: update.total,
+                    currentSourceID: update.currentSourceID,
+                ),
+            )
+        }
+        return RawCullSimilarityIndexingOutput(
+            artifacts: result.artifacts,
+            failures: result.failures.map {
+                RawCullSimilarityIndexingFailure(
+                    source: $0.source,
+                    message: $0.message,
+                )
+            },
+            usedWholeBatchFallback: result.usedWholeBatchFallback,
+        )
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        if Self.matches(left, right, backend: primaryComparator.backendDescriptor) {
+            return try primaryComparator.distance(from: left, to: right)
+        }
+        if Self.matches(left, right, backend: fallbackComparator.backendDescriptor) {
+            return try fallbackComparator.distance(from: left, to: right)
+        }
+        return nil
+    }
+
+    private static func matches(
+        _ left: SimilarityArtifact,
+        _ right: SimilarityArtifact,
+        backend: SimilarityBackendDescriptor,
+    ) -> Bool {
+        left.descriptor.isCompatibleForDistance(with: right.descriptor)
+            && left.descriptor.backend == backend.backend
+            && left.descriptor.modelFingerprint == backend.modelFingerprint
+            && left.descriptor.representation == backend.representation
+            && left.descriptor.preprocessingVersion == backend.preprocessingVersion
+            && left.descriptor.normalizationVersion == backend.normalizationVersion
+            && left.descriptor.configurationVersion == backend.configurationVersion
     }
 }
 
@@ -188,5 +323,15 @@ nonisolated enum RawCullSimilarityArtifactValidation {
             && descriptor.normalizationVersion == backend.normalizationVersion
             && descriptor.configurationVersion == backend.configurationVersion
             && descriptor.sourceFingerprint == SourceFingerprint(source: source)
+    }
+
+    static func isCurrent(
+        _ artifact: SimilarityArtifact,
+        for source: AIImageSource,
+        backends: [SimilarityBackendDescriptor],
+    ) -> Bool {
+        backends.contains { backend in
+            isCurrent(artifact, for: source, backend: backend)
+        }
     }
 }

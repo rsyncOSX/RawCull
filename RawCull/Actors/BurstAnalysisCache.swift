@@ -23,13 +23,31 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
 nonisolated struct BurstSimilaritySignature: Codable, Equatable {
     var groupingConfig: BurstGroupingConfig
     var backendDescriptor: SimilarityBackendDescriptor
+    var artifactBackendDescriptors: [SimilarityBackendDescriptor]
     var artifactSchemaVersion: Int
     var embeddingThumbnailMaxPixelSize: Int
     var embeddingPipelineVersion: Int
 
+    init(
+        groupingConfig: BurstGroupingConfig,
+        backendDescriptor: SimilarityBackendDescriptor,
+        artifactBackendDescriptors: [SimilarityBackendDescriptor]? = nil,
+        artifactSchemaVersion: Int,
+        embeddingThumbnailMaxPixelSize: Int,
+        embeddingPipelineVersion: Int,
+    ) {
+        self.groupingConfig = groupingConfig
+        self.backendDescriptor = backendDescriptor
+        self.artifactBackendDescriptors = artifactBackendDescriptors ?? [backendDescriptor]
+        self.artifactSchemaVersion = artifactSchemaVersion
+        self.embeddingThumbnailMaxPixelSize = embeddingThumbnailMaxPixelSize
+        self.embeddingPipelineVersion = embeddingPipelineVersion
+    }
+
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.groupingConfig == rhs.groupingConfig
             && lhs.backendDescriptor == rhs.backendDescriptor
+            && lhs.artifactBackendDescriptors == rhs.artifactBackendDescriptors
             && lhs.artifactSchemaVersion == rhs.artifactSchemaVersion
             && lhs.embeddingThumbnailMaxPixelSize == rhs.embeddingThumbnailMaxPixelSize
             && lhs.embeddingPipelineVersion == rhs.embeddingPipelineVersion
@@ -101,7 +119,7 @@ nonisolated struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 6
+    nonisolated static let schemaVersion = 7
 
     private let cacheDirectory: URL
 
@@ -249,7 +267,7 @@ actor BurstAnalysisCache {
                   RawCullSimilarityArtifactValidation.isCurrent(
                       artifact,
                       for: SimilarityScoringModel.source(for: file),
-                      backend: similaritySignature.backendDescriptor,
+                      backends: similaritySignature.artifactBackendDescriptors,
                   )
             else { return false }
         }

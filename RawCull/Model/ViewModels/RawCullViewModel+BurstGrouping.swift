@@ -750,6 +750,7 @@ extension RawCullViewModel {
                 visualDistanceThreshold: similarityModel.burstSensitivity,
             ),
             backendDescriptor: similarityModel.backendDescriptor,
+            artifactBackendDescriptors: similarityModel.artifactBackendDescriptors,
             artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
             embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
             embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,

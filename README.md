@@ -41,7 +41,8 @@ RawCull is also available from the [Apple App Store](https://apps.apple.com/no/a
 - Score image sharpness using full-frame, salient-subject, and AF-region
   evidence.
 - Apply photo-type presets and fast, balanced, or high-precision scoring.
-- Generate Vision feature prints for similarity ranking and burst grouping.
+- Generate CLIP image embeddings for similarity ranking and burst grouping,
+  with whole-batch Vision feature-print fallback.
 - Compare burst candidates with sharpness, similarity, and caution details.
 - Tag, reject, or assign star ratings to selected images.
 - Persist ratings, sharpness results, saliency labels, burst decisions, and
@@ -59,7 +60,7 @@ flowchart LR
     Adapter --> Domain["RawCullCore models"]
     Adapter --> Analysis["PhotoAnalysisKit"]
     Analysis --> Sharpness["Sharpness, focus mask, saliency"]
-    Analysis --> Similarity["Vision feature prints"]
+    Adapter --> Similarity["PhotoAIKit CLIP / Vision similarity"]
     Domain --> ViewModels["@Observable view models"]
     Sharpness --> ViewModels
     Similarity --> ViewModels
@@ -111,10 +112,12 @@ Per-image ISO, aperture, and normalized AF position are passed through `PhotoAna
 
 Persistent sharpness results use `PhotoAnalyzer.sharpnessDescriptor(for:)`. RawCull layers the scoring source, decoded image size, source-file size, and modification date around that descriptor. This invalidates stale scores when either the package algorithm or the input file changes.
 
-PhotoAnalysisKit also provides RawCull's similarity backend:
+PhotoAIKit provides RawCull's similarity backends:
 
-- `VisionFeaturePrintBackend.featurePrint(for:)` creates Codable Vision feature prints.
-- `VisionFeaturePrintBackend.distance(from:to:)` calculates visual distance.
+- `CoreAICLIPProvider` creates normalized CLIP image embeddings and cosine distances.
+- `VisionFeaturePrintBackend` creates and compares Codable Vision feature prints.
+- A persisted setting selects CLIP when its validated model is available; any
+  CLIP generation failure retries the complete catalog batch with Vision.
 - Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
 PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
@@ -210,7 +213,8 @@ Full-size embedded and developed previews use a separate disk cache. Memory pres
 ### Similarity and burst review
 
 1. RawParserKit supplies 512-pixel thumbnails.
-2. PhotoAnalysisKit creates Vision feature prints.
+2. PhotoAIKit creates CLIP image embeddings, or a homogeneous batch of Vision
+   feature prints when CLIP is unavailable or generation fails.
 3. RawCull calculates adjacent distances and passes them to RawCullCore.
 4. RawCullCore groups the ordered images into bursts.
 5. RawCull ranks candidates using sharpness, similarity, and review rules.

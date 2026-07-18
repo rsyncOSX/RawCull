@@ -133,6 +133,19 @@ final class RawCullAIIntegration {
         capabilitySnapshot
     }
 
+    /// Select the strongest requested similarity service whose validated model
+    /// resources are currently available. Vision remains the safe runtime
+    /// service until CLIP validation and provider construction both succeed.
+    func similarityService(prefersCLIP: Bool) -> any RawCullSimilarityServicing {
+        guard prefersCLIP, let clipSimilarityProvider else {
+            return visionSimilarityService
+        }
+        return RawCullCLIPSimilarityService(
+            backend: clipSimilarityProvider,
+            visionBackend: visionSimilarityProvider,
+        )
+    }
+
     /// Refresh model resources outside the main actor and reuse validated
     /// providers while their candidate bundle metadata remains unchanged.
     @discardableResult

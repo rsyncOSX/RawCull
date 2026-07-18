@@ -129,7 +129,7 @@ nonisolated enum RawCullSavedBurstEvidenceScanResult: Equatable, Sendable {
     case failure(reason: String)
 }
 
-/// Inspects RawCull's schema-5 burst cache without changing it.
+/// Inspects RawCull's current burst cache without changing it.
 nonisolated struct RawCullSavedBurstEvidenceScanner: Sendable {
     let cacheDirectory: URL
 

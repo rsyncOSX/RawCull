@@ -114,8 +114,7 @@ private struct AIModelSettingsCard: View {
                 Toggle("Use CLIP for similarity", isOn: $model.useCLIPForSimilarity)
                     .font(.system(size: 12, weight: .medium))
                     .toggleStyle(.switch)
-                    .disabled(!model.capabilities.clipModel.isAvailable)
-                    .help(clipSimilarityHelp)
+                    .help(Text(clipSimilarityHelp))
 
                 Text(similarityBackendMessage)
                     .font(.system(size: 11, weight: .medium))
@@ -137,21 +136,24 @@ private struct AIModelSettingsCard: View {
         }
     }
 
-    private var similarityBackendMessage: String {
+    private var similarityBackendMessage: LocalizedStringResource {
         if model.useCLIPForSimilarity, model.capabilities.clipModel.isAvailable {
-            return "Similarity indexing will use CLIP image embeddings with a whole-batch Vision fallback."
+            return "Similarity indexing uses CLIP image embeddings with a whole-batch Vision fallback."
         }
         if model.capabilities.clipModel.isAvailable {
-            return "Similarity indexing currently uses Vision feature prints. The CLIP control is present but intentionally not connected yet."
+            return "Similarity indexing currently uses Vision feature prints. Enable CLIP to use image embeddings."
+        }
+        if model.useCLIPForSimilarity {
+            return "Similarity indexing uses Vision feature prints until a valid CLIP model is installed."
         }
         return "Similarity indexing currently uses Vision feature prints."
     }
 
-    private var clipSimilarityHelp: String {
+    private var clipSimilarityHelp: LocalizedStringResource {
         if model.capabilities.clipModel.isAvailable {
-            return "This Phase 2 control is present but intentionally not connected yet."
+            return "Use CLIP image embeddings, with a whole-batch Vision fallback if CLIP indexing fails."
         }
-        return "Install a valid CLIP model before enabling CLIP similarity."
+        return "Save the CLIP preference now; it becomes active when a valid model is installed."
     }
 }
 

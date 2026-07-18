@@ -20,6 +20,8 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()' \
 	'-only-testing:RawCullTests/RawCullAIIntegrationTests' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipWholeBatchFallback()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipReindexesCompleteBatch()' \
 	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionArtifactsAreDescriptorComplete()' \
 	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/rankingPolicyIsPreserved()' \
 	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/legacyCacheIsInvalidated()'

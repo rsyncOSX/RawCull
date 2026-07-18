@@ -27,14 +27,20 @@ struct RawCullApp: App {
 
     init() {
         let integration = RawCullAIIntegration()
+        let viewModel = RawCullViewModel(
+            similarityService: integration.visionSimilarityService,
+        )
         _viewModel = State(
-            initialValue: RawCullViewModel(
-                similarityService: integration.visionSimilarityService,
-            ),
+            initialValue: viewModel,
         )
         _aiIntegration = State(initialValue: integration)
         _aiSettingsModel = State(
-            initialValue: RawCullAISettingsModel(integration: integration),
+            initialValue: RawCullAISettingsModel(
+                integration: integration,
+                similarityServiceDidChange: { [weak viewModel] service in
+                    viewModel?.setSimilarityService(service)
+                },
+            ),
         )
     }
 
@@ -46,6 +52,9 @@ struct RawCullApp: App {
                 .environment(viewModel)
                 .task {
                     await viewModel.applyStoredScoringSettings()
+                }
+                .task {
+                    await aiSettingsModel.refresh()
                 }
                 .onDisappear {
                     // Quit the app when the main window is closed

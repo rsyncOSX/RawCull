@@ -218,10 +218,14 @@ struct RawCullAIIntegrationTests {
     }
 
     @MainActor
-    @Test("Placeholder controls do not activate CLIP or delete burst data")
-    func placeholderControlsAreNoOps() async throws {
+    @Test("CLIP preference persists while saved-data deletion remains a no-op")
+    func clipPreferencePersists() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
+
+        let defaultsSuite = "RawCullAIIntegrationTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: defaultsSuite))
+        defer { userDefaults.removePersistentDomain(forName: defaultsSuite) }
 
         let paths = isolatedPaths(root: root)
         try FileManager.default.createDirectory(
@@ -238,13 +242,38 @@ struct RawCullAIIntegrationTests {
             allowsBundledModelFallback: false,
             maskWorkerExecutableNames: [],
         )
-        let model = RawCullAISettingsModel(integration: integration)
+        var selectedBackends: [String] = []
+        let model = RawCullAISettingsModel(
+            integration: integration,
+            userDefaults: userDefaults,
+            similarityServiceDidChange: { service in
+                selectedBackends.append(service.backendDescriptor.backend)
+            },
+        )
+
+        #expect(model.useCLIPForSimilarity)
+        await model.refresh()
+        model.useCLIPForSimilarity = false
+        #expect(!model.useCLIPForSimilarity)
+        #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey) == false)
 
         model.useCLIPForSimilarity = true
         await model.deleteSavedBurstData()
 
-        #expect(model.useCLIPForSimilarity == false)
+        #expect(model.useCLIPForSimilarity)
+        #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey))
+        #expect(selectedBackends == [
+            "vision-feature-print",
+            "vision-feature-print",
+            "vision-feature-print",
+        ])
         #expect(FileManager.default.fileExists(atPath: savedDataURL.path))
+
+        let relaunchedModel = RawCullAISettingsModel(
+            integration: integration,
+            userDefaults: userDefaults,
+        )
+        #expect(relaunchedModel.useCLIPForSimilarity)
     }
 
     private func isolatedRoot() -> URL {

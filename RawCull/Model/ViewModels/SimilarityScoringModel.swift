@@ -80,11 +80,15 @@ final class SimilarityScoringModel {
         similarityService.backendDescriptor
     }
 
+    var artifactBackendDescriptors: [SimilarityBackendDescriptor] {
+        similarityService.artifactBackendDescriptors
+    }
+
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
     @ObservationIgnored private var _indexingGeneration = 0
-    @ObservationIgnored private let similarityService: any RawCullSimilarityServicing
+    @ObservationIgnored private var similarityService: any RawCullSimilarityServicing
     @ObservationIgnored private var _indexingStartedAt: Date?
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration = 0
@@ -135,8 +139,18 @@ final class SimilarityScoringModel {
         indexingEstimatedSeconds = 0
     }
 
-    /// Generate descriptor-complete PhotoAIKit Vision artifacts from RawCull's
-    /// thumbnail-resolution RAW decoding pipeline. Current artifacts are reused.
+    func setSimilarityService(_ service: any RawCullSimilarityServicing) {
+        guard backendDescriptor != service.backendDescriptor
+            || artifactBackendDescriptors != service.artifactBackendDescriptors
+        else { return }
+
+        reset()
+        similarityService = service
+    }
+
+    /// Generate descriptor-complete PhotoAIKit similarity artifacts from
+    /// RawCull's thumbnail-resolution RAW decoding pipeline. Current artifacts
+    /// are reused when they match the selected backend or its batch fallback.
     func indexFiles(
         _ files: [FileItem],
         thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
@@ -154,14 +168,18 @@ final class SimilarityScoringModel {
         indexingOperationFailure = nil
         _indexingStartedAt = Date()
 
-        let descriptor = similarityService.backendDescriptor
-        let toIndex = files.filter { file in
+        let service = similarityService
+        let descriptors = service.artifactBackendDescriptors
+        var toIndex = files.filter { file in
             guard let artifact = embeddings[file.id] else { return true }
             return !RawCullSimilarityArtifactValidation.isCurrent(
                 artifact,
                 for: Self.source(for: file),
-                backend: descriptor,
+                backends: descriptors,
             )
+        }
+        if service.requiresHomogeneousBatch, !toIndex.isEmpty {
+            toIndex = files
         }
         if toIndex.isEmpty {
             _indexingTask = nil
@@ -173,7 +191,6 @@ final class SimilarityScoringModel {
         indexingTotal = toIndex.count
 
         let sources = toIndex.map(Self.source(for:))
-        let service = similarityService
         let workTask = Task<SimilarityIndexingTaskResult, Never> {
             @concurrent [weak self] in
             do {
@@ -211,12 +228,17 @@ final class SimilarityScoringModel {
         case let .success(output):
             let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
             var invalidFailures: [RawCullSimilarityIndexingFailure] = []
+            if service.requiresHomogeneousBatch {
+                for source in sources {
+                    embeddings.removeValue(forKey: source.id)
+                }
+            }
             for (id, artifact) in output.artifacts {
                 guard let source = sourcesByID[id],
                       RawCullSimilarityArtifactValidation.isCurrent(
                           artifact,
                           for: source,
-                          backend: descriptor,
+                          backends: descriptors,
                       )
                 else {
                     if let source = sourcesByID[id] {
@@ -238,7 +260,8 @@ final class SimilarityScoringModel {
                 )
             }
             Logger.process.debugMessageOnly(
-                "SimilarityScoringModel: indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit",
+                "SimilarityScoringModel: indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
+                    + (output.usedWholeBatchFallback ? " using Vision fallback" : ""),
             )
 
         case let .failure(message):
@@ -255,7 +278,7 @@ final class SimilarityScoringModel {
     }
 
     /// Compute and store distances from `anchorID` to all other artifacts.
-    /// PhotoAIKit owns Vision distance semantics; RawCull retains the small
+    /// PhotoAIKit owns backend distance semantics; RawCull retains the small
     /// subject-label mismatch policy adjustment.
     func rankSimilar(
         to anchorID: UUID,

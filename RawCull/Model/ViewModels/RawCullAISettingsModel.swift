@@ -6,20 +6,25 @@ import Foundation
 /// not expose PhotoAIKit providers, repositories, or the composition root.
 @Observable @MainActor
 final class RawCullAISettingsModel {
+    static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
+
     private(set) var capabilities: RawCullAICapabilities
     private(set) var savedBurstEvidence: RawCullSavedBurstEvidence?
     private(set) var savedBurstScanFailure: String?
     private(set) var isScanningSavedBurstData = false
     private(set) var isDeletingSavedBurstData = false
 
-    /// Phase 2 will add persisted state and connect this preference to a
-    /// similarity feature model. The setter is intentionally a no-op for now.
     var useCLIPForSimilarity: Bool {
-        get { false }
+        get { prefersCLIPForSimilarity }
         set { setUseCLIPForSimilarity(newValue) }
     }
 
+    private var prefersCLIPForSimilarity: Bool
     @ObservationIgnored private let integration: RawCullAIIntegration
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private let similarityServiceDidChange: @MainActor (
+        any RawCullSimilarityServicing
+    ) -> Void
     @ObservationIgnored private let evidenceScan: @Sendable () async throws
         -> RawCullSavedBurstEvidenceScanResult
     @ObservationIgnored private var refreshGeneration = 0
@@ -28,8 +33,17 @@ final class RawCullAISettingsModel {
         integration: RawCullAIIntegration,
         evidenceScanner: RawCullSavedBurstEvidenceScanner? = nil,
         evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
+        userDefaults: UserDefaults = .standard,
+        similarityServiceDidChange: @escaping @MainActor (
+            any RawCullSimilarityServicing
+        ) -> Void = { _ in },
     ) {
         self.integration = integration
+        self.userDefaults = userDefaults
+        self.similarityServiceDidChange = similarityServiceDidChange
+        self.prefersCLIPForSimilarity = userDefaults.object(
+            forKey: Self.useCLIPPreferenceKey,
+        ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
         let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
             cacheDirectory: integration.paths.burstAnalysisDirectory,
         )
@@ -60,6 +74,7 @@ final class RawCullAISettingsModel {
             guard refreshGeneration == generation else { return }
 
             self.capabilities = capabilities
+            applySimilarityPreference()
             switch result {
             case let .success(evidence):
                 savedBurstEvidence = evidence
@@ -77,12 +92,20 @@ final class RawCullAISettingsModel {
         }
     }
 
-    /// Intentionally empty until Phase 2 connects CLIP similarity and settings
-    /// persistence. Keeping the action here prevents the view from reaching into
-    /// the AI composition root later.
-    func setUseCLIPForSimilarity(_: Bool) {}
+    func setUseCLIPForSimilarity(_ enabled: Bool) {
+        guard prefersCLIPForSimilarity != enabled else { return }
+        prefersCLIPForSimilarity = enabled
+        userDefaults.set(enabled, forKey: Self.useCLIPPreferenceKey)
+        applySimilarityPreference()
+    }
 
-    /// Intentionally empty until saved AI artifacts are introduced. Existing
-    /// RawCull burst analysis data must not be deleted by this placeholder.
+    /// Intentionally empty until a safe saved-data deletion workflow exists.
+    /// Existing RawCull burst analysis data must not be deleted by a placeholder.
     func deleteSavedBurstData() async {}
+
+    private func applySimilarityPreference() {
+        similarityServiceDidChange(
+            integration.similarityService(prefersCLIP: prefersCLIPForSimilarity),
+        )
+    }
 }
