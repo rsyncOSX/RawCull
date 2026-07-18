@@ -1,6 +1,7 @@
 import CoreAICLIPBackend
 import CoreAISAM3Backend
 import Foundation
+import OSLog
 import PhotoAIContracts
 import PhotoAIStorage
 import PhotoAIWorkflows
@@ -19,6 +20,7 @@ final class RawCullAIIntegration {
     let visionSimilarityProvider: VisionFeaturePrintBackend
     let visionSimilarityService: any RawCullSimilarityServicing
     private(set) var clipSimilarityProvider: CoreAICLIPProvider?
+    private(set) var clipSimilarityModelLocation: URL?
 
     let subjectMaskMemoryStore: SubjectMaskMemoryStore
     let subjectMaskDiskStore: SubjectMaskDiskStore?
@@ -67,6 +69,7 @@ final class RawCullAIIntegration {
             factory: CoreAICLIPProvider.factory,
         )
         self.clipSimilarityProvider = nil
+        self.clipSimilarityModelLocation = nil
 
         let visionProvider = VisionFeaturePrintBackend()
         self.visionSimilarityProvider = visionProvider
@@ -137,9 +140,24 @@ final class RawCullAIIntegration {
     /// resources are currently available. Vision remains the safe runtime
     /// service until CLIP validation and provider construction both succeed.
     func similarityService(prefersCLIP: Bool) -> any RawCullSimilarityServicing {
-        guard prefersCLIP, let clipSimilarityProvider else {
+        guard prefersCLIP else {
+            Logger.process.debugMessageOnly(
+                "RawCullAIIntegration: Vision similarity selected because CLIP is disabled",
+            )
             return visionSimilarityService
         }
+        guard let clipSimilarityProvider else {
+            let expectedLocation = clipSimilarityModelLocation?.path
+                ?? paths.clipModelDirectory.path
+            Logger.process.warning(
+                "RawCullAIIntegration: Vision similarity selected because no validated CLIP provider is available; expected/resolved model location=\(expectedLocation, privacy: .public)",
+            )
+            return visionSimilarityService
+        }
+        let location = clipSimilarityModelLocation?.path ?? "<unknown>"
+        Logger.process.info(
+            "RawCullAIIntegration: CLIP similarity selected; model=\(location, privacy: .public); fingerprint=\(clipSimilarityProvider.backendDescriptor.modelFingerprint, privacy: .public)",
+        )
         return RawCullCLIPSimilarityService(
             backend: clipSimilarityProvider,
             visionBackend: visionSimilarityProvider,
@@ -161,6 +179,7 @@ final class RawCullAIIntegration {
             installUnavailableSAM3ProviderIfNeeded()
         }
         clipSimilarityProvider = clip.provider
+        clipSimilarityModelLocation = clip.capability.resource?.bundleURL
 
         let capabilities = RawCullAICapabilities(
             sam3Model: Self.capabilityStatus(

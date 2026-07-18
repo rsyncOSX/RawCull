@@ -301,6 +301,9 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(output.usedWholeBatchFallback)
         #expect(output.failures.isEmpty)
         #expect(output.artifacts.count == sources.count)
+        let diagnostic = try #require(output.primaryFailureDiagnostic)
+        #expect(diagnostic.contains(sources[1].displayName))
+        #expect(diagnostic.contains("generationFailed"))
         #expect(output.artifacts.values.allSatisfy {
             $0.descriptor.backend == migrationVisionFallbackBackend.backend
         })

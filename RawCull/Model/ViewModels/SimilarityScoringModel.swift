@@ -54,6 +54,7 @@ final class SimilarityScoringModel {
     var indexingEstimatedSeconds = 0
     private(set) var indexingFailures: [RawCullSimilarityIndexingFailure] = []
     private(set) var indexingOperationFailure: String?
+    private(set) var indexingDiagnostic: String?
 
     // MARK: Sort flag
 
@@ -126,6 +127,7 @@ final class SimilarityScoringModel {
         _adjacentDistanceCacheSignature = 0
         indexingFailures = []
         indexingOperationFailure = nil
+        indexingDiagnostic = nil
     }
 
     func cancelIndexing() {
@@ -166,6 +168,7 @@ final class SimilarityScoringModel {
         indexingEstimatedSeconds = 0
         indexingFailures = []
         indexingOperationFailure = nil
+        indexingDiagnostic = nil
         _indexingStartedAt = Date()
 
         let service = similarityService
@@ -226,6 +229,12 @@ final class SimilarityScoringModel {
 
         switch result {
         case let .success(output):
+            indexingDiagnostic = output.primaryFailureDiagnostic
+            if let diagnostic = output.primaryFailureDiagnostic {
+                Logger.process.warning(
+                    "SimilarityScoringModel: \(diagnostic, privacy: .public)",
+                )
+            }
             let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
             var invalidFailures: [RawCullSimilarityIndexingFailure] = []
             if service.requiresHomogeneousBatch {
