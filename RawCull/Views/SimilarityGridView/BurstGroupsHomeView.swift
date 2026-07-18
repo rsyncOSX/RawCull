@@ -18,35 +18,33 @@ struct BurstGroupsHomeView: View {
 
             Divider()
 
-            ZStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        header
-                        BurstScanBanner(
-                            isComplete: resultsAreAvailable,
-                            isRunning: burstScanIsRunning,
-                            runningText: burstScanStatusText,
-                        )
-
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .top, spacing: 20) {
-                                reviewQueueCard
-                                toolsCard
-                            }
-                            VStack(spacing: 20) {
-                                reviewQueueCard
-                                toolsCard
-                            }
-                        }
-
-                        suggestedPicksCard
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    BurstScanBanner(
+                        isComplete: resultsAreAvailable,
+                        isRunning: burstScanIsRunning,
+                        runningText: burstScanStatusText,
+                    ) {
+                        burstHomeProgressCounter
                     }
-                    .frame(maxWidth: 1400, alignment: .leading)
-                    .padding(36)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                }
 
-                CullingGridProgressOverlay(viewModel: viewModel)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 20) {
+                            reviewQueueCard
+                            toolsCard
+                        }
+                        VStack(spacing: 20) {
+                            reviewQueueCard
+                            toolsCard
+                        }
+                    }
+
+                    suggestedPicksCard
+                }
+                .frame(maxWidth: 1400, alignment: .leading)
+                .padding(36)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -82,6 +80,25 @@ struct BurstGroupsHomeView: View {
             .background(.quaternary.opacity(0.65), in: .capsule)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(resultsAreAvailable ? "Burst scan complete" : "Burst scan not completed")
+        }
+    }
+
+    @ViewBuilder
+    private var burstHomeProgressCounter: some View {
+        if viewModel.sharpnessModel.isScoring {
+            BurstHomeProgressCount(
+                progress: viewModel.sharpnessModel.scoringProgress,
+                estimatedSeconds: viewModel.sharpnessModel.scoringEstimatedSeconds,
+                max: viewModel.sharpnessModel.scoringTotal,
+            )
+        }
+
+        if viewModel.similarityModel.isIndexing {
+            BurstHomeProgressCount(
+                progress: viewModel.similarityModel.indexingProgress,
+                estimatedSeconds: viewModel.similarityModel.indexingEstimatedSeconds,
+                max: viewModel.similarityModel.indexingTotal,
+            )
         }
     }
 
@@ -591,10 +608,11 @@ private struct BurstToolTile: View {
     }
 }
 
-private struct BurstScanBanner: View {
+private struct BurstScanBanner<Trailing: View>: View {
     let isComplete: Bool
     let isRunning: Bool
     let runningText: String
+    @ViewBuilder let trailing: Trailing
 
     var body: some View {
         HStack(spacing: 10) {
@@ -605,7 +623,9 @@ private struct BurstScanBanner: View {
                     .accessibilityHidden(true)
             }
             Text(statusText)
+                .lineLimit(1)
             Spacer()
+            trailing
         }
         .font(.headline)
         .foregroundStyle(statusColor)
@@ -614,7 +634,6 @@ private struct BurstScanBanner: View {
         .background(statusColor.opacity(0.1), in: .capsule)
         .overlay { Capsule().stroke(statusColor.opacity(0.45), lineWidth: 1) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(statusText)
     }
 
     private var statusText: String {
@@ -628,6 +647,75 @@ private struct BurstScanBanner: View {
 
     private var statusColor: Color {
         isRunning ? .blue : (isComplete ? .green : .orange)
+    }
+}
+
+private struct BurstHomeProgressCount: View {
+    let progress: Int
+    let estimatedSeconds: Int
+    let max: Int
+
+    @State private var displayedEstimatedSeconds = 0
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .stroke(Color.primary.opacity(0.18), lineWidth: 4)
+
+                if max > 0 {
+                    Circle()
+                        .trim(from: 0, to: completionFraction)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.blue, .cyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing,
+                            ),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round),
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
+                }
+
+                Text(progress, format: .number)
+                    .font(.callout.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.primary)
+                    .contentTransition(.numericText(countsDown: false))
+            }
+            .frame(width: 44, height: 44)
+
+            Text("Estimated time left: \(formattedTime)")
+                .font(.callout.weight(.medium).monospacedDigit())
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(progress) of \(max). Estimated time left: \(formattedTime)")
+        .onAppear {
+            updateDisplayedEstimatedSeconds(estimatedSeconds)
+        }
+        .onChange(of: estimatedSeconds) { _, newValue in
+            updateDisplayedEstimatedSeconds(newValue)
+        }
+    }
+
+    private var completionFraction: Double {
+        min(Double(progress) / Double(max), 1)
+    }
+
+    private var formattedTime: String {
+        if displayedEstimatedSeconds < 60 {
+            return "\(displayedEstimatedSeconds)s"
+        }
+        return "\(displayedEstimatedSeconds / 60)m \(displayedEstimatedSeconds % 60)s"
+    }
+
+    private func updateDisplayedEstimatedSeconds(_ newValue: Int) {
+        let clampedValue = Swift.max(0, newValue)
+        if clampedValue == 0 || displayedEstimatedSeconds == 0 || clampedValue <= displayedEstimatedSeconds {
+            displayedEstimatedSeconds = clampedValue
+        }
     }
 }
 
