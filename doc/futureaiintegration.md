@@ -1,6 +1,6 @@
 # Future AI Integration for RawCull
 
-## Progress update — 2026-07-17
+## Progress update — 2026-07-18
 
 ### Quality-first delivery policy
 
@@ -13,7 +13,7 @@ A provider or UI control being present does not make a phase complete. A phase i
 | Phase | Status | Progress so far | Still intentionally deferred |
 | --- | --- | --- | --- |
 | 1. Platform and composition boundary | Implemented baseline; verified | The app and test targets now require macOS 27 and use Swift 6. PhotoAIKit is pinned and its CLIP, SAM 3, contracts, storage, workflows, and Vision products are linked. RawCull has a single `RawCullAIIntegration` composition root, canonical RawCull-owned paths, actor-owned model-resource managers, typed capability state, mask memory/disk stores, a repository, segmentation service, selector, and a narrow `RawCullAISettingsModel`. Model validation and provider construction are deferred from launch, run outside the main actor, and reuse a metadata-keyed cached result. | The source-controlled mask worker and model-download flow do not exist. The Settings download and saved-data deletion controls are placeholders. Cold-launch and refresh profiling with real installed SAM 3 and CLIP bundles remains required. |
-| 2. Similarity | In progress; Vision migration implemented and verified | Vision feature-print generation and distance semantics now come from PhotoAIKit behind `RawCullSimilarityServicing`. RawCull retains RAW/preview decoding, bounded indexing, ranking policy, progress, cancellation/supersession protection, and the small subject-label penalty. Similarity artifacts are descriptor-complete and validated by backend, model fingerprint, representation/configuration versions, and source fingerprint. Saved-evidence scanning now inherits caller cancellation, and ranking owns its supersedable helper task and explicitly forwards cancellation. Burst persistence moved to schema 5 with a backend-aware signature, and legacy schema-4 data is rejected before rebuild. | CLIP is instantiated during asynchronous capability refresh when valid resources exist but is not selected by the feature model. The Settings toggle is deliberately a no-op. Preference persistence and whole-batch CLIP-to-Vision fallback are not implemented. |
+| 2. Similarity | CLIP activation implemented; synthetic coverage verified | CLIP is selected after asynchronous model validation and is enabled by default through a persisted Settings preference. PhotoAIKit performs bounded CLIP artifact generation and whole-batch Vision fallback. RawCull preserves homogeneous batches, dispatches distance semantics to the artifact backend, validates both exact backend descriptors, resets in-memory analysis when selection changes, and persists the selected and fallback descriptors in schema-7 cache signatures. Existing ranking, cancellation, progress, source decoding, and the small subject-label penalty remain intact. | Real installed-model smoke tests, representative Sony ARW quality comparisons, CLIP latency/memory profiling, and threshold calibration remain required. A fallback batch is deliberately reused until explicit reindexing or another cache invalidation. |
 | 3. SAM storage and overlays | Storage/repository scaffold only | RawCull configures PhotoAIKit memory and disk mask stores under the canonical cache path and constructs the repository, segmentation service, and selector. Capability reporting distinguishes model, storage, and worker readiness. | There is no supported mask-generation entry point, worker target, inventory/quality flow, RawCull mask source adapter, or cached overlay provider connected to the UI. |
 | 4. Subject-aware focus evidence | Not started | The existing Vision/AF focus pipeline remains unchanged by the AI port. | No SAM-specific focus scorer or subject-detail evidence integration has been ported. |
 | 5. Deep AI review | Not started | No deep-review behavior has been added to the central view model. | Candidate policy, mask acquisition/evaluation, explainable recommendation output, and user-confirmed application remain future work. |
@@ -23,7 +23,7 @@ A provider or UI control being present does not make a phase complete. A phase i
 This progress snapshot was checked with Xcode 27.0 build `27A5218g`, the macOS 27.0 SDK, and Apple Swift 6.4:
 
 - `make test-smoke` succeeds, including the new model-validation cache, Settings cancellation, and ranking-helper cancellation checks, plus the existing PhotoAIKit artifact, ranking-policy, and cache-migration coverage.
-- `RawCullAIIntegrationTests` succeeds for canonical paths, the complete Phase 1 capability surface, persisted Vision evidence scanning, model-cache reuse/invalidation, Settings cancellation, and the deliberate no-op safety of placeholder controls.
+- `RawCullAIIntegrationTests` succeeds for canonical paths, the complete Phase 1 capability surface, persisted Vision evidence scanning, model-cache reuse/invalidation, Settings cancellation, persisted CLIP preference behavior, and the no-op safety of saved-data deletion.
 - The app and tests compile with the SDK 27 `@State` macro. The explicit `RawCullApp` state initialization does not currently match a known SDK 27 incompatibility.
 - The Settings migration already uses the modern `Tab` API. No current AI view matches the SDK 27 `@ContentBuilder` ambiguity patterns for direct `overlay`/`background`, shadowed SwiftUI types, explicit `TupleView`, or empty builders.
 
@@ -33,7 +33,7 @@ The full Thread Sanitizer suite, the performance target, installed CLIP/SAM reso
 
 1. **Move repeated model validation off the main actor or cache it — implemented; real-model profiling remains.** The synchronous composition-root initializer now creates only lightweight placeholder capability/provider state. Actor-owned resource managers perform validation and provider construction during asynchronous Settings refresh, cache the result behind a candidate-tree metadata snapshot, and invalidate it when bundle metadata changes. Settings begins with a typed `checking` state. Cold-launch and repeated-refresh profiling with installed SAM 3 and CLIP bundles is still required before activating either backend.
 2. **Finish cancellation propagation for background helpers — implemented and tested.** Saved-evidence scanning is now a directly awaited `@concurrent` operation with cancellation checks around directory, file, decode, and embedding-loop boundaries. Similarity ranking uses an explicitly owned task because it needs supersession; replacement and reset cancel it, a cancellation handler forwards caller cancellation, and a generation check prevents stale state commits.
-3. **Do not let placeholder controls look production-ready.** The CLIP toggle, SAM download button, and saved-data deletion button are intentionally inert and tested as no-ops. Keep that limitation unmistakable—or hide/disable the controls—until each action has persisted state, typed operation progress, structured errors, cancellation, and tests.
+3. **Do not let remaining placeholder controls look production-ready.** The CLIP toggle is now connected and persisted. The SAM download button and saved-data deletion button remain intentionally inert; keep that limitation unmistakable until each action has typed progress, structured errors, cancellation, and tests.
 4. **Make the AI Settings surface localization- and accessibility-ready before activation.** The project has no String Catalog, and the new view builds several user-facing messages as runtime `String` values or concatenated fragments, so SwiftUI cannot extract them for localization. It also relies heavily on fixed point-size fonts. Move user-facing state to `LocalizedStringResource` or localizable SwiftUI literals, add translator context for dynamic messages, and prefer semantic text styles as the UI stabilizes.
 5. **Revisit test serialization.** `PhotoAIKitSimilarityMigrationTests` is marked `.serialized` even though its file fixtures use unique temporary roots. Confirm that Vision or another dependency truly requires serialization; otherwise remove it so Swift Testing can retain parallel execution. If it is required, document the invariant beside the trait.
 6. **Keep SwiftUI sections as real view boundaries.** The Settings implementation already extracts its major cards into separate `View` types. As controls gain real state, also extract state-driven helper fragments such as the delete control instead of growing computed `some View` properties on the parent.
@@ -60,9 +60,9 @@ These are quality gates for activating the next AI features, not six known user-
 
 3. **Do not let placeholder controls look production-ready.**
 
-   **What is happening now:** The Settings tab displays a CLIP switch, a SAM 3 download button, and a destructive saved-data button. The CLIP setter and delete method are deliberate no-ops, while the download button only displays an informational alert. Tests correctly protect those no-op semantics, but the controls otherwise resemble working product actions. A user can reasonably expect a switch to persist, a download button to install something, and a confirmed delete action to remove data.
+   **What is happening now:** The Settings CLIP switch persists its preference and updates the similarity feature model after capability refresh. It selects validated CLIP resources when available and Vision otherwise. The SAM 3 download button still displays an informational alert, and saved-data deletion remains a deliberate no-op. Those two controls still resemble working product actions.
 
-   **What the fix involves:** Until implementation begins, hide the controls or disable them with nearby text such as “Not available in this build”; an alert after a realistic-looking action is not as clear. Activation should happen one control at a time. The CLIP switch needs a persisted preference, a typed backend-selection state, connection to the similarity feature model, whole-batch CLIP-to-Vision fallback, cache compatibility handling, and tests across relaunch and missing/invalid resources. Model download needs a defined trusted source, destination and disk-space checks, progress, cancellation, temporary staging, integrity validation, atomic installation, cleanup, and actionable errors. Saved-data deletion needs an exact inventory of what is in scope, protection for original photos and unrelated caches, progress/cancellation, partial-failure reporting, and a capability/evidence refresh afterward. Each operation should expose a typed state such as idle, running with progress, succeeded, cancelled, or failed instead of inferring behavior from display strings. Only then should the corresponding no-op test be replaced by success, failure, cancellation, and safety tests.
+   **What the fix involves:** Until implementation begins, hide or clearly disable the remaining placeholders with nearby text such as “Not available in this build.” Model download needs a defined trusted source, destination and disk-space checks, progress, cancellation, temporary staging, integrity validation, atomic installation, cleanup, and actionable errors. Saved-data deletion needs an exact inventory of what is in scope, protection for original photos and unrelated caches, progress/cancellation, partial-failure reporting, and a capability/evidence refresh afterward. Each operation should expose a typed state such as idle, running with progress, succeeded, cancelled, or failed instead of inferring behavior from display strings.
 
 4. **Make the AI Settings surface localization- and accessibility-ready before activation.**
 
@@ -210,13 +210,13 @@ After macOS 27 becomes the RawCull minimum deployment target, merge the integrat
 - Port model-location adapters and a RawCull-owned AI composition root.
 - Introduce structured capability state for CLIP, SAM 3, Vision, mask storage, and worker availability.
 
-### Phase 2: Similarity — Vision implemented, CLIP pending
+### Phase 2: Similarity — CLIP activation implemented; real-model verification pending
 
 Port CLIP similarity first because it has the narrowest visible feature boundary and RawCull already has Vision-based similarity behavior.
 
 - Port RawCull-aware image decoding.
 - Store descriptor-complete PhotoAIKit similarity artifacts.
-- Use whole-batch CLIP-to-Vision fallback.
+- Use whole-batch CLIP-to-Vision fallback. Implemented.
 - Include model fingerprints and artifact versions in cache signatures.
 - Validate complete descriptors for both disk and in-memory reuse.
 
