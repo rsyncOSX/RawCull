@@ -158,9 +158,12 @@ final class RawCullAIIntegration {
         Logger.process.info(
             "RawCullAIIntegration: CLIP similarity selected; model=\(location, privacy: .public); fingerprint=\(clipSimilarityProvider.backendDescriptor.modelFingerprint, privacy: .public)",
         )
+        let replacementProviderFactory: @Sendable () throws -> any ImageSimilarityArtifactProviding = {
+            try CoreAICLIPProvider(modelBundleURL: URL(fileURLWithPath: location))
+        }
         return RawCullCLIPSimilarityService(
             backend: clipSimilarityProvider,
-            visionBackend: visionSimilarityProvider,
+            replacementProviderFactory: replacementProviderFactory,
         )
     }
 

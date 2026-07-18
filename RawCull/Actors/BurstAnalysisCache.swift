@@ -119,7 +119,7 @@ nonisolated struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 7
+    nonisolated static let schemaVersion = 8
 
     private let cacheDirectory: URL
 
@@ -254,23 +254,45 @@ actor BurstAnalysisCache {
               snapshot.similaritySignature == similaritySignature,
               snapshot.similaritySignature.artifactSchemaVersion
               == SimilarityArtifactDescriptor.currentSchemaVersion,
-              snapshot.files.count == files.count,
-              snapshot.embeddings.count == files.count
+              snapshot.files.count == files.count
         else { return false }
 
         let cached = Dictionary(uniqueKeysWithValues: snapshot.files.map { ($0.path, $0) })
         for file in files {
             guard let item = cached[file.url.path],
                   item.size == file.size,
-                  abs(item.modificationDate.timeIntervalSince(file.dateModified)) < 0.001,
-                  let artifact = snapshot.embeddings[item.id],
-                  RawCullSimilarityArtifactValidation.isCurrent(
-                      artifact,
-                      for: SimilarityScoringModel.source(for: file),
-                      backends: similaritySignature.artifactBackendDescriptors,
-                  )
+                  abs(item.modificationDate.timeIntervalSince(file.dateModified)) < 0.001
             else { return false }
+            if let artifact = snapshot.embeddings[item.id],
+               !RawCullSimilarityArtifactValidation.isCurrent(
+                   artifact,
+                   for: SimilarityScoringModel.source(for: file),
+                   backends: similaritySignature.artifactBackendDescriptors,
+               )
+            {
+                return false
+            }
         }
+
+        let cachedFileIDs = Set(snapshot.files.map(\.id))
+        let embeddedFileIDs = Set(snapshot.embeddings.keys)
+        guard embeddedFileIDs.isSubset(of: cachedFileIDs),
+              snapshot.groups.allSatisfy({ group in
+                  group.fileIDs.allSatisfy(embeddedFileIDs.contains)
+              }),
+              snapshot.boundaryEvidence.allSatisfy({ evidence in
+                  embeddedFileIDs.contains(evidence.previousID)
+                      && embeddedFileIDs.contains(evidence.currentID)
+              }),
+              snapshot.results.allSatisfy({ result in
+                  result.fileIDs.allSatisfy(embeddedFileIDs.contains)
+                      && result.candidates.allSatisfy {
+                          embeddedFileIDs.contains($0.fileID)
+                      }
+                      && (result.recommendedFileID.map(embeddedFileIDs.contains) ?? true)
+                      && (result.secondBestFileID.map(embeddedFileIDs.contains) ?? true)
+              })
+        else { return false }
         return true
     }
 

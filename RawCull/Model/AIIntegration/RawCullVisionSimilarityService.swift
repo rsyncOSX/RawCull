@@ -136,37 +136,33 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
     }
 }
 
-/// CLIP similarity with catalog-homogeneous Vision fallback.
+/// CLIP similarity with finite-output validation and targeted recovery.
 ///
-/// PhotoAIKit retries the complete requested batch with Vision when any CLIP
-/// artifact fails. RawCull records CLIP as the selected backend while accepting
-/// either the CLIP descriptor or the exact Vision fallback descriptor in that
-/// batch's persisted artifacts.
+/// Valid CLIP artifacts are retained per image. A non-finite embedding is
+/// retried once with the loaded provider, then once with a newly constructed
+/// provider. Images that still fail remain without a similarity artifact and
+/// are excluded from burst grouping by `SimilarityScoringModel`.
 nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
-    static let defaultConcurrencyLimit = 2
+    static let defaultConcurrencyLimit = 1
 
     let backendDescriptor: SimilarityBackendDescriptor
     let artifactBackendDescriptors: [SimilarityBackendDescriptor]
-    let requiresHomogeneousBatch = true
+    let requiresHomogeneousBatch = false
 
     private let primaryProvider: any ImageSimilarityArtifactProviding
     private let primaryComparator: any ImageSimilarityArtifactComparing
-    private let fallbackProvider: any ImageSimilarityArtifactProviding
-    private let fallbackComparator: any ImageSimilarityArtifactComparing
+    private let replacementProviderFactory: (@Sendable () throws -> any ImageSimilarityArtifactProviding)?
     private let concurrencyLimit: Int
 
     init(
         backend: any ImageSimilarityBackend,
-        visionBackend: VisionFeaturePrintBackend = VisionFeaturePrintBackend(),
+        replacementProviderFactory: (@Sendable () throws -> any ImageSimilarityArtifactProviding)? = nil,
         concurrencyLimit: Int = Self.defaultConcurrencyLimit,
     ) {
         self.init(
             primaryProvider: backend,
             primaryComparator: backend,
-            fallbackProvider: RawCullParallelVisionArtifactProvider(
-                revision: visionBackend.revision,
-            ),
-            fallbackComparator: visionBackend,
+            replacementProviderFactory: replacementProviderFactory,
             concurrencyLimit: concurrencyLimit,
         )
     }
@@ -174,19 +170,14 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
     init(
         primaryProvider: any ImageSimilarityArtifactProviding,
         primaryComparator: any ImageSimilarityArtifactComparing,
-        fallbackProvider: any ImageSimilarityArtifactProviding,
-        fallbackComparator: any ImageSimilarityArtifactComparing,
+        replacementProviderFactory: (@Sendable () throws -> any ImageSimilarityArtifactProviding)? = nil,
         concurrencyLimit: Int = Self.defaultConcurrencyLimit,
     ) {
         self.primaryProvider = primaryProvider
         self.primaryComparator = primaryComparator
-        self.fallbackProvider = fallbackProvider
-        self.fallbackComparator = fallbackComparator
+        self.replacementProviderFactory = replacementProviderFactory
         self.backendDescriptor = primaryProvider.backendDescriptor
-        self.artifactBackendDescriptors = [
-            primaryProvider.backendDescriptor,
-            fallbackProvider.backendDescriptor,
-        ]
+        self.artifactBackendDescriptors = [primaryProvider.backendDescriptor]
         self.concurrencyLimit = max(1, concurrencyLimit)
     }
 
@@ -196,17 +187,20 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
         progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)? = nil,
     ) async throws -> RawCullSimilarityIndexingOutput {
         let failureRecorder = RawCullCLIPFailureRecorder()
+        let recoveringProvider = RawCullRecoveringCLIPArtifactProvider(
+            provider: primaryProvider,
+            replacementProviderFactory: replacementProviderFactory,
+        )
         let indexer = SimilarityArtifactIndexer(
             primaryProvider: RawCullDiagnosingArtifactProvider(
-                provider: primaryProvider,
+                provider: recoveringProvider,
                 failureRecorder: failureRecorder,
             ),
-            fallbackProvider: fallbackProvider,
             decoder: RawCullDiagnosingImageDecoder(
                 decoder: RawCullSimilarityImageDecoder(maxPixelSize: maxPixelSize),
                 failureRecorder: failureRecorder,
             ),
-            fallbackPolicy: .wholeBatch,
+            fallbackPolicy: .none,
             concurrencyLimit: concurrencyLimit,
         )
         let result = try await indexer.index(sources) { update in
@@ -220,15 +214,15 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
         }
         let primaryFailures: [RawCullCLIPPrimaryFailure]
         let diagnostic: String?
-        if result.usedWholeBatchFallback {
+        if result.failures.isEmpty {
+            primaryFailures = []
+            diagnostic = nil
+        } else {
             let report = await failureRecorder.report(
                 backend: backendDescriptor,
             )
             primaryFailures = report.failures
             diagnostic = report.diagnostic
-        } else {
-            primaryFailures = []
-            diagnostic = nil
         }
         return RawCullSimilarityIndexingOutput(
             artifacts: result.artifacts,
@@ -239,7 +233,7 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
                 )
             },
             primaryFailures: primaryFailures,
-            usedWholeBatchFallback: result.usedWholeBatchFallback,
+            usedWholeBatchFallback: false,
             primaryFailureDiagnostic: diagnostic,
         )
     }
@@ -250,9 +244,6 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
     ) throws -> Float? {
         if Self.matches(left, right, backend: primaryComparator.backendDescriptor) {
             return try primaryComparator.distance(from: left, to: right)
-        }
-        if Self.matches(left, right, backend: fallbackComparator.backendDescriptor) {
-            return try fallbackComparator.distance(from: left, to: right)
         }
         return nil
     }
@@ -302,8 +293,7 @@ private actor RawCullCLIPFailureRecorder {
         guard let firstFailure = sortedFailures.first else {
             return RawCullCLIPFailureReport(
                 failures: [],
-                diagnostic: "CLIP whole-batch fallback was triggered, but no image-level "
-                    + "CLIP failure was captured.",
+                diagnostic: "CLIP indexing failed, but no image-level failure was captured.",
             )
         }
         return RawCullCLIPFailureReport(
@@ -314,6 +304,108 @@ private actor RawCullCLIPFailureRecorder {
                 + firstFailure.message,
         )
     }
+}
+
+private actor RawCullRecoveringCLIPArtifactProvider:
+    ImageSimilarityArtifactProviding
+{
+    nonisolated let backendDescriptor: SimilarityBackendDescriptor
+
+    private var provider: any ImageSimilarityArtifactProviding
+    private let replacementProviderFactory: (@Sendable () throws -> any ImageSimilarityArtifactProviding)?
+
+    init(
+        provider: any ImageSimilarityArtifactProviding,
+        replacementProviderFactory: (@Sendable () throws -> any ImageSimilarityArtifactProviding)?,
+    ) {
+        self.provider = provider
+        self.replacementProviderFactory = replacementProviderFactory
+        self.backendDescriptor = provider.backendDescriptor
+    }
+
+    func artifact(
+        for image: CGImage,
+        source: AIImageSource,
+    ) async throws -> SimilarityArtifact {
+        do {
+            return try await validatedArtifact(
+                from: provider,
+                image: image,
+                source: source,
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            guard Self.isNonFiniteEmbeddingError(error) else { throw error }
+        }
+
+        try Task.checkCancellation()
+        do {
+            return try await validatedArtifact(
+                from: provider,
+                image: image,
+                source: source,
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            guard Self.isNonFiniteEmbeddingError(error) else { throw error }
+        }
+
+        try Task.checkCancellation()
+        guard let replacementProviderFactory else {
+            throw RawCullCLIPRecoveryError.nonFiniteEmbedding
+        }
+        let replacement = try replacementProviderFactory()
+        guard replacement.backendDescriptor == backendDescriptor else {
+            throw RawCullCLIPRecoveryError.replacementBackendChanged
+        }
+        provider = replacement
+        return try await validatedArtifact(
+            from: replacement,
+            image: image,
+            source: source,
+        )
+    }
+
+    private func validatedArtifact(
+        from provider: any ImageSimilarityArtifactProviding,
+        image: CGImage,
+        source: AIImageSource,
+    ) async throws -> SimilarityArtifact {
+        let artifact = try await provider.artifact(for: image, source: source)
+        guard backendDescriptor.representation == "normalized-float-vector-json-v1" else {
+            return artifact
+        }
+        let embedding = try JSONDecoder().decode(ImageEmbedding.self, from: artifact.payload)
+        guard !embedding.values.isEmpty,
+              embedding.values.allSatisfy(\.isFinite)
+        else {
+            throw RawCullCLIPRecoveryError.nonFiniteEmbedding
+        }
+        return artifact
+    }
+
+    private nonisolated static func isNonFiniteEmbeddingError(_ error: Error) -> Bool {
+        if let error = error as? RawCullCLIPRecoveryError {
+            return error == .nonFiniteEmbedding
+        }
+        guard case let EncodingError.invalidValue(value, _) = error else {
+            return false
+        }
+        if let value = value as? Float {
+            return !value.isFinite
+        }
+        if let value = value as? Double {
+            return !value.isFinite
+        }
+        return false
+    }
+}
+
+private nonisolated enum RawCullCLIPRecoveryError: Error, Equatable, Sendable {
+    case nonFiniteEmbedding
+    case replacementBackendChanged
 }
 
 private nonisolated struct RawCullCLIPFailureReport: Sendable {

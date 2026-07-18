@@ -32,7 +32,7 @@ private nonisolated struct SimilarityDistanceComputation: Sendable {
 @Observable @MainActor
 final class SimilarityScoringModel {
     nonisolated static let embeddingThumbnailMaxPixelSize = 512
-    nonisolated static let embeddingPipelineVersion = 2
+    nonisolated static let embeddingPipelineVersion = 3
 
     // MARK: State
 
@@ -287,6 +287,24 @@ final class SimilarityScoringModel {
                         ),
                     ),
                 )
+            } else if service.backendDescriptor.backend == "clip",
+                      !indexingFailures.isEmpty
+            {
+                await recordSimilarityDiagnostic(
+                    SimilarityDiagnosticsEvent(
+                        timestamp: Date(),
+                        backend: service.backendDescriptor,
+                        requestedImageCount: sources.count,
+                        thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+                        summary: output.primaryFailureDiagnostic,
+                        outcome: .partialCLIP(
+                            artifactsCreated: output.artifacts.count - invalidFailures.count,
+                            clipFailures: output.primaryFailures,
+                            generationFailures: output.failures,
+                            validationFailures: invalidFailures,
+                        ),
+                    ),
+                )
             }
             Logger.process.debugMessageOnly(
                 "SimilarityScoringModel: indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
@@ -421,17 +439,34 @@ final class SimilarityScoringModel {
             : [:]
 
         let work = Task { @concurrent () -> BurstGroupingOutput? in
-            let adjacentDistances = Self.computeAdjacentDistances(
-                files: files,
-                artifacts: snapshot,
-                service: service,
-                cached: cachedAdjacentDistances,
-            )
-            guard !Task.isCancelled else { return nil }
-            return BurstGroupingEngine.group(
-                files: files,
-                adjacentDistances: adjacentDistances,
-                config: config,
+            let eligibleRuns = files.split { snapshot[$0.id] == nil }
+            var groups: [BurstGroup] = []
+            var boundaryEvidence: [BurstBoundaryEvidence] = []
+
+            for runSlice in eligibleRuns {
+                guard !Task.isCancelled else { return nil }
+                let run = Array(runSlice)
+                let adjacentDistances = Self.computeAdjacentDistances(
+                    files: run,
+                    artifacts: snapshot,
+                    service: service,
+                    cached: cachedAdjacentDistances,
+                )
+                let output = BurstGroupingEngine.group(
+                    files: run,
+                    adjacentDistances: adjacentDistances,
+                    config: config,
+                )
+                for group in output.groups {
+                    groups.append(
+                        BurstGroup(id: groups.count, fileIDs: group.fileIDs),
+                    )
+                }
+                boundaryEvidence.append(contentsOf: output.boundaryEvidence)
+            }
+            return BurstGroupingOutput(
+                groups: groups,
+                boundaryEvidence: boundaryEvidence,
             )
         }
         _groupingTask = work
@@ -466,8 +501,10 @@ final class SimilarityScoringModel {
             },
         )
         _adjacentDistanceCacheSignature = signature
+        let eligibleCount = files.lazy.filter { snapshot[$0.id] != nil }.count
+        let excludedCount = files.count - eligibleCount
         Logger.process.debugMessageOnly(
-            "SimilarityScoringModel: \(burstGroups.count) burst groups from \(files.count) files (threshold \(threshold))",
+            "SimilarityScoringModel: \(burstGroups.count) burst groups from \(eligibleCount) similarity-indexed files; excluded \(excludedCount) files without artifacts (threshold \(threshold))",
         )
     }
 

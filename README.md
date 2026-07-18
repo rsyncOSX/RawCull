@@ -41,8 +41,8 @@ RawCull is also available from the [Apple App Store](https://apps.apple.com/no/a
 - Score image sharpness using full-frame, salient-subject, and AF-region
   evidence.
 - Apply photo-type presets and fast, balanced, or high-precision scoring.
-- Generate CLIP image embeddings for similarity ranking and burst grouping,
-  with whole-batch Vision feature-print fallback.
+- Generate validated CLIP image embeddings for similarity ranking and burst
+  grouping, with targeted retry/provider recovery and safe per-image exclusion.
 - Compare burst candidates with sharpness, similarity, and caution details.
 - Tag, reject, or assign star ratings to selected images.
 - Persist ratings, sharpness results, saliency labels, burst decisions, and
@@ -116,8 +116,9 @@ PhotoAIKit provides RawCull's similarity backends:
 
 - `CoreAICLIPProvider` creates normalized CLIP image embeddings and cosine distances.
 - `VisionFeaturePrintBackend` creates and compares Codable Vision feature prints.
-- A persisted setting selects CLIP when its validated model is available; any
-  CLIP generation failure retries the complete catalog batch with Vision.
+- A persisted setting selects CLIP when its validated model is available.
+  Non-finite output is retried once, then retried with a replacement provider;
+  unresolved images are excluded from automatic burst analysis.
 - Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
 PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
@@ -213,8 +214,9 @@ Full-size embedded and developed previews use a separate disk cache. Memory pres
 ### Similarity and burst review
 
 1. RawParserKit supplies 512-pixel thumbnails.
-2. PhotoAIKit creates CLIP image embeddings, or a homogeneous batch of Vision
-   feature prints when CLIP is unavailable or generation fails.
+2. PhotoAIKit creates CLIP image embeddings. RawCull validates each artifact,
+   performs targeted recovery for non-finite output, and excludes unresolved
+   images; Vision remains the catalog backend when CLIP is unavailable.
 3. RawCull calculates adjacent distances and passes them to RawCullCore.
 4. RawCullCore groups the ordered images into bursts.
 5. RawCull ranks candidates using sharpness, similarity, and review rules.

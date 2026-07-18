@@ -13,7 +13,7 @@ A provider or UI control being present does not make a phase complete. A phase i
 | Phase | Status | Progress so far | Still intentionally deferred |
 | --- | --- | --- | --- |
 | 1. Platform and composition boundary | Implemented baseline; verified | The app and test targets now require macOS 27 and use Swift 6. PhotoAIKit is pinned and its CLIP, SAM 3, contracts, storage, workflows, and Vision products are linked. RawCull has a single `RawCullAIIntegration` composition root, canonical RawCull-owned paths, actor-owned model-resource managers, typed capability state, mask memory/disk stores, a repository, segmentation service, selector, and a narrow `RawCullAISettingsModel`. Model validation and provider construction are deferred from launch, run outside the main actor, and reuse a metadata-keyed cached result. | The source-controlled mask worker and model-download flow do not exist. The Settings download and saved-data deletion controls are placeholders. Cold-launch and refresh profiling with real installed SAM 3 and CLIP bundles remains required. |
-| 2. Similarity | CLIP activation implemented; synthetic coverage verified | CLIP is selected after asynchronous model validation and is enabled by default through a persisted Settings preference. PhotoAIKit performs bounded CLIP artifact generation and whole-batch Vision fallback. RawCull preserves homogeneous batches, dispatches distance semantics to the artifact backend, validates both exact backend descriptors, resets in-memory analysis when selection changes, and persists the selected and fallback descriptors in schema-7 cache signatures. Existing ranking, cancellation, progress, source decoding, and the small subject-label penalty remain intact. | Real installed-model smoke tests, representative Sony ARW quality comparisons, CLIP latency/memory profiling, and threshold calibration remain required. A fallback batch is deliberately reused until explicit reindexing or another cache invalidation. |
+| 2. Similarity | CLIP activation and targeted recovery implemented; synthetic coverage verified | CLIP is selected after asynchronous model validation and is enabled by default through a persisted Settings preference. RawCull validates each PhotoAIKit CLIP artifact, retries non-finite output once with the loaded provider, then once with a replacement provider. Successful artifacts are retained; unresolved images are excluded from grouping, recommendations, and automatic culling. Partial CLIP caches use schema 8 and reject any group/result that references an image without a validated artifact. Existing ranking, cancellation, progress, source decoding, and the small subject-label penalty remain intact for indexed images. | Repeat the representative 574-image Sony ARW Release test, profile CLIP latency/memory, and calibrate thresholds. Confirm that targeted recovery removes or materially reduces nondeterministic NaN exclusions. |
 | 3. SAM storage and overlays | Storage/repository scaffold only | RawCull configures PhotoAIKit memory and disk mask stores under the canonical cache path and constructs the repository, segmentation service, and selector. Capability reporting distinguishes model, storage, and worker readiness. | There is no supported mask-generation entry point, worker target, inventory/quality flow, RawCull mask source adapter, or cached overlay provider connected to the UI. |
 | 4. Subject-aware focus evidence | Not started | The existing Vision/AF focus pipeline remains unchanged by the AI port. | No SAM-specific focus scorer or subject-detail evidence integration has been ported. |
 | 5. Deep AI review | Not started | No deep-review behavior has been added to the central view model. | Candidate policy, mask acquisition/evaluation, explainable recommendation output, and user-confirmed application remain future work. |
@@ -148,7 +148,7 @@ RawCullSAM3 is a credible reference integration. Its strongest application-level
 - A central AI composition root.
 - Narrow protocols between RawCull file models and PhotoAIKit services.
 - Package-owned inference and cache implementations.
-- Explicit CLIP-to-Vision fallback.
+- Explicit CLIP non-finite recovery and safe per-image exclusion.
 - Model-aware artifact invalidation.
 - Additional AI-specific Swift Testing coverage.
 
@@ -216,7 +216,8 @@ Port CLIP similarity first because it has the narrowest visible feature boundary
 
 - Port RawCull-aware image decoding.
 - Store descriptor-complete PhotoAIKit similarity artifacts.
-- Use whole-batch CLIP-to-Vision fallback. Implemented.
+- Validate finite CLIP output, retry with targeted provider replacement, and
+  exclude unresolved images from automatic burst analysis. Implemented.
 - Include model fingerprints and artifact versions in cache signatures.
 - Validate complete descriptors for both disk and in-memory reuse.
 

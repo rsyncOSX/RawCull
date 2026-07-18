@@ -138,7 +138,7 @@ private struct AIModelSettingsCard: View {
 
     private var similarityBackendMessage: LocalizedStringResource {
         if model.useCLIPForSimilarity, model.capabilities.clipModel.isAvailable {
-            return "Similarity indexing uses CLIP image embeddings with a whole-batch Vision fallback."
+            return "Similarity indexing validates CLIP embeddings, retries non-finite output, and excludes unresolved images from automatic burst analysis."
         }
         if model.capabilities.clipModel.isAvailable {
             return "Similarity indexing currently uses Vision feature prints. Enable CLIP to use image embeddings."
@@ -151,7 +151,7 @@ private struct AIModelSettingsCard: View {
 
     private var clipSimilarityHelp: LocalizedStringResource {
         if model.capabilities.clipModel.isAvailable {
-            return "Use CLIP image embeddings, with a whole-batch Vision fallback if CLIP indexing fails."
+            return "Use validated CLIP image embeddings. Non-finite output is retried with targeted provider recovery before an image is excluded."
         }
         return "Save the CLIP preference now; it becomes active when a valid model is installed."
     }
@@ -168,7 +168,7 @@ private struct AIIntegrationReadinessCard: View {
                 Divider()
 
                 AICapabilityStatusView(
-                    title: "Vision fallback",
+                    title: "Vision similarity",
                     status: capabilities.visionFeaturePrint,
                     availableMessage: "Vision feature-print similarity is available.",
                     missingMessage: "Vision feature-print similarity is unavailable.",

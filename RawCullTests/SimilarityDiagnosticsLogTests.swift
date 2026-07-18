@@ -39,10 +39,15 @@ struct SimilarityDiagnosticsLogTests {
             requestedImageCount: 574,
             thumbnailMaxPixelSize: 512,
             summary: "CLIP failed for image-042.ARW",
-            outcome: .visionFallback(
-                artifactsCreated: 574,
+            outcome: .partialCLIP(
+                artifactsCreated: 573,
                 clipFailures: [failure],
-                visionFailures: [],
+                generationFailures: [
+                    RawCullSimilarityIndexingFailure(
+                        source: source,
+                        message: failure.message,
+                    ),
+                ],
                 validationFailures: [],
             ),
         )
@@ -50,7 +55,8 @@ struct SimilarityDiagnosticsLogTests {
         try await log.record(event)
         let contents = try await log.contents()
 
-        #expect(contents.contains("Outcome: CLIP failed; used whole-batch Vision fallback"))
+        #expect(contents.contains("Outcome: retained validated CLIP artifacts and excluded failed images"))
+        #expect(contents.contains("Validated CLIP artifacts created: 573"))
         #expect(contents.contains("Requested images: 574"))
         #expect(contents.contains("Image: image-042.ARW"))
         #expect(contents.contains("URL: /catalog/session/image-042.ARW"))

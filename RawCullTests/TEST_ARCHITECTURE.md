@@ -54,7 +54,8 @@ the suite name, tag, or test body.
 - RawCullVerify integration behavior around imported RAW parsing packages.
 - Thumbnail request/cache behavior, cancellation, and loader concurrency bounds.
 - Sharpness and similarity scoring numeric behavior, including PhotoAIKit CLIP,
-  whole-batch Vision fallback, and typed-artifact cache migration.
+  targeted non-finite recovery, partial-artifact exclusion, and typed-artifact
+  cache migration.
 - View-model navigation, zoom overlay, and security-scoped path behavior.
 - TSan-oriented stress tests for RawCullVerify shared cache state.
 
@@ -70,7 +71,7 @@ the suite name, tag, or test body.
   coverage that deliberately exercises concurrent access paths.
 - `PhotoAIKitSimilarityMigrationTests.swift`: CLIP batch/fallback behavior, real
   Vision artifact generation, RawCull ranking-policy parity, schema-6
-  invalidation/schema-7 rebuild, and the indexing/ranking performance benchmark.
+  invalidation/schema-8 rebuild, and the indexing/ranking performance benchmark.
 - `RawCullAIIntegrationTests.swift`: canonical AI paths, Phase 1 capability state,
   saved burst evidence scanning, model validation reuse, Settings cancellation,
   and persisted CLIP preference behavior.

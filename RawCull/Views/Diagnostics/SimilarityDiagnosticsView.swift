@@ -23,7 +23,7 @@ private struct SimilarityDiagnosticsHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Label("CLIP Fallback Log", systemImage: "doc.text.magnifyingglass")
+            Label("CLIP Recovery Log", systemImage: "doc.text.magnifyingglass")
                 .font(.headline)
 
             Text(model.logFilePath)
@@ -75,7 +75,7 @@ private struct SimilarityDiagnosticsHeader: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This removes all saved CLIP fallback diagnostics.")
+            Text("This removes all saved CLIP recovery and exclusion diagnostics.")
         }
     }
 }
@@ -97,7 +97,7 @@ private struct SimilarityDiagnosticsContent: View {
             ContentUnavailableView {
                 Label("No CLIP Failures Logged", systemImage: "checkmark.circle")
             } description: {
-                Text("When CLIP triggers the whole-batch Vision fallback, the image and failure reason will appear here.")
+                Text("When CLIP recovery cannot produce a validated artifact, the excluded image and failure reason will appear here.")
             }
         } else {
             ScrollView {

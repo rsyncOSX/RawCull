@@ -38,15 +38,6 @@ private nonisolated let migrationCLIPBackend = SimilarityBackendDescriptor(
     configurationVersion: "test-v1",
 )
 
-private nonisolated let migrationVisionFallbackBackend = SimilarityBackendDescriptor(
-    backend: "vision-feature-print",
-    modelFingerprint: "test-vision-v1",
-    representation: "single-byte",
-    preprocessingVersion: "test-vision-v1",
-    normalizationVersion: "byte-range-v1",
-    configurationVersion: "test-v1",
-)
-
 private enum MigrationArtifactBackendError: Error {
     case generationFailed(String)
 }
@@ -60,6 +51,44 @@ private actor MigrationArtifactCallRecorder {
 
     func snapshot() -> [String] {
         displayNames
+    }
+}
+
+private actor NonFiniteArtifactProvider: ImageSimilarityArtifactProviding {
+    nonisolated let backendDescriptor: SimilarityBackendDescriptor
+
+    private let name: String
+    private var failuresRemaining: Int
+    private let recorder: MigrationArtifactCallRecorder
+
+    init(
+        name: String,
+        backendDescriptor: SimilarityBackendDescriptor,
+        failuresRemaining: Int,
+        recorder: MigrationArtifactCallRecorder,
+    ) {
+        self.name = name
+        self.backendDescriptor = backendDescriptor
+        self.failuresRemaining = failuresRemaining
+        self.recorder = recorder
+    }
+
+    func artifact(
+        for _: CGImage,
+        source: AIImageSource,
+    ) async throws -> SimilarityArtifact {
+        await recorder.record(name)
+        if failuresRemaining > 0 {
+            failuresRemaining -= 1
+            throw EncodingError.invalidValue(
+                Float.nan,
+                EncodingError.Context(
+                    codingPath: [],
+                    debugDescription: "Unable to encode Float.nan directly in JSON.",
+                ),
+            )
+        }
+        return migrationArtifact(source: source, backend: backendDescriptor)
     }
 }
 
@@ -208,7 +237,6 @@ private nonisolated func makeMigrationImage(seed: Int) throws -> CGImage {
 
     context.setFillColor(NSColor(calibratedRed: 0.10, green: 0.14, blue: 0.20, alpha: 1).cgColor)
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-
     let hue = CGFloat((seed * 47) % 255) / 255
     context.setFillColor(NSColor(calibratedHue: hue, saturation: 0.85, brightness: 0.95, alpha: 1).cgColor)
     context.fillEllipse(
@@ -262,10 +290,10 @@ private nonisolated func migrationCacheFileName(for catalog: URL) -> String {
 @MainActor
 @Suite("PhotoAIKit similarity migration", .serialized)
 struct PhotoAIKitSimilarityMigrationTests {
-    @Test("CLIP uses homogeneous indexing and whole-batch Vision fallback", .tags(.critical))
-    func clipWholeBatchFallback() async throws {
+    @Test("CLIP retains successful artifacts and excludes failed images", .tags(.critical))
+    func clipRetainsPartialArtifacts() async throws {
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("PhotoAIKitCLIPFallback-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("PhotoAIKitCLIPPartial-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -281,14 +309,9 @@ struct PhotoAIKitSimilarityMigrationTests {
             backendDescriptor: migrationCLIPBackend,
             failingDisplayNames: [sources[1].displayName],
         )
-        let fallback = MigrationArtifactBackend(
-            backendDescriptor: migrationVisionFallbackBackend,
-        )
         let service = RawCullCLIPSimilarityService(
             primaryProvider: primary,
             primaryComparator: primary,
-            fallbackProvider: fallback,
-            fallbackComparator: fallback,
             concurrencyLimit: 2,
         )
 
@@ -298,9 +321,9 @@ struct PhotoAIKitSimilarityMigrationTests {
             progress: nil,
         )
 
-        #expect(output.usedWholeBatchFallback)
-        #expect(output.failures.isEmpty)
-        #expect(output.artifacts.count == sources.count)
+        #expect(!output.usedWholeBatchFallback)
+        #expect(output.failures.count == 1)
+        #expect(output.artifacts.count == 1)
         let diagnostic = try #require(output.primaryFailureDiagnostic)
         #expect(diagnostic.contains(sources[1].displayName))
         #expect(diagnostic.contains("generationFailed"))
@@ -309,22 +332,14 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(primaryFailure.source == sources[1])
         #expect(primaryFailure.stage == .clipInference)
         #expect(primaryFailure.message.contains("generationFailed"))
-        #expect(output.artifacts.values.allSatisfy {
-            $0.descriptor.backend == migrationVisionFallbackBackend.backend
-        })
+        #expect(output.artifacts[sources[0].id] != nil)
+        #expect(output.artifacts[sources[1].id] == nil)
         #expect(service.backendDescriptor == migrationCLIPBackend)
-        #expect(service.artifactBackendDescriptors == [
-            migrationCLIPBackend,
-            migrationVisionFallbackBackend,
-        ])
-
-        let left = try #require(output.artifacts[sources[0].id])
-        let right = try #require(output.artifacts[sources[1].id])
-        #expect(try service.distance(from: left, to: right) != nil)
+        #expect(service.artifactBackendDescriptors == [migrationCLIPBackend])
     }
 
-    @Test("CLIP fallback captures image decoding failures")
-    func clipFallbackCapturesImageDecodingFailure() async throws {
+    @Test("CLIP partial indexing captures image decoding failures")
+    func clipPartialIndexingCapturesImageDecodingFailure() async throws {
         let missingURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("MissingCLIPImage-\(UUID().uuidString).raw")
         let source = AIImageSource(
@@ -335,14 +350,9 @@ struct PhotoAIKitSimilarityMigrationTests {
         let primary = MigrationArtifactBackend(
             backendDescriptor: migrationCLIPBackend,
         )
-        let fallback = MigrationArtifactBackend(
-            backendDescriptor: migrationVisionFallbackBackend,
-        )
         let service = RawCullCLIPSimilarityService(
             primaryProvider: primary,
             primaryComparator: primary,
-            fallbackProvider: fallback,
-            fallbackComparator: fallback,
         )
 
         let output = try await service.index(
@@ -351,7 +361,9 @@ struct PhotoAIKitSimilarityMigrationTests {
             progress: nil,
         )
 
-        #expect(output.usedWholeBatchFallback)
+        #expect(!output.usedWholeBatchFallback)
+        #expect(output.artifacts.isEmpty)
+        #expect(output.failures.count == 1)
         let primaryFailure = try #require(output.primaryFailures.first)
         #expect(output.primaryFailures.count == 1)
         #expect(primaryFailure.source == source)
@@ -360,8 +372,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(output.primaryFailureDiagnostic?.contains(source.displayName) == true)
     }
 
-    @Test("A stale CLIP item reindexes the complete catalog batch", .tags(.critical))
-    func clipReindexesCompleteBatch() async throws {
+    @Test("CLIP reindexes only missing or stale artifacts", .tags(.critical))
+    func clipReindexesOnlyMissingArtifacts() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCLIPReindex-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -388,14 +400,9 @@ struct PhotoAIKitSimilarityMigrationTests {
             backendDescriptor: migrationCLIPBackend,
             recorder: recorder,
         )
-        let fallback = MigrationArtifactBackend(
-            backendDescriptor: migrationVisionFallbackBackend,
-        )
         let service = RawCullCLIPSimilarityService(
             primaryProvider: primary,
             primaryComparator: primary,
-            fallbackProvider: fallback,
-            fallbackComparator: fallback,
         )
         let model = SimilarityScoringModel(similarityService: service)
         let existingSource = SimilarityScoringModel.source(for: files[0])
@@ -407,11 +414,135 @@ struct PhotoAIKitSimilarityMigrationTests {
         await model.indexFiles(files)
 
         let indexedNames = await recorder.snapshot()
-        #expect(Set(indexedNames) == Set(files.map(\.name)))
+        #expect(indexedNames == [files[1].name])
         #expect(model.embeddings.count == files.count)
         #expect(model.embeddings.values.allSatisfy {
             $0.descriptor.backend == migrationCLIPBackend.backend
         })
+    }
+
+    @Test("Non-finite CLIP output retries once then reloads the provider", .tags(.critical))
+    func clipReloadsProviderAfterNonFiniteRetry() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PhotoAIKitCLIPRecovery-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let imageURL = root.appendingPathComponent("recovery.png")
+        try writeMigrationPNG(makeMigrationImage(seed: 7), to: imageURL)
+        let source = AIImageSource(
+            id: UUID(),
+            url: imageURL,
+            displayName: imageURL.lastPathComponent,
+        )
+        let recorder = MigrationArtifactCallRecorder()
+        let initial = NonFiniteArtifactProvider(
+            name: "initial",
+            backendDescriptor: migrationCLIPBackend,
+            failuresRemaining: 2,
+            recorder: recorder,
+        )
+        let comparator = MigrationArtifactBackend(
+            backendDescriptor: migrationCLIPBackend,
+        )
+        let service = RawCullCLIPSimilarityService(
+            primaryProvider: initial,
+            primaryComparator: comparator,
+            replacementProviderFactory: {
+                NonFiniteArtifactProvider(
+                    name: "replacement",
+                    backendDescriptor: migrationCLIPBackend,
+                    failuresRemaining: 0,
+                    recorder: recorder,
+                )
+            },
+        )
+
+        let output = try await service.index(
+            sources: [source],
+            maxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+            progress: nil,
+        )
+
+        #expect(await recorder.snapshot() == ["initial", "initial", "replacement"])
+        #expect(output.artifacts[source.id] != nil)
+        #expect(output.failures.isEmpty)
+        #expect(output.primaryFailures.isEmpty)
+    }
+
+    @Test("Persistent non-finite CLIP output is excluded after provider reload", .tags(.critical))
+    func clipExcludesPersistentNonFiniteOutput() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PhotoAIKitCLIPPersistentNaN-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let imageURL = root.appendingPathComponent("persistent-nan.png")
+        try writeMigrationPNG(makeMigrationImage(seed: 8), to: imageURL)
+        let source = AIImageSource(
+            id: UUID(),
+            url: imageURL,
+            displayName: imageURL.lastPathComponent,
+        )
+        let recorder = MigrationArtifactCallRecorder()
+        let initial = NonFiniteArtifactProvider(
+            name: "initial",
+            backendDescriptor: migrationCLIPBackend,
+            failuresRemaining: 2,
+            recorder: recorder,
+        )
+        let comparator = MigrationArtifactBackend(
+            backendDescriptor: migrationCLIPBackend,
+        )
+        let service = RawCullCLIPSimilarityService(
+            primaryProvider: initial,
+            primaryComparator: comparator,
+            replacementProviderFactory: {
+                NonFiniteArtifactProvider(
+                    name: "replacement",
+                    backendDescriptor: migrationCLIPBackend,
+                    failuresRemaining: 1,
+                    recorder: recorder,
+                )
+            },
+        )
+
+        let output = try await service.index(
+            sources: [source],
+            maxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+            progress: nil,
+        )
+
+        #expect(await recorder.snapshot() == ["initial", "initial", "replacement"])
+        #expect(output.artifacts.isEmpty)
+        #expect(output.failures.count == 1)
+        #expect(output.primaryFailures.count == 1)
+        #expect(output.primaryFailures.first?.source == source)
+        #expect(output.primaryFailures.first?.stage == .clipInference)
+    }
+
+    @Test("Burst grouping excludes unindexed images and preserves hard boundaries", .tags(.critical))
+    func groupingExcludesUnindexedImages() async throws {
+        let model = SimilarityScoringModel(
+            similarityService: MigrationTestSimilarityService(),
+        )
+        let first = migrationTestFile(name: "first.ARW")
+        let excluded = migrationTestFile(name: "excluded.ARW")
+        let last = migrationTestFile(name: "last.ARW")
+        model.embeddings[first.id] = migrationTestArtifact(
+            source: SimilarityScoringModel.source(for: first),
+            value: 10,
+        )
+        model.embeddings[last.id] = migrationTestArtifact(
+            source: SimilarityScoringModel.source(for: last),
+            value: 11,
+        )
+
+        await model.groupBursts(files: [first, excluded, last])
+
+        #expect(model.burstGroups.map(\.fileIDs) == [[first.id], [last.id]])
+        #expect(model.burstGroupLookup[excluded.id] == nil)
+        #expect(model.burstBoundaryEvidence.isEmpty)
     }
 
     @Test("PhotoAIKit Vision indexing produces complete reusable artifacts", .tags(.critical))
@@ -499,7 +630,7 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(model.sortBySimilarity)
     }
 
-    @Test("Schema 6 burst artifacts are rejected and schema 7 rebuild loads", .tags(.critical))
+    @Test("Schema 7 burst artifacts are rejected and schema 8 rebuild loads", .tags(.critical))
     func legacyCacheIsInvalidated() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCacheMigration-\(UUID().uuidString)", isDirectory: true)
@@ -520,7 +651,7 @@ struct PhotoAIKitSimilarityMigrationTests {
             embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
         )
         var snapshot = BurstAnalysisCacheSnapshot(
-            schemaVersion: 6,
+            schemaVersion: 7,
             algorithmVersion: BurstGroupingConfig.algorithmVersion,
             catalogPath: catalog.path,
             thumbnailMaxPixelSize: 512,
@@ -567,6 +698,79 @@ struct PhotoAIKitSimilarityMigrationTests {
             similaritySignature: similaritySignature,
         )
         #expect(rebuilt == snapshot)
+    }
+
+    @Test("Partial CLIP cache excludes files without validated artifacts", .tags(.critical))
+    func partialCLIPCache() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PhotoAIKitPartialCache-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let indexed = migrationTestFile(name: "indexed.ARW")
+        let excluded = migrationTestFile(name: "excluded.ARW")
+        let files = [indexed, excluded]
+        let sharpnessSignature = BurstSharpnessSignature(
+            thumbnailMaxPixelSize: 512,
+            config: FocusDetectorConfig(),
+        )
+        let similaritySignature = BurstSimilaritySignature(
+            groupingConfig: BurstGroupingConfig(),
+            backendDescriptor: migrationTestBackend,
+            artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
+            embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+            embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
+        )
+        var snapshot = BurstAnalysisCacheSnapshot(
+            schemaVersion: BurstAnalysisCache.schemaVersion,
+            algorithmVersion: BurstGroupingConfig.algorithmVersion,
+            catalogPath: catalog.path,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: sharpnessSignature,
+            similaritySignature: similaritySignature,
+            files: files.map {
+                BurstAnalysisCacheFile(
+                    id: $0.id,
+                    path: $0.url.path,
+                    size: $0.size,
+                    modificationDate: $0.dateModified,
+                )
+            },
+            embeddings: [
+                indexed.id: migrationTestArtifact(
+                    source: SimilarityScoringModel.source(for: indexed),
+                    value: 1,
+                ),
+            ],
+            sharpnessScores: [:],
+            saliencyInfo: [:],
+            groups: [BurstGroup(id: 0, fileIDs: [indexed.id])],
+            boundaryEvidence: [],
+            results: [],
+            reviewStateSnapshots: [],
+        )
+        let cache = BurstAnalysisCache(cacheDirectory: root)
+
+        await cache.save(snapshot, catalog: catalog)
+        let loaded = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: sharpnessSignature,
+            similaritySignature: similaritySignature,
+        )
+        #expect(loaded == snapshot)
+
+        snapshot.groups = [BurstGroup(id: 0, fileIDs: [indexed.id, excluded.id])]
+        await cache.save(snapshot, catalog: catalog)
+        let unsafe = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: sharpnessSignature,
+            similaritySignature: similaritySignature,
+        )
+        #expect(unsafe == nil)
     }
 
     @Test(

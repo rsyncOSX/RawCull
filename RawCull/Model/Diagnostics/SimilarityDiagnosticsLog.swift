@@ -2,6 +2,12 @@ import Foundation
 import PhotoAIContracts
 
 nonisolated enum SimilarityDiagnosticsOutcome: Equatable, Sendable {
+    case partialCLIP(
+        artifactsCreated: Int,
+        clipFailures: [RawCullCLIPPrimaryFailure],
+        generationFailures: [RawCullSimilarityIndexingFailure],
+        validationFailures: [RawCullSimilarityIndexingFailure],
+    )
     case visionFallback(
         artifactsCreated: Int,
         clipFailures: [RawCullCLIPPrimaryFailure],
@@ -111,6 +117,26 @@ actor SimilarityDiagnosticsLog: SimilarityDiagnosticsWriting {
         }
 
         switch event.outcome {
+        case let .partialCLIP(
+            artifactsCreated,
+            clipFailures,
+            generationFailures,
+            validationFailures,
+        ):
+            lines.append("Outcome: retained validated CLIP artifacts and excluded failed images")
+            lines.append("Validated CLIP artifacts created: \(artifactsCreated)")
+            appendCLIPFailures(clipFailures, to: &lines)
+            appendFailures(
+                generationFailures,
+                heading: "Excluded CLIP generation failures",
+                to: &lines,
+            )
+            appendFailures(
+                validationFailures,
+                heading: "Artifact validation failures",
+                to: &lines,
+            )
+
         case let .visionFallback(
             artifactsCreated,
             clipFailures,
