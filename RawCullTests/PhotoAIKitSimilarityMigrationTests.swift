@@ -304,6 +304,11 @@ struct PhotoAIKitSimilarityMigrationTests {
         let diagnostic = try #require(output.primaryFailureDiagnostic)
         #expect(diagnostic.contains(sources[1].displayName))
         #expect(diagnostic.contains("generationFailed"))
+        let primaryFailure = try #require(output.primaryFailures.first)
+        #expect(output.primaryFailures.count == 1)
+        #expect(primaryFailure.source == sources[1])
+        #expect(primaryFailure.stage == .clipInference)
+        #expect(primaryFailure.message.contains("generationFailed"))
         #expect(output.artifacts.values.allSatisfy {
             $0.descriptor.backend == migrationVisionFallbackBackend.backend
         })
@@ -316,6 +321,43 @@ struct PhotoAIKitSimilarityMigrationTests {
         let left = try #require(output.artifacts[sources[0].id])
         let right = try #require(output.artifacts[sources[1].id])
         #expect(try service.distance(from: left, to: right) != nil)
+    }
+
+    @Test("CLIP fallback captures image decoding failures")
+    func clipFallbackCapturesImageDecodingFailure() async throws {
+        let missingURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MissingCLIPImage-\(UUID().uuidString).raw")
+        let source = AIImageSource(
+            id: UUID(),
+            url: missingURL,
+            displayName: missingURL.lastPathComponent,
+        )
+        let primary = MigrationArtifactBackend(
+            backendDescriptor: migrationCLIPBackend,
+        )
+        let fallback = MigrationArtifactBackend(
+            backendDescriptor: migrationVisionFallbackBackend,
+        )
+        let service = RawCullCLIPSimilarityService(
+            primaryProvider: primary,
+            primaryComparator: primary,
+            fallbackProvider: fallback,
+            fallbackComparator: fallback,
+        )
+
+        let output = try await service.index(
+            sources: [source],
+            maxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+            progress: nil,
+        )
+
+        #expect(output.usedWholeBatchFallback)
+        let primaryFailure = try #require(output.primaryFailures.first)
+        #expect(output.primaryFailures.count == 1)
+        #expect(primaryFailure.source == source)
+        #expect(primaryFailure.stage == .imageDecoding)
+        #expect(primaryFailure.message.contains("imageDecodeFailed"))
+        #expect(output.primaryFailureDiagnostic?.contains(source.displayName) == true)
     }
 
     @Test("A stale CLIP item reindexes the complete catalog batch", .tags(.critical))

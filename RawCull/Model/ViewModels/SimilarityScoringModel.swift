@@ -90,6 +90,7 @@ final class SimilarityScoringModel {
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
     @ObservationIgnored private var _indexingGeneration = 0
     @ObservationIgnored private var similarityService: any RawCullSimilarityServicing
+    @ObservationIgnored private let similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting
     @ObservationIgnored private var _indexingStartedAt: Date?
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration = 0
@@ -100,8 +101,10 @@ final class SimilarityScoringModel {
 
     init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+        similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting = SimilarityDiagnosticsLog.shared,
     ) {
         self.similarityService = similarityService
+        self.similarityDiagnosticsWriter = similarityDiagnosticsWriter
     }
 
     // MARK: - Public API
@@ -268,6 +271,23 @@ final class SimilarityScoringModel {
                     "SimilarityScoringModel: \(self.indexingFailures.count) artifacts failed validation or generation",
                 )
             }
+            if output.usedWholeBatchFallback {
+                await recordSimilarityDiagnostic(
+                    SimilarityDiagnosticsEvent(
+                        timestamp: Date(),
+                        backend: service.backendDescriptor,
+                        requestedImageCount: sources.count,
+                        thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+                        summary: output.primaryFailureDiagnostic,
+                        outcome: .visionFallback(
+                            artifactsCreated: output.artifacts.count - invalidFailures.count,
+                            clipFailures: output.primaryFailures,
+                            visionFailures: output.failures,
+                            validationFailures: invalidFailures,
+                        ),
+                    ),
+                )
+            }
             Logger.process.debugMessageOnly(
                 "SimilarityScoringModel: indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
                     + (output.usedWholeBatchFallback ? " using Vision fallback" : ""),
@@ -278,12 +298,37 @@ final class SimilarityScoringModel {
             Logger.process.warning(
                 "SimilarityScoringModel: PhotoAIKit indexing failed: \(message)",
             )
+            if service.requiresHomogeneousBatch {
+                await recordSimilarityDiagnostic(
+                    SimilarityDiagnosticsEvent(
+                        timestamp: Date(),
+                        backend: service.backendDescriptor,
+                        requestedImageCount: sources.count,
+                        thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+                        summary: nil,
+                        outcome: .indexingFailure(message: message),
+                    ),
+                )
+            }
 
         case .cancelled:
             break
         }
 
         finishIndexing()
+    }
+
+    private func recordSimilarityDiagnostic(
+        _ event: SimilarityDiagnosticsEvent,
+    ) async {
+        do {
+            try await similarityDiagnosticsWriter.record(event)
+        } catch {
+            let message = String(describing: error)
+            Logger.process.error(
+                "SimilarityScoringModel: could not persist CLIP diagnostic: \(message, privacy: .public)",
+            )
+        }
     }
 
     /// Compute and store distances from `anchorID` to all other artifacts.

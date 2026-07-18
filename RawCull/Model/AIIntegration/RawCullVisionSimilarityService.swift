@@ -16,20 +16,34 @@ nonisolated struct RawCullSimilarityIndexingFailure: Equatable, Sendable {
     let message: String
 }
 
+nonisolated enum RawCullCLIPFailureStage: String, Equatable, Sendable {
+    case imageDecoding = "image decoding"
+    case clipInference = "CLIP inference"
+}
+
+nonisolated struct RawCullCLIPPrimaryFailure: Equatable, Sendable {
+    let source: AIImageSource
+    let stage: RawCullCLIPFailureStage
+    let message: String
+}
+
 nonisolated struct RawCullSimilarityIndexingOutput: Sendable {
     let artifacts: [UUID: SimilarityArtifact]
     let failures: [RawCullSimilarityIndexingFailure]
+    let primaryFailures: [RawCullCLIPPrimaryFailure]
     let usedWholeBatchFallback: Bool
     let primaryFailureDiagnostic: String?
 
     init(
         artifacts: [UUID: SimilarityArtifact],
         failures: [RawCullSimilarityIndexingFailure],
+        primaryFailures: [RawCullCLIPPrimaryFailure] = [],
         usedWholeBatchFallback: Bool = false,
         primaryFailureDiagnostic: String? = nil,
     ) {
         self.artifacts = artifacts
         self.failures = failures
+        self.primaryFailures = primaryFailures
         self.usedWholeBatchFallback = usedWholeBatchFallback
         self.primaryFailureDiagnostic = primaryFailureDiagnostic
     }
@@ -188,7 +202,10 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
                 failureRecorder: failureRecorder,
             ),
             fallbackProvider: fallbackProvider,
-            decoder: RawCullSimilarityImageDecoder(maxPixelSize: maxPixelSize),
+            decoder: RawCullDiagnosingImageDecoder(
+                decoder: RawCullSimilarityImageDecoder(maxPixelSize: maxPixelSize),
+                failureRecorder: failureRecorder,
+            ),
             fallbackPolicy: .wholeBatch,
             concurrencyLimit: concurrencyLimit,
         )
@@ -201,13 +218,16 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
                 ),
             )
         }
+        let primaryFailures: [RawCullCLIPPrimaryFailure]
         let diagnostic: String?
         if result.usedWholeBatchFallback {
-            diagnostic = await failureRecorder.diagnostic(
+            let report = await failureRecorder.report(
                 backend: backendDescriptor,
-            ) ?? "CLIP whole-batch fallback was triggered before provider inference; "
-                + "no CLIP provider error was captured."
+            )
+            primaryFailures = report.failures
+            diagnostic = report.diagnostic
         } else {
+            primaryFailures = []
             diagnostic = nil
         }
         return RawCullSimilarityIndexingOutput(
@@ -218,6 +238,7 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
                     message: $0.message,
                 )
             },
+            primaryFailures: primaryFailures,
             usedWholeBatchFallback: result.usedWholeBatchFallback,
             primaryFailureDiagnostic: diagnostic,
         )
@@ -252,40 +273,52 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
 }
 
 private actor RawCullCLIPFailureRecorder {
-    private struct FailureGroup {
-        var count: Int
-        let sampleSource: String
+    private var failures: [RawCullCLIPPrimaryFailure] = []
+
+    func record(
+        source: AIImageSource,
+        stage: RawCullCLIPFailureStage,
+        message: String,
+    ) {
+        guard !failures.contains(where: {
+            $0.source.id == source.id && $0.stage == stage
+        }) else { return }
+        failures.append(
+            RawCullCLIPPrimaryFailure(
+                source: source,
+                stage: stage,
+                message: message,
+            ),
+        )
     }
 
-    private var failures: [String: FailureGroup] = [:]
-
-    func record(sourceName: String, message: String) {
-        if var existing = failures[message] {
-            existing.count += 1
-            failures[message] = existing
-        } else {
-            failures[message] = FailureGroup(
-                count: 1,
-                sampleSource: sourceName,
+    func report(backend: SimilarityBackendDescriptor) -> RawCullCLIPFailureReport {
+        let sortedFailures = failures.sorted {
+            if $0.source.displayName == $1.source.displayName {
+                return $0.source.url.path < $1.source.url.path
+            }
+            return $0.source.displayName < $1.source.displayName
+        }
+        guard let firstFailure = sortedFailures.first else {
+            return RawCullCLIPFailureReport(
+                failures: [],
+                diagnostic: "CLIP whole-batch fallback was triggered, but no image-level "
+                    + "CLIP failure was captured.",
             )
         }
+        return RawCullCLIPFailureReport(
+            failures: sortedFailures,
+            diagnostic: "CLIP backend \(backend.modelFingerprint) failed for "
+                + "\(sortedFailures.count) image(s); first failure "
+                + "[\(firstFailure.source.displayName)] during \(firstFailure.stage.rawValue): "
+                + firstFailure.message,
+        )
     }
+}
 
-    func diagnostic(backend: SimilarityBackendDescriptor) -> String? {
-        guard !failures.isEmpty else { return nil }
-        let total = failures.values.reduce(0) { $0 + $1.count }
-        let details = failures
-            .sorted { $0.key < $1.key }
-            .prefix(8)
-            .map { message, group in
-                "\(group.count)x [\(group.sampleSource)] \(message)"
-            }
-            .joined(separator: " | ")
-        let omitted = max(0, failures.count - 8)
-        return "CLIP backend \(backend.modelFingerprint) failed for \(total) artifact(s): "
-            + details
-            + (omitted > 0 ? " | \(omitted) additional distinct error(s) omitted" : "")
-    }
+private nonisolated struct RawCullCLIPFailureReport: Sendable {
+    let failures: [RawCullCLIPPrimaryFailure]
+    let diagnostic: String
 }
 
 private nonisolated struct RawCullDiagnosingArtifactProvider:
@@ -315,7 +348,36 @@ private nonisolated struct RawCullDiagnosingArtifactProvider:
             throw CancellationError()
         } catch {
             await failureRecorder.record(
-                sourceName: source.displayName,
+                source: source,
+                stage: .clipInference,
+                message: String(reflecting: error),
+            )
+            throw error
+        }
+    }
+}
+
+private nonisolated struct RawCullDiagnosingImageDecoder: ImageDecoding {
+    private let decoder: any ImageDecoding
+    private let failureRecorder: RawCullCLIPFailureRecorder
+
+    init(
+        decoder: any ImageDecoding,
+        failureRecorder: RawCullCLIPFailureRecorder,
+    ) {
+        self.decoder = decoder
+        self.failureRecorder = failureRecorder
+    }
+
+    func image(for source: AIImageSource) async throws -> CGImage {
+        do {
+            return try await decoder.image(for: source)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            await failureRecorder.record(
+                source: source,
+                stage: .imageDecoding,
                 message: String(reflecting: error),
             )
             throw error
