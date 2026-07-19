@@ -259,13 +259,6 @@ struct BurstCullingWorkspaceView: View {
                             .buttonStyle(.bordered)
                             .controlSize(.large)
 
-                        Button("Set pick") {
-                            guard let selectedFile else { return }
-                            viewModel.setManualBurstWinner(selectedFile, in: files)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(selectedFile == nil)
                     }
                 }
 

@@ -178,21 +178,6 @@ extension RawCullViewModel {
         markDecisionApplied(groupID: groupID)
     }
 
-    // periphery:ignore
-    func setManualBurstWinner(_ winner: FileItem, in groupFiles: [FileItem]) {
-        guard let selectedSource,
-              groupFiles.contains(where: { $0.id == winner.id })
-        else { return }
-
-        let override = BurstWinnerOverride(
-            winnerFileName: winner.name,
-            memberFileNames: groupFiles.map(\.name),
-        )
-        cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
-        updateRating(for: winner, rating: 3)
-        applyManualWinnerOverrides(files: files)
-    }
-
     /// Rate the recommended frame at ★★★, second best at ★★, and reject others.
     func keepTopTwoInGroup(from groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
