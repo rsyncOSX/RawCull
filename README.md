@@ -8,10 +8,64 @@ The application is written in Swift 6 with SwiftUI. Image parsing, analysis, sha
 
 ## Requirements
 
-- macOS 26.2 Tahoe or newer
+- macOS 27 or newer
 - Apple Silicon Mac
-- Xcode 26 or newer for development
+- Xcode 27 or newer for development
 - Swift 6 language mode
+
+## AI features
+
+RawCull's AI-assisted culling runs locally on Apple Silicon. Photos are not
+uploaded to an external inference service.
+
+### Requirements to run AI
+
+- Vision feature-print similarity is built into macOS and works without an
+  additional model download.
+- CLIP similarity requires a validated PhotoAIKit-compatible CLIP Core AI model
+  bundle. If it is missing or invalid, RawCull safely falls back to Vision
+  feature prints.
+- Deep Review requires a validated PhotoAIKit-compatible SAM 3 Core AI model
+  bundle. The feature remains unavailable when the model is missing or invalid.
+- CLIP and SAM 3 model bundles must contain `metadata.json`, the selected
+  `.aimodel` or `.aimodelc` asset, and any resources declared by the model
+  manifest.
+- Models are not bundled with RawCull, and the in-app SAM 3 download is not yet
+  implemented. Install the resources manually, then open **Settings > AI** and
+  select **Check Again** to validate them. The standard non-sandboxed locations
+  are:
+
+  ```text
+  ~/Library/Application Support/RawCull/Models/CLIP/
+  ~/Library/Application Support/RawCull/Models/SAM3/
+  ```
+
+  Sandboxed builds resolve Application Support inside the app container;
+  **Settings > AI** displays the exact expected path.
+- The first use of a portable Core AI model can take longer while macOS
+  specializes the model for the current Mac.
+
+See [AI model distribution and installation](doc/models.md) for model format,
+validation, and installation details.
+
+### What the AI functions do
+
+- **Similarity and burst grouping:** CLIP image embeddings, or Vision feature
+  prints as the fallback, measure visual similarity and help group neighboring
+  frames into bursts for comparison.
+- **Sharpness and subject evidence:** PhotoAnalysisKit combines sharpness,
+  saliency, classification, focus-mask, and camera AF-point evidence to rank
+  burst candidates and explain cautions.
+- **Deep Review:** SAM 3 isolates the subject, evaluates detail inside the mask,
+  checks whether the AF point falls within the subject, and recommends a winner
+  with confidence and supporting reasons. Choosing **Mark Winner & Close** saves
+  the winner, gives it a three-star rating, and marks the burst reviewed.
+- **Local caching:** Embeddings, masks, scores, and burst decisions are cached
+  locally so compatible results can be reused in later sessions.
+
+To use CLIP, enable **Use CLIP for similarity** under **Settings > AI** after the
+model is validated. To use SAM 3, analyze a catalog into burst groups, select
+**Deep Review** on a burst, choose the review target, and run the review.
 
 ## Installation
 
