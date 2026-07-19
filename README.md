@@ -113,11 +113,20 @@ flowchart LR
     Parser --> Adapter["RawCull decoding adapters"]
     Adapter --> Domain["RawCullCore models"]
     Adapter --> Analysis["PhotoAnalysisKit"]
+    Adapter --> PhotoAI["PhotoAIKit"]
+    Models["CLIP / SAM 3 Core AI models"] --> PhotoAI
     Analysis --> Sharpness["Sharpness, focus mask, saliency"]
-    Adapter --> Similarity["PhotoAIKit CLIP / Vision similarity"]
+    PhotoAI --> Similarity["CLIP embeddings / Vision fallback"]
+    PhotoAI --> Masks["SAM 3 segmentation / mask storage"]
+    Domain --> Bursts["RawCullCore burst grouping"]
+    Similarity --> Bursts
+    Sharpness --> Ranking["RawCull ranking and review policy"]
+    Bursts --> Ranking
+    Masks --> DeepReview["Deep Review subject-detail evidence"]
+    Sharpness --> DeepReview
     Domain --> ViewModels["@Observable view models"]
-    Sharpness --> ViewModels
-    Similarity --> ViewModels
+    Ranking --> ViewModels
+    DeepReview --> ViewModels
     ViewModels --> UI["SwiftUI views"]
     ViewModels --> Cache["RAM and disk caches"]
     ViewModels --> Persistence["JSON and burst persistence"]
@@ -133,15 +142,19 @@ RawCull keeps application-specific policy outside the packages:
 - cache locations and file identity
 - ratings, tagging, burst decisions, and culling workflow
 
-The imported packages own reusable parsing, analysis, domain, serialization, and process-execution concerns.
+The imported packages own reusable parsing, sharpness analysis, AI inference,
+model validation, similarity artifacts, segmentation, mask storage, domain,
+serialization, and process-execution concerns.
 
 ## Imported Swift packages
 
-All package requirements are exact versions in the Xcode project and are recorded in `Package.resolved`.
+All package requirements are pinned to exact versions or revisions in the Xcode
+project and are recorded in `Package.resolved`.
 
-| Package | Version | Responsibility | Main APIs used by RawCull |
+| Package | Pinned requirement | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
-| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) | 1.2.0 | Sharpness scoring, focus masks, Vision saliency/classification, calibration, batch analysis, cache identity, and Vision feature prints | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality`, `VisionFeaturePrintBackend.featurePrint`, `VisionFeaturePrintBackend.distance` |
+| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) | revision `ef4ce1a` | AI contracts, validated Core AI model resources, CLIP and SAM 3 inference, Vision similarity fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
+| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) | 1.2.0 | Sharpness scoring, focus masks, Vision saliency/classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) | 1.2.6 | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) | 1.1.0 | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) | 1.0.0 | Type-safe construction of rsync parameters and synchronization arguments | `Parameters`, `BasicRsyncParameters`, `OptionalRsyncParameters`, `SSHParameters`, `PathConfiguration`, `RsyncParametersSynchronize.argumentsForSynchronize`, `computedArguments` |
@@ -166,16 +179,33 @@ Per-image ISO, aperture, and normalized AF position are passed through `PhotoAna
 
 Persistent sharpness results use `PhotoAnalyzer.sharpnessDescriptor(for:)`. RawCull layers the scoring source, decoded image size, source-file size, and modification date around that descriptor. This invalidates stale scores when either the package algorithm or the input file changes.
 
-PhotoAIKit provides RawCull's similarity backends:
+PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
+
+### PhotoAIKit
+
+PhotoAIKit is RawCull's reusable AI runtime boundary. RawCull imports six of its
+products: `PhotoAIContracts`, `PhotoAIWorkflows`, `PhotoAIStorage`,
+`CoreAICLIPBackend`, `CoreAISAM3Backend`, and `VisionFeaturePrintBackend`.
+
+The package provides the model-backed and fallback services used by the AI
+features:
 
 - `CoreAICLIPProvider` creates normalized CLIP image embeddings and cosine distances.
 - `VisionFeaturePrintBackend` creates and compares Codable Vision feature prints.
+- `CoreAISAM3Provider` performs in-process subject segmentation with a validated
+  SAM 3 Core AI model.
+- `SegmentationService` and `SubjectMaskSelector` acquire and select masks, while
+  `PhotoAIStorage` supplies memory and disk mask stores.
 - A persisted setting selects CLIP when its validated model is available.
   Non-finite output is retried once, then retried with a replacement provider;
   unresolved images are excluded from automatic burst analysis.
 - Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
-PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
+`RawCullAIIntegration` validates model bundles, selects CLIP or the Vision
+fallback, constructs SAM 3 mask services, and injects narrow services into the
+application models. RawCull retains ownership of RAW decoding, model locations,
+settings, subject-detail scoring, recommendation policy, ratings, and review
+state.
 
 ### RawParserKit
 
@@ -232,8 +262,9 @@ RawCull persists its saved catalog records as Codable JSON. `DecodeGeneric` load
 | `OSLog` and `os` | Structured logging and lock-backed cache diagnostics |
 | `UniformTypeIdentifiers` | RAW/JPEG file selection and export types |
 
-Vision and Metal are encapsulated by PhotoAnalysisKit rather than implemented
-directly in RawCull.
+Vision and Metal sharpness analysis are encapsulated by PhotoAnalysisKit. Core
+AI inference, AI-side Vision feature prints, and subject-mask storage are
+encapsulated by PhotoAIKit rather than implemented directly in RawCull.
 
 ## Application flow
 
