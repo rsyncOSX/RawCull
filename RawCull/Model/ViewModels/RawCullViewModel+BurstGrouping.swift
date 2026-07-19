@@ -269,6 +269,8 @@ extension RawCullViewModel {
         guard let currentIndex = similarityModel.burstGroups.firstIndex(where: { $0.id == currentGroupID })
         else { return false }
 
+        let currentGroup = similarityModel.burstGroups[currentIndex]
+
         let eligibleGroupIDs = Set(
             filteredBurstGroupsForReviewQueue
                 .filter { $0.fileIDs.count > 1 }
@@ -282,6 +284,12 @@ extension RawCullViewModel {
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let groupFiles = nextGroup.fileIDs.compactMap { filesByID[$0] }
         guard groupFiles.count > 1 else { return false }
+
+        let currentGroupFiles = currentGroup.fileIDs.compactMap { filesByID[$0] }
+        if !hasRating(in: currentGroupFiles) {
+            deferBurstGroup(groupID: currentGroupID)
+        }
+
         activateBurstGroup(groupID: nextGroup.id, groupFiles: groupFiles)
         return true
     }

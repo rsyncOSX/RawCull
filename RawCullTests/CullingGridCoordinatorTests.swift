@@ -360,6 +360,85 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
+    func `next burst navigation defers an unrated current group before advancing`() {
+        let current = [makeGridTestFile("current-a.ARW"), makeGridTestFile("current-b.ARW")]
+        let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
+        let viewModel = RawCullViewModel()
+        viewModel.files = current + next
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 1, fileIDs: current.map(\.id)),
+            BurstGroup(id: 2, fileIDs: next.map(\.id))
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
+            2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
+        ]
+
+        #expect(viewModel.advanceToNextBurstGroup(after: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState == .deferred)
+        #expect(viewModel.burstReviewStates[1] == .deferred)
+        #expect(viewModel.activeBurstComparisonGroupID == 2)
+    }
+
+    @Test(arguments: [-1, 0, 2, 3, 4, 5])
+    func `next burst navigation does not defer a group with any rating`(_ rating: Int) {
+        let current = [makeGridTestFile("rated-a.ARW"), makeGridTestFile("rated-b.ARW")]
+        let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        viewModel.selectedSource = catalog
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.files = current + next
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 1, fileIDs: current.map(\.id)),
+            BurstGroup(id: 2, fileIDs: next.map(\.id))
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
+            2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
+        ]
+        viewModel.updateRating(for: current[0], rating: rating)
+
+        #expect(viewModel.advanceToNextBurstGroup(after: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState.rawValue == BurstReviewState.none.rawValue)
+        #expect(viewModel.burstReviewStates[1] == nil)
+        #expect(viewModel.activeBurstComparisonGroupID == 2)
+    }
+
+    @Test
+    func `sharpness-only records do not prevent deferring an unrated group`() {
+        let current = [makeGridTestFile("scored-a.ARW"), makeGridTestFile("scored-b.ARW")]
+        let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        viewModel.selectedSource = catalog
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.cullingModel.mergeScoringResults(
+            [CullingScoringResult(fileName: current[0].name, score: 0.75, saliencySubject: nil)],
+            in: catalog.url,
+        )
+        viewModel.files = current + next
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 1, fileIDs: current.map(\.id)),
+            BurstGroup(id: 2, fileIDs: next.map(\.id))
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(groupID: 1, fileIDs: current.map(\.id), confidence: .low),
+            2: makeReviewQueueResult(groupID: 2, fileIDs: next.map(\.id), confidence: .low)
+        ]
+
+        #expect(viewModel.advanceToNextBurstGroup(after: 1))
+        #expect(viewModel.burstAnalysisResults[1]?.reviewState == .deferred)
+        #expect(viewModel.activeBurstComparisonGroupID == 2)
+    }
+
+    @Test(.tags(.smoke))
     func `burst home counts singleton images and live review states`() {
         let firstSingle = makeGridTestFile("single-one.ARW")
         let secondSingle = makeGridTestFile("single-two.ARW")

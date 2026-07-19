@@ -56,6 +56,19 @@ extension RawCullViewModel {
         ratingCache[file.name] ?? 0
     }
 
+    func hasRating(in files: [FileItem]) -> Bool {
+        guard !files.isEmpty,
+              let catalog = selectedSource?.url,
+              let records = cullingModel.savedFiles.first(where: { $0.catalog == catalog })?.filerecords
+        else { return false }
+
+        let fileNames = Set(files.map(\.name))
+        return records.contains { record in
+            guard let fileName = record.fileName else { return false }
+            return record.rating != nil && fileNames.contains(fileName)
+        }
+    }
+
     func updateRating(for file: FileItem, rating: Int) {
         guard let selectedSource else { return }
         cullingModel.updateRating(fileName: file.name, rating: rating, in: selectedSource.url)
