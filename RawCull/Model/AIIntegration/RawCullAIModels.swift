@@ -76,7 +76,7 @@ nonisolated struct RawCullAICapabilities: Equatable, Sendable {
     let clipModel: RawCullAICapabilityStatus
     let visionFeaturePrint: RawCullAICapabilityStatus
     let subjectMaskStorage: RawCullAICapabilityStatus
-    let maskWorker: RawCullAICapabilityStatus
+    let inProcessMaskGeneration: RawCullAICapabilityStatus
 }
 
 nonisolated enum RawCullSavedBurstBackend: Equatable, Sendable {

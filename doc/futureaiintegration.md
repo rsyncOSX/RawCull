@@ -1,6 +1,6 @@
 # Future AI Integration for RawCull
 
-## Progress update — 2026-07-18
+## Progress update — 2026-07-19
 
 ### Quality-first delivery policy
 
@@ -12,18 +12,18 @@ A provider or UI control being present does not make a phase complete. A phase i
 
 | Phase | Status | Progress so far | Still intentionally deferred |
 | --- | --- | --- | --- |
-| 1. Platform and composition boundary | Implemented baseline; verified | The app and test targets now require macOS 27 and use Swift 6. PhotoAIKit is pinned and its CLIP, SAM 3, contracts, storage, workflows, and Vision products are linked. RawCull has a single `RawCullAIIntegration` composition root, canonical RawCull-owned paths, actor-owned model-resource managers, typed capability state, mask memory/disk stores, a repository, segmentation service, selector, and a narrow `RawCullAISettingsModel`. Model validation and provider construction are deferred from launch, run outside the main actor, and reuse a metadata-keyed cached result. | The source-controlled mask worker and model-download flow do not exist. The Settings download and saved-data deletion controls are placeholders. Cold-launch and refresh profiling with real installed SAM 3 and CLIP bundles remains required. |
+| 1. Platform and composition boundary | Implemented baseline; verified | The app and test targets now require macOS 27 and use Swift 6. PhotoAIKit is pinned and its CLIP, SAM 3, contracts, storage, workflows, and Vision products are linked. RawCull has a single `RawCullAIIntegration` composition root, canonical RawCull-owned paths, actor-owned model-resource managers, typed capability state, mask memory/disk stores, a repository, segmentation service, selector, and a narrow `RawCullAISettingsModel`. Model validation and provider construction are deferred from launch, run outside the main actor, and reuse a metadata-keyed cached result. SAM 3 review is deliberately in-process, so no worker target is required. | The model-download flow does not exist. The Settings download and saved-data deletion controls are placeholders. Cold-launch and refresh profiling with real installed SAM 3 and CLIP bundles remains required. |
 | 2. Similarity | CLIP activation and targeted recovery implemented; synthetic coverage verified | CLIP is selected after asynchronous model validation and is enabled by default through a persisted Settings preference. RawCull validates each PhotoAIKit CLIP artifact, retries non-finite output once with the loaded provider, then once with a replacement provider. Successful artifacts are retained; unresolved images are excluded from grouping, recommendations, and automatic culling. Partial CLIP caches use schema 8 and reject any group/result that references an image without a validated artifact. Existing ranking, cancellation, progress, source decoding, and the small subject-label penalty remain intact for indexed images. | Repeat the representative 574-image Sony ARW Release test, profile CLIP latency/memory, and calibrate thresholds. Confirm that targeted recovery removes or materially reduces nondeterministic NaN exclusions. |
-| 3. SAM storage and overlays | Storage/repository scaffold only | RawCull configures PhotoAIKit memory and disk mask stores under the canonical cache path and constructs the repository, segmentation service, and selector. Capability reporting distinguishes model, storage, and worker readiness. | There is no supported mask-generation entry point, worker target, inventory/quality flow, RawCull mask source adapter, or cached overlay provider connected to the UI. |
-| 4. Subject-aware focus evidence | Not started | The existing Vision/AF focus pipeline remains unchanged by the AI port. | No SAM-specific focus scorer or subject-detail evidence integration has been ported. |
-| 5. Deep AI review | Not started | No deep-review behavior has been added to the central view model. | Candidate policy, mask acquisition/evaluation, explainable recommendation output, and user-confirmed application remain future work. |
+| 3. SAM storage and overlays | In-process review path implemented | RawCull configures PhotoAIKit memory and disk mask stores under the canonical cache path and constructs the repository, segmentation service, and selector. Capability reporting distinguishes model and storage readiness. Deep Review now acquires masks in-process through the selector; there is no helper executable. | A general mask inventory/quality surface, RawCull mask source adapter, and cached overlay provider are not connected to the broader UI. Real-model latency and memory behavior still require measurement. |
+| 4. Subject-aware focus evidence | Initial Deep Review scorer implemented | RawCull owns a separate `SubjectMaskFocusScorer` that evaluates deterministic luminance/Laplacian detail inside a SAM mask and returns explainable evidence without changing ratings or choosing winners. | Calibrate the scorer on representative RAW photos, verify mask-edge and low-coverage behavior, and profile CPU/memory cost. |
+| 5. Deep AI review | Baseline implemented; synthetic coverage verified | Burst headers expose Deep Review. A dedicated `DeepAIReviewFeature` owns typed operation state, candidate selection, prompt policy, sequential in-process mask acquisition, focus evidence, cancellation, result caching, and an explainable recommendation sheet. `RawCullViewModel` only adapts burst inputs and applies the recommendation after explicit user confirmation. | Validate recommendation quality, failure recovery, cancellation latency, and peak memory on representative real burst groups before treating the feature as production-complete. |
 
 ### Xcode 27 and test verification
 
 This progress snapshot was checked with Xcode 27.0 build `27A5218g`, the macOS 27.0 SDK, and Apple Swift 6.4:
 
-- `make test-smoke` succeeds, including the new model-validation cache, Settings cancellation, and ranking-helper cancellation checks, plus the existing PhotoAIKit artifact, ranking-policy, and cache-migration coverage.
-- `RawCullAIIntegrationTests` succeeds for canonical paths, the complete Phase 1 capability surface, persisted Vision evidence scanning, model-cache reuse/invalidation, Settings cancellation, persisted CLIP preference behavior, and the no-op safety of saved-data deletion.
+- `make test-smoke` succeeds, including Deep Review state/cancellation/prompt-policy/focus-evidence coverage, model-validation caching, Settings cancellation, ranking cancellation, and the existing PhotoAIKit artifact, ranking-policy, and cache-migration coverage.
+- `RawCullAIIntegrationTests` succeeds for canonical paths, the in-process capability and feature surface, persisted Vision evidence scanning, model-cache reuse/invalidation, Settings cancellation, persisted CLIP preference behavior, and the no-op safety of saved-data deletion.
 - The app and tests compile with the SDK 27 `@State` macro. The explicit `RawCullApp` state initialization does not currently match a known SDK 27 incompatibility.
 - The Settings migration already uses the modern `Tab` API. No current AI view matches the SDK 27 `@ContentBuilder` ambiguity patterns for direct `overlay`/`background`, shadowed SwiftUI types, explicit `TupleView`, or empty builders.
 
@@ -169,16 +169,16 @@ The macOS 27 toolchain is now in use on `RawCullAI`, so the earlier “until the
 - Continue reusable inference, storage, cache, identity, and workflow work in PhotoAIKit.
 - Do not spend time making every non-AI RawCullSAM3 file match RawCull.
 - Do not add additional AI orchestration directly to `RawCullViewModel`.
-- Decide whether SAM mask generation will use a source-controlled helper executable or an in-process pipeline.
-- Measure memory use before choosing in-process SAM execution for production.
+- Keep SAM mask generation in the implemented in-process pipeline; do not add a helper executable for Deep Review.
+- Measure peak memory, cancellation latency, and model reuse for the in-process pipeline before declaring it production-ready.
 
-The missing helper decision is a hard prerequisite. If retaining the external worker design, it needs:
+The in-process design is now selected and implemented for Deep Review. Its production guardrails are:
 
-- A source-controlled executable target and entry point.
-- Request decoding and security-scoped resource lifetime management.
-- Raw decoding and segmentation-pipeline execution.
-- Progress, failure, cancellation, partial-result, and exit-code handling.
-- Build and packaging verification.
+- Bounded image decoding (currently capped at a 2,048-pixel long side for SAM review).
+- Sequential candidate evaluation to avoid overlapping model and decoded-image memory.
+- Structured cancellation with generation checks so superseded results cannot commit.
+- Typed model/storage capability and failure reporting.
+- Result caching by burst signature, with representative real-photo memory and correctness verification still required.
 
 ## Suggested repository and branch arrangement
 
@@ -221,21 +221,23 @@ Port CLIP similarity first because it has the narrowest visible feature boundary
 - Include model fingerprints and artifact versions in cache signatures.
 - Validate complete descriptors for both disk and in-memory reuse.
 
-### Phase 3: SAM storage and overlays — storage scaffold only
+### Phase 3: SAM storage and in-process acquisition — Deep Review path implemented
 
 - Configure package memory and disk stores using RawCull-owned locations.
 - Port `FileItem` and `AIImageSource` adapters.
-- Port mask inventory and quality metadata.
-- Implement the selected helper or in-process generation path.
+- Port mask inventory and quality metadata for general overlay use.
+- Keep Deep Review mask acquisition in-process through the PhotoAIKit selector. Implemented.
 - Expose cached overlays through a narrow provider rather than `aiContainer` traversal from views.
 
-### Phase 4: Subject-aware focus evidence — not started
+### Phase 4: Subject-aware focus evidence — initial scorer implemented
 
 Keep focus policy in RawCull, but extract SAM-specific subject scoring from the large focus engine into a component such as `SubjectMaskFocusScorer`.
 
 The component should accept decoded focus evidence and a subject mask, then return explainable subject-detail evidence. It should not mutate ratings or choose winners.
 
-### Phase 5: Deep AI review — not started
+`SubjectMaskFocusScorer` now provides that boundary for Deep Review. Representative-photo calibration, performance profiling, and comparison against the sibling implementation remain required.
+
+### Phase 5: Deep AI review — baseline implemented
 
 Port deep review last and place its workflow in a RawCull-owned `DeepAIReviewFeature` or service.
 
@@ -247,6 +249,8 @@ The service should:
 - Return a proposed winner, confidence, reasons, and cautions.
 
 `RawCullViewModel` should only start or cancel the operation and apply user-confirmed actions.
+
+The current implementation follows this boundary. Burst-group headers present a Deep Review action and a dedicated sheet; the feature selects all candidates for groups of 12 or fewer and up to 8 candidates for larger groups, obtains SAM masks and focus evidence sequentially, exposes progress/cancellation/failures as typed state, and proposes an explainable winner. Applying that winner remains a separate user-confirmed action.
 
 ## Required application-boundary improvements
 
@@ -265,7 +269,7 @@ During the port:
 - Preserve all current RawCull tests during the port.
 - Port AI-specific RawCullSAM3 tests individually rather than replacing complete test files.
 - Keep generic provider, serialization, storage, fallback, identity, and concurrency tests in PhotoAIKit.
-- Keep RawCull adapter, worker-lifecycle, focus-evidence, ranking, and UI-state tests in RawCull.
+- Keep RawCull adapter, in-process pipeline lifecycle, focus-evidence, ranking, and UI-state tests in RawCull.
 - Keep the migrated `RawCullAI` test target on Swift 6 with complete strict-concurrency checking.
 - Keep tests parallel-safe and isolate file-system/cache state per test.
 - Run a CI matrix for stable RawCull and the macOS 27 AI branch while both exist.

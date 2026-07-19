@@ -160,6 +160,56 @@ extension RawCullViewModel {
 
     // MARK: - User actions
 
+    var isDeepAIReviewUnavailable: Bool {
+        !deepAIReviewFeature.availability.isAvailable
+            || sharpnessModel.isScoring
+            || similarityModel.isIndexing
+            || similarityModel.isGrouping
+            || burstAnalysisProgress.isRunning
+            || deepAIReviewFeature.isRunning
+    }
+
+    func deepAIReviewResult(for groupFiles: [FileItem]) -> DeepAIReviewResult? {
+        guard let signature = BurstGroupSignature(
+            files: groupFiles,
+            catalog: selectedSource?.url,
+        ) else { return nil }
+        return deepAIReviewFeature.result(for: signature)
+    }
+
+    func startDeepAIReview(for groupFiles: [FileItem]) async {
+        guard !isDeepAIReviewUnavailable,
+              let request = deepAIReviewRequest(for: groupFiles)
+        else { return }
+        await deepAIReviewFeature.start(request)
+    }
+
+    func cancelDeepAIReview() {
+        deepAIReviewFeature.cancel()
+    }
+
+    func applyDeepAIReviewRecommendation(
+        _ result: DeepAIReviewResult,
+        to groupFiles: [FileItem],
+    ) {
+        guard let selectedSource,
+              result.groupSignature == BurstGroupSignature(
+                  files: groupFiles,
+                  catalog: selectedSource.url,
+              ),
+              let winner = result.recommendedFileID.flatMap({ id in
+                  groupFiles.first { $0.id == id }
+              })
+        else { return }
+
+        let override = BurstWinnerOverride(
+            winnerFileName: winner.name,
+            memberFileNames: groupFiles.map(\.name),
+        )
+        cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
+        applyManualWinnerOverrides(files: files)
+    }
+
     /// Rate the recommended frame in `groupFiles` at ★★★ and reject all others.
     func keepBestInGroup(from groupFiles: [FileItem]) {
         guard !groupFiles.isEmpty else { return }
@@ -420,6 +470,46 @@ extension RawCullViewModel {
         groupFiles.lazy.compactMap { self.similarityModel.burstGroupLookup[$0.id] }.first ?? -1
     }
 
+    private func deepAIReviewRequest(
+        for groupFiles: [FileItem],
+    ) -> DeepAIReviewRequest? {
+        guard let catalog = selectedSource?.url,
+              let signature = BurstGroupSignature(files: groupFiles, catalog: catalog)
+        else { return nil }
+        let groupID = groupID(for: groupFiles)
+        guard groupID >= 0 else { return nil }
+
+        let rankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID) ?? []
+        let ranks = Dictionary(
+            uniqueKeysWithValues: rankedIDs.enumerated().map { index, id in
+                (id, index + 1)
+            },
+        )
+        let fallbackRanks = Dictionary(
+            uniqueKeysWithValues: groupFiles.enumerated().map { index, file in
+                (file.id, index + 1)
+            },
+        )
+        let candidates = groupFiles.map { file in
+            DeepAIReviewInputCandidate(
+                fileID: file.id,
+                fileName: file.name,
+                url: file.url,
+                burstRank: ranks[file.id] ?? fallbackRanks[file.id] ?? 1,
+                normalSharpnessScore: sharpnessModel.scores[file.id],
+                subjectLabel: sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
+                normalizedAFPoint: file.afFocusNormalized,
+            )
+        }
+        return DeepAIReviewRequest(
+            groupID: groupID,
+            groupSignature: signature,
+            candidates: candidates,
+            preset: deepAIReviewFeature.preset,
+            scoringSource: sharpnessModel.scoringSource,
+        )
+    }
+
     private func canApplyOneClickCulling(groupID: Int) -> Bool {
         guard let result = burstAnalysisResults[groupID] else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: !sharpnessModel.scores.isEmpty)
@@ -538,6 +628,7 @@ extension RawCullViewModel {
     }
 
     func cancelAndResetBurstAnalysis() {
+        deepAIReviewFeature.reset()
         burstAnalysisTask?.cancel()
         burstAnalysisTask = nil
         burstAnalysisGeneration &+= 1

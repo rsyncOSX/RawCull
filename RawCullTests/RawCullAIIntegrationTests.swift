@@ -33,7 +33,6 @@ struct RawCullAIIntegrationTests {
             paths: paths,
             bundle: .main,
             allowsBundledModelFallback: false,
-            maskWorkerExecutableNames: [],
         )
         let initialCapabilities = integration.capabilities()
 
@@ -42,6 +41,9 @@ struct RawCullAIIntegrationTests {
         ))
         #expect(initialCapabilities.clipModel == .checking(
             expectedLocations: [paths.clipModelDirectory],
+        ))
+        #expect(integration.deepAIReviewFeature.availability == .checking(
+            expectedLocations: [paths.sam3ModelDirectory],
         ))
 
         let capabilities = try await integration.refreshCapabilities()
@@ -56,8 +58,11 @@ struct RawCullAIIntegrationTests {
         #expect(capabilities.subjectMaskStorage == .available(
             location: paths.subjectMaskDirectory,
         ))
-        #expect(capabilities.maskWorker == .unavailable(
-            reason: "The source-controlled SAM 3 mask worker has not been added yet.",
+        #expect(capabilities.inProcessMaskGeneration == .missing(
+            expectedLocations: [paths.sam3ModelDirectory],
+        ))
+        #expect(integration.deepAIReviewFeature.availability == .missing(
+            expectedLocations: [paths.sam3ModelDirectory],
         ))
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
     }
@@ -195,7 +200,6 @@ struct RawCullAIIntegrationTests {
             paths: paths,
             bundle: .main,
             allowsBundledModelFallback: false,
-            maskWorkerExecutableNames: [],
         )
         let probe = SavedEvidenceCancellationProbe()
         let model = RawCullAISettingsModel(
@@ -240,7 +244,6 @@ struct RawCullAIIntegrationTests {
             paths: paths,
             bundle: .main,
             allowsBundledModelFallback: false,
-            maskWorkerExecutableNames: [],
         )
         var selectedBackends: [String] = []
         let model = RawCullAISettingsModel(

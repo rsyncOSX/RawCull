@@ -146,6 +146,11 @@ final class RawCullViewModel {
     /// Similarity scoring model — PhotoAIKit artifacts with RawCull-owned ranking policy.
     var similarityModel: SimilarityScoringModel
 
+    /// Dedicated SAM 3 burst-review feature. It owns the in-process workflow
+    /// and typed operation state; the central view model only adapts inputs and
+    /// applies a user-confirmed recommendation.
+    let deepAIReviewFeature: DeepAIReviewFeature
+
     /// Intelligent burst culling analysis state.
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
     var burstAnalysisProgress = BurstAnalysisProgress()
@@ -238,10 +243,12 @@ final class RawCullViewModel {
 
     init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+        deepAIReviewFeature: DeepAIReviewFeature = DeepAIReviewFeature(),
     ) {
         self.similarityModel = SimilarityScoringModel(
             similarityService: similarityService,
         )
+        self.deepAIReviewFeature = deepAIReviewFeature
     }
 
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {

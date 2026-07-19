@@ -33,6 +33,7 @@ private struct BurstGroupHeaderView: View {
     let isCollapsed: Bool
     let hiddenCount: Int
     let onToggleCollapsed: () -> Void
+    let onDeepReview: () -> Void
     let onReviewed: (Int) -> Void
     let onDeferred: (Int) -> Void
     @Bindable var viewModel: RawCullViewModel
@@ -81,6 +82,24 @@ private struct BurstGroupHeaderView: View {
             .controlSize(.regular)
             .buttonStyle(.borderedProminent)
             .help("Open this burst for review")
+
+            Button(action: onDeepReview) {
+                if viewModel.deepAIReviewFeature.isRunning,
+                   viewModel.deepAIReviewFeature.state.activeGroupID == analysis?.groupID
+                {
+                    HStack(spacing: 5) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Deep Review")
+                    }
+                } else {
+                    Label("Deep Review", systemImage: "sparkle.magnifyingglass")
+                }
+            }
+            .controlSize(.regular)
+            .buttonStyle(.bordered)
+            .disabled(viewModel.isDeepAIReviewUnavailable || analysis == nil)
+            .help("Open an in-process SAM 3 subject-detail review")
 
             if let groupID = analysis?.groupID {
                 Button {
@@ -205,6 +224,7 @@ struct CullingGridView<Header: View>: View {
     @State private var cleanViewEnabled: Bool = true
     @State private var expandedBurstGroupIDs: Set<Int> = []
     @State private var collapsedBurstGroupIDs: Set<Int> = []
+    @State private var deepReviewPresentation: DeepAIReviewPresentation?
 
     // ── Burst-mode render cache ──────────────────────────────────────────
     // Recomputed only when `gridCacheKey` changes, so hover/selection
@@ -333,6 +353,30 @@ struct CullingGridView<Header: View>: View {
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .toolbar { sharedSelectionStatusToolbar }
+        .sheet(item: $deepReviewPresentation) { presentation in
+            DeepAIReviewSheetView(
+                feature: viewModel.deepAIReviewFeature,
+                groupID: presentation.groupID,
+                groupSignature: presentation.groupSignature,
+                files: presentation.files,
+                onRun: {
+                    Task {
+                        await viewModel.startDeepAIReview(for: presentation.files)
+                    }
+                },
+                onCancel: viewModel.cancelDeepAIReview,
+                onApply: { result in
+                    viewModel.applyDeepAIReviewRecommendation(
+                        result,
+                        to: presentation.files,
+                    )
+                    deepReviewPresentation = nil
+                },
+                onClose: {
+                    deepReviewPresentation = nil
+                },
+            )
+        }
         .onKeyPress(characters: CharacterSet(charactersIn: "\rBb2RrUu")) { press in
             handleBurstKeyPress(press.characters)
         }
@@ -525,6 +569,7 @@ struct CullingGridView<Header: View>: View {
                     isCollapsed: collapsed,
                     hiddenCount: group.files.count - shownFiles.count,
                     onToggleCollapsed: { toggleBurstGroup(group.id) },
+                    onDeepReview: { presentDeepReview(for: group) },
                     onReviewed: markBurstGroupReviewed,
                     onDeferred: deferBurstGroup,
                     viewModel: viewModel,
@@ -591,6 +636,18 @@ struct CullingGridView<Header: View>: View {
         viewModel.toggleBurstGroupDeferred(groupID: groupID)
         collapsedBurstGroupIDs.remove(groupID)
         expandedBurstGroupIDs.insert(groupID)
+    }
+
+    private func presentDeepReview(for group: CullingGridVisibleBurstGroup) {
+        guard let signature = BurstGroupSignature(
+            files: group.files,
+            catalog: viewModel.selectedSource?.url,
+        ) else { return }
+        deepReviewPresentation = DeepAIReviewPresentation(
+            groupID: group.id,
+            groupSignature: signature,
+            files: group.files,
+        )
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
@@ -676,6 +733,13 @@ struct CullingGridView<Header: View>: View {
         default: nil
         }
     }
+}
+
+private struct DeepAIReviewPresentation: Identifiable {
+    let id = UUID()
+    let groupID: Int
+    let groupSignature: BurstGroupSignature
+    let files: [FileItem]
 }
 
 // MARK: - Toolbar

@@ -186,10 +186,10 @@ private struct AIIntegrationReadinessCard: View {
                 Divider()
 
                 AICapabilityStatusView(
-                    title: "SAM 3 mask worker",
-                    status: capabilities.maskWorker,
-                    availableMessage: "The source-controlled mask worker is available.",
-                    missingMessage: "The source-controlled mask worker has not been added yet.",
+                    title: "In-process SAM 3 review",
+                    status: capabilities.inProcessMaskGeneration,
+                    availableMessage: "SAM 3 mask generation runs inside RawCull.",
+                    missingMessage: "In-process mask generation needs a valid SAM 3 model.",
                 )
             }
         }

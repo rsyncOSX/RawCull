@@ -28,9 +28,9 @@ final class RawCullAIIntegration {
     private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
     private(set) var sam3Segmentation: SegmentationService
     private(set) var subjectMaskSelector: SubjectMaskSelector
+    let deepAIReviewFeature: DeepAIReviewFeature
 
     private let subjectMaskStorageCapability: RawCullAICapabilityStatus
-    private let maskWorkerCapability: RawCullAICapabilityStatus
     private let subjectMaskStores: [any SubjectMaskStoring]
     private let defaultPrompt: SubjectSegmentationPrompt
     private let inputMaxSide: Int
@@ -41,7 +41,6 @@ final class RawCullAIIntegration {
         paths: RawCullAIPaths = .live(),
         bundle: Bundle = .main,
         allowsBundledModelFallback: Bool? = nil,
-        maskWorkerExecutableNames: [String] = ["RawCullAIMaskWorker"],
         defaultPrompt: SubjectSegmentationPrompt = .subject,
         inputMaxSide: Int = 4320,
     ) {
@@ -117,18 +116,16 @@ final class RawCullAIIntegration {
             segmentationService: segmentation,
         )
 
-        let maskWorkerCapability = Self.maskWorkerCapability(
-            in: bundle,
-            executableNames: maskWorkerExecutableNames,
+        self.deepAIReviewFeature = DeepAIReviewFeature(
+            availability: .checking(expectedLocations: sam3CandidateURLs),
         )
-        self.maskWorkerCapability = maskWorkerCapability
         self.activeSAM3ModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
             sam3Model: .checking(expectedLocations: sam3CandidateURLs),
             clipModel: .checking(expectedLocations: clipCandidateURLs),
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
-            maskWorker: maskWorkerCapability,
+            inProcessMaskGeneration: .checking(expectedLocations: sam3CandidateURLs),
         )
     }
 
@@ -184,18 +181,31 @@ final class RawCullAIIntegration {
         clipSimilarityProvider = clip.provider
         clipSimilarityModelLocation = clip.capability.resource?.bundleURL
 
+        let sam3Status = Self.capabilityStatus(
+            sam3.capability,
+            providerInitializationFailure: sam3.providerInitializationFailure,
+        )
         let capabilities = RawCullAICapabilities(
-            sam3Model: Self.capabilityStatus(
-                sam3.capability,
-                providerInitializationFailure: sam3.providerInitializationFailure,
-            ),
+            sam3Model: sam3Status,
             clipModel: Self.capabilityStatus(
                 clip.capability,
                 providerInitializationFailure: clip.providerInitializationFailure,
             ),
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
-            maskWorker: maskWorkerCapability,
+            inProcessMaskGeneration: sam3Status,
+        )
+        deepAIReviewFeature.install(
+            service: sam3.provider.map { _ in
+                RawCullDeepAIReviewPipeline(
+                    selector: subjectMaskSelector,
+                    maximumPixelSize: min(
+                        inputMaxSide,
+                        SharpnessScoringSizeOption.maximumPixelSize,
+                    ),
+                )
+            },
+            availability: sam3Status,
         )
         capabilitySnapshot = capabilities
         return capabilities
@@ -245,20 +255,6 @@ final class RawCullAIIntegration {
         case let .invalid(url, reason):
             return .invalid(location: url, reason: reason)
         }
-    }
-
-    private static func maskWorkerCapability(
-        in bundle: Bundle,
-        executableNames: [String],
-    ) -> RawCullAICapabilityStatus {
-        for executableName in executableNames {
-            if let url = bundle.url(forAuxiliaryExecutable: executableName) {
-                return .available(location: url)
-            }
-        }
-        return .unavailable(
-            reason: "The source-controlled SAM 3 mask worker has not been added yet.",
-        )
     }
 
     private func installSAM3ProviderIfNeeded(_ provider: any SubjectSegmenting) {
