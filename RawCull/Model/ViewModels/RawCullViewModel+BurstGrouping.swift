@@ -192,7 +192,9 @@ extension RawCullViewModel {
         _ result: DeepAIReviewResult,
         to groupFiles: [FileItem],
     ) {
+        let groupID = groupID(for: groupFiles)
         guard let selectedSource,
+              groupID >= 0,
               result.groupSignature == BurstGroupSignature(
                   files: groupFiles,
                   catalog: selectedSource.url,
@@ -208,6 +210,8 @@ extension RawCullViewModel {
         )
         cullingModel.upsertBurstWinnerOverride(override, in: selectedSource.url)
         applyManualWinnerOverrides(files: files)
+        updateRating(for: winner, rating: 3)
+        markBurstGroupReviewed(groupID: groupID)
     }
 
     /// Rate the recommended frame in `groupFiles` at ★★★ and reject all others.

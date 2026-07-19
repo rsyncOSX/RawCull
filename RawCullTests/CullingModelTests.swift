@@ -1095,6 +1095,46 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `applying Deep Review winner rates it three stars and marks group reviewed`() throws {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
+        let winner = files[1]
+        let groupID = 7
+        let signature = try #require(BurstGroupSignature(files: files, catalog: catalog.url))
+        let result = DeepAIReviewResult(
+            groupID: groupID,
+            groupSignature: signature,
+            preset: .auto,
+            candidates: [],
+            recommendedFileID: winner.id,
+            confidence: .high,
+            reasons: [.strongestSubjectDetail],
+            cautions: [],
+            timestamp: Date(timeIntervalSince1970: 0),
+        )
+        viewModel.selectedSource = catalog
+        viewModel.files = files
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        viewModel.similarityModel.burstGroups = [BurstGroup(id: groupID, fileIDs: files.map(\.id))]
+        viewModel.similarityModel.burstGroupLookup = Dictionary(
+            uniqueKeysWithValues: files.map { ($0.id, groupID) },
+        )
+        viewModel.burstAnalysisResults[groupID] = makeCullingBurstResult(groupID: groupID, files: files)
+        viewModel.updateRating(for: files[0], rating: 2)
+
+        viewModel.applyDeepAIReviewRecommendation(result, to: files)
+
+        #expect(viewModel.ratingCache == [files[0].name: 2, winner.name: 3])
+        #expect(viewModel.burstReviewStates[groupID] == .reviewed)
+        #expect(viewModel.burstAnalysisResults[groupID]?.reviewState == .reviewed)
+        #expect(viewModel.cullingModel.overrideWinner(for: files, in: catalog.url)?.winnerFileName == winner.name)
+    }
+
+    @Test
     func `updateRatingAndAdvance rates current file and selects next visible file`() {
         let viewModel = RawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
