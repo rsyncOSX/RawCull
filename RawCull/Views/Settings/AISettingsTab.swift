@@ -16,7 +16,7 @@ struct AISettingsTab: View {
                     Button {
                         showDownloadPlaceholder = true
                     } label: {
-                        Label("Download SAM 3 Model", systemImage: "arrow.down.circle")
+                        Label("Download AI Models", systemImage: "arrow.down.circle")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .disabled(model.capabilities.sam3Model.isAvailable)
@@ -33,54 +33,23 @@ struct AISettingsTab: View {
 
                     Spacer()
                 }
-
-                deleteSavedBurstDataButton
             }
         }
         .task {
             await model.refresh()
         }
-        .alert("SAM 3 Model Download", isPresented: $showDownloadPlaceholder) {
+        .alert("AI Models Download", isPresented: $showDownloadPlaceholder) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(sam3DownloadMessage)
+            Text(AIDownloadMessage)
         }
     }
 
-    private var deleteSavedBurstDataButton: some View {
-        Button {
-            showDeleteBurstDataConfirmation = true
-        } label: {
-            Label(
-                model.isDeletingSavedBurstData ? "Deleting..." : "Delete Saved Burst Data",
-                systemImage: "trash",
-            )
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.red)
-        }
-        .disabled(model.isScanningSavedBurstData || model.isDeletingSavedBurstData)
-        .buttonStyle(RefinedGlassButtonStyle())
-        .confirmationDialog(
-            "Delete All Saved Burst Data?",
-            isPresented: $showDeleteBurstDataConfirmation,
-        ) {
-            Button("Delete All", role: .destructive) {
-                Task { await model.deleteSavedBurstData() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(
-                "This control is reserved for the AI integration. Its action is " +
-                    "intentionally empty until saved AI artifacts are introduced. " +
-                    "Original photos are never deleted.",
-            )
-        }
-    }
 
-    private var sam3DownloadMessage: String {
+    private var AIDownloadMessage: String {
         let location = model.capabilities.sam3Model.primaryLocation?.path
             ?? "the RawCull Application Support Models folder"
-        return "The SAM 3 model download location will be added later. For now, install " +
+        return "The AI models download location will be added later. For now, install " +
             "the model files manually in \(location)."
     }
 }
