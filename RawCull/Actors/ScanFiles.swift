@@ -81,6 +81,7 @@ actor ScanFiles {
                             size: Int64(res?.fileSize ?? 0),
                             dateModified: res?.contentModificationDate ?? Date(),
                             captureDate: metadata?.captureDate,
+                            captureTimeZoneOffsetSeconds: metadata?.captureTimeZoneOffsetSeconds,
                             exifData: metadata?.exifMetadata,
                             afFocusNormalized: metadata?.focusPoint,
                         )

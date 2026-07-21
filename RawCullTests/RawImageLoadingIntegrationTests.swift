@@ -185,11 +185,14 @@ struct RawImageLoadingIntegrationTests {
         let metadata = RawImageFileMetadata(
             exifMetadata: ExifMetadata(
                 shutterSpeed: "1/1000 s",
+                exposureTimeSeconds: 0.001,
                 focalLength: "400 mm",
+                focalLengthMM: 400,
                 aperture: "f/5.6",
                 apertureValue: 5.6,
                 iso: "ISO 800",
                 isoValue: 800,
+                exposureCompensationEV: -0.3,
                 camera: "Sony A1",
                 lensModel: "FE 400mm",
                 rawFileType: "ARW",
@@ -198,6 +201,7 @@ struct RawImageLoadingIntegrationTests {
                 pixelHeight: 5760,
             ),
             captureDate: captureDate,
+            captureTimeZoneOffsetSeconds: 7_200,
             focusLocation: "8640 5760 4320 2880",
             focusPoint: CGPoint(x: 0.5, y: 0.5),
         )
@@ -219,7 +223,11 @@ struct RawImageLoadingIntegrationTests {
         #expect(file.exifData?.camera == "Sony A1")
         #expect(file.afFocusNormalized == CGPoint(x: 0.5, y: 0.5))
         #expect(file.captureDate == captureDate)
+        #expect(file.captureTimeZoneOffsetSeconds == 7_200)
         #expect(file.dateModified == modificationDate)
+        #expect(file.exifData?.exposureTimeSeconds == 0.001)
+        #expect(file.exifData?.focalLengthMM == 400)
+        #expect(file.exifData?.exposureCompensationEV == -0.3)
         #expect(await fakeLoader.fileMetadataCalls == 1)
         #expect(await scanner.decodedFocusPoints?.first?.focusLocation == "8640 5760 4320 2880")
     }

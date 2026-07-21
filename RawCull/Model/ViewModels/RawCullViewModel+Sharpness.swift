@@ -8,7 +8,25 @@ import RawCullCore
 
 extension RawCullViewModel {
     var sharpnessScoringTargetFiles: [FileItem] {
-        burstAnalysisOrderedFiles()
+        let ordered = files.sorted {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
+
+        if !selectedFileIDs.isEmpty {
+            let visibleSelected = filteredFiles.filter { selectedFileIDs.contains($0.id) }
+            let visibleIDs = Set(visibleSelected.map(\.id))
+            let hiddenSelected = ordered.filter {
+                selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
+            }
+            return visibleSelected + hiddenSelected
+        }
+
+        if case let .stars(rating) = ratingFilter {
+            let visible = filteredFiles.isEmpty ? ordered : filteredFiles
+            return visible.filter { getRating(for: $0) == rating }
+        }
+
+        return ordered
     }
 
     var sharpnessScoringTargetDescription: String {

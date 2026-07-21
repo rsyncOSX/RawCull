@@ -313,7 +313,12 @@ private nonisolated func similarityTestDistance(
     return Float(abs(Int(leftByte) - Int(rightByte))) / 255
 }
 
-private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -> FileItem {
+private func makeCullingTestFile(
+    _ name: String,
+    scoreAperture: Double? = nil,
+    modificationSeconds: TimeInterval = 0,
+    captureSeconds: TimeInterval? = nil,
+) -> FileItem {
     let exif = scoreAperture.map {
         ExifMetadata(
             shutterSpeed: nil,
@@ -334,7 +339,8 @@ private func makeCullingTestFile(_ name: String, scoreAperture: Double? = nil) -
         url: URL(fileURLWithPath: "/tmp/\(name)"),
         name: name,
         size: 1,
-        dateModified: Date(timeIntervalSince1970: 0),
+        dateModified: Date(timeIntervalSince1970: modificationSeconds),
+        captureDate: captureSeconds.map(Date.init(timeIntervalSince1970:)),
         exifData: exif,
         afFocusNormalized: nil,
     )
@@ -947,6 +953,21 @@ struct RawCullViewModelCullingTests {
 
         viewModel.ratingFilter = .rejected
         #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == expectedNames)
+    }
+
+    @Test
+    func `burst analysis orders shots by capture date with file-date fallback`() {
+        let viewModel = RawCullViewModel()
+        let latest = makeCullingTestFile("A-latest.ARW", captureSeconds: 30)
+        let earliest = makeCullingTestFile("Z-earliest.ARW", captureSeconds: 10)
+        let fallback = makeCullingTestFile("M-fallback.ARW", modificationSeconds: 20)
+        viewModel.files = [latest, fallback, earliest]
+
+        #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == [
+            "Z-earliest.ARW",
+            "M-fallback.ARW",
+            "A-latest.ARW",
+        ])
     }
 
     @Test

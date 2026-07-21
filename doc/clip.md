@@ -85,30 +85,24 @@ RAW file, `ScanFiles` asks RawParserKit for EXIF and MakerNote focus information
 in the same per-file task. The resulting `FileItem` retains:
 
 - File URL, name, size, and filesystem modification date.
+- The precise EXIF capture date when available, including subseconds. The
+  source UTC offset is applied to the absolute date and retained separately.
 - Camera and lens names.
 - Display-formatted shutter speed, focal length, aperture, and ISO.
-- Numeric aperture and ISO values.
+- Numeric exposure time in seconds, focal length in millimetres, exposure
+  compensation in EV, aperture, and ISO.
 - RAW compression/type and size class.
 - Pixel dimensions.
 - A normalized AF focus point when RawParserKit can obtain one.
 
-There are two important limitations in the current handoff:
+Burst analysis orders shots by capture date and uses it for time gaps.
+Filesystem modification date is an explicit fallback. Boundary evidence
+records when that fallback was used, and fallback timing receives a wider
+tolerance than EXIF timing because copying or restoring files can change it.
 
-- RawParserKit reads EXIF `DateTimeOriginal` into its `capturedAt` value, but
-  RawCull does not copy that value into `ExifMetadata` or `FileItem`. Burst
-  grouping therefore uses the filesystem modification date as its capture-time
-  proxy. Copying, restoring, or otherwise touching files can make that proxy
-  inaccurate.
-- Shutter speed and focal length reach RawCull as display strings. Burst
-  grouping parses the focal-length string and treats any shutter-string or ISO
-  difference as an exposure change. Small automatic-exposure adjustments can
-  therefore split a genuine burst.
-
-The capture timestamp exposed in the future should be a machine-readable,
-precise value rather than only a localized display string. Preserve EXIF
-subseconds and offset/time-zone information when available. A filesystem
-modification date remains a useful fallback, but its provenance should be known
-so grouping can treat it as lower-confidence evidence.
+Exposure comparisons use the numeric values. Small automatic-exposure
+adjustments are retained as soft `exposureAdjustmentEV` evidence, while only
+changes beyond the configured tolerances create an exposure boundary.
 
 ## Persistence behavior
 
@@ -159,32 +153,34 @@ but it also prevents unchanged per-file embeddings and scores from being reused
 after a catalog gains or changes one image. The source fingerprints already
 carried by similarity artifacts make more incremental reuse possible.
 
+## Completed follow-up work
+
+### Preserve precise capture and numeric exposure metadata
+
+RawParserKit, RawCullCore, and RawCull now carry precise capture time, source
+UTC offset, exposure time, focal length, exposure compensation, aperture, and
+ISO through the scan pipeline. Localized strings remain available for display.
+
+Burst grouping now:
+
+- Orders shots by effective capture time, with filename as a stable tie-breaker.
+- Uses a two-second EXIF time-gap threshold and a lower-confidence ten-second
+  filesystem-date fallback threshold.
+- Compares shutter speed, aperture, ISO, and exposure compensation in EV with
+  tolerances, instead of splitting on any string or ISO difference.
+- Records the largest exposure adjustment and capture-time fallback provenance
+  in boundary evidence.
+
+Candidate ranking now uses numeric shutter speed and focal length as motion-risk
+evidence and applies a graduated high-ISO noise-risk penalty. The grouping
+algorithm version was advanced so older derived burst results are invalidated.
+
 ## Recommended follow-up work
 
 The highest-value improvement is better use and persistence of compact data,
 not collecting every EXIF field or making the initial catalog scan AI-heavy.
 
-### 1. Preserve precise capture and numeric exposure metadata
-
-Extend the RawParserKit-to-RawCull handoff and the RawCullCore models with
-optional machine-readable values for:
-
-- Capture date, including subseconds and UTC offset when present.
-- Exposure time in seconds.
-- Focal length in millimetres.
-- Exposure compensation in EV.
-- Aperture and ISO, retaining the numeric values already available.
-
-Use capture date for shot ordering and burst time gaps, with filesystem
-modification date as an explicit fallback. Continue deriving localized strings
-only for presentation.
-
-Update burst grouping to compare numeric exposure values with tolerances. An
-ordinary small auto-exposure change should normally be soft boundary evidence,
-not an unconditional burst split. Numeric shutter speed can also inform
-candidate ranking as motion-risk evidence, while ISO can inform noise risk.
-
-### 2. Separate per-file analysis artifacts from catalog-derived results
+### 1. Separate per-file analysis artifacts from catalog-derived results
 
 Introduce a source-fingerprint-keyed per-file cache for compact reusable work:
 
@@ -203,7 +199,7 @@ durable without requiring the complete **Analyze Bursts** pipeline to finish.
 Writes should remain atomic, and partial indexing should preserve successful
 entries alongside failure diagnostics.
 
-### 3. Reuse the existing CLIP artifacts in user-facing features
+### 2. Reuse the existing CLIP artifacts in user-facing features
 
 The existing image embeddings can support useful features without another
 image-analysis pass:
@@ -217,7 +213,7 @@ These features should consume a typed RawCull accessor and PhotoAIKit's
 comparator. They should not decode the cache JSON directly or calculate vector
 distance using assumptions about a particular backend.
 
-### 4. Add targeted visual quality signals only where they improve culling
+### 3. Add targeted visual quality signals only where they improve culling
 
 Potential later signals include:
 
@@ -231,7 +227,7 @@ or only for likely finalists. Persist compact results with their algorithm and
 configuration versions. Embedded-JPEG measurements are useful for relative
 culling but should not be presented as raw-sensor measurements.
 
-### 5. Keep low-value or expensive data out of the initial scan
+### 4. Keep low-value or expensive data out of the initial scan
 
 Complete EXIF dumps, GPS, captions, SAM masks, an all-pairs distance matrix, and
 full RAW histograms are not first-priority culling inputs. GPS and sidecar/XMP
@@ -242,16 +238,13 @@ Any expanded scan-time parsing should reuse the existing per-file metadata pass
 and remain bounded. Preview decoding, model inference, and vendor-specific deep
 MakerNote work should stay deferred so opening a catalog remains responsive.
 
-## Suggested implementation order
+## Suggested remaining implementation order
 
-1. Add precise capture date and numeric exposure/focal-length values across
-   RawParserKit, RawCullCore, and RawCull.
-2. Add tests for capture-date fallback, ordering, and tolerant burst boundaries.
-3. Split per-file reusable artifacts from catalog-derived burst state and make
+1. Split per-file reusable artifacts from catalog-derived burst state and make
    **Index Similarity** durable.
-4. Expose a typed similarity-artifact accessor and add **Find Similar**,
+2. Expose a typed similarity-artifact accessor and add **Find Similar**,
    near-duplicate, cluster, or outlier features.
-5. Measure culling benefit and processing cost before adding further visual
+3. Measure culling benefit and processing cost before adding further visual
    quality signals.
 
 Relevant implementation files:

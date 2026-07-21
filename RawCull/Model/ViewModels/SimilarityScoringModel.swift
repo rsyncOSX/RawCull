@@ -411,7 +411,7 @@ final class SimilarityScoringModel {
     // MARK: - Burst grouping
 
     /// Cluster `files` into burst groups using a sequential O(n) distance pass.
-    /// `files` must be sorted by filename (= shot order) before calling.
+    /// `files` must be sorted by effective capture time before calling.
     func groupBursts(files: [FileItem]) async {
         guard !files.isEmpty else {
             _groupingTask?.cancel()
