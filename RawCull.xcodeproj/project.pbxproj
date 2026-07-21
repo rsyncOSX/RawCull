@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E9010B38300FC2D10049FCA4 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9010B37300FC2D10049FCA4 /* RawCullCore */; };
+		E9010B3B300FC32F0049FCA4 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9010B3A300FC32F0049FCA4 /* RawParserKit */; };
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
-		E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
-		E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
 		E97E976C2F210EAB001A4239 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E97E975C2F210EAB001A4239 /* Assets.xcassets */; };
 		E97E976D2F210EAB001A4239 /* RawCullicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E97E975D2F210EAB001A4239 /* RawCullicon.icon */; };
 		E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E9B609842F28FA3600704081 /* DecodeEncodeGeneric */; };
@@ -54,13 +54,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
 				E9D47ADF3009073400A2F3D6 /* PhotoAnalysisKit in Frameworks */,
+				E9010B3B300FC32F0049FCA4 /* RawParserKit in Frameworks */,
+				E9010B38300FC2D10049FCA4 /* RawCullCore in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
 				E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */,
-				E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,9 +119,9 @@
 				E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */,
 				E92712B22F2CF57E00A681D0 /* RsyncArguments */,
 				E952AA612F2E37170081987F /* ParseRsyncOutput */,
-				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
-				E95349CF2FF9902900A4C0C3 /* RawParserKit */,
 				E9D47ADE3009073400A2F3D6 /* PhotoAnalysisKit */,
+				E9010B37300FC2D10049FCA4 /* RawCullCore */,
+				E9010B3A300FC32F0049FCA4 /* RawParserKit */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -184,9 +184,9 @@
 				E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */,
 				E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */,
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
-				E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */,
-				E95349CE2FF9902900A4C0C3 /* XCLocalSwiftPackageReference "../RawParserKit" */,
 				E9D47ADD3009073400A2F3D6 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
+				E9010B36300FC2D10049FCA4 /* XCRemoteSwiftPackageReference "RawCullCore" */,
+				E9010B39300FC32F0049FCA4 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -570,6 +570,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		E9010B36300FC2D10049FCA4 /* XCRemoteSwiftPackageReference "RawCullCore" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.1.1;
+			};
+		};
+		E9010B39300FC32F0049FCA4 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.7;
+			};
+		};
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/RsyncArguments";
@@ -612,18 +628,17 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		E95349CE2FF9902900A4C0C3 /* XCLocalSwiftPackageReference "../RawParserKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RawParserKit;
-		};
-		E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RawCullCore;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
+		E9010B37300FC2D10049FCA4 /* RawCullCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9010B36300FC2D10049FCA4 /* XCRemoteSwiftPackageReference "RawCullCore" */;
+			productName = RawCullCore;
+		};
+		E9010B3A300FC32F0049FCA4 /* RawParserKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9010B39300FC32F0049FCA4 /* XCRemoteSwiftPackageReference "RawParserKit" */;
+			productName = RawParserKit;
+		};
 		E92712B22F2CF57E00A681D0 /* RsyncArguments */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */;
@@ -633,16 +648,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */;
 			productName = ParseRsyncOutput;
-		};
-		E95349CF2FF9902900A4C0C3 /* RawParserKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E95349CE2FF9902900A4C0C3 /* XCLocalSwiftPackageReference "../RawParserKit" */;
-			productName = RawParserKit;
-		};
-		E9634D6B2FD1D1A0009E567D /* RawCullCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9634D6A2FD1D1A0009E567D /* XCLocalSwiftPackageReference "../RawCullCore" */;
-			productName = RawCullCore;
 		};
 		E9B609842F28FA3600704081 /* DecodeEncodeGeneric */ = {
 			isa = XCSwiftPackageProductDependency;
