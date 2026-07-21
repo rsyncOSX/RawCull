@@ -575,7 +575,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/RawCullCore.git";
 			requirement = {
 				kind = exactVersion;
-				version = 1.1.1;
+				version = 1.1.2;
 			};
 		};
 		E9010B39300FC32F0049FCA4 /* XCRemoteSwiftPackageReference "RawParserKit" */ = {
@@ -583,7 +583,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/RawParserKit.git";
 			requirement = {
 				kind = exactVersion;
-				version = 1.2.7;
+				version = 1.2.8;
 			};
 		};
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
