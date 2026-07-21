@@ -1425,6 +1425,37 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `burst cache rejects groups produced by the previous timestamp algorithm`() async {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullAlgorithmCacheTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let cache = BurstAnalysisCache(cacheDirectory: directory)
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let files = [makeCullingTestFile("A.ARW"), makeCullingTestFile("B.ARW")]
+        var snapshot = makeBurstSnapshot(
+            catalog: catalog,
+            files: files,
+            groups: [],
+            results: [],
+            reviewStateSnapshots: [],
+        )
+        snapshot.algorithmVersion = BurstGroupingConfig.algorithmVersion - 1
+
+        await cache.save(snapshot, catalog: catalog)
+
+        let loaded = await cache.load(
+            catalog: catalog,
+            files: files,
+            thumbnailMaxPixelSize: 512,
+            sharpnessSignature: snapshot.sharpnessSignature,
+            similaritySignature: snapshot.similaritySignature,
+        )
+
+        #expect(loaded == nil)
+    }
+
+    @Test
     func `burst cache reports usage and clears every catalog snapshot`() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullUsageCacheTests-\(UUID().uuidString)", isDirectory: true)

@@ -180,6 +180,8 @@ struct RawImageLoadingIntegrationTests {
 
     @Test
     func `scan files uses loader metadata for exif and focus point`() async throws {
+        let captureDate = Date(timeIntervalSince1970: 1_700_000_000.123_456)
+        let modificationDate = Date(timeIntervalSince1970: 1_800_000_000)
         let metadata = RawImageFileMetadata(
             exifMetadata: ExifMetadata(
                 shutterSpeed: "1/1000 s",
@@ -195,6 +197,7 @@ struct RawImageLoadingIntegrationTests {
                 pixelWidth: 8640,
                 pixelHeight: 5760,
             ),
+            captureDate: captureDate,
             focusLocation: "8640 5760 4320 2880",
             focusPoint: CGPoint(x: 0.5, y: 0.5),
         )
@@ -203,6 +206,10 @@ struct RawImageLoadingIntegrationTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rawURL = root.appendingPathComponent("scan-source.arw")
         try Data([0x52, 0x41, 0x57]).write(to: rawURL)
+        try FileManager.default.setAttributes(
+            [.modificationDate: modificationDate],
+            ofItemAtPath: rawURL.path,
+        )
         let scanner = ScanFiles(rawLoader: fakeLoader)
 
         let files = await scanner.scanFiles(url: root)
@@ -211,6 +218,8 @@ struct RawImageLoadingIntegrationTests {
         #expect(files.count == 1)
         #expect(file.exifData?.camera == "Sony A1")
         #expect(file.afFocusNormalized == CGPoint(x: 0.5, y: 0.5))
+        #expect(file.captureDate == captureDate)
+        #expect(file.dateModified == modificationDate)
         #expect(await fakeLoader.fileMetadataCalls == 1)
         #expect(await scanner.decodedFocusPoints?.first?.focusLocation == "8640 5760 4320 2880")
     }

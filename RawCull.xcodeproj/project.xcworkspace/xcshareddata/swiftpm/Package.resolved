@@ -1,5 +1,5 @@
 {
-  "originHash" : "e1f5704bae19455aa6f220caecdf5e50b5b1ed028fa0c5ac2ebbea9968b6df18",
+  "originHash" : "c55207f0bd1e4d5132126acbd7b5b712d329db40919e5a0cd6e8806cb4a587c0",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -58,8 +58,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawCullCore.git",
       "state" : {
-        "revision" : "91138b766390dd60c537c4f3846f79bb83dead9c",
-        "version" : "1.1.0"
+        "revision" : "7d57fe4c4470391a8cf93bdde94b937aa41930af",
+        "version" : "1.1.1"
       }
     },
     {
@@ -67,8 +67,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawParserKit",
       "state" : {
-        "revision" : "ece53ebf3c7c112bde48a88b5f3ce6fa8d46e806",
-        "version" : "1.2.6"
+        "revision" : "3273d83275f3c85e2faddcd1293f576c559cb973",
+        "version" : "1.2.7"
       }
     },
     {
@@ -121,8 +121,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "1b6b2e274e85105bfa155183145a1dcfd63331f1",
-        "version" : "4.5.0"
+        "revision" : "47d3869a7291f085c1fb9fb1e6d3b97a793f45c6",
+        "version" : "4.5.1"
       }
     },
     {
@@ -139,8 +139,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-jinja.git",
       "state" : {
-        "revision" : "7103f805a3a98a374e1c1b7fea969ab13aab2e8d",
-        "version" : "2.4.0"
+        "revision" : "7d0b8880ef8e567dd4e0089f8b99fb354129017c",
+        "version" : "2.4.2"
       }
     },
     {
@@ -148,8 +148,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio.git",
       "state" : {
-        "revision" : "cd3e1152083706d77b223fb29110e590efcc70c0",
-        "version" : "2.101.2"
+        "revision" : "0b18836bd8b0162e7e17a995a3fbee20ed8f3b2b",
+        "version" : "2.101.3"
       }
     },
     {
@@ -176,7 +176,7 @@
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
         "branch" : "main",
-        "revision" : "257f870d1b905060a5d3168f6f997bb3481f90c1"
+        "revision" : "d03acd3a0bdac9e87876918f80032585322f0b4a"
       }
     },
     {

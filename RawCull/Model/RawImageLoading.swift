@@ -5,6 +5,7 @@ import RawParserKit
 
 nonisolated struct RawImageFileMetadata: Sendable {
     let exifMetadata: ExifMetadata
+    let captureDate: Date?
     let focusLocation: String?
     let focusPoint: CGPoint?
 }
@@ -56,6 +57,7 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
         }
         return RawImageFileMetadata(
             exifMetadata: exifMetadata,
+            captureDate: metadata.captureDate,
             focusLocation: Self.focusLocation(from: metadata),
             focusPoint: normalizedFocusPoint,
         )
