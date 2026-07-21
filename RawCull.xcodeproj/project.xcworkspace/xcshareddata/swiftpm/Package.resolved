@@ -58,8 +58,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawCullCore.git",
       "state" : {
-        "revision" : "7d57fe4c4470391a8cf93bdde94b937aa41930af",
-        "version" : "1.1.1"
+        "revision" : "d25a51e65ad32a82bf82f86fa0ec07d6e14498e9",
+        "version" : "1.1.2"
       }
     },
     {
@@ -67,8 +67,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawParserKit",
       "state" : {
-        "revision" : "3273d83275f3c85e2faddcd1293f576c559cb973",
-        "version" : "1.2.7"
+        "revision" : "0576a7cfbbdb48a5e0cd34569f2fce53e6d72a54",
+        "version" : "1.2.8"
       }
     },
     {
