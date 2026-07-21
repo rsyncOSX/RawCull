@@ -1,5 +1,5 @@
 {
-  "originHash" : "eae2212ff03cf36555a597d08cf34da4e97308d67dcd3b7e225d44eb2aa0b462",
+  "originHash" : "4712e706b3d55da3e58e3b7471f36767bbaabd8c8ab2a6435a018bd38b937b46",
   "pins" : [
     {
       "identity" : "decodeencodegeneric",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawCullCore.git",
       "state" : {
-        "revision" : "7d57fe4c4470391a8cf93bdde94b937aa41930af",
-        "version" : "1.1.1"
+        "revision" : "d25a51e65ad32a82bf82f86fa0ec07d6e14498e9",
+        "version" : "1.1.2"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawParserKit.git",
       "state" : {
-        "revision" : "3273d83275f3c85e2faddcd1293f576c559cb973",
-        "version" : "1.2.7"
+        "revision" : "0576a7cfbbdb48a5e0cd34569f2fce53e6d72a54",
+        "version" : "1.2.8"
       }
     },
     {

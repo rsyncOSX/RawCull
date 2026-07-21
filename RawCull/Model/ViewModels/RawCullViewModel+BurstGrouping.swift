@@ -372,25 +372,22 @@ extension RawCullViewModel {
     }
 
     func burstAnalysisOrderedFiles() -> [FileItem] {
-        let ordered = files.sorted {
-            $0.name.localizedStandardCompare($1.name) == .orderedAscending
-        }
-
+        let targets: [FileItem]
         if !selectedFileIDs.isEmpty {
-            let visibleSelected = filteredFiles.filter { selectedFileIDs.contains($0.id) }
-            let visibleIDs = Set(visibleSelected.map(\.id))
-            let hiddenSelected = ordered.filter {
-                selectedFileIDs.contains($0.id) && !visibleIDs.contains($0.id)
+            targets = files.filter { selectedFileIDs.contains($0.id) }
+        } else if case let .stars(rating) = ratingFilter {
+            let visible = filteredFiles.isEmpty ? files : filteredFiles
+            targets = visible.filter { getRating(for: $0) == rating }
+        } else {
+            targets = files
+        }
+
+        return targets.sorted { lhs, rhs in
+            if lhs.effectiveCaptureDate == rhs.effectiveCaptureDate {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }
-            return visibleSelected + hiddenSelected
+            return lhs.effectiveCaptureDate < rhs.effectiveCaptureDate
         }
-
-        if case let .stars(rating) = ratingFilter {
-            let visible = filteredFiles.isEmpty ? ordered : filteredFiles
-            return visible.filter { getRating(for: $0) == rating }
-        }
-
-        return ordered
     }
 
     private func recomputeBurstRankings(files: [FileItem]) {
@@ -667,7 +664,9 @@ extension RawCullViewModel {
                 currentID: remap(item.currentID),
                 visualDistance: item.visualDistance,
                 timeGapSeconds: item.timeGapSeconds,
+                captureTimeUsedFallback: item.captureTimeUsedFallback,
                 focalLengthDelta: item.focalLengthDelta,
+                exposureAdjustmentEV: item.exposureAdjustmentEV,
                 exposureChanged: item.exposureChanged,
                 cameraChanged: item.cameraChanged,
                 lensChanged: item.lensChanged,

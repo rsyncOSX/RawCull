@@ -16,6 +16,9 @@ struct FileInspectorView: View {
                 Section("File Attributes") {
                     LabeledContent("Size", value: file.formattedSize)
                     LabeledContent("Path", value: file.url.deletingLastPathComponent().path())
+                    if let captureDate = file.captureDate {
+                        LabeledContent("Captured", value: captureDate.formatted(date: .abbreviated, time: .standard))
+                    }
                     LabeledContent("Modified", value: file.dateModified.formatted(date: .abbreviated, time: .shortened))
                 }
 
@@ -38,6 +41,9 @@ struct FileInspectorView: View {
                         }
                         if let iso = exif.iso {
                             LabeledContent("ISO", value: iso)
+                        }
+                        if let compensation = exif.exposureCompensationEV {
+                            LabeledContent("Exposure Compensation", value: compensation.formatted(.number.precision(.fractionLength(1 ... 2))) + " EV")
                         }
                         if let rawFileType = exif.rawFileType {
                             LabeledContent("RAW Type", value: rawFileType)

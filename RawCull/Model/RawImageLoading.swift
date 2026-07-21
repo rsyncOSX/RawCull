@@ -6,6 +6,7 @@ import RawParserKit
 nonisolated struct RawImageFileMetadata: Sendable {
     let exifMetadata: ExifMetadata
     let captureDate: Date?
+    let captureTimeZoneOffsetSeconds: Int?
     let focusLocation: String?
     let focusPoint: CGPoint?
 }
@@ -40,11 +41,14 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
         guard let metadata = await RawParserKit.RawImageLoader.shared.metadata(for: url) else { return nil }
         let exifMetadata = ExifMetadata(
             shutterSpeed: metadata.exposure,
+            exposureTimeSeconds: metadata.exposureTimeSeconds,
             focalLength: metadata.focalLength,
+            focalLengthMM: metadata.focalLengthMM,
             aperture: metadata.aperture,
             apertureValue: metadata.apertureValue,
             iso: metadata.isoValue.map { "ISO \($0)" } ?? metadata.iso.map(Self.isoDescription(from:)),
             isoValue: metadata.isoValue,
+            exposureCompensationEV: metadata.exposureCompensationEV,
             camera: metadata.camera,
             lensModel: metadata.lens,
             rawFileType: metadata.rawFileType,
@@ -58,6 +62,7 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
         return RawImageFileMetadata(
             exifMetadata: exifMetadata,
             captureDate: metadata.captureDate,
+            captureTimeZoneOffsetSeconds: metadata.captureTimeZoneOffsetSeconds,
             focusLocation: Self.focusLocation(from: metadata),
             focusPoint: normalizedFocusPoint,
         )
