@@ -93,7 +93,7 @@ struct CullingGridRenderCache {
 }
 
 enum BurstGroupCleanViewPolicy {
-    static let visibleLimit = 3
+    static let visibleLimit = 4
 
     static func visibleFiles(
         in files: [FileItem],

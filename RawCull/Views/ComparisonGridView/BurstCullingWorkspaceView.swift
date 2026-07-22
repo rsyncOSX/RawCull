@@ -247,6 +247,7 @@ struct BurstCullingWorkspaceView: View {
                     )
                 }
 
+/* Remove
                 inspectorCard("Burst actions") {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         Button("Defer") {
@@ -261,7 +262,7 @@ struct BurstCullingWorkspaceView: View {
 
                     }
                 }
-
+*/
                 inspectorCard("Tags") {
                     if let selectedFile {
                         tagStrip(for: selectedFile)
