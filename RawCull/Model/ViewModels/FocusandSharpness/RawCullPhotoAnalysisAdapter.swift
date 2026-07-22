@@ -1,6 +1,7 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
+import OSLog
 import PhotoAnalysisKit
 import RawCullCore
 
@@ -48,6 +49,9 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
         maximumConcurrentTasks: Int,
         progress: (@Sendable (_ completedCount: Int, _ totalCount: Int) async -> Void)? = nil,
     ) async -> [RawCullPhotoAnalysisResult<Identifier>]? {
+        Logger.process.debugMessageOnly(
+            "RawCullPhotoAnalysisAdapter.analyzeBatch(): analyzing \(requests.count) requests",
+        )
         let packageRequests = requests.map { request in
             PhotoAnalysisBatchRequest(id: request.id) {
                 await input(
@@ -64,8 +68,16 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
             progress: { update in
                 await progress?(update.completedCount, update.totalCount)
             },
-        ) else { return nil }
+        ) else {
+            Logger.process.debugMessageOnly(
+                "RawCullPhotoAnalysisAdapter.analyzeBatch(): analyzer returned no results",
+            )
+            return nil
+        }
 
+        Logger.process.debugMessageOnly(
+            "RawCullPhotoAnalysisAdapter.analyzeBatch(): received \(results.count) results",
+        )
         return results.map { result in
             Self.adapt(result, scoringSource: source)
         }
@@ -80,7 +92,15 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
         minimumSuccessfulImages: Int,
         maximumConcurrentTasks: Int,
     ) async -> FocusCalibrationResult? {
-        guard !files.isEmpty else { return nil }
+        Logger.process.debugMessageOnly(
+            "RawCullPhotoAnalysisAdapter.calibrate(): calibrating with \(files.count) files",
+        )
+        guard !files.isEmpty else {
+            Logger.process.debugMessageOnly(
+                "RawCullPhotoAnalysisAdapter.calibrate(): skipped because no files were supplied",
+            )
+            return nil
+        }
         let requests = files.enumerated().map { index, file in
             PhotoAnalysisBatchRequest(id: index) {
                 await input(
@@ -90,13 +110,17 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
                 )
             }
         }
-        return await analyzer.calibrate(
+        let result = await analyzer.calibrate(
             from: requests,
             baseConfiguration: baseConfiguration,
             thresholdPercentile: thresholdPercentile,
             minimumSuccessfulImages: minimumSuccessfulImages,
             maximumConcurrentTasks: maximumConcurrentTasks,
         )
+        Logger.process.debugMessageOnly(
+            "RawCullPhotoAnalysisAdapter.calibrate(): calibration finished; result available: \(result != nil)",
+        )
+        return result
     }
 
     private func input(

@@ -4,6 +4,7 @@ import CoreImage.CIFilterBuiltins
 import Foundation
 import ImageIO
 import Observation
+import OSLog
 import PhotoAIContracts
 import PhotoAIWorkflows
 
@@ -191,8 +192,19 @@ final class DeepAIReviewFeature {
     }
 
     func start(_ request: DeepAIReviewRequest) async {
-        guard !isRunning else { return }
+        Logger.process.debugMessageOnly(
+            "DeepAIReviewFeature.start(): starting group \(request.groupID) with \(request.candidates.count) candidates",
+        )
+        guard !isRunning else {
+            Logger.process.debugMessageOnly(
+                "DeepAIReviewFeature.start(): skipped because a review is already running",
+            )
+            return
+        }
         guard availability.isAvailable, let service else {
+            Logger.process.debugMessageOnly(
+                "DeepAIReviewFeature.start(): failed because the Deep Review service is unavailable",
+            )
             state = .failed(
                 groupID: request.groupID,
                 failure: .modelUnavailable(Self.unavailableReason(for: availability)),
@@ -200,6 +212,9 @@ final class DeepAIReviewFeature {
             return
         }
         guard !request.candidates.isEmpty else {
+            Logger.process.debugMessageOnly(
+                "DeepAIReviewFeature.start(): failed because the request contains no candidates",
+            )
             state = .failed(groupID: request.groupID, failure: .noCandidates)
             return
         }
@@ -216,21 +231,39 @@ final class DeepAIReviewFeature {
         let feature = self
         let task = Task {
             do {
+                Logger.process.debugMessageOnly(
+                    "DeepAIReviewFeature.start(): invoking the Deep Review service",
+                )
                 let result = try await service.review(request) { progress in
                     await feature.receive(progress, generation: runGeneration)
                 }
                 try Task.checkCancellation()
                 guard feature.generation == runGeneration else { return }
+                Logger.process.debugMessageOnly(
+                    "DeepAIReviewFeature.start(): service returned a result for group \(request.groupID)",
+                )
                 feature.state = .completing(groupID: request.groupID)
                 feature.results[result.groupSignature] = result
                 feature.state = .completed(result)
+                Logger.process.debugMessageOnly(
+                    "DeepAIReviewFeature.start(): review completed for group \(request.groupID)",
+                )
             } catch is CancellationError {
+                Logger.process.debugMessageOnly(
+                    "DeepAIReviewFeature.start(): review was cancelled",
+                )
                 guard feature.generation == runGeneration else { return }
                 feature.state = .idle
             } catch let failure as DeepAIReviewFailure {
+                Logger.process.debugMessageOnly(
+                    "DeepAIReviewFeature.start(): review failed: \(failure)",
+                )
                 guard feature.generation == runGeneration else { return }
                 feature.state = .failed(groupID: request.groupID, failure: failure)
             } catch {
+                Logger.process.debugMessageOnly(
+                    "DeepAIReviewFeature.start(): review failed unexpectedly: \(error)",
+                )
                 guard feature.generation == runGeneration else { return }
                 feature.state = .failed(
                     groupID: request.groupID,
@@ -251,6 +284,9 @@ final class DeepAIReviewFeature {
     }
 
     func cancel() {
+        Logger.process.debugMessageOnly(
+            "DeepAIReviewFeature.cancel(): cancelling the active review",
+        )
         generation &+= 1
         task?.cancel()
         task = nil
@@ -258,11 +294,18 @@ final class DeepAIReviewFeature {
     }
 
     func reset() {
+        Logger.process.debugMessageOnly(
+            "DeepAIReviewFeature.reset(): resetting Deep Review state",
+        )
         cancel()
         results = [:]
     }
 
     private func receive(_ progress: DeepAIReviewProgress, generation: Int) {
+        Logger.process.debugMessageOnly(
+            "DeepAIReviewFeature.receive(): received progress "
+                + "\(progress.completedCount)/\(progress.totalCount) for group \(progress.groupID)",
+        )
         guard self.generation == generation, !Task.isCancelled else { return }
         state = .running(progress)
     }
@@ -304,6 +347,9 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
         maximumPixelSize: Int,
         source: SharpnessScoringSource,
     ) async throws -> CGImage {
+        Logger.process.debugMessageOnly(
+            "RawCullDeepReviewImageDecoder.image(): decoding \(candidate.fileName) from \(source)",
+        )
         try Task.checkCancellation()
         switch source {
         case .embeddedPreview:
@@ -312,9 +358,13 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
                 url: candidate.url,
                 displayName: candidate.fileName,
             )
-            return try await RawCullSimilarityImageDecoder(
+            let image = try await RawCullSimilarityImageDecoder(
                 maxPixelSize: maximumPixelSize,
             ).image(for: source)
+            Logger.process.debugMessageOnly(
+                "RawCullDeepReviewImageDecoder.image(): decoded \(candidate.fileName) at \(image.width)x\(image.height)",
+            )
+            return image
 
         case .rawDemosaic:
             guard let rawFilter = CIRAWFilter(imageURL: candidate.url) else {
@@ -343,6 +393,9 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
             guard let result = context.createCGImage(image, from: image.extent) else {
                 throw DeepAIReviewCandidateIssue.imageDecodeFailed
             }
+            Logger.process.debugMessageOnly(
+                "RawCullDeepReviewImageDecoder.image(): decoded \(candidate.fileName) at \(result.width)x\(result.height)",
+            )
             return result
         }
     }
@@ -371,8 +424,15 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         _ request: DeepAIReviewRequest,
         progress: @escaping @Sendable (DeepAIReviewProgress) async -> Void,
     ) async throws -> DeepAIReviewResult {
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.review(): starting group \(request.groupID) "
+                + "with \(request.candidates.count) input candidates",
+        )
         let candidates = Self.selectedCandidates(from: request.candidates)
         guard !candidates.isEmpty else { throw DeepAIReviewFailure.noCandidates }
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.review(): selected \(candidates.count) candidates for detailed review",
+        )
 
         var completed: [DeepAIReviewCandidate] = []
         await progress(Self.progress(
@@ -397,7 +457,11 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         }
 
         try Task.checkCancellation()
-        return Self.makeResult(request: request, candidates: completed)
+        let result = Self.makeResult(request: request, candidates: completed)
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.review(): finished group \(request.groupID)",
+        )
+        return result
     }
 
     nonisolated static func selectedCandidateCount(from totalCount: Int) -> Int {
@@ -442,6 +506,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         _ candidate: DeepAIReviewInputCandidate,
         request: DeepAIReviewRequest,
     ) async throws -> DeepAIReviewCandidate {
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.evaluate(): evaluating \(candidate.fileName)",
+        )
         let image: CGImage
         do {
             image = try await decoder.image(
@@ -452,6 +519,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            Logger.process.debugMessageOnly(
+                "RawCullDeepAIReviewPipeline.evaluate(): image decode failed for \(candidate.fileName): \(error)",
+            )
             return Self.failedCandidate(
                 candidate,
                 issue: .imageDecodeFailed,
@@ -469,6 +539,10 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         )
         let selection: SubjectMaskSelection
         do {
+            Logger.process.debugMessageOnly(
+                "RawCullDeepAIReviewPipeline.evaluate(): requesting a subject mask "
+                    + "for \(candidate.fileName) with \(prompts.count) prompt attempts",
+            )
             selection = try await selector.select(
                 for: source,
                 image: image,
@@ -481,6 +555,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            Logger.process.debugMessageOnly(
+                "RawCullDeepAIReviewPipeline.evaluate(): subject mask acquisition failed for \(candidate.fileName): \(error)",
+            )
             return Self.failedCandidate(
                 candidate,
                 issue: .maskAcquisitionFailed(String(describing: error)),
@@ -488,6 +565,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         }
 
         guard let selected = selection.selected else {
+            Logger.process.debugMessageOnly(
+                "RawCullDeepAIReviewPipeline.evaluate(): no subject mask was selected for \(candidate.fileName)",
+            )
             let failure = selection.attempts.lazy.compactMap { attempt -> String? in
                 if case let .failed(reason) = attempt.outcome { reason } else { nil }
             }.first
@@ -518,6 +598,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         let focusEvidence: SubjectMaskFocusEvidence?
         if usableMask {
             do {
+                Logger.process.debugMessageOnly(
+                    "RawCullDeepAIReviewPipeline.evaluate(): scoring subject detail for \(candidate.fileName)",
+                )
                 focusEvidence = try await focusScorer.score(
                     image: image,
                     subjectMask: selected.result.mask,
@@ -526,6 +609,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
+                Logger.process.debugMessageOnly(
+                    "RawCullDeepAIReviewPipeline.evaluate(): subject-detail scoring failed for \(candidate.fileName): \(error)",
+                )
                 focusEvidence = nil
             }
         } else {
@@ -543,7 +629,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             }
         }
 
-        return DeepAIReviewCandidate(
+        let result = DeepAIReviewCandidate(
             fileID: candidate.fileID,
             fileName: candidate.fileName,
             rank: candidate.burstRank,
@@ -561,6 +647,10 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             usedFallbackMask: usedFallback,
             issues: issues,
         )
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.evaluate(): finished \(candidate.fileName); score available: \(result.deepScore != nil)",
+        )
+        return result
     }
 
     private nonisolated static func selectedCandidates(
@@ -695,6 +785,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         request: DeepAIReviewRequest,
         candidates: [DeepAIReviewCandidate],
     ) -> DeepAIReviewResult {
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.makeResult(): building a result from \(candidates.count) evaluated candidates",
+        )
         let sorted = candidates.sorted {
             let lhs = $0.deepScore ?? -.infinity
             let rhs = $1.deepScore ?? -.infinity
@@ -720,7 +813,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             .reduce(into: [DeepAIReviewCandidateIssue]()) { result, issue in
                 if !result.contains(issue) { result.append(issue) }
             }
-        return DeepAIReviewResult(
+        let result = DeepAIReviewResult(
             groupID: request.groupID,
             groupSignature: request.groupSignature,
             preset: request.preset,
@@ -731,6 +824,10 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             cautions: cautions,
             timestamp: Date(),
         )
+        Logger.process.debugMessageOnly(
+            "RawCullDeepAIReviewPipeline.makeResult(): result created; winner available: \(result.recommendedFileID != nil)",
+        )
+        return result
     }
 }
 

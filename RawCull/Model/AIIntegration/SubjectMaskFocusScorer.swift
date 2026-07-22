@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import OSLog
 import PhotoAnalysisKit
 
 nonisolated struct SubjectMaskFocusEvidence: Equatable, Sendable {
@@ -34,6 +35,9 @@ nonisolated struct SubjectMaskFocusScorer: SubjectMaskFocusScoring, Sendable {
         subjectMask: CGImage,
         normalizedAFPoint: CGPoint?,
     ) async throws -> SubjectMaskFocusEvidence? {
+        Logger.process.debugMessageOnly(
+            "SubjectMaskFocusScorer.score(): starting subject-detail scoring at \(image.width)x\(image.height)",
+        )
         try Task.checkCancellation()
         let width = image.width
         let height = image.height
@@ -123,7 +127,7 @@ nonisolated struct SubjectMaskFocusScorer: SubjectMaskFocusScoring, Sendable {
             finalScore *= 0.82
         }
 
-        return SubjectMaskFocusEvidence(
+        let evidence = SubjectMaskFocusEvidence(
             finalScore: finalScore,
             broadSubjectScore: broad,
             localDetailScore: local,
@@ -135,6 +139,10 @@ nonisolated struct SubjectMaskFocusScorer: SubjectMaskFocusScoring, Sendable {
             usableLocalPatch: local != nil,
             backgroundDominancePenaltyApplied: backgroundDominance,
         )
+        Logger.process.debugMessageOnly(
+            "SubjectMaskFocusScorer.score(): finished with score \(evidence.finalScore)",
+        )
+        return evidence
     }
 
     private nonisolated static func maskAlpha(

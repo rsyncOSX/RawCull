@@ -160,7 +160,15 @@ final class SimilarityScoringModel {
         _ files: [FileItem],
         thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
     ) async {
-        guard !files.isEmpty else { return }
+        Logger.process.debugMessageOnly(
+            "SimilarityScoringModel.indexFiles(): requested indexing for \(files.count) files",
+        )
+        guard !files.isEmpty else {
+            Logger.process.debugMessageOnly(
+                "SimilarityScoringModel.indexFiles(): skipped because no files were supplied",
+            )
+            return
+        }
 
         _indexingTask?.cancel()
         _indexingGeneration &+= 1
@@ -188,6 +196,9 @@ final class SimilarityScoringModel {
             toIndex = files
         }
         if toIndex.isEmpty {
+            Logger.process.debugMessageOnly(
+                "SimilarityScoringModel.indexFiles(): all similarity artifacts are current",
+            )
             _indexingTask = nil
             _indexingStartedAt = nil
             indexingProgress = files.count
@@ -307,7 +318,7 @@ final class SimilarityScoringModel {
                 )
             }
             Logger.process.debugMessageOnly(
-                "SimilarityScoringModel: indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
+                "SimilarityScoringModel.indexFiles(): indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
                     + (output.usedWholeBatchFallback ? " using Vision fallback" : ""),
             )
 
@@ -334,6 +345,9 @@ final class SimilarityScoringModel {
         }
 
         finishIndexing()
+        Logger.process.debugMessageOnly(
+            "SimilarityScoringModel.indexFiles(): indexing finished with \(embeddings.count) stored artifacts",
+        )
     }
 
     private func recordSimilarityDiagnostic(
@@ -414,12 +428,18 @@ final class SimilarityScoringModel {
     /// `files` must be sorted by effective capture time before calling.
 
     func groupBursts(files: [FileItem]) async {
+        Logger.process.debugMessageOnly(
+            "SimilarityScoringModel.groupBursts(): grouping \(files.count) files",
+        )
         guard !files.isEmpty else {
             _groupingTask?.cancel()
             _groupingTask = nil
             burstGroups = []
             burstGroupLookup = [:]
             burstBoundaryEvidence = []
+            Logger.process.debugMessageOnly(
+                "SimilarityScoringModel.groupBursts(): cleared groups because no files were supplied",
+            )
             return
         }
 
@@ -505,11 +525,16 @@ final class SimilarityScoringModel {
         let eligibleCount = files.lazy.filter { snapshot[$0.id] != nil }.count
         let excludedCount = files.count - eligibleCount
         Logger.process.debugMessageOnly(
-            "SimilarityScoringModel: \(burstGroups.count) burst groups from \(eligibleCount) similarity-indexed files; excluded \(excludedCount) files without artifacts (threshold \(threshold))",
+            "SimilarityScoringModel.groupBursts(): \(burstGroups.count) burst groups from "
+                + "\(eligibleCount) similarity-indexed files; excluded \(excludedCount) files "
+                + "without artifacts (threshold \(threshold))",
         )
     }
 
     func applyCachedBurstAnalysis(_ snapshot: BurstAnalysisCacheSnapshot) {
+        Logger.process.debugMessageOnly(
+            "SimilarityScoringModel.applyCachedBurstAnalysis(): applying \(snapshot.groups.count) cached groups",
+        )
         embeddings = snapshot.embeddings
         burstGroups = snapshot.groups
         burstBoundaryEvidence = snapshot.boundaryEvidence

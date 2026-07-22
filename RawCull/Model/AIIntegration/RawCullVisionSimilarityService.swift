@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import OSLog
 import PhotoAIContracts
 import PhotoAIWorkflows
 import VisionFeaturePrintBackend
@@ -100,6 +101,9 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
         maxPixelSize: Int,
         progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)? = nil,
     ) async throws -> RawCullSimilarityIndexingOutput {
+        Logger.process.debugMessageOnly(
+            "RawCullVisionSimilarityService.index(): indexing \(sources.count) sources",
+        )
         let indexer = SimilarityArtifactIndexer(
             primaryProvider: RawCullParallelVisionArtifactProvider(
                 revision: backend.revision,
@@ -117,7 +121,7 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
                 ),
             )
         }
-        return RawCullSimilarityIndexingOutput(
+        let output = RawCullSimilarityIndexingOutput(
             artifacts: result.artifacts,
             failures: result.failures.map {
                 RawCullSimilarityIndexingFailure(
@@ -126,6 +130,10 @@ nonisolated struct RawCullVisionSimilarityService: RawCullSimilarityServicing {
                 )
             },
         )
+        Logger.process.debugMessageOnly(
+            "RawCullVisionSimilarityService.index(): produced \(output.artifacts.count) artifacts",
+        )
+        return output
     }
 
     func distance(
@@ -186,6 +194,9 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
         maxPixelSize: Int,
         progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)? = nil,
     ) async throws -> RawCullSimilarityIndexingOutput {
+        Logger.process.debugMessageOnly(
+            "RawCullCLIPSimilarityService.index(): indexing \(sources.count) sources",
+        )
         let failureRecorder = RawCullCLIPFailureRecorder()
         let recoveringProvider = RawCullRecoveringCLIPArtifactProvider(
             provider: primaryProvider,
@@ -224,7 +235,7 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
             primaryFailures = report.failures
             diagnostic = report.diagnostic
         }
-        return RawCullSimilarityIndexingOutput(
+        let output = RawCullSimilarityIndexingOutput(
             artifacts: result.artifacts,
             failures: result.failures.map {
                 RawCullSimilarityIndexingFailure(
@@ -236,6 +247,11 @@ nonisolated struct RawCullCLIPSimilarityService: RawCullSimilarityServicing {
             usedWholeBatchFallback: false,
             primaryFailureDiagnostic: diagnostic,
         )
+        Logger.process.debugMessageOnly(
+            "RawCullCLIPSimilarityService.index(): produced \(output.artifacts.count) artifacts "
+                + "with \(output.failures.count) failures",
+        )
+        return output
     }
 
     func distance(

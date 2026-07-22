@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 struct BurstGroupsHomeView: View {
@@ -364,15 +365,30 @@ struct BurstGroupsHomeView: View {
     }
 
     private func runWithAutoScoring(_ action: @escaping @MainActor () async -> Void) {
+        Logger.process.debugMessageOnly(
+            "BurstGroupsHomeView.runWithAutoScoring(): starting prerequisite check",
+        )
         Task {
             if viewModel.sharpnessModel.scores.isEmpty {
+                Logger.process.debugMessageOnly(
+                    "BurstGroupsHomeView.runWithAutoScoring(): sharpness scores missing; starting automatic scoring",
+                )
                 await viewModel.calibrateAndScoreCurrentCatalog()
             }
+            Logger.process.debugMessageOnly(
+                "BurstGroupsHomeView.runWithAutoScoring(): executing requested burst action",
+            )
             await action()
+            Logger.process.debugMessageOnly(
+                "BurstGroupsHomeView.runWithAutoScoring(): requested burst action finished",
+            )
         }
     }
 
     private func analyzeBursts() {
+        Logger.process.debugMessageOnly(
+            "BurstGroupsHomeView.analyzeBursts(): Run button pressed",
+        )
         analyzeBurstsRequested = true
         runWithAutoScoring {
             defer { analyzeBurstsRequested = false }

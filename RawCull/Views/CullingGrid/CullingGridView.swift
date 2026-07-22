@@ -360,9 +360,7 @@ struct CullingGridView<Header: View>: View {
                 groupSignature: presentation.groupSignature,
                 files: presentation.files,
                 onRun: {
-                    Task {
-                        await viewModel.startDeepAIReview(for: presentation.files)
-                    }
+                    runDeepReview(for: presentation.files)
                 },
                 onCancel: viewModel.cancelDeepAIReview,
                 onApply: { result in
@@ -639,15 +637,32 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func presentDeepReview(for group: CullingGridVisibleBurstGroup) {
+        Logger.process.debugMessageOnly(
+            "CullingGridView.presentDeepReview(): Deep Review button pressed for group \(group.id)",
+        )
         guard let signature = BurstGroupSignature(
             files: group.files,
             catalog: viewModel.selectedSource?.url,
-        ) else { return }
+        ) else {
+            Logger.process.debugMessageOnly(
+                "CullingGridView.presentDeepReview(): presentation skipped because the group signature is unavailable",
+            )
+            return
+        }
         deepReviewPresentation = DeepAIReviewPresentation(
             groupID: group.id,
             groupSignature: signature,
             files: group.files,
         )
+    }
+
+    private func runDeepReview(for groupFiles: [FileItem]) {
+        Logger.process.debugMessageOnly(
+            "CullingGridView.runDeepReview(): Run Deep Review button pressed for \(groupFiles.count) files",
+        )
+        Task {
+            await viewModel.startDeepAIReview(for: groupFiles)
+        }
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {

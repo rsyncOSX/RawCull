@@ -1,6 +1,7 @@
 import Foundation
-import PhotoAnalysisKit
+import OSLog
 import PhotoAIContracts
+import PhotoAnalysisKit
 import RawCullCore
 
 nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
@@ -146,9 +147,22 @@ actor BurstAnalysisCache {
         sharpnessSignature: BurstSharpnessSignature,
         similaritySignature: BurstSimilaritySignature,
     ) async -> BurstAnalysisCacheSnapshot? {
-        guard !Task.isCancelled else { return nil }
+        Logger.process.debugMessageOnly(
+            "BurstAnalysisCache.load(): checking cache for \(files.count) files",
+        )
+        guard !Task.isCancelled else {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): cancelled before loading",
+            )
+            return nil
+        }
         let url = cacheURL(for: catalog)
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): no cache file exists",
+            )
+            return nil
+        }
         do {
             let data = try Data(contentsOf: url)
             guard !Task.isCancelled else { return nil }
@@ -162,22 +176,45 @@ actor BurstAnalysisCache {
                 sharpnessSignature: sharpnessSignature,
                 similaritySignature: similaritySignature,
             ) else {
+                Logger.process.debugMessageOnly(
+                    "BurstAnalysisCache.load(): cache snapshot is stale or invalid",
+                )
                 return nil
             }
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): valid cache snapshot loaded",
+            )
             return snapshot
         } catch {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): cache read failed: \(error)",
+            )
             return nil
         }
     }
 
     func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
-        guard !Task.isCancelled else { return }
+        Logger.process.debugMessageOnly(
+            "BurstAnalysisCache.save(): saving snapshot with \(snapshot.files.count) files",
+        )
+        guard !Task.isCancelled else {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.save(): cancelled before saving",
+            )
+            return
+        }
         do {
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(snapshot)
             guard !Task.isCancelled else { return }
             try data.write(to: cacheURL(for: catalog), options: [.atomic])
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.save(): snapshot saved",
+            )
         } catch {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.save(): cache write failed: \(error)",
+            )
             return
         }
     }

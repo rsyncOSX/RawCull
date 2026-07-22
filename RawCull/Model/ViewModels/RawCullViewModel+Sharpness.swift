@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import OSLog
 import RawCullCore
 
 extension RawCullViewModel {
@@ -47,16 +48,25 @@ extension RawCullViewModel {
     /// Auto-calibrates focus config from the current catalog, then scores and re-sorts.
     /// After a successful (non-cancelled) run, scores and saliency are persisted to SavedFiles.
     func calibrateAndScoreCurrentCatalog() async {
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreCurrentCatalog(): starting catalog sharpness scoring",
+        )
         await calibrateAndScoreFiles(sharpnessScoringTargetFiles)
     }
 
     /// Auto-calibrates and scores only the files participating in burst analysis.
     /// Used by rating- or selection-scoped burst reanalysis to avoid scoring the full catalog.
     func calibrateAndScoreBurstFiles(_ files: [FileItem]) async {
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreBurstFiles(): starting sharpness scoring for \(files.count) burst files",
+        )
         await calibrateAndScoreFiles(files)
     }
 
     private func calibrateAndScoreFiles(_ files: [FileItem]) async {
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
+        )
         await sharpnessModel.calibrateFromBurst(files)
         await sharpnessModel.scoreFiles(files)
         // scores is cleared at the start of scoreFiles and only written on clean completion —
@@ -65,6 +75,9 @@ extension RawCullViewModel {
             persistScoringResultsInMemory(files: files)
         }
         await handleSortOrderChange()
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreFiles(): finished with \(sharpnessModel.scores.count) scores",
+        )
     }
 
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
@@ -75,6 +88,9 @@ extension RawCullViewModel {
     }
 
     private func persistScoringResultsInMemory(files: [FileItem]) {
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
+        )
         guard let catalog = selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo
