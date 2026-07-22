@@ -167,10 +167,46 @@ struct SharpnessControlsView: View {
             }
             .toggleStyle(.button)
             .font(.caption)
-            .help("Sort thumbnails sharpest-first")
-            .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, _ in
+            .help(
+                viewModel.sharpnessModel.sortBySharpness
+                    ? "Stop sorting by sharpness"
+                    : "Sort thumbnails sharpest-first",
+            )
+            .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, isEnabled in
+                if isEnabled {
+                    viewModel.similarityModel.sortBySimilarity = false
+                } else if viewModel.similarityModel.sortBySimilarity {
+                    return
+                }
                 Task(priority: .background) {
                     await viewModel.handleSortOrderChange()
+                }
+            }
+        }
+
+        if viewModel.hasCompletedBurstAnalysis {
+            Toggle(isOn: $viewModel.similarityModel.sortBySimilarity) {
+                Label("Find Similar", systemImage: "photo.stack")
+            }
+            .toggleStyle(.button)
+            .font(.caption)
+            .disabled(
+                viewModel.selectedFile == nil
+                    && !viewModel.similarityModel.sortBySimilarity,
+            )
+            .help(
+                viewModel.similarityModel.sortBySimilarity
+                    ? "Stop sorting by similarity"
+                    : "Rank all images by visual similarity to the selected image",
+            )
+            .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, isEnabled in
+                if isEnabled {
+                    viewModel.sharpnessModel.sortBySharpness = false
+                    Task { await viewModel.findSimilarToSelected() }
+                } else if !viewModel.sharpnessModel.sortBySharpness {
+                    Task(priority: .background) {
+                        await viewModel.handleSortOrderChange()
+                    }
                 }
             }
         }
