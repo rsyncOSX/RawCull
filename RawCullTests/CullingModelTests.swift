@@ -313,6 +313,8 @@ private nonisolated func similarityTestDistance(
     return Float(abs(Int(leftByte) - Int(rightByte))) / 255
 }
 
+=======
+>>>>>>> version-2.3.0
 private func makeCullingTestFile(
     _ name: String,
     scoreAperture: Double? = nil,
