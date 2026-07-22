@@ -247,22 +247,25 @@ struct BurstCullingWorkspaceView: View {
                     )
                 }
 
-/* Remove
-                inspectorCard("Burst actions") {
+
+                inspectorCard("Compare Images") {
+                    
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        /*
                         Button("Defer") {
                             viewModel.toggleBurstGroupDeferred(groupID: groupID)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
-
+                         */
                         Button("Compare", action: onCompare)
                             .buttonStyle(.bordered)
                             .controlSize(.large)
 
                     }
+                     
                 }
-*/
+
                 inspectorCard("Tags") {
                     if let selectedFile {
                         tagStrip(for: selectedFile)
