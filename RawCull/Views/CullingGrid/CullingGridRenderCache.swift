@@ -93,19 +93,19 @@ struct CullingGridRenderCache {
 }
 
 enum BurstGroupCleanViewPolicy {
-    static let visibleLimit = 4
+    static let visibleLimit = 3
 
     static func visibleFiles(
         in files: [FileItem],
         rankedFileIDs: [FileItem.ID],
         isCollapsed: Bool,
     ) -> [FileItem] {
-        guard isCollapsed, files.count > visibleLimit else { return files }
-
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         var ordered = rankedFileIDs.compactMap { filesByID[$0] }
         let rankedIDs = Set(ordered.map(\.id))
         ordered.append(contentsOf: files.filter { !rankedIDs.contains($0.id) })
+
+        guard isCollapsed, ordered.count > visibleLimit else { return ordered }
         return Array(ordered.prefix(visibleLimit))
     }
 }
