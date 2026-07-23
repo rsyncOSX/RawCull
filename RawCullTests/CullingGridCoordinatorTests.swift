@@ -156,7 +156,7 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `clean view shows the top three ranked visible files`() {
+    func `burst view lists ranked files in priority order and clean view limits results`() {
         let first = makeGridTestFile("first.ARW")
         let second = makeGridTestFile("second.ARW")
         let third = makeGridTestFile("third.ARW")
@@ -174,7 +174,7 @@ struct CullingGridCoordinatorTests {
         )
 
         #expect(collapsed.map(\.id) == [third.id, first.id, fourth.id])
-        #expect(expanded.map(\.id) == [first.id, second.id, third.id, fourth.id])
+        #expect(expanded.map(\.id) == [third.id, first.id, fourth.id, second.id])
     }
 
     @Test

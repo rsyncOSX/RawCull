@@ -1,6 +1,6 @@
 import SwiftUI
 
-nonisolated enum ImagePreviewSource: Equatable {
+nonisolated enum ImagePreviewSource: Hashable {
     case thumbnail
     case embeddedJPG
     case developedRAW

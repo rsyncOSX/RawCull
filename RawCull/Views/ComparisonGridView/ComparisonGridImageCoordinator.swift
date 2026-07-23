@@ -50,6 +50,47 @@ enum ComparisonGridImageCoordinator {
         )
     }
 
+    static func loadDecodedState(
+        for file: FileItem,
+        useThumbnailSource: Bool,
+    ) async -> ComparisonImageState {
+        let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+            for: file,
+            useThumbnailSource: useThumbnailSource,
+        )
+        guard !Task.isCancelled else {
+            return ComparisonImageState(id: file.id, isLoading: true)
+        }
+
+        return ComparisonImageState(
+            id: file.id,
+            cgImage: cgImage,
+            nsImage: nsImage,
+            isLoading: false,
+        )
+    }
+
+    static func analyzeFocus(
+        for file: FileItem,
+        state: ComparisonImageState,
+        viewModel: RawCullViewModel,
+    ) async -> ComparisonImageState {
+        var updatedState = state
+        guard let cgImage = state.cgImage else {
+            updatedState.isFocusAnalysisComplete = true
+            return updatedState
+        }
+
+        let result = await focusResult(for: file, cgImage: cgImage, viewModel: viewModel)
+        guard !Task.isCancelled else { return state }
+
+        updatedState.focusMask = result.mask
+        updatedState.sharpnessBreakdown = result.breakdown
+        updatedState.isFocusAnalysisComplete = true
+        persist(result: result, for: file.id, viewModel: viewModel)
+        return updatedState
+    }
+
     static func regenerateFocusMasks(
         files: [FileItem],
         states: [FileItem.ID: ComparisonImageState],
@@ -58,12 +99,14 @@ enum ComparisonGridImageCoordinator {
         var updatedStates = states
         for file in files {
             guard !Task.isCancelled else { return updatedStates }
-            guard let cgImage = updatedStates[file.id]?.cgImage else { continue }
-            let result = await focusResult(for: file, cgImage: cgImage, viewModel: viewModel)
+            guard let state = updatedStates[file.id] else { continue }
+            let updatedState = await analyzeFocus(
+                for: file,
+                state: state,
+                viewModel: viewModel,
+            )
             guard !Task.isCancelled else { return updatedStates }
-            updatedStates[file.id]?.focusMask = result.mask
-            updatedStates[file.id]?.sharpnessBreakdown = result.breakdown
-            persist(result: result, for: file.id, viewModel: viewModel)
+            updatedStates[file.id] = updatedState
         }
         return updatedStates
     }
@@ -85,34 +128,16 @@ enum ComparisonGridImageCoordinator {
         useThumbnailSource: Bool,
         viewModel: RawCullViewModel,
     ) async -> ComparisonImageState {
-        let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+        let decodedState = await loadDecodedState(
             for: file,
             useThumbnailSource: useThumbnailSource,
         )
-        guard !Task.isCancelled else {
-            return ComparisonImageState(id: file.id, isLoading: true)
-        }
-
-        var state = ComparisonImageState(
-            id: file.id,
-            cgImage: cgImage,
-            nsImage: nsImage,
-            isLoading: false,
+        guard !Task.isCancelled else { return decodedState }
+        return await analyzeFocus(
+            for: file,
+            state: decodedState,
+            viewModel: viewModel,
         )
-        await populateFocusMask(in: &state, for: file, viewModel: viewModel)
-        return state
-    }
-
-    private static func populateFocusMask(
-        in state: inout ComparisonImageState,
-        for file: FileItem,
-        viewModel: RawCullViewModel,
-    ) async {
-        guard let cgImage = state.cgImage else { return }
-        let result = await focusResult(for: file, cgImage: cgImage, viewModel: viewModel)
-        state.focusMask = result.mask
-        state.sharpnessBreakdown = result.breakdown
-        persist(result: result, for: file.id, viewModel: viewModel)
     }
 
     private static func focusResult(
