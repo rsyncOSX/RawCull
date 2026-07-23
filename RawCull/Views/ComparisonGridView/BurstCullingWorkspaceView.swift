@@ -264,40 +264,34 @@ struct BurstCullingWorkspaceView: View {
                     )
                 }
 
-
-                inspectorCard("Compare Images") {
-                    
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        /*
-                        Button("Defer") {
-                            viewModel.toggleBurstGroupDeferred(groupID: groupID)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                         */
-                        Button("Compare", action: onCompare)
-                            .buttonStyle(.bordered)
-                            .controlSize(.large)
-
-                    }
-                     
-                }
-
                 inspectorCard("Tags") {
                     if let selectedFile {
                         tagStrip(for: selectedFile)
                     }
                 }
-
-                inspectorCard("File") {
-                    fileDetails
-                }
+               
+                CandidateInspectorView(context: candidateInspectorContext)
+                
             }
             .padding(16)
         }
         .background(Color.black.opacity(0.13))
     }
 
+    private var candidateInspectorContext: CandidateInspectorContext? {
+        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
+        return CandidateInspectorContext.make(
+            selectedFile: viewModel.selectedFile,
+            result: viewModel.burstAnalysisResult(for: groupID),
+            files: viewModel.files,
+            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
+            sharpnessScores: viewModel.sharpnessModel.scores,
+            sharpnessBreakdowns: viewModel.sharpnessModel.breakdowns,
+            focusPoints: viewModel.focusPoints,
+            rating: viewModel.selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
+        )
+    }
+    
     private var fileDetails: some View {
         VStack(spacing: 12) {
             detailRow("Name", selectedFile?.name ?? "—")
