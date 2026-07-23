@@ -227,22 +227,44 @@ struct BurstCullingWorkspaceView: View {
             .foregroundStyle(.secondary)
             .frame(width: 76, alignment: .leading)
 
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 10) {
-                    ForEach(files) { file in
-                        BurstFilmstripThumbnail(
-                            file: file,
-                            isSelected: file.id == viewModel.selectedFileID,
-                            isSuggested: analysis?.recommendedFileID == file.id,
-                            isDeferred: analysis?.reviewState == .deferred,
-                        ) {
-                            viewModel.selectedFileID = file.id
+            ScrollViewReader { proxy in
+                GeometryReader { geo in
+                    
+                    ScrollView(.horizontal) {
+                        LazyHStack(spacing: 10) {
+                            ForEach(files) { file in
+                                BurstFilmstripThumbnail(
+                                    file: file,
+                                    isSelected: file.id == viewModel.selectedFileID,
+                                    isSuggested: analysis?.recommendedFileID == file.id,
+                                    isDeferred: analysis?.reviewState == .deferred,
+                                ) {
+                                    viewModel.selectedFileID = file.id
+                                }
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .scrollIndicators(.hidden)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
+                    .onAppear(perform: {
+                        // Defer one run loop so LazyVStack IDs are registered in scroll geometry
+                        DispatchQueue.main.async {
+                            if let newID = viewModel.selectedFile?.id {
+                                withAnimation {
+                                    proxy.scrollTo(newID, anchor: .center)
+                                }
+                            }
+                        }
+                    })
+                    .onChange(of: viewModel.selectedFileID) { _, newID in
+                        guard let newID else { return }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(newID, anchor: .center)
                         }
                     }
                 }
-                .padding(.vertical, 2)
             }
-            .scrollIndicators(.hidden)
 
             HStack(spacing: 8) {
                 navigationButton(systemImage: "chevron.left", delta: -1)
