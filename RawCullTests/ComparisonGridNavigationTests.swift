@@ -100,3 +100,35 @@ struct BurstReviewKeyActionTests {
         #expect(BurstReviewKeyAction.resolve(characters: "0") == nil)
     }
 }
+
+@Suite("BurstFrameCachePolicy")
+struct BurstFrameCachePolicyTests {
+    @Test(.tags(.smoke))
+    func `window contains previous current and next frame`() {
+        #expect(BurstFrameCachePolicy.indices(around: 2, itemCount: 5) == [1, 2, 3])
+    }
+
+    @Test(.tags(.smoke))
+    func `window contracts at burst boundaries`() {
+        #expect(BurstFrameCachePolicy.indices(around: 0, itemCount: 5) == [0, 1])
+        #expect(BurstFrameCachePolicy.indices(around: 4, itemCount: 5) == [3, 4])
+    }
+
+    @Test(.tags(.smoke))
+    func `window is always bounded and contains the selection`() {
+        for itemCount in 1 ... 12 {
+            for selectedIndex in 0 ..< itemCount {
+                let indices = BurstFrameCachePolicy.indices(
+                    around: selectedIndex,
+                    itemCount: itemCount,
+                )
+                #expect(indices.count <= BurstFrameCachePolicy.capacity)
+                #expect(indices.contains(selectedIndex))
+            }
+        }
+
+        #expect(BurstFrameCachePolicy.indices(around: -1, itemCount: 5).isEmpty)
+        #expect(BurstFrameCachePolicy.indices(around: 5, itemCount: 5).isEmpty)
+        #expect(BurstFrameCachePolicy.indices(around: 0, itemCount: 0).isEmpty)
+    }
+}

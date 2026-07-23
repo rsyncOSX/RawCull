@@ -8,6 +8,7 @@ struct ComparisonImageState: Identifiable {
     var focusMask: CGImage?
     var sharpnessBreakdown: SharpnessBreakdown?
     var isLoading = false
+    var isFocusAnalysisComplete = false
 }
 
 struct ComparisonViewportInteractionState: Equatable {

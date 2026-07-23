@@ -16,12 +16,28 @@ nonisolated enum BurstReviewKeyAction: Equatable {
     }
 }
 
+nonisolated enum BurstFrameCachePolicy {
+    static let capacity = 3
+
+    static func indices(around selectedIndex: Int, itemCount: Int) -> [Int] {
+        guard itemCount > 0, (0 ..< itemCount).contains(selectedIndex) else { return [] }
+        let lowerBound = max(0, selectedIndex - 1)
+        let upperBound = min(itemCount - 1, selectedIndex + 1)
+        return Array(lowerBound ... upperBound)
+    }
+}
+
+nonisolated struct BurstFrameCacheKey: Hashable {
+    let fileID: FileItem.ID
+    let source: ImagePreviewSource
+}
+
 struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
     let groupID: Int
     let onCompare: () -> Void
 
-    @State private var imageState: ComparisonImageState?
+    @State private var imageCache: [BurstFrameCacheKey: ComparisonImageState] = [:]
     @State private var viewportState = ComparisonViewportInteractionState()
     @State private var sourceSelection = ImageSourceSelectionState()
     @FocusState private var isFocused: Bool
@@ -61,12 +77,13 @@ struct BurstCullingWorkspaceView: View {
             handleKeyPress(press.characters)
         }
         .task(id: imageLoadKey) {
-            await loadSelectedImage()
+            await loadSelectedImageWindow()
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            Task { await regenerateFocusMask() }
+            Task { await regenerateCachedFocusMasks() }
         }
         .onChange(of: groupID) { _, _ in
+            imageCache = [:]
             viewportState = ComparisonViewportInteractionState()
             sourceSelection.resetForNewImage()
             selectFirstFileIfNeeded()
@@ -375,6 +392,11 @@ struct BurstCullingWorkspaceView: View {
         return files.first { $0.id == selectedID } ?? files.first
     }
 
+    private var imageState: ComparisonImageState? {
+        guard let selectedFile else { return nil }
+        return imageCache[cacheKey(for: selectedFile, source: sourceSelection.selected)]
+    }
+
     private var selectedIndex: Int {
         guard let selectedFile else { return 0 }
         return files.firstIndex { $0.id == selectedFile.id } ?? 0
@@ -452,43 +474,126 @@ struct BurstCullingWorkspaceView: View {
         return points.focusPoints
     }
 
-    private func loadSelectedImage() async {
+    private func loadSelectedImageWindow() async {
         guard let selectedFile else {
-            imageState = nil
+            imageCache = [:]
             return
         }
 
-        imageState = ComparisonImageState(id: selectedFile.id, isLoading: true)
-        switch sourceSelection.selected {
+        let source = sourceSelection.selected
+        let windowFiles = BurstFrameCachePolicy.indices(
+            around: selectedIndex,
+            itemCount: files.count,
+        ).map { files[$0] }
+        let retainedKeys = Set(windowFiles.map { cacheKey(for: $0, source: source) })
+        imageCache = imageCache.filter { retainedKeys.contains($0.key) }
+
+        let loadOrder = [selectedFile] + windowFiles.filter { $0.id != selectedFile.id }
+        for file in loadOrder {
+            let loaded = await ensureDecodedImage(
+                for: file,
+                source: source,
+                reportsDevelopedRAWFailure: file.id == selectedFile.id,
+            )
+            guard !Task.isCancelled else { return }
+            if file.id == selectedFile.id, !loaded {
+                return
+            }
+        }
+
+        for file in loadOrder {
+            await analyzeFocusIfNeeded(for: file, source: source)
+            guard !Task.isCancelled else { return }
+        }
+    }
+
+    private func ensureDecodedImage(
+        for file: FileItem,
+        source: ImagePreviewSource,
+        reportsDevelopedRAWFailure: Bool,
+    ) async -> Bool {
+        let key = cacheKey(for: file, source: source)
+        if let state = imageCache[key], !state.isLoading {
+            return true
+        }
+
+        imageCache[key] = ComparisonImageState(id: file.id, isLoading: true)
+
+        let decodedState: ComparisonImageState
+        switch source {
         case .thumbnail, .embeddedJPG:
-            imageState = await ComparisonGridImageCoordinator.reloadImage(
-                for: selectedFile,
-                sourceFlags: [selectedFile.id: sourceSelection.selected == .thumbnail],
-                viewModel: viewModel,
+            decodedState = await ComparisonGridImageCoordinator.loadDecodedState(
+                for: file,
+                useThumbnailSource: source == .thumbnail,
             )
 
         case .developedRAW:
             do {
-                let image = try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: selectedFile.url)
-                imageState = ComparisonImageState(id: selectedFile.id, cgImage: image)
-                await regenerateFocusMask()
+                let image = try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: file.url)
+                decodedState = ComparisonImageState(id: file.id, cgImage: image)
             } catch is CancellationError {
-                return
+                return false
             } catch {
-                sourceSelection.markDevelopedRAWUnavailable()
+                guard !Task.isCancelled else { return false }
+                imageCache.removeValue(forKey: key)
+                if reportsDevelopedRAWFailure {
+                    sourceSelection.markDevelopedRAWUnavailable()
+                }
+                return false
             }
         }
+
+        guard !Task.isCancelled else { return false }
+        imageCache[key] = decodedState
+        return true
     }
 
-    private func regenerateFocusMask() async {
-        guard let selectedFile, let imageState else { return }
-        let states = await ComparisonGridImageCoordinator.regenerateFocusMasks(
-            files: [selectedFile],
-            states: [selectedFile.id: imageState],
+    private func analyzeFocusIfNeeded(
+        for file: FileItem,
+        source: ImagePreviewSource,
+    ) async {
+        let key = cacheKey(for: file, source: source)
+        guard let state = imageCache[key],
+              !state.isLoading,
+              !state.isFocusAnalysisComplete
+        else { return }
+
+        let analyzedState = await ComparisonGridImageCoordinator.analyzeFocus(
+            for: file,
+            state: state,
             viewModel: viewModel,
         )
         guard !Task.isCancelled else { return }
-        self.imageState = states[selectedFile.id]
+        guard imageCache[key] != nil else { return }
+        imageCache[key] = analyzedState
+    }
+
+    private func regenerateCachedFocusMasks() async {
+        let source = sourceSelection.selected
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        let cachedFiles = imageCache.keys.compactMap { key -> FileItem? in
+            guard key.source == source else { return nil }
+            return filesByID[key.fileID]
+        }
+
+        for file in cachedFiles {
+            let key = cacheKey(for: file, source: source)
+            imageCache[key]?.focusMask = nil
+            imageCache[key]?.sharpnessBreakdown = nil
+            imageCache[key]?.isFocusAnalysisComplete = false
+        }
+
+        for file in cachedFiles {
+            await analyzeFocusIfNeeded(for: file, source: source)
+            guard !Task.isCancelled else { return }
+        }
+    }
+
+    private func cacheKey(
+        for file: FileItem,
+        source: ImagePreviewSource,
+    ) -> BurstFrameCacheKey {
+        BurstFrameCacheKey(fileID: file.id, source: source)
     }
 
     private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
