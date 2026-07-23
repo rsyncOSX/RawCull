@@ -505,7 +505,7 @@ private struct BurstComparisonEvidenceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Button("Back To Group", action: onBack)
-                .controlSize(.mini)
+                // .controlSize(.mini)
 
             Text(inspectorHint)
                 .font(.caption2)
