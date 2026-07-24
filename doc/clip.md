@@ -255,3 +255,151 @@ Relevant implementation files:
 - `RawCull/Model/ViewModels/RawCullViewModel+Similarity.swift`
 - `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`
 - `RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringModel.swift`
+
+## What next?
+
+### CLIP is a vision-language model, not an LLM
+
+CLIP is not a generative large language model and it does not write captions,
+answer questions, or reason conversationally. It is a dual encoder trained to
+place images and short text descriptions in the same embedding space. An image
+and text that describe similar visual concepts should therefore have nearby
+vectors. This is exactly what makes semantic text-to-image search possible.
+
+The most valuable next CLIP feature for RawCull is a local search field that can
+rank the catalog for queries such as:
+
+- `a red car in snow`
+- `bird in flight`
+- `portrait with warm backlight`
+- `mountains reflected in a lake`
+- `black and white street photography`
+
+The catalog's image embeddings are computed once and reused. For each search,
+RawCull encodes the query with the matching CLIP text encoder, compares the
+normalized text vector with the cached image vectors, and sorts by cosine
+similarity. No caption database, cloud service, or per-search image analysis is
+required.
+
+This is the retrieval behavior described by the
+[CLIP paper](https://arxiv.org/abs/2103.00020) and exposed as `encode_image` and
+`encode_text` by the [OpenAI CLIP implementation](https://github.com/openai/CLIP).
+
+### The current model bundle already contains the necessary model outputs
+
+PhotoAIKit's `Tools/export_clip.py` exports:
+
+- `image_embeds`
+- `text_embeds`
+- `logits_per_image`
+- `logits_per_text`
+
+It also copies the tokenizer into the model bundle. The current
+`CoreAICLIPProvider` loads that tokenizer and supplies dummy text while creating
+image embeddings, but it only reads `image_embeds` and only exposes
+image-to-image comparison. Consequently, semantic search requires new Swift
+APIs and application UI, but it should not require another CLIP checkpoint or
+model retraining.
+
+The first PhotoAIKit change should be a backend-owned text-query API. It should:
+
+1. Tokenize one or more short queries with the tokenizer shipped in the bundle.
+2. Respect the model's actual sequence length, batch shape, and attention mask.
+3. Read and validate the normalized `text_embeds` output.
+4. Compare the text vector only with image artifacts having the same CLIP model
+   fingerprint, dimensions, normalization, and configuration.
+5. Return similarity scores without pretending that a text query is a
+   file-backed `SimilarityArtifact`.
+
+The current export is a joint image-and-text function with a fixed static input
+shape. A first implementation can fill unused batch rows and the unused image
+input while reading the requested text rows. A later exporter improvement
+could provide a text-only function so that a query does not also execute the
+vision branch. Neither approach changes the learned model weights.
+
+RawCull should consume this through a typed service rather than decode vectors
+or model outputs itself. Query text does not need to be persisted. If query
+embeddings are cached, their cache key must include the exact text, prompt
+template, tokenizer/configuration version, and model fingerprint.
+
+### Recommended user-facing design
+
+Add **Semantic Search** only when CLIP is selected and compatible CLIP image
+artifacts are available. Vision feature prints do not share CLIP's text space,
+so the Vision fallback cannot service a text query. The UI should explain that
+search requires CLIP indexing instead of silently returning incomplete or
+misleading results.
+
+Search should:
+
+- Update results after a short typing debounce or when Return is pressed.
+- Keep the original catalog order available and make clearing the query
+  immediate.
+- Allow normal RawCull metadata filters and ratings to narrow the results.
+- Show a relative match indicator, not a claim that the result is certainly
+  correct.
+- Continue to work completely on-device.
+
+Start with direct text and a small prompt ensemble, for example the query as
+entered plus `a photo of {query}`. Average the normalized text embeddings or
+their image-similarity scores, then measure whether this improves RawCull's
+real photo collections. CLIP is sensitive to wording, so prompt templates
+should be versioned and tested rather than treated as an invisible constant.
+
+Rank with cosine similarity or dot product of normalized vectors. Avoid showing
+a softmax value as a stable confidence percentage: that value changes when the
+set of catalog candidates changes. A linear scan over cached vectors is the
+simplest initial implementation; an approximate nearest-neighbour index is
+only worth adding after measurements show it is needed for very large
+catalogs.
+
+### More advanced uses after text search
+
+Once the text path is proven, the same mechanism can support:
+
+- **Zero-shot visual labels:** compare an image with a controlled set such as
+  `landscape`, `portrait`, `wildlife`, and `sports`. These are relative choices,
+  not authoritative tags.
+- **Smart collections:** save a semantic query together with ordinary metadata,
+  ratings, or culling filters.
+- **Positive and negative concepts:** rank by a tested combination such as
+  similarity to `bird in flight` minus similarity to `bird on a branch`.
+- **Query suggestions:** provide photography-oriented examples without
+  restricting the user to a fixed taxonomy.
+- **Hybrid search:** combine CLIP similarity with EXIF and catalog facts. For
+  example, CLIP supplies the visual part of `birds in flight`, while RawCull
+  supplies camera, date, rating, or ISO constraints.
+
+An actual LLM could later translate a conversational request into a CLIP query
+plus structured filters, but it is not necessary for the first version. A
+captioning or visual-question-answering model would also be a separate model;
+CLIP alone does not generate captions or explanations.
+
+### Limits to design for
+
+CLIP is useful for broad visible concepts, scenes, style, and composition, but
+it is not a dependable replacement for specialized culling analysis. It can
+struggle with counting, fine-grained distinctions, small details, spatial
+relationships, unusual photography domains, and queries whose answer is not
+visually evident. It should not decide whether an eye is critically sharp,
+whether highlights are recoverable from RAW data, or whether a person blinked.
+
+The released model was primarily evaluated with English text and inherits
+biases from internet image-text training data. Results involving people and
+sensitive attributes must not be presented as facts. The OpenAI
+[model card](https://github.com/openai/CLIP/blob/main/model-card.md) recommends
+task-specific testing and documents these limitations.
+
+### Recommended implementation order
+
+1. Finish the source-fingerprint-keyed per-file artifact cache so CLIP indexing
+   survives catalog changes and **Index Similarity** is durable.
+2. Add and test PhotoAIKit text encoding and image-to-text comparison using the
+   existing tokenizer and `text_embeds` output.
+3. Add RawCull's local semantic-search state, ranking, cancellation, and UI,
+   with an explicit CLIP-indexing requirement.
+4. Evaluate a fixed set of representative queries against several real RawCull
+   catalogs. Record useful-result rate, latency, memory use, prompt-template
+   effects, and obvious failure cases.
+5. Add smart collections or hybrid natural-language/metadata search only after
+   the basic retrieval quality is good enough.
