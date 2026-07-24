@@ -146,6 +146,10 @@ struct BurstCullingWorkspaceView: View {
                 .fontWeight(.semibold)
 
             Spacer()
+            
+            Text("Extraced thumbnail is default, toggle J to view JPG")
+            
+            Spacer()
 
             keyCap("P/N")
             Text("frame")
