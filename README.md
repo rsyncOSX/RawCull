@@ -15,7 +15,52 @@ The application is written in Swift 6 with SwiftUI. Image parsing, analysis, sha
 
 ## AI features
 
-RawCull's AI-assisted culling runs locally on Apple Silicon. Photos are not uploaded to an external inference service.
+RawCull's AI-assisted culling runs locally on Apple Silicon. Photos are not uploaded to an external inference service. Both are trained neural networks. The precise difference is primarily what they produce and what they were trained to do.
+
+| | CLIP: vision-language encoder | SAM 3: vision-language segmentation |
+|---|---|---|
+| Question answered | “How well does this text match this image?” | “Where are the pixels belonging to this concept?” |
+| Inputs | Image or text | Image plus text/visual prompt |
+| Output | One fixed-length vector per image or text | Masks, boxes, presence and confidence scores |
+| Spatial information | Mostly compresses the whole image into one vector | Preserves detailed spatial information |
+| Training objective | Match related image-caption vectors | Detect and segment prompted objects |
+| RawCull use | Search and similarity ranking | Isolate the subject for detailed analysis |
+
+Their simplified pipelines are:
+
+```text
+CLIP
+
+Image ── image encoder ──► vector ─┐
+                                   ├─► similarity score
+Text  ── text encoder  ──► vector ─┘
+```
+
+```text
+SAM 3
+
+Image ── image encoder ─────────────┐
+                                    ├─► detector + mask decoder ─► masks and boxes
+Prompt ── text/visual encoder ──────┘
+```
+
+CLIP compresses an entire image into a global semantic summary. It might determine that an image closely matches “a bird in flight,” but it does not identify precisely which pixels form the bird.
+
+SAM 3 retains spatial image features. Given the prompt “bird,” it finds relevant instances and produces pixel masks around them. SAM 3 therefore contains encoders too, but its complete system includes detection and segmentation components.
+
+Both require neural-network inference initially, but caching changes how frequently they run:
+
+- CLIP image encoding runs once per photograph. Later searches reuse the cached image vectors and only run the text-query path.
+- Comparing cached CLIP vectors is ordinary mathematical computation, not another neural-network pass.
+- SAM 3 normally runs for each image and prompt, but RawCull can cache the resulting mask.
+- Reusing a cached SAM 3 mask also avoids another neural-network run.
+
+The shortest distinction is:
+
+> CLIP determines **what an image is related to**; SAM 3 determines **where that thing is in the image**.
+
+- CLIP: vision-language encoder. It converts images and text into comparable vectors for search, similarity, and classification.
+- SAM 3: vision-language segmentation model. It uses an image plus text or visual prompts to locate objects and produce masks and boxes.
 
 ### Requirements to run AI
 
