@@ -26,6 +26,7 @@ struct SimilarityGridSelectionView: View {
             BurstGroupsHomeView(
                 viewModel: viewModel,
                 analyzeBurstsRequested: $analyzeBurstsRequested,
+                similarityThresholdChanged: scheduleBurstRegroup,
             )
         }
     }
@@ -44,14 +45,7 @@ struct SimilarityGridSelectionView: View {
             .frame(width: 120)
             .help("Burst sensitivity — lower = tighter groups, higher = similar scenes grouped together")
             .onChange(of: viewModel.similarityModel.burstSensitivity) { _, _ in
-                pendingRegroupTask?.cancel()
-                pendingRegroupTask = Task {
-                    try? await Task.sleep(nanoseconds: 200_000_000)
-                    if Task.isCancelled {
-                        return
-                    }
-                    await viewModel.reGroupBursts()
-                }
+                scheduleBurstRegroup()
             }
 
             Text(
@@ -73,6 +67,17 @@ struct SimilarityGridSelectionView: View {
                 ProgressView()
                 Text("Calibrating focus-mask threshold, please wait...")
             }
+        }
+    }
+
+    private func scheduleBurstRegroup() {
+        pendingRegroupTask?.cancel()
+        pendingRegroupTask = Task {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            if Task.isCancelled {
+                return
+            }
+            await viewModel.reGroupBursts()
         }
     }
 }
