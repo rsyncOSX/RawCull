@@ -4,6 +4,7 @@ import SwiftUI
 struct BurstGroupsHomeView: View {
     @Bindable var viewModel: RawCullViewModel
     @Binding var analyzeBurstsRequested: Bool
+    let similarityThresholdChanged: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -65,22 +66,6 @@ struct BurstGroupsHomeView: View {
 
             Spacer()
 
-            HStack(spacing: 0) {
-                Text("Complete")
-                    .foregroundStyle(resultsAreAvailable ? .primary : .secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(resultsAreAvailable ? Color.primary.opacity(0.08) : .clear, in: .capsule)
-                Text("Not completed")
-                    .foregroundStyle(resultsAreAvailable ? .secondary : .primary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-            }
-            .font(.callout.weight(.medium))
-            .padding(3)
-            .background(.quaternary.opacity(0.65), in: .capsule)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(resultsAreAvailable ? "Burst scan complete" : "Burst scan not completed")
         }
     }
 
@@ -141,9 +126,9 @@ struct BurstGroupsHomeView: View {
 
             HStack(spacing: 12) {
                 BurstSummaryValue(title: "Single images", value: "\(counts.singleImages)")
-                BurstSummaryValue(
-                    title: "Similarity threshold",
-                    value: String(format: "%.2f", viewModel.similarityModel.burstSensitivity),
+                BurstSimilarityThresholdControl(
+                    value: $viewModel.similarityModel.burstSensitivity,
+                    valueChanged: similarityThresholdChanged,
                 )
             }
 
@@ -155,14 +140,9 @@ struct BurstGroupsHomeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                
+                
                 .disabled(!resultsAreAvailable || counts.needsReview == 0)
-
-                Button(action: analyzeBursts) {
-                    Label("Analyze Bursts", systemImage: "waveform.path.ecg")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(controlsAreBusy || viewModel.files.isEmpty)
             }
         }
         .frame(minWidth: 560)
@@ -584,6 +564,34 @@ private struct BurstSummaryValue: View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title).foregroundStyle(.secondary)
             Text(value).font(.title3.monospaced())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.black.opacity(0.12), in: .rect(cornerRadius: 10))
+    }
+}
+
+private struct BurstSimilarityThresholdControl: View {
+    @Binding var value: Float
+    let valueChanged: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("Similarity threshold")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(String(format: "%.2f", value))
+                    .font(.title3.monospacedDigit())
+            }
+
+            Slider(value: $value, in: 0.05 ... 0.60) {
+                Text("Similarity threshold")
+            }
+            .help("Lower values create tighter groups; higher values group similar scenes together")
+            .onChange(of: value) { _, _ in
+                valueChanged()
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
