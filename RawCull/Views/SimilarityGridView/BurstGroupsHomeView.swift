@@ -64,22 +64,6 @@ struct BurstGroupsHomeView: View {
 
             Spacer()
 
-            HStack(spacing: 0) {
-                Text("Complete")
-                    .foregroundStyle(resultsAreAvailable ? .primary : .secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(resultsAreAvailable ? Color.primary.opacity(0.08) : .clear, in: .capsule)
-                Text("Not completed")
-                    .foregroundStyle(resultsAreAvailable ? .secondary : .primary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-            }
-            .font(.callout.weight(.medium))
-            .padding(3)
-            .background(.quaternary.opacity(0.65), in: .capsule)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(resultsAreAvailable ? "Burst scan complete" : "Burst scan not completed")
         }
     }
 
@@ -155,13 +139,6 @@ struct BurstGroupsHomeView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .disabled(!resultsAreAvailable || counts.needsReview == 0)
-
-                Button(action: analyzeBursts) {
-                    Label("Analyze Bursts", systemImage: "waveform.path.ecg")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(controlsAreBusy || viewModel.files.isEmpty)
             }
         }
         .frame(minWidth: 560)
