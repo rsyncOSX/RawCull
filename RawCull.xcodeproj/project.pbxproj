@@ -8,6 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
+		E92E0F0B3017777200788A3C /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0A3017777200788A3C /* CoreAICLIPBackend */; };
+		E92E0F0D3017777200788A3C /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0C3017777200788A3C /* CoreAISAM3Backend */; };
+		E92E0F0F3017777200788A3C /* PhotoAIContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0E3017777200788A3C /* PhotoAIContracts */; };
+		E92E0F113017777200788A3C /* PhotoAIStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F103017777200788A3C /* PhotoAIStorage */; };
+		E92E0F133017777200788A3C /* PhotoAIWorkflows in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F123017777200788A3C /* PhotoAIWorkflows */; };
+		E92E0F153017777200788A3C /* VisionFeaturePrintBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F143017777200788A3C /* VisionFeaturePrintBackend */; };
 		E9516F9A300A485300A9878F /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9516F99300A485300A9878F /* PhotoAnalysisKit */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
 		E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
@@ -15,12 +21,6 @@
 		E97E976C2F210EAB001A4239 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E97E975C2F210EAB001A4239 /* Assets.xcassets */; };
 		E97E976D2F210EAB001A4239 /* RawCullicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E97E975D2F210EAB001A4239 /* RawCullicon.icon */; };
 		E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */ = {isa = PBXBuildFile; productRef = E9B609842F28FA3600704081 /* DecodeEncodeGeneric */; };
-		E9C509323005FC81006D587E /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9C509313005FC81006D587E /* CoreAICLIPBackend */; };
-		E9C509343005FC81006D587E /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E9C509333005FC81006D587E /* CoreAISAM3Backend */; };
-		E9C509363005FC81006D587E /* PhotoAIContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E9C509353005FC81006D587E /* PhotoAIContracts */; };
-		E9C509383005FC81006D587E /* PhotoAIStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E9C509373005FC81006D587E /* PhotoAIStorage */; };
-		E9C5093A3005FC81006D587E /* PhotoAIWorkflows in Frameworks */ = {isa = PBXBuildFile; productRef = E9C509393005FC81006D587E /* PhotoAIWorkflows */; };
-		E9C5093C3005FC81006D587E /* VisionFeaturePrintBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5093B3005FC81006D587E /* VisionFeaturePrintBackend */; };
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 /* End PBXBuildFile section */
 
@@ -60,18 +60,18 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E9C509343005FC81006D587E /* CoreAISAM3Backend in Frameworks */,
-				E9C509323005FC81006D587E /* CoreAICLIPBackend in Frameworks */,
 				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
 				E9516F9A300A485300A9878F /* PhotoAnalysisKit in Frameworks */,
-				E9C509363005FC81006D587E /* PhotoAIContracts in Frameworks */,
-				E9C509383005FC81006D587E /* PhotoAIStorage in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
-				E9C5093A3005FC81006D587E /* PhotoAIWorkflows in Frameworks */,
+				E92E0F0B3017777200788A3C /* CoreAICLIPBackend in Frameworks */,
+				E92E0F0F3017777200788A3C /* PhotoAIContracts in Frameworks */,
+				E92E0F133017777200788A3C /* PhotoAIWorkflows in Frameworks */,
+				E92E0F0D3017777200788A3C /* CoreAISAM3Backend in Frameworks */,
 				E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */,
 				E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */,
-				E9C5093C3005FC81006D587E /* VisionFeaturePrintBackend in Frameworks */,
+				E92E0F113017777200788A3C /* PhotoAIStorage in Frameworks */,
+				E92E0F153017777200788A3C /* VisionFeaturePrintBackend in Frameworks */,
 				E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -133,13 +133,13 @@
 				E952AA612F2E37170081987F /* ParseRsyncOutput */,
 				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
 				E95349CF2FF9902900A4C0C3 /* RawParserKit */,
-				E9C509313005FC81006D587E /* CoreAICLIPBackend */,
-				E9C509333005FC81006D587E /* CoreAISAM3Backend */,
-				E9C509353005FC81006D587E /* PhotoAIContracts */,
-				E9C509373005FC81006D587E /* PhotoAIStorage */,
-				E9C509393005FC81006D587E /* PhotoAIWorkflows */,
-				E9C5093B3005FC81006D587E /* VisionFeaturePrintBackend */,
 				E9516F99300A485300A9878F /* PhotoAnalysisKit */,
+				E92E0F0A3017777200788A3C /* CoreAICLIPBackend */,
+				E92E0F0C3017777200788A3C /* CoreAISAM3Backend */,
+				E92E0F0E3017777200788A3C /* PhotoAIContracts */,
+				E92E0F103017777200788A3C /* PhotoAIStorage */,
+				E92E0F123017777200788A3C /* PhotoAIWorkflows */,
+				E92E0F143017777200788A3C /* VisionFeaturePrintBackend */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -204,8 +204,8 @@
 				E952AA602F2E37170081987F /* XCRemoteSwiftPackageReference "ParseRsyncOutput" */,
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
-				E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */,
 				E9516F98300A485300A9878F /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
+				E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -601,6 +601,14 @@
 				version = 1.0.0;
 			};
 		};
+		E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
+			requirement = {
+				kind = revision;
+				revision = 6723f3843df677057538ffde1b70763e4d7b3b26;
+			};
+		};
 		E9516F98300A485300A9878F /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
@@ -651,18 +659,41 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/PhotoAIKit;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
 		E92712B22F2CF57E00A681D0 /* RsyncArguments */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */;
 			productName = RsyncArguments;
+		};
+		E92E0F0A3017777200788A3C /* CoreAICLIPBackend */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = CoreAICLIPBackend;
+		};
+		E92E0F0C3017777200788A3C /* CoreAISAM3Backend */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = CoreAISAM3Backend;
+		};
+		E92E0F0E3017777200788A3C /* PhotoAIContracts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = PhotoAIContracts;
+		};
+		E92E0F103017777200788A3C /* PhotoAIStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = PhotoAIStorage;
+		};
+		E92E0F123017777200788A3C /* PhotoAIWorkflows */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = PhotoAIWorkflows;
+		};
+		E92E0F143017777200788A3C /* VisionFeaturePrintBackend */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = VisionFeaturePrintBackend;
 		};
 		E9516F99300A485300A9878F /* PhotoAnalysisKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -688,36 +719,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */;
 			productName = DecodeEncodeGeneric;
-		};
-		E9C509313005FC81006D587E /* CoreAICLIPBackend */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */;
-			productName = CoreAICLIPBackend;
-		};
-		E9C509333005FC81006D587E /* CoreAISAM3Backend */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */;
-			productName = CoreAISAM3Backend;
-		};
-		E9C509353005FC81006D587E /* PhotoAIContracts */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */;
-			productName = PhotoAIContracts;
-		};
-		E9C509373005FC81006D587E /* PhotoAIStorage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */;
-			productName = PhotoAIStorage;
-		};
-		E9C509393005FC81006D587E /* PhotoAIWorkflows */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */;
-			productName = PhotoAIWorkflows;
-		};
-		E9C5093B3005FC81006D587E /* VisionFeaturePrintBackend */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E9C509303005FC81006D587E /* XCLocalSwiftPackageReference "Packages/PhotoAIKit" */;
-			productName = VisionFeaturePrintBackend;
 		};
 		E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */ = {
 			isa = XCSwiftPackageProductDependency;

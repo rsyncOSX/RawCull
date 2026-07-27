@@ -1,5 +1,5 @@
 {
-  "originHash" : "eaf546f0559b37b37e5199a9d27aab9994bb2356f97372784e2ce9c738033bdf",
+  "originHash" : "9bf2ba360a61a73355481ce9e0460c75cbfdbca50157c86798f0538ebcd72ad6",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -34,6 +34,14 @@
       "state" : {
         "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847",
         "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "photoaikit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rsyncOSX/PhotoAIKit.git",
+      "state" : {
+        "revision" : "6723f3843df677057538ffde1b70763e4d7b3b26"
       }
     },
     {
@@ -149,8 +157,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system.git",
       "state" : {
-        "revision" : "b5544ba79a70a0cb3563e75bf26dc198d6b40ed3",
-        "version" : "1.7.4"
+        "revision" : "50688cacbd41d547e9eb9f7a213542340b7c442b",
+        "version" : "1.7.5"
       }
     },
     {
@@ -168,7 +176,7 @@
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
         "branch" : "main",
-        "revision" : "d03acd3a0bdac9e87876918f80032585322f0b4a"
+        "revision" : "cee45aa95b8cdb5b16a8e11c037336870ec22369"
       }
     },
     {
