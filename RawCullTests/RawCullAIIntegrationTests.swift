@@ -42,6 +42,9 @@ struct RawCullAIIntegrationTests {
         #expect(initialCapabilities.clipModel == .checking(
             expectedLocations: [paths.clipModelDirectory],
         ))
+        #expect(initialCapabilities.semanticSearch == .checking(
+            expectedLocations: [paths.clipModelDirectory],
+        ))
         #expect(integration.deepAIReviewFeature.availability == .checking(
             expectedLocations: [paths.sam3ModelDirectory],
         ))
@@ -54,6 +57,11 @@ struct RawCullAIIntegrationTests {
         #expect(capabilities.clipModel == .missing(
             expectedLocations: [paths.clipModelDirectory],
         ))
+        #expect(capabilities.semanticSearch == .unavailable(
+            reason: "Semantic search requires a valid CLIP model.",
+            expectedLocations: [paths.clipModelDirectory],
+        ))
+        #expect(integration.semanticSearchService() == nil)
         #expect(capabilities.visionFeaturePrint == .available(location: nil))
         #expect(capabilities.subjectMaskStorage == .available(
             location: paths.subjectMaskDirectory,

@@ -70,10 +70,40 @@ nonisolated enum RawCullAICapabilityStatus: Equatable, Sendable {
     }
 }
 
+/// Explicit semantic-search readiness.
+///
+/// This is separate from the CLIP model status because Vision remains a valid
+/// image-similarity backend while text search specifically requires a
+/// validated CLIP provider with text support.
+nonisolated enum RawCullSemanticSearchCapabilityStatus: Equatable, Sendable {
+    case checking(expectedLocations: [URL])
+    case ready(
+        location: URL?,
+        backend: SimilarityBackendDescriptor
+    )
+    case unavailable(
+        reason: String,
+        expectedLocations: [URL]
+    )
+    case failed(
+        location: URL?,
+        reason: String
+    )
+
+    var isReady: Bool {
+        if case .ready = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 /// The Phase 1 readiness surface described by `doc/futureaiintegration.md`.
 nonisolated struct RawCullAICapabilities: Equatable, Sendable {
     let sam3Model: RawCullAICapabilityStatus
     let clipModel: RawCullAICapabilityStatus
+    let semanticSearch: RawCullSemanticSearchCapabilityStatus
     let visionFeaturePrint: RawCullAICapabilityStatus
     let subjectMaskStorage: RawCullAICapabilityStatus
     let inProcessMaskGeneration: RawCullAICapabilityStatus

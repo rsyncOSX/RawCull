@@ -40,6 +40,29 @@ private nonisolated struct SimilarityDistanceComputation: Sendable {
     let failureCount: Int
 }
 
+nonisolated struct RawCullSemanticSearchResultSummary: Equatable, Sendable {
+    let query: String
+    let resultCount: Int
+    let indexedFileCount: Int
+    let excludedFileCount: Int
+    let scoringFailureCount: Int
+}
+
+nonisolated enum RawCullSemanticSearchState: Equatable, Sendable {
+    case idle
+    case searching(query: String)
+    case results(RawCullSemanticSearchResultSummary)
+    case emptyIndex(query: String, excludedFileCount: Int)
+    case failed(query: String, message: String)
+}
+
+private nonisolated enum SemanticSearchTaskResult: Sendable {
+    case success(RawCullSemanticSearchOutput)
+    case failure(String)
+    case emptyIndex
+    case cancelled
+}
+
 // MARK: - Model
 
 @Observable @MainActor
@@ -58,6 +81,36 @@ final class SimilarityScoringModel {
 
     /// UUID of the image used as the similarity anchor.
     var anchorFileID: UUID?
+
+    // MARK: Semantic search
+
+    private(set) var semanticSearchCapability: RawCullSemanticSearchCapabilityStatus
+    private(set) var semanticSearchState = RawCullSemanticSearchState.idle
+    private(set) var semanticMatches: [RawCullSemanticSearchMatch] = []
+    private(set) var semanticScores: [UUID: Float] = [:]
+    private(set) var semanticResultOrder: [UUID: Int] = [:]
+    private(set) var semanticIndexedFileCount = 0
+    private(set) var semanticCatalogFileCount = 0
+
+    var semanticExcludedFileCount: Int {
+        max(0, semanticCatalogFileCount - semanticIndexedFileCount)
+    }
+
+    var hasSemanticSearchResults: Bool {
+        if case .results = semanticSearchState {
+            true
+        } else {
+            false
+        }
+    }
+
+    var semanticSearchHasEmptyIndex: Bool {
+        if case .emptyIndex = semanticSearchState {
+            true
+        } else {
+            false
+        }
+    }
 
     // MARK: Indexing progress
 
@@ -100,11 +153,22 @@ final class SimilarityScoringModel {
         similarityService.artifactBackendDescriptors
     }
 
+    var semanticSearchBackendDescriptor: SimilarityBackendDescriptor? {
+        semanticSearchService?.backendDescriptor
+    }
+
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
     @ObservationIgnored private var _indexingGeneration = 0
     @ObservationIgnored private var similarityService: any RawCullSimilarityServicing
+    @ObservationIgnored private var semanticSearchService:
+        (any RawCullSemanticSearchServicing)?
+    @ObservationIgnored private var semanticArtifacts: [UUID: SimilarityArtifact] = [:]
+    @ObservationIgnored private var _semanticSearchTask:
+        Task<SemanticSearchTaskResult, Never>?
+    @ObservationIgnored private var _semanticSearchGeneration = 0
+    @ObservationIgnored private var _semanticHydrationGeneration = 0
     @ObservationIgnored private let artifactStore: PerFileAnalysisArtifactStore
     @ObservationIgnored private let similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting
     @ObservationIgnored private var _artifactHydrationGeneration = 0
@@ -118,10 +182,17 @@ final class SimilarityScoringModel {
 
     init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+        semanticSearchCapability: RawCullSemanticSearchCapabilityStatus = .unavailable(
+            reason: "Semantic search requires a valid CLIP model.",
+            expectedLocations: [],
+        ),
+        semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
         artifactStore: PerFileAnalysisArtifactStore,
         similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting = SimilarityDiagnosticsLog.shared,
     ) {
         self.similarityService = similarityService
+        self.semanticSearchCapability = semanticSearchCapability
+        self.semanticSearchService = semanticSearchService
         self.artifactStore = artifactStore
         self.similarityDiagnosticsWriter = similarityDiagnosticsWriter
     }
@@ -129,6 +200,19 @@ final class SimilarityScoringModel {
     // MARK: - Public API
 
     func reset() {
+        resetImageSimilarityState()
+        cancelSemanticSearch()
+        _semanticHydrationGeneration &+= 1
+        semanticArtifacts = [:]
+        semanticMatches = []
+        semanticScores = [:]
+        semanticResultOrder = [:]
+        semanticIndexedFileCount = 0
+        semanticCatalogFileCount = 0
+        semanticSearchState = .idle
+    }
+
+    private func resetImageSimilarityState() {
         cancelIndexing()
         _groupingTask?.cancel()
         _groupingTask = nil
@@ -167,13 +251,50 @@ final class SimilarityScoringModel {
         indexingPhase = .idle
     }
 
+    func cancelSemanticSearch() {
+        _semanticSearchTask?.cancel()
+        _semanticSearchTask = nil
+        _semanticSearchGeneration &+= 1
+    }
+
+    func clearSemanticSearch() {
+        cancelSemanticSearch()
+        semanticMatches = []
+        semanticScores = [:]
+        semanticResultOrder = [:]
+        semanticSearchState = .idle
+    }
+
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {
         guard backendDescriptor != service.backendDescriptor
             || artifactBackendDescriptors != service.artifactBackendDescriptors
         else { return }
 
-        reset()
+        resetImageSimilarityState()
         similarityService = service
+    }
+
+    func setSemanticSearchCapability(
+        _ capability: RawCullSemanticSearchCapabilityStatus,
+        service: (any RawCullSemanticSearchServicing)?,
+    ) {
+        let currentDescriptor = semanticSearchService?.backendDescriptor
+        let replacementDescriptor = service?.backendDescriptor
+        guard semanticSearchCapability != capability
+            || currentDescriptor != replacementDescriptor
+        else { return }
+
+        cancelSemanticSearch()
+        _semanticHydrationGeneration &+= 1
+        semanticSearchCapability = capability
+        semanticSearchService = service
+        semanticArtifacts = [:]
+        semanticMatches = []
+        semanticScores = [:]
+        semanticResultOrder = [:]
+        semanticIndexedFileCount = 0
+        semanticCatalogFileCount = 0
+        semanticSearchState = .idle
     }
 
     nonisolated static var artifactPipelineSignature: SimilarityArtifactPipelineSignature {
@@ -258,6 +379,46 @@ final class SimilarityScoringModel {
         return validated.count
     }
 
+    /// Restore only artifacts compatible with the active text-capable CLIP
+    /// provider. This cache is independent of the Vision/CLIP backend selected
+    /// for burst similarity.
+    @discardableResult
+    func hydrateSemanticArtifacts(_ files: [FileItem]) async -> Int {
+        _semanticHydrationGeneration &+= 1
+        let generation = _semanticHydrationGeneration
+        semanticCatalogFileCount = files.count
+
+        guard let service = semanticSearchService, !files.isEmpty else {
+            semanticArtifacts = [:]
+            semanticIndexedFileCount = 0
+            return 0
+        }
+
+        let backend = service.backendDescriptor
+        let sources = files.map(Self.source(for:))
+        let loadResult = await artifactStore.load(
+            sources: sources,
+            allowedBackends: [backend],
+            pipeline: Self.artifactPipelineSignature,
+        )
+        guard generation == _semanticHydrationGeneration,
+              semanticSearchService?.backendDescriptor == backend,
+              !Task.isCancelled
+        else { return 0 }
+
+        let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+        semanticArtifacts = loadResult.artifacts.filter { id, artifact in
+            guard let source = sourcesByID[id] else { return false }
+            return RawCullSimilarityArtifactValidation.isCurrent(
+                artifact,
+                for: source,
+                backend: backend,
+            )
+        }
+        semanticIndexedFileCount = semanticArtifacts.count
+        return semanticIndexedFileCount
+    }
+
     /// Import compatible artifacts retained by the catalog-wide legacy cache.
     /// UUID remapping is performed by RawCull before this boundary.
     @discardableResult
@@ -301,6 +462,19 @@ final class SimilarityScoringModel {
         else { return 0 }
 
         embeddings.merge(validated) { current, _ in current }
+        if let semanticBackend = semanticSearchService?.backendDescriptor {
+            let semanticImports = validated.filter { id, artifact in
+                guard let source = sourcesByID[id] else { return false }
+                return RawCullSimilarityArtifactValidation.isCurrent(
+                    artifact,
+                    for: source,
+                    backend: semanticBackend,
+                )
+            }
+            semanticArtifacts.merge(semanticImports) { current, _ in current }
+            semanticCatalogFileCount = files.count
+            semanticIndexedFileCount = semanticArtifacts.count
+        }
         return commitResult.committedSourceIDs.count
     }
 
@@ -320,6 +494,9 @@ final class SimilarityScoringModel {
                 "SimilarityScoringModel.indexFiles(): skipped because no files were supplied",
             )
             return
+        }
+        if semanticSearchService != nil {
+            semanticCatalogFileCount = files.count
         }
 
         _indexingTask?.cancel()
@@ -469,7 +646,18 @@ final class SimilarityScoringModel {
             }
             for (id, artifact) in durableOutput.artifacts {
                 embeddings[id] = artifact
+                if let semanticBackend = semanticSearchService?.backendDescriptor,
+                   let source = sourcesByID[id],
+                   RawCullSimilarityArtifactValidation.isCurrent(
+                       artifact,
+                       for: source,
+                       backend: semanticBackend,
+                   )
+                {
+                    semanticArtifacts[id] = artifact
+                }
             }
+            semanticIndexedFileCount = semanticArtifacts.count
             indexingFailures = output.failures + durableOutput.invalidFailures
             indexingPersistenceFailures = durableOutput.commitResult.failures
             if !indexingPersistenceFailures.isEmpty {
@@ -621,6 +809,138 @@ final class SimilarityScoringModel {
         anchorFileID = anchorID
         distances = computation.distances
         sortBySimilarity = true
+    }
+
+    /// Rank an admitted catalog snapshot using only compatible cached CLIP
+    /// artifacts. No source image decoding or image embedding generation is
+    /// reachable from this operation.
+    func rankSemantically(
+        query: String,
+        files: [FileItem],
+    ) async {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            clearSemanticSearch()
+            return
+        }
+
+        cancelSemanticSearch()
+        let generation = _semanticSearchGeneration
+        semanticMatches = []
+        semanticScores = [:]
+        semanticResultOrder = [:]
+
+        guard let service = semanticSearchService else {
+            semanticSearchState = .failed(
+                query: trimmedQuery,
+                message: Self.semanticUnavailableReason(semanticSearchCapability),
+            )
+            return
+        }
+
+        let candidates: [RawCullSemanticSearchCandidate] = files.enumerated().compactMap {
+            element -> RawCullSemanticSearchCandidate? in
+            let (offset, file) = element
+            guard let artifact = semanticArtifacts[file.id] else { return nil }
+            return RawCullSemanticSearchCandidate(
+                fileID: file.id,
+                fileName: file.name,
+                catalogOrder: offset,
+                artifact: artifact,
+            )
+        }
+        let admittedFileCount = files.count
+        guard !candidates.isEmpty else {
+            semanticSearchState = .emptyIndex(
+                query: trimmedQuery,
+                excludedFileCount: admittedFileCount,
+            )
+            return
+        }
+
+        semanticSearchState = .searching(query: trimmedQuery)
+        let work = Task<SemanticSearchTaskResult, Never> { @concurrent in
+            do {
+                return .success(
+                    try await service.rank(
+                        query: trimmedQuery,
+                        candidates: candidates,
+                    ),
+                )
+            } catch is CancellationError {
+                return .cancelled
+            } catch RawCullSemanticSearchError.noCompatibleArtifacts {
+                return .emptyIndex
+            } catch {
+                return .failure(String(describing: error))
+            }
+        }
+        _semanticSearchTask = work
+        let result = await withTaskCancellationHandler {
+            await work.value
+        } onCancel: {
+            work.cancel()
+        }
+
+        if _semanticSearchTask == work {
+            _semanticSearchTask = nil
+        }
+        guard _semanticSearchGeneration == generation,
+              !work.isCancelled,
+              !Task.isCancelled
+        else {
+            if _semanticSearchGeneration == generation {
+                semanticSearchState = .idle
+            }
+            return
+        }
+
+        switch result {
+        case let .success(output):
+            semanticMatches = output.matches
+            semanticScores = Dictionary(
+                uniqueKeysWithValues: output.matches.map {
+                    ($0.fileID, $0.score)
+                },
+            )
+            semanticResultOrder = Dictionary(
+                uniqueKeysWithValues: output.matches.enumerated().map {
+                    ($0.element.fileID, $0.offset)
+                },
+            )
+            semanticSearchState = .results(
+                RawCullSemanticSearchResultSummary(
+                    query: output.query,
+                    resultCount: output.matches.count,
+                    indexedFileCount: output.compatibleArtifactCount,
+                    excludedFileCount: max(
+                        0,
+                        admittedFileCount - output.matches.count,
+                    ),
+                    scoringFailureCount: output.failures.count,
+                ),
+            )
+            if !output.failures.isEmpty {
+                Logger.process.warning(
+                    "SimilarityScoringModel: \(output.failures.count) cached CLIP artifacts failed semantic scoring",
+                )
+            }
+
+        case .emptyIndex:
+            semanticSearchState = .emptyIndex(
+                query: trimmedQuery,
+                excludedFileCount: admittedFileCount,
+            )
+
+        case let .failure(message):
+            semanticSearchState = .failed(
+                query: trimmedQuery,
+                message: message,
+            )
+
+        case .cancelled:
+            semanticSearchState = .idle
+        }
     }
 
     // MARK: - Burst grouping
@@ -812,6 +1132,21 @@ final class SimilarityScoringModel {
     }
 
     // MARK: - Static helpers
+
+    private nonisolated static func semanticUnavailableReason(
+        _ capability: RawCullSemanticSearchCapabilityStatus,
+    ) -> String {
+        switch capability {
+        case .checking:
+            "Semantic search capability is still being checked."
+        case .ready:
+            "The semantic-search provider is not available."
+        case let .unavailable(reason, _):
+            reason
+        case let .failed(_, reason):
+            reason
+        }
+    }
 
     nonisolated static func source(for file: FileItem) -> AIImageSource {
         AIImageSource(id: file.id, url: file.url, displayName: file.name)

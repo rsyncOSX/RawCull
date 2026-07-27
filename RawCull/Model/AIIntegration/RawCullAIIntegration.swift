@@ -123,6 +123,7 @@ final class RawCullAIIntegration {
         self.capabilitySnapshot = RawCullAICapabilities(
             sam3Model: .checking(expectedLocations: sam3CandidateURLs),
             clipModel: .checking(expectedLocations: clipCandidateURLs),
+            semanticSearch: .checking(expectedLocations: clipCandidateURLs),
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
             inProcessMaskGeneration: .checking(expectedLocations: sam3CandidateURLs),
@@ -131,6 +132,13 @@ final class RawCullAIIntegration {
 
     func capabilities() -> RawCullAICapabilities {
         capabilitySnapshot
+    }
+
+    /// Semantic search exists only when the validated CLIP provider exposes
+    /// PhotoAIKit's text-embedding and image/text comparison contracts.
+    func semanticSearchService() -> (any RawCullSemanticSearchServicing)? {
+        guard let clipSimilarityProvider else { return nil }
+        return RawCullCLIPSemanticSearchService(backend: clipSimilarityProvider)
     }
 
     /// Select the strongest requested similarity service whose validated model
@@ -185,11 +193,16 @@ final class RawCullAIIntegration {
             sam3.capability,
             providerInitializationFailure: sam3.providerInitializationFailure,
         )
+        let clipStatus = Self.capabilityStatus(
+            clip.capability,
+            providerInitializationFailure: clip.providerInitializationFailure,
+        )
         let capabilities = RawCullAICapabilities(
             sam3Model: sam3Status,
-            clipModel: Self.capabilityStatus(
-                clip.capability,
-                providerInitializationFailure: clip.providerInitializationFailure,
+            clipModel: clipStatus,
+            semanticSearch: Self.semanticSearchCapabilityStatus(
+                clipStatus: clipStatus,
+                provider: clip.provider,
             ),
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
@@ -254,6 +267,43 @@ final class RawCullAIIntegration {
 
         case let .invalid(url, reason):
             return .invalid(location: url, reason: reason)
+        }
+    }
+
+    private static func semanticSearchCapabilityStatus(
+        clipStatus: RawCullAICapabilityStatus,
+        provider: CoreAICLIPProvider?,
+    ) -> RawCullSemanticSearchCapabilityStatus {
+        if let provider {
+            let location: URL?
+            if case let .available(resolvedLocation) = clipStatus {
+                location = resolvedLocation
+            } else {
+                location = nil
+            }
+            return .ready(
+                location: location,
+                backend: provider.backendDescriptor,
+            )
+        }
+
+        return switch clipStatus {
+        case let .checking(expectedLocations):
+            .checking(expectedLocations: expectedLocations)
+        case let .missing(expectedLocations):
+            .unavailable(
+                reason: "Semantic search requires a valid CLIP model.",
+                expectedLocations: expectedLocations,
+            )
+        case let .invalid(location, reason):
+            .failed(location: location, reason: reason)
+        case let .unavailable(reason):
+            .unavailable(reason: reason, expectedLocations: [])
+        case let .available(location):
+            .failed(
+                location: location,
+                reason: "The validated CLIP resource did not create a text-capable provider.",
+            )
         }
     }
 

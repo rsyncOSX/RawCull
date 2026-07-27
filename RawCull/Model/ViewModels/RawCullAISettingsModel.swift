@@ -25,6 +25,10 @@ final class RawCullAISettingsModel {
     @ObservationIgnored private let similarityServiceDidChange: @MainActor (
         any RawCullSimilarityServicing
     ) -> Void
+    @ObservationIgnored private let semanticSearchCapabilityDidChange: @MainActor (
+        RawCullSemanticSearchCapabilityStatus,
+        (any RawCullSemanticSearchServicing)?
+    ) -> Void
     @ObservationIgnored private let evidenceScan: @Sendable () async throws
         -> RawCullSavedBurstEvidenceScanResult
     @ObservationIgnored private var refreshGeneration = 0
@@ -37,10 +41,15 @@ final class RawCullAISettingsModel {
         similarityServiceDidChange: @escaping @MainActor (
             any RawCullSimilarityServicing
         ) -> Void = { _ in },
+        semanticSearchCapabilityDidChange: @escaping @MainActor (
+            RawCullSemanticSearchCapabilityStatus,
+            (any RawCullSemanticSearchServicing)?
+        ) -> Void = { _, _ in },
     ) {
         self.integration = integration
         self.userDefaults = userDefaults
         self.similarityServiceDidChange = similarityServiceDidChange
+        self.semanticSearchCapabilityDidChange = semanticSearchCapabilityDidChange
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
@@ -106,6 +115,10 @@ final class RawCullAISettingsModel {
     private func applySimilarityPreference() {
         similarityServiceDidChange(
             integration.similarityService(prefersCLIP: prefersCLIPForSimilarity),
+        )
+        semanticSearchCapabilityDidChange(
+            capabilities.semanticSearch,
+            integration.semanticSearchService(),
         )
     }
 }

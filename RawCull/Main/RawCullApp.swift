@@ -29,6 +29,7 @@ struct RawCullApp: App {
         let integration = RawCullAIIntegration()
         let viewModel = RawCullViewModel(
             similarityService: integration.visionSimilarityService,
+            semanticSearchCapability: integration.capabilities().semanticSearch,
             deepAIReviewFeature: integration.deepAIReviewFeature,
         )
         _viewModel = State(
@@ -40,6 +41,13 @@ struct RawCullApp: App {
                 integration: integration,
                 similarityServiceDidChange: { [weak viewModel] service in
                     viewModel?.setSimilarityService(service)
+                },
+                semanticSearchCapabilityDidChange: {
+                    [weak viewModel] capability, service in
+                    viewModel?.setSemanticSearchCapability(
+                        capability,
+                        service: service,
+                    )
                 },
             ),
         )
