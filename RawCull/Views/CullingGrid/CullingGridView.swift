@@ -314,6 +314,10 @@ struct CullingGridView<Header: View>: View {
                                             ratingValue: ratingValue(for: file),
                                             ratingDisplay: ratingDisplay(for: file),
                                             ratingColor: ratingColor(for: file),
+                                            semanticResultRank: semanticResultRank(
+                                                for: file,
+                                            ),
+                                            semanticResultCount: semanticResultCount,
                                             onSelect: { handleToggleSelection(for: file) },
                                             onDoubleSelect: { handleDoubleSelect(for: file) },
                                         )
@@ -725,6 +729,23 @@ struct CullingGridView<Header: View>: View {
         case let .rating(n):
             return viewModel.filteredFiles.filter { viewModel.getRating(for: $0) == n }
         }
+    }
+
+    private var semanticResultCount: Int? {
+        guard !viewModel.showsBurstGroups,
+              case let .results(summary) =
+              viewModel.similarityModel.semanticSearchState,
+              summary.resultCount > 0
+        else { return nil }
+        return summary.resultCount
+    }
+
+    private func semanticResultRank(for file: FileItem) -> Int? {
+        guard semanticResultCount != nil,
+              let zeroBasedRank =
+              viewModel.similarityModel.semanticResultOrder[file.id]
+        else { return nil }
+        return zeroBasedRank + 1
     }
 
     private func ratingValue(for file: FileItem) -> Int {

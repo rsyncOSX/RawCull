@@ -141,6 +141,23 @@ struct BurstCandidateBadgeView: View {
 
 // MARK: - ImageItemView
 
+private struct SemanticResultRankBadgeView: View {
+    let rank: Int
+    let resultCount: Int
+
+    var body: some View {
+        Text("#\(rank)")
+            .font(.caption2.monospacedDigit().weight(.bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(.black.opacity(0.78), in: .capsule)
+            .help("Relative semantic result rank \(rank) of \(resultCount)")
+            .accessibilityLabel("Relative semantic result rank")
+            .accessibilityValue("\(rank) of \(resultCount)")
+    }
+}
+
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
 
@@ -152,6 +169,8 @@ struct ImageItemView: View {
     let ratingValue: Int
     let ratingDisplay: RatingDisplay
     let ratingColor: Color?
+    var semanticResultRank: Int?
+    var semanticResultCount: Int?
     var onSelect: () -> Void = {}
     var onDoubleSelect: () -> Void = {}
 
@@ -197,6 +216,16 @@ struct ImageItemView: View {
                     }
                     .padding(5)
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    if let semanticResultRank,
+                       let semanticResultCount {
+                        SemanticResultRankBadgeView(
+                            rank: semanticResultRank,
+                            resultCount: semanticResultCount,
+                        )
+                        .padding(6)
+                    }
+                }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
             // Selected: strong accent frame inside the image bounds
@@ -204,6 +233,7 @@ struct ImageItemView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(selectionColor, lineWidth: isSelectionHighlighted ? imageSelectionLineWidth : 0),
             )
+            .compositingGroup()
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
             // Filename strip

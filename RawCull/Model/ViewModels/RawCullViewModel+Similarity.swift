@@ -58,4 +58,10 @@ extension RawCullViewModel {
         similarityModel.clearSemanticSearch()
         await handleSortOrderChange()
     }
+
+    /// Cancel an in-flight text query and restore the ordinary catalog order.
+    func cancelSemanticSearch() async {
+        similarityModel.cancelSemanticSearch()
+        await handleSortOrderChange()
+    }
 }

@@ -157,6 +157,13 @@ final class SimilarityScoringModel {
         semanticSearchService?.backendDescriptor
     }
 
+    var canIndexSemanticSearchArtifacts: Bool {
+        guard let semanticBackend = semanticSearchBackendDescriptor else {
+            return false
+        }
+        return artifactBackendDescriptors.contains(semanticBackend)
+    }
+
     // MARK: Private
 
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
@@ -255,14 +262,14 @@ final class SimilarityScoringModel {
         _semanticSearchTask?.cancel()
         _semanticSearchTask = nil
         _semanticSearchGeneration &+= 1
-    }
-
-    func clearSemanticSearch() {
-        cancelSemanticSearch()
         semanticMatches = []
         semanticScores = [:]
         semanticResultOrder = [:]
         semanticSearchState = .idle
+    }
+
+    func clearSemanticSearch() {
+        cancelSemanticSearch()
     }
 
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {
@@ -416,6 +423,7 @@ final class SimilarityScoringModel {
             )
         }
         semanticIndexedFileCount = semanticArtifacts.count
+        dismissStaleEmptySemanticIndexState()
         return semanticIndexedFileCount
     }
 
@@ -474,6 +482,7 @@ final class SimilarityScoringModel {
             semanticArtifacts.merge(semanticImports) { current, _ in current }
             semanticCatalogFileCount = files.count
             semanticIndexedFileCount = semanticArtifacts.count
+            dismissStaleEmptySemanticIndexState()
         }
         return commitResult.committedSourceIDs.count
     }
@@ -658,6 +667,7 @@ final class SimilarityScoringModel {
                 }
             }
             semanticIndexedFileCount = semanticArtifacts.count
+            dismissStaleEmptySemanticIndexState()
             indexingFailures = output.failures + durableOutput.invalidFailures
             indexingPersistenceFailures = durableOutput.commitResult.failures
             if !indexingPersistenceFailures.isEmpty {
@@ -1114,6 +1124,13 @@ final class SimilarityScoringModel {
         distances = [:]
         anchorFileID = nil
         sortBySimilarity = false
+    }
+
+    private func dismissStaleEmptySemanticIndexState() {
+        guard semanticIndexedFileCount > 0,
+              case .emptyIndex = semanticSearchState
+        else { return }
+        semanticSearchState = .idle
     }
 
     private func recordIndexingProgress(

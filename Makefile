@@ -22,6 +22,7 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/DeepAIReviewFeatureTests' \
 	'-only-testing:RawCullTests/RawCullAIIntegrationTests' \
 	'-only-testing:RawCullTests/RawCullSemanticSearchTests' \
+	'-only-testing:RawCullTests/RawCullSemanticSearchUITests' \
 	'-only-testing:RawCullTests/PerFileAnalysisArtifactStoreTests' \
 	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipWholeBatchFallback()' \
 	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipReindexesCompleteBatch()' \

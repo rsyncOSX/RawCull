@@ -346,6 +346,45 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
+    @Test("Cancellation returns to idle and ignores a late provider response")
+    func cancellationRestoresIdle() async throws {
+        let fixture = try SemanticCatalogFixture(names: ["one.raw"])
+        defer { fixture.remove() }
+        await fixture.persistCLIPArtifacts(values: [50])
+        let gate = SemanticSearchGate()
+        let service = GatedSemanticSearchService(gate: gate)
+        let model = SimilarityScoringModel(
+            semanticSearchCapability: .ready(
+                location: nil,
+                backend: semanticTestBackend,
+            ),
+            semanticSearchService: service,
+            artifactStore: fixture.store,
+        )
+        #expect(await model.hydrateSemanticArtifacts(fixture.files) == 1)
+
+        let searchTask = Task {
+            await model.rankSemantically(
+                query: "cancel me",
+                files: fixture.files,
+            )
+        }
+        await gate.waitUntilStarted("cancel me")
+        #expect(
+            model.semanticSearchState == .searching(query: "cancel me"),
+        )
+
+        model.cancelSemanticSearch()
+        #expect(model.semanticSearchState == .idle)
+        #expect(model.semanticMatches.isEmpty)
+
+        await gate.release("cancel me", score: 0.9)
+        await searchTask.value
+        #expect(model.semanticSearchState == .idle)
+        #expect(model.semanticMatches.isEmpty)
+    }
+
+    @MainActor
     @Test("Cached-only ranking composes with rating filters and clear restores catalog order")
     func filteringAndClear() async throws {
         let fixture = try SemanticCatalogFixture(
@@ -447,6 +486,8 @@ struct RawCullSemanticSearchTests {
             query: "portrait",
             excludedFileCount: 3,
         ))
+        #expect(await model.hydrateSemanticArtifacts(fixture.files) == 2)
+        #expect(model.semanticSearchState == .idle)
 
         let failingService = RawCullCLIPSemanticSearchService(
             textProvider: SemanticTestTextProvider(shouldFail: true),
