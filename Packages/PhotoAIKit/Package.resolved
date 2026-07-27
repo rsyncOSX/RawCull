@@ -1,5 +1,5 @@
 {
-  "originHash" : "eaf546f0559b37b37e5199a9d27aab9994bb2356f97372784e2ce9c738033bdf",
+  "originHash" : "353ba4e09bab52802e760aff2fc0907ccf25773bce688350d7eb12a4c6cc228a",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -10,75 +10,12 @@
       }
     },
     {
-      "identity" : "decodeencodegeneric",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/DecodeEncodeGeneric.git",
-      "state" : {
-        "revision" : "b5ecbbbe1b244191efec1532a979f6ae342d6617",
-        "version" : "1.0.0"
-      }
-    },
-    {
       "identity" : "eventsource",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattt/EventSource.git",
       "state" : {
         "revision" : "a3a85a85214caf642abaa96ae664e4c772a59f6e",
         "version" : "1.4.1"
-      }
-    },
-    {
-      "identity" : "parsersyncoutput",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/ParseRsyncOutput",
-      "state" : {
-        "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847",
-        "version" : "1.0.0"
-      }
-    },
-    {
-      "identity" : "photoanalysiskit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/PhotoAnalysisKit.git",
-      "state" : {
-        "revision" : "6e83ceebbca47a5dea0b1b2b4ee8b9132c281449",
-        "version" : "1.2.0"
-      }
-    },
-    {
-      "identity" : "rawcullcore",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RawCullCore.git",
-      "state" : {
-        "revision" : "d25a51e65ad32a82bf82f86fa0ec07d6e14498e9",
-        "version" : "1.1.2"
-      }
-    },
-    {
-      "identity" : "rawparserkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RawParserKit",
-      "state" : {
-        "revision" : "0576a7cfbbdb48a5e0cd34569f2fce53e6d72a54",
-        "version" : "1.2.8"
-      }
-    },
-    {
-      "identity" : "rsyncarguments",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RsyncArguments",
-      "state" : {
-        "revision" : "0ff6518136c208dfbecc1a918f045048ca79853d",
-        "version" : "1.0.0"
-      }
-    },
-    {
-      "identity" : "rsyncprocessstreaming",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rsyncOSX/RsyncProcessStreaming",
-      "state" : {
-        "revision" : "dd86f012b352888fd146e0b6e103740dc237f740",
-        "version" : "1.0.0"
       }
     },
     {
@@ -113,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "47d3869a7291f085c1fb9fb1e6d3b97a793f45c6",
-        "version" : "4.5.1"
+        "revision" : "1b6b2e274e85105bfa155183145a1dcfd63331f1",
+        "version" : "4.5.0"
       }
     },
     {
@@ -131,8 +68,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-jinja.git",
       "state" : {
-        "revision" : "7d0b8880ef8e567dd4e0089f8b99fb354129017c",
-        "version" : "2.4.2"
+        "revision" : "0b67ecb79139f6addef8699eff3622808aa6c7dc",
+        "version" : "2.3.6"
       }
     },
     {
@@ -140,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio.git",
       "state" : {
-        "revision" : "0b18836bd8b0162e7e17a995a3fbee20ed8f3b2b",
-        "version" : "2.101.3"
+        "revision" : "cd3e1152083706d77b223fb29110e590efcc70c0",
+        "version" : "2.101.2"
       }
     },
     {
@@ -168,7 +105,7 @@
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
         "branch" : "main",
-        "revision" : "d03acd3a0bdac9e87876918f80032585322f0b4a"
+        "revision" : "257f870d1b905060a5d3168f6f997bb3481f90c1"
       }
     },
     {

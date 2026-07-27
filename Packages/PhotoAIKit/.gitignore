@@ -17,9 +17,7 @@ Index.noindex/
 ## Swift Package Manager
 .swiftpm/
 .netrc
-Packages/*
-!Packages/PhotoAIKit/
-!Packages/PhotoAIKit/**
+Packages/
 Package.pins
 SourcePackages/
 
@@ -68,6 +66,16 @@ fastlane/test_output/
 
 # macOS
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Local Core AI model artifacts
+RawCullSAM3/Resources/Models/SAM3/
+RawCullSAM3/Resources/Models/CLIP/
+RawCullSAM3/Resources/Models/sam3_float16/
+!RawCullSAM3/Resources/Models/README.md
 
 # Info.plist (if auto-generated)
 # Note: Be careful with this - only ignore if it's truly generated
