@@ -29,10 +29,28 @@ nonisolated struct RawCullSemanticSearchArtifactFailure: Equatable, Sendable {
 
 nonisolated struct RawCullSemanticSearchOutput: Equatable, Sendable {
     let query: String
+    let textEmbeddingDescriptor: TextEmbeddingDescriptor
     let matches: [RawCullSemanticSearchMatch]
     let compatibleArtifactCount: Int
     let incompatibleArtifactCount: Int
     let failures: [RawCullSemanticSearchArtifactFailure]
+}
+
+nonisolated enum RawCullSemanticSearchProgress: Equatable, Sendable {
+    case encodingText(query: String, candidateCount: Int)
+    case scoring(
+        query: String,
+        completedCount: Int,
+        candidateCount: Int,
+    )
+
+    var query: String {
+        switch self {
+        case let .encodingText(query, _),
+             let .scoring(query, _, _):
+            query
+        }
+    }
 }
 
 nonisolated enum RawCullSemanticSearchError: Error, Equatable, Sendable {
@@ -55,6 +73,32 @@ nonisolated protocol RawCullSemanticSearchServicing: Sendable {
         query: String,
         candidates: [RawCullSemanticSearchCandidate],
     ) async throws -> RawCullSemanticSearchOutput
+
+    func rank(
+        query: String,
+        candidates: [RawCullSemanticSearchCandidate],
+        progress: @escaping @Sendable (
+            RawCullSemanticSearchProgress
+        ) async -> Void,
+    ) async throws -> RawCullSemanticSearchOutput
+}
+
+extension RawCullSemanticSearchServicing {
+    func rank(
+        query: String,
+        candidates: [RawCullSemanticSearchCandidate],
+        progress: @escaping @Sendable (
+            RawCullSemanticSearchProgress
+        ) async -> Void,
+    ) async throws -> RawCullSemanticSearchOutput {
+        await progress(
+            .encodingText(
+                query: query.trimmingCharacters(in: .whitespacesAndNewlines),
+                candidateCount: candidates.count,
+            ),
+        )
+        return try await rank(query: query, candidates: candidates)
+    }
 }
 
 /// Literal-query CLIP semantic search backed by PhotoAIKit.
@@ -89,6 +133,21 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
         query: String,
         candidates: [RawCullSemanticSearchCandidate],
     ) async throws -> RawCullSemanticSearchOutput {
+        try await rank(
+            query: query,
+            candidates: candidates,
+            progress: { _ in },
+        )
+    }
+
+    @concurrent
+    func rank(
+        query: String,
+        candidates: [RawCullSemanticSearchCandidate],
+        progress: @escaping @Sendable (
+            RawCullSemanticSearchProgress
+        ) async -> Void,
+    ) async throws -> RawCullSemanticSearchOutput {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
             throw RawCullSemanticSearchError.emptyQuery
@@ -107,6 +166,12 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
             throw RawCullSemanticSearchError.noCompatibleArtifacts
         }
 
+        await progress(
+            .encodingText(
+                query: trimmedQuery,
+                candidateCount: compatibleCandidates.count,
+            ),
+        )
         try Task.checkCancellation()
         let textEmbedding: TextEmbedding
         do {
@@ -131,6 +196,18 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
         )] = []
         var failures: [RawCullSemanticSearchArtifactFailure] = []
         ranked.reserveCapacity(compatibleCandidates.count)
+        let progressStride = max(
+            1,
+            (compatibleCandidates.count + 99) / 100,
+        )
+
+        await progress(
+            .scoring(
+                query: trimmedQuery,
+                completedCount: 0,
+                candidateCount: compatibleCandidates.count,
+            ),
+        )
 
         for (offset, candidate) in compatibleCandidates.enumerated() {
             if offset & 0x3F == 0 {
@@ -141,25 +218,25 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
                     image: candidate.artifact,
                     text: textEmbedding,
                 )
-                guard score.isFinite, (-1 ... 1).contains(score) else {
+                if score.isFinite, (-1 ... 1).contains(score) {
+                    ranked.append(
+                        (
+                            RawCullSemanticSearchMatch(
+                                fileID: candidate.fileID,
+                                score: score,
+                            ),
+                            candidate.fileName,
+                            candidate.catalogOrder
+                        ),
+                    )
+                } else {
                     failures.append(
                         RawCullSemanticSearchArtifactFailure(
                             fileID: candidate.fileID,
                             message: "PhotoAIKit returned an invalid cosine similarity.",
                         ),
                     )
-                    continue
                 }
-                ranked.append(
-                    (
-                        RawCullSemanticSearchMatch(
-                            fileID: candidate.fileID,
-                            score: score,
-                        ),
-                        candidate.fileName,
-                        candidate.catalogOrder
-                    ),
-                )
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -167,6 +244,18 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
                     RawCullSemanticSearchArtifactFailure(
                         fileID: candidate.fileID,
                         message: String(describing: error),
+                    ),
+                )
+            }
+
+            let completedCount = offset + 1
+            if completedCount == compatibleCandidates.count
+                || completedCount.isMultiple(of: progressStride) {
+                await progress(
+                    .scoring(
+                        query: trimmedQuery,
+                        completedCount: completedCount,
+                        candidateCount: compatibleCandidates.count,
                     ),
                 )
             }
@@ -189,6 +278,7 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
 
         return RawCullSemanticSearchOutput(
             query: trimmedQuery,
+            textEmbeddingDescriptor: textEmbedding.descriptor,
             matches: ranked.map(\.match),
             compatibleArtifactCount: compatibleCandidates.count,
             incompatibleArtifactCount: candidates.count - compatibleCandidates.count,

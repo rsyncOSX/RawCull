@@ -22,6 +22,12 @@ private nonisolated let visionOnlyTestBackend = SimilarityBackendDescriptor(
     configurationVersion: "vision-test-config-v1",
 )
 
+private nonisolated let semanticTestTextDescriptor = TextEmbeddingDescriptor(
+    backend: semanticTestBackend,
+    dimensions: 2,
+    tokenizerVersion: "semantic-test-tokenizer-v1",
+)
+
 private enum SemanticTestError: Error {
     case textProviderFailed
     case artifactFailed
@@ -48,8 +54,8 @@ private actor SemanticTestTextProvider: TextEmbeddingProviding {
         return try TextEmbedding(
             descriptor: TextEmbeddingDescriptor(
                 backend: backendDescriptor,
-                dimensions: 2,
-                tokenizerVersion: "semantic-test-tokenizer-v1",
+                dimensions: semanticTestTextDescriptor.dimensions,
+                tokenizerVersion: semanticTestTextDescriptor.tokenizerVersion,
             ),
             values: [1, 0],
         )
@@ -115,6 +121,7 @@ private actor SemanticSearchGate {
         pending.continuation.resume(
             returning: RawCullSemanticSearchOutput(
                 query: query,
+                textEmbeddingDescriptor: semanticTestTextDescriptor,
                 matches: matches,
                 compatibleArtifactCount: matches.count,
                 incompatibleArtifactCount: 0,
@@ -271,6 +278,7 @@ struct RawCullSemanticSearchTests {
 
         #expect(await provider.queries() == ["red fox at dusk"])
         #expect(output.query == "red fox at dusk")
+        #expect(output.textEmbeddingDescriptor == semanticTestTextDescriptor)
         #expect(output.matches.map(\.fileID) == [
             strongest.fileID,
             firstTie.fileID,
@@ -306,6 +314,115 @@ struct RawCullSemanticSearchTests {
             )
         }
         #expect(await provider.queries().isEmpty)
+    }
+
+    @MainActor
+    @Test("Large searches show the top twenty and preserve full CLIP diagnostics")
+    func boundedResultsAndDiagnostics() async throws {
+        let names = (1 ... 25).map {
+            let suffix = $0 < 10 ? "0\($0)" : "\($0)"
+            return "image-\(suffix).raw"
+        }
+        let fixture = try SemanticCatalogFixture(names: names)
+        defer { fixture.remove() }
+        await fixture.persistCLIPArtifacts(values: Array(1 ... 25))
+        let service = RawCullCLIPSemanticSearchService(
+            textProvider: SemanticTestTextProvider(),
+            comparator: SemanticPayloadComparator(),
+        )
+        let model = SimilarityScoringModel(
+            semanticSearchCapability: .ready(
+                location: nil,
+                backend: semanticTestBackend,
+            ),
+            semanticSearchService: service,
+            artifactStore: fixture.store,
+        )
+        #expect(await model.hydrateSemanticArtifacts(fixture.files) == 25)
+
+        await model.rankSemantically(
+            query: "bird in flight",
+            files: fixture.files,
+        )
+
+        var summary = try #require(model.semanticSearchState.resultSummary)
+        #expect(summary.resultCount == 20)
+        #expect(summary.rankedImageCount == 25)
+        #expect(summary.hiddenRankedImageCount == 5)
+        #expect(model.semanticResultOrder.count == 20)
+        #expect(model.semanticSearchProgress == .scoring(
+            query: "bird in flight",
+            completedCount: 25,
+            candidateCount: 25,
+        ))
+
+        let diagnostics = try #require(model.semanticSearchDiagnostics)
+        #expect(diagnostics.query == "bird in flight")
+        #expect(diagnostics.promptPolicyVersion == "literal-v1")
+        #expect(diagnostics.textEmbeddingDescriptor == semanticTestTextDescriptor)
+        #expect(diagnostics.results.count == 25)
+        #expect(diagnostics.results.first?.fileName == "image-25.raw")
+        #expect(diagnostics.results.last?.fileName == "image-01.raw")
+        #expect(abs((diagnostics.highestScore ?? 0) - 0.25) < 0.0001)
+        #expect(abs((diagnostics.medianScore ?? 0) - 0.13) < 0.0001)
+        #expect(abs((diagnostics.lowestScore ?? 0) - 0.01) < 0.0001)
+        #expect(abs((diagnostics.scoreSpread ?? 0) - 0.24) < 0.0001)
+        #expect(abs((diagnostics.topScoreGap ?? 0) - 0.01) < 0.0001)
+
+        model.setSemanticSearchShowsAllResults(true)
+        summary = try #require(model.semanticSearchState.resultSummary)
+        #expect(summary.resultCount == 25)
+        #expect(summary.hiddenRankedImageCount == 0)
+        #expect(model.semanticSearchShowsAllResults)
+        #expect(model.semanticResultOrder.count == 25)
+
+        model.setSemanticSearchShowsAllResults(false)
+        summary = try #require(model.semanticSearchState.resultSummary)
+        #expect(summary.resultCount == 20)
+        #expect(summary.hiddenRankedImageCount == 5)
+        #expect(!model.semanticSearchShowsAllResults)
+        #expect(model.semanticResultOrder.count == 20)
+    }
+
+    @MainActor
+    @Test("Show all updates the admitted RawCull grid without rerunning CLIP")
+    func showAllUpdatesFilteredCatalog() async throws {
+        let names = (1 ... 25).map { "catalog-\($0).raw" }
+        let fixture = try SemanticCatalogFixture(names: names)
+        defer { fixture.remove() }
+        await fixture.persistCLIPArtifacts(values: Array(1 ... 25))
+        let provider = SemanticTestTextProvider()
+        let service = RawCullCLIPSemanticSearchService(
+            textProvider: provider,
+            comparator: SemanticPayloadComparator(),
+        )
+        let viewModel = RawCullViewModel(
+            semanticSearchCapability: .ready(
+                location: nil,
+                backend: semanticTestBackend,
+            ),
+            semanticSearchService: service,
+            similarityArtifactStore: fixture.store,
+        )
+        viewModel.files = fixture.files
+        viewModel.filteredFiles = fixture.files
+        #expect(
+            await viewModel.similarityModel.hydrateSemanticArtifacts(
+                fixture.files,
+            ) == 25,
+        )
+
+        await viewModel.searchSemantically(for: "wildlife")
+        #expect(viewModel.filteredFiles.count == 20)
+        #expect(await provider.queries() == ["wildlife"])
+
+        await viewModel.setSemanticSearchShowsAllResults(true)
+        #expect(viewModel.filteredFiles.count == 25)
+        #expect(await provider.queries() == ["wildlife"])
+
+        await viewModel.setSemanticSearchShowsAllResults(false)
+        #expect(viewModel.filteredFiles.count == 20)
+        #expect(await provider.queries() == ["wildlife"])
     }
 
     @MainActor

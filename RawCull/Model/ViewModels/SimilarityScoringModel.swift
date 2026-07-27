@@ -42,10 +42,63 @@ private nonisolated struct SimilarityDistanceComputation: Sendable {
 
 nonisolated struct RawCullSemanticSearchResultSummary: Equatable, Sendable {
     let query: String
+    /// Images currently admitted to the grid.
     let resultCount: Int
+    /// Every compatible image that produced a valid cosine score.
+    let rankedImageCount: Int
     let indexedFileCount: Int
     let excludedFileCount: Int
     let scoringFailureCount: Int
+
+    init(
+        query: String,
+        resultCount: Int,
+        rankedImageCount: Int? = nil,
+        indexedFileCount: Int,
+        excludedFileCount: Int,
+        scoringFailureCount: Int,
+    ) {
+        self.query = query
+        self.resultCount = resultCount
+        self.rankedImageCount = rankedImageCount ?? resultCount
+        self.indexedFileCount = indexedFileCount
+        self.excludedFileCount = excludedFileCount
+        self.scoringFailureCount = scoringFailureCount
+    }
+
+    var hiddenRankedImageCount: Int {
+        max(0, rankedImageCount - resultCount)
+    }
+}
+
+nonisolated struct RawCullSemanticSearchDiagnosticResult:
+    Equatable,
+    Identifiable,
+    Sendable
+{
+    let fileID: UUID
+    let fileName: String
+    let rank: Int
+    let score: Float
+
+    var id: UUID { fileID }
+}
+
+nonisolated struct RawCullSemanticSearchDiagnostics: Equatable, Sendable {
+    let query: String
+    let promptPolicyVersion: String
+    let backendDescriptor: SimilarityBackendDescriptor
+    let textEmbeddingDescriptor: TextEmbeddingDescriptor
+    let durationMilliseconds: Int
+    let compatibleArtifactCount: Int
+    let incompatibleArtifactCount: Int
+    let scoringFailureCount: Int
+    let highestScore: Float?
+    let medianScore: Float?
+    let lowestScore: Float?
+    let scoreSpread: Float?
+    let topScoreGap: Float?
+    let results: [RawCullSemanticSearchDiagnosticResult]
 }
 
 nonisolated enum RawCullSemanticSearchState: Equatable, Sendable {
@@ -69,6 +122,7 @@ private nonisolated enum SemanticSearchTaskResult: Sendable {
 final class SimilarityScoringModel {
     nonisolated static let embeddingThumbnailMaxPixelSize = 512
     nonisolated static let embeddingPipelineVersion = 3
+    nonisolated static let semanticSearchDefaultResultLimit = 20
 
     // MARK: State
 
@@ -89,6 +143,9 @@ final class SimilarityScoringModel {
     private(set) var semanticMatches: [RawCullSemanticSearchMatch] = []
     private(set) var semanticScores: [UUID: Float] = [:]
     private(set) var semanticResultOrder: [UUID: Int] = [:]
+    private(set) var semanticSearchProgress: RawCullSemanticSearchProgress?
+    private(set) var semanticSearchDiagnostics: RawCullSemanticSearchDiagnostics?
+    private(set) var semanticSearchShowsAllResults = false
     private(set) var semanticIndexedFileCount = 0
     private(set) var semanticCatalogFileCount = 0
 
@@ -214,6 +271,9 @@ final class SimilarityScoringModel {
         semanticMatches = []
         semanticScores = [:]
         semanticResultOrder = [:]
+        semanticSearchProgress = nil
+        semanticSearchDiagnostics = nil
+        semanticSearchShowsAllResults = false
         semanticIndexedFileCount = 0
         semanticCatalogFileCount = 0
         semanticSearchState = .idle
@@ -265,6 +325,9 @@ final class SimilarityScoringModel {
         semanticMatches = []
         semanticScores = [:]
         semanticResultOrder = [:]
+        semanticSearchProgress = nil
+        semanticSearchDiagnostics = nil
+        semanticSearchShowsAllResults = false
         semanticSearchState = .idle
     }
 
@@ -299,6 +362,9 @@ final class SimilarityScoringModel {
         semanticMatches = []
         semanticScores = [:]
         semanticResultOrder = [:]
+        semanticSearchProgress = nil
+        semanticSearchDiagnostics = nil
+        semanticSearchShowsAllResults = false
         semanticIndexedFileCount = 0
         semanticCatalogFileCount = 0
         semanticSearchState = .idle
@@ -839,6 +905,9 @@ final class SimilarityScoringModel {
         semanticMatches = []
         semanticScores = [:]
         semanticResultOrder = [:]
+        semanticSearchProgress = nil
+        semanticSearchDiagnostics = nil
+        semanticSearchShowsAllResults = false
 
         guard let service = semanticSearchService else {
             semanticSearchState = .failed(
@@ -868,13 +937,30 @@ final class SimilarityScoringModel {
             return
         }
 
+        let fileNames = Dictionary(
+            uniqueKeysWithValues: files.map { ($0.id, $0.name) },
+        )
+        let startedAt = Date()
+        semanticSearchProgress = .encodingText(
+            query: trimmedQuery,
+            candidateCount: candidates.count,
+        )
         semanticSearchState = .searching(query: trimmedQuery)
+        let progressHandler: @Sendable (
+            RawCullSemanticSearchProgress
+        ) async -> Void = { [model = self] progress in
+            await model.acceptSemanticSearchProgress(
+                progress,
+                generation: generation,
+            )
+        }
         let work = Task<SemanticSearchTaskResult, Never> { @concurrent in
             do {
                 return .success(
                     try await service.rank(
                         query: trimmedQuery,
                         candidates: candidates,
+                        progress: progressHandler,
                     ),
                 )
             } catch is CancellationError {
@@ -913,22 +999,24 @@ final class SimilarityScoringModel {
                     ($0.fileID, $0.score)
                 },
             )
-            semanticResultOrder = Dictionary(
-                uniqueKeysWithValues: output.matches.enumerated().map {
-                    ($0.element.fileID, $0.offset)
-                },
+            semanticSearchProgress = .scoring(
+                query: output.query,
+                completedCount: output.compatibleArtifactCount,
+                candidateCount: output.compatibleArtifactCount,
             )
-            semanticSearchState = .results(
-                RawCullSemanticSearchResultSummary(
-                    query: output.query,
-                    resultCount: output.matches.count,
-                    indexedFileCount: output.compatibleArtifactCount,
-                    excludedFileCount: max(
-                        0,
-                        admittedFileCount - output.matches.count,
-                    ),
-                    scoringFailureCount: output.failures.count,
+            semanticSearchDiagnostics = Self.makeSemanticSearchDiagnostics(
+                output: output,
+                fileNames: fileNames,
+                backendDescriptor: service.backendDescriptor,
+                promptPolicyVersion: service.promptPolicyVersion,
+                durationMilliseconds: max(
+                    0,
+                    Int(Date().timeIntervalSince(startedAt) * 1_000),
                 ),
+            )
+            applySemanticSearchResultPresentation(
+                output: output,
+                admittedFileCount: admittedFileCount,
             )
             if !output.failures.isEmpty {
                 Logger.process.warning(
@@ -937,20 +1025,140 @@ final class SimilarityScoringModel {
             }
 
         case .emptyIndex:
+            semanticSearchProgress = nil
             semanticSearchState = .emptyIndex(
                 query: trimmedQuery,
                 excludedFileCount: admittedFileCount,
             )
 
         case let .failure(message):
+            semanticSearchProgress = nil
             semanticSearchState = .failed(
                 query: trimmedQuery,
                 message: message,
             )
 
         case .cancelled:
+            semanticSearchProgress = nil
             semanticSearchState = .idle
         }
+    }
+
+    func setSemanticSearchShowsAllResults(_ showsAll: Bool) {
+        guard !semanticMatches.isEmpty,
+              semanticSearchShowsAllResults != showsAll,
+              case let .results(summary) = semanticSearchState
+        else { return }
+
+        semanticSearchShowsAllResults = showsAll
+        let visibleMatches = showsAll
+            ? semanticMatches[...]
+            : semanticMatches.prefix(Self.semanticSearchDefaultResultLimit)
+        semanticResultOrder = Dictionary(
+            uniqueKeysWithValues: visibleMatches.enumerated().map {
+                ($0.element.fileID, $0.offset)
+            },
+        )
+        semanticSearchState = .results(
+            RawCullSemanticSearchResultSummary(
+                query: summary.query,
+                resultCount: visibleMatches.count,
+                rankedImageCount: summary.rankedImageCount,
+                indexedFileCount: summary.indexedFileCount,
+                excludedFileCount: summary.excludedFileCount,
+                scoringFailureCount: summary.scoringFailureCount,
+            ),
+        )
+    }
+
+    private func acceptSemanticSearchProgress(
+        _ progress: RawCullSemanticSearchProgress,
+        generation: Int,
+    ) {
+        guard _semanticSearchGeneration == generation,
+              case let .searching(activeQuery) = semanticSearchState,
+              activeQuery == progress.query
+        else { return }
+        semanticSearchProgress = progress
+    }
+
+    private func applySemanticSearchResultPresentation(
+        output: RawCullSemanticSearchOutput,
+        admittedFileCount: Int,
+    ) {
+        let visibleMatches = output.matches.prefix(
+            Self.semanticSearchDefaultResultLimit,
+        )
+        semanticResultOrder = Dictionary(
+            uniqueKeysWithValues: visibleMatches.enumerated().map {
+                ($0.element.fileID, $0.offset)
+            },
+        )
+        semanticSearchState = .results(
+            RawCullSemanticSearchResultSummary(
+                query: output.query,
+                resultCount: visibleMatches.count,
+                rankedImageCount: output.matches.count,
+                indexedFileCount: output.compatibleArtifactCount,
+                excludedFileCount: max(
+                    0,
+                    admittedFileCount - output.matches.count,
+                ),
+                scoringFailureCount: output.failures.count,
+            ),
+        )
+    }
+
+    private nonisolated static func makeSemanticSearchDiagnostics(
+        output: RawCullSemanticSearchOutput,
+        fileNames: [UUID: String],
+        backendDescriptor: SimilarityBackendDescriptor,
+        promptPolicyVersion: String,
+        durationMilliseconds: Int,
+    ) -> RawCullSemanticSearchDiagnostics {
+        let results = output.matches.enumerated().map { offset, match in
+            RawCullSemanticSearchDiagnosticResult(
+                fileID: match.fileID,
+                fileName: fileNames[match.fileID] ?? match.fileID.uuidString,
+                rank: offset + 1,
+                score: match.score,
+            )
+        }
+        let scores = results.map(\.score)
+        let highestScore = scores.first
+        let lowestScore = scores.last
+        let medianScore: Float? = if scores.isEmpty {
+            nil
+        } else if scores.count.isMultiple(of: 2) {
+            (scores[scores.count / 2 - 1] + scores[scores.count / 2]) / 2
+        } else {
+            scores[scores.count / 2]
+        }
+        let scoreSpread: Float? = if let highestScore, let lowestScore {
+            highestScore - lowestScore
+        } else {
+            nil
+        }
+        let topScoreGap: Float? = scores.count > 1
+            ? scores[0] - scores[1]
+            : nil
+
+        return RawCullSemanticSearchDiagnostics(
+            query: output.query,
+            promptPolicyVersion: promptPolicyVersion,
+            backendDescriptor: backendDescriptor,
+            textEmbeddingDescriptor: output.textEmbeddingDescriptor,
+            durationMilliseconds: durationMilliseconds,
+            compatibleArtifactCount: output.compatibleArtifactCount,
+            incompatibleArtifactCount: output.incompatibleArtifactCount,
+            scoringFailureCount: output.failures.count,
+            highestScore: highestScore,
+            medianScore: medianScore,
+            lowestScore: lowestScore,
+            scoreSpread: scoreSpread,
+            topScoreGap: topScoreGap,
+            results: results,
+        )
     }
 
     // MARK: - Burst grouping

@@ -343,10 +343,17 @@ private struct SemanticSearchReadinessView: View {
         _ summary: RawCullSemanticSearchResultSummary,
     ) -> some View {
         HStack(spacing: 6) {
-            Text(
-                "\(summary.resultCount) ranked results",
-                comment: "Count of semantic-search results.",
-            )
+            if summary.hiddenRankedImageCount > 0 {
+                Text(
+                    "\(summary.resultCount) shown · \(summary.rankedImageCount) images ranked",
+                    comment: "Visible semantic results followed by every successfully ranked image.",
+                )
+            } else {
+                Text(
+                    "\(summary.rankedImageCount) images ranked",
+                    comment: "Count of successfully ranked semantic-search images.",
+                )
+            }
             if summary.excludedFileCount > 0 {
                 Text("·")
                     .foregroundStyle(.tertiary)

@@ -32,14 +32,27 @@ struct SimilarityGridSelectionView: View {
                 )
 
             case let .searching(query):
-                SemanticSearchSearchingView(query: query)
+                SemanticSearchSearchingView(
+                    query: query,
+                    progress: viewModel.similarityModel.semanticSearchProgress,
+                )
 
             case let .results(summary) where summary.resultCount == 0:
                 SemanticSearchEmptyResultsView(summary: summary)
 
             case let .results(summary):
                 CullingGridView(viewModel: viewModel) {
-                    SemanticSearchResultsHeaderView(summary: summary)
+                    SemanticSearchResultsHeaderView(
+                        summary: summary,
+                        diagnostics: viewModel.similarityModel.semanticSearchDiagnostics,
+                        onSetShowsAllResults: { showsAll in
+                            Task {
+                                await viewModel.setSemanticSearchShowsAllResults(
+                                    showsAll,
+                                )
+                            }
+                        },
+                    )
                 }
 
             case let .emptyIndex(_, excludedFileCount):

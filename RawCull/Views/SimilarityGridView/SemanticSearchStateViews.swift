@@ -73,35 +73,164 @@ struct SemanticSearchUnavailableView: View {
 
 struct SemanticSearchResultsHeaderView: View {
     let summary: RawCullSemanticSearchResultSummary
+    let diagnostics: RawCullSemanticSearchDiagnostics?
+    let onSetShowsAllResults: (Bool) -> Void
+
+    @State private var diagnosticsPresented = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            SemanticSearchResultsSummaryView(summary: summary)
+
+            Spacer(minLength: 12)
+
+            SemanticSearchResultActionsView(
+                summary: summary,
+                diagnosticsAvailable: diagnostics != nil,
+                onSetShowsAllResults: onSetShowsAllResults,
+                onShowDiagnostics: {
+                    diagnosticsPresented = true
+                },
+            )
+        }
+        .sheet(isPresented: $diagnosticsPresented) {
+            if let diagnostics {
+                SemanticSearchDiagnosticsView(diagnostics: diagnostics)
+            }
+        }
+    }
+}
+
+private struct SemanticSearchResultsSummaryView: View {
+    let summary: RawCullSemanticSearchResultSummary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(
-                "\(summary.resultCount) results for “\(summary.query)”",
-                comment: "Semantic-search result count followed by the user's query.",
+                "\(summary.resultCount) shown for “\(summary.query)”",
+                comment: "Visible semantic-search result count followed by the user's query.",
             )
             .font(.callout.weight(.semibold))
 
-            Text("Results are ordered by relative CLIP similarity, not confidence.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(
+                "\(summary.rankedImageCount) images ranked. Results are relative CLIP similarity, not confidence.",
+                comment: "Total scored images followed by a warning that the ranking is not a confidence value.",
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
 }
 
+private struct SemanticSearchResultActionsView: View {
+    let summary: RawCullSemanticSearchResultSummary
+    let diagnosticsAvailable: Bool
+    let onSetShowsAllResults: (Bool) -> Void
+    let onShowDiagnostics: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if summary.hiddenRankedImageCount > 0 {
+                Button {
+                    onSetShowsAllResults(true)
+                } label: {
+                    Text(
+                        "Show All \(summary.rankedImageCount)",
+                        comment: "Button that expands semantic search to every ranked image.",
+                    )
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Shows lower-ranked images without running CLIP again.")
+            } else if summary.rankedImageCount > SimilarityScoringModel.semanticSearchDefaultResultLimit {
+                Button {
+                    onSetShowsAllResults(false)
+                } label: {
+                    Text(
+                        "Show Top \(SimilarityScoringModel.semanticSearchDefaultResultLimit)",
+                        comment: "Button that limits semantic search to the highest-ranked images.",
+                    )
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Hides lower-ranked images without running CLIP again.")
+            }
+
+            Button {
+                onShowDiagnostics()
+            } label: {
+                Label("CLIP Details", systemImage: "waveform.path.ecg")
+            }
+            .buttonStyle(.bordered)
+            .disabled(!diagnosticsAvailable)
+            .accessibilityHint("Shows the literal query, model details, score distribution, and every raw cosine score.")
+        }
+    }
+}
+
 struct SemanticSearchSearchingView: View {
     let query: String
+    let progress: RawCullSemanticSearchProgress?
 
     var body: some View {
         ContentUnavailableView {
             Label("Searching", systemImage: "text.magnifyingglass")
         } description: {
-            Text("Ranking compatible cached images for “\(query)”.")
+            SemanticSearchLiveStatusView(
+                query: query,
+                progress: progress,
+            )
         } actions: {
             ProgressView()
                 .controlSize(.small)
         }
+    }
+}
+
+private struct SemanticSearchLiveStatusView: View {
+    let query: String
+    let progress: RawCullSemanticSearchProgress?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabeledContent("Text sent to CLIP") {
+                Text(query)
+                    .textSelection(.enabled)
+            }
+
+            switch progress {
+            case let .encodingText(_, candidateCount):
+                Label(
+                    "Encoding the literal query before comparing \(candidateCount) cached image vectors.",
+                    systemImage: "textformat.abc",
+                )
+
+            case let .scoring(_, completedCount, candidateCount):
+                ProgressView(
+                    value: Double(completedCount),
+                    total: Double(max(1, candidateCount)),
+                ) {
+                    Text(
+                        "Scored \(completedCount) of \(candidateCount) images",
+                        comment: "Live semantic-search scoring progress.",
+                    )
+                }
+
+            case nil:
+                Text("Preparing the literal query for CLIP.")
+            }
+
+            Text(
+                """
+                CLIP does not extract words or tags during indexing. It \
+                compares this text vector with cached image vectors; exact \
+                raw scores appear in CLIP Details when ranking finishes.
+                """,
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: 560, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 }
 

@@ -53,6 +53,13 @@ extension RawCullViewModel {
         await handleSortOrderChange()
     }
 
+    /// Expand or collapse the ranked catalog without recomputing CLIP
+    /// embeddings or cosine scores.
+    func setSemanticSearchShowsAllResults(_ showsAll: Bool) async {
+        similarityModel.setSemanticSearchShowsAllResults(showsAll)
+        await handleSortOrderChange()
+    }
+
     /// Cancel text ranking and immediately restore the ordinary catalog order.
     func clearSemanticSearch() async {
         similarityModel.clearSemanticSearch()

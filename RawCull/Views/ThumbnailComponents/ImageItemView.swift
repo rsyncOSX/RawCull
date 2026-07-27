@@ -144,6 +144,7 @@ struct BurstCandidateBadgeView: View {
 private struct SemanticResultRankBadgeView: View {
     let rank: Int
     let resultCount: Int
+    let score: Float?
 
     var body: some View {
         Text("#\(rank)")
@@ -152,9 +153,27 @@ private struct SemanticResultRankBadgeView: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
             .background(.black.opacity(0.78), in: .capsule)
-            .help("Relative semantic result rank \(rank) of \(resultCount)")
+            .help(helpText)
             .accessibilityLabel("Relative semantic result rank")
-            .accessibilityValue("\(rank) of \(resultCount)")
+            .accessibilityValue(accessibilityValue)
+    }
+
+    private var formattedScore: String? {
+        score?.formatted(.number.precision(.fractionLength(4)))
+    }
+
+    private var helpText: String {
+        guard let formattedScore else {
+            return "Relative semantic result rank \(rank) of \(resultCount)"
+        }
+        return "Relative semantic result rank \(rank) of \(resultCount); raw cosine similarity \(formattedScore)"
+    }
+
+    private var accessibilityValue: String {
+        guard let formattedScore else {
+            return "\(rank) of \(resultCount)"
+        }
+        return "\(rank) of \(resultCount), raw cosine similarity \(formattedScore)"
     }
 }
 
@@ -171,6 +190,7 @@ struct ImageItemView: View {
     let ratingColor: Color?
     var semanticResultRank: Int?
     var semanticResultCount: Int?
+    var semanticResultScore: Float?
     var onSelect: () -> Void = {}
     var onDoubleSelect: () -> Void = {}
 
@@ -222,6 +242,7 @@ struct ImageItemView: View {
                         SemanticResultRankBadgeView(
                             rank: semanticResultRank,
                             resultCount: semanticResultCount,
+                            score: semanticResultScore,
                         )
                         .padding(6)
                     }

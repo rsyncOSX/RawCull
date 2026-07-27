@@ -108,7 +108,8 @@ struct RawCullSemanticSearchUITests {
         let partialSummary = RawCullSemanticSearchResultSummary(
             query: "backlit portrait",
             resultCount: 7,
-            indexedFileCount: 7,
+            rankedImageCount: 12,
+            indexedFileCount: 12,
             excludedFileCount: 3,
             scoringFailureCount: 1,
         )
@@ -116,6 +117,7 @@ struct RawCullSemanticSearchUITests {
             searchState: .results(partialSummary),
         )
         #expect(partial.activity == .results(partialSummary))
+        #expect(partialSummary.hiddenRankedImageCount == 5)
 
         let emptySummary = RawCullSemanticSearchResultSummary(
             query: "misty mountain",
