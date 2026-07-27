@@ -16,8 +16,21 @@ import RawCullCore
 /// Keep small so the visual artifact remains the dominant signal.
 private nonisolated let kSubjectMismatchPenalty: Float = 0.10
 
+nonisolated enum SimilarityIndexingPhase: Equatable, Sendable {
+    case idle
+    case generating
+    case saving
+}
+
+private nonisolated struct DurableSimilarityIndexingOutput: Sendable {
+    let serviceOutput: RawCullSimilarityIndexingOutput
+    let artifacts: [UUID: SimilarityArtifact]
+    let invalidFailures: [RawCullSimilarityIndexingFailure]
+    let commitResult: PerFileAnalysisArtifactCommitResult
+}
+
 private nonisolated enum SimilarityIndexingTaskResult: Sendable {
-    case success(RawCullSimilarityIndexingOutput)
+    case success(DurableSimilarityIndexingOutput)
     case failure(String)
     case cancelled
 }
@@ -52,7 +65,9 @@ final class SimilarityScoringModel {
     var indexingProgress = 0
     var indexingTotal = 0
     var indexingEstimatedSeconds = 0
+    private(set) var indexingPhase = SimilarityIndexingPhase.idle
     private(set) var indexingFailures: [RawCullSimilarityIndexingFailure] = []
+    private(set) var indexingPersistenceFailures: [PerFileAnalysisArtifactWriteFailure] = []
     private(set) var indexingOperationFailure: String?
     private(set) var indexingDiagnostic: String?
 
@@ -90,7 +105,9 @@ final class SimilarityScoringModel {
     @ObservationIgnored private var _indexingTask: Task<SimilarityIndexingTaskResult, Never>?
     @ObservationIgnored private var _indexingGeneration = 0
     @ObservationIgnored private var similarityService: any RawCullSimilarityServicing
+    @ObservationIgnored private let artifactStore: PerFileAnalysisArtifactStore
     @ObservationIgnored private let similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting
+    @ObservationIgnored private var _artifactHydrationGeneration = 0
     @ObservationIgnored private var _indexingStartedAt: Date?
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration = 0
@@ -101,9 +118,11 @@ final class SimilarityScoringModel {
 
     init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+        artifactStore: PerFileAnalysisArtifactStore,
         similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting = SimilarityDiagnosticsLog.shared,
     ) {
         self.similarityService = similarityService
+        self.artifactStore = artifactStore
         self.similarityDiagnosticsWriter = similarityDiagnosticsWriter
     }
 
@@ -116,6 +135,7 @@ final class SimilarityScoringModel {
         _rankingTask?.cancel()
         _rankingTask = nil
         _rankingGeneration &+= 1
+        _artifactHydrationGeneration &+= 1
         embeddings = [:]
         distances = [:]
         anchorFileID = nil
@@ -129,8 +149,10 @@ final class SimilarityScoringModel {
         _adjacentDistanceCache = [:]
         _adjacentDistanceCacheSignature = 0
         indexingFailures = []
+        indexingPersistenceFailures = []
         indexingOperationFailure = nil
         indexingDiagnostic = nil
+        indexingPhase = .idle
     }
 
     func cancelIndexing() {
@@ -142,6 +164,7 @@ final class SimilarityScoringModel {
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
+        indexingPhase = .idle
     }
 
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {
@@ -153,12 +176,141 @@ final class SimilarityScoringModel {
         similarityService = service
     }
 
+    nonisolated static var artifactPipelineSignature: SimilarityArtifactPipelineSignature {
+        SimilarityArtifactPipelineSignature(
+            thumbnailMaxPixelSize: embeddingThumbnailMaxPixelSize,
+            pipelineVersion: embeddingPipelineVersion,
+        )
+    }
+
+    /// Restore descriptor- and payload-valid artifacts for the current
+    /// in-memory FileItem identifiers.
+    @discardableResult
+    func hydrateArtifacts(_ files: [FileItem]) async -> Int {
+        guard !files.isEmpty else { return 0 }
+
+        _artifactHydrationGeneration &+= 1
+        let generation = _artifactHydrationGeneration
+        let service = similarityService
+        let descriptors = service.artifactBackendDescriptors
+        let sources = files.map(Self.source(for:))
+        let loadResult = await artifactStore.load(
+            sources: sources,
+            allowedBackends: descriptors,
+            pipeline: Self.artifactPipelineSignature,
+        )
+
+        guard generation == _artifactHydrationGeneration,
+              service.backendDescriptor == similarityService.backendDescriptor,
+              descriptors == similarityService.artifactBackendDescriptors,
+              !Task.isCancelled
+        else { return 0 }
+
+        let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+        var validated: [UUID: SimilarityArtifact] = [:]
+        var invalidEntries: [(AIImageSource, SimilarityBackendDescriptor)] = []
+        for (id, artifact) in loadResult.artifacts {
+            guard let source = sourcesByID[id],
+                  Self.isUsable(
+                      artifact,
+                      for: source,
+                      backends: descriptors,
+                      service: service,
+                  )
+            else {
+                if let source = sourcesByID[id],
+                   let backend = descriptors.first(where: {
+                       $0.backend == artifact.descriptor.backend
+                           && $0.modelFingerprint == artifact.descriptor.modelFingerprint
+                   })
+                {
+                    invalidEntries.append((source, backend))
+                }
+                continue
+            }
+            validated[id] = artifact
+        }
+
+        for (source, backend) in invalidEntries {
+            await artifactStore.remove(
+                source: source,
+                backend: backend,
+                pipeline: Self.artifactPipelineSignature,
+            )
+        }
+        guard generation == _artifactHydrationGeneration,
+              !Task.isCancelled
+        else { return 0 }
+
+        for file in files {
+            if let existing = embeddings[file.id],
+               !Self.isUsable(
+                   existing,
+                   for: Self.source(for: file),
+                   backends: descriptors,
+                   service: service,
+               )
+            {
+                embeddings.removeValue(forKey: file.id)
+            }
+        }
+        embeddings.merge(validated) { _, cached in cached }
+        return validated.count
+    }
+
+    /// Import compatible artifacts retained by the catalog-wide legacy cache.
+    /// UUID remapping is performed by RawCull before this boundary.
+    @discardableResult
+    func importLegacyArtifacts(
+        _ artifacts: [UUID: SimilarityArtifact],
+        files: [FileItem],
+        signature: BurstSimilaritySignature,
+    ) async -> Int {
+        guard signature.artifactSchemaVersion
+            == SimilarityArtifactDescriptor.currentSchemaVersion,
+            signature.embeddingThumbnailMaxPixelSize
+            == Self.embeddingThumbnailMaxPixelSize,
+            signature.embeddingPipelineVersion == Self.embeddingPipelineVersion
+        else { return 0 }
+
+        let service = similarityService
+        let descriptors = service.artifactBackendDescriptors
+        let sources = files.map(Self.source(for:))
+        let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+        let validated = artifacts.filter { id, artifact in
+            guard embeddings[id] == nil,
+                  let source = sourcesByID[id]
+            else { return false }
+            return Self.isUsable(
+                artifact,
+                for: source,
+                backends: descriptors,
+                service: service,
+            )
+        }
+        guard !validated.isEmpty else { return 0 }
+
+        let commitResult = await artifactStore.upsert(
+            artifacts: validated,
+            sources: sourcesByID,
+            pipeline: Self.artifactPipelineSignature,
+        )
+        guard service.backendDescriptor == similarityService.backendDescriptor,
+              descriptors == similarityService.artifactBackendDescriptors,
+              !Task.isCancelled
+        else { return 0 }
+
+        embeddings.merge(validated) { current, _ in current }
+        return commitResult.committedSourceIDs.count
+    }
+
     /// Generate descriptor-complete PhotoAIKit similarity artifacts from
     /// RawCull's thumbnail-resolution RAW decoding pipeline. Current artifacts
     /// are reused when they match the selected backend or its batch fallback.
     func indexFiles(
         _ files: [FileItem],
         thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+        forceRefresh: Bool = false,
     ) async {
         Logger.process.debugMessageOnly(
             "SimilarityScoringModel.indexFiles(): requested indexing for \(files.count) files",
@@ -177,7 +329,9 @@ final class SimilarityScoringModel {
         indexingProgress = 0
         indexingTotal = files.count
         indexingEstimatedSeconds = 0
+        indexingPhase = .generating
         indexingFailures = []
+        indexingPersistenceFailures = []
         indexingOperationFailure = nil
         indexingDiagnostic = nil
         _indexingStartedAt = Date()
@@ -186,11 +340,19 @@ final class SimilarityScoringModel {
         let descriptors = service.artifactBackendDescriptors
         var toIndex = files.filter { file in
             guard let artifact = embeddings[file.id] else { return true }
-            return !RawCullSimilarityArtifactValidation.isCurrent(
+            guard Self.isUsable(
                 artifact,
                 for: Self.source(for: file),
                 backends: descriptors,
-            )
+                service: service,
+            ) else {
+                embeddings.removeValue(forKey: file.id)
+                return true
+            }
+            return false
+        }
+        if forceRefresh {
+            toIndex = files
         }
         if service.requiresHomogeneousBatch, !toIndex.isEmpty {
             toIndex = files
@@ -203,11 +365,18 @@ final class SimilarityScoringModel {
             _indexingStartedAt = nil
             indexingProgress = files.count
             isIndexing = false
+            indexingPhase = .idle
             return
         }
         indexingTotal = toIndex.count
 
         let sources = toIndex.map(Self.source(for:))
+        let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+        let store = artifactStore
+        let pipeline = SimilarityArtifactPipelineSignature(
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            pipelineVersion: Self.embeddingPipelineVersion,
+        )
         let workTask = Task<SimilarityIndexingTaskResult, Never> {
             @concurrent [weak self] in
             do {
@@ -222,7 +391,55 @@ final class SimilarityScoringModel {
                         self.recordIndexingProgress(update)
                     }
                 }
-                return .success(output)
+
+                var artifacts: [UUID: SimilarityArtifact] = [:]
+                var invalidFailures: [RawCullSimilarityIndexingFailure] = []
+                for (id, artifact) in output.artifacts {
+                    guard let source = sourcesByID[id],
+                          Self.isUsable(
+                              artifact,
+                              for: source,
+                              backends: descriptors,
+                              service: service,
+                          )
+                    else {
+                        if let source = sourcesByID[id] {
+                            invalidFailures.append(
+                                RawCullSimilarityIndexingFailure(
+                                    source: source,
+                                    message: "PhotoAIKit returned an incompatible or invalid similarity artifact.",
+                                ),
+                            )
+                        }
+                        continue
+                    }
+                    artifacts[id] = artifact
+                }
+
+                await MainActor.run {
+                    guard let self,
+                          self._indexingGeneration == generation
+                    else { return }
+                    self.indexingPhase = .saving
+                    self.indexingProgress = 0
+                    self.indexingTotal = artifacts.count
+                }
+                let commitResult = await store.upsert(
+                    artifacts: artifacts,
+                    sources: sourcesByID,
+                    pipeline: pipeline,
+                )
+                guard !Task.isCancelled, !commitResult.wasCancelled else {
+                    return .cancelled
+                }
+                return .success(
+                    DurableSimilarityIndexingOutput(
+                        serviceOutput: output,
+                        artifacts: artifacts,
+                        invalidFailures: invalidFailures,
+                        commitResult: commitResult,
+                    ),
+                )
             } catch is CancellationError {
                 return .cancelled
             } catch {
@@ -242,41 +459,25 @@ final class SimilarityScoringModel {
         }
 
         switch result {
-        case let .success(output):
+        case let .success(durableOutput):
+            let output = durableOutput.serviceOutput
             indexingDiagnostic = output.primaryFailureDiagnostic
             if let diagnostic = output.primaryFailureDiagnostic {
                 Logger.process.warning(
                     "SimilarityScoringModel: \(diagnostic, privacy: .public)",
                 )
             }
-            let sourcesByID = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
-            var invalidFailures: [RawCullSimilarityIndexingFailure] = []
-            if service.requiresHomogeneousBatch {
-                for source in sources {
-                    embeddings.removeValue(forKey: source.id)
-                }
-            }
-            for (id, artifact) in output.artifacts {
-                guard let source = sourcesByID[id],
-                      RawCullSimilarityArtifactValidation.isCurrent(
-                          artifact,
-                          for: source,
-                          backends: descriptors,
-                      )
-                else {
-                    if let source = sourcesByID[id] {
-                        invalidFailures.append(
-                            RawCullSimilarityIndexingFailure(
-                                source: source,
-                                message: "PhotoAIKit returned an incompatible similarity artifact.",
-                            ),
-                        )
-                    }
-                    continue
-                }
+            for (id, artifact) in durableOutput.artifacts {
                 embeddings[id] = artifact
             }
-            indexingFailures = output.failures + invalidFailures
+            indexingFailures = output.failures + durableOutput.invalidFailures
+            indexingPersistenceFailures = durableOutput.commitResult.failures
+            if !indexingPersistenceFailures.isEmpty {
+                indexingOperationFailure = "Could not save \(indexingPersistenceFailures.count) similarity artifact(s)."
+                Logger.process.warning(
+                    "SimilarityScoringModel: \(self.indexingPersistenceFailures.count) artifacts could not be saved",
+                )
+            }
             if !indexingFailures.isEmpty {
                 Logger.process.warning(
                     "SimilarityScoringModel: \(self.indexingFailures.count) artifacts failed validation or generation",
@@ -291,10 +492,10 @@ final class SimilarityScoringModel {
                         thumbnailMaxPixelSize: thumbnailMaxPixelSize,
                         summary: output.primaryFailureDiagnostic,
                         outcome: .visionFallback(
-                            artifactsCreated: output.artifacts.count - invalidFailures.count,
+                            artifactsCreated: durableOutput.artifacts.count,
                             clipFailures: output.primaryFailures,
                             visionFailures: output.failures,
-                            validationFailures: invalidFailures,
+                            validationFailures: durableOutput.invalidFailures,
                         ),
                     ),
                 )
@@ -309,16 +510,16 @@ final class SimilarityScoringModel {
                         thumbnailMaxPixelSize: thumbnailMaxPixelSize,
                         summary: output.primaryFailureDiagnostic,
                         outcome: .partialCLIP(
-                            artifactsCreated: output.artifacts.count - invalidFailures.count,
+                            artifactsCreated: durableOutput.artifacts.count,
                             clipFailures: output.primaryFailures,
                             generationFailures: output.failures,
-                            validationFailures: invalidFailures,
+                            validationFailures: durableOutput.invalidFailures,
                         ),
                     ),
                 )
             }
             Logger.process.debugMessageOnly(
-                "SimilarityScoringModel.indexFiles(): indexed \(output.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
+                "SimilarityScoringModel.indexFiles(): indexed \(durableOutput.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
                     + (output.usedWholeBatchFallback ? " using Vision fallback" : ""),
             )
 
@@ -535,7 +736,6 @@ final class SimilarityScoringModel {
         Logger.process.debugMessageOnly(
             "SimilarityScoringModel.applyCachedBurstAnalysis(): applying \(snapshot.groups.count) cached groups",
         )
-        embeddings = snapshot.embeddings
         burstGroups = snapshot.groups
         burstBoundaryEvidence = snapshot.boundaryEvidence
         burstGroupLookup = Dictionary(
@@ -565,6 +765,29 @@ final class SimilarityScoringModel {
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
+        indexingPhase = .idle
+    }
+
+    private nonisolated static func isUsable(
+        _ artifact: SimilarityArtifact,
+        for source: AIImageSource,
+        backends: [SimilarityBackendDescriptor],
+        service: any RawCullSimilarityServicing,
+    ) -> Bool {
+        guard RawCullSimilarityArtifactValidation.isCurrent(
+            artifact,
+            for: source,
+            backends: backends,
+        ) else { return false }
+        do {
+            guard let distance = try service.distance(
+                from: artifact,
+                to: artifact,
+            ) else { return false }
+            return distance.isFinite
+        } catch {
+            return false
+        }
     }
 
     private func clearSimilarityRanking() {

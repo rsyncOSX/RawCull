@@ -8,8 +8,11 @@ import Foundation
 extension RawCullViewModel {
     // MARK: - Indexing
 
-    /// Compute Vision feature-print embeddings for all files in the current catalog.
+    /// Restore reusable artifacts, generate misses, and durably commit each
+    /// successful artifact for the current catalog.
     func indexSimilarity() async {
+        await similarityModel.hydrateArtifacts(files)
+        guard !Task.isCancelled else { return }
         await similarityModel.indexFiles(files)
     }
 

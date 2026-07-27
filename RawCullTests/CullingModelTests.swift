@@ -394,6 +394,7 @@ struct CullingModelTests {
         let probe = SimilarityDistanceCancellationProbe()
         let model = SimilarityScoringModel(
             similarityService: CancellationDistanceSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
         )
         let anchor = makeCullingTestFile("ranking-anchor.ARW")
         let candidate = makeCullingTestFile("ranking-candidate.ARW")
@@ -427,6 +428,7 @@ struct CullingModelTests {
         let probe = SimilarityEmbeddingCancellationProbe()
         let model = SimilarityScoringModel(
             similarityService: CancellationSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
         )
         let files = (0 ..< 8).map { makeCullingTestFile("cancel-\($0).ARW") }
 
@@ -451,6 +453,7 @@ struct CullingModelTests {
         let probe = SimilarityEmbeddingSuspensionProbe()
         let model = SimilarityScoringModel(
             similarityService: SuspendingSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
         )
         let slowFile = makeCullingTestFile("slow.ARW")
         let fastFile = makeCullingTestFile("fast.ARW")
@@ -1345,7 +1348,12 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cancelled burst analysis cannot apply a late cache result`() async {
-        let viewModel = RawCullViewModel()
+        let viewModel = RawCullViewModel(
+            similarityService: CancellationDistanceSimilarityService(
+                probe: SimilarityDistanceCancellationProbe(),
+            ),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1545,6 +1553,10 @@ struct RawCullViewModelCullingTests {
                 )
             )
         })
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: files,
+            artifacts: snapshot.embeddings,
+        )
         snapshot.sharpnessScores = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
             (file.id, Float(index) / Float(files.count))
         })
@@ -1563,7 +1575,12 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `review state persistence keeps completed analysis scope`() async throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = RawCullViewModel(
+            similarityService: SuspendingSimilarityService(
+                probe: SimilarityEmbeddingSuspensionProbe(),
+            ),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1584,6 +1601,7 @@ struct RawCullViewModelCullingTests {
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
+        viewModel.burstAnalysisMigrationLoad = { _ in snapshot }
         viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in snapshot }
         viewModel.burstAnalysisCacheSave = { savedSnapshot, _ in
             await recorder.record(savedSnapshot)
@@ -1722,7 +1740,14 @@ private func makeBurstSnapshot(
     reviewStateSnapshots: [BurstReviewStateSnapshot],
     similaritySignature: BurstSimilaritySignature = makeBurstSimilaritySignature(),
 ) -> BurstAnalysisCacheSnapshot {
-    BurstAnalysisCacheSnapshot(
+    let embeddings = Dictionary(uniqueKeysWithValues: files.map { file in
+        let source = SimilarityScoringModel.source(for: file)
+        return (
+            file.id,
+            makeSimilarityTestArtifact(source: source)
+        )
+    })
+    return BurstAnalysisCacheSnapshot(
         schemaVersion: BurstAnalysisCache.schemaVersion,
         algorithmVersion: BurstGroupingConfig.algorithmVersion,
         catalogPath: catalog.path,
@@ -1740,18 +1765,16 @@ private func makeBurstSnapshot(
                 modificationDate: $0.dateModified,
             )
         },
-        embeddings: Dictionary(uniqueKeysWithValues: files.map { file in
-            let source = SimilarityScoringModel.source(for: file)
-            return (
-                file.id,
-                makeSimilarityTestArtifact(source: source)
-            )
-        }),
+        embeddings: embeddings,
         sharpnessScores: [:],
         saliencyInfo: [:],
         groups: groups,
         boundaryEvidence: [],
         results: results,
         reviewStateSnapshots: reviewStateSnapshots,
+        similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+            files: files,
+            artifacts: embeddings,
+        ),
     )
 }

@@ -68,6 +68,24 @@ extension RawCullViewModel {
 
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
         Logger.process.debugMessageOnly(
+            "RawCullViewModel.runBurstAnalysis(): hydrating per-file similarity artifacts",
+        )
+        await similarityModel.hydrateArtifacts(sorted)
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+
+        let migrationCandidate = await burstAnalysisMigrationLoad(catalog).map {
+            remapCachedSnapshot($0, to: sorted)
+        }
+        if let migrationCandidate {
+            _ = await similarityModel.importLegacyArtifacts(
+                migrationCandidate.embeddings,
+                files: sorted,
+                signature: migrationCandidate.similaritySignature,
+            )
+        }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+
+        Logger.process.debugMessageOnly(
             "RawCullViewModel.runBurstAnalysis(): loading burst analysis cache",
         )
         if let snapshot = await burstAnalysisCacheLoad(
@@ -77,17 +95,27 @@ extension RawCullViewModel {
             currentBurstSharpnessSignature,
             currentBurstSimilaritySignature,
         ) {
-            Logger.process.debugMessageOnly(
-                "RawCullViewModel.runBurstAnalysis(): cache hit; applying cached analysis",
-            )
-            guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
-            applyCachedBurstAnalysis(
-                remapCachedSnapshot(snapshot, to: sorted),
-                catalog: catalog,
+            let remappedSnapshot = remapCachedSnapshot(snapshot, to: sorted)
+            let currentArtifactDigest = BurstAnalysisCache.artifactSetDigest(
                 files: sorted,
-                generation: generation,
+                artifacts: similarityModel.embeddings,
             )
-            return
+            if remappedSnapshot.similarityArtifactSetDigest == currentArtifactDigest {
+                Logger.process.debugMessageOnly(
+                    "RawCullViewModel.runBurstAnalysis(): cache hit; applying cached analysis",
+                )
+                guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+                applyCachedBurstAnalysis(
+                    remappedSnapshot,
+                    catalog: catalog,
+                    files: sorted,
+                    generation: generation,
+                )
+                return
+            }
+            Logger.process.debugMessageOnly(
+                "RawCullViewModel.runBurstAnalysis(): derived cache artifact set changed",
+            )
         }
         Logger.process.debugMessageOnly(
             "RawCullViewModel.runBurstAnalysis(): cache miss; running analysis pipeline",
@@ -132,6 +160,20 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress(step: .grouping)
         await similarityModel.groupBursts(files: sorted)
 
+        if let migrationCandidate {
+            let savedStatesBySignature = Dictionary(
+                uniqueKeysWithValues: migrationCandidate.reviewStateSnapshots.map {
+                    ($0.signature, $0.state)
+                },
+            )
+            burstReviewStates = restoredBurstReviewStates(
+                savedStatesBySignature: savedStatesBySignature,
+                groups: similarityModel.burstGroups,
+                files: sorted,
+                catalog: catalog,
+            )
+        }
+
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         Logger.process.debugMessageOnly(
             "RawCullViewModel.runBurstAnalysis(): ranking burst candidates",
@@ -167,13 +209,18 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress()
     }
 
-    /// Clear loaded burst analysis artifacts, delete the saved burst cache for
-    /// the current catalog, and run a fresh analysis pass.
+    /// Refresh similarity artifacts, delete the saved derived burst cache, and
+    /// run a fresh analysis pass. Existing valid artifacts remain available if
+    /// refreshing an individual file fails.
     func reindexBurstAnalysis() async {
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
 
         clearLoadedBurstAnalysisForReindex()
         await burstAnalysisCache.delete(catalog: catalog)
+        await similarityModel.hydrateArtifacts(files)
+        guard !Task.isCancelled else { return }
+        await similarityModel.indexFiles(files, forceRefresh: true)
+        guard !Task.isCancelled else { return }
         await analyzeBursts()
     }
 
@@ -763,6 +810,10 @@ extension RawCullViewModel {
             boundaryEvidence: similarityModel.burstBoundaryEvidence,
             results: Array(burstAnalysisResults.values).sorted { $0.groupID < $1.groupID },
             reviewStateSnapshots: reviewStateSnapshots(catalog: catalog, files: files),
+            similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+                files: files,
+                artifacts: similarityModel.embeddings,
+            ),
         )
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
         await burstAnalysisCacheSave(snapshot, catalog)
@@ -919,6 +970,7 @@ extension RawCullViewModel {
             boundaryEvidence: evidence,
             results: results,
             reviewStateSnapshots: snapshot.reviewStateSnapshots,
+            similarityArtifactSetDigest: snapshot.similarityArtifactSetDigest,
         )
     }
 

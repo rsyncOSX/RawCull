@@ -49,6 +49,23 @@ func makeIsolatedSettingsURL(name: String = #function) -> URL {
         .appendingPathComponent("settings.json")
 }
 
+func makeIsolatedSimilarityArtifactStore(
+    name: String = #function,
+) -> PerFileAnalysisArtifactStore {
+    let safeName = name
+        .replacingOccurrences(of: "`", with: "")
+        .replacingOccurrences(of: " ", with: "-")
+        .replacingOccurrences(of: "()", with: "")
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
+        .appendingPathComponent(
+            "\(safeName)-\(UUID().uuidString)",
+            isDirectory: true,
+        )
+        .appendingPathComponent("SimilarityArtifacts", isDirectory: true)
+    return PerFileAnalysisArtifactStore(storageDirectory: directory)
+}
+
 func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
     let safeName = name
         .replacingOccurrences(of: "`", with: "")

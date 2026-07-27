@@ -38,6 +38,15 @@ private nonisolated let migrationCLIPBackend = SimilarityBackendDescriptor(
     configurationVersion: "test-v1",
 )
 
+private nonisolated let migrationVisionBackend = SimilarityBackendDescriptor(
+    backend: "vision-feature-print",
+    modelFingerprint: "test-vision-v1",
+    representation: "single-byte",
+    preprocessingVersion: "test-vision-v1",
+    normalizationVersion: "byte-range-v1",
+    configurationVersion: "revision-2",
+)
+
 private enum MigrationArtifactBackendError: Error {
     case generationFailed(String)
 }
@@ -182,6 +191,112 @@ private nonisolated struct MigrationTestSimilarityService: RawCullSimilarityServ
         else { return nil }
         return Float(abs(Int(leftValue) - Int(rightValue))) / 255
     }
+}
+
+private nonisolated struct DurableMigrationSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor: SimilarityBackendDescriptor
+    var recorder: MigrationArtifactCallRecorder?
+    var failingDisplayNames: Set<String> = []
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        var failures: [RawCullSimilarityIndexingFailure] = []
+        for (offset, source) in sources.enumerated() {
+            await recorder?.record(source.displayName)
+            if failingDisplayNames.contains(source.displayName) {
+                failures.append(
+                    RawCullSimilarityIndexingFailure(
+                        source: source,
+                        message: "Intentional test failure",
+                    ),
+                )
+            } else {
+                artifacts[source.id] = durableMigrationArtifact(
+                    source: source,
+                    backend: backendDescriptor,
+                    value: source.displayName.utf8.first ?? 1,
+                )
+            }
+            await progress?(
+                RawCullSimilarityIndexingProgress(
+                    completed: offset + 1,
+                    total: sources.count,
+                    currentSourceID: source.id,
+                ),
+            )
+        }
+        return RawCullSimilarityIndexingOutput(
+            artifacts: artifacts,
+            failures: failures,
+        )
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        guard left.descriptor.isCompatibleForDistance(with: right.descriptor),
+              left.descriptor.backend == backendDescriptor.backend,
+              left.descriptor.modelFingerprint == backendDescriptor.modelFingerprint,
+              left.payload.count == 1,
+              right.payload.count == 1,
+              let leftValue = left.payload.first,
+              let rightValue = right.payload.first
+        else { return nil }
+        if leftValue == .max || rightValue == .max {
+            return .nan
+        }
+        return Float(abs(Int(leftValue) - Int(rightValue))) / 255
+    }
+}
+
+private nonisolated func durableMigrationArtifact(
+    source: AIImageSource,
+    backend: SimilarityBackendDescriptor,
+    value: UInt8,
+) -> SimilarityArtifact {
+    SimilarityArtifact(
+        descriptor: SimilarityArtifactDescriptor(
+            backend: backend,
+            dimensions: 1,
+            sourceFingerprint: SourceFingerprint(source: source),
+        ),
+        payload: Data([value]),
+    )
+}
+
+private nonisolated func writeDurableMigrationFile(
+    at url: URL,
+    bytes: [UInt8],
+) throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(),
+        withIntermediateDirectories: true,
+    )
+    try Data(bytes).write(to: url, options: .atomic)
+}
+
+private nonisolated func durableMigrationFile(
+    at url: URL,
+    id: UUID = UUID(),
+) throws -> FileItem {
+    let values = try url.resourceValues(forKeys: [
+        .fileSizeKey,
+        .contentModificationDateKey,
+    ])
+    return FileItem(
+        id: id,
+        url: url,
+        name: url.lastPathComponent,
+        size: Int64(values.fileSize ?? 0),
+        dateModified: values.contentModificationDate ?? .distantPast,
+        exifData: nil,
+        afFocusNormalized: nil,
+    )
 }
 
 private nonisolated func migrationTestArtifact(
@@ -404,7 +519,10 @@ struct PhotoAIKitSimilarityMigrationTests {
             primaryProvider: primary,
             primaryComparator: primary,
         )
-        let model = SimilarityScoringModel(similarityService: service)
+        let model = SimilarityScoringModel(
+            similarityService: service,
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
         let existingSource = SimilarityScoringModel.source(for: files[0])
         model.embeddings[files[0].id] = migrationArtifact(
             source: existingSource,
@@ -419,6 +537,279 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(model.embeddings.values.allSatisfy {
             $0.descriptor.backend == migrationCLIPBackend.backend
         })
+    }
+
+    @Test("Durable indexing survives relaunch and reindexes only added or modified files", .tags(.critical))
+    func durableIndexingIsIncrementalAcrossRelaunches() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DurableSimilarityIntegration-\(UUID().uuidString)", isDirectory: true)
+        let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let firstURL = root.appendingPathComponent("first.ARW")
+        let secondURL = root.appendingPathComponent("second.ARW")
+        let addedURL = root.appendingPathComponent("added.ARW")
+        try writeDurableMigrationFile(at: firstURL, bytes: [1])
+        try writeDurableMigrationFile(at: secondURL, bytes: [2])
+
+        let initialFiles = try [
+            durableMigrationFile(at: firstURL),
+            durableMigrationFile(at: secondURL),
+        ]
+        let initialRecorder = MigrationArtifactCallRecorder()
+        let initialModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+                recorder: initialRecorder,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        await initialModel.indexFiles(initialFiles)
+
+        #expect(await initialRecorder.snapshot() == ["first.ARW", "second.ARW"])
+        #expect(initialModel.indexingPersistenceFailures.isEmpty)
+
+        let relaunchedFiles = try [
+            durableMigrationFile(at: firstURL),
+            durableMigrationFile(at: secondURL),
+        ]
+        let relaunchRecorder = MigrationArtifactCallRecorder()
+        let relaunchedModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+                recorder: relaunchRecorder,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await relaunchedModel.hydrateArtifacts(relaunchedFiles) == 2)
+        await relaunchedModel.indexFiles(relaunchedFiles)
+        #expect((await relaunchRecorder.snapshot()).isEmpty)
+
+        try writeDurableMigrationFile(at: addedURL, bytes: [3])
+        let expandedFiles = try [
+            durableMigrationFile(at: firstURL),
+            durableMigrationFile(at: secondURL),
+            durableMigrationFile(at: addedURL),
+        ]
+        let addRecorder = MigrationArtifactCallRecorder()
+        let expandedModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+                recorder: addRecorder,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await expandedModel.hydrateArtifacts(expandedFiles) == 2)
+        await expandedModel.indexFiles(expandedFiles)
+        #expect(await addRecorder.snapshot() == ["added.ARW"])
+
+        try writeDurableMigrationFile(at: secondURL, bytes: [2, 4, 6, 8])
+        let modifiedFiles = try [
+            durableMigrationFile(at: firstURL),
+            durableMigrationFile(at: secondURL),
+            durableMigrationFile(at: addedURL),
+        ]
+        let modifyRecorder = MigrationArtifactCallRecorder()
+        let modifiedModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+                recorder: modifyRecorder,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await modifiedModel.hydrateArtifacts(modifiedFiles) == 2)
+        await modifiedModel.indexFiles(modifiedFiles)
+        #expect(await modifyRecorder.snapshot() == ["second.ARW"])
+
+        let remainingFiles = try [
+            durableMigrationFile(at: firstURL),
+            durableMigrationFile(at: addedURL),
+        ]
+        let removalModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await removalModel.hydrateArtifacts(remainingFiles) == 2)
+        await removalModel.groupBursts(files: remainingFiles)
+        #expect(Set(removalModel.burstGroups.flatMap(\.fileIDs)) == Set(remainingFiles.map(\.id)))
+        #expect(await PerFileAnalysisArtifactStore(
+            storageDirectory: storeDirectory,
+        ).usage().entryCount == 3)
+    }
+
+    @Test("Vision and CLIP artifacts coexist without cross-loading")
+    func durableStoreSeparatesSimilarityBackends() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DurableBackendSwitch-\(UUID().uuidString)", isDirectory: true)
+        let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let urls = [
+            root.appendingPathComponent("first.ARW"),
+            root.appendingPathComponent("second.ARW"),
+        ]
+        try writeDurableMigrationFile(at: urls[0], bytes: [1])
+        try writeDurableMigrationFile(at: urls[1], bytes: [2])
+        let files = try urls.map { try durableMigrationFile(at: $0) }
+
+        let clipModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationCLIPBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        await clipModel.indexFiles(files)
+
+        let visionFiles = try urls.map { try durableMigrationFile(at: $0) }
+        let visionModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationVisionBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await visionModel.hydrateArtifacts(visionFiles) == 0)
+        await visionModel.indexFiles(visionFiles)
+
+        let reloadedCLIPFiles = try urls.map { try durableMigrationFile(at: $0) }
+        let reloadedCLIP = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationCLIPBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await reloadedCLIP.hydrateArtifacts(reloadedCLIPFiles) == 2)
+        #expect(reloadedCLIP.embeddings.values.allSatisfy {
+            $0.descriptor.backend == migrationCLIPBackend.backend
+        })
+    }
+
+    @Test("Partial indexing persists successes and isolates invalid payloads")
+    func durableStorePreservesPartialSuccesses() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DurablePartialIndex-\(UUID().uuidString)", isDirectory: true)
+        let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let urls = [
+            root.appendingPathComponent("valid.ARW"),
+            root.appendingPathComponent("failed.ARW"),
+            root.appendingPathComponent("malformed.ARW"),
+        ]
+        try writeDurableMigrationFile(at: urls[0], bytes: [1])
+        try writeDurableMigrationFile(at: urls[1], bytes: [2])
+        try writeDurableMigrationFile(at: urls[2], bytes: [3])
+        let files = try urls.map { try durableMigrationFile(at: $0) }
+        let initialModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationCLIPBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        await initialModel.indexFiles(files)
+        #expect(initialModel.embeddings.count == 3)
+
+        let refreshModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationCLIPBackend,
+                failingDisplayNames: ["failed.ARW", "malformed.ARW"],
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await refreshModel.hydrateArtifacts(files) == 3)
+        await refreshModel.indexFiles(files, forceRefresh: true)
+
+        #expect(refreshModel.embeddings.count == 3)
+        #expect(refreshModel.indexingFailures.count == 2)
+
+        let invalidSource = SimilarityScoringModel.source(for: files[1])
+        let malformedSource = SimilarityScoringModel.source(for: files[2])
+        let nonFiniteArtifact = SimilarityArtifact(
+            descriptor: SimilarityArtifactDescriptor(
+                backend: migrationCLIPBackend,
+                dimensions: 1,
+                sourceFingerprint: SourceFingerprint(source: invalidSource),
+            ),
+            payload: Data([.max]),
+        )
+        let malformedArtifact = SimilarityArtifact(
+            descriptor: SimilarityArtifactDescriptor(
+                backend: migrationCLIPBackend,
+                dimensions: 1,
+                sourceFingerprint: SourceFingerprint(source: malformedSource),
+            ),
+            payload: Data(),
+        )
+        let store = PerFileAnalysisArtifactStore(storageDirectory: storeDirectory)
+        _ = await store.upsert(
+            artifacts: [
+                invalidSource.id: nonFiniteArtifact,
+                malformedSource.id: malformedArtifact,
+            ],
+            sources: [
+                invalidSource.id: invalidSource,
+                malformedSource.id: malformedSource,
+            ],
+            pipeline: SimilarityScoringModel.artifactPipelineSignature,
+        )
+
+        let reloadedFiles = try urls.map { try durableMigrationFile(at: $0) }
+        let reloaded = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationCLIPBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await reloaded.hydrateArtifacts(reloadedFiles) == 1)
+        #expect(reloaded.embeddings.count == 1)
+        #expect(await store.usage().entryCount == 1)
+    }
+
+    @Test("Legacy burst artifacts migrate once into the per-file store")
+    func legacyBurstArtifactsMigrateIntoDurableStore() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LegacyArtifactImport-\(UUID().uuidString)", isDirectory: true)
+        let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let url = root.appendingPathComponent("legacy.ARW")
+        try writeDurableMigrationFile(at: url, bytes: [1])
+        let file = try durableMigrationFile(at: url)
+        let source = SimilarityScoringModel.source(for: file)
+        let artifact = durableMigrationArtifact(
+            source: source,
+            backend: migrationTestBackend,
+            value: 7,
+        )
+        let signature = BurstSimilaritySignature(
+            groupingConfig: BurstGroupingConfig(),
+            backendDescriptor: migrationTestBackend,
+            artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
+            embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+            embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
+        )
+        let migrationModel = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await migrationModel.importLegacyArtifacts(
+            [file.id: artifact],
+            files: [file],
+            signature: signature,
+        ) == 1)
+
+        let reloadedFile = try durableMigrationFile(at: url)
+        let reloaded = SimilarityScoringModel(
+            similarityService: DurableMigrationSimilarityService(
+                backendDescriptor: migrationTestBackend,
+            ),
+            artifactStore: PerFileAnalysisArtifactStore(storageDirectory: storeDirectory),
+        )
+        #expect(await reloaded.hydrateArtifacts([reloadedFile]) == 1)
+        #expect(reloaded.embeddings[reloadedFile.id] == artifact)
     }
 
     @Test("Non-finite CLIP output retries once then reloads the provider", .tags(.critical))
@@ -525,6 +916,7 @@ struct PhotoAIKitSimilarityMigrationTests {
     func groupingExcludesUnindexedImages() async throws {
         let model = SimilarityScoringModel(
             similarityService: MigrationTestSimilarityService(),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
         )
         let first = migrationTestFile(name: "first.ARW")
         let excluded = migrationTestFile(name: "excluded.ARW")
@@ -605,6 +997,7 @@ struct PhotoAIKitSimilarityMigrationTests {
     func rankingPolicyIsPreserved() async throws {
         let model = SimilarityScoringModel(
             similarityService: MigrationTestSimilarityService(),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
         )
         let anchor = migrationTestFile(name: "anchor.ARW")
         let near = migrationTestFile(name: "near.ARW")
@@ -630,7 +1023,7 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(model.sortBySimilarity)
     }
 
-    @Test("Schema 7 burst artifacts are rejected and schema 8 rebuild loads", .tags(.critical))
+    @Test("Legacy burst artifacts are rejected and the current schema rebuild loads", .tags(.critical))
     func legacyCacheIsInvalidated() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCacheMigration-\(UUID().uuidString)", isDirectory: true)
@@ -689,6 +1082,10 @@ struct PhotoAIKitSimilarityMigrationTests {
         ))
 
         snapshot.schemaVersion = BurstAnalysisCache.schemaVersion
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: [file],
+            artifacts: snapshot.embeddings,
+        )
         await cache.save(snapshot, catalog: catalog)
         let rebuilt = await cache.load(
             catalog: catalog,
@@ -748,6 +1145,15 @@ struct PhotoAIKitSimilarityMigrationTests {
             boundaryEvidence: [],
             results: [],
             reviewStateSnapshots: [],
+            similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+                files: files,
+                artifacts: [
+                    indexed.id: migrationTestArtifact(
+                        source: SimilarityScoringModel.source(for: indexed),
+                        value: 1,
+                    ),
+                ],
+            ),
         )
         let cache = BurstAnalysisCache(cacheDirectory: root)
 

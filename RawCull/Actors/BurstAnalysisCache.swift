@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import OSLog
 import PhotoAIContracts
@@ -19,6 +20,7 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var boundaryEvidence: [BurstBoundaryEvidence]
     var results: [BurstAnalysisResult]
     var reviewStateSnapshots: [BurstReviewStateSnapshot]
+    var similarityArtifactSetDigest: String? = nil
 }
 
 nonisolated struct BurstSimilaritySignature: Codable, Equatable {
@@ -120,7 +122,8 @@ nonisolated struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 8
+    nonisolated static let schemaVersion = 9
+    nonisolated static let legacyArtifactMigrationSchemaVersion = 8
 
     private let cacheDirectory: URL
 
@@ -219,6 +222,23 @@ actor BurstAnalysisCache {
         }
     }
 
+    /// Decode a known burst-cache schema without applying catalog-wide
+    /// validity rules. Callers may import only individually validated artifacts
+    /// and stable review-state signatures from this migration candidate.
+    func loadMigrationCandidate(catalog: URL) -> BurstAnalysisCacheSnapshot? {
+        let url = cacheURL(for: catalog)
+        guard FileManager.default.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let snapshot = try? JSONDecoder().decode(
+                  BurstAnalysisCacheSnapshot.self,
+                  from: data,
+              ),
+              snapshot.schemaVersion == Self.schemaVersion
+              || snapshot.schemaVersion == Self.legacyArtifactMigrationSchemaVersion
+        else { return nil }
+        return snapshot
+    }
+
     func delete(catalog: URL) async {
         let url = cacheURL(for: catalog)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
@@ -289,6 +309,7 @@ actor BurstAnalysisCache {
               snapshot.thumbnailMaxPixelSize == thumbnailMaxPixelSize,
               snapshot.sharpnessSignature == sharpnessSignature,
               snapshot.similaritySignature == similaritySignature,
+              snapshot.similarityArtifactSetDigest != nil,
               snapshot.similaritySignature.artifactSchemaVersion
               == SimilarityArtifactDescriptor.currentSchemaVersion,
               snapshot.files.count == files.count
@@ -345,4 +366,32 @@ actor BurstAnalysisCache {
             .replacingOccurrences(of: "=", with: "")
         return "\(safe).json"
     }
+
+    nonisolated static func artifactSetDigest(
+        files: [FileItem],
+        artifacts: [UUID: SimilarityArtifact],
+    ) -> String {
+        let entries = files.compactMap { file -> ArtifactDigestEntry? in
+            guard let artifact = artifacts[file.id] else { return nil }
+            return ArtifactDigestEntry(
+                standardizedPath: file.url.standardizedFileURL.path,
+                descriptor: artifact.descriptor,
+                payloadDigest: SHA256.hash(data: artifact.payload).map {
+                    String(format: "%02x", $0)
+                }.joined(),
+            )
+        }.sorted { $0.standardizedPath < $1.standardizedPath }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = (try? encoder.encode(entries)) ?? Data()
+        return SHA256.hash(data: data).map {
+            String(format: "%02x", $0)
+        }.joined()
+    }
+}
+
+private nonisolated struct ArtifactDigestEntry: Codable, Sendable {
+    let standardizedPath: String
+    let descriptor: SimilarityArtifactDescriptor
+    let payloadDigest: String
 }

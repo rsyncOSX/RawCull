@@ -38,6 +38,8 @@ extension RawCullViewModel {
     func cancelCatalogLoad() {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
+        similarityHydrationTask?.cancel()
+        similarityHydrationTask = nil
         activeCatalogLoadURL = nil
         currentselectedSource = nil
         cancelAndResetBurstAnalysis()
@@ -105,6 +107,8 @@ extension RawCullViewModel {
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
         files = scannedFiles
+        await similarityModel.hydrateArtifacts(scannedFiles)
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         filteredFiles = applyFilters(to: sortedFiles)
         preselectFirstVisibleFileByName()
 

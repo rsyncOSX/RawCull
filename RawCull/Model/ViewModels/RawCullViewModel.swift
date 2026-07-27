@@ -205,6 +205,7 @@ final class RawCullViewModel {
     var preloadTask: Task<Void, Never>?
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
+    @ObservationIgnored var similarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
@@ -233,6 +234,11 @@ final class RawCullViewModel {
             similaritySignature: similaritySignature,
         )
     }
+    @ObservationIgnored var burstAnalysisMigrationLoad: @MainActor (
+        URL
+    ) async -> BurstAnalysisCacheSnapshot? = { catalog in
+        await BurstAnalysisCache.shared.loadMigrationCandidate(catalog: catalog)
+    }
 
     @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
         BurstAnalysisCacheSnapshot,
@@ -243,10 +249,12 @@ final class RawCullViewModel {
 
     init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+        similarityArtifactStore: PerFileAnalysisArtifactStore = .shared,
         deepAIReviewFeature: DeepAIReviewFeature = DeepAIReviewFeature(),
     ) {
         self.similarityModel = SimilarityScoringModel(
             similarityService: similarityService,
+            artifactStore: similarityArtifactStore,
         )
         self.deepAIReviewFeature = deepAIReviewFeature
     }
@@ -258,6 +266,14 @@ final class RawCullViewModel {
 
         cancelAndResetBurstAnalysis()
         similarityModel.setSimilarityService(service)
+        similarityHydrationTask?.cancel()
+        let currentFiles = files
+        similarityHydrationTask = Task { [weak self] in
+            guard let self else { return }
+            await self.similarityModel.hydrateArtifacts(currentFiles)
+            guard !Task.isCancelled else { return }
+            self.similarityHydrationTask = nil
+        }
     }
 
     // MARK: - Computed
