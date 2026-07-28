@@ -312,7 +312,9 @@ struct BurstGroupsHomeView: View {
             return "Burst scan in progress — scoring sharpness…"
         }
         if viewModel.similarityModel.isIndexing {
-            return "Burst scan in progress — indexing similarity…"
+            return viewModel.similarityModel.indexingPhase == .saving
+                ? "Burst scan in progress — saving similarity artifacts…"
+                : "Burst scan in progress — indexing similarity…"
         }
         if viewModel.similarityModel.isGrouping {
             return "Burst scan in progress — grouping bursts…"

@@ -229,6 +229,14 @@ final class RawCullViewModel {
         )
     }
 
+    @ObservationIgnored var burstAnalysisMigrationLoad: @MainActor (
+        URL,
+    ) async -> BurstAnalysisCacheSnapshot? = { catalog in
+        await BurstAnalysisCache.shared.loadMigrationCandidate(
+            catalog: catalog,
+        )
+    }
+
     @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
         BurstAnalysisCacheSnapshot,
         URL,

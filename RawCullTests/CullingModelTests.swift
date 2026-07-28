@@ -1260,6 +1260,11 @@ struct RawCullViewModelCullingTests {
         snapshot.embeddings = Dictionary(uniqueKeysWithValues: files.map { file in
             (file.id, Data(repeating: UInt8(file.name.count % 255), count: 256))
         })
+        snapshot.similarityArtifactSetDigest =
+            BurstAnalysisCache.artifactSetDigest(
+                files: files,
+                artifacts: snapshot.embeddings,
+            )
         snapshot.sharpnessScores = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
             (file.id, Float(index) / Float(files.count))
         })
@@ -1436,7 +1441,8 @@ private func makeBurstSnapshot(
     reviewStateSnapshots: [BurstReviewStateSnapshot],
     similaritySignature: BurstSimilaritySignature = makeBurstSimilaritySignature(),
 ) -> BurstAnalysisCacheSnapshot {
-    BurstAnalysisCacheSnapshot(
+    let embeddings: [UUID: Data] = [:]
+    return BurstAnalysisCacheSnapshot(
         schemaVersion: BurstAnalysisCache.schemaVersion,
         algorithmVersion: BurstGroupingConfig.algorithmVersion,
         catalogPath: catalog.path,
@@ -1446,6 +1452,10 @@ private func makeBurstSnapshot(
             config: FocusDetectorConfig(),
         ),
         similaritySignature: similaritySignature,
+        similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+            files: files,
+            artifacts: embeddings,
+        ),
         files: files.map {
             BurstAnalysisCacheFile(
                 id: $0.id,
@@ -1454,7 +1464,7 @@ private func makeBurstSnapshot(
                 modificationDate: $0.dateModified,
             )
         },
-        embeddings: [:],
+        embeddings: embeddings,
         sharpnessScores: [:],
         saliencyInfo: [:],
         groups: groups,

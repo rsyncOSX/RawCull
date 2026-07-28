@@ -18,6 +18,12 @@ private let kSubjectMismatchPenalty: Float = 0.10
 private let kMinimumSamplesBeforeEstimation = 10
 private let kEstimationWindowSize = 10
 
+nonisolated enum SimilarityIndexingPhase: Equatable, Sendable {
+    case idle
+    case generating
+    case saving
+}
+
 // MARK: - Model
 
 @Observable @MainActor
@@ -47,6 +53,10 @@ final class SimilarityScoringModel {
     var indexingProgress: Int = 0
     var indexingTotal: Int = 0
     var indexingEstimatedSeconds: Int = 0
+    private(set) var indexingPhase = SimilarityIndexingPhase.idle
+    private(set) var indexingGenerationFailures: Set<UUID> = []
+    private(set) var indexingPersistenceFailures:
+        [PerFileAnalysisArtifactWriteFailure] = []
 
     // MARK: Sort flag
 
@@ -74,6 +84,8 @@ final class SimilarityScoringModel {
     @ObservationIgnored private var _indexingTask: Task<Void, Never>?
     @ObservationIgnored private var _indexingGeneration: Int = 0
     @ObservationIgnored private let embeddingProvider: EmbeddingProvider
+    @ObservationIgnored private let artifactStore: PerFileAnalysisArtifactStore
+    @ObservationIgnored private var _artifactHydrationGeneration = 0
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
     @ObservationIgnored private var _groupingGeneration: Int = 0
     @ObservationIgnored private var _adjacentDistanceCache: [String: Float] = [:]
@@ -81,8 +93,10 @@ final class SimilarityScoringModel {
 
     init(
         embeddingProvider: @escaping EmbeddingProvider = SimilarityScoringModel.computeEmbedding,
+        artifactStore: PerFileAnalysisArtifactStore = .shared,
     ) {
         self.embeddingProvider = embeddingProvider
+        self.artifactStore = artifactStore
     }
 
     // MARK: - Public API
@@ -91,6 +105,7 @@ final class SimilarityScoringModel {
         cancelIndexing()
         _groupingTask?.cancel()
         _groupingTask = nil
+        _artifactHydrationGeneration &+= 1
         embeddings = [:]
         distances = [:]
         anchorFileID = nil
@@ -103,6 +118,9 @@ final class SimilarityScoringModel {
         _groupingGeneration = 0
         _adjacentDistanceCache = [:]
         _adjacentDistanceCacheSignature = 0
+        indexingGenerationFailures = []
+        indexingPersistenceFailures = []
+        indexingPhase = .idle
     }
 
     func cancelIndexing() {
@@ -113,6 +131,93 @@ final class SimilarityScoringModel {
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
+        indexingPhase = .idle
+    }
+
+    nonisolated static var artifactPipelineSignature:
+        SimilarityArtifactPipelineSignature
+    {
+        artifactPipelineSignature(
+            thumbnailMaxPixelSize: embeddingThumbnailMaxPixelSize,
+        )
+    }
+
+    /// Restore source- and pipeline-compatible Vision feature prints using
+    /// the current in-memory FileItem identifiers.
+    @discardableResult
+    func hydrateArtifacts(
+        _ files: [FileItem],
+        thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+    ) async -> Int {
+        guard !files.isEmpty else { return 0 }
+
+        _artifactHydrationGeneration &+= 1
+        let generation = _artifactHydrationGeneration
+        let sources = files.map(Self.source(for:))
+        let signature = Self.artifactPipelineSignature(
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+        )
+        let loadResult = await artifactStore.load(
+            sources: sources,
+            signature: signature,
+        )
+
+        guard generation == _artifactHydrationGeneration,
+              !Task.isCancelled
+        else { return 0 }
+
+        for file in files {
+            if let existing = embeddings[file.id],
+               !RawCullSimilarityArtifactValidation.isCurrent(
+                   existing,
+                   signature: signature,
+               )
+            {
+                embeddings.removeValue(forKey: file.id)
+            }
+        }
+        embeddings.merge(loadResult.artifacts) { _, cached in cached }
+        return loadResult.artifacts.count
+    }
+
+    /// Import compatible Vision feature prints retained by the catalog-wide
+    /// burst cache. UUID remapping is performed by RawCull before this call.
+    @discardableResult
+    func importLegacyArtifacts(
+        _ artifacts: [UUID: Data],
+        files: [FileItem],
+        signature: BurstSimilaritySignature,
+    ) async -> Int {
+        guard signature.embeddingThumbnailMaxPixelSize
+            == Self.embeddingThumbnailMaxPixelSize,
+            signature.visionFeaturePrintRevision == Self.featurePrintRevision,
+            signature.embeddingPipelineVersion == Self.embeddingPipelineVersion
+        else { return 0 }
+
+        let artifactSignature = Self.artifactPipelineSignature
+        let sources = files.map(Self.source(for:))
+        let sourcesByID = Dictionary(
+            uniqueKeysWithValues: sources.map { ($0.id, $0) },
+        )
+        let validArtifacts = artifacts.filter { id, payload in
+            embeddings[id] == nil
+                && sourcesByID[id] != nil
+                && RawCullSimilarityArtifactValidation.isCurrent(
+                    payload,
+                    signature: artifactSignature,
+                )
+        }
+        guard !validArtifacts.isEmpty else { return 0 }
+
+        let commitResult = await artifactStore.upsert(
+            artifacts: validArtifacts,
+            sources: sourcesByID,
+            signature: artifactSignature,
+        )
+        guard !Task.isCancelled else { return 0 }
+
+        embeddings.merge(validArtifacts) { current, _ in current }
+        return commitResult.committedSourceIDs.count
     }
 
     /// Compute Vision feature-print embeddings for all files using thumbnail-resolution
@@ -121,22 +226,40 @@ final class SimilarityScoringModel {
     func indexFiles(
         _ files: [FileItem],
         thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+        forceRefresh: Bool = false,
     ) async {
         guard !files.isEmpty else { return }
 
         _indexingTask?.cancel()
         _indexingGeneration &+= 1
         let generation = _indexingGeneration
+        indexingGenerationFailures = []
+        indexingPersistenceFailures = []
         isIndexing = true
+        indexingPhase = .generating
         indexingProgress = 0
         indexingTotal = files.count
         indexingEstimatedSeconds = 0
+
+        if !forceRefresh {
+            await hydrateArtifacts(
+                files,
+                thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            )
+            guard _indexingGeneration == generation, !Task.isCancelled else {
+                finishIndexing(generation: generation)
+                return
+            }
+        }
+
         // Separate files that need embedding from those already done.
-        let toIndex = files.filter { embeddings[$0.id] == nil }
+        let toIndex = files.filter {
+            forceRefresh || embeddings[$0.id] == nil
+        }
         if toIndex.isEmpty {
             _indexingTask = nil
             indexingProgress = files.count
-            isIndexing = false
+            finishIndexing(generation: generation)
             return
         }
         indexingTotal = toIndex.count
@@ -146,6 +269,16 @@ final class SimilarityScoringModel {
         var active = 0
         let maxConcurrent = 4
         let embeddingProvider = self.embeddingProvider
+        let sourcesByID = Dictionary(
+            uniqueKeysWithValues: files.map {
+                let source = Self.source(for: $0)
+                return (source.id, source)
+            },
+        )
+        let signature = Self.artifactPipelineSignature(
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+        )
+        let artifactStore = self.artifactStore
 
         let workTask = Task {
             await withTaskGroup(of: (UUID, Data?).self) { group in
@@ -177,6 +310,8 @@ final class SimilarityScoringModel {
 
                     if let data {
                         localEmbeddings[id] = data
+                    } else {
+                        self.indexingGenerationFailures.insert(id)
                     }
                     completedCount += 1
                     self.indexingProgress = completedCount
@@ -207,27 +342,56 @@ final class SimilarityScoringModel {
 
                 guard !Task.isCancelled else { return }
                 guard self._indexingGeneration == generation else { return }
-                // Merge newly computed embeddings with any pre-existing ones.
+
+                self.indexingPhase = .saving
+                self.indexingProgress = 0
+                self.indexingTotal = localEmbeddings.count
+                self.indexingEstimatedSeconds = 0
+                let commitResult = await artifactStore.upsert(
+                    artifacts: localEmbeddings,
+                    sources: sourcesByID,
+                    signature: signature,
+                )
+
+                guard !Task.isCancelled else { return }
+                guard self._indexingGeneration == generation else { return }
+                self.indexingPersistenceFailures = commitResult.failures
+
+                // Keep successful generation results usable for this session
+                // even if an individual disk write failed. The diagnostics
+                // remain available separately and a later run can retry.
                 for (id, data) in localEmbeddings {
                     self.embeddings[id] = data
                 }
-                Logger.process.debugMessageOnly("SimilarityScoringModel: indexed \(localEmbeddings.count)/\(toIndex.count) files")
+                Logger.process.debugMessageOnly(
+                    "SimilarityScoringModel: indexed \(localEmbeddings.count)/\(toIndex.count) files; persisted \(commitResult.committedSourceIDs.count)",
+                )
             }
         }
 
         _indexingTask = workTask
-        await workTask.value
+        await withTaskCancellationHandler {
+            await workTask.value
+        } onCancel: {
+            workTask.cancel()
+        }
         guard _indexingGeneration == generation else { return }
         _indexingTask = nil
         guard !workTask.isCancelled else {
-            isIndexing = false
+            finishIndexing(generation: generation)
             return
         }
 
+        finishIndexing(generation: generation)
+    }
+
+    private func finishIndexing(generation: Int) {
+        guard _indexingGeneration == generation else { return }
         isIndexing = false
         indexingProgress = 0
         indexingTotal = 0
         indexingEstimatedSeconds = 0
+        indexingPhase = .idle
     }
 
     /// Compute and store distances from `anchorID` to all other embedded images.
@@ -380,7 +544,7 @@ final class SimilarityScoringModel {
     }
 
     func applyCachedBurstAnalysis(_ snapshot: BurstAnalysisCacheSnapshot) {
-        embeddings = snapshot.embeddings
+        embeddings.merge(snapshot.embeddings) { current, _ in current }
         burstGroups = snapshot.groups
         burstBoundaryEvidence = snapshot.boundaryEvidence
         burstGroupLookup = Dictionary(uniqueKeysWithValues: snapshot.groups.flatMap { group in
@@ -396,6 +560,27 @@ final class SimilarityScoringModel {
     }
 
     // MARK: - Static helpers
+
+    static func source(for file: FileItem) -> SimilarityArtifactSource {
+        SimilarityArtifactSource(
+            id: file.id,
+            url: file.url,
+            displayName: file.name,
+            fileSize: file.size,
+            modificationDate: file.dateModified,
+        )
+    }
+
+    nonisolated static func artifactPipelineSignature(
+        thumbnailMaxPixelSize: Int,
+    ) -> SimilarityArtifactPipelineSignature {
+        SimilarityArtifactPipelineSignature(
+            featurePrintRevision: featurePrintRevision,
+            representationVersion: VisionFeaturePrint.currentRepresentationVersion,
+            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            pipelineVersion: embeddingPipelineVersion,
+        )
+    }
 
     /// Decode a thumbnail through RawParserKit, then generate an opaque package feature print.
     @concurrent

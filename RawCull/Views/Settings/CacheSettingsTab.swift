@@ -15,6 +15,8 @@ struct CacheSettingsTab: View {
 
     @State private var currentThumbnailDiskCacheSize = 0
     @State private var currentFullSizeJPGCacheSize = 0
+    @State private var currentSimilarityArtifactCacheSize = 0
+    @State private var currentSimilarityArtifactCacheCount = 0
     @State private var currentBurstAnalysisCacheSize = 0
     @State private var currentBurstAnalysisCacheCount = 0
     @State private var currentGridCacheSize = 0
@@ -47,6 +49,11 @@ struct CacheSettingsTab: View {
                     thumbnailPath: displayPath(SharedMemoryCache.shared.thumbnailDiskCacheDirectory),
                     fullSizeJPGSize: formatBytes(currentFullSizeJPGCacheSize),
                     fullSizeJPGPath: displayPath(SharedMemoryCache.shared.fullSizeJPGDiskCacheDirectory),
+                    similarityArtifactSize: formatBytes(currentSimilarityArtifactCacheSize),
+                    similarityArtifactCount: currentSimilarityArtifactCacheCount,
+                    similarityArtifactPath: displayPath(
+                        PerFileAnalysisArtifactStore.shared.storageDirectory,
+                    ),
                     burstAnalysisSize: formatBytes(currentBurstAnalysisCacheSize),
                     burstAnalysisCount: currentBurstAnalysisCacheCount,
                     burstAnalysisPath: displayPath(BurstAnalysisCache.shared.storageDirectory),
@@ -102,16 +109,21 @@ struct CacheSettingsTab: View {
 
         async let thumbnailSize = SharedMemoryCache.shared.getDiskCacheSize()
         async let fullSizeJPGSize = SharedMemoryCache.shared.getFullSizeJPGCacheSize()
+        async let similarityArtifactUsage =
+            PerFileAnalysisArtifactStore.shared.usage()
         async let burstAnalysisUsage = BurstAnalysisCache.shared.getDiskCacheUsage()
-        let (thumbnail, fullSizeJPG, burstAnalysis) = await (
+        let (thumbnail, fullSizeJPG, similarityArtifacts, burstAnalysis) = await (
             thumbnailSize,
             fullSizeJPGSize,
+            similarityArtifactUsage,
             burstAnalysisUsage
         )
 
         guard !Task.isCancelled else { return }
         currentThumbnailDiskCacheSize = thumbnail
         currentFullSizeJPGCacheSize = fullSizeJPG
+        currentSimilarityArtifactCacheSize = similarityArtifacts.size
+        currentSimilarityArtifactCacheCount = similarityArtifacts.entryCount
         currentBurstAnalysisCacheSize = burstAnalysis.size
         currentBurstAnalysisCacheCount = burstAnalysis.fileCount
         isLoadingDiskCaches = false
@@ -127,6 +139,8 @@ struct CacheSettingsTab: View {
                 await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
             case .fullSizeJPGs:
                 await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
+            case .similarityArtifacts:
+                await PerFileAnalysisArtifactStore.shared.clear()
             case .burstAnalysis:
                 await BurstAnalysisCache.shared.clear()
             }
@@ -160,6 +174,7 @@ struct CacheSettingsTab: View {
 private enum DiskCacheKind: Hashable, Identifiable {
     case thumbnails
     case fullSizeJPGs
+    case similarityArtifacts
     case burstAnalysis
 
     var id: Self { self }
@@ -168,6 +183,7 @@ private enum DiskCacheKind: Hashable, Identifiable {
         switch self {
         case .thumbnails: "Thumbnail Cache"
         case .fullSizeJPGs: "Full-size JPG Cache"
+        case .similarityArtifacts: "Similarity Artifact Cache"
         case .burstAnalysis: "Burst Group Cache"
         }
     }
@@ -178,6 +194,8 @@ private enum DiskCacheKind: Hashable, Identifiable {
             "Cached thumbnails will be deleted and generated again when needed."
         case .fullSizeJPGs:
             "Cached full-size previews will be deleted and generated again when needed."
+        case .similarityArtifacts:
+            "Saved per-file similarity artifacts will be deleted and generated again when needed."
         case .burstAnalysis:
             "Saved burst groups and analysis results for all catalogs will be deleted and analyzed again when needed."
         }
@@ -278,6 +296,9 @@ private struct DiskCachesSection: View {
     let thumbnailPath: String
     let fullSizeJPGSize: String
     let fullSizeJPGPath: String
+    let similarityArtifactSize: String
+    let similarityArtifactCount: Int
+    let similarityArtifactPath: String
     let burstAnalysisSize: String
     let burstAnalysisCount: Int
     let burstAnalysisPath: String
@@ -322,6 +343,21 @@ private struct DiskCachesSection: View {
                     path: fullSizeJPGPath,
                     isLoading: isLoading,
                     isPurging: purgingCache == .fullSizeJPGs,
+                    isPurgeInProgress: purgingCache != nil,
+                    cachePendingPurge: $cachePendingPurge,
+                    showPurgeConfirmation: $showPurgeConfirmation,
+                )
+
+                Divider()
+
+                DiskCacheRow(
+                    kind: .similarityArtifacts,
+                    icon: "point.3.connected.trianglepath.dotted",
+                    size: similarityArtifactSize,
+                    detail: "\(similarityArtifactCount) per-file \(similarityArtifactCount == 1 ? "artifact" : "artifacts")",
+                    path: similarityArtifactPath,
+                    isLoading: isLoading,
+                    isPurging: purgingCache == .similarityArtifacts,
                     isPurgeInProgress: purgingCache != nil,
                     cachePendingPurge: $cachePendingPurge,
                     showPurgeConfirmation: $showPurgeConfirmation,

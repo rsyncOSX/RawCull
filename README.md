@@ -41,7 +41,8 @@ RawCull is also available from the [Apple App Store](https://apps.apple.com/no/a
 - Score image sharpness using full-frame, salient-subject, and AF-region
   evidence.
 - Apply photo-type presets and fast, balanced, or high-precision scoring.
-- Generate Vision feature prints for similarity ranking and burst grouping.
+- Generate and durably reuse per-file Vision feature prints for similarity
+  ranking and burst grouping.
 - Compare burst candidates with sharpness, similarity, and caution details.
 - Tag, reject, or assign star ratings to selected images.
 - Persist ratings, sharpness results, saliency labels, burst decisions, and
@@ -118,6 +119,9 @@ PhotoAnalysisKit also provides RawCull's similarity backend:
 - Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
 PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
+RawCull owns the per-file artifact records and validates source path, size,
+modification date, Vision revision, representation, preview size, and pipeline
+version before reusing a package-generated feature print.
 
 ### RawParserKit
 
@@ -211,10 +215,14 @@ Full-size embedded and developed previews use a separate disk cache. Memory pres
 
 1. RawParserKit supplies 512-pixel thumbnails.
 2. PhotoAnalysisKit creates Vision feature prints.
-3. RawCull calculates adjacent distances and passes them to RawCullCore.
-4. RawCullCore groups the ordered images into bursts.
-5. RawCull ranks candidates using sharpness, similarity, and review rules.
-6. Burst artifacts and decisions are cached for later sessions.
+3. RawCull atomically stores each feature print below
+   `~/Library/Application Support/RawCull/AnalysisArtifacts/Similarity/`.
+4. Catalog reloads hydrate compatible per-file artifacts and generate only
+   missing or stale entries.
+5. RawCull calculates adjacent distances and passes them to RawCullCore.
+6. RawCullCore groups the ordered images into bursts.
+7. RawCull ranks candidates using sharpness, similarity, and review rules.
+8. Derived burst results and decisions are cached separately for later sessions.
 
 ### Ratings, persistence, and copying
 
@@ -253,7 +261,8 @@ Important actors include:
 | `ScanFiles` | Catalog scanning, metadata extraction, and AF-point collection |
 | `ScanAndCreateThumbnails` | Bounded thumbnail preloading |
 | `ExtractAndSaveJPGs` | Batch JPEG extraction |
-| `BurstAnalysisCache` | Burst groups, embeddings, sharpness results, signatures, and review-state snapshots |
+| `PerFileAnalysisArtifactStore` | Atomic, source- and pipeline-validated Vision feature-print persistence |
+| `BurstAnalysisCache` | Derived burst groups, embeddings retained for migration, sharpness results, signatures, and review-state snapshots |
 | `WriteSavedFilesJSON` | Atomic persistence of culling records |
 
 ## Repository structure
@@ -326,4 +335,7 @@ Performance and extreme-concurrency coverage:
 make test-performance
 ```
 
-The test suites cover package integration, sharpness and focus metrics, structured cancellation, latest-run-wins behavior, memory-cache counters, security-scoped access, disk caches, burst persistence, RAW parsing adapters, and copy startup/cleanup.
+The test suites cover package integration, sharpness and focus metrics,
+structured cancellation, latest-run-wins behavior, memory-cache counters,
+security-scoped access, disk caches, per-file similarity persistence and
+invalidation, burst persistence, RAW parsing adapters, and copy startup/cleanup.

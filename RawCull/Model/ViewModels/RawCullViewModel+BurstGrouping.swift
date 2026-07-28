@@ -46,6 +46,20 @@ extension RawCullViewModel {
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
 
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
+        await similarityModel.hydrateArtifacts(sorted)
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+
+        let migrationSnapshot = await burstAnalysisMigrationLoad(catalog)
+            .map { remapCachedSnapshot($0, to: sorted) }
+        if let migrationSnapshot {
+            await similarityModel.importLegacyArtifacts(
+                migrationSnapshot.embeddings,
+                files: sorted,
+                signature: migrationSnapshot.similaritySignature,
+            )
+        }
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+
         if let snapshot = await burstAnalysisCacheLoad(
             catalog,
             sorted,
@@ -54,13 +68,22 @@ extension RawCullViewModel {
             currentBurstSimilaritySignature,
         ) {
             guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
-            applyCachedBurstAnalysis(
-                remapCachedSnapshot(snapshot, to: sorted),
-                catalog: catalog,
+            let remappedSnapshot = remapCachedSnapshot(snapshot, to: sorted)
+            let artifactSetDigest = BurstAnalysisCache.artifactSetDigest(
                 files: sorted,
-                generation: generation,
+                artifacts: similarityModel.embeddings,
             )
-            return
+            if remappedSnapshot.similarityArtifactSetDigest
+                == artifactSetDigest
+            {
+                applyCachedBurstAnalysis(
+                    remappedSnapshot,
+                    catalog: catalog,
+                    files: sorted,
+                    generation: generation,
+                )
+                return
+            }
         }
 
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
@@ -86,6 +109,19 @@ extension RawCullViewModel {
         await similarityModel.groupBursts(files: sorted)
 
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
+        if let migrationSnapshot {
+            let savedStatesBySignature = Dictionary(
+                uniqueKeysWithValues: migrationSnapshot
+                    .reviewStateSnapshots
+                    .map { ($0.signature, $0.state) },
+            )
+            burstReviewStates = restoredBurstReviewStates(
+                savedStatesBySignature: savedStatesBySignature,
+                groups: similarityModel.burstGroups,
+                files: sorted,
+                catalog: catalog,
+            )
+        }
         burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
         recomputeBurstRankings(files: sorted)
         completedBurstAnalysisContext = makeCompletedBurstAnalysisContext(
@@ -115,9 +151,12 @@ extension RawCullViewModel {
     /// the current catalog, and run a fresh analysis pass.
     func reindexBurstAnalysis() async {
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
+        let sorted = burstAnalysisTargetFiles
 
         clearLoadedBurstAnalysisForReindex()
         await burstAnalysisCache.delete(catalog: catalog)
+        await similarityModel.indexFiles(sorted, forceRefresh: true)
+        guard !Task.isCancelled, selectedSource?.url == catalog else { return }
         await analyzeBursts()
     }
 
@@ -560,6 +599,10 @@ extension RawCullViewModel {
             thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
             sharpnessSignature: currentBurstSharpnessSignature,
             similaritySignature: context.similaritySignature,
+            similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+                files: files,
+                artifacts: similarityModel.embeddings,
+            ),
             files: files.map {
                 BurstAnalysisCacheFile(
                     id: $0.id,
@@ -709,6 +752,7 @@ extension RawCullViewModel {
             thumbnailMaxPixelSize: snapshot.thumbnailMaxPixelSize,
             sharpnessSignature: snapshot.sharpnessSignature,
             similaritySignature: snapshot.similaritySignature,
+            similarityArtifactSetDigest: snapshot.similarityArtifactSetDigest,
             files: currentFiles.map {
                 BurstAnalysisCacheFile(id: $0.id, path: $0.url.path, size: $0.size, modificationDate: $0.dateModified)
             },
