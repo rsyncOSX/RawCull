@@ -29,7 +29,8 @@ struct RawCullApp: App {
         let integration = RawCullAIIntegration()
         let viewModel = RawCullViewModel(
             similarityService: integration.visionSimilarityService,
-            semanticSearchCapability: integration.capabilities().semanticSearch,
+            semanticSearchCapability: integration.capabilities()
+                .semanticSearchStatus(for: .defaultSelection),
             deepAIReviewFeature: integration.deepAIReviewFeature,
         )
         _viewModel = State(

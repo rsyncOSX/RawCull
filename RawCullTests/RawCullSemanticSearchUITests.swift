@@ -54,7 +54,7 @@ struct RawCullSemanticSearchUITests {
             capability: .unavailable(
                 reason: "CLIP model is missing.",
                 expectedLocations: [
-                    URL(fileURLWithPath: "/tmp/RawCull/Models/CLIP")
+                    URL(fileURLWithPath: "/tmp/RawCull/Models/CLIP-OpenAI")
                 ],
             ),
         )

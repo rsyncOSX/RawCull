@@ -65,17 +65,28 @@ The shortest distinction is:
 ### Requirements to run AI
 
 - Vision feature-print similarity is built into macOS and works without an additional model download.
-- CLIP similarity requires a validated PhotoAIKit-compatible CLIP Core AI model bundle. If it is missing or invalid, RawCull safely falls back to Vision feature prints.
+- CLIP similarity supports validated PhotoAIKit-compatible DataComp and OpenAI
+  CLIP Core AI model bundles. RawCull uses the one selected in **Settings > AI**
+  and safely falls back to Vision feature prints when that bundle is missing or
+  invalid.
 - Deep Review requires a validated PhotoAIKit-compatible SAM 3 Core AI model bundle. The feature remains unavailable when the model is missing or invalid.
 - CLIP and SAM 3 model bundles must contain `metadata.json`, the selected `.aimodel` or `.aimodelc` asset, and any resources declared by the model manifest.
 - Models are not bundled with RawCull, and the in-app SAM 3 download is not yet implemented. Install the resources manually, then open **Settings > AI** and select **Check Again** to validate them. The standard non-sandboxed locations are:
 
   ```text
-  ~/Library/Application Support/RawCull/Models/CLIP/
+  ~/Library/Application Support/RawCull/Models/CLIP-DataComp/
+  ~/Library/Application Support/RawCull/Models/CLIP-OpenAI/
   ~/Library/Application Support/RawCull/Models/SAM3/
   ```
 
-  Sandboxed builds resolve Application Support inside the app container; **Settings > AI** displays the exact expected path.
+  Sandboxed builds use:
+
+  ```text
+  ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-DataComp/
+  ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-OpenAI/
+  ```
+
+  **Settings > AI** displays the exact expected paths.
 - The first use of a portable Core AI model can take longer while macOS specializes the model for the current Mac.
 
 See [AI model distribution and installation](doc/models.md) for model format, validation, and installation details.
@@ -87,7 +98,10 @@ See [AI model distribution and installation](doc/models.md) for model format, va
 - **Deep Review:** SAM 3 isolates the subject, evaluates detail inside the mask, checks whether the AF point falls within the subject, and recommends a winner with confidence and supporting reasons. Choosing **Mark Winner & Close** saves the winner, gives it a three-star rating, and marks the burst reviewed.
 - **Local caching:** Embeddings, masks, scores, and burst decisions are cached locally so compatible results can be reused in later sessions.
 
-To use CLIP, enable **Use CLIP for similarity** under **Settings > AI** after the model is validated. To use SAM 3, analyze a catalog into burst groups, select **Deep Review** on a burst, choose the review target, and run the review.
+To use CLIP, choose exactly one of **DataComp** or **OpenAI** and enable **Use
+selected CLIP model for similarity** under **Settings > AI** after the model is
+validated. To use SAM 3, analyze a catalog into burst groups, select **Deep
+Review** on a burst, choose the review target, and run the review.
 
 ## Installation
 
@@ -162,7 +176,7 @@ project and are recorded in `Package.resolved`.
 
 | Package | Pinned requirement | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
-| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) | revision `ef4ce1a` | AI contracts, validated Core AI model resources, CLIP and SAM 3 inference, Vision similarity fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
+| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) | revision `2cb07d6` | AI contracts, validated Core AI model resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision similarity fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
 | [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) | 1.2.0 | Sharpness scoring, focus masks, Vision saliency/classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) | 1.2.6 | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) | 1.1.0 | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
@@ -205,16 +219,17 @@ features:
   SAM 3 Core AI model.
 - `SegmentationService` and `SubjectMaskSelector` acquire and select masks, while
   `PhotoAIStorage` supplies memory and disk mask stores.
-- A persisted setting selects CLIP when its validated model is available.
+- Persisted settings select exactly one of the DataComp and OpenAI CLIP
+  bundles and enable CLIP when that selected model is available.
   Non-finite output is retried once, then retried with a replacement provider;
   unresolved images are excluded from automatic burst analysis.
 - Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
-`RawCullAIIntegration` validates model bundles, selects CLIP or the Vision
-fallback, constructs SAM 3 mask services, and injects narrow services into the
-application models. RawCull retains ownership of RAW decoding, model locations,
-settings, subject-detail scoring, recommendation policy, ratings, and review
-state.
+`RawCullAIIntegration` validates both CLIP model bundles, selects the requested
+CLIP provider or the Vision fallback, constructs SAM 3 mask services, and
+injects narrow services into the application models. RawCull retains ownership
+of RAW decoding, model locations, settings, subject-detail scoring,
+recommendation policy, ratings, and review state.
 
 ### RawParserKit
 

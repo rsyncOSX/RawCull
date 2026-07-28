@@ -7,6 +7,7 @@ import Foundation
 @Observable @MainActor
 final class RawCullAISettingsModel {
     static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
+    static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
 
     private(set) var capabilities: RawCullAICapabilities
     private(set) var savedBurstEvidence: RawCullSavedBurstEvidence?
@@ -19,7 +20,21 @@ final class RawCullAISettingsModel {
         set { setUseCLIPForSimilarity(newValue) }
     }
 
+    var selectedCLIPModel: RawCullCLIPModel {
+        get { selectedModel }
+        set { setSelectedCLIPModel(newValue) }
+    }
+
+    var selectedCLIPModelStatus: RawCullAICapabilityStatus {
+        capabilities.clipModelStatus(for: selectedModel)
+    }
+
+    var selectedSemanticSearchStatus: RawCullSemanticSearchCapabilityStatus {
+        capabilities.semanticSearchStatus(for: selectedModel)
+    }
+
     private var prefersCLIPForSimilarity: Bool
+    private var selectedModel: RawCullCLIPModel
     @ObservationIgnored private let integration: RawCullAIIntegration
     @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private let similarityServiceDidChange: @MainActor (
@@ -53,6 +68,11 @@ final class RawCullAISettingsModel {
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
+        self.selectedModel = userDefaults.string(
+            forKey: Self.selectedCLIPModelPreferenceKey,
+        )
+        .flatMap(RawCullCLIPModel.init(rawValue:))
+        ?? .defaultSelection
         let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
             cacheDirectory: integration.paths.burstAnalysisDirectory,
         )
@@ -108,17 +128,27 @@ final class RawCullAISettingsModel {
         applySimilarityPreference()
     }
 
+    func setSelectedCLIPModel(_ model: RawCullCLIPModel) {
+        guard selectedModel != model else { return }
+        selectedModel = model
+        userDefaults.set(model.rawValue, forKey: Self.selectedCLIPModelPreferenceKey)
+        applySimilarityPreference()
+    }
+
     /// Intentionally empty until a safe saved-data deletion workflow exists.
     /// Existing RawCull burst analysis data must not be deleted by a placeholder.
     func deleteSavedBurstData() async {}
 
     private func applySimilarityPreference() {
         similarityServiceDidChange(
-            integration.similarityService(prefersCLIP: prefersCLIPForSimilarity),
+            integration.similarityService(
+                prefersCLIP: prefersCLIPForSimilarity,
+                clipModel: selectedModel,
+            ),
         )
         semanticSearchCapabilityDidChange(
-            capabilities.semanticSearch,
-            integration.semanticSearchService(),
+            selectedSemanticSearchStatus,
+            integration.semanticSearchService(clipModel: selectedModel),
         )
     }
 }

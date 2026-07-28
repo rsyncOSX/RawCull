@@ -248,7 +248,9 @@ private struct SemanticSearchReadinessView: View {
                         .buttonStyle(.bordered)
                         .accessibilityHint("Builds compatible CLIP artifacts for missing catalog images.")
                 } else {
-                    Text("Enable “Use CLIP for similarity” in AI Settings before indexing.")
+                    Text(
+                        "Enable “Use selected CLIP model for similarity” in AI Settings before indexing.",
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     SettingsLink {

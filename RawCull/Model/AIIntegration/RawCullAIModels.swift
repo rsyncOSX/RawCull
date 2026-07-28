@@ -1,6 +1,35 @@
 import Foundation
 import PhotoAIContracts
 
+/// The mutually exclusive CLIP model choices supported by RawCull.
+///
+/// PhotoAIKit reads each bundle's metadata and configures the corresponding
+/// OpenAI or DataComp runtime. RawCull owns only installation and selection.
+nonisolated enum RawCullCLIPModel: String, CaseIterable, Hashable, Identifiable, Sendable {
+    case dataComp = "data-comp"
+    case openAI = "openai"
+
+    static let defaultSelection = Self.openAI
+
+    var id: String {
+        rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .dataComp: "DataComp"
+        case .openAI: "OpenAI"
+        }
+    }
+
+    var resourceName: String {
+        switch self {
+        case .dataComp: "CLIP-DataComp"
+        case .openAI: "CLIP-OpenAI"
+        }
+    }
+}
+
 /// RawCull-owned locations used by the AI integration boundary.
 ///
 /// Existing application support and cache roots stay under RawCull's canonical
@@ -9,7 +38,8 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
     let applicationSupportDirectory: URL
     let modelsDirectory: URL
     let sam3ModelDirectory: URL
-    let clipModelDirectory: URL
+    let clipDataCompModelDirectory: URL
+    let clipOpenAIModelDirectory: URL
     let subjectMaskDirectory: URL
     let burstAnalysisDirectory: URL
 
@@ -26,8 +56,16 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
         self.modelsDirectory = modelsDirectory
         self.sam3ModelDirectory = modelsDirectory
             .appendingPathComponent("SAM3", isDirectory: true)
-        self.clipModelDirectory = modelsDirectory
-            .appendingPathComponent("CLIP", isDirectory: true)
+        self.clipDataCompModelDirectory = modelsDirectory
+            .appendingPathComponent(
+                RawCullCLIPModel.dataComp.resourceName,
+                isDirectory: true,
+            )
+        self.clipOpenAIModelDirectory = modelsDirectory
+            .appendingPathComponent(
+                RawCullCLIPModel.openAI.resourceName,
+                isDirectory: true,
+            )
         self.subjectMaskDirectory = cachesRoot
             .appendingPathComponent("no.blogspot.RawCull", isDirectory: true)
             .appendingPathComponent("SAM3Masks", isDirectory: true)
@@ -50,6 +88,13 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
             applicationSupportRoot: applicationSupportRoot,
             cachesRoot: cachesRoot,
         )
+    }
+
+    func clipModelDirectory(for model: RawCullCLIPModel) -> URL {
+        switch model {
+        case .dataComp: clipDataCompModelDirectory
+        case .openAI: clipOpenAIModelDirectory
+        }
     }
 }
 
@@ -102,11 +147,30 @@ nonisolated enum RawCullSemanticSearchCapabilityStatus: Equatable, Sendable {
 /// The Phase 1 readiness surface described by `doc/futureaiintegration.md`.
 nonisolated struct RawCullAICapabilities: Equatable, Sendable {
     let sam3Model: RawCullAICapabilityStatus
-    let clipModel: RawCullAICapabilityStatus
-    let semanticSearch: RawCullSemanticSearchCapabilityStatus
+    let clipModels: [RawCullCLIPModel: RawCullAICapabilityStatus]
+    let semanticSearchByCLIPModel: [
+        RawCullCLIPModel: RawCullSemanticSearchCapabilityStatus
+    ]
     let visionFeaturePrint: RawCullAICapabilityStatus
     let subjectMaskStorage: RawCullAICapabilityStatus
     let inProcessMaskGeneration: RawCullAICapabilityStatus
+
+    func clipModelStatus(
+        for model: RawCullCLIPModel,
+    ) -> RawCullAICapabilityStatus {
+        clipModels[model] ?? .unavailable(
+            reason: "\(model.displayName) CLIP capability was not configured.",
+        )
+    }
+
+    func semanticSearchStatus(
+        for model: RawCullCLIPModel,
+    ) -> RawCullSemanticSearchCapabilityStatus {
+        semanticSearchByCLIPModel[model] ?? .unavailable(
+            reason: "Semantic search requires a valid \(model.displayName) CLIP model.",
+            expectedLocations: [],
+        )
+    }
 }
 
 nonisolated enum RawCullSavedBurstBackend: Equatable, Sendable {

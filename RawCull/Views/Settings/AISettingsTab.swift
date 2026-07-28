@@ -19,7 +19,11 @@ struct AISettingsTab: View {
                         Label("Download AI Models", systemImage: "arrow.down.circle")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .disabled(model.capabilities.sam3Model.isAvailable)
+                    .disabled(
+                        model.capabilities.sam3Model.isAvailable
+                            && model.capabilities.clipModelStatus(for: .dataComp).isAvailable
+                            && model.capabilities.clipModelStatus(for: .openAI).isAvailable,
+                    )
                     .buttonStyle(RefinedGlassButtonStyle())
 
                     Button {
@@ -47,10 +51,19 @@ struct AISettingsTab: View {
 
 
     private var AIDownloadMessage: String {
-        let location = model.capabilities.sam3Model.primaryLocation?.path
-            ?? "the RawCull Application Support Models folder"
-        return "The AI models download location will be added later. For now, install " +
-            "the model files manually in \(location)."
+        let dataCompLocation = model.capabilities
+            .clipModelStatus(for: .dataComp).primaryLocation?.path
+            ?? "the CLIP-DataComp model folder"
+        let openAILocation = model.capabilities
+            .clipModelStatus(for: .openAI).primaryLocation?.path
+            ?? "the CLIP-OpenAI model folder"
+        let sam3Location = model.capabilities.sam3Model.primaryLocation?.path
+            ?? "the SAM3 model folder"
+        return """
+        Automatic model downloads will be added later. For now, install the \
+        DataComp bundle at \(dataCompLocation), the OpenAI bundle at \
+        \(openAILocation), and the SAM 3 bundle at \(sam3Location).
+        """
     }
 }
 
@@ -74,21 +87,45 @@ private struct AIModelSettingsCard: View {
                 Divider()
 
                 AICapabilityStatusView(
-                    title: "CLIP model",
-                    status: model.capabilities.clipModel,
-                    availableMessage: "CLIP model resources are installed.",
-                    missingMessage: "CLIP is not installed; Vision feature prints remain available.",
+                    title: "DataComp CLIP model",
+                    status: model.capabilities.clipModelStatus(for: .dataComp),
+                    availableMessage: "DataComp CLIP model resources are installed.",
+                    missingMessage: "DataComp CLIP is not installed.",
                 )
 
-                Toggle("Use CLIP for similarity", isOn: $model.useCLIPForSimilarity)
-                    .font(.system(size: 12, weight: .medium))
-                    .toggleStyle(.switch)
-                    .help(Text(clipSimilarityHelp))
+                Divider()
+
+                AICapabilityStatusView(
+                    title: "OpenAI CLIP model",
+                    status: model.capabilities.clipModelStatus(for: .openAI),
+                    availableMessage: "OpenAI CLIP model resources are installed.",
+                    missingMessage: "OpenAI CLIP is not installed.",
+                )
+
+                Divider()
+
+                Picker("Selected CLIP model", selection: $model.selectedCLIPModel) {
+                    ForEach(RawCullCLIPModel.allCases) { clipModel in
+                        Text(clipModel.displayName)
+                            .tag(clipModel)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .font(.system(size: 12, weight: .medium))
+                .help("Choose the single CLIP model RawCull uses for similarity and semantic search.")
+
+                Toggle(
+                    "Use selected CLIP model for similarity",
+                    isOn: $model.useCLIPForSimilarity,
+                )
+                .font(.system(size: 12, weight: .medium))
+                .toggleStyle(.switch)
+                .help(Text(clipSimilarityHelp))
 
                 Text(similarityBackendMessage)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(
-                        model.useCLIPForSimilarity && model.capabilities.clipModel.isAvailable
+                        model.useCLIPForSimilarity && model.selectedCLIPModelStatus.isAvailable
                             ? .green
                             : .secondary,
                     )
@@ -106,23 +143,24 @@ private struct AIModelSettingsCard: View {
     }
 
     private var similarityBackendMessage: LocalizedStringResource {
-        if model.useCLIPForSimilarity, model.capabilities.clipModel.isAvailable {
-            return "Similarity indexing validates CLIP embeddings, retries non-finite output, and excludes unresolved images from automatic burst analysis."
+        let selectedName = model.selectedCLIPModel.displayName
+        if model.useCLIPForSimilarity, model.selectedCLIPModelStatus.isAvailable {
+            return "Similarity indexing uses the selected \(selectedName) CLIP model."
         }
-        if model.capabilities.clipModel.isAvailable {
-            return "Similarity indexing currently uses Vision feature prints. Enable CLIP to use image embeddings."
+        if model.selectedCLIPModelStatus.isAvailable {
+            return "Similarity indexing uses Vision feature prints until the selected \(selectedName) CLIP model is enabled."
         }
         if model.useCLIPForSimilarity {
-            return "Similarity indexing uses Vision feature prints until a valid CLIP model is installed."
+            return "The selected \(selectedName) CLIP model is unavailable, so similarity indexing uses Vision feature prints."
         }
         return "Similarity indexing currently uses Vision feature prints."
     }
 
     private var clipSimilarityHelp: LocalizedStringResource {
-        if model.capabilities.clipModel.isAvailable {
-            return "Use validated CLIP image embeddings. Non-finite output is retried with targeted provider recovery before an image is excluded."
+        if model.selectedCLIPModelStatus.isAvailable {
+            return "Use validated \(model.selectedCLIPModel.displayName) CLIP embeddings. Invalid output is retried before an image is excluded."
         }
-        return "Save the CLIP preference now; it becomes active when a valid model is installed."
+        return "Save the selected CLIP preference now; it becomes active when that model is installed and valid."
     }
 }
 

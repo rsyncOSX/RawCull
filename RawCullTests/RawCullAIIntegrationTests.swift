@@ -17,7 +17,20 @@ struct RawCullAIIntegrationTests {
         #expect(paths.applicationSupportDirectory.lastPathComponent == "RawCull")
         #expect(paths.modelsDirectory.path.hasSuffix("RawCull/Models"))
         #expect(paths.sam3ModelDirectory.path.hasSuffix("RawCull/Models/SAM3"))
-        #expect(paths.clipModelDirectory.path.hasSuffix("RawCull/Models/CLIP"))
+        #expect(paths.clipDataCompModelDirectory.path.hasSuffix(
+            "RawCull/Models/CLIP-DataComp",
+        ))
+        #expect(paths.clipOpenAIModelDirectory.path.hasSuffix(
+            "RawCull/Models/CLIP-OpenAI",
+        ))
+        #expect(
+            paths.clipModelDirectory(for: .dataComp)
+                == paths.clipDataCompModelDirectory,
+        )
+        #expect(
+            paths.clipModelDirectory(for: .openAI)
+                == paths.clipOpenAIModelDirectory,
+        )
         #expect(paths.subjectMaskDirectory.path.hasSuffix("no.blogspot.RawCull/SAM3Masks"))
         #expect(paths.burstAnalysisDirectory.path.hasSuffix("RawCull/BurstAnalysis"))
     }
@@ -39,11 +52,17 @@ struct RawCullAIIntegrationTests {
         #expect(initialCapabilities.sam3Model == .checking(
             expectedLocations: [paths.sam3ModelDirectory],
         ))
-        #expect(initialCapabilities.clipModel == .checking(
-            expectedLocations: [paths.clipModelDirectory],
+        #expect(initialCapabilities.clipModelStatus(for: .dataComp) == .checking(
+            expectedLocations: [paths.clipDataCompModelDirectory],
         ))
-        #expect(initialCapabilities.semanticSearch == .checking(
-            expectedLocations: [paths.clipModelDirectory],
+        #expect(initialCapabilities.clipModelStatus(for: .openAI) == .checking(
+            expectedLocations: [paths.clipOpenAIModelDirectory],
+        ))
+        #expect(initialCapabilities.semanticSearchStatus(for: .dataComp) == .checking(
+            expectedLocations: [paths.clipDataCompModelDirectory],
+        ))
+        #expect(initialCapabilities.semanticSearchStatus(for: .openAI) == .checking(
+            expectedLocations: [paths.clipOpenAIModelDirectory],
         ))
         #expect(integration.deepAIReviewFeature.availability == .checking(
             expectedLocations: [paths.sam3ModelDirectory],
@@ -54,14 +73,22 @@ struct RawCullAIIntegrationTests {
         #expect(capabilities.sam3Model == .missing(
             expectedLocations: [paths.sam3ModelDirectory],
         ))
-        #expect(capabilities.clipModel == .missing(
-            expectedLocations: [paths.clipModelDirectory],
+        #expect(capabilities.clipModelStatus(for: .dataComp) == .missing(
+            expectedLocations: [paths.clipDataCompModelDirectory],
         ))
-        #expect(capabilities.semanticSearch == .unavailable(
+        #expect(capabilities.clipModelStatus(for: .openAI) == .missing(
+            expectedLocations: [paths.clipOpenAIModelDirectory],
+        ))
+        #expect(capabilities.semanticSearchStatus(for: .dataComp) == .unavailable(
             reason: "Semantic search requires a valid CLIP model.",
-            expectedLocations: [paths.clipModelDirectory],
+            expectedLocations: [paths.clipDataCompModelDirectory],
         ))
-        #expect(integration.semanticSearchService() == nil)
+        #expect(capabilities.semanticSearchStatus(for: .openAI) == .unavailable(
+            reason: "Semantic search requires a valid CLIP model.",
+            expectedLocations: [paths.clipOpenAIModelDirectory],
+        ))
+        #expect(integration.semanticSearchService(clipModel: .dataComp) == nil)
+        #expect(integration.semanticSearchService(clipModel: .openAI) == nil)
         #expect(capabilities.visionFeaturePrint == .available(location: nil))
         #expect(capabilities.subjectMaskStorage == .available(
             location: paths.subjectMaskDirectory,
@@ -230,7 +257,7 @@ struct RawCullAIIntegrationTests {
     }
 
     @MainActor
-    @Test("CLIP preference persists while saved-data deletion remains a no-op")
+    @Test("CLIP enablement and exclusive model selection persist")
     func clipPreferencePersists() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -263,17 +290,26 @@ struct RawCullAIIntegrationTests {
         )
 
         #expect(model.useCLIPForSimilarity)
+        #expect(model.selectedCLIPModel == .openAI)
         await model.refresh()
         model.useCLIPForSimilarity = false
         #expect(!model.useCLIPForSimilarity)
         #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey) == false)
 
         model.useCLIPForSimilarity = true
+        model.selectedCLIPModel = .dataComp
         await model.deleteSavedBurstData()
 
         #expect(model.useCLIPForSimilarity)
+        #expect(model.selectedCLIPModel == .dataComp)
         #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey))
+        #expect(
+            userDefaults.string(
+                forKey: RawCullAISettingsModel.selectedCLIPModelPreferenceKey,
+            ) == RawCullCLIPModel.dataComp.rawValue,
+        )
         #expect(selectedBackends == [
+            "vision-feature-print",
             "vision-feature-print",
             "vision-feature-print",
             "vision-feature-print",
@@ -285,6 +321,7 @@ struct RawCullAIIntegrationTests {
             userDefaults: userDefaults,
         )
         #expect(relaunchedModel.useCLIPForSimilarity)
+        #expect(relaunchedModel.selectedCLIPModel == .dataComp)
     }
 
     private func isolatedRoot() -> URL {

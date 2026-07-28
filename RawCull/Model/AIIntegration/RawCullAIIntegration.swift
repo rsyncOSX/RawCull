@@ -15,12 +15,17 @@ import VisionFeaturePrintBackend
 final class RawCullAIIntegration {
     let paths: RawCullAIPaths
     let sam3ModelResourceManager: RawCullAIModelResourceManager<CoreAISAM3Provider>
-    let clipModelResourceManager: RawCullAIModelResourceManager<CoreAICLIPProvider>
+    let clipDataCompModelResourceManager:
+        RawCullAIModelResourceManager<CoreAICLIPProvider>
+    let clipOpenAIModelResourceManager:
+        RawCullAIModelResourceManager<CoreAICLIPProvider>
 
     let visionSimilarityProvider: VisionFeaturePrintBackend
     let visionSimilarityService: any RawCullSimilarityServicing
-    private(set) var clipSimilarityProvider: CoreAICLIPProvider?
-    private(set) var clipSimilarityModelLocation: URL?
+    private(set) var clipSimilarityProviders: [
+        RawCullCLIPModel: CoreAICLIPProvider
+    ]
+    private(set) var clipSimilarityModelLocations: [RawCullCLIPModel: URL]
 
     let subjectMaskMemoryStore: SubjectMaskMemoryStore
     let subjectMaskDiskStore: SubjectMaskDiskStore?
@@ -53,9 +58,15 @@ final class RawCullAIIntegration {
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         )
-        let clipCandidateURLs = RawCullAIModelCandidates.urls(
-            installedDirectory: paths.clipModelDirectory,
-            resourceName: "CLIP",
+        let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
+            installedDirectory: paths.clipDataCompModelDirectory,
+            resourceName: RawCullCLIPModel.dataComp.resourceName,
+            bundle: bundle,
+            allowsBundledFallback: allowsBundledModelFallback,
+        )
+        let clipOpenAICandidateURLs = RawCullAIModelCandidates.urls(
+            installedDirectory: paths.clipOpenAIModelDirectory,
+            resourceName: RawCullCLIPModel.openAI.resourceName,
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         )
@@ -63,12 +74,16 @@ final class RawCullAIIntegration {
             candidateURLs: sam3CandidateURLs,
             factory: CoreAISAM3Provider.factory,
         )
-        self.clipModelResourceManager = RawCullAIModelResourceManager(
-            candidateURLs: clipCandidateURLs,
+        self.clipDataCompModelResourceManager = RawCullAIModelResourceManager(
+            candidateURLs: clipDataCompCandidateURLs,
             factory: CoreAICLIPProvider.factory,
         )
-        self.clipSimilarityProvider = nil
-        self.clipSimilarityModelLocation = nil
+        self.clipOpenAIModelResourceManager = RawCullAIModelResourceManager(
+            candidateURLs: clipOpenAICandidateURLs,
+            factory: CoreAICLIPProvider.factory,
+        )
+        self.clipSimilarityProviders = [:]
+        self.clipSimilarityModelLocations = [:]
 
         let visionProvider = VisionFeaturePrintBackend()
         self.visionSimilarityProvider = visionProvider
@@ -122,8 +137,14 @@ final class RawCullAIIntegration {
         self.activeSAM3ModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
             sam3Model: .checking(expectedLocations: sam3CandidateURLs),
-            clipModel: .checking(expectedLocations: clipCandidateURLs),
-            semanticSearch: .checking(expectedLocations: clipCandidateURLs),
+            clipModels: [
+                .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
+                .openAI: .checking(expectedLocations: clipOpenAICandidateURLs),
+            ],
+            semanticSearchByCLIPModel: [
+                .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
+                .openAI: .checking(expectedLocations: clipOpenAICandidateURLs),
+            ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
             inProcessMaskGeneration: .checking(expectedLocations: sam3CandidateURLs),
@@ -136,38 +157,61 @@ final class RawCullAIIntegration {
 
     /// Semantic search exists only when the validated CLIP provider exposes
     /// PhotoAIKit's text-embedding and image/text comparison contracts.
-    func semanticSearchService() -> (any RawCullSemanticSearchServicing)? {
-        guard let clipSimilarityProvider else { return nil }
-        return RawCullCLIPSemanticSearchService(backend: clipSimilarityProvider)
+    func semanticSearchService(
+        clipModel: RawCullCLIPModel,
+    ) -> (any RawCullSemanticSearchServicing)? {
+        guard let provider = clipSimilarityProviders[clipModel] else { return nil }
+        return RawCullCLIPSemanticSearchService(backend: provider)
     }
 
     /// Select the strongest requested similarity service whose validated model
     /// resources are currently available. Vision remains the safe runtime
     /// service until CLIP validation and provider construction both succeed.
-    func similarityService(prefersCLIP: Bool) -> any RawCullSimilarityServicing {
+    func similarityService(
+        prefersCLIP: Bool,
+        clipModel: RawCullCLIPModel,
+    ) -> any RawCullSimilarityServicing {
         guard prefersCLIP else {
             Logger.process.debugMessageOnly(
                 "RawCullAIIntegration: Vision similarity selected because CLIP is disabled",
             )
             return visionSimilarityService
         }
-        guard let clipSimilarityProvider else {
-            let expectedLocation = clipSimilarityModelLocation?.path
-                ?? paths.clipModelDirectory.path
+        guard let provider = clipSimilarityProviders[clipModel] else {
+            let expectedLocation = clipSimilarityModelLocations[clipModel]?.path
+                ?? paths.clipModelDirectory(for: clipModel).path
             Logger.process.warning(
-                "RawCullAIIntegration: Vision similarity selected because no validated CLIP provider is available; expected/resolved model location=\(expectedLocation, privacy: .public)",
+                """
+                RawCullAIIntegration: Vision similarity selected because no validated \
+                \(clipModel.displayName, privacy: .public) CLIP provider is available; \
+                expected/resolved model location=\(expectedLocation, privacy: .public)
+                """,
             )
             return visionSimilarityService
         }
-        let location = clipSimilarityModelLocation?.path ?? "<unknown>"
+        guard let modelLocation = clipSimilarityModelLocations[clipModel] else {
+            Logger.process.warning(
+                """
+                RawCullAIIntegration: Vision similarity selected because the validated \
+                \(clipModel.displayName, privacy: .public) CLIP provider has no resolved \
+                model location
+                """,
+            )
+            return visionSimilarityService
+        }
+        let location = modelLocation.path
         Logger.process.info(
-            "RawCullAIIntegration: CLIP similarity selected; model=\(location, privacy: .public); fingerprint=\(clipSimilarityProvider.backendDescriptor.modelFingerprint, privacy: .public)",
+            """
+            RawCullAIIntegration: \(clipModel.displayName, privacy: .public) CLIP \
+            similarity selected; model=\(location, privacy: .public); \
+            fingerprint=\(provider.backendDescriptor.modelFingerprint, privacy: .public)
+            """,
         )
         let replacementProviderFactory: @Sendable () throws -> any ImageSimilarityArtifactProviding = {
-            try CoreAICLIPProvider(modelBundleURL: URL(fileURLWithPath: location))
+            try CoreAICLIPProvider(modelBundleURL: modelLocation)
         }
         return RawCullCLIPSimilarityService(
-            backend: clipSimilarityProvider,
+            backend: provider,
             replacementProviderFactory: replacementProviderFactory,
         )
     }
@@ -177,8 +221,13 @@ final class RawCullAIIntegration {
     @discardableResult
     func refreshCapabilities() async throws -> RawCullAICapabilities {
         async let sam3Load = sam3ModelResourceManager.load()
-        async let clipLoad = clipModelResourceManager.load()
-        let (sam3, clip) = try await (sam3Load, clipLoad)
+        async let clipDataCompLoad = clipDataCompModelResourceManager.load()
+        async let clipOpenAILoad = clipOpenAIModelResourceManager.load()
+        let (sam3, clipDataComp, clipOpenAI) = try await (
+            sam3Load,
+            clipDataCompLoad,
+            clipOpenAILoad,
+        )
         try Task.checkCancellation()
 
         if let provider = sam3.provider {
@@ -186,24 +235,43 @@ final class RawCullAIIntegration {
         } else {
             installUnavailableSAM3ProviderIfNeeded()
         }
-        clipSimilarityProvider = clip.provider
-        clipSimilarityModelLocation = clip.capability.resource?.bundleURL
+        clipSimilarityProviders = [
+            .dataComp: clipDataComp.provider,
+            .openAI: clipOpenAI.provider,
+        ].compactMapValues(\.self)
+        clipSimilarityModelLocations = [
+            .dataComp: clipDataComp.capability.resource?.bundleURL,
+            .openAI: clipOpenAI.capability.resource?.bundleURL,
+        ].compactMapValues(\.self)
 
         let sam3Status = Self.capabilityStatus(
             sam3.capability,
             providerInitializationFailure: sam3.providerInitializationFailure,
         )
-        let clipStatus = Self.capabilityStatus(
-            clip.capability,
-            providerInitializationFailure: clip.providerInitializationFailure,
+        let clipDataCompStatus = Self.capabilityStatus(
+            clipDataComp.capability,
+            providerInitializationFailure: clipDataComp.providerInitializationFailure,
+        )
+        let clipOpenAIStatus = Self.capabilityStatus(
+            clipOpenAI.capability,
+            providerInitializationFailure: clipOpenAI.providerInitializationFailure,
         )
         let capabilities = RawCullAICapabilities(
             sam3Model: sam3Status,
-            clipModel: clipStatus,
-            semanticSearch: Self.semanticSearchCapabilityStatus(
-                clipStatus: clipStatus,
-                provider: clip.provider,
-            ),
+            clipModels: [
+                .dataComp: clipDataCompStatus,
+                .openAI: clipOpenAIStatus,
+            ],
+            semanticSearchByCLIPModel: [
+                .dataComp: Self.semanticSearchCapabilityStatus(
+                    clipStatus: clipDataCompStatus,
+                    provider: clipDataComp.provider,
+                ),
+                .openAI: Self.semanticSearchCapabilityStatus(
+                    clipStatus: clipOpenAIStatus,
+                    provider: clipOpenAI.provider,
+                ),
+            ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
             inProcessMaskGeneration: sam3Status,
