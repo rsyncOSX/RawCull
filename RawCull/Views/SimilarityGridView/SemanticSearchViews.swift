@@ -88,6 +88,7 @@ private struct SemanticSearchQueryEntryView: View {
 
     @State private var queryText = ""
     @State private var searchTask: Task<Void, Never>?
+    @State private var isClearingSearch = false
     @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
@@ -145,7 +146,8 @@ private struct SemanticSearchQueryEntryView: View {
             }
         }
         .onChange(of: queryText) {
-            guard queryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            guard !isClearingSearch,
+                  queryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   viewModel.similarityModel.semanticSearchState != .idle
             else { return }
             clearSearch()
@@ -187,13 +189,15 @@ private struct SemanticSearchQueryEntryView: View {
     }
 
     private func clearSearch() {
+        guard !isClearingSearch else { return }
+        isClearingSearch = true
         searchTask?.cancel()
-        searchTask = nil
         queryText = ""
-        viewModel.similarityModel.clearSemanticSearch()
-        searchFieldFocused = true
-        Task {
+        searchTask = Task {
+            defer { isClearingSearch = false }
             await viewModel.clearSemanticSearch()
+            guard !Task.isCancelled else { return }
+            searchFieldFocused = true
         }
     }
 }

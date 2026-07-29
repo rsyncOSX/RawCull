@@ -50,6 +50,16 @@ struct CompletedBurstAnalysisContext: Equatable {
     let generation: Int
 }
 
+enum BurstFullReindexRequest: Equatable, Identifiable {
+    case analyzeBursts
+    case catalogTools
+    case semanticReview
+
+    var id: Self {
+        self
+    }
+}
+
 struct BurstGroupPresentation: Equatable {
     nonisolated static func recommendationBadge(
         for candidate: BurstCandidateScore,

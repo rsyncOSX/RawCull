@@ -244,6 +244,57 @@ extension RawCullViewModel {
         await handleSortOrderChange()
     }
 
+    /// Restore a compatible full-catalog burst snapshot without reaching any
+    /// sharpness or similarity computation path.
+    @discardableResult
+    func restoreExistingFullCatalogBurstAnalysis() async -> Bool {
+        guard let catalog = selectedSource?.url, !files.isEmpty else { return false }
+        if hasExistingFullCatalogBurstGroupIndex {
+            return true
+        }
+
+        burstAnalysisTask?.cancel()
+        burstAnalysisGeneration &+= 1
+        let generation = burstAnalysisGeneration
+        let sorted = fullCatalogBurstAnalysisFiles
+        burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
+        defer { finishBurstAnalysis(generation: generation) }
+
+        await similarityModel.hydrateArtifacts(sorted)
+        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else {
+            return false
+        }
+
+        guard let snapshot = await burstAnalysisCacheLoad(
+            catalog,
+            sorted,
+            sharpnessModel.effectiveThumbnailMaxPixelSize,
+            currentBurstSharpnessSignature,
+            currentBurstSimilaritySignature,
+        ) else {
+            return false
+        }
+
+        let remappedSnapshot = remapCachedSnapshot(snapshot, to: sorted)
+        let currentArtifactDigest = BurstAnalysisCache.artifactSetDigest(
+            files: sorted,
+            artifacts: similarityModel.embeddings,
+        )
+        guard remappedSnapshot.similarityArtifactSetDigest == currentArtifactDigest,
+              isCurrentBurstAnalysis(generation: generation, catalog: catalog)
+        else {
+            return false
+        }
+
+        applyCachedBurstAnalysis(
+            remappedSnapshot,
+            catalog: catalog,
+            files: sorted,
+            generation: generation,
+        )
+        return true
+    }
+
     var fullCatalogBurstAnalysisFiles: [FileItem] {
         files.sorted {
             if $0.effectiveCaptureDate == $1.effectiveCaptureDate {
@@ -524,6 +575,36 @@ extension RawCullViewModel {
         completedBurstAnalysisContext != nil
             && !burstAnalysisProgress.isRunning
             && !similarityModel.isGrouping
+    }
+
+    var hasExistingBurstGroupIndex: Bool {
+        hasCompletedBurstAnalysis && !similarityModel.burstGroups.isEmpty
+    }
+
+    var hasExistingFullCatalogBurstGroupIndex: Bool {
+        guard hasExistingBurstGroupIndex,
+              let context = completedBurstAnalysisContext,
+              context.catalog == selectedSource?.url
+        else { return false }
+        return Set(context.orderedFileIDs) == Set(files.map(\.id))
+    }
+
+    var canUseExistingBurstGroupIndexForActiveScope: Bool {
+        guard hasExistingBurstGroupIndex,
+              let context = completedBurstAnalysisContext,
+              context.catalog == selectedSource?.url
+        else { return false }
+
+        let indexedIDs = Set(context.orderedFileIDs)
+        let fullCatalogIDs = Set(files.map(\.id))
+        let activeScopeIDs = Set(activeCatalogFiles.map(\.id))
+        return indexedIDs == fullCatalogIDs || indexedIDs == activeScopeIDs
+    }
+
+    func useExistingBurstGroupIndex() {
+        burstReviewQueueFilter = .all
+        selectMainViewMode(.similarityGrid)
+        similarityModel.burstModeActive = true
     }
 
     var filteredBurstGroupsForReviewQueue: [BurstGroup] {
@@ -873,6 +954,13 @@ extension RawCullViewModel {
               context.generation == generation,
               context.similaritySignature == currentBurstSimilaritySignature
         else { return }
+
+        guard Set(files.map(\.id)) == Set(self.files.map(\.id)) else {
+            Logger.process.debugMessageOnly(
+                "RawCullViewModel.saveBurstAnalysisCache(): preserving the full-catalog cache instead of replacing it with a scoped snapshot",
+            )
+            return
+        }
 
         let snapshot = BurstAnalysisCacheSnapshot(
             schemaVersion: BurstAnalysisCache.schemaVersion,

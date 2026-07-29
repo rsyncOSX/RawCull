@@ -426,7 +426,7 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Semantic selection count scopes catalog workflows and remains adjustable")
+    @Test("Clear restores the catalog without discarding the scoped burst index")
     func adjustableCatalogWorkingSet() async throws {
         let names = (1 ... 25).map { "scope-\($0).raw" }
         let fixture = try SemanticCatalogFixture(names: names)
@@ -505,8 +505,20 @@ struct RawCullSemanticSearchTests {
         await viewModel.clearSemanticSearch()
 
         #expect(viewModel.activeCatalogFiles.count == fixture.files.count)
-        #expect(viewModel.completedBurstAnalysisContext == nil)
-        #expect(viewModel.similarityModel.burstGroups.isEmpty)
+        #expect(
+            viewModel.completedBurstAnalysisContext
+                == CompletedBurstAnalysisContext(
+                    catalog: fixture.root,
+                    orderedFileIDs: scopedFiles.map(\.id),
+                    orderedFilePaths: scopedFiles.map(\.url.path),
+                    similaritySignature: viewModel.currentBurstSimilaritySignature,
+                    generation: viewModel.burstAnalysisGeneration,
+                ),
+        )
+        #expect(
+            viewModel.similarityModel.burstGroups
+                == [BurstGroup(id: 0, fileIDs: scopedFiles.map(\.id))],
+        )
     }
 
     @MainActor
@@ -530,6 +542,10 @@ struct RawCullSemanticSearchTests {
         )
         viewModel.files = fixture.files
         viewModel.filteredFiles = fixture.files
+        viewModel.selectedSource = ARWSourceCatalog(
+            name: "Semantic fixture",
+            url: fixture.root,
+        )
         #expect(
             await viewModel.similarityModel.hydrateSemanticArtifacts(
                 fixture.files,
@@ -555,11 +571,19 @@ struct RawCullSemanticSearchTests {
             ),
             BurstGroup(id: 3, fileIDs: [outside.id]),
         ]
+        viewModel.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
+            catalog: fixture.root,
+            orderedFileIDs: fixture.files.map(\.id),
+            orderedFilePaths: fixture.files.map(\.url.path),
+            similaritySignature: viewModel.currentBurstSimilaritySignature,
+            generation: viewModel.burstAnalysisGeneration,
+        )
 
         #expect(viewModel.burstGroupsInActiveCatalogScope == [
             BurstGroup(id: 1, fileIDs: [selected[0].id]),
             BurstGroup(id: 2, fileIDs: selected.map(\.id)),
         ])
+        #expect(viewModel.canUseExistingBurstGroupIndexForActiveScope)
     }
 
     @MainActor

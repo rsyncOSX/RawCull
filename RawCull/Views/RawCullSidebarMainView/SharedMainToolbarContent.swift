@@ -197,7 +197,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private var reviewButtonHelp: LocalizedStringResource {
         if semanticSelectionCount != nil {
-            "Analyze and review bursts using only the semantic-search selection"
+            "Review the semantic-search selection using the existing burst index"
         } else {
             "Show burst groups that need review"
         }
@@ -250,14 +250,22 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = .all
         viewModel.selectMainViewMode(.similarityGrid)
         if semanticSelectionCount != nil {
-            viewModel.burstReviewQueueFilter = .all
-            Task {
+            Task { @MainActor in
                 await viewModel.handleSortOrderChange()
-                await viewModel.analyzeBursts()
-                guard !Task.isCancelled,
-                      viewModel.hasActiveSemanticSearchSelection
-                else { return }
-                viewModel.similarityModel.burstModeActive = true
+                guard !Task.isCancelled else { return }
+
+                if viewModel.canUseExistingBurstGroupIndexForActiveScope {
+                    viewModel.useExistingBurstGroupIndex()
+                    return
+                }
+
+                if await viewModel.restoreExistingFullCatalogBurstAnalysis() {
+                    guard !Task.isCancelled else { return }
+                    viewModel.useExistingBurstGroupIndex()
+                    return
+                }
+
+                viewModel.burstFullReindexRequest = .semanticReview
             }
         } else {
             viewModel.burstReviewQueueFilter = .needsReview

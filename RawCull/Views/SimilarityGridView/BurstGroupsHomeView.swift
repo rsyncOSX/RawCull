@@ -357,47 +357,34 @@ struct BurstGroupsHomeView: View {
         viewModel.similarityModel.burstModeActive = true
     }
 
-    private func runWithAutoScoring(_ action: @escaping @MainActor () async -> Void) {
-        Logger.process.debugMessageOnly(
-            "BurstGroupsHomeView.runWithAutoScoring(): starting prerequisite check",
-        )
-        Task {
-            if viewModel.sharpnessModel.scores.isEmpty {
-                Logger.process.debugMessageOnly(
-                    "BurstGroupsHomeView.runWithAutoScoring(): sharpness scores missing; starting automatic scoring",
-                )
-                await viewModel.calibrateAndScoreCurrentCatalog()
-            }
-            Logger.process.debugMessageOnly(
-                "BurstGroupsHomeView.runWithAutoScoring(): executing requested burst action",
-            )
-            await action()
-            Logger.process.debugMessageOnly(
-                "BurstGroupsHomeView.runWithAutoScoring(): requested burst action finished",
-            )
-        }
-    }
-
     private func analyzeBursts() {
         Logger.process.debugMessageOnly(
             "BurstGroupsHomeView.analyzeBursts(): Run button pressed",
         )
         analyzeBurstsRequested = true
-        runWithAutoScoring {
+        Task {
             defer { analyzeBurstsRequested = false }
-            await viewModel.analyzeBursts()
+            let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+            guard !Task.isCancelled else { return }
+            if !restored {
+                viewModel.burstFullReindexRequest = .analyzeBursts
+            }
         }
     }
 
     private func reindex() {
-        Task { await viewModel.reindexBurstAnalysis() }
+        Task {
+            _ = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+            guard !Task.isCancelled else { return }
+            viewModel.burstFullReindexRequest = .catalogTools
+        }
     }
 
     private func indexSimilarity() {
         if viewModel.similarityModel.isIndexing {
             viewModel.similarityModel.cancelIndexing()
         } else {
-            runWithAutoScoring { await viewModel.indexSimilarity() }
+            Task { await viewModel.indexSimilarity() }
         }
     }
 }

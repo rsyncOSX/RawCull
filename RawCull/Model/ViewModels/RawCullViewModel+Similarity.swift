@@ -80,14 +80,12 @@ extension RawCullViewModel {
 
     /// Cancel text ranking and immediately restore the ordinary catalog order.
     func clearSemanticSearch() async {
-        discardScopedBurstAnalysisIfNeeded()
         similarityModel.clearSemanticSearch()
         await handleSortOrderChange()
     }
 
     /// Cancel an in-flight text query and restore the ordinary catalog order.
     func cancelSemanticSearch() async {
-        discardScopedBurstAnalysisIfNeeded()
         similarityModel.cancelSemanticSearch()
         await handleSortOrderChange()
     }

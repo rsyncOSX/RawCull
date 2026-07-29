@@ -1454,6 +1454,46 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `restoring an existing full burst index never starts scoring or indexing`() async {
+        let viewModel = RawCullViewModel(
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let first = makeCullingTestFile("A.ARW")
+        let second = makeCullingTestFile("B.ARW")
+        let group = BurstGroup(id: 0, fileIDs: [first.id, second.id])
+        var snapshot = makeBurstSnapshot(
+            catalog: catalog.url,
+            files: [first, second],
+            groups: [group],
+            results: [makeCullingBurstResult(groupID: group.id, files: [first, second])],
+            reviewStateSnapshots: [],
+        )
+        snapshot.embeddings = [:]
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: [first, second],
+            artifacts: [:],
+        )
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [first, second]
+        viewModel.filteredFiles = [first, second]
+        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in snapshot }
+
+        let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+
+        #expect(restored)
+        #expect(viewModel.hasExistingFullCatalogBurstGroupIndex)
+        #expect(viewModel.similarityModel.burstGroups == [group])
+        #expect(!viewModel.sharpnessModel.isScoring)
+        #expect(!viewModel.similarityModel.isIndexing)
+        #expect(!viewModel.burstAnalysisProgress.isRunning)
+    }
+
+    @Test
     func `burst cache rejects groups produced by the previous timestamp algorithm`() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("RawCullAlgorithmCacheTests-\(UUID().uuidString)", isDirectory: true)
