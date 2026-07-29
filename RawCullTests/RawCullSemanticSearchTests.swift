@@ -426,6 +426,182 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
+    @Test("Semantic selection count scopes catalog workflows and remains adjustable")
+    func adjustableCatalogWorkingSet() async throws {
+        let names = (1 ... 25).map { "scope-\($0).raw" }
+        let fixture = try SemanticCatalogFixture(names: names)
+        defer { fixture.remove() }
+        await fixture.persistCLIPArtifacts(values: Array(1 ... 25))
+        let provider = SemanticTestTextProvider()
+        let service = RawCullCLIPSemanticSearchService(
+            textProvider: provider,
+            comparator: SemanticPayloadComparator(),
+        )
+        let viewModel = RawCullViewModel(
+            semanticSearchCapability: .ready(
+                location: nil,
+                backend: semanticTestBackend,
+            ),
+            semanticSearchService: service,
+            similarityArtifactStore: fixture.store,
+        )
+        viewModel.files = fixture.files
+        viewModel.filteredFiles = fixture.files
+        #expect(
+            await viewModel.similarityModel.hydrateSemanticArtifacts(
+                fixture.files,
+            ) == 25,
+        )
+
+        await viewModel.searchSemantically(for: "wildlife")
+        #expect(viewModel.filteredFiles.count == 20)
+        #expect(viewModel.activeCatalogFiles.count == 20)
+
+        await viewModel.setSemanticSearchSelectionCount(7)
+
+        let selectedIDs = Set(viewModel.filteredFiles.map(\.id))
+        #expect(viewModel.filteredFiles.count == 7)
+        #expect(Set(viewModel.activeCatalogFiles.map(\.id)) == selectedIDs)
+        #expect(Set(viewModel.burstAnalysisTargetFiles.map(\.id)) == selectedIDs)
+        #expect(Set(viewModel.sharpnessScoringTargetFiles.map(\.id)) == selectedIDs)
+        #expect(await provider.queries() == ["wildlife"])
+
+        let selectedFile = try #require(viewModel.filteredFiles.first)
+        let outsideFile = try #require(
+            fixture.files.first { !selectedIDs.contains($0.id) },
+        )
+        viewModel.selectedFileIDs = [selectedFile.id, outsideFile.id]
+        viewModel.selectedFileID = outsideFile.id
+        viewModel.comparisonFileIDs = [selectedFile.id, outsideFile.id]
+        viewModel.mainViewMode = .comparisonGrid
+
+        await viewModel.adjustSemanticSearchSelection(by: -1)
+
+        #expect(viewModel.filteredFiles.count == 6)
+        #expect(viewModel.selectedFileIDs == [selectedFile.id])
+        #expect(viewModel.selectedFileID == viewModel.filteredFiles.first?.id)
+        #expect(viewModel.comparisonFileIDs.isEmpty)
+        #expect(viewModel.mainViewMode == .similarityGrid)
+        #expect(await provider.queries() == ["wildlife"])
+
+        await viewModel.adjustSemanticSearchSelection(by: 1)
+
+        #expect(viewModel.filteredFiles.count == 7)
+        #expect(viewModel.activeCatalogFiles.count == 7)
+        #expect(await provider.queries() == ["wildlife"])
+
+        let scopedFiles = viewModel.activeCatalogFiles
+        viewModel.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
+            catalog: fixture.root,
+            orderedFileIDs: scopedFiles.map(\.id),
+            orderedFilePaths: scopedFiles.map(\.url.path),
+            similaritySignature: viewModel.currentBurstSimilaritySignature,
+            generation: viewModel.burstAnalysisGeneration,
+        )
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 0, fileIDs: scopedFiles.map(\.id)),
+        ]
+
+        await viewModel.clearSemanticSearch()
+
+        #expect(viewModel.activeCatalogFiles.count == fixture.files.count)
+        #expect(viewModel.completedBurstAnalysisContext == nil)
+        #expect(viewModel.similarityModel.burstGroups.isEmpty)
+    }
+
+    @MainActor
+    @Test("Semantic selection scopes existing burst groups")
+    func semanticSelectionScopesBurstGroups() async throws {
+        let fixture = try SemanticCatalogFixture(
+            names: ["one.raw", "two.raw", "three.raw", "four.raw"],
+        )
+        defer { fixture.remove() }
+        await fixture.persistCLIPArtifacts(values: [10, 20, 30, 40])
+        let viewModel = RawCullViewModel(
+            semanticSearchCapability: .ready(
+                location: nil,
+                backend: semanticTestBackend,
+            ),
+            semanticSearchService: RawCullCLIPSemanticSearchService(
+                textProvider: SemanticTestTextProvider(),
+                comparator: SemanticPayloadComparator(),
+            ),
+            similarityArtifactStore: fixture.store,
+        )
+        viewModel.files = fixture.files
+        viewModel.filteredFiles = fixture.files
+        #expect(
+            await viewModel.similarityModel.hydrateSemanticArtifacts(
+                fixture.files,
+            ) == 4,
+        )
+        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.setSemanticSearchSelectionCount(2)
+
+        let selected = viewModel.filteredFiles
+        let outside = try #require(
+            fixture.files.first { candidate in
+                !selected.contains(where: { $0.id == candidate.id })
+            },
+        )
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(
+                id: 1,
+                fileIDs: [selected[0].id, outside.id],
+            ),
+            BurstGroup(
+                id: 2,
+                fileIDs: selected.map(\.id),
+            ),
+            BurstGroup(id: 3, fileIDs: [outside.id]),
+        ]
+
+        #expect(viewModel.burstGroupsInActiveCatalogScope == [
+            BurstGroup(id: 1, fileIDs: [selected[0].id]),
+            BurstGroup(id: 2, fileIDs: selected.map(\.id)),
+        ])
+    }
+
+    @MainActor
+    @Test("Preparing a reindex resets selection and restores the full catalog")
+    func fullCatalogReindexPreparation() async throws {
+        let names = (1 ... 25).map { "reindex-\($0).raw" }
+        let fixture = try SemanticCatalogFixture(names: names)
+        defer { fixture.remove() }
+        await fixture.persistCLIPArtifacts(values: Array(1 ... 25))
+        let viewModel = RawCullViewModel(
+            semanticSearchCapability: .ready(
+                location: nil,
+                backend: semanticTestBackend,
+            ),
+            semanticSearchService: RawCullCLIPSemanticSearchService(
+                textProvider: SemanticTestTextProvider(),
+                comparator: SemanticPayloadComparator(),
+            ),
+            similarityArtifactStore: fixture.store,
+        )
+        viewModel.files = fixture.files
+        viewModel.filteredFiles = fixture.files
+        viewModel.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
+        #expect(
+            await viewModel.similarityModel.hydrateSemanticArtifacts(
+                fixture.files,
+            ) == 25,
+        )
+        await viewModel.searchSemantically(for: "wildlife")
+        #expect(viewModel.activeCatalogFiles.count == 20)
+
+        viewModel.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
+        await viewModel.prepareForFullCatalogReindex()
+
+        #expect(viewModel.similarityModel.semanticSearchState == .idle)
+        #expect(viewModel.selectedFileIDs.isEmpty)
+        #expect(viewModel.activeCatalogFiles.count == 25)
+        #expect(viewModel.filteredFiles.count == 25)
+        #expect(viewModel.fullCatalogBurstAnalysisFiles.count == 25)
+    }
+
+    @MainActor
     @Test("A superseded query cannot overwrite the newer result")
     func latestQueryWins() async throws {
         let fixture = try SemanticCatalogFixture(names: ["one.raw"])
@@ -540,14 +716,15 @@ struct RawCullSemanticSearchTests {
         await viewModel.searchSemantically(for: "night wildlife")
 
         #expect(viewModel.filteredFiles.map(\.name) == ["c.raw", "b.raw"])
-        #expect(viewModel.selectedFileID == fixture.files[1].id)
+        let semanticFocusedID = viewModel.filteredFiles.first?.id
+        #expect(viewModel.selectedFileID == semanticFocusedID)
         #expect(await provider.queries() == ["night wildlife"])
 
         viewModel.ratingFilter = .all
         await viewModel.clearSemanticSearch()
 
         #expect(viewModel.filteredFiles.map(\.name) == ["a.raw", "b.raw", "c.raw"])
-        #expect(viewModel.selectedFileID == fixture.files[1].id)
+        #expect(viewModel.selectedFileID == semanticFocusedID)
     }
 
     @MainActor

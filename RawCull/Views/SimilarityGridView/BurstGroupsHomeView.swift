@@ -89,7 +89,10 @@ struct BurstGroupsHomeView: View {
     }
 
     private var reviewQueueCard: some View {
-        BurstDashboardCard(title: "Review queue", trailing: "\(viewModel.files.count) files  ·  \(burstGroupCount) groups") {
+        BurstDashboardCard(
+            title: "Review queue",
+            trailing: "\(viewModel.activeCatalogFiles.count) files  ·  \(burstGroupCount) groups",
+        ) {
             HStack(spacing: 12) {
                 BurstQueueMetric(
                     title: "Needs Review",
@@ -116,7 +119,7 @@ struct BurstGroupsHomeView: View {
                 HStack {
                     Text("Catalog coverage")
                     Spacer()
-                    Text("\(coveredFileCount) / \(viewModel.files.count)")
+                    Text("\(coveredFileCount) / \(viewModel.activeCatalogFiles.count)")
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -173,7 +176,7 @@ struct BurstGroupsHomeView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .disabled(controlsAreBusy || viewModel.files.isEmpty)
+            .disabled(controlsAreBusy || viewModel.activeCatalogFiles.isEmpty)
             .background(Color.accentColor.opacity(0.1), in: .rect(cornerRadius: 12))
             .overlay {
                 RoundedRectangle(cornerRadius: 12)
@@ -271,22 +274,28 @@ struct BurstGroupsHomeView: View {
     }
 
     private var burstGroupCount: Int {
-        viewModel.similarityModel.burstGroups.filter { $0.fileIDs.count > 1 }.count
+        viewModel.burstGroupsInActiveCatalogScope
+            .filter { $0.fileIDs.count > 1 }
+            .count
     }
 
     private var coveredFileCount: Int {
-        min(viewModel.files.count, counts.singleImages + groupedFileCount)
+        min(
+            viewModel.activeCatalogFiles.count,
+            counts.singleImages + groupedFileCount,
+        )
     }
 
     private var groupedFileCount: Int {
-        viewModel.similarityModel.burstGroups
+        viewModel.burstGroupsInActiveCatalogScope
             .filter { $0.fileIDs.count > 1 }
             .reduce(0) { $0 + $1.fileIDs.count }
     }
 
     private var catalogCoverage: Double {
-        guard !viewModel.files.isEmpty else { return 0 }
-        return Double(coveredFileCount) / Double(viewModel.files.count)
+        guard !viewModel.activeCatalogFiles.isEmpty else { return 0 }
+        return Double(coveredFileCount)
+            / Double(viewModel.activeCatalogFiles.count)
     }
 
     private var completionSummary: String {
@@ -326,7 +335,9 @@ struct BurstGroupsHomeView: View {
     }
 
     private var suggestedPicks: [BurstSuggestedPick] {
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        let filesByID = Dictionary(
+            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+        )
         return viewModel.burstAnalysisResults.values
             .sorted { $0.groupID < $1.groupID }
             .compactMap { result in

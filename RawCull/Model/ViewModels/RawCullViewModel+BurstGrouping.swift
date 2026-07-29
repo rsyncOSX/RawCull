@@ -32,6 +32,16 @@ extension RawCullViewModel {
             return
         }
 
+        await startBurstAnalysis(
+            catalog: catalog,
+            files: sorted,
+        )
+    }
+
+    private func startBurstAnalysis(
+        catalog: URL,
+        files sorted: [FileItem],
+    ) async {
         burstAnalysisTask?.cancel()
         burstAnalysisGeneration &+= 1
         let generation = burstAnalysisGeneration
@@ -215,13 +225,32 @@ extension RawCullViewModel {
     func reindexBurstAnalysis() async {
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
 
-        clearLoadedBurstAnalysisForReindex()
+        await prepareForFullCatalogReindex()
+        guard !Task.isCancelled else { return }
         await burstAnalysisCache.delete(catalog: catalog)
         await similarityModel.hydrateArtifacts(files)
         guard !Task.isCancelled else { return }
         await similarityModel.indexFiles(files, forceRefresh: true)
         guard !Task.isCancelled else { return }
-        await analyzeBursts()
+        await startBurstAnalysis(
+            catalog: catalog,
+            files: fullCatalogBurstAnalysisFiles,
+        )
+    }
+
+    func prepareForFullCatalogReindex() async {
+        selectedFileIDs = []
+        clearLoadedBurstAnalysisForReindex()
+        await handleSortOrderChange()
+    }
+
+    var fullCatalogBurstAnalysisFiles: [FileItem] {
+        files.sorted {
+            if $0.effectiveCaptureDate == $1.effectiveCaptureDate {
+                return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+            return $0.effectiveCaptureDate < $1.effectiveCaptureDate
+        }
     }
 
     // MARK: - Re-clustering on threshold change
@@ -389,22 +418,25 @@ extension RawCullViewModel {
 
     @discardableResult
     func advanceToNextBurstGroup(after currentGroupID: Int) -> Bool {
-        guard let currentIndex = similarityModel.burstGroups.firstIndex(where: { $0.id == currentGroupID })
+        let scopedGroups = burstGroupsInActiveCatalogScope
+        guard let currentIndex = scopedGroups.firstIndex(where: { $0.id == currentGroupID })
         else { return false }
 
-        let currentGroup = similarityModel.burstGroups[currentIndex]
+        let currentGroup = scopedGroups[currentIndex]
 
         let eligibleGroupIDs = Set(
             filteredBurstGroupsForReviewQueue
                 .filter { $0.fileIDs.count > 1 }
                 .map(\.id),
         )
-        guard let nextGroup = similarityModel.burstGroups
+        guard let nextGroup = scopedGroups
             .dropFirst(currentIndex + 1)
             .first(where: { $0.fileIDs.count > 1 && eligibleGroupIDs.contains($0.id) })
         else { return false }
 
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        let filesByID = Dictionary(
+            uniqueKeysWithValues: activeCatalogFiles.map { ($0.id, $0) },
+        )
         let groupFiles = nextGroup.fileIDs.compactMap { filesByID[$0] }
         guard groupFiles.count > 1 else { return false }
 
@@ -419,9 +451,10 @@ extension RawCullViewModel {
 
     private func activateBurstGroup(groupID: Int, groupFiles: [FileItem]) {
         activeBurstComparisonGroupID = groupID
+        let groupFileIDs = Set(groupFiles.map(\.id))
         let savedRankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID)
         let rankedIDs = if let savedRankedIDs, !savedRankedIDs.isEmpty {
-            savedRankedIDs
+            savedRankedIDs.filter(groupFileIDs.contains)
         } else {
             groupFiles.map(\.id)
         }
@@ -453,20 +486,35 @@ extension RawCullViewModel {
     // MARK: - Review queue
 
     var burstReviewQueueCounts: BurstReviewQueueCounts {
-        BurstReviewQueuePolicy.counts(for: burstAnalysisResults.values)
+        let eligibleGroupIDs = Set(
+            burstGroupsInActiveCatalogScope
+                .filter { $0.fileIDs.count > 1 }
+                .map(\.id),
+        )
+        return BurstReviewQueuePolicy.counts(
+            for: burstAnalysisResults.values.filter {
+                eligibleGroupIDs.contains($0.groupID)
+            },
+        )
     }
 
     var burstGroupsHomeCounts: BurstGroupsHomeCounts {
         let reviewCounts = burstReviewQueueCounts
+        let scopedMultiImageGroupIDs = Set(
+            burstGroupsInActiveCatalogScope
+                .filter { $0.fileIDs.count > 1 }
+                .map(\.id),
+        )
         return BurstGroupsHomeCounts(
-            singleImages: similarityModel.burstGroups.reduce(into: 0) { count, group in
+            singleImages: burstGroupsInActiveCatalogScope.reduce(into: 0) { count, group in
                 if group.fileIDs.count == 1 {
                     count += 1
                 }
             },
             deferred: reviewCounts.deferred,
             markedReviewed: burstAnalysisResults.values.count { result in
-                result.fileIDs.count > 1 && result.reviewState == .reviewed
+                scopedMultiImageGroupIDs.contains(result.groupID)
+                    && result.reviewState == .reviewed
             },
             needsReview: reviewCounts.needsReview,
         )
@@ -479,21 +527,35 @@ extension RawCullViewModel {
     }
 
     var filteredBurstGroupsForReviewQueue: [BurstGroup] {
+        let scopedGroups = burstGroupsInActiveCatalogScope
         switch burstReviewQueueFilter {
         case .all:
-            return similarityModel.burstGroups
+            return scopedGroups
 
         case .singleImages:
-            return similarityModel.burstGroups.filter { $0.fileIDs.count == 1 }
+            return scopedGroups.filter { $0.fileIDs.count == 1 }
 
         case .needsReview, .deferred, .markedReviewed, .reviewed:
             break
         }
 
-        return similarityModel.burstGroups.filter { group in
+        return scopedGroups.filter { group in
             guard group.fileIDs.count > 1 else { return false }
             guard let result = burstAnalysisResults[group.id] else { return false }
             return BurstReviewQueuePolicy.includes(result, filter: burstReviewQueueFilter)
+        }
+    }
+
+    var burstGroupsInActiveCatalogScope: [BurstGroup] {
+        guard hasActiveSemanticSearchSelection else {
+            return similarityModel.burstGroups
+        }
+
+        let activeIDs = Set(activeCatalogFiles.map(\.id))
+        return similarityModel.burstGroups.compactMap { group in
+            let scopedIDs = group.fileIDs.filter(activeIDs.contains)
+            guard !scopedIDs.isEmpty else { return nil }
+            return BurstGroup(id: group.id, fileIDs: scopedIDs)
         }
     }
 
@@ -550,14 +612,15 @@ extension RawCullViewModel {
     }
 
     func burstAnalysisOrderedFiles() -> [FileItem] {
+        let activeFiles = activeCatalogFiles
         let targets: [FileItem]
         if !selectedFileIDs.isEmpty {
-            targets = files.filter { selectedFileIDs.contains($0.id) }
+            targets = activeFiles.filter { selectedFileIDs.contains($0.id) }
         } else if case let .stars(rating) = ratingFilter {
-            let visible = filteredFiles.isEmpty ? files : filteredFiles
+            let visible = filteredFiles.isEmpty ? activeFiles : filteredFiles
             targets = visible.filter { getRating(for: $0) == rating }
         } else {
-            targets = files
+            targets = activeFiles
         }
 
         return targets.sorted { lhs, rhs in
@@ -755,6 +818,29 @@ extension RawCullViewModel {
 
     func clearLoadedBurstAnalysisForReindex() {
         cancelAndResetBurstAnalysis()
+    }
+
+    func discardScopedBurstAnalysisIfNeeded() {
+        let fullCatalogIDs = Set(files.map(\.id))
+        let completedAnalysisIsScoped = completedBurstAnalysisContext.map {
+            Set($0.orderedFileIDs) != fullCatalogIDs
+        } ?? false
+        guard burstAnalysisProgress.isRunning || completedAnalysisIsScoped
+        else { return }
+
+        deepAIReviewFeature.reset()
+        burstAnalysisTask?.cancel()
+        burstAnalysisTask = nil
+        burstAnalysisGeneration &+= 1
+        completedBurstAnalysisContext = nil
+        burstAnalysisProgress = BurstAnalysisProgress()
+        burstAnalysisResults = [:]
+        burstReviewStates = [:]
+        burstReviewQueueFilter = .all
+        activeBurstComparisonGroupID = nil
+        lastBurstUndoEntry = nil
+        comparisonFileIDs = []
+        similarityModel.clearBurstGrouping()
     }
 
     func cancelAndResetBurstAnalysis() {

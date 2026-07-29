@@ -39,36 +39,69 @@ extension RawCullViewModel {
     /// indexing or source decoding.
     func searchSemantically(for query: String) async {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            similarityModel.clearSemanticSearch()
-            await handleSortOrderChange()
+            await clearSemanticSearch()
             return
         }
         let admittedFiles = await semanticSearchAdmissionSnapshot()
         guard !Task.isCancelled else { return }
+        discardScopedBurstAnalysisIfNeeded()
+        selectedFileIDs = []
+        similarityModel.burstModeActive = false
+        activeBurstComparisonGroupID = nil
         await similarityModel.rankSemantically(
             query: query,
             files: admittedFiles,
         )
         guard !Task.isCancelled else { return }
-        await handleSortOrderChange()
+        await refreshSemanticSearchSelection()
     }
 
     /// Expand or collapse the ranked catalog without recomputing CLIP
     /// embeddings or cosine scores.
     func setSemanticSearchShowsAllResults(_ showsAll: Bool) async {
+        discardScopedBurstAnalysisIfNeeded()
         similarityModel.setSemanticSearchShowsAllResults(showsAll)
-        await handleSortOrderChange()
+        await refreshSemanticSearchSelection()
+    }
+
+    /// Adjust the number of highest-ranked images in the shared semantic
+    /// working set without recomputing CLIP embeddings or scores.
+    func adjustSemanticSearchSelection(by delta: Int) async {
+        discardScopedBurstAnalysisIfNeeded()
+        similarityModel.adjustSemanticSearchSelection(by: delta)
+        await refreshSemanticSearchSelection()
+    }
+
+    func setSemanticSearchSelectionCount(_ count: Int) async {
+        discardScopedBurstAnalysisIfNeeded()
+        similarityModel.setSemanticSearchSelectionCount(count)
+        await refreshSemanticSearchSelection()
     }
 
     /// Cancel text ranking and immediately restore the ordinary catalog order.
     func clearSemanticSearch() async {
+        discardScopedBurstAnalysisIfNeeded()
         similarityModel.clearSemanticSearch()
         await handleSortOrderChange()
     }
 
     /// Cancel an in-flight text query and restore the ordinary catalog order.
     func cancelSemanticSearch() async {
+        discardScopedBurstAnalysisIfNeeded()
         similarityModel.cancelSemanticSearch()
         await handleSortOrderChange()
+    }
+
+    private func refreshSemanticSearchSelection() async {
+        similarityModel.burstModeActive = false
+        if activeBurstComparisonGroupID != nil
+            || mainViewMode == .comparisonGrid
+        {
+            activeBurstComparisonGroupID = nil
+            comparisonFileIDs = []
+            selectMainViewMode(.similarityGrid)
+        }
+        await handleSortOrderChange()
+        reconcileThumbnailSelectionWithSemanticSearch()
     }
 }

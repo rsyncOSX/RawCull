@@ -35,7 +35,9 @@ extension RawCullViewModel {
         if let file = filteredFiles.first(where: { $0.id == selectedFileID }) {
             return [file]
         }
-        return files.first(where: { $0.id == selectedFileID }).map { [$0] } ?? []
+        return activeCatalogFiles
+            .first(where: { $0.id == selectedFileID })
+            .map { [$0] } ?? []
     }
 
     func presentExtractJPGsSheet() {
@@ -105,16 +107,17 @@ extension RawCullViewModel {
     }
 
     func startScanAndExtractJPGs() {
+        let extractionFiles = activeCatalogFiles
         guard currentScanAndExtractJPGsActor == nil,
               currentScanAndCreateThumbnailsActor == nil,
               currentExtractAndSaveJPGsActor == nil,
-              !files.isEmpty
+              !extractionFiles.isEmpty
         else { return }
 
         jpgCacheWarmTask?.cancel()
 
         progress = 0
-        max = Double(files.count)
+        max = Double(extractionFiles.count)
         estimatedSeconds = 0
         creatingthumbnails = true
 
@@ -126,7 +129,7 @@ extension RawCullViewModel {
             onExtractionNeeded: {},
         )
 
-        let actor = ScanAndExtractJPGs(urls: files.map(\.url))
+        let actor = ScanAndExtractJPGs(urls: extractionFiles.map(\.url))
         currentScanAndExtractJPGsActor = actor
 
         jpgCacheWarmTask = Task(priority: .background) {

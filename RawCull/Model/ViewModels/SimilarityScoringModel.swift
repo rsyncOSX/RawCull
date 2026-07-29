@@ -153,6 +153,14 @@ final class SimilarityScoringModel {
         max(0, semanticCatalogFileCount - semanticIndexedFileCount)
     }
 
+    var semanticSearchSelectionCount: Int {
+        semanticResultOrder.count
+    }
+
+    var semanticSearchSelectedFileIDs: Set<UUID> {
+        Set(semanticResultOrder.keys)
+    }
+
     var hasSemanticSearchResults: Bool {
         if case .results = semanticSearchState {
             true
@@ -304,6 +312,19 @@ final class SimilarityScoringModel {
         indexingOperationFailure = nil
         indexingDiagnostic = nil
         indexingPhase = .idle
+    }
+
+    func clearBurstGrouping() {
+        _groupingTask?.cancel()
+        _groupingTask = nil
+        _groupingGeneration &+= 1
+        burstGroups = []
+        burstGroupLookup = [:]
+        burstBoundaryEvidence = []
+        burstModeActive = false
+        isGrouping = false
+        _adjacentDistanceCache = [:]
+        _adjacentDistanceCacheSignature = 0
     }
 
     func cancelIndexing() {
@@ -1045,24 +1066,44 @@ final class SimilarityScoringModel {
     }
 
     func setSemanticSearchShowsAllResults(_ showsAll: Bool) {
+        let count = showsAll
+            ? semanticMatches.count
+            : min(
+                Self.semanticSearchDefaultResultLimit,
+                semanticMatches.count,
+            )
+        setSemanticSearchSelectionCount(count)
+    }
+
+    func adjustSemanticSearchSelection(by delta: Int) {
+        guard delta != 0 else { return }
+        setSemanticSearchSelectionCount(
+            semanticSearchSelectionCount + delta,
+        )
+    }
+
+    func setSemanticSearchSelectionCount(_ requestedCount: Int) {
         guard !semanticMatches.isEmpty,
-              semanticSearchShowsAllResults != showsAll,
               case let .results(summary) = semanticSearchState
         else { return }
 
-        semanticSearchShowsAllResults = showsAll
-        let visibleMatches = showsAll
-            ? semanticMatches[...]
-            : semanticMatches.prefix(Self.semanticSearchDefaultResultLimit)
+        let selectedCount = min(
+            max(1, requestedCount),
+            semanticMatches.count,
+        )
+        guard selectedCount != semanticSearchSelectionCount else { return }
+
+        let selectedMatches = semanticMatches.prefix(selectedCount)
         semanticResultOrder = Dictionary(
-            uniqueKeysWithValues: visibleMatches.enumerated().map {
+            uniqueKeysWithValues: selectedMatches.enumerated().map {
                 ($0.element.fileID, $0.offset)
             },
         )
+        semanticSearchShowsAllResults = selectedCount == semanticMatches.count
         semanticSearchState = .results(
             RawCullSemanticSearchResultSummary(
                 query: summary.query,
-                resultCount: visibleMatches.count,
+                resultCount: selectedCount,
                 rankedImageCount: summary.rankedImageCount,
                 indexedFileCount: summary.indexedFileCount,
                 excludedFileCount: summary.excludedFileCount,

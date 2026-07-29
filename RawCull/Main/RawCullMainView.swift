@@ -314,6 +314,7 @@ struct RawCullMainView: View {
                 onCompare: { showsDetailedBurstComparison = true },
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Catalog") + " — Burst")
+            .toolbar { toolbarContent }
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 RAWCatalogSidebarView(

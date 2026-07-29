@@ -9,7 +9,7 @@ import RawCullCore
 
 extension RawCullViewModel {
     var sharpnessScoringTargetFiles: [FileItem] {
-        let ordered = files.sorted {
+        let ordered = activeCatalogFiles.sorted {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
 
@@ -40,6 +40,10 @@ extension RawCullViewModel {
 
         if case let .stars(rating) = ratingFilter {
             return "\(count) \(rating)-star \(fileLabel)"
+        }
+
+        if hasActiveSemanticSearchSelection {
+            return "\(count) semantic-search \(fileLabel)"
         }
 
         return "\(count) catalog \(fileLabel)"

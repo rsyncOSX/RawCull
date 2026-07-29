@@ -394,7 +394,9 @@ struct BurstCullingWorkspaceView: View {
 
     private var files: [FileItem] {
         guard let group = viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID }) else { return [] }
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        let filesByID = Dictionary(
+            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+        )
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
         return rankedIDs.compactMap { filesByID[$0] }
     }

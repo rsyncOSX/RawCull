@@ -218,6 +218,19 @@ extension RawCullViewModel {
         return applyNonSemanticFilters(to: sorted)
     }
 
+    /// The active catalog working set. Semantic search turns its selected
+    /// highest-ranked results into a durable scope shared by every catalog
+    /// workflow until the search is cleared or the catalog is reindexed.
+    var activeCatalogFiles: [FileItem] {
+        guard similarityModel.hasSemanticSearchResults else { return files }
+        let selectedIDs = similarityModel.semanticSearchSelectedFileIDs
+        return files.filter { selectedIDs.contains($0.id) }
+    }
+
+    var hasActiveSemanticSearchSelection: Bool {
+        similarityModel.hasSemanticSearchResults
+    }
+
     // MARK: - Helpers
 
     func isActiveCatalogLoad(_ url: URL) -> Bool {
@@ -230,6 +243,21 @@ extension RawCullViewModel {
                 lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }?
             .id
+    }
+
+    func reconcileThumbnailSelectionWithSemanticSearch() {
+        guard hasActiveSemanticSearchSelection else { return }
+
+        let visibleIDs = Set(filteredFiles.map(\.id))
+        selectedFileIDs.formIntersection(visibleIDs)
+
+        guard let firstVisibleID = filteredFiles.first?.id else {
+            selectedFileID = nil
+            return
+        }
+        if selectedFileID.map(visibleIDs.contains) != true {
+            selectedFileID = firstVisibleID
+        }
     }
 
     /// Applies the active rating filter and sharpness sort to a pre-sorted file list.
