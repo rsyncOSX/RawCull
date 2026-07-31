@@ -1,0 +1,56 @@
+{
+  "toolsVersion": "1.0.0",
+  "assetPacks": [
+    {
+      "assetPackID": "no.blogspot.RawCull.models.clip-datacomp",
+      "downloadPolicy": {
+        "onDemand": {}
+      },
+      "fileSelectors": [
+        {
+          "directory": {
+            "source": "CLIP-DataComp",
+            "destination": "Models/CLIP-DataComp"
+          }
+        }
+      ],
+      "platforms": [
+        "macOS"
+      ]
+    },
+    {
+      "assetPackID": "no.blogspot.RawCull.models.clip-openai",
+      "downloadPolicy": {
+        "onDemand": {}
+      },
+      "fileSelectors": [
+        {
+          "directory": {
+            "source": "CLIP-OpenAI",
+            "destination": "Models/CLIP-OpenAI"
+          }
+        }
+      ],
+      "platforms": [
+        "macOS"
+      ]
+    },
+    {
+      "assetPackID": "no.blogspot.RawCull.models.sam3",
+      "downloadPolicy": {
+        "onDemand": {}
+      },
+      "fileSelectors": [
+        {
+          "directory": {
+            "source": "SAM3",
+            "destination": "Models/SAM3"
+          }
+        }
+      ],
+      "platforms": [
+        "macOS"
+      ]
+    }
+  ]
+}

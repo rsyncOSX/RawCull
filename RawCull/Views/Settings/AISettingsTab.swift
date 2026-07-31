@@ -3,7 +3,7 @@ import SwiftUI
 struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
-    @State private var showDownloadPlaceholder = false
+    @State private var showModelDownloads = false
     @State private var showDeleteBurstDataConfirmation = false
 
     var body: some View {
@@ -14,16 +14,11 @@ struct AISettingsTab: View {
 
                 HStack {
                     Button {
-                        showDownloadPlaceholder = true
+                        showModelDownloads = true
                     } label: {
                         Label("Download AI Models", systemImage: "arrow.down.circle")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .disabled(
-                        model.capabilities.sam3Model.isAvailable
-                            && model.capabilities.clipModelStatus(for: .dataComp).isAvailable
-                            && model.capabilities.clipModelStatus(for: .openAI).isAvailable,
-                    )
                     .buttonStyle(RefinedGlassButtonStyle())
 
                     Button {
@@ -42,28 +37,9 @@ struct AISettingsTab: View {
         .task {
             await model.refresh()
         }
-        .alert("AI Models Download", isPresented: $showDownloadPlaceholder) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(AIDownloadMessage)
+        .sheet(isPresented: $showModelDownloads) {
+            AIModelDownloadsView(model: model)
         }
-    }
-
-
-    private var AIDownloadMessage: String {
-        let dataCompLocation = model.capabilities
-            .clipModelStatus(for: .dataComp).primaryLocation?.path
-            ?? "the CLIP-DataComp model folder"
-        let openAILocation = model.capabilities
-            .clipModelStatus(for: .openAI).primaryLocation?.path
-            ?? "the CLIP-OpenAI model folder"
-        let sam3Location = model.capabilities.sam3Model.primaryLocation?.path
-            ?? "the SAM3 model folder"
-        return """
-        Automatic model downloads will be added later. For now, install the \
-        DataComp bundle at \(dataCompLocation), the OpenAI bundle at \
-        \(openAILocation), and the SAM 3 bundle at \(sam3Location).
-        """
     }
 }
 

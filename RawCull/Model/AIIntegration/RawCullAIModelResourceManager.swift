@@ -18,6 +18,7 @@ actor RawCullAIModelResourceManager<Provider: Sendable> {
     nonisolated let candidateURLs: [URL]
     nonisolated let factory: ModelProviderFactory<Provider>
 
+    private var managedCandidateURL: URL?
     private var cachedSnapshot: RawCullAIModelResourceSnapshot?
     private var cachedLoad: RawCullAIModelResourceLoad<Provider>?
 
@@ -29,16 +30,27 @@ actor RawCullAIModelResourceManager<Provider: Sendable> {
         self.factory = factory
     }
 
+    func setManagedCandidateURL(_ url: URL?) {
+        guard managedCandidateURL != url else { return }
+        managedCandidateURL = url
+        cachedSnapshot = nil
+        cachedLoad = nil
+    }
+
     func load() throws -> RawCullAIModelResourceLoad<Provider> {
         try Task.checkCancellation()
-        let snapshot = RawCullAIModelResourceSnapshot(candidateURLs: candidateURLs)
+        let resolvedCandidateURLs = (managedCandidateURL.map { [$0] } ?? [])
+            + candidateURLs
+        let snapshot = RawCullAIModelResourceSnapshot(
+            candidateURLs: resolvedCandidateURLs,
+        )
         try Task.checkCancellation()
 
         if snapshot == cachedSnapshot, let cachedLoad {
             return cachedLoad
         }
 
-        let capability = factory.capability(in: candidateURLs)
+        let capability = factory.capability(in: resolvedCandidateURLs)
         try Task.checkCancellation()
 
         let provider: Provider?

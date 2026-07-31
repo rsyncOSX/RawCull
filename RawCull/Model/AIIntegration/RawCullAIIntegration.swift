@@ -155,6 +155,20 @@ final class RawCullAIIntegration {
         capabilitySnapshot
     }
 
+    func setManagedModelLocations(
+        _ locations: [RawCullAIModelDownloadID: URL],
+    ) async {
+        await sam3ModelResourceManager.setManagedCandidateURL(
+            locations[.sam3],
+        )
+        await clipDataCompModelResourceManager.setManagedCandidateURL(
+            locations[.clipDataComp],
+        )
+        await clipOpenAIModelResourceManager.setManagedCandidateURL(
+            locations[.clipOpenAI],
+        )
+    }
+
     /// Semantic search exists only when the validated CLIP provider exposes
     /// PhotoAIKit's text-embedding and image/text comparison contracts.
     func semanticSearchService(

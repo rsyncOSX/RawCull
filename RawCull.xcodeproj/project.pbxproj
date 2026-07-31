@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
+		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
 		E92E0F0B3017777200788A3C /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0A3017777200788A3C /* CoreAICLIPBackend */; };
 		E92E0F0D3017777200788A3C /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0C3017777200788A3C /* CoreAISAM3Backend */; };
@@ -25,6 +27,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		E9D000032F34000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E90B079A2F1E58EA00A95D4A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E9D000092F34000000000009;
+			remoteInfo = RawCullModelDownloader;
+		};
 		E95355E12F33B70A006C2851 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E90B079A2F1E58EA00A95D4A /* Project object */;
@@ -34,13 +43,40 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		E9D0000C2F3400000000000C /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		E90B07A22F1E58EA00A95D4A /* RawCull.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawCull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E95355DD2F33B70A006C2851 /* RawCullTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E97E975C2F210EAB001A4239 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E97E975D2F210EAB001A4239 /* RawCullicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RawCullicon.icon; sourceTree = "<group>"; };
 		E97E975E2F210EAB001A4239 /* RawCull.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RawCull.entitlements; sourceTree = "<group>"; };
+		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E9D000112F34000000000011 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				RawCullModelDownloader.entitlements,
+			);
+			target = E9D000092F34000000000009 /* RawCullModelDownloader */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E90B07A42F1E58EA00A95D4A /* RawCull */ = {
@@ -51,6 +87,14 @@
 		E95355DE2F33B70A006C2851 /* RawCullTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RawCullTests;
+			sourceTree = "<group>";
+		};
+		E9D000062F34000000000006 /* RawCullModelDownloader */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E9D000112F34000000000011 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			path = RawCullModelDownloader;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -83,6 +127,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E9D000082F34000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -94,6 +146,8 @@
 				E97E975E2F210EAB001A4239 /* RawCull.entitlements */,
 				E90B07A42F1E58EA00A95D4A /* RawCull */,
 				E95355DE2F33B70A006C2851 /* RawCullTests */,
+				E9D000062F34000000000006 /* RawCullModelDownloader */,
+				E9D000072F34000000000007 /* Frameworks */,
 				E90B07A32F1E58EA00A95D4A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,8 +157,17 @@
 			children = (
 				E90B07A22F1E58EA00A95D4A /* RawCull.app */,
 				E95355DD2F33B70A006C2851 /* RawCullTests.xctest */,
+				E9D000042F34000000000004 /* RawCullModelDownloader.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		E9D000072F34000000000007 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				E9D000052F34000000000005 /* BackgroundAssets.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -117,10 +180,12 @@
 				E90B079E2F1E58EA00A95D4A /* Sources */,
 				E90B079F2F1E58EA00A95D4A /* Frameworks */,
 				E90B07A02F1E58EA00A95D4A /* Resources */,
+				E9D0000C2F3400000000000C /* Embed ExtensionKit Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E9D0000D2F3400000000000D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				E90B07A42F1E58EA00A95D4A /* RawCull */,
@@ -168,6 +233,28 @@
 			productReference = E95355DD2F33B70A006C2851 /* RawCullTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		E9D000092F34000000000009 /* RawCullModelDownloader */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E9D000102F34000000000010 /* Build configuration list for PBXNativeTarget "RawCullModelDownloader" */;
+			buildPhases = (
+				E9D0000B2F3400000000000B /* Sources */,
+				E9D000082F34000000000008 /* Frameworks */,
+				E9D0000A2F3400000000000A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E9D000062F34000000000006 /* RawCullModelDownloader */,
+			);
+			name = RawCullModelDownloader;
+			packageProductDependencies = (
+			);
+			productName = RawCullModelDownloader;
+			productReference = E9D000042F34000000000004 /* RawCullModelDownloader.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -185,6 +272,9 @@
 						CreatedOnToolsVersion = 26.2;
 						LastSwiftMigration = 2650;
 						TestTargetID = E90B07A12F1E58EA00A95D4A;
+					};
+					E9D000092F34000000000009 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -214,6 +304,7 @@
 			targets = (
 				E90B07A12F1E58EA00A95D4A /* RawCull */,
 				E95355DC2F33B70A006C2851 /* RawCullTests */,
+				E9D000092F34000000000009 /* RawCullModelDownloader */,
 			);
 		};
 /* End PBXProject section */
@@ -229,6 +320,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E95355DB2F33B70A006C2851 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E9D0000A2F3400000000000A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -252,6 +350,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E9D0000B2F3400000000000B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -259,6 +364,11 @@
 			isa = PBXTargetDependency;
 			target = E90B07A12F1E58EA00A95D4A /* RawCull */;
 			targetProxy = E95355E12F33B70A006C2851 /* PBXContainerItemProxy */;
+		};
+		E9D0000D2F3400000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E9D000092F34000000000009 /* RawCullModelDownloader */;
+			targetProxy = E9D000032F34000000000003 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -417,9 +527,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "RawCull-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -478,9 +587,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "RawCull-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -560,6 +668,73 @@
 			};
 			name = Release;
 		};
+		E9D0000E2F3400000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 230;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RawCullModelDownloader/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 2.3.3;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull.ModelDownloader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_DISABLE_OUTWARD_ACTOR_ISOLATION = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		E9D0000F2F3400000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 230;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RawCullModelDownloader/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 2.3.3;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull.ModelDownloader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_DISABLE_OUTWARD_ACTOR_ISOLATION = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -586,6 +761,15 @@
 			buildConfigurations = (
 				E95355E32F33B70A006C2851 /* Debug */,
 				E95355E42F33B70A006C2851 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E9D000102F34000000000010 /* Build configuration list for PBXNativeTarget "RawCullModelDownloader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9D0000E2F3400000000000E /* Debug */,
+				E9D0000F2F3400000000000F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -40,6 +40,7 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
     let sam3ModelDirectory: URL
     let clipDataCompModelDirectory: URL
     let clipOpenAIModelDirectory: URL
+    let modelLicenceAcceptancesURL: URL
     let subjectMaskDirectory: URL
     let burstAnalysisDirectory: URL
 
@@ -66,6 +67,8 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
                 RawCullCLIPModel.openAI.resourceName,
                 isDirectory: true,
             )
+        self.modelLicenceAcceptancesURL = applicationSupportDirectory
+            .appendingPathComponent("ModelLicenceAcceptances.json")
         self.subjectMaskDirectory = cachesRoot
             .appendingPathComponent("no.blogspot.RawCull", isDirectory: true)
             .appendingPathComponent("SAM3Masks", isDirectory: true)

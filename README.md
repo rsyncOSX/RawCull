@@ -71,7 +71,14 @@ The shortest distinction is:
   invalid.
 - Deep Review requires a validated PhotoAIKit-compatible SAM 3 Core AI model bundle. The feature remains unavailable when the model is missing or invalid.
 - CLIP and SAM 3 model bundles must contain `metadata.json`, the selected `.aimodel` or `.aimodelc` asset, and any resources declared by the model manifest.
-- Models are not bundled with RawCull, and the in-app SAM 3 download is not yet implemented. Install the resources manually, then open **Settings > AI** and select **Check Again** to validate them. The standard non-sandboxed locations are:
+- Models are not bundled with RawCull. **Settings > AI > Download AI Models**
+  now provides the Managed Background Assets download, licence review,
+  progress, cancellation, and removal flow. The current server address is a
+  non-routable placeholder, and every production model remains blocked until
+  its audited licence and provenance requirements are complete.
+- Manual installation remains available while distribution is blocked. Install
+  the resources, then open **Settings > AI** and select **Check Again** to
+  validate them. The standard non-sandboxed locations are:
 
   ```text
   ~/Library/Application Support/RawCull/Models/CLIP-DataComp/
@@ -84,12 +91,14 @@ The shortest distinction is:
   ```text
   ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-DataComp/
   ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-OpenAI/
+  ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/SAM3/
   ```
 
   **Settings > AI** displays the exact expected paths.
 - The first use of a portable Core AI model can take longer while macOS specializes the model for the current Mac.
 
-See [AI model distribution and installation](doc/models.md) for model format, validation, and installation details.
+See [AI model download service](Documentation/AIModelDownloads.md) for hosting,
+licence gates, security boundaries, and release configuration.
 
 ### What the AI functions do
 

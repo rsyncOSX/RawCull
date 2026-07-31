@@ -23,6 +23,9 @@ struct RawCullAIIntegrationTests {
         #expect(paths.clipOpenAIModelDirectory.path.hasSuffix(
             "RawCull/Models/CLIP-OpenAI",
         ))
+        #expect(paths.modelLicenceAcceptancesURL.path.hasSuffix(
+            "RawCull/ModelLicenceAcceptances.json",
+        ))
         #expect(
             paths.clipModelDirectory(for: .dataComp)
                 == paths.clipDataCompModelDirectory,
