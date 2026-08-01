@@ -61,6 +61,7 @@ struct RawCullApp: App {
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()
                 .background(.windowBackground)
+                .environment(viewModel)
         }
         .defaultSize(width: 840, height: 720)
     }
