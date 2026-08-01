@@ -7,7 +7,25 @@ import AppKit
 import SwiftUI
 
 struct AboutRawCullView: View {
-    private let shortcutSections = ShortcutSection.all
+    @Environment(RawCullViewModel.self) private var viewModel
+
+    private var activeShortcutSection: ShortcutSection? {
+        if viewModel.zoomOverlayVisible {
+            .zoomPreview
+        } else if viewModel.activeBurstComparisonGroupID != nil {
+            .burstReview
+        } else if viewModel.showsBurstGroups {
+            .burstGroups
+        } else if viewModel.mainViewMode == .comparisonGrid {
+            .manualComparison
+        } else {
+            nil
+        }
+    }
+
+    private var shortcutSections: [ShortcutSection] {
+        activeShortcutSection.map { [$0] } ?? ShortcutSection.all
+    }
 
     var body: some View {
         ScrollView {
@@ -15,10 +33,10 @@ struct AboutRawCullView: View {
                 aboutHeader
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Keyboard Shortcuts")
+                    Text(shortcutSectionTitle)
                         .font(.title3.weight(.semibold))
 
-                    Text("Shortcuts change with the active view. Each card shows where its keys apply.")
+                    Text(shortcutContextDescription)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -36,6 +54,18 @@ struct AboutRawCullView: View {
             .padding(24)
         }
         .frame(minWidth: 620, idealWidth: 840, minHeight: 520, idealHeight: 720)
+    }
+
+    private var shortcutSectionTitle: String {
+        activeShortcutSection.map { "\($0.title) Shortcuts" } ?? "Keyboard Shortcuts"
+    }
+
+    private var shortcutContextDescription: String {
+        if let activeShortcutSection {
+            "Showing only the shortcuts available in \(activeShortcutSection.title)."
+        } else {
+            "This About window is context-sensitive. Open it from a special view to see only the shortcuts available there; otherwise, all shortcut contexts are shown."
+        }
     }
 
     private var aboutHeader: some View {
@@ -192,19 +222,7 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["5"], "Apply rating 5 and advance")
             ],
         ),
-        ShortcutSection(
-            title: "Burst Groups",
-            context: "Thumbnail grid while detected burst groups are visible.",
-            symbol: "square.stack.3d.up",
-            tint: .orange,
-            shortcuts: [
-                ShortcutRow(["Return"], "Open the selected burst for comparison"),
-                ShortcutRow(["B"], "Keep the best photo in the burst"),
-                ShortcutRow(["2"], "Keep the top two photos in the burst"),
-                ShortcutRow(["U"], "Undo the last burst action"),
-                ShortcutRow(["Esc"], "Leave burst grouping")
-            ],
-        ),
+        burstGroups,
         ShortcutSection(
             title: "Image Preview",
             context: "Large preview beside the catalog browser.",
@@ -217,65 +235,9 @@ private struct ShortcutSection: Identifiable {
                 ShortcutRow(["Z"], "Open actual-pixel inspection")
             ],
         ),
-        ShortcutSection(
-            title: "Zoom Preview",
-            context: "Full-window photo inspection overlay.",
-            symbol: "magnifyingglass",
-            tint: .purple,
-            shortcuts: [
-                ShortcutRow(["↑", "↓", "←", "→"], "Show the previous or next photo"),
-                ShortcutRow(["+", "-"], "Zoom in or out"),
-                ShortcutRow(["J", "R"], "Switch to embedded JPEG or developed RAW"),
-                ShortcutRow(["F", "A"], "Toggle the focus mask or AF point"),
-                ShortcutRow(["X"], "Reject and advance"),
-                ShortcutRow(["P", "0"], "Keep neutral and advance"),
-                ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
-                ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
-                ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
-                ShortcutRow(["Esc"], "Close the zoom preview")
-            ],
-        ),
-        ShortcutSection(
-            title: "Manual Comparison",
-            context: "Comparison opened from a manual thumbnail selection.",
-            symbol: "rectangle.split.2x1",
-            tint: .indigo,
-            shortcuts: [
-                ShortcutRow(["←", "→"], "Select the previous or next candidate"),
-                ShortcutRow(["+", "-"], "Zoom the selected candidate"),
-                ShortcutRow(["J"], "Toggle the selected image source"),
-                ShortcutRow(["I"], "Show or hide the candidate inspector"),
-                ShortcutRow(["F", "A"], "Toggle the focus mask or AF point"),
-                ShortcutRow(["Z"], "Inspect the selected candidate at actual pixels"),
-                ShortcutRow(["X"], "Reject and advance"),
-                ShortcutRow(["P", "0"], "Keep neutral and advance"),
-                ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
-                ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
-                ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance")
-            ],
-        ),
-        ShortcutSection(
-            title: "Burst Review",
-            context: "Detected-burst review workspace and burst comparison screen.",
-            symbol: "rectangle.stack",
-            tint: .pink,
-            shortcuts: [
-                ShortcutRow(["P", "N"], "Show the previous or next frame"),
-                ShortcutRow(["←", "→"], "Show the previous or next frame"),
-                ShortcutRow(["G"], "Advance to the next burst group"),
-                ShortcutRow(["+", "-"], "Zoom the selected frame"),
-                ShortcutRow(["J", "R"], "Choose JPEG or RAW in the review workspace"),
-                ShortcutRow(["J"], "Toggle source on the comparison screen"),
-                ShortcutRow(["F", "A"], "Toggle the focus mask or AF point"),
-                ShortcutRow(["B"], "Keep best on the comparison screen"),
-                ShortcutRow(["X"], "Reject and advance"),
-                ShortcutRow(["0"], "Keep neutral — P means previous here"),
-                ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
-                ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
-                ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
-                ShortcutRow(["Esc"], "Return to the burst group")
-            ],
-        ),
+        zoomPreview,
+        manualComparison,
+        burstReview,
         ShortcutSection(
             title: "App Commands",
             context: "Available from the Actions menu throughout RawCull.",
@@ -287,6 +249,82 @@ private struct ShortcutSection: Identifiable {
             ],
         )
     ]
+
+    static let burstGroups = ShortcutSection(
+        title: "Burst Groups",
+        context: "Thumbnail grid while detected burst groups are visible.",
+        symbol: "square.stack.3d.up",
+        tint: .orange,
+        shortcuts: [
+            ShortcutRow(["Return"], "Open the selected burst for comparison"),
+            ShortcutRow(["B"], "Keep the best photo in the burst"),
+            ShortcutRow(["2"], "Keep the top two photos in the burst"),
+            ShortcutRow(["U"], "Undo the last burst action"),
+            ShortcutRow(["Esc"], "Leave burst grouping")
+        ],
+    )
+
+    static let zoomPreview = ShortcutSection(
+        title: "Zoom Preview",
+        context: "Full-window photo inspection overlay.",
+        symbol: "magnifyingglass",
+        tint: .purple,
+        shortcuts: [
+            ShortcutRow(["↑", "↓", "←", "→"], "Show the previous or next photo"),
+            ShortcutRow(["+", "-"], "Zoom in or out"),
+            ShortcutRow(["J", "R"], "Switch to embedded JPEG or developed RAW"),
+            ShortcutRow(["F", "A"], "Toggle the focus mask or AF point"),
+            ShortcutRow(["X"], "Reject and advance"),
+            ShortcutRow(["P", "0"], "Keep neutral and advance"),
+            ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
+            ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
+            ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
+            ShortcutRow(["Esc"], "Close the zoom preview")
+        ],
+    )
+
+    static let manualComparison = ShortcutSection(
+        title: "Manual Comparison",
+        context: "Comparison opened from a manual thumbnail selection.",
+        symbol: "rectangle.split.2x1",
+        tint: .indigo,
+        shortcuts: [
+            ShortcutRow(["←", "→"], "Select the previous or next candidate"),
+            ShortcutRow(["+", "-"], "Zoom the selected candidate"),
+            ShortcutRow(["J"], "Toggle the selected image source"),
+            ShortcutRow(["I"], "Show or hide the candidate inspector"),
+            ShortcutRow(["F", "A"], "Toggle the focus mask or AF point"),
+            ShortcutRow(["Z"], "Inspect the selected candidate at actual pixels"),
+            ShortcutRow(["X"], "Reject and advance"),
+            ShortcutRow(["P", "0"], "Keep neutral and advance"),
+            ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
+            ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
+            ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance")
+        ],
+    )
+
+    static let burstReview = ShortcutSection(
+        title: "Burst Review",
+        context: "Detected-burst review workspace and burst comparison screen.",
+        symbol: "rectangle.stack",
+        tint: .pink,
+        shortcuts: [
+            ShortcutRow(["P", "N"], "Show the previous or next frame"),
+            ShortcutRow(["←", "→"], "Show the previous or next frame"),
+            ShortcutRow(["G"], "Advance to the next burst group"),
+            ShortcutRow(["+", "-"], "Zoom the selected frame"),
+            ShortcutRow(["J", "R"], "Choose JPEG or RAW in the review workspace"),
+            ShortcutRow(["J"], "Toggle source on the comparison screen"),
+            ShortcutRow(["F", "A"], "Toggle the focus mask or AF point"),
+            ShortcutRow(["B"], "Keep best on the comparison screen"),
+            ShortcutRow(["X"], "Reject and advance"),
+            ShortcutRow(["0"], "Keep neutral — P means previous here"),
+            ShortcutRow(["1", "2"], "Apply rating 2 and advance"),
+            ShortcutRow(["3", "T"], "Apply rating 3 and advance"),
+            ShortcutRow(["4", "5"], "Apply rating 4 or 5 and advance"),
+            ShortcutRow(["Esc"], "Return to the burst group")
+        ],
+    )
 }
 
 private struct ShortcutRow: Identifiable {
