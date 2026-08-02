@@ -21,7 +21,38 @@ struct RawCullApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
-    @State private var viewModel = RawCullViewModel()
+    @State private var viewModel: RawCullViewModel
+    @State private var aiIntegration: RawCullAIIntegration
+    @State private var aiSettingsModel: RawCullAISettingsModel
+
+    init() {
+        let integration = RawCullAIIntegration()
+        let viewModel = RawCullViewModel(
+            similarityService: integration.visionSimilarityService,
+            semanticSearchCapability: integration.capabilities()
+                .semanticSearchStatus(for: .defaultSelection),
+            deepAIReviewFeature: integration.deepAIReviewFeature,
+        )
+        _viewModel = State(
+            initialValue: viewModel,
+        )
+        _aiIntegration = State(initialValue: integration)
+        _aiSettingsModel = State(
+            initialValue: RawCullAISettingsModel(
+                integration: integration,
+                similarityServiceDidChange: { [weak viewModel] service in
+                    viewModel?.setSimilarityService(service)
+                },
+                semanticSearchCapabilityDidChange: {
+                    [weak viewModel] capability, service in
+                    viewModel?.setSemanticSearchCapability(
+                        capability,
+                        service: service,
+                    )
+                },
+            ),
+        )
+    }
 
     var body: some Scene {
         Window("Photo Culling", id: "main-window") {
@@ -31,6 +62,9 @@ struct RawCullApp: App {
                 .environment(viewModel)
                 .task {
                     await viewModel.applyStoredScoringSettings()
+                }
+                .task {
+                    await aiSettingsModel.refresh()
                 }
                 .onDisappear {
                     // Quit the app when the main window is closed
@@ -48,7 +82,7 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView()
+            SettingsView(aiSettingsModel: aiSettingsModel)
                 .environment(viewModel)
         }
 
@@ -57,6 +91,11 @@ struct RawCullApp: App {
                 .environment(viewModel)
         }
         .defaultSize(width: 720, height: 480)
+
+        Window("Similarity Console", id: "similarity-diagnostics") {
+            SimilarityDiagnosticsView()
+        }
+        .defaultSize(width: 860, height: 560)
 
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()

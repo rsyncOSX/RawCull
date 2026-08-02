@@ -125,6 +125,9 @@ final class SharpnessScoringModel {
     }
 
     func calibrateFromBurst(_ files: [FileItem]) async {
+        Logger.process.debugMessageOnly(
+            "SharpnessScoringModel.calibrateFromBurst(): starting calibration with \(files.count) files",
+        )
         isCalibratingSharpnessScoring = true
         let fileEntries = files.map {
             (
@@ -144,19 +147,39 @@ final class SharpnessScoringModel {
             maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,
         ) else {
             Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.calibrateFromBurst(): calibration returned no result",
+            )
             isCalibratingSharpnessScoring = false
             return
         }
 
-        Logger.process.debugMessageOnly("SharpnessScoringModel: visual calibration applied — threshold: \(result.threshold), pixels=\(result.sampleCount)")
-        Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
+        Logger.process.debugMessageOnly(
+            "SharpnessScoringModel.calibrateFromBurst(): visual calibration applied — "
+                + "threshold: \(result.threshold), pixels=\(result.sampleCount)",
+        )
+        Logger.process.debugMessageOnly(
+            "SharpnessScoringModel.calibrateFromBurst(): p50: \(result.p50)  p90: \(result.p90)  "
+                + "p95: \(result.p95)  p99: \(result.p99)",
+        )
         isCalibratingSharpnessScoring = false
     }
 
     func scoreFiles(_ files: [FileItem]) async {
-        guard !files.isEmpty else { return }
+        Logger.process.debugMessageOnly(
+            "SharpnessScoringModel.scoreFiles(): requested scoring for \(files.count) files",
+        )
+        guard !files.isEmpty else {
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.scoreFiles(): skipped because no files were supplied",
+            )
+            return
+        }
 
         if let existingTask = _scoringTask {
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.scoreFiles(): awaiting the existing scoring task",
+            )
             await existingTask.value
             return
         }
@@ -190,6 +213,9 @@ final class SharpnessScoringModel {
 
         let workTask = Task {
             defer {
+                Logger.process.debugMessageOnly(
+                    "SharpnessScoringModel.scoreFiles(): scoring task finished with \(self.scores.count) scores",
+                )
                 self._scoringTask = nil
                 self.isScoring = false
             }

@@ -26,6 +26,10 @@ struct MenuCommands: Commands {
             Button("Memory Console") {
                 openWindow(id: "memory-diagnostics")
             }
+
+            Button("Similarity Console") {
+                openWindow(id: "similarity-diagnostics")
+            }
         }
     }
 }

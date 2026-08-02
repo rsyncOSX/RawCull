@@ -43,9 +43,7 @@ struct CullingGridProgressOverlay: View {
                     set: { _ in },
                 ),
                 max: Double(viewModel.similarityModel.indexingTotal),
-                statusText: viewModel.similarityModel.indexingPhase == .saving
-                    ? "Saving similarity artifacts..."
-                    : "Indexing similarity...",
+                statusText: "Indexing similarity...",
             )
             .frame(maxWidth: 480)
             .progressOverlayStyle()

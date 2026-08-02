@@ -38,8 +38,12 @@ extension RawCullViewModel {
         guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
               let taggedfilerecords = cullingModel.savedFiles[index].filerecords
         else { return [] }
+        let activeNames = Set(activeCatalogFiles.map(\.name))
         return taggedfilerecords
-            .filter { ($0.rating ?? 0) >= 2 }
+            .filter {
+                ($0.rating ?? 0) >= 2
+                    && $0.fileName.map(activeNames.contains) == true
+            }
             .compactMap(\.fileName)
     }
 

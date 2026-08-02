@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    let aiSettingsModel: RawCullAISettingsModel
+
     @State private var settingsLoaded = false
 
     var body: some View {
@@ -26,6 +28,10 @@ struct SettingsView: View {
                         FocusSettingsTab()
                     }
 
+                    Tab("AI", systemImage: "sparkles") {
+                        AISettingsTab(model: aiSettingsModel)
+                    }
+
                     Tab("Memory", systemImage: "rectangle.compress.vertical") {
                         MemoryTab()
                     }
@@ -36,7 +42,7 @@ struct SettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 680, height: 680)
+        .frame(width: 680, height: 700)
         .task {
             await SettingsViewModel.shared.ensureLoaded()
             settingsLoaded = true

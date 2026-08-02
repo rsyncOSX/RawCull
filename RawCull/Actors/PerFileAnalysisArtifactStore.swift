@@ -1,69 +1,11 @@
 import CryptoKit
 import Foundation
-import PhotoAnalysisKit
+import PhotoAIContracts
+import PhotoAIStorage
 
-nonisolated struct SimilarityArtifactSource: Hashable, Sendable {
-    let id: UUID
-    let url: URL
-    let displayName: String
-    let fileSize: Int64
-    let modificationDate: Date
-
-    var fingerprint: SimilarityArtifactSourceFingerprint {
-        SimilarityArtifactSourceFingerprint(
-            standardizedPath: url.standardizedFileURL.path,
-            fileSize: fileSize,
-            modificationDate: modificationDate,
-        )
-    }
-}
-
-nonisolated struct SimilarityArtifactSourceFingerprint:
-    Codable,
-    Equatable,
-    Hashable,
-    Sendable
-{
-    let standardizedPath: String
-    let fileSize: Int64
-    let modificationDate: Date
-}
-
-/// Complete identity of the Vision feature-print pipeline used by RawCull.
-///
-/// The PhotoAnalysisKit payload remains opaque. RawCull records only the
-/// compatibility information it owns and needs in order to reject stale work.
-nonisolated struct SimilarityArtifactPipelineSignature:
-    Codable,
-    Equatable,
-    Hashable,
-    Sendable
-{
-    static let backendIdentifier = "photoanalysiskit.vision-feature-print"
-    static let currentArtifactSchemaVersion = 1
-
-    let backendIdentifier: String
-    let featurePrintRevision: Int
-    let representationVersion: Int
+nonisolated struct SimilarityArtifactPipelineSignature: Codable, Equatable, Hashable, Sendable {
     let thumbnailMaxPixelSize: Int
     let pipelineVersion: Int
-    let artifactSchemaVersion: Int
-
-    init(
-        featurePrintRevision: Int,
-        representationVersion: Int,
-        thumbnailMaxPixelSize: Int,
-        pipelineVersion: Int,
-        backendIdentifier: String = Self.backendIdentifier,
-        artifactSchemaVersion: Int = Self.currentArtifactSchemaVersion,
-    ) {
-        self.backendIdentifier = backendIdentifier
-        self.featurePrintRevision = featurePrintRevision
-        self.representationVersion = representationVersion
-        self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
-        self.pipelineVersion = pipelineVersion
-        self.artifactSchemaVersion = artifactSchemaVersion
-    }
 }
 
 nonisolated enum PerFileAnalysisArtifactCacheMissReason: Equatable, Sendable {
@@ -78,7 +20,7 @@ nonisolated struct PerFileAnalysisArtifactCacheMiss: Equatable, Sendable {
 }
 
 nonisolated struct PerFileAnalysisArtifactLoadResult: Sendable {
-    let artifacts: [UUID: Data]
+    let artifacts: [UUID: SimilarityArtifact]
     let misses: [PerFileAnalysisArtifactCacheMiss]
 }
 
@@ -100,14 +42,14 @@ nonisolated struct PerFileAnalysisArtifactStoreUsage: Equatable, Sendable {
 }
 
 nonisolated struct PerFileAnalysisArtifactPruningPolicy: Equatable, Sendable {
-    var maximumUnusedAge: TimeInterval
+    var maximumUnusedAge: Duration
     var maximumEntryCount: Int
 
     /// Retain recently used records for 90 days and cap the cache at 50,000
-    /// entries. A replacement removes older fingerprints for the same
-    /// path/pipeline identity as soon as the new record is committed.
+    /// entries. A successful replacement removes older fingerprints for the
+    /// same path/backend/pipeline identity immediately.
     static let `default` = Self(
-        maximumUnusedAge: 90 * 24 * 60 * 60,
+        maximumUnusedAge: .days(90),
         maximumEntryCount: 50_000,
     )
 }
@@ -117,12 +59,13 @@ nonisolated struct PerFileAnalysisArtifactPruneResult: Equatable, Sendable {
     let remainingEntryCount: Int
 }
 
-/// RawCull-owned, per-source persistence for opaque PhotoAnalysisKit Vision
-/// feature prints.
+/// RawCull-owned, per-source persistence for opaque PhotoAIKit similarity artifacts.
 ///
-/// Each mutation is actor-isolated and each record is atomically replaced.
-/// Cancellation can stop later commits without damaging records already
-/// written. Moving or renaming a source is intentionally a cache miss.
+/// Records are deliberately stored one per file/backend/pipeline identity. Each
+/// mutation is actor-isolated and uses atomic replacement, so cancellation can
+/// stop later commits without invalidating records already written.
+/// Source paths follow `SourceFingerprint` semantics: moving or renaming a file
+/// is a cache miss; this store does not add implicit content hashing.
 actor PerFileAnalysisArtifactStore {
     static let shared = PerFileAnalysisArtifactStore()
     nonisolated static let recordSchemaVersion = 1
@@ -145,62 +88,73 @@ actor PerFileAnalysisArtifactStore {
     }
 
     func load(
-        sources: [SimilarityArtifactSource],
-        signature: SimilarityArtifactPipelineSignature,
+        sources: [AIImageSource],
+        allowedBackends: [SimilarityBackendDescriptor],
+        pipeline: SimilarityArtifactPipelineSignature,
     ) -> PerFileAnalysisArtifactLoadResult {
-        var artifacts: [UUID: Data] = [:]
+        var artifacts: [UUID: SimilarityArtifact] = [:]
         var misses: [PerFileAnalysisArtifactCacheMiss] = []
         artifacts.reserveCapacity(sources.count)
         misses.reserveCapacity(sources.count)
 
         for source in sources {
-            guard !Task.isCancelled else { break }
-
-            let identity = LookupIdentity(
-                sourceFingerprint: source.fingerprint,
-                pipeline: signature,
-            )
-            let url = recordURL(for: identity)
-            guard FileManager.default.fileExists(atPath: url.path) else {
-                misses.append(
-                    PerFileAnalysisArtifactCacheMiss(
-                        sourceID: source.id,
-                        reason: .notFound,
-                    ),
-                )
-                continue
+            if Task.isCancelled {
+                break
             }
 
-            do {
-                var record = try decodeRecord(at: url)
-                guard record.schemaVersion == Self.recordSchemaVersion,
-                      record.identity == identity,
-                      RawCullSimilarityArtifactValidation.isCurrent(
-                          record.payload,
-                          signature: signature,
-                      )
-                else {
-                    try? FileManager.default.removeItem(at: url)
-                    misses.append(
-                        PerFileAnalysisArtifactCacheMiss(
-                            sourceID: source.id,
-                            reason: .incompatible,
-                        ),
-                    )
+            let sourceFingerprint = SourceFingerprint(source: source)
+            var sourceMissReason: PerFileAnalysisArtifactCacheMissReason = .notFound
+
+            for backend in allowedBackends {
+                let identity = LookupIdentity(
+                    sourceFingerprint: sourceFingerprint,
+                    artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
+                    backend: backend,
+                    pipeline: pipeline,
+                )
+                let url = recordURL(for: identity)
+                guard FileManager.default.fileExists(atPath: url.path) else {
                     continue
                 }
 
-                artifacts[source.id] = record.payload
-                if Date().timeIntervalSince(record.lastAccessedAt) >= 86_400 {
-                    record.lastAccessedAt = Date()
-                    try? encode(record).write(to: url, options: .atomic)
+                do {
+                    var record = try decodeRecord(at: url)
+                    guard record.schemaVersion == Self.recordSchemaVersion,
+                          record.identity == identity
+                    else {
+                        sourceMissReason = .incompatible
+                        try? FileManager.default.removeItem(at: url)
+                        continue
+                    }
+                    let artifact = try SimilarityArtifactCodec.decode(record.artifactData)
+                    guard RawCullSimilarityArtifactValidation.isCurrent(
+                        artifact,
+                        for: source,
+                        backend: backend,
+                    )
+                    else {
+                        sourceMissReason = .incompatible
+                        try? FileManager.default.removeItem(at: url)
+                        continue
+                    }
+
+                    artifacts[source.id] = artifact
+                    if Date().timeIntervalSince(record.lastAccessedAt) >= 86_400 {
+                        record.lastAccessedAt = Date()
+                        try? encode(record).write(to: url, options: .atomic)
+                    }
+                    break
+                } catch {
+                    sourceMissReason = .corrupt
+                    try? FileManager.default.removeItem(at: url)
                 }
-            } catch {
-                try? FileManager.default.removeItem(at: url)
+            }
+
+            if artifacts[source.id] == nil {
                 misses.append(
                     PerFileAnalysisArtifactCacheMiss(
                         sourceID: source.id,
-                        reason: .corrupt,
+                        reason: sourceMissReason,
                     ),
                 )
             }
@@ -213,9 +167,9 @@ actor PerFileAnalysisArtifactStore {
     }
 
     func upsert(
-        artifacts: [UUID: Data],
-        sources: [UUID: SimilarityArtifactSource],
-        signature: SimilarityArtifactPipelineSignature,
+        artifacts: [UUID: SimilarityArtifact],
+        sources: [UUID: AIImageSource],
+        pipeline: SimilarityArtifactPipelineSignature,
     ) -> PerFileAnalysisArtifactCommitResult {
         var committedSourceIDs: Set<UUID> = []
         var failures: [PerFileAnalysisArtifactWriteFailure] = []
@@ -245,16 +199,12 @@ actor PerFileAnalysisArtifactStore {
             let rightPath = sources[rhs.key]?.url.path ?? rhs.key.uuidString
             return leftPath < rightPath
         }
-        let knownRecords = recordURLs().compactMap { url -> (URL, StoredRecord)? in
+        var knownRecords = recordURLs().compactMap { url -> (URL, StoredRecord)? in
             guard let record = try? decodeRecord(at: url) else { return nil }
             return (url, record)
         }
-        var knownRecordsBySource = Dictionary(
-            grouping: knownRecords,
-            by: { $0.1.identity.supersessionIdentity },
-        )
 
-        for (sourceID, payload) in orderedArtifacts {
+        for (sourceID, artifact) in orderedArtifacts {
             guard !Task.isCancelled else {
                 return PerFileAnalysisArtifactCommitResult(
                     committedSourceIDs: committedSourceIDs,
@@ -266,7 +216,7 @@ actor PerFileAnalysisArtifactStore {
                 failures.append(
                     PerFileAnalysisArtifactWriteFailure(
                         sourceID: sourceID,
-                        sourcePath: "",
+                        sourcePath: artifact.descriptor.sourceFingerprint.standardizedPath,
                         message: "The source metadata required to persist the artifact is unavailable.",
                     ),
                 )
@@ -274,17 +224,27 @@ actor PerFileAnalysisArtifactStore {
             }
 
             do {
-                guard RawCullSimilarityArtifactValidation.isCurrent(
-                    payload,
-                    signature: signature,
-                ) else {
+                let backend = SimilarityBackendDescriptor(
+                    backend: artifact.descriptor.backend,
+                    modelFingerprint: artifact.descriptor.modelFingerprint,
+                    representation: artifact.descriptor.representation,
+                    preprocessingVersion: artifact.descriptor.preprocessingVersion,
+                    normalizationVersion: artifact.descriptor.normalizationVersion,
+                    configurationVersion: artifact.descriptor.configurationVersion,
+                )
+                let identity = LookupIdentity(
+                    sourceFingerprint: SourceFingerprint(source: source),
+                    artifactSchemaVersion: artifact.descriptor.schemaVersion,
+                    backend: backend,
+                    pipeline: pipeline,
+                )
+                guard artifact.descriptor.sourceFingerprint == identity.sourceFingerprint,
+                      artifact.descriptor.schemaVersion
+                      == SimilarityArtifactDescriptor.currentSchemaVersion
+                else {
                     throw StoreError.incompatibleArtifact
                 }
 
-                let identity = LookupIdentity(
-                    sourceFingerprint: source.fingerprint,
-                    pipeline: signature,
-                )
                 let url = recordURL(for: identity)
                 let now = Date()
                 let existingCreatedAt = (try? decodeRecord(at: url))?.createdAt
@@ -292,20 +252,22 @@ actor PerFileAnalysisArtifactStore {
                     schemaVersion: Self.recordSchemaVersion,
                     identity: identity,
                     sourceDisplayName: source.displayName,
-                    payload: payload,
+                    artifactData: try SimilarityArtifactCodec.encode(artifact),
                     createdAt: existingCreatedAt ?? now,
                     lastAccessedAt: now,
                 )
                 try encode(record).write(to: url, options: .atomic)
-
-                let supersessionIdentity = identity.supersessionIdentity
-                for (knownURL, _) in
-                    knownRecordsBySource[supersessionIdentity] ?? []
+                for (knownURL, knownRecord) in knownRecords
                     where knownURL != url
+                    && knownRecord.identity.isSuperseded(by: identity)
                 {
                     try? FileManager.default.removeItem(at: knownURL)
                 }
-                knownRecordsBySource[supersessionIdentity] = [(url, record)]
+                knownRecords.removeAll { knownRecord in
+                    knownRecord.0 == url
+                        || knownRecord.1.identity.isSuperseded(by: identity)
+                }
+                knownRecords.append((url, record))
                 committedSourceIDs.insert(sourceID)
             } catch {
                 failures.append(
@@ -318,7 +280,6 @@ actor PerFileAnalysisArtifactStore {
             }
         }
 
-        _ = prune()
         return PerFileAnalysisArtifactCommitResult(
             committedSourceIDs: committedSourceIDs,
             failures: failures,
@@ -327,14 +288,18 @@ actor PerFileAnalysisArtifactStore {
     }
 
     func remove(
-        source: SimilarityArtifactSource,
-        signature: SimilarityArtifactPipelineSignature,
+        source: AIImageSource,
+        backend: SimilarityBackendDescriptor,
+        pipeline: SimilarityArtifactPipelineSignature,
     ) {
         let identity = LookupIdentity(
-            sourceFingerprint: source.fingerprint,
-            pipeline: signature,
+            sourceFingerprint: SourceFingerprint(source: source),
+            artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
+            backend: backend,
+            pipeline: pipeline,
         )
-        try? FileManager.default.removeItem(at: recordURL(for: identity))
+        let url = recordURL(for: identity)
+        try? FileManager.default.removeItem(at: url)
     }
 
     func usage() -> PerFileAnalysisArtifactStoreUsage {
@@ -366,7 +331,12 @@ actor PerFileAnalysisArtifactStore {
     }
 
     func clear() {
-        for url in recordURLs() {
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: storageDirectory,
+            includingPropertiesForKeys: nil,
+            options: .skipsHiddenFiles,
+        ) else { return }
+        for url in urls {
             try? FileManager.default.removeItem(at: url)
         }
     }
@@ -376,6 +346,7 @@ actor PerFileAnalysisArtifactStore {
         now: Date = Date(),
     ) -> PerFileAnalysisArtifactPruneResult {
         let urls = recordURLs()
+        let maximumAge = policy.maximumUnusedAge.timeInterval
         var retained: [(url: URL, lastAccessedAt: Date)] = []
         var removedEntryCount = 0
 
@@ -388,9 +359,7 @@ actor PerFileAnalysisArtifactStore {
                 continue
             }
 
-            if now.timeIntervalSince(record.lastAccessedAt)
-                > policy.maximumUnusedAge
-            {
+            if now.timeIntervalSince(record.lastAccessedAt) > maximumAge {
                 try? FileManager.default.removeItem(at: url)
                 removedEntryCount += 1
             } else {
@@ -449,59 +418,38 @@ actor PerFileAnalysisArtifactStore {
     }
 }
 
-nonisolated enum RawCullSimilarityArtifactValidation {
-    static func isCurrent(
-        _ payload: Data,
-        signature: SimilarityArtifactPipelineSignature,
-    ) -> Bool {
-        guard signature.backendIdentifier
-            == SimilarityArtifactPipelineSignature.backendIdentifier,
-            signature.artifactSchemaVersion
-            == SimilarityArtifactPipelineSignature.currentArtifactSchemaVersion,
-            let featurePrint = try? JSONDecoder().decode(
-                VisionFeaturePrint.self,
-                from: payload,
-            )
-        else { return false }
+private nonisolated extension Duration {
+    static func days(_ value: Int) -> Self {
+        .seconds(value * 24 * 60 * 60)
+    }
 
-        guard featurePrint.revision == signature.featurePrintRevision,
-              featurePrint.representationVersion
-              == signature.representationVersion,
-              !featurePrint.payload.isEmpty
-        else { return false }
-
-        let backend = VisionFeaturePrintBackend(
-            revision: signature.featurePrintRevision,
-        )
-        return (try? backend.distance(
-            from: featurePrint,
-            to: featurePrint,
-        )) != nil
+    var timeInterval: TimeInterval {
+        let components = self.components
+        return TimeInterval(components.seconds)
+            + TimeInterval(components.attoseconds) / 1_000_000_000_000_000_000
     }
 }
 
 private nonisolated struct LookupIdentity: Codable, Equatable, Sendable {
-    let sourceFingerprint: SimilarityArtifactSourceFingerprint
+    let sourceFingerprint: SourceFingerprint
+    let artifactSchemaVersion: Int
+    let backend: SimilarityBackendDescriptor
     let pipeline: SimilarityArtifactPipelineSignature
 
-    var supersessionIdentity: SupersessionIdentity {
-        SupersessionIdentity(
-            standardizedPath: sourceFingerprint.standardizedPath,
-            pipeline: pipeline,
-        )
+    func isSuperseded(by current: Self) -> Bool {
+        sourceFingerprint.standardizedPath == current.sourceFingerprint.standardizedPath
+            && artifactSchemaVersion == current.artifactSchemaVersion
+            && backend == current.backend
+            && pipeline == current.pipeline
+            && sourceFingerprint != current.sourceFingerprint
     }
-}
-
-private nonisolated struct SupersessionIdentity: Hashable, Sendable {
-    let standardizedPath: String
-    let pipeline: SimilarityArtifactPipelineSignature
 }
 
 private nonisolated struct StoredRecord: Codable, Sendable {
     let schemaVersion: Int
     let identity: LookupIdentity
     let sourceDisplayName: String
-    let payload: Data
+    let artifactData: Data
     let createdAt: Date
     var lastAccessedAt: Date
 }

@@ -1,0 +1,45 @@
+{
+  "catalog_version": 1,
+  "release_status": "blocked",
+  "release_blocker": "Confirm that public delivery of the converted derivative is compatible with Meta's SAM License and the official gated checkpoint access flow.",
+  "model": {
+    "bundle": "SAM3",
+    "asset": "Models/SAM3/sam3_float16.aimodel",
+    "precision": "float16",
+    "runtime_main_mlirb_sha256": "43a9b88e40d193f5a6608a7fee536a78f4ba4ec5d95f1eb24db03031630f0a31"
+  },
+  "upstream": {
+    "project": "facebook/sam3",
+    "model_url": "https://huggingface.co/facebook/sam3",
+    "local_cache_snapshot_revision": "3c879f39826c281e95690f02c7821c4de09afae7",
+    "source_weight_file": "model.safetensors",
+    "source_weight_sha256": "6d06f0a5f84e435071fe6603e61d0b4cc7b40e0d39d487cfd4d67d8cc11cc14a",
+    "source_revision_recorded_by_exporter": null,
+    "evidence_note": "The local Hugging Face cache predates conversion, but the exporter output does not cryptographically bind this snapshot to the converted asset."
+  },
+  "tokenizer": {
+    "source": "facebook/sam3",
+    "snapshot_revision": "3c879f39826c281e95690f02c7821c4de09afae7",
+    "tokenizer_json_sha256": "6d9109cc838977f3ca94a379eec36aecc7c807e1785cd729660ca2fc0171fb35"
+  },
+  "conversion": {
+    "producer": "coreai-core 1.0.0b2",
+    "model_creation_date": "2026-07-10T16:35:10Z",
+    "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286"
+  },
+  "licences": [
+    {
+      "component": "Meta SAM 3",
+      "name": "SAM License",
+      "version": "November 19, 2025",
+      "file": "SAM3-SAM-License-2025-11-19.txt",
+      "sha256": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab"
+    },
+    {
+      "component": "Apple coreai-models conversion recipe",
+      "spdx": "BSD-3-Clause",
+      "file": "Apple-coreai-models-BSD-3-Clause.txt",
+      "sha256": "6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e"
+    }
+  ]
+}

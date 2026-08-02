@@ -12,6 +12,50 @@ struct SharedMainToolbarContent: ToolbarContent {
     let toggleInspector: () -> Void
 
     var body: some ToolbarContent {
+        if case let .results(summary) = viewModel.similarityModel.semanticSearchState,
+           summary.resultCount > 0
+        {
+            ToolbarItemGroup(placement: .status) {
+                Button {
+                    Task {
+                        await viewModel.adjustSemanticSearchSelection(by: -1)
+                    }
+                } label: {
+                    Label("Select Fewer Results", systemImage: "minus")
+                }
+                .labelStyle(.iconOnly)
+                .disabled(
+                    summary.resultCount <= 1
+                        || semanticSelectionIsBusy,
+                )
+                .help("Remove the lowest-ranked image from the semantic-search selection")
+
+                Text(
+                    "\(summary.resultCount) of \(viewModel.files.count) selected",
+                    comment: "Semantic-search toolbar status: selected image count followed by total catalog image count.",
+                )
+                .font(.caption.monospacedDigit())
+                .accessibilityLabel("Semantic search selection")
+                .accessibilityValue(
+                    "\(summary.resultCount) of \(viewModel.files.count) catalog images",
+                )
+
+                Button {
+                    Task {
+                        await viewModel.adjustSemanticSearchSelection(by: 1)
+                    }
+                } label: {
+                    Label("Select More Results", systemImage: "plus")
+                }
+                .labelStyle(.iconOnly)
+                .disabled(
+                    summary.resultCount >= summary.rankedImageCount
+                        || semanticSelectionIsBusy,
+                )
+                .help("Add the next highest-ranked image to the semantic-search selection")
+            }
+        }
+
         if !usesBurstWorkspaceChrome {
             Group {
                 ToolbarItem(placement: .status) {
@@ -59,10 +103,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Button(action: selectReviewQueueMode) {
                         Label("Review", systemImage: "tray.full")
                     }
-                    .help("Show burst groups that need review")
-                    .disabled(viewModel.selectedSource == nil ||
-                        viewModel.burstReviewQueueCounts.needsReview == 0 ||
-                        viewModel.creatingthumbnails)
+                    .help(reviewButtonHelp)
+                    .disabled(reviewButtonIsDisabled)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -139,6 +181,40 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.activeBurstComparisonGroupID != nil
     }
 
+    private var semanticSelectionIsBusy: Bool {
+        viewModel.burstAnalysisProgress.isRunning
+            || viewModel.sharpnessModel.isScoring
+            || viewModel.similarityModel.isIndexing
+            || viewModel.similarityModel.isGrouping
+    }
+
+    private var semanticSelectionCount: Int? {
+        guard case let .results(summary) =
+            viewModel.similarityModel.semanticSearchState
+        else { return nil }
+        return summary.resultCount
+    }
+
+    private var reviewButtonHelp: LocalizedStringResource {
+        if semanticSelectionCount != nil {
+            "Review the semantic-search selection using the existing burst index"
+        } else {
+            "Show burst groups that need review"
+        }
+    }
+
+    private var reviewButtonIsDisabled: Bool {
+        guard viewModel.selectedSource != nil,
+              !viewModel.creatingthumbnails,
+              !semanticSelectionIsBusy
+        else { return true }
+
+        if let semanticSelectionCount {
+            return semanticSelectionCount < 2
+        }
+        return viewModel.burstReviewQueueCounts.needsReview == 0
+    }
+
     private var activeRatingInt: Int? {
         switch viewModel.ratingFilter {
         case .all: nil
@@ -172,10 +248,32 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func selectReviewQueueMode() {
         viewModel.ratingFilter = .all
-        viewModel.burstReviewQueueFilter = .needsReview
-        viewModel.similarityModel.burstModeActive = true
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.similarityGrid)
+        if semanticSelectionCount != nil {
+            Task { @MainActor in
+                await viewModel.handleSortOrderChange()
+                guard !Task.isCancelled else { return }
+
+                if viewModel.canUseExistingBurstGroupIndexForActiveScope {
+                    viewModel.useExistingBurstGroupIndex()
+                    return
+                }
+
+                if await viewModel.restoreExistingFullCatalogBurstAnalysis() {
+                    guard !Task.isCancelled else { return }
+                    viewModel.useExistingBurstGroupIndex()
+                    return
+                }
+
+                viewModel.burstFullReindexRequest = .semanticReview
+            }
+        } else {
+            viewModel.burstReviewQueueFilter = .needsReview
+            viewModel.similarityModel.burstModeActive = true
+            Task(priority: .background) {
+                await viewModel.handleSortOrderChange()
+            }
+        }
     }
 
     private func selectComparisonGridMode() {

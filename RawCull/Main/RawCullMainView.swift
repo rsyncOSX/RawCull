@@ -124,6 +124,35 @@ struct RawCullMainView: View {
         } message: {
             Text("RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")")
         }
+        .alert("Full Burst Re-index?", isPresented: burstFullReindexIsPresented) {
+            if viewModel.hasExistingBurstGroupIndex {
+                Button("Use Existing Index") {
+                    viewModel.burstFullReindexRequest = nil
+                    viewModel.useExistingBurstGroupIndex()
+                }
+            }
+
+            Button("Full Re-index", role: .destructive) {
+                let request = viewModel.burstFullReindexRequest
+                viewModel.burstFullReindexRequest = nil
+                Task {
+                    await viewModel.reindexBurstAnalysis()
+                    guard !Task.isCancelled,
+                          request == .semanticReview,
+                          viewModel.hasExistingBurstGroupIndex
+                    else { return }
+                    viewModel.useExistingBurstGroupIndex()
+                }
+            }
+
+            Button("Cancel", role: .cancel) {
+                viewModel.burstFullReindexRequest = nil
+            }
+        } message: {
+            Text(
+                "This will rescore sharpness and recompute similarity for all \(viewModel.files.count) catalog files. It may take several minutes. Clear Search never performs this operation.",
+            )
+        }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
                 gridthumbnailviewmodel.open(
@@ -153,6 +182,17 @@ struct RawCullMainView: View {
         Binding(
             get: { viewModel.cullingModel.persistenceError != nil },
             set: { _ in },
+        )
+    }
+
+    private var burstFullReindexIsPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.burstFullReindexRequest != nil },
+            set: { isPresented in
+                if !isPresented {
+                    viewModel.burstFullReindexRequest = nil
+                }
+            },
         )
     }
 
@@ -314,6 +354,7 @@ struct RawCullMainView: View {
                 onCompare: { showsDetailedBurstComparison = true },
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Catalog") + " — Burst")
+            .toolbar { toolbarContent }
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 RAWCatalogSidebarView(

@@ -1,8 +1,6 @@
 import CoreGraphics
-import Foundation
 import PhotoAnalysisKit
 @testable import RawCull
-import RawCullCore
 import Testing
 
 @Suite("PhotoAnalysisKit integration")
@@ -22,31 +20,6 @@ struct PhotoAnalysisKitIntegrationTests {
 
         #expect(result.mask != nil)
         #expect(try #require(result.breakdown).finalScore > 0)
-    }
-
-    @Test(.tags(.smoke))
-    @MainActor
-    func `package feature prints drive RawCull similarity distance`() async throws {
-        let image = try #require(makeIntegrationCheckerboard())
-        let backend = VisionFeaturePrintBackend(
-            revision: SimilarityScoringModel.featurePrintRevision,
-        )
-        let anchorPrint = try await backend.featurePrint(for: image)
-        let candidatePrint = try await backend.featurePrint(for: image)
-        let anchor = makeIntegrationFile("anchor.ARW")
-        let candidate = makeIntegrationFile("candidate.ARW")
-        let model = SimilarityScoringModel()
-        model.embeddings = try [
-            anchor.id: JSONEncoder().encode(anchorPrint),
-            candidate.id: JSONEncoder().encode(candidatePrint)
-        ]
-
-        await model.rankSimilar(to: anchor.id, using: [anchor, candidate])
-
-        #expect(model.anchorFileID == anchor.id)
-        #expect(model.distances[anchor.id] == nil)
-        #expect(try #require(model.distances[candidate.id]) < 0.001)
-        #expect(model.sortBySimilarity)
     }
 
     @Test(.tags(.smoke))
@@ -71,17 +44,6 @@ struct PhotoAnalysisKitIntegrationTests {
         #expect(breakdown.focusFailureKind == packageBreakdown.focusFailureKind)
         #expect(breakdown.scoringSource == .rawDemosaic)
     }
-}
-
-private func makeIntegrationFile(_ name: String) -> FileItem {
-    FileItem(
-        url: URL(fileURLWithPath: "/tmp/\(name)"),
-        name: name,
-        size: 1,
-        dateModified: Date(timeIntervalSince1970: 0),
-        exifData: nil,
-        afFocusNormalized: nil,
-    )
 }
 
 private func makeIntegrationCheckerboard(size: Int = 128) -> CGImage? {

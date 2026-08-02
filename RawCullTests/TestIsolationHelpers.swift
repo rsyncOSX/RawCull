@@ -49,19 +49,6 @@ func makeIsolatedSettingsURL(name: String = #function) -> URL {
         .appendingPathComponent("settings.json")
 }
 
-func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
-    let safeName = name
-        .replacingOccurrences(of: "`", with: "")
-        .replacingOccurrences(of: " ", with: "-")
-        .replacingOccurrences(of: "()", with: "")
-    return FileManager.default.temporaryDirectory
-        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
-        .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
-        .appendingPathComponent("Application Support", isDirectory: true)
-        .appendingPathComponent("RawCullVerify", isDirectory: true)
-        .appendingPathComponent("savedfiles.json")
-}
-
 func makeIsolatedSimilarityArtifactStore(
     name: String = #function,
 ) -> PerFileAnalysisArtifactStore {
@@ -77,4 +64,17 @@ func makeIsolatedSimilarityArtifactStore(
         )
         .appendingPathComponent("SimilarityArtifacts", isDirectory: true)
     return PerFileAnalysisArtifactStore(storageDirectory: directory)
+}
+
+func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
+    let safeName = name
+        .replacingOccurrences(of: "`", with: "")
+        .replacingOccurrences(of: " ", with: "-")
+        .replacingOccurrences(of: "()", with: "")
+    return FileManager.default.temporaryDirectory
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
+        .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("Application Support", isDirectory: true)
+        .appendingPathComponent("RawCullVerify", isDirectory: true)
+        .appendingPathComponent("savedfiles.json")
 }

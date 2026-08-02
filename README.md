@@ -1,34 +1,120 @@
-# RawCull
+# RawCull AI
 
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
-RawCull is a native macOS photo review and culling application for Sony ARW RAW files. It is built for Apple Silicon and combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
+RawCull AI is a native macOS photo review and culling application for Sony ARW RAW files. It is built for Apple Silicon and combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
 The application is written in Swift 6 with SwiftUI. Image parsing, analysis, shared culling models, JSON encoding, and rsync execution are separated into focused Swift packages so that RawCull primarily owns application state, workflow, caching, persistence, and presentation.
 
 ## Requirements
 
-- macOS 26.2 Tahoe or newer
+- macOS 27 or newer
 - Apple Silicon Mac
-- Xcode 26 or newer for development
+- Xcode 27 or newer for development
 - Swift 6 language mode
+
+## AI features
+
+RawCull's AI-assisted culling runs locally on Apple Silicon. Photos are not uploaded to an external inference service. Both are trained neural networks. The precise difference is primarily what they produce and what they were trained to do.
+
+| | CLIP: vision-language encoder | SAM 3: vision-language segmentation |
+|---|---|---|
+| Question answered | “How well does this text match this image?” | “Where are the pixels belonging to this concept?” |
+| Inputs | Image or text | Image plus text/visual prompt |
+| Output | One fixed-length vector per image or text | Masks, boxes, presence and confidence scores |
+| Spatial information | Mostly compresses the whole image into one vector | Preserves detailed spatial information |
+| Training objective | Match related image-caption vectors | Detect and segment prompted objects |
+| RawCull use | Search and similarity ranking | Isolate the subject for detailed analysis |
+
+Their simplified pipelines are:
+
+```text
+CLIP
+
+Image ── image encoder ──► vector ─┐
+                                   ├─► similarity score
+Text  ── text encoder  ──► vector ─┘
+```
+
+```text
+SAM 3
+
+Image ── image encoder ─────────────┐
+                                    ├─► detector + mask decoder ─► masks and boxes
+Prompt ── text/visual encoder ──────┘
+```
+
+CLIP compresses an entire image into a global semantic summary. It might determine that an image closely matches “a bird in flight,” but it does not identify precisely which pixels form the bird.
+
+SAM 3 retains spatial image features. Given the prompt “bird,” it finds relevant instances and produces pixel masks around them. SAM 3 therefore contains encoders too, but its complete system includes detection and segmentation components.
+
+Both require neural-network inference initially, but caching changes how frequently they run:
+
+- CLIP image encoding runs once per photograph. Later searches reuse the cached image vectors and only run the text-query path.
+- Comparing cached CLIP vectors is ordinary mathematical computation, not another neural-network pass.
+- SAM 3 normally runs for each image and prompt, but RawCull can cache the resulting mask.
+- Reusing a cached SAM 3 mask also avoids another neural-network run.
+
+The shortest distinction is:
+
+> CLIP determines **what an image is related to**; SAM 3 determines **where that thing is in the image**.
+
+- CLIP: vision-language encoder. It converts images and text into comparable vectors for search, similarity, and classification.
+- SAM 3: vision-language segmentation model. It uses an image plus text or visual prompts to locate objects and produce masks and boxes.
+
+### Requirements to run AI
+
+- Vision feature-print similarity is built into macOS and works without an additional model download.
+- CLIP similarity supports validated PhotoAIKit-compatible DataComp and OpenAI
+  CLIP Core AI model bundles. RawCull uses the one selected in **Settings > AI**
+  and safely falls back to Vision feature prints when that bundle is missing or
+  invalid.
+- Deep Review requires a validated PhotoAIKit-compatible SAM 3 Core AI model bundle. The feature remains unavailable when the model is missing or invalid.
+- CLIP and SAM 3 model bundles must contain `metadata.json`, the selected `.aimodel` or `.aimodelc` asset, and any resources declared by the model manifest.
+- Models are not bundled with RawCull. **Settings > AI > Download AI Models**
+  now provides the Managed Background Assets download, licence review,
+  progress, cancellation, and removal flow. The current server address is a
+  non-routable placeholder, and every production model remains blocked until
+  its audited licence and provenance requirements are complete.
+- Manual installation remains available while distribution is blocked. Install
+  the resources, then open **Settings > AI** and select **Check Again** to
+  validate them. The standard non-sandboxed locations are:
+
+  ```text
+  ~/Library/Application Support/RawCull/Models/CLIP-DataComp/
+  ~/Library/Application Support/RawCull/Models/CLIP-OpenAI/
+  ~/Library/Application Support/RawCull/Models/SAM3/
+  ```
+
+  Sandboxed builds use:
+
+  ```text
+  ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-DataComp/
+  ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-OpenAI/
+  ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/SAM3/
+  ```
+
+  **Settings > AI** displays the exact expected paths.
+- The first use of a portable Core AI model can take longer while macOS specializes the model for the current Mac.
+
+See [AI model download service](Documentation/AIModelDownloads.md) for hosting,
+licence gates, security boundaries, and release configuration.
+
+### What the AI functions do
+
+- **Similarity and burst grouping:** CLIP image embeddings, or Vision feature prints as the fallback, measure visual similarity and help group neighboring frames into bursts for comparison.
+- **Sharpness and subject evidence:** PhotoAnalysisKit combines sharpness, saliency, classification, focus-mask, and camera AF-point evidence to rank burst candidates and explain cautions.
+- **Deep Review:** SAM 3 isolates the subject, evaluates detail inside the mask, checks whether the AF point falls within the subject, and recommends a winner with confidence and supporting reasons. Choosing **Mark Winner & Close** saves the winner, gives it a three-star rating, and marks the burst reviewed.
+- **Local caching:** Embeddings, masks, scores, and burst decisions are cached locally so compatible results can be reused in later sessions.
+
+To use CLIP, choose exactly one of **DataComp** or **OpenAI** and enable **Use
+selected CLIP model for similarity** under **Settings > AI** after the model is
+validated. To use SAM 3, analyze a catalog into burst groups, select **Deep
+Review** on a burst, choose the review target, and run the review.
 
 ## Installation
 
-Install with Homebrew:
-
-```bash
-brew tap rsyncOSX/cask
-brew install --cask rawcull
-```
-
-RawCull is also available from the [Apple App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12) and [GitHub Releases](https://github.com/rsyncOSX/RawCull/releases).
-
-## Documentation
-
-- [User documentation](https://rawcull.netlify.app)
-- [Release notes](https://rawcull.netlify.app/blog/)
-- [GitHub releases](https://github.com/rsyncOSX/RawCull/releases)
+Not yet avaliable for download, compile your own version until macOS 27 and Xcode 27 are released. 
 
 ## Main capabilities
 
@@ -41,8 +127,8 @@ RawCull is also available from the [Apple App Store](https://apps.apple.com/no/a
 - Score image sharpness using full-frame, salient-subject, and AF-region
   evidence.
 - Apply photo-type presets and fast, balanced, or high-precision scoring.
-- Generate and durably reuse per-file Vision feature prints for similarity
-  ranking and burst grouping.
+- Generate validated CLIP image embeddings for similarity ranking and burst
+  grouping, with targeted retry/provider recovery and safe per-image exclusion.
 - Compare burst candidates with sharpness, similarity, and caution details.
 - Tag, reject, or assign star ratings to selected images.
 - Persist ratings, sharpness results, saliency labels, burst decisions, and
@@ -59,11 +145,20 @@ flowchart LR
     Parser --> Adapter["RawCull decoding adapters"]
     Adapter --> Domain["RawCullCore models"]
     Adapter --> Analysis["PhotoAnalysisKit"]
+    Adapter --> PhotoAI["PhotoAIKit"]
+    Models["CLIP / SAM 3 Core AI models"] --> PhotoAI
     Analysis --> Sharpness["Sharpness, focus mask, saliency"]
-    Analysis --> Similarity["Vision feature prints"]
+    PhotoAI --> Similarity["CLIP embeddings / Vision fallback"]
+    PhotoAI --> Masks["SAM 3 segmentation / mask storage"]
+    Domain --> Bursts["RawCullCore burst grouping"]
+    Similarity --> Bursts
+    Sharpness --> Ranking["RawCull ranking and review policy"]
+    Bursts --> Ranking
+    Masks --> DeepReview["Deep Review subject-detail evidence"]
+    Sharpness --> DeepReview
     Domain --> ViewModels["@Observable view models"]
-    Sharpness --> ViewModels
-    Similarity --> ViewModels
+    Ranking --> ViewModels
+    DeepReview --> ViewModels
     ViewModels --> UI["SwiftUI views"]
     ViewModels --> Cache["RAM and disk caches"]
     ViewModels --> Persistence["JSON and burst persistence"]
@@ -79,15 +174,19 @@ RawCull keeps application-specific policy outside the packages:
 - cache locations and file identity
 - ratings, tagging, burst decisions, and culling workflow
 
-The imported packages own reusable parsing, analysis, domain, serialization, and process-execution concerns.
+The imported packages own reusable parsing, sharpness analysis, AI inference,
+model validation, similarity artifacts, segmentation, mask storage, domain,
+serialization, and process-execution concerns.
 
 ## Imported Swift packages
 
-All package requirements are exact versions in the Xcode project and are recorded in `Package.resolved`.
+All package requirements are pinned to exact versions or revisions in the Xcode
+project and are recorded in `Package.resolved`.
 
-| Package | Version | Responsibility | Main APIs used by RawCull |
+| Package | Pinned requirement | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
-| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) | 1.2.0 | Sharpness scoring, focus masks, Vision saliency/classification, calibration, batch analysis, cache identity, and Vision feature prints | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality`, `VisionFeaturePrintBackend.featurePrint`, `VisionFeaturePrintBackend.distance` |
+| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) | revision `2cb07d6` | AI contracts, validated Core AI model resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision similarity fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
+| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) | 1.2.0 | Sharpness scoring, focus masks, Vision saliency/classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) | 1.2.6 | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) | 1.1.0 | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) | 1.0.0 | Type-safe construction of rsync parameters and synchronization arguments | `Parameters`, `BasicRsyncParameters`, `OptionalRsyncParameters`, `SSHParameters`, `PathConfiguration`, `RsyncParametersSynchronize.argumentsForSynchronize`, `computedArguments` |
@@ -112,16 +211,34 @@ Per-image ISO, aperture, and normalized AF position are passed through `PhotoAna
 
 Persistent sharpness results use `PhotoAnalyzer.sharpnessDescriptor(for:)`. RawCull layers the scoring source, decoded image size, source-file size, and modification date around that descriptor. This invalidates stale scores when either the package algorithm or the input file changes.
 
-PhotoAnalysisKit also provides RawCull's similarity backend:
+PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
 
-- `VisionFeaturePrintBackend.featurePrint(for:)` creates Codable Vision feature prints.
-- `VisionFeaturePrintBackend.distance(from:to:)` calculates visual distance.
+### PhotoAIKit
+
+PhotoAIKit is RawCull's reusable AI runtime boundary. RawCull imports six of its
+products: `PhotoAIContracts`, `PhotoAIWorkflows`, `PhotoAIStorage`,
+`CoreAICLIPBackend`, `CoreAISAM3Backend`, and `VisionFeaturePrintBackend`.
+
+The package provides the model-backed and fallback services used by the AI
+features:
+
+- `CoreAICLIPProvider` creates normalized CLIP image embeddings and cosine distances.
+- `VisionFeaturePrintBackend` creates and compares Codable Vision feature prints.
+- `CoreAISAM3Provider` performs in-process subject segmentation with a validated
+  SAM 3 Core AI model.
+- `SegmentationService` and `SubjectMaskSelector` acquire and select masks, while
+  `PhotoAIStorage` supplies memory and disk mask stores.
+- Persisted settings select exactly one of the DataComp and OpenAI CLIP
+  bundles and enable CLIP when that selected model is available.
+  Non-finite output is retried once, then retried with a replacement provider;
+  unresolved images are excluded from automatic burst analysis.
 - Adjacent distances are passed to `BurstGroupingEngine.group` from RawCullCore.
 
-PhotoAnalysisKit deliberately does not know about `FileItem`, RAW formats, security-scoped URLs, application settings, cache directories, or ratings.
-RawCull owns the per-file artifact records and validates source path, size,
-modification date, Vision revision, representation, preview size, and pipeline
-version before reusing a package-generated feature print.
+`RawCullAIIntegration` validates both CLIP model bundles, selects the requested
+CLIP provider or the Vision fallback, constructs SAM 3 mask services, and
+injects narrow services into the application models. RawCull retains ownership
+of RAW decoding, model locations, settings, subject-detail scoring,
+recommendation policy, ratings, and review state.
 
 ### RawParserKit
 
@@ -178,8 +295,9 @@ RawCull persists its saved catalog records as Codable JSON. `DecodeGeneric` load
 | `OSLog` and `os` | Structured logging and lock-backed cache diagnostics |
 | `UniformTypeIdentifiers` | RAW/JPEG file selection and export types |
 
-Vision and Metal are encapsulated by PhotoAnalysisKit rather than implemented
-directly in RawCull.
+Vision and Metal sharpness analysis are encapsulated by PhotoAnalysisKit. Core
+AI inference, AI-side Vision feature prints, and subject-mask storage are
+encapsulated by PhotoAIKit rather than implemented directly in RawCull.
 
 ## Application flow
 
@@ -214,15 +332,13 @@ Full-size embedded and developed previews use a separate disk cache. Memory pres
 ### Similarity and burst review
 
 1. RawParserKit supplies 512-pixel thumbnails.
-2. PhotoAnalysisKit creates Vision feature prints.
-3. RawCull atomically stores each feature print below
-   `~/Library/Application Support/RawCull/AnalysisArtifacts/Similarity/`.
-4. Catalog reloads hydrate compatible per-file artifacts and generate only
-   missing or stale entries.
-5. RawCull calculates adjacent distances and passes them to RawCullCore.
-6. RawCullCore groups the ordered images into bursts.
-7. RawCull ranks candidates using sharpness, similarity, and review rules.
-8. Derived burst results and decisions are cached separately for later sessions.
+2. PhotoAIKit creates CLIP image embeddings. RawCull validates each artifact,
+   performs targeted recovery for non-finite output, and excludes unresolved
+   images; Vision remains the catalog backend when CLIP is unavailable.
+3. RawCull calculates adjacent distances and passes them to RawCullCore.
+4. RawCullCore groups the ordered images into bursts.
+5. RawCull ranks candidates using sharpness, similarity, and review rules.
+6. Burst artifacts and decisions are cached for later sessions.
 
 ### Ratings, persistence, and copying
 
@@ -261,8 +377,7 @@ Important actors include:
 | `ScanFiles` | Catalog scanning, metadata extraction, and AF-point collection |
 | `ScanAndCreateThumbnails` | Bounded thumbnail preloading |
 | `ExtractAndSaveJPGs` | Batch JPEG extraction |
-| `PerFileAnalysisArtifactStore` | Atomic, source- and pipeline-validated Vision feature-print persistence |
-| `BurstAnalysisCache` | Derived burst groups, embeddings retained for migration, sharpness results, signatures, and review-state snapshots |
+| `BurstAnalysisCache` | Burst groups, embeddings, sharpness results, signatures, and review-state snapshots |
 | `WriteSavedFilesJSON` | Atomic persistence of culling records |
 
 ## Repository structure
@@ -335,7 +450,4 @@ Performance and extreme-concurrency coverage:
 make test-performance
 ```
 
-The test suites cover package integration, sharpness and focus metrics,
-structured cancellation, latest-run-wins behavior, memory-cache counters,
-security-scoped access, disk caches, per-file similarity persistence and
-invalidation, burst persistence, RAW parsing adapters, and copy startup/cleanup.
+The test suites cover package integration, sharpness and focus metrics, structured cancellation, latest-run-wins behavior, memory-cache counters, security-scoped access, disk caches, burst persistence, RAW parsing adapters, and copy startup/cleanup.

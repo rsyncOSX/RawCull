@@ -1,536 +1,451 @@
-import CoreGraphics
 import Foundation
-import PhotoAnalysisKit
-@testable import RawCull
-import RawCullCore
+import PhotoAIContracts
 import Testing
+@testable import RawCull
 
-@Suite("Per-file similarity artifact store")
+@Suite("Per-file analysis artifact store")
 struct PerFileAnalysisArtifactStoreTests {
-    @Test
-    func `valid artifact round trips and incompatible identities miss`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let source = makeArtifactSource(name: "round-trip.ARW")
-        let payload = try await makeValidVisionArtifact()
-        let signature = makeArtifactSignature()
-
-        let commit = await store.upsert(
-            artifacts: [source.id: payload],
-            sources: [source.id: source],
-            signature: signature,
+    @Test("CLIP and Vision artifacts round-trip independently")
+    func roundTripArtifacts() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let clipSource = try fixture.source(named: "clip.raw")
+        let visionSource = try fixture.source(named: "vision.raw")
+        let clipArtifact = fixture.artifact(
+            source: clipSource,
+            backend: fixture.clipBackend,
+            dimensions: 3,
+            payload: Data([1, 2, 3]),
         )
-        let loaded = await store.load(
-            sources: [source],
-            signature: signature,
+        let visionArtifact = fixture.artifact(
+            source: visionSource,
+            backend: fixture.visionBackend,
+            dimensions: nil,
+            payload: Data([4, 5, 6]),
         )
 
-        #expect(commit.committedSourceIDs == Set([source.id]))
+        let commit = await fixture.store.upsert(
+            artifacts: [
+                clipSource.id: clipArtifact,
+                visionSource.id: visionArtifact,
+            ],
+            sources: [
+                clipSource.id: clipSource,
+                visionSource.id: visionSource,
+            ],
+            pipeline: fixture.pipeline,
+        )
+        let loaded = await fixture.store.load(
+            sources: [clipSource, visionSource],
+            allowedBackends: [fixture.clipBackend, fixture.visionBackend],
+            pipeline: fixture.pipeline,
+        )
+
         #expect(commit.failures.isEmpty)
-        #expect(loaded.artifacts[source.id] == payload)
-
-        let changedSource = SimilarityArtifactSource(
-            id: UUID(),
-            url: source.url,
-            displayName: source.displayName,
-            fileSize: source.fileSize + 1,
-            modificationDate: source.modificationDate,
-        )
-        let changedPipeline = SimilarityArtifactPipelineSignature(
-            featurePrintRevision: signature.featurePrintRevision,
-            representationVersion: signature.representationVersion,
-            thumbnailMaxPixelSize: signature.thumbnailMaxPixelSize + 1,
-            pipelineVersion: signature.pipelineVersion,
-        )
-
-        let changedSourceLoad = await store.load(
-            sources: [changedSource],
-            signature: signature,
-        )
-        let changedPipelineLoad = await store.load(
-            sources: [source],
-            signature: changedPipeline,
-        )
-
-        #expect(changedSourceLoad.artifacts.isEmpty)
-        #expect(changedPipelineLoad.artifacts.isEmpty)
+        #expect(commit.committedSourceIDs == [clipSource.id, visionSource.id])
+        #expect(loaded.artifacts[clipSource.id] == clipArtifact)
+        #expect(loaded.artifacts[visionSource.id] == visionArtifact)
+        #expect(loaded.misses.isEmpty)
     }
 
-    @Test
-    func `one corrupt record is isolated from valid records`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let first = makeArtifactSource(name: "first.ARW")
-        let second = makeArtifactSource(name: "second.ARW")
-        let payload = try await makeValidVisionArtifact()
-        let signature = makeArtifactSignature()
+    @Test("Source, backend, preview size, and pipeline changes are cache misses")
+    func identityMismatches() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let source = try fixture.source(named: "identity.raw")
+        let artifact = fixture.artifact(
+            source: source,
+            backend: fixture.clipBackend,
+            dimensions: 2,
+            payload: Data([1, 2]),
+        )
+        _ = await fixture.store.upsert(
+            artifacts: [source.id: artifact],
+            sources: [source.id: source],
+            pipeline: fixture.pipeline,
+        )
 
-        _ = await store.upsert(
-            artifacts: [first.id: payload],
+        let wrongBackend = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.visionBackend],
+            pipeline: fixture.pipeline,
+        )
+        let descriptorVariants = [
+            SimilarityBackendDescriptor(
+                backend: fixture.clipBackend.backend,
+                modelFingerprint: "different-model",
+                representation: fixture.clipBackend.representation,
+                preprocessingVersion: fixture.clipBackend.preprocessingVersion,
+                normalizationVersion: fixture.clipBackend.normalizationVersion,
+                configurationVersion: fixture.clipBackend.configurationVersion,
+            ),
+            SimilarityBackendDescriptor(
+                backend: fixture.clipBackend.backend,
+                modelFingerprint: fixture.clipBackend.modelFingerprint,
+                representation: "different-representation",
+                preprocessingVersion: fixture.clipBackend.preprocessingVersion,
+                normalizationVersion: fixture.clipBackend.normalizationVersion,
+                configurationVersion: fixture.clipBackend.configurationVersion,
+            ),
+            SimilarityBackendDescriptor(
+                backend: fixture.clipBackend.backend,
+                modelFingerprint: fixture.clipBackend.modelFingerprint,
+                representation: fixture.clipBackend.representation,
+                preprocessingVersion: "different-preprocessing",
+                normalizationVersion: fixture.clipBackend.normalizationVersion,
+                configurationVersion: fixture.clipBackend.configurationVersion,
+            ),
+            SimilarityBackendDescriptor(
+                backend: fixture.clipBackend.backend,
+                modelFingerprint: fixture.clipBackend.modelFingerprint,
+                representation: fixture.clipBackend.representation,
+                preprocessingVersion: fixture.clipBackend.preprocessingVersion,
+                normalizationVersion: "different-normalization",
+                configurationVersion: fixture.clipBackend.configurationVersion,
+            ),
+            SimilarityBackendDescriptor(
+                backend: fixture.clipBackend.backend,
+                modelFingerprint: fixture.clipBackend.modelFingerprint,
+                representation: fixture.clipBackend.representation,
+                preprocessingVersion: fixture.clipBackend.preprocessingVersion,
+                normalizationVersion: fixture.clipBackend.normalizationVersion,
+                configurationVersion: "different-configuration",
+            ),
+        ]
+        for descriptor in descriptorVariants {
+            let mismatch = await fixture.store.load(
+                sources: [source],
+                allowedBackends: [descriptor],
+                pipeline: fixture.pipeline,
+            )
+            #expect(mismatch.artifacts.isEmpty)
+        }
+        let wrongPreviewSize = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: SimilarityArtifactPipelineSignature(
+                thumbnailMaxPixelSize: fixture.pipeline.thumbnailMaxPixelSize + 1,
+                pipelineVersion: fixture.pipeline.pipelineVersion,
+            ),
+        )
+        let wrongPipeline = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: SimilarityArtifactPipelineSignature(
+                thumbnailMaxPixelSize: fixture.pipeline.thumbnailMaxPixelSize,
+                pipelineVersion: fixture.pipeline.pipelineVersion + 1,
+            ),
+        )
+
+        try Data([9, 9, 9]).write(to: source.url)
+        let changedSource = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
+        )
+
+        #expect(wrongBackend.artifacts.isEmpty)
+        #expect(wrongPreviewSize.artifacts.isEmpty)
+        #expect(wrongPipeline.artifacts.isEmpty)
+        #expect(changedSource.artifacts.isEmpty)
+
+        let staleSchemaArtifact = SimilarityArtifact(
+            descriptor: SimilarityArtifactDescriptor(
+                backend: fixture.clipBackend.backend,
+                modelFingerprint: fixture.clipBackend.modelFingerprint,
+                dimensions: 2,
+                representation: fixture.clipBackend.representation,
+                preprocessingVersion: fixture.clipBackend.preprocessingVersion,
+                normalizationVersion: fixture.clipBackend.normalizationVersion,
+                configurationVersion: fixture.clipBackend.configurationVersion,
+                sourceFingerprint: SourceFingerprint(source: source),
+                schemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion - 1,
+            ),
+            payload: Data([1, 2]),
+        )
+        let staleSchemaCommit = await fixture.store.upsert(
+            artifacts: [source.id: staleSchemaArtifact],
+            sources: [source.id: source],
+            pipeline: fixture.pipeline,
+        )
+        #expect(staleSchemaCommit.committedSourceIDs.isEmpty)
+        #expect(staleSchemaCommit.failures.count == 1)
+    }
+
+    @Test("A corrupt record is isolated from valid records")
+    func corruptRecordIsIsolated() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let first = try fixture.source(named: "first.raw")
+        let second = try fixture.source(named: "second.raw")
+
+        _ = await fixture.store.upsert(
+            artifacts: [
+                first.id: fixture.artifact(
+                    source: first,
+                    backend: fixture.clipBackend,
+                    dimensions: 1,
+                    payload: Data([1]),
+                ),
+            ],
             sources: [first.id: first],
-            signature: signature,
+            pipeline: fixture.pipeline,
         )
-        let storedRecords = try FileManager.default.contentsOfDirectory(
-            at: store.storageDirectory,
-            includingPropertiesForKeys: nil,
-        )
-        let firstRecord = try #require(storedRecords.first)
-        _ = await store.upsert(
-            artifacts: [second.id: payload],
+        let firstRecord = try #require(fixture.recordURLs().first)
+
+        _ = await fixture.store.upsert(
+            artifacts: [
+                second.id: fixture.artifact(
+                    source: second,
+                    backend: fixture.clipBackend,
+                    dimensions: 1,
+                    payload: Data([2]),
+                ),
+            ],
             sources: [second.id: second],
-            signature: signature,
+            pipeline: fixture.pipeline,
         )
         try Data("truncated".utf8).write(to: firstRecord, options: .atomic)
 
-        let loaded = await store.load(
+        let loaded = await fixture.store.load(
             sources: [first, second],
-            signature: signature,
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
         )
 
         #expect(loaded.artifacts[first.id] == nil)
-        #expect(loaded.artifacts[second.id] == payload)
-        #expect(
-            loaded.misses.contains {
-                $0.sourceID == first.id && $0.reason == .corrupt
-            },
-        )
-    }
-
-    @Test
-    func `invalid Vision payload is not committed`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let source = makeArtifactSource(name: "invalid.ARW")
-        let signature = makeArtifactSignature()
-        let invalid = try JSONEncoder().encode(
-            VisionFeaturePrint(
-                revision: signature.featurePrintRevision,
-                payload: Data([0x00, 0x01]),
+        #expect(loaded.artifacts[second.id] != nil)
+        #expect(loaded.misses == [
+            PerFileAnalysisArtifactCacheMiss(
+                sourceID: first.id,
+                reason: .corrupt,
             ),
-        )
-
-        let result = await store.upsert(
-            artifacts: [source.id: invalid],
-            sources: [source.id: source],
-            signature: signature,
-        )
-
-        #expect(result.committedSourceIDs.isEmpty)
-        #expect(result.failures.count == 1)
-        #expect((await store.usage()).entryCount == 0)
+        ])
+        #expect(fixture.recordURLs().count == 1)
     }
 
-    @Test
-    func `usage pruning and clear operate on individual records`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let source = makeArtifactSource(name: "prune.ARW")
-        let payload = try await makeValidVisionArtifact()
-        let signature = makeArtifactSignature()
-
-        _ = await store.upsert(
-            artifacts: [source.id: payload],
+    @Test("Usage, pruning, and clear operate on individual records")
+    func maintenanceOperations() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let source = try fixture.source(named: "maintenance.raw")
+        let artifact = fixture.artifact(
+            source: source,
+            backend: fixture.clipBackend,
+            dimensions: 1,
+            payload: Data([1]),
+        )
+        _ = await fixture.store.upsert(
+            artifacts: [source.id: artifact],
             sources: [source.id: source],
-            signature: signature,
+            pipeline: fixture.pipeline,
         )
 
-        let populated = await store.usage()
-        #expect(populated.entryCount == 1)
-        #expect(populated.size > 0)
-
-        let pruned = await store.prune(
+        let usageBeforePrune = await fixture.store.usage()
+        let prune = await fixture.store.prune(
             policy: PerFileAnalysisArtifactPruningPolicy(
-                maximumUnusedAge: -1,
-                maximumEntryCount: 0,
+                maximumUnusedAge: .zero,
+                maximumEntryCount: 50_000,
             ),
+            now: Date().addingTimeInterval(1),
         )
-        #expect(pruned.removedEntryCount == 1)
-        #expect((await store.usage()).entryCount == 0)
+        let usageAfterPrune = await fixture.store.usage()
 
-        _ = await store.upsert(
-            artifacts: [source.id: payload],
+        #expect(usageBeforePrune.entryCount == 1)
+        #expect(usageBeforePrune.size > 0)
+        #expect(prune.removedEntryCount == 1)
+        #expect(usageAfterPrune == PerFileAnalysisArtifactStoreUsage(
+            size: 0,
+            entryCount: 0,
+        ))
+
+        _ = await fixture.store.upsert(
+            artifacts: [source.id: artifact],
             sources: [source.id: source],
-            signature: signature,
+            pipeline: fixture.pipeline,
         )
-        await store.clear()
-        #expect((await store.usage()).entryCount == 0)
+        await fixture.store.clear()
+        #expect(await fixture.store.usage().entryCount == 0)
     }
 
-    @Test
-    func `cancellation before replacement preserves committed artifact`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let source = makeArtifactSource(name: "atomic.ARW")
-        let original = try await makeValidVisionArtifact(red: 32)
-        let replacement = try await makeValidVisionArtifact(red: 224)
-        let signature = makeArtifactSignature()
-        let gate = ArtifactStoreCancellationGate()
-
-        _ = await store.upsert(
+    @Test("Replacement is atomic and cancellation preserves completed records")
+    func atomicReplacementAndCancellation() async throws {
+        let fixture = try ArtifactStoreFixture()
+        defer { fixture.remove() }
+        let source = try fixture.source(named: "replacement.raw")
+        let original = fixture.artifact(
+            source: source,
+            backend: fixture.clipBackend,
+            dimensions: 1,
+            payload: Data([1]),
+        )
+        let replacement = fixture.artifact(
+            source: source,
+            backend: fixture.clipBackend,
+            dimensions: 1,
+            payload: Data([2]),
+        )
+        _ = await fixture.store.upsert(
             artifacts: [source.id: original],
             sources: [source.id: source],
-            signature: signature,
+            pipeline: fixture.pipeline,
+        )
+        _ = await fixture.store.upsert(
+            artifacts: [source.id: replacement],
+            sources: [source.id: source],
+            pipeline: fixture.pipeline,
+        )
+        let replaced = await fixture.store.load(
+            sources: [source],
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
         )
 
-        let replacementTask = Task {
+        #expect(replaced.artifacts[source.id] == replacement)
+        #expect(fixture.recordURLs().count == 1)
+
+        var cancellationSources: [UUID: AIImageSource] = [:]
+        var cancellationArtifacts: [UUID: SimilarityArtifact] = [:]
+        for index in 0 ..< 32 {
+            let item = try fixture.source(named: "cancel-\(index).raw")
+            cancellationSources[item.id] = item
+            cancellationArtifacts[item.id] = fixture.artifact(
+                source: item,
+                backend: fixture.clipBackend,
+                dimensions: 1,
+                payload: Data([UInt8(index)]),
+            )
+        }
+        let gate = ArtifactStoreCancellationGate()
+        let sourcesToCancel = cancellationSources
+        let artifactsToCancel = cancellationArtifacts
+        let store = fixture.store
+        let pipeline = fixture.pipeline
+        let cancelledWrite = Task.detached { @concurrent in
             await gate.wait()
             return await store.upsert(
-                artifacts: [source.id: replacement],
-                sources: [source.id: source],
-                signature: signature,
+                artifacts: artifactsToCancel,
+                sources: sourcesToCancel,
+                pipeline: pipeline,
             )
         }
         await gate.waitUntilStarted()
-        replacementTask.cancel()
+        cancelledWrite.cancel()
         await gate.release()
-        let result = await replacementTask.value
-        let loaded = await store.load(
-            sources: [source],
-            signature: signature,
+        let cancelledResult = await cancelledWrite.value
+        let loadedAfterCancellation = await fixture.store.load(
+            sources: Array(cancellationSources.values),
+            allowedBackends: [fixture.clipBackend],
+            pipeline: fixture.pipeline,
         )
 
-        #expect(result.wasCancelled)
-        #expect(loaded.artifacts[source.id] == original)
-    }
-}
-
-@Suite("Durable similarity indexing")
-@MainActor
-struct SimilarityArtifactPersistenceTests {
-    @Test
-    func `indexing survives model recreation and indexes only added or changed files`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let payload = try await makeValidVisionArtifact()
-        let recorder = SimilarityProviderRecorder(payload: payload)
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(
-                "RawCullSimilarityPersistence-\(UUID().uuidString)",
-                isDirectory: true,
-            )
-        let first = makeArtifactFile(
-            directory: directory,
-            name: "first.ARW",
-            size: 100,
-            modified: 100,
+        #expect(cancelledResult.wasCancelled)
+        #expect(cancelledResult.failures.isEmpty)
+        #expect(
+            loadedAfterCancellation.artifacts.count
+                == cancelledResult.committedSourceIDs.count,
         )
-        let second = makeArtifactFile(
-            directory: directory,
-            name: "second.ARW",
-            size: 200,
-            modified: 200,
-        )
-
-        let initialModel = SimilarityScoringModel(
-            embeddingProvider: { url, _ in
-                await recorder.artifact(for: url)
-            },
-            artifactStore: store,
-        )
-        await initialModel.indexFiles([first, second])
-        #expect(await recorder.requests() == ["first.ARW", "second.ARW"])
-
-        await recorder.reset()
-        let reloadedFirst = makeArtifactFile(
-            directory: directory,
-            name: "first.ARW",
-            size: 100,
-            modified: 100,
-        )
-        let reloadedSecond = makeArtifactFile(
-            directory: directory,
-            name: "second.ARW",
-            size: 200,
-            modified: 200,
-        )
-        let reloadedModel = SimilarityScoringModel(
-            embeddingProvider: { url, _ in
-                await recorder.artifact(for: url)
-            },
-            artifactStore: store,
-        )
-        await reloadedModel.indexFiles([reloadedFirst, reloadedSecond])
-
-        #expect((await recorder.requests()).isEmpty)
-        #expect(reloadedModel.embeddings.count == 2)
-
-        let added = makeArtifactFile(
-            directory: directory,
-            name: "added.ARW",
-            size: 300,
-            modified: 300,
-        )
-        await reloadedModel.indexFiles([reloadedFirst, reloadedSecond, added])
-        #expect(await recorder.requests() == ["added.ARW"])
-
-        await recorder.reset()
-        let modifiedFirst = makeArtifactFile(
-            directory: directory,
-            name: "first.ARW",
-            size: 101,
-            modified: 101,
-        )
-        let finalModel = SimilarityScoringModel(
-            embeddingProvider: { url, _ in
-                await recorder.artifact(for: url)
-            },
-            artifactStore: store,
-        )
-        await finalModel.indexFiles([modifiedFirst, reloadedSecond, added])
-
-        #expect(await recorder.requests() == ["first.ARW"])
-        #expect(finalModel.embeddings.count == 3)
-    }
-
-    @Test
-    func `legacy burst snapshot artifacts migrate into the per-file store`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let cacheDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(
-                "RawCullLegacyBurstMigration-\(UUID().uuidString)",
-                isDirectory: true,
-            )
-        let cache = BurstAnalysisCache(cacheDirectory: cacheDirectory)
-        let catalog = URL(
-            fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)",
-        )
-        let file = makeArtifactFile(
-            directory: catalog,
-            name: "legacy.ARW",
-            size: 100,
-            modified: 100,
-        )
-        let payload = try await makeValidVisionArtifact()
-        let similaritySignature = BurstSimilaritySignature(
-            groupingConfig: BurstGroupingConfig(
-                visualDistanceThreshold: 0.25,
-            ),
-            embeddingThumbnailMaxPixelSize:
-                SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
-            visionFeaturePrintRevision:
-                SimilarityScoringModel.featurePrintRevision,
-            embeddingPipelineVersion:
-                SimilarityScoringModel.embeddingPipelineVersion,
-        )
-        let snapshot = BurstAnalysisCacheSnapshot(
-            schemaVersion:
-                BurstAnalysisCache.legacyArtifactMigrationSchemaVersion,
-            algorithmVersion: BurstGroupingConfig.algorithmVersion,
-            catalogPath: catalog.path,
-            thumbnailMaxPixelSize: 512,
-            sharpnessSignature: BurstSharpnessSignature(
-                thumbnailMaxPixelSize: 512,
-                config: FocusDetectorConfig(),
-            ),
-            similaritySignature: similaritySignature,
-            similarityArtifactSetDigest: nil,
-            files: [
-                BurstAnalysisCacheFile(
-                    id: file.id,
-                    path: file.url.path,
-                    size: file.size,
-                    modificationDate: file.dateModified,
-                ),
-            ],
-            embeddings: [file.id: payload],
-            sharpnessScores: [:],
-            saliencyInfo: [:],
-            groups: [],
-            boundaryEvidence: [],
-            results: [],
-            reviewStateSnapshots: [],
-        )
-        await cache.save(snapshot, catalog: catalog)
-
-        let candidate = try #require(
-            await cache.loadMigrationCandidate(catalog: catalog),
-        )
-        let model = SimilarityScoringModel(
-            artifactStore: store,
-        )
-        let imported = await model.importLegacyArtifacts(
-            candidate.embeddings,
-            files: [file],
-            signature: candidate.similaritySignature,
-        )
-        let reloadedFile = makeArtifactFile(
-            directory: catalog,
-            name: "legacy.ARW",
-            size: 100,
-            modified: 100,
-        )
-        let reloadedModel = SimilarityScoringModel(
-            artifactStore: store,
-        )
-        await reloadedModel.hydrateArtifacts([reloadedFile])
-
-        #expect(imported == 1)
-        #expect(reloadedModel.embeddings[reloadedFile.id] == payload)
-    }
-
-    @Test
-    func `successful artifacts survive a partially failed indexing run`() async throws {
-        let store = makeIsolatedSimilarityArtifactStore()
-        let payload = try await makeValidVisionArtifact()
-        let directory = URL(
-            fileURLWithPath: "/tmp/partial-\(UUID().uuidString)",
-        )
-        let success = makeArtifactFile(
-            directory: directory,
-            name: "success.ARW",
-            size: 100,
-            modified: 100,
-        )
-        let failure = makeArtifactFile(
-            directory: directory,
-            name: "failure.ARW",
-            size: 200,
-            modified: 200,
-        )
-        let initialModel = SimilarityScoringModel(
-            embeddingProvider: { url, _ in
-                url.lastPathComponent == "success.ARW" ? payload : nil
-            },
-            artifactStore: store,
-        )
-
-        await initialModel.indexFiles([success, failure])
-
-        #expect(initialModel.embeddings[success.id] == payload)
-        #expect(initialModel.embeddings[failure.id] == nil)
-        #expect(initialModel.indexingGenerationFailures == [failure.id])
-
-        let recorder = SimilarityProviderRecorder(payload: payload)
-        let reloadedSuccess = makeArtifactFile(
-            directory: directory,
-            name: "success.ARW",
-            size: 100,
-            modified: 100,
-        )
-        let reloadedFailure = makeArtifactFile(
-            directory: directory,
-            name: "failure.ARW",
-            size: 200,
-            modified: 200,
-        )
-        let reloadedModel = SimilarityScoringModel(
-            embeddingProvider: { url, _ in
-                await recorder.artifact(for: url)
-            },
-            artifactStore: store,
-        )
-        await reloadedModel.indexFiles([reloadedSuccess, reloadedFailure])
-
-        #expect(await recorder.requests() == ["failure.ARW"])
-        #expect(reloadedModel.embeddings.count == 2)
-    }
-}
-
-private actor SimilarityProviderRecorder {
-    private let payload: Data
-    private var requestedNames: [String] = []
-
-    init(payload: Data) {
-        self.payload = payload
-    }
-
-    func artifact(for url: URL) -> Data {
-        requestedNames.append(url.lastPathComponent)
-        return payload
-    }
-
-    func requests() -> [String] {
-        requestedNames.sorted()
-    }
-
-    func reset() {
-        requestedNames = []
+        #expect(loadedAfterCancellation.misses.allSatisfy { $0.reason == .notFound })
+        #expect(replaced.artifacts[source.id] == replacement)
     }
 }
 
 private actor ArtifactStoreCancellationGate {
     private var started = false
-    private var startWaiters: [CheckedContinuation<Void, Never>] = []
-    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+    private var continuation: CheckedContinuation<Void, Never>?
 
     func wait() async {
         started = true
-        let waiters = startWaiters
-        startWaiters = []
-        for waiter in waiters {
-            waiter.resume()
-        }
         await withCheckedContinuation { continuation in
-            releaseWaiters.append(continuation)
+            self.continuation = continuation
         }
     }
 
     func waitUntilStarted() async {
-        if started { return }
-        await withCheckedContinuation { continuation in
-            startWaiters.append(continuation)
+        while !started {
+            await Task.yield()
         }
     }
 
     func release() {
-        let waiters = releaseWaiters
-        releaseWaiters = []
-        for waiter in waiters {
-            waiter.resume()
-        }
+        continuation?.resume()
+        continuation = nil
     }
 }
 
-private func makeArtifactSignature() -> SimilarityArtifactPipelineSignature {
-    SimilarityScoringModel.artifactPipelineSignature
-}
+private nonisolated struct ArtifactStoreFixture: Sendable {
+    let root: URL
+    let store: PerFileAnalysisArtifactStore
+    let pipeline = SimilarityArtifactPipelineSignature(
+        thumbnailMaxPixelSize: 512,
+        pipelineVersion: 3,
+    )
+    let clipBackend = SimilarityBackendDescriptor(
+        backend: "clip",
+        modelFingerprint: "clip-test-model",
+        representation: "normalized-float-vector-json-v1",
+        preprocessingVersion: "preview-v1",
+        normalizationVersion: "l2-v1",
+        configurationVersion: "config-v1",
+    )
+    let visionBackend = SimilarityBackendDescriptor(
+        backend: "vision-feature-print",
+        modelFingerprint: "vision-test-model",
+        representation: "vnfeatureprint-keyed-archive-v1",
+        preprocessingVersion: "vision-v1",
+        normalizationVersion: "native-v1",
+        configurationVersion: "revision-2",
+    )
 
-private func makeArtifactSource(name: String) -> SimilarityArtifactSource {
-    SimilarityArtifactSource(
-        id: UUID(),
-        url: URL(fileURLWithPath: "/tmp/\(UUID().uuidString)/\(name)"),
-        displayName: name,
-        fileSize: 1_024,
-        modificationDate: Date(timeIntervalSince1970: 1_000),
-    )
-}
+    init() throws {
+        root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "PerFileAnalysisArtifactStoreTests-\(UUID().uuidString)",
+                isDirectory: true,
+            )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true,
+        )
+        store = PerFileAnalysisArtifactStore(
+            storageDirectory: root.appendingPathComponent("store", isDirectory: true),
+        )
+    }
 
-private func makeArtifactFile(
-    directory: URL,
-    name: String,
-    size: Int64,
-    modified: TimeInterval,
-) -> FileItem {
-    FileItem(
-        url: directory.appendingPathComponent(name),
-        name: name,
-        size: size,
-        dateModified: Date(timeIntervalSince1970: modified),
-        captureDate: nil,
-        exifData: nil,
-        afFocusNormalized: nil,
-    )
-}
+    func source(named name: String) throws -> AIImageSource {
+        let url = root.appendingPathComponent(name)
+        try Data(name.utf8).write(to: url, options: .atomic)
+        return AIImageSource(
+            id: UUID(),
+            url: url,
+            displayName: name,
+        )
+    }
 
-private func makeValidVisionArtifact(red: UInt8 = 128) async throws -> Data {
-    let colorSpace = try #require(
-        CGColorSpace(name: CGColorSpace.sRGB),
-    )
-    let context = try #require(
-        CGContext(
-            data: nil,
-            width: 16,
-            height: 16,
-            bitsPerComponent: 8,
-            bytesPerRow: 16 * 4,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-        ),
-    )
-    context.setFillColor(
-        red: CGFloat(red) / 255,
-        green: 0.25,
-        blue: 0.75,
-        alpha: 1,
-    )
-    context.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
-    let image = try #require(context.makeImage())
-    let featurePrint = try await VisionFeaturePrintBackend(
-        revision: SimilarityScoringModel.featurePrintRevision,
-    ).featurePrint(for: image)
-    return try JSONEncoder().encode(featurePrint)
+    func artifact(
+        source: AIImageSource,
+        backend: SimilarityBackendDescriptor,
+        dimensions: Int?,
+        payload: Data,
+    ) -> SimilarityArtifact {
+        SimilarityArtifact(
+            descriptor: SimilarityArtifactDescriptor(
+                backend: backend,
+                dimensions: dimensions,
+                sourceFingerprint: SourceFingerprint(source: source),
+            ),
+            payload: payload,
+        )
+    }
+
+    func recordURLs() -> [URL] {
+        (try? FileManager.default.contentsOfDirectory(
+            at: store.storageDirectory,
+            includingPropertiesForKeys: nil,
+        )) ?? []
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: root)
+    }
 }

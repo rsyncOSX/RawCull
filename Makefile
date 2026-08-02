@@ -14,12 +14,28 @@ SMOKE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/FocusNumericHelperTests' \
 	'-only-testing:RawCullTests/ApertureHintTests' \
 	'-only-testing:RawCullTests/ISOScalingTests' \
+	'-only-testing:RawCullTests/CullingModelTests/`cancelling similarity ranking stops its owned distance helper`()' \
 	'-only-testing:RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()' \
 	'-only-testing:RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()' \
 	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
-	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()'
+	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()' \
+	'-only-testing:RawCullTests/DeepAIReviewFeatureTests' \
+	'-only-testing:RawCullTests/RawCullAIIntegrationTests' \
+	'-only-testing:RawCullTests/RawCullSemanticSearchTests' \
+	'-only-testing:RawCullTests/RawCullSemanticSearchUITests' \
+	'-only-testing:RawCullTests/PerFileAnalysisArtifactStoreTests' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipWholeBatchFallback()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipReindexesCompleteBatch()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionArtifactsAreDescriptorComplete()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/rankingPolicyIsPreserved()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/legacyCacheIsInvalidated()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/durableIndexingIsIncrementalAcrossRelaunches()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/durableStoreSeparatesSimilarityBackends()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/durableStorePreservesPartialSuccesses()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/legacyBurstArtifactsMigrateIntoDurableStore()'
 PERFORMANCE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
+	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()' \
+	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionIndexingAndRankingBenchmark()'
 
 # Default target is release build
 build: clean archive sign-app notarize staple prepare-dmg open

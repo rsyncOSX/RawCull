@@ -38,6 +38,10 @@ extension RawCullViewModel {
     func cancelCatalogLoad() {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
+        similarityHydrationTask?.cancel()
+        similarityHydrationTask = nil
+        semanticSimilarityHydrationTask?.cancel()
+        semanticSimilarityHydrationTask = nil
         activeCatalogLoadURL = nil
         currentselectedSource = nil
         cancelAndResetBurstAnalysis()
@@ -106,6 +110,8 @@ extension RawCullViewModel {
 
         files = scannedFiles
         await similarityModel.hydrateArtifacts(scannedFiles)
+        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        await similarityModel.hydrateSemanticArtifacts(scannedFiles)
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         filteredFiles = applyFilters(to: sortedFiles)
         preselectFirstVisibleFileByName()
@@ -200,6 +206,31 @@ extension RawCullViewModel {
         issorting = false
     }
 
+    /// Snapshot the current non-semantic catalog ordering and metadata
+    /// admission. Semantic ranking is applied after these filters, so ratings
+    /// and filename filtering continue to compose with text search.
+    func semanticSearchAdmissionSnapshot() async -> [FileItem] {
+        let sorted = await ScanFiles.sortFiles(
+            files,
+            by: sortOrder,
+            searchText: searchText,
+        )
+        return applyNonSemanticFilters(to: sorted)
+    }
+
+    /// The active catalog working set. Semantic search turns its selected
+    /// highest-ranked results into a durable scope shared by every catalog
+    /// workflow until the search is cleared or the catalog is reindexed.
+    var activeCatalogFiles: [FileItem] {
+        guard similarityModel.hasSemanticSearchResults else { return files }
+        let selectedIDs = similarityModel.semanticSearchSelectedFileIDs
+        return files.filter { selectedIDs.contains($0.id) }
+    }
+
+    var hasActiveSemanticSearchSelection: Bool {
+        similarityModel.hasSemanticSearchResults
+    }
+
     // MARK: - Helpers
 
     func isActiveCatalogLoad(_ url: URL) -> Bool {
@@ -214,19 +245,45 @@ extension RawCullViewModel {
             .id
     }
 
+    func reconcileThumbnailSelectionWithSemanticSearch() {
+        guard hasActiveSemanticSearchSelection else { return }
+
+        let visibleIDs = Set(filteredFiles.map(\.id))
+        selectedFileIDs.formIntersection(visibleIDs)
+
+        guard let firstVisibleID = filteredFiles.first?.id else {
+            selectedFileID = nil
+            return
+        }
+        if selectedFileID.map(visibleIDs.contains) != true {
+            selectedFileID = firstVisibleID
+        }
+    }
+
     /// Applies the active rating filter and sharpness sort to a pre-sorted file list.
     /// When similarity mode is active, similarity sort runs last and takes precedence
     /// over sharpness sort, with the anchor image always ranked first.
     private func applyFilters(to files: [FileItem]) -> [FileItem] {
-        var result = files
-        if ratingFilter != .all {
-            result = result.filter { passesRatingFilter($0) }
+        var result = applyNonSemanticFilters(to: files)
+        if similarityModel.hasSemanticSearchResults {
+            let resultOrder = similarityModel.semanticResultOrder
+            result = result.filter { resultOrder[$0.id] != nil }
+            result.sort { lhs, rhs in
+                let leftOrder = resultOrder[lhs.id] ?? .max
+                let rightOrder = resultOrder[rhs.id] ?? .max
+                if leftOrder != rightOrder {
+                    return leftOrder < rightOrder
+                }
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+            return result
         }
-        if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
-            let scores = sharpnessModel.scores
-            result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        if similarityModel.semanticSearchHasEmptyIndex {
+            return []
         }
-        // Similarity sort takes precedence over sharpness sort when active.
+
+        // Image-to-image similarity sort takes precedence over sharpness when
+        // semantic search is not active.
         if similarityModel.sortBySimilarity, !similarityModel.distances.isEmpty {
             let distances = similarityModel.distances
             let anchorID = similarityModel.anchorFileID
@@ -245,6 +302,18 @@ extension RawCullViewModel {
                 }
                 return lhs.name < rhs.name
             }
+        }
+        return result
+    }
+
+    private func applyNonSemanticFilters(to files: [FileItem]) -> [FileItem] {
+        var result = files
+        if ratingFilter != .all {
+            result = result.filter { passesRatingFilter($0) }
+        }
+        if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
+            let scores = sharpnessModel.scores
+            result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
         }
         return result
     }

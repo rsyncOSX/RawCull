@@ -259,7 +259,7 @@ struct ZoomOverlayLaunchContextTests {
 @Suite("ZoomViewportMath")
 struct ZoomViewportMathTests {
     @Test(.tags(.smoke))
-    func `actual-pixels scale maps fitted preview back to image pixels`() {
+    func `inspection scale maps fitted preview to sixty percent of image pixels`() {
         let scale = ZoomViewportMath.actualPixelsScale(
             imageSize: CGSize(width: 6000, height: 4000),
             viewportSize: CGSize(width: 1500, height: 1000),
@@ -269,13 +269,13 @@ struct ZoomViewportMathTests {
     }
 
     @Test(.tags(.smoke))
-    func `actual-pixels scale maps fit-upscaled preview back to image pixels`() {
+    func `inspection scale reduces a fit-upscaled preview to sixty percent of image pixels`() {
         let scale = ZoomViewportMath.actualPixelsScale(
             imageSize: CGSize(width: 800, height: 600),
             viewportSize: CGSize(width: 1600, height: 1200),
         )
 
-        #expect(scale == 0.5)
+        #expect(scale == 0.3)
     }
 
     @Test(.tags(.smoke))
@@ -286,8 +286,8 @@ struct ZoomViewportMathTests {
             normalizedFocusPoint: CGPoint(x: 0.40, y: 0.50),
         )
 
-        #expect(transform.scale == 4.0)
-        #expect(transform.offset.width == 600.0)
+        #expect(transform.scale == 2.4)
+        #expect(transform.offset.width == 360.0)
         #expect(transform.offset.height == 0.0)
     }
 
@@ -299,7 +299,7 @@ struct ZoomViewportMathTests {
             normalizedFocusPoint: nil,
         )
 
-        #expect(transform.scale == 4.0)
+        #expect(transform.scale == 2.4)
         #expect(transform.offset == .zero)
     }
 }
