@@ -192,12 +192,12 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     completeTextURL: requiredURL(
                         "https://huggingface.co/facebook/sam3/blob/main/LICENSE",
                     ),
-                    bundledTextResourceName: nil,
-                    textSHA256: nil,
+                    bundledTextResourceName: "SAM3-SAM-License-2025-11-19",
+                    textSHA256: "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
                     requiresExplicitAcceptance: true,
                 ),
                 releaseReadiness: .blocked(
-                    reason: "Redistribution remains disabled until RawCull packages the complete SAM License and confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
+                    reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
                 ),
             ),
         ],

@@ -4,6 +4,12 @@
 manifest skeleton for the three optional model bundles. It contains no model
 files and is not served by the application.
 
+`Notices` is the checked-in source for each pack's licence, attribution, and
+provenance catalog. Copy the matching catalog into the release staging tree at
+`Notices/<bundle-name>` before packaging. A catalog documents known evidence;
+its presence does not override a release blocker in
+`RawCullAIModelDownloadCatalog.production`.
+
 Before publishing a pack:
 
 1. Resolve the corresponding release blocker in

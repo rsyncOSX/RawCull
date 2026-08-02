@@ -1,0 +1,52 @@
+{
+  "catalog_version": 1,
+  "release_status": "blocked",
+  "release_blocker": "The exact source checkpoint used by the exporter was not cryptographically bound to the converted asset.",
+  "model": {
+    "bundle": "CLIP-DataComp",
+    "asset": "Models/CLIP-DataComp/ViT-B-32-256-datacomp_s34b_b86k_float16_static.aimodel",
+    "architecture": "ViT-B-32-256",
+    "pretrained": "datacomp_s34b_b86k",
+    "precision": "float16",
+    "static_shapes": true,
+    "runtime_main_mlirb_sha256": "70b6a8b3502626dbfd4e228dff1e060e06606c93e7a19c8f260dba95b9a7d01e",
+    "exporter_fingerprint_algorithm": "directory-tree-sha256-v1",
+    "exporter_fingerprint": "7767e107112578d4556c04818fdb77f4f41d601e677c8ee5df71268139ce3ba3"
+  },
+  "upstream": {
+    "project": "mlfoundations/open_clip",
+    "model_url": "https://huggingface.co/laion/CLIP-ViT-B-32-256x256-DataComp-s34B-b86K",
+    "reference_revision": "4afec35ffe57a943d569ff7ee888061830164da8",
+    "source_revision_recorded_by_exporter": null,
+    "source_weight_sha256": null
+  },
+  "tokenizer": {
+    "source": "openai/clip-vit-base-patch32",
+    "tokenizer_json_sha256": "6d9109cc838977f3ca94a379eec36aecc7c807e1785cd729660ca2fc0171fb35"
+  },
+  "conversion": {
+    "producer": "coreai-core 1.0.0b2",
+    "model_creation_date": "2026-07-27T13:53:46Z",
+    "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286"
+  },
+  "licences": [
+    {
+      "component": "OpenCLIP/DataComp",
+      "spdx": "MIT",
+      "file": "OpenCLIP-DataComp-MIT.txt",
+      "sha256": "6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986"
+    },
+    {
+      "component": "OpenAI CLIP tokenizer",
+      "spdx": "MIT",
+      "file": "OpenAI-CLIP-Tokenizer-MIT.txt",
+      "sha256": "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e"
+    },
+    {
+      "component": "Apple coreai-models conversion recipe",
+      "spdx": "BSD-3-Clause",
+      "file": "Apple-coreai-models-BSD-3-Clause.txt",
+      "sha256": "6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e"
+    }
+  ]
+}
