@@ -451,6 +451,477 @@ All boxes must be checked before tagging 2.3.4:
 - [ ] The final commit is merged into `RawCullAIModels` or a follow-up merge is explicitly tracked.
 - [ ] The release tag points at the exact tested commit.
 
+## Detailed issue-closure execution plan
+
+This section turns the work items above into an implementation and verification
+sequence. It is based on the repository state inspected on 3 August 2026. It is
+a plan, not a claim that the commands below have already passed.
+
+### Current-state reconciliation
+
+Before implementation, record the current state in the release issue or pull
+request so that completed work is verified rather than repeated:
+
+- ZoomViewportMath.actualPixelsScale still returns 0.6 / fitScale.
+  ZoomViewportMathTests currently contain mixed 60% and 1:1 expectations, so
+  work item 1 remains open.
+- HistogramView still contains the reachable initial-load fatalError, does not
+  clear bins for nil or failed conversion, and starts independent tasks from
+  both .task and .onChange; work item 2 remains open.
+- make test-smoke still uses a manually maintained SMOKE_ONLY_TESTING list.
+  The smoke plan itself includes the whole test target and the Makefile list
+  omits ZoomViewportMathTests; work item 3 remains open.
+- Thumbnail disk, preview-memory, and grid-memory caches are still keyed by URL
+  alone. The disk key has schema version v2-oriented-thumbnails but contains no
+  source size, modification date, purpose, or requested size. Work item 4
+  remains open.
+- ThumbnailLoader still contains the scan/grid contention TODO. Scan and UI
+  paths independently check caches and extract, so identical work is not
+  coalesced. Work item 5 remains open.
+- The similarity artifact implementation and its focused persistence tests are
+  present. Work item 6 is primarily a regression gate unless a test or manual
+  scenario fails.
+- Dual single/double-click image gestures are intentional and must remain.
+  Purely single-action rows in SavedFilesView are concrete candidates for the
+  bounded accessibility change. Work item 7 remains an audit, not a mandatory
+  refactor.
+- The project already contains MARKETING_VERSION = 2.3.4,
+  CURRENT_PROJECT_VERSION = 231, MACOSX_DEPLOYMENT_TARGET = 26.2, Swift 6,
+  complete strict concurrency for the test target, Main Actor default isolation,
+  and Approachable Concurrency. AboutRawCullView already reads bundle version
+  values. Verify these items in built products rather than editing them again.
+- Package.resolved contains RawParserKit 1.2.8 and RawCullCore 1.1.2, but the
+  README table still says 1.2.6 and 1.1.0. The README correction remains open.
+
+### Phase 0: establish the closure ledger and reproducible baseline
+
+1. Create one tracked checklist with rows for work items 1–8 and columns for
+   owner, implementation commit, focused test command, manual evidence,
+   regression result, and closure decision. Link every failure to a work-item
+   row instead of expanding the release scope informally.
+2. Record the exact starting commit, Xcode build, Swift version, macOS version,
+   architecture, and resolved package checksum. Keep the released 2.3.3 test
+   fixture or installed application available for upgrade testing.
+3. Confirm the worktree contains no unrelated edits before each implementation
+   commit. Do not fold current loupe-view work or macOS 27/Core AI changes into
+   the stabilization commits.
+4. Run the current gates once and attach the result bundles:
+
+   ~~~bash
+   make test-smoke
+   make test-full
+   make test-performance
+   ~~~
+
+   The expected baseline is that the zoom mismatch makes the complete run red.
+   Any additional failure gets its own ledger entry and is triaged as release
+   blocking, pre-existing/non-blocking, or out of scope.
+5. Save the enumerated tests and executed test count from each gate. This is the
+   comparison point for detecting omitted or duplicated suites after the gate
+   repair.
+6. Capture a clean Release build log with exact resolved packages. Do not sign,
+   notarize, or distribute this diagnostic build.
+
+### Phase 1: close work item 1 — Actual Pixels
+
+#### Product decision and code change
+
+1. Record the product decision in the closure ledger: for 2.3.4, “Actual
+   Pixels” means one source-image pixel per display point before backing-scale
+   conversion, represented by 1.0 / fitScale in the existing fit-relative
+   transform. If the intended definition is one source pixel per physical
+   display pixel, stop and specify backing-scale behavior before changing code.
+2. In RawCull/Views/ZoomViews/ZoomOverlayView.swift, change
+   actualPixelsScale to return 1.0 / fitScale.
+3. Strengthen input validation in aspectFitRect and actualPixelsScale: every
+   image and viewport dimension must be positive and finite, and all derived
+   scales and sizes must be finite. Return the documented fallback transform,
+   scale 1 and zero offset, for invalid input.
+4. Keep clampedOffset as the single edge-bounding function. Add guards if a
+   non-finite focus point could otherwise produce a non-finite offset.
+5. Search the project for “Actual Pixels”, “actual-pixels”, “60%”, 0.6, and the
+   Z shortcut. Confirm menu text, tooltips, accessibility text, launch context,
+   loupe actions, and help text all describe the 1:1 behavior.
+6. Do not change ordinary zoom increments, pan gestures, source-selection
+   behavior, or focus metadata interpretation in this commit.
+
+#### Automated verification
+
+1. Expand ZoomViewportMathTests in
+   RawCullTests/ZoomOverlayKeyActionTests.swift. Prefer parameterized cases for
+   landscape, portrait, fit-downscaled, fit-upscaled, and mismatched aspect
+   ratios.
+2. Correct both existing scale expectations and both transform expectations to
+   the same 1:1 definition.
+3. Add cases for zero, negative, infinity, NaN, and degenerate dimensions.
+4. Add normalized focus points at the center and near all four corners. Verify
+   both centerability and edge clamping.
+5. Assert every returned scale and offset component is finite.
+6. Run the focused suite first, then the smoke gate:
+
+   ~~~bash
+   xcodebuild test \
+     -project RawCull.xcodeproj \
+     -scheme RawCull \
+     -destination 'platform=macOS' \
+     -onlyUsePackageVersionsFromResolvedFile \
+     -only-testing:RawCullTests/ZoomViewportMathTests
+   make test-smoke
+   ~~~
+
+#### Manual closure
+
+Run the seven manual scenarios listed in work item 1 on both a Retina display
+and any available non-Retina/external display. Record image dimensions,
+viewport dimensions, display scale, initial transform, and screenshots for one
+landscape and one portrait file. Close the item only when the naming decision,
+unit tests, and observed result agree.
+
+### Phase 2: close work item 2 — histogram safety and stale publication
+
+#### Code change
+
+1. Replace the separate .task and .onChange loaders in
+   RawCull/Views/Histogram/HistogramView.swift with one lifecycle path,
+   preferably .task(id: imageIdentity). Use the NSImage object identity or a
+   caller-supplied file/load identity that changes whenever the inspected image
+   changes.
+2. At the start of each task, set normalizedBins = []. A nil image or failed
+   CGImage conversion should log once and return with empty bins.
+3. Remove the fatalError. Treat conversion failure as a recoverable display
+   failure and keep the inspector usable.
+4. Perform histogram calculation away from the main actor. After awaiting it,
+   check cancellation before assigning bins. This prevents the cancelled image
+   A task from publishing after image B has started.
+5. Prefer a structured async helper marked for concurrent execution over
+   creating an additional unstructured task. If a detached task remains
+   necessary because the image API is not safely transferable, document the
+   ownership invariant and keep all CGImage use inside that task.
+6. In FileInspectorView, make its owned @State private and clear the image when
+   the selected file/load identity changes so a previous file cannot remain
+   visible while the new thumbnail loads.
+7. Keep the existing non-modal behavior. The structured log should include the
+   operation and, where available, the file identity without exposing an entire
+   user path unnecessarily.
+
+#### Test seam and tests
+
+1. Extract a small testable histogram-loading boundary that accepts an image
+   conversion function and a histogram calculator. Production defaults use
+   NSImage.cgImage and HistogramCalculator; tests inject failure and suspended
+   calculations without requiring malformed fixture files.
+2. Add RawCullTests/HistogramLoadingTests.swift with tests for nil input,
+   conversion failure, valid normalized bins, valid-to-nil clearing, and
+   superseded slow result A versus fast result B.
+3. Avoid timing sleeps. Use an actor-backed gate or Swift Testing confirmation
+   so the test controls exactly when A and B complete.
+4. Run the focused tests repeatedly and with Thread Sanitizer. Close only when
+   no fatalError remains in the histogram path and the supersession test is
+   deterministic.
+
+### Phase 3: close work item 3 — authoritative release gates
+
+1. Enumerate every test carrying .tags(.smoke) and map it to its containing
+   suite. Compare that inventory with SMOKE_ONLY_TESTING; preserve the inventory
+   as review evidence.
+2. First validate whether the installed Xcode version can reliably filter Swift
+   Testing tests by tag from a checked-in test plan and from command line. Use a
+   deliberately failing temporary smoke-tagged sentinel to prove selection; do
+   not infer support merely because Xcode displays tags.
+3. If tag filtering works, configure Smoke.xctestplan as the only smoke
+   selector and remove the duplicate Makefile allow-list. If it does not work,
+   make a checked-in suite manifest the only source of truth, include
+   ZoomViewportMathTests, and add a lightweight validation script/test that
+   fails when a source-level smoke tag belongs to a suite absent from the
+   manifest.
+4. Do not combine a target-wide test-plan inclusion with an incomplete
+   -only-testing list and then describe the result as “all smoke tags.”
+5. Use xcodebuild -enumerate-tests or the Xcode 26 equivalent to capture the
+   resolved test list for Smoke, RawCull, and Performance. Compare identifiers
+   and counts to find the duplicate suite reporting observed in review.
+6. Inspect RawCull.xcodeproj/xcshareddata/xcschemes/RawCull.xcscheme and the
+   three test plans. Ensure the test target is declared once per selected plan,
+   only one plan is selected per command, and Makefile filtering does not cause
+   a second invocation.
+7. Keep tests parallelizable unless they share a real filesystem or singleton
+   dependency. Give each filesystem test its own temporary directory. Use
+   .serialized only for a narrowly documented suite that cannot yet be isolated.
+8. Keep Thread Sanitizer exclusively in make test-full. Keep the dedicated
+   extreme-load test in make test-performance, but clarify in the Makefile and
+   test documentation that this target is a stress/data-race gate rather than a
+   benchmark unless actual performance assertions are added.
+9. Update RawCullTests/TEST_ARCHITECTURE.md and the README with the exact
+   selection mechanism, the rule for adding a smoke test, and the expected role
+   of each command.
+10. Prove the gate by temporarily breaking one smoke test, observing
+    make test-smoke fail, restoring it, and observing the gate pass. Attach both
+    command excerpts to the ledger; do not commit the intentional failure.
+
+### Phase 4: close work item 4 — thumbnail identity and size correctness
+
+#### Define one identity model
+
+1. Add an immutable, Hashable, Sendable ThumbnailSourceFingerprint containing
+   standardized file URL/path, file size, modification date with documented
+   precision, and cache schema version.
+2. Add a ThumbnailRepresentation value containing purpose (grid or preview)
+   and requested maximum pixel size. Combine source and representation into one
+   ThumbnailRequestKey.
+3. Decide size-reuse semantics explicitly: an artifact may satisfy an equal or
+   smaller request only when its decoded maximum dimension is at least the
+   requested dimension. A 200-pixel grid image must never satisfy a 1024/1616-
+   pixel preview request.
+4. Create fingerprints from existing FileItem.size and FileItem.dateModified
+   for file-based UI calls. For URL-only calls, read .fileSizeKey and
+   .contentModificationDateKey once at the boundary. If metadata cannot be
+   read, bypass persistent reuse for that request rather than falling back to a
+   path-only key that can return stale content.
+5. Reuse the same source-fingerprint rules already proven by
+   SimilarityArtifactSourceFingerprint, but keep thumbnail and analysis
+   pipeline versions separate.
+
+#### Apply the identity to every layer
+
+1. Change DiskCacheManager.load/save to accept a request key. Bump the disk
+   schema to v3 and hash the complete deterministic key. Keep atomic writes.
+2. Change SharedMemoryCache preview and grid cache keys from bare NSURL to
+   stable request-key objects. Update eviction diagnostics so recent eviction
+   and boomerang metrics compare the same request identity.
+3. Add a RequestThumbnail.requestThumbnail(for: FileItem, targetSize:purpose:)
+   entry point and migrate ThumbnailLoader, ComparisonImageLoader,
+   ZoomPreviewHandler, and FileInspectorView to it. Keep a URL overload only
+   for callers that truly lack scanned metadata.
+4. Update ScanAndCreateThumbnails to build the same key. Prefer passing the
+   already scanned FileItem collection into preload rather than rediscovering
+   URLs; if that is too invasive, collect size/date alongside discovery once.
+5. Verify thumbnail setting changes. If thumbnailSizePreview changes, the new
+   size key must miss an insufficient entry; sharpening settings must not be
+   part of the extraction cache key because sharpening is applied after
+   retrieval, unless a sharpened representation is itself persisted.
+6. Preserve the full-size embedded/developed cache identity in this commit.
+   Track it separately only if a focused reproduction proves the same bug.
+7. Ensure cache clear deletes v2 and v3 disk artifacts and clears every
+   in-memory key. Because thumbnails are disposable, do not migrate v2 files.
+
+#### Tests and closure
+
+1. Add pure key tests: same metadata produces the same key; standardized
+   equivalent paths match; size, date, schema, purpose, and requested size each
+   change the appropriate identity.
+2. Use an isolated temporary catalog to test replacement at the same path.
+   Write source A, cache its thumbnail, replace it with source B while changing
+   size or modification date, and prove B cannot receive A's entry.
+3. Test 200 to 1024 miss, 1024 to 200 permitted reuse if implemented, v2
+   ignore, clear of both schemas, atomic write/cancellation, missing metadata
+   bypass, and corrupt JPEG recovery.
+4. Update existing disk-cache, scan-admission, provider, and memory diagnostic
+   tests rather than leaving parallel URL-key and fingerprint-key behavior.
+5. Manually replace a real RAW file at the same path while RawCull is closed
+   and while it is open. Confirm the grid, preview, and zoom source refresh
+   without altering ratings or saved records.
+
+### Phase 5: close work item 5 — scan/grid contention
+
+#### Measure first
+
+1. Add counters or signposts around request admission, RAM hit, disk hit, cold
+   extraction start/end, coalesced waiter, cancellation, and active extraction
+   count. Keep this instrumentation low-cost and available in diagnostics.
+2. Use one fixed uncached catalog and the four scenarios in work item 5. Run
+   each scenario at least three times after clearing only disposable thumbnail
+   caches. Record median scan duration and duplicate cold extractions by
+   ThumbnailRequestKey.
+3. Set the ship/no-ship threshold before implementing: ship coalescing when
+   opening a grid causes repeat extraction of the same key or a material,
+   repeatable scan regression. Otherwise retain the measurements and remove
+   only the stale TODO wording.
+
+#### Preferred implementation
+
+1. Build coalescing on the Phase 4 request key. Keep a shared in-flight registry
+   in the actor that owns thumbnail extraction and persistence, with one task
+   per key and explicit waiter accounting.
+2. Both scan and UI paths must call that coordinator after cache misses. The
+   first caller creates work; later callers await the same result. Do not create
+   separate scan and UI registries.
+3. Define cancellation ownership before coding: cancelling one waiter removes
+   only that waiter; underlying extraction is cancelled only when no scan or UI
+   consumer remains. Cancelling a catalog load releases its waiters and does
+   not cancel work still required by a UI consumer.
+4. Remove the registry entry in one completion path for success, failure, and
+   cancellation. Never leave a failed task reusable.
+5. Keep the existing admission bound. Count an in-flight key once regardless
+   of waiter count, and assert observed active extraction never exceeds the
+   configured limit.
+6. Because the project uses Swift 6, Main Actor default isolation, and strict
+   test-target concurrency, pass immutable values across actors. Avoid
+   @unchecked Sendable, detached tasks, or unsafe isolation solely to make
+   coalescing compile. If image objects cannot cross the boundary safely, let
+   the extraction owner encode a Data payload and decode it at the consumer.
+7. Preserve cache-admission policy: scan fills the grid/disk layers; UI demand
+   may promote to the preview-memory layer. Coalescing identical extraction
+   must not make scan traffic pollute the UI LRU.
+
+#### Low-risk fallback
+
+If coalescing cannot be made cancellation-safe without broad architecture
+change, disable normal and rated grid interaction only while thumbnail
+extraction is active. Drive disabled/progress state from the active catalog-load
+identity, and clear it in success, cancellation, supersession, and failure
+paths. Document this as the 2.3.4 fallback and retain coalescing as follow-up
+work.
+
+#### Tests and closure
+
+Add deterministic actor-gated tests for one extraction with scan plus UI
+waiters, different-key concurrency bounds, single-waiter cancellation,
+last-waiter cancellation, catalog cancellation, failure cleanup, retry after
+failure, and no continuation leak. Re-run the same measurement matrix and
+attach before/after results. Close only when duplicate extraction is removed or
+the fallback demonstrably prevents it, cancellation stays prompt, and full TSan
+passes.
+
+### Phase 6: close work item 6 — similarity persistence regression
+
+1. Map every required behavior to an existing test before adding tests.
+   PerFileAnalysisArtifactStoreTests already covers round-trip identity,
+   corruption isolation, invalid payload rejection, pruning/clear, and
+   cancellation before replacement. SimilarityArtifactPersistenceTests covers
+   model recreation, added/changed files, legacy migration, and partial
+   generation failure. CullingModelTests covers structured cancellation and
+   superseded generations.
+2. Add only uncovered cases: persistence-write failure with usable in-memory
+   results, cancellation after some records commit, analysis-cache clearing
+   that proves ratings/settings remain untouched, and progress reset after each
+   terminal outcome.
+3. Give every persistence test its own temporary directory and immutable
+   fixtures so Swift Testing can retain parallel execution.
+4. Run the focused artifact, indexing, burst-cache, and culling suites before
+   and after thumbnail changes. Thumbnail fingerprints must not change
+   similarity artifact identities.
+5. Execute the seven manual restart/change/refresh/clear scenarios in work item
+   6 using a copy of 2.3.3 user data. Record artifact counts and provider request
+   counts before and after each step.
+6. Close this item as “verified, no production change” if all evidence passes.
+   If a failure appears, make the smallest persistence fix in a separate commit
+   and repeat the whole phase.
+
+### Phase 7: close work item 7 — bounded accessibility audit
+
+1. Inventory each remaining onTapGesture. Preserve double-click zoom and
+   combined single/double selection in ImageItemView, RatedImageItemView,
+   ComparisonImagePaneView, FileDetailView, and ZoomOverlayView.
+2. Convert the catalog and file-record rows in SavedFilesView to borderless
+   Button rows or an equivalent native selectable control. Preserve hover,
+   selection, split-view navigation, and row-wide hit targets.
+3. Add .isSelected accessibility traits to selected normal, rated, and
+   comparison thumbnails without changing their visual selection logic.
+4. Audit ImageSourceToggleView, rating/reject controls, focus-mask and
+   focus-point controls, and burst-review controls for labels, values, enabled
+   state, and keyboard operation. Hide decorative rating strips, dividers, and
+   status glyphs when they duplicate spoken information.
+5. Verify with VoiceOver: navigate every audited control, select a row, open an
+   image with the keyboard, change rating/source, and return focus after
+   dismissal. Also test normal keyboard navigation with VoiceOver off.
+6. Revert any conversion that changes click-count or selection semantics.
+   Accessibility work is closed when the bounded inventory is documented and
+   every shipped change has manual evidence; unbounded redesign requests become
+   separate post-2.3.4 issues.
+
+### Phase 8: close work item 8 — metadata and documentation
+
+1. Verify Debug and Release build settings resolve to 2.3.4 (231). Before
+   upload, confirm build 231 has not already been consumed in App Store Connect;
+   if it has, increment both configurations to the next unused build number.
+2. Build the app and inspect CFBundleShortVersionString, CFBundleVersion,
+   minimum system version, supported architecture, and the About window. Treat
+   built-product values as authoritative.
+3. Update the README package table to RawParserKit 1.2.8 and RawCullCore 1.1.2.
+   Compare every other table row with
+   RawCull.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved,
+   not only the two known stale rows.
+4. Update test documentation after the final gate design is known. Do not
+   document tag filtering if the shipped Makefile uses an explicit manifest.
+5. Write final release notes from shipped changes only. Include contention or
+   accessibility claims only if those changes pass their closure phases.
+6. Add the compatibility statement, known limitations if any, exact tested
+   commit, DMG SHA-256, and minimum macOS version to the release record.
+
+### Phase 9: integrated regression and compatibility pass
+
+1. From a clean checkout of the proposed release commit, resolve only the
+   checked-in package versions and run, in order:
+
+   ~~~bash
+   make test-smoke
+   make test-full
+   make test-performance
+   xcodebuild \
+     -project RawCull.xcodeproj \
+     -scheme RawCull \
+     -configuration Release \
+     -destination 'platform=macOS,arch=arm64' \
+     -onlyUsePackageVersionsFromResolvedFile \
+     build
+   ~~~
+
+2. Save .xcresult bundles and logs. Confirm stable test enumeration, zero
+   duplicate identifiers, no failure, no hang, and no new RawCull compiler or
+   concurrency warning.
+3. Run the full manual QA matrix above. For upgrade testing, duplicate the 2.3.3
+   Application Support and cache directories first, then use the duplicate with
+   2.3.4 so the original recovery fixture remains untouched.
+4. Compare ratings, tags, sharpness/saliency, manual burst winners, review
+   states, settings, and saved-file records before and after launch. Disposable
+   thumbnail cache misses are expected; persistent decision loss is a release
+   blocker.
+5. Repeat critical cancellation and cache-replacement scenarios on the minimum
+   supported macOS 26.2 machine and the latest available macOS 26 update.
+6. File every failure against its owning phase, fix it in that phase's commit,
+   and rerun that focused suite plus all later phases. Do not waive a red P0
+   gate.
+
+### Phase 10: package, release, and forward-merge
+
+1. Freeze the exact green commit. Build the Release archive from that commit
+   without source changes between testing and packaging.
+2. Verify code signing, hardened runtime, entitlements, notarization acceptance,
+   stapling, Gatekeeper assessment, clean-account installation, launch, and
+   upgrade from 2.3.3.
+3. Compute and publish the DMG SHA-256. Verify the downloaded release artifact
+   reproduces the published hash.
+4. Upload the App Store build only after its bundle metadata and minimum system
+   version are verified. Record the App Store build number in the ledger.
+5. Tag the exact tested commit as 2.3.4 and confirm the tag resolves to that
+   commit.
+6. Forward-merge the independent stabilization commits into RawCullAIModels.
+   Resolve macOS 27/Core AI differences there rather than changing the 2.3.4
+   release commit.
+7. Run the successor branch's smoke tests after the merge and create a tracked
+   follow-up for any intentionally deferred contention or accessibility work.
+
+### Required evidence to mark the release plan complete
+
+The release issue may be closed only when it contains:
+
+- the exact tested commit and environment;
+- implementation commit links for every changed work item;
+- focused test results for work items 1–6;
+- smoke failure-sentinel proof and final smoke enumeration;
+- full TSan and stress-gate result bundles;
+- before/after contention measurements or an explicit measured no-change
+  decision;
+- 2.3.3 persistence-upgrade comparison results;
+- Actual Pixels, histogram, cache replacement, cancellation, accessibility, and
+  core-workflow manual QA evidence;
+- built-product version/minimum-system/architecture inspection;
+- signed/notarized/stapled installation evidence and DMG SHA-256;
+- the release tag and RawCullAIModels forward-merge reference.
+
+Any unchecked P0 row, unexplained test-count change, persistent-data mismatch,
+reproducible crash, stale thumbnail after source replacement, stale async state
+publication, or unresolved TSan report keeps 2.3.4 open.
+
 ## Suggested implementation order
 
 1. Resolve the Actual Pixels product decision and fix the math/tests.
@@ -491,4 +962,3 @@ After release:
 3. Monitor crash reports and user feedback during the macOS 27 transition.
 4. Do not backport new AI or macOS 27 features.
 5. Backport only critical fixes that meet the maintenance criteria at the start of this document.
-
