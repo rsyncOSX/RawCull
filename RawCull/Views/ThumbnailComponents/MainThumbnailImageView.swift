@@ -5,6 +5,8 @@ nonisolated enum LoupeImageKeyAction: Equatable {
     case zoomOut
     case toggleEmbeddedJPG
     case toggleDevelopedRAW
+    case toggleFocusMask
+    case toggleFocusPoints
     case inspectActualPixels
 
     nonisolated static func resolve(characters: String?) -> LoupeImageKeyAction? {
@@ -20,6 +22,12 @@ nonisolated enum LoupeImageKeyAction: Equatable {
 
         case "r", "R":
             .toggleDevelopedRAW
+
+        case "f", "F":
+            .toggleFocusMask
+
+        case "a", "A":
+            .toggleFocusPoints
 
         case "z", "Z":
             .inspectActualPixels
@@ -182,7 +190,7 @@ struct MainThumbnailImageView: View {
                         .focusable()
                         .focused($isImageFocused)
                         .focusEffectDisabled(true)
-                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRzZ")) { press in
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAzZ")) { press in
                             handleKeyAction(LoupeImageKeyAction.resolve(characters: press.characters))
                         }
                         .onAppear { isImageFocused = true }
@@ -345,6 +353,14 @@ struct MainThumbnailImageView: View {
 
         case .toggleDevelopedRAW:
             sourceSelection.toggleExtractionSource(.developedRAW)
+            return .handled
+
+        case .toggleFocusMask:
+            showFocusMask.toggle()
+            return .handled
+
+        case .toggleFocusPoints:
+            showFocusPoints.toggle()
             return .handled
 
         case .inspectActualPixels:
