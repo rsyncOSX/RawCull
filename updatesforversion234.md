@@ -510,7 +510,7 @@ complete only after its focused verification and commit succeed.
 | 7 — Accessibility | Implementation complete | Saved-file rows use native buttons; bounded labels, values, actions, and selected traits added; Debug build and smoke gate passed; physical VoiceOver/keyboard evidence remains in Phase 9 |
 | 8 — Metadata and documentation | Local verification complete | Debug and Release resolve and build as 2.3.4 (231), macOS 26.2, arm64; README matches all seven resolved packages; App Store build-number availability remains a Phase 10 pre-upload check |
 | 9 — Integrated regression | Automated gates complete; manual gates pending | Final smoke 93/101, full TSan 270/295, stress 1/1, and exact-package Release arm64 build passed; release-hardware, VoiceOver, real-catalog, minimum-OS, and copied-2.3.3-data matrix remains blocking |
-| 10 — Release handoff | Pending | — |
+| 10 — Release handoff | Prepared; distribution blocked | AI-safe 3.0.0 plan created from inspected main/version-3.0.0 commit 2857a6b; signing/notarization/upload/hash/tag correctly blocked on manual Phase 9 evidence and App Store build-number confirmation |
 
 #### Phase 0 baseline evidence
 
@@ -794,6 +794,42 @@ complete only after its focused verification and commit succeed.
   scan-contention measurements, upgrade/restart behavior using copied 2.3.3
   data, clean-account installation, minimum macOS 26.2, and the latest macOS 26
   hardware matrix remain blocking manual release checks.
+
+#### Phase 10 release-handoff evidence
+
+- The current candidate is commit `de58ca3`, containing the independently
+  committed Phase 0–9 work. It is not declared the final tested release commit
+  because the manual Phase 9 matrix has not been completed.
+- Packaging, Developer ID distribution signing, notarization submission,
+  stapling, DMG publication, App Store upload, and creation of tag `2.3.4` were
+  intentionally not started. Phase 10 requires the missing manual evidence and
+  confirmation that App Store build 231 is unused before any of those external
+  or irreversible release actions.
+- Added `updatesforversion300.md`, based on read-only inspection of local
+  `main` and `version-3.0.0` at
+  `2857a6b3a095425b06bbe8c8f757e32f2cd07664`. The plan classifies every
+  2.3.4 requirement and maps applicable behavior to AI-native code paths,
+  focused tests, AI regression matrices, acceptance criteria, and rollback
+  boundaries. It explicitly prohibits merging or mechanically transplanting
+  the maintenance implementation.
+- No 3.0.0 production code, tests, packages, project settings, model resources,
+  branch pointers, or Git history were changed while creating the plan. No
+  3.0.0 test result is claimed.
+
+#### Actions required to unblock final 2.3.4 release
+
+1. Complete the physical/manual Phase 9 matrix and attach results, including
+   copied 2.3.3 persistence, minimum macOS 26.2, latest macOS 26, VoiceOver,
+   actual-pixel display behavior, real RAW replacement, scan diagnostics, and
+   clean-account installation.
+2. Confirm build 231 is unused in App Store Connect. If it is consumed, update
+   both configurations and rerun metadata inspection and Phases 9–10.
+3. Rerun all four automated gates on the resulting exact clean commit and
+   record that commit as the release candidate.
+4. Archive, sign, notarize, staple, assess, install, and upgrade-test that exact
+   commit. Compute the DMG SHA-256 and verify the downloaded artifact.
+5. Upload only the verified build, then tag the exact tested commit as 2.3.4
+   and preserve its source, artifacts, hash, release notes, and result bundles.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 
