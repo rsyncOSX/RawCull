@@ -6,10 +6,18 @@ real application behavior, not test-framework setup checks.
 
 ## Test Categories
 
-- Smoke tests: fast deterministic checks selected by `make test-smoke`.
+- Smoke tests: fast deterministic checks carrying `.tags(.smoke)`. The
+  `selectedTags` entry in `Smoke.xctestplan` is the sole selector used by
+  `make test-smoke`; there is no parallel Makefile suite list.
 - Full tests: all test files with Thread Sanitizer enabled through `make test-full`.
-- Performance / stress tests: long-running thread-safety stress checks selected by
-  `make test-performance`.
+- Performance / stress tests: the dedicated extreme-concurrency data-race
+  check selected by `make test-performance`. This is not a timing benchmark
+  unless a future test adds explicit duration assertions.
+
+When adding a smoke test, add `.tags(.smoke)` directly to its `@Test`
+declaration. Keep smoke tests deterministic, isolated, and suitable for every
+developer checkout. Do not add a second suite manifest or `-only-testing`
+entry for smoke coverage. Thread Sanitizer belongs only to the full gate.
 
 ## Shared Test Base
 
@@ -63,6 +71,8 @@ the suite name, tag, or test body.
   culling model behavior.
 - `DiskCacheAndScanAdmissionTests.swift`: thumbnail/full-size disk cache behavior
   and scan admission decisions using temporary cache roots.
+- `HistogramLoadingTests.swift`: recoverable conversion, clearing, and
+  latest-selection-wins behavior for histogram calculation.
 - `RawCullVerifyTestsConcurrencyTests.swift`: isolated shared cache counters and settings
   persistence/concurrency behavior.
 - `RawCullVerifyTestsDataRaceDetectionTests.swift`: TSan-focused shared cache stress

@@ -8,16 +8,6 @@ ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
 SIGNING_IDENTITY = "93M47F4H9T"
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
-SMOKE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/PhotoAnalysisKitIntegrationTests' \
-	'-only-testing:RawCullTests/SharpnessScoringTests' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests' \
-	'-only-testing:RawCullTests/ApertureHintTests' \
-	'-only-testing:RawCullTests/ISOScalingTests' \
-	'-only-testing:RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()' \
-	'-only-testing:RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()' \
-	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
-	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()'
 PERFORMANCE_ONLY_TESTING = \
 	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
 
@@ -29,12 +19,14 @@ debug: clean archive-debug open-debug
 
 # Test targets
 test-smoke:
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO $(SMOKE_ONLY_TESTING)
+	# Smoke.xctestplan selects every Swift Testing test tagged .smoke.
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
 
 test-performance:
+	# Stress/data-race gate; this target contains no timing benchmark assertion.
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance $(PERFORMANCE_ONLY_TESTING)
 
 # --- MAIN WORKFLOW FUNCTIONS --- #

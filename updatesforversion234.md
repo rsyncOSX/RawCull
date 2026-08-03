@@ -503,7 +503,7 @@ complete only after its focused verification and commit succeed.
 | 0 — Baseline | Complete | Baseline captured on 3 August 2026; commit 5da6ff4 |
 | 1 — Actual Pixels | Complete | 1:1 math and invalid-input handling verified by 9 focused tests, with and without Thread Sanitizer; smoke gate passed |
 | 2 — Histogram safety | Complete | Unified cancellable loader; 4 deterministic focused tests passed repeatedly and under Thread Sanitizer; smoke gate passed |
-| 3 — Release gates | Pending | — |
+| 3 — Release gates | Complete | Smoke plan is the sole tag selector; deliberate red/green proof succeeded; Smoke, full TSan, performance stress, and exact-package Release gates passed |
 | 4 — Thumbnail identity | Pending | — |
 | 5 — Scan/grid contention | Pending | — |
 | 6 — Similarity persistence | Pending | — |
@@ -576,6 +576,39 @@ complete only after its focused verification and commit succeed.
   The actor-backed test gate uses no timing sleeps.
 - The focused suite passed normally and twice consecutively under Thread
   Sanitizer, with no sanitizer diagnostic. The wider smoke gate also passed.
+
+#### Phase 3 release-gate evidence
+
+- `Smoke.xctestplan` is now the sole smoke selector and filters the RawCull test
+  target with `selectedTags.tags = ["smoke"]`. The Makefile no longer maintains
+  a second `-only-testing` allow-list. Tests remain parallelizable.
+- The source inventory contains 93 `.tags(.smoke)` declarations across six
+  suites/files. The repaired smoke result contains those 93 unique test
+  identifiers and 101 concrete cases after parameter expansion, including all
+  nine `ZoomViewportMathTests` cases. No suite is invoked a second time.
+- Xcode's test enumerator reports the 255 target candidates for both the Smoke
+  and RawCull plans before plan-level tag filtering. Therefore the executed
+  result bundle, not the pre-filter enumeration count, is the authoritative
+  smoke membership record. The Performance command resolves and executes its
+  single selected stress test.
+- A temporary smoke-tagged test recorded
+  `INTENTIONAL_SMOKE_GATE_PROOF_FAILURE`; `make test-smoke` failed with
+  `xcodebuild` status 65 and Make status 2. The proof file was then removed and
+  the unmodified gate passed. No proof-only source remains in the repository.
+- `make test-full` passed under Thread Sanitizer with 255 unique tests and 280
+  concrete parameterized cases. No sanitizer diagnostic appeared. Its result
+  bundle is
+  `Test-RawCull-2026.08.03_18-51-36-+0200.xcresult` in Xcode DerivedData.
+- `make test-performance` passed the dedicated extreme concurrent-load test;
+  documentation now describes this as a stress/data-race gate, not a timing
+  benchmark. Its result bundle is
+  `Test-RawCull-2026.08.03_18-52-54-+0200.xcresult` in Xcode DerivedData.
+- The exact resolved-package Release arm64 build succeeded. The final restored
+  `make test-smoke` also passed, confirming the checked-in gate is green after
+  the deliberate failure proof.
+- README and `RawCullTests/TEST_ARCHITECTURE.md` now document the one-selector
+  rule, how to add smoke coverage, and the distinct responsibilities of Smoke,
+  full TSan, and Performance commands.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 

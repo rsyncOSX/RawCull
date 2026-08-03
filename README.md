@@ -317,7 +317,10 @@ xcodebuild \
 
 ## Tests
 
-Tests use Apple's Swift Testing framework. Fast package-integration and critical smoke coverage:
+Tests use Apple's Swift Testing framework. `Smoke.xctestplan` is the single
+smoke selector: it runs every test declared with `.tags(.smoke)`. Add the tag
+to any new fast, deterministic release check; no Makefile allow-list needs to
+be updated.
 
 ```bash
 make test-smoke
@@ -329,11 +332,15 @@ Full suite with Thread Sanitizer:
 make test-full
 ```
 
-Performance and extreme-concurrency coverage:
+Dedicated extreme-concurrency stress/data-race coverage:
 
 ```bash
 make test-performance
 ```
+
+This last command is a stress gate, not a timing benchmark; it currently makes
+no performance-duration assertion. Thread Sanitizer is enabled only by
+`make test-full`.
 
 The test suites cover package integration, sharpness and focus metrics,
 structured cancellation, latest-run-wins behavior, memory-cache counters,
