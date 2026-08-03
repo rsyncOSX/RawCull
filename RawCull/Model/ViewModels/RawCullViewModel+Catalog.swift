@@ -6,6 +6,14 @@
 import OSLog
 
 extension RawCullViewModel {
+    var thumbnailPreloadBlocksGrid: Bool {
+        ThumbnailPreloadGridGate.shouldBlock(
+            activeCatalogURL: activeCatalogLoadURL,
+            selectedCatalogURL: selectedSource?.url,
+            hasActivePreloader: currentScanAndCreateThumbnailsActor != nil,
+        )
+    }
+
     func startCatalogLoad(for source: ARWSourceCatalog?) {
         if let url = source?.url,
            currentselectedSource == source,

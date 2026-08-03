@@ -505,7 +505,7 @@ complete only after its focused verification and commit succeed.
 | 2 — Histogram safety | Complete | Unified cancellable loader; 4 deterministic focused tests passed repeatedly and under Thread Sanitizer; smoke gate passed |
 | 3 — Release gates | Complete | Smoke plan is the sole tag selector; deliberate red/green proof succeeded; Smoke, full TSan, performance stress, and exact-package Release gates passed |
 | 4 — Thumbnail identity | Complete | Schema-v3 source/representation keys applied across disk, memory, scan, grid, and preview paths; focused normal/TSan and smoke gates passed |
-| 5 — Scan/grid contention | Pending | — |
+| 5 — Scan/grid contention | Complete | Low-risk catalog-identity grid gate prevents scan/UI competition; per-key extraction diagnostics added; focused normal/TSan and smoke gates passed |
 | 6 — Similarity persistence | Pending | — |
 | 7 — Accessibility | Pending | — |
 | 8 — Metadata and documentation | Pending | — |
@@ -640,6 +640,36 @@ complete only after its focused verification and commit succeed.
 - The authoritative focused RawCull-plan pass succeeded. The affected cache,
   identity, integration, and stress suites also passed under Thread Sanitizer
   with no sanitizer diagnostic. `make test-smoke` passed.
+
+#### Phase 5 scan/grid-contention evidence
+
+- Chose the documented low-risk 2.3.4 fallback instead of introducing a shared
+  extraction-task registry. Scan and UI extraction currently belong to
+  different actors with different cache-admission policies and injectable
+  loaders; moving ownership and image transfer in the final stabilization
+  release would be a broader concurrency change than the measured issue.
+- `ThumbnailPreloadGridGate` binds blocking to the active catalog URL, selected
+  catalog URL, and presence of that catalog's preload actor. Normal, similarity,
+  and rated thumbnail grids are not constructed while this condition is true,
+  so their `.task` thumbnail requests cannot compete with the batch preload.
+  A progress view and Cancel action remain available.
+- Existing catalog lifecycle paths clear the preload actor on success and call
+  `cancelCatalogLoad` on cancellation/supersession; the gate also fails open
+  when the active or selected identity disappears. Deterministic tests cover
+  matching, mismatched, inactive, cancelled/superseded identity states.
+- Removed the stale grid-contention TODO from `ThumbnailLoader` and documented
+  the enforced invariant at the fast-path lookup.
+- Added process-wide, lock-protected metrics keyed by `ThumbnailRequestKey` for
+  extraction starts/completions, cancellations, concurrent duplicate starts,
+  coalesced waiters (zero for this fallback), current active work, and peak
+  active work. Both scan and UI cold-decode paths record the same metrics.
+- The Memory Diagnostics console and exported TSV expose these counters, so the
+  fixed-catalog four-scenario matrix can be captured on release hardware
+  without debug-only instrumentation. That real-catalog timing matrix remains
+  a Phase 9 manual release check; no timing result is inferred from unit tests.
+- Three deterministic gate/metrics tests and the existing shared-cache and
+  stress tests passed normally and under Thread Sanitizer, with no sanitizer
+  diagnostic. `make test-smoke` passed.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 

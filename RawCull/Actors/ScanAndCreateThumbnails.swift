@@ -190,6 +190,18 @@ actor ScanAndCreateThumbnails {
         }
         notifyExtractionNeeded()
 
+        if let previewKey {
+            SharedMemoryCache.shared.beginThumbnailExtraction(key: previewKey)
+        }
+        defer {
+            if let previewKey {
+                SharedMemoryCache.shared.endThumbnailExtraction(
+                    key: previewKey,
+                    cancelled: Task.isCancelled,
+                )
+            }
+        }
+
         guard let image = await rawLoader.thumbnailImage(
             for: url,
             maxPixelSize: targetSize,

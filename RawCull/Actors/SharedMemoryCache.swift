@@ -62,6 +62,7 @@ actor SharedMemoryCache {
     private let _demandRequests = OSAllocatedUnfairLock(initialState: 0)
     private let _boomerangMisses = OSAllocatedUnfairLock(initialState: 0)
     private let _evictedRing = OSAllocatedUnfairLock(initialState: EvictedRing())
+    private let _thumbnailExtractions = OSAllocatedUnfairLock(initialState: ThumbnailExtractionMetrics())
 
     // MARK: - Pressure event counters
 
@@ -477,6 +478,23 @@ actor SharedMemoryCache {
         _boomerangMisses.withLock { $0 += 1 }
     }
 
+    /// Records actual source-decode work across both scan and UI paths. A
+    /// duplicate start means the same complete Phase 4 request key was already
+    /// extracting. `coalescedWaiters` remains zero for the 2.3.4 grid-gating
+    /// fallback and is retained so diagnostics can compare a future coalescer.
+    @discardableResult
+    nonisolated func beginThumbnailExtraction(key: ThumbnailRequestKey) -> Bool {
+        _thumbnailExtractions.withLock { $0.begin(key: key) }
+    }
+
+    nonisolated func endThumbnailExtraction(key: ThumbnailRequestKey, cancelled: Bool) {
+        _thumbnailExtractions.withLock { $0.end(key: key, cancelled: cancelled) }
+    }
+
+    nonisolated func thumbnailExtractionMetrics() -> ThumbnailExtractionMetricsSnapshot {
+        _thumbnailExtractions.withLock { $0.snapshot }
+    }
+
     nonisolated func getColdExtractCount() -> Int {
         _cacheCold.withLock { $0 }
     }
@@ -559,6 +577,7 @@ actor SharedMemoryCache {
         _cacheCold.withLock { $0 = 0 }
         _demandRequests.withLock { $0 = 0 }
         _boomerangMisses.withLock { $0 = 0 }
+        _thumbnailExtractions.withLock { $0.reset() }
         _evictedRing.withLock { $0.clear() }
         _pressureWarnings.withLock { $0 = 0 }
         _pressureCriticals.withLock { $0 = 0 }
@@ -636,5 +655,55 @@ private struct EvictedRing {
         }
         set.removeAll(keepingCapacity: true)
         cursor = 0
+    }
+}
+
+private struct ThumbnailExtractionMetrics {
+    private var activeByKey: [ThumbnailRequestKey: Int] = [:]
+    private var starts = 0
+    private var completions = 0
+    private var cancellations = 0
+    private var duplicateStarts = 0
+    private var coalescedWaiters = 0
+    private var activeExtractions = 0
+    private var maximumActiveExtractions = 0
+
+    nonisolated mutating func begin(key: ThumbnailRequestKey) -> Bool {
+        let duplicate = (activeByKey[key] ?? 0) > 0
+        activeByKey[key, default: 0] += 1
+        starts += 1
+        duplicateStarts += duplicate ? 1 : 0
+        activeExtractions += 1
+        maximumActiveExtractions = max(maximumActiveExtractions, activeExtractions)
+        return duplicate
+    }
+
+    nonisolated mutating func end(key: ThumbnailRequestKey, cancelled: Bool) {
+        if let count = activeByKey[key] {
+            if count <= 1 {
+                activeByKey.removeValue(forKey: key)
+            } else {
+                activeByKey[key] = count - 1
+            }
+        }
+        activeExtractions = max(0, activeExtractions - 1)
+        completions += 1
+        cancellations += cancelled ? 1 : 0
+    }
+
+    nonisolated var snapshot: ThumbnailExtractionMetricsSnapshot {
+        ThumbnailExtractionMetricsSnapshot(
+            starts: starts,
+            completions: completions,
+            cancellations: cancellations,
+            duplicateStarts: duplicateStarts,
+            coalescedWaiters: coalescedWaiters,
+            activeExtractions: activeExtractions,
+            maximumActiveExtractions: maximumActiveExtractions,
+        )
+    }
+
+    nonisolated mutating func reset() {
+        self = ThumbnailExtractionMetrics()
     }
 }

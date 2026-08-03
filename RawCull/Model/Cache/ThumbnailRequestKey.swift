@@ -115,6 +115,16 @@ nonisolated struct ThumbnailRequestKey: Hashable, Sendable {
     }
 }
 
+nonisolated struct ThumbnailExtractionMetricsSnapshot: Equatable, Sendable {
+    let starts: Int
+    let completions: Int
+    let cancellations: Int
+    let duplicateStarts: Int
+    let coalescedWaiters: Int
+    let activeExtractions: Int
+    let maximumActiveExtractions: Int
+}
+
 /// NSObject bridge required by NSCache. Equality and hashing use the immutable
 /// value key, so independently-created wrappers address the same cache entry.
 nonisolated final class ThumbnailRequestCacheKey: NSObject, @unchecked Sendable {

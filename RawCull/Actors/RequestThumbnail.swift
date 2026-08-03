@@ -119,6 +119,11 @@ actor RequestThumbnail {
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
+        memoryCache.beginThumbnailExtraction(key: key)
+        defer {
+            memoryCache.endThumbnailExtraction(key: key, cancelled: Task.isCancelled)
+        }
+
         guard let cgImage = await rawLoader.thumbnailCGImage(
             for: url,
             maxPixelSize: key.representation.requestedMaxPixelSize,

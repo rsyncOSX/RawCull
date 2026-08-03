@@ -63,6 +63,13 @@ final class MemoryDiagnosticsViewModel {
         let memEvictions: Int
         let gridEvictions: Int
         let unkEvictions: Int
+        let extractionStarts: Int
+        let extractionCompletions: Int
+        let extractionCancellations: Int
+        let duplicateExtractionStarts: Int
+        let coalescedExtractionWaiters: Int
+        let activeExtractions: Int
+        let maximumActiveExtractions: Int
     }
 
     private(set) var entries: [Entry] = []
@@ -128,6 +135,7 @@ final class MemoryDiagnosticsViewModel {
         let memEvicts = CacheDelegate.shared.getMemEvictionCount()
         let gridEvicts = CacheDelegate.shared.getGridEvictionCount()
         let unkEvicts = CacheDelegate.shared.getUnknownEvictionCount()
+        let extraction = SharedMemoryCache.shared.thumbnailExtractionMetrics()
 
         let settings = SettingsViewModel.shared
         // let projected = settings.projectedRawCullMemoryBytes()
@@ -165,6 +173,13 @@ final class MemoryDiagnosticsViewModel {
             memEvictions: memEvicts,
             gridEvictions: gridEvicts,
             unkEvictions: unkEvicts,
+            extractionStarts: extraction.starts,
+            extractionCompletions: extraction.completions,
+            extractionCancellations: extraction.cancellations,
+            duplicateExtractionStarts: extraction.duplicateStarts,
+            coalescedExtractionWaiters: extraction.coalescedWaiters,
+            activeExtractions: extraction.activeExtractions,
+            maximumActiveExtractions: extraction.maximumActiveExtractions,
         )
         entries.append(entry)
     }
@@ -222,7 +237,14 @@ final class MemoryDiagnosticsViewModel {
         "pressure_crits",
         "mem_evictions",
         "grid_evictions",
-        "unk_evictions"
+        "unk_evictions",
+        "extraction_starts",
+        "extraction_completions",
+        "extraction_cancellations",
+        "duplicate_extraction_starts",
+        "coalesced_extraction_waiters",
+        "active_extractions",
+        "maximum_active_extractions"
     ].joined(separator: "\t")
 }
 
@@ -267,6 +289,13 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(memEvictions))
         fields.append(String(gridEvictions))
         fields.append(String(unkEvictions))
+        fields.append(String(extractionStarts))
+        fields.append(String(extractionCompletions))
+        fields.append(String(extractionCancellations))
+        fields.append(String(duplicateExtractionStarts))
+        fields.append(String(coalescedExtractionWaiters))
+        fields.append(String(activeExtractions))
+        fields.append(String(maximumActiveExtractions))
         return fields.joined(separator: "\t")
     }
 }

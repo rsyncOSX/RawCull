@@ -264,12 +264,19 @@ struct RawCullMainView: View {
 
     // MARK: - Grid mode
 
+    @ViewBuilder
     private var gridSplit: some View {
-        GridThumbnailView(
-            viewModel: viewModel,
-            nsImage: $nsImage,
-            cgImage: $cgImage,
-        )
+        Group {
+            if viewModel.thumbnailPreloadBlocksGrid {
+                thumbnailPreloadPlaceholder
+            } else {
+                GridThumbnailView(
+                    viewModel: viewModel,
+                    nsImage: $nsImage,
+                    cgImage: $cgImage,
+                )
+            }
+        }
         .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
             " (\(viewModel.filteredFiles.count) files)")
         .toolbar { toolbarContent }
@@ -277,12 +284,19 @@ struct RawCullMainView: View {
 
     // MARK: - Similarity grid mode
 
+    @ViewBuilder
     private var similarityGridSplit: some View {
-        SimilarityGridView(
-            viewModel: viewModel,
-            nsImage: $nsImage,
-            cgImage: $cgImage,
-        )
+        Group {
+            if viewModel.thumbnailPreloadBlocksGrid {
+                thumbnailPreloadPlaceholder
+            } else {
+                SimilarityGridView(
+                    viewModel: viewModel,
+                    nsImage: $nsImage,
+                    cgImage: $cgImage,
+                )
+            }
+        }
         .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
             " (\(viewModel.filteredFiles.count) files)")
         .toolbar { toolbarContent }
@@ -290,16 +304,39 @@ struct RawCullMainView: View {
 
     // MARK: - Rated grid mode
 
+    @ViewBuilder
     private var ratedGridSplit: some View {
-        RatedPhotoGridView(
-            viewModel: viewModel,
-            catalogURL: viewModel.selectedSource?.url,
-            onPhotoSelected: { file in
-                viewModel.selectedFileID = file.id
-            },
-        )
+        Group {
+            if viewModel.thumbnailPreloadBlocksGrid {
+                thumbnailPreloadPlaceholder
+            } else {
+                RatedPhotoGridView(
+                    viewModel: viewModel,
+                    catalogURL: viewModel.selectedSource?.url,
+                    onPhotoSelected: { file in
+                        viewModel.selectedFileID = file.id
+                    },
+                )
+            }
+        }
         .navigationTitle("Rated images")
         .toolbar { toolbarContent }
+    }
+
+    private var thumbnailPreloadPlaceholder: some View {
+        VStack(spacing: 12) {
+            ProgressView(value: viewModel.progress, total: max(viewModel.max, 1))
+                .frame(maxWidth: 360)
+            Text("Creating thumbnails…")
+                .font(.headline)
+            Text("The grid will open when this catalog's thumbnail preload finishes.")
+                .foregroundStyle(.secondary)
+            Button("Cancel") { viewModel.abort() }
+        }
+        .padding(32)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Creating thumbnails")
+        .accessibilityValue("\(Int(viewModel.progress)) of \(Int(viewModel.max))")
     }
 
     // MARK: - Comparison grid mode

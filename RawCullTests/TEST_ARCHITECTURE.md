@@ -73,6 +73,8 @@ the suite name, tag, or test body.
   and scan admission decisions using temporary cache roots.
 - `ThumbnailRequestKeyTests.swift`: source replacement, representation sizing,
   schema migration, metadata failure, and atomic/cancelled disk-cache behavior.
+- `ThumbnailPreloadGridGateTests.swift`: catalog-bound grid blocking and shared
+  extraction instrumentation, including duplicate and cancellation counters.
 - `HistogramLoadingTests.swift`: recoverable conversion, clearing, and
   latest-selection-wins behavior for histogram calculation.
 - `RawCullVerifyTestsConcurrencyTests.swift`: isolated shared cache counters and settings

@@ -111,7 +111,12 @@ struct MemoryDiagnosticsView: View {
             "cold%=\(coldRate)",
             "live=\(e.liveLimitMB)MB",
             "warn=\(e.pressureWarns)",
-            "crit=\(e.pressureCrits)"
+            "crit=\(e.pressureCrits)",
+            "extract=\(e.extractionCompletions)/\(e.extractionStarts)",
+            "dup=\(e.duplicateExtractionStarts)",
+            "cancel=\(e.extractionCancellations)",
+            "active=\(e.activeExtractions)",
+            "peak=\(e.maximumActiveExtractions)"
         ]
         return fields.joined(separator: "  ")
     }
