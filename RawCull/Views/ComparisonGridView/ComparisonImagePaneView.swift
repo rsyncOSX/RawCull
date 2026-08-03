@@ -58,6 +58,16 @@ struct ComparisonImagePaneView: View {
             .clipped()
         }
         .background(Color.black.opacity(0.97))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(file.name)
+        .accessibilityValue(rating.help)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAction { onSelect() }
+        .accessibilityAction(named: "Toggle zoom") {
+            guard allowsDoubleClickZoom else { return }
+            onSelect()
+            toggleZoom()
+        }
     }
 
     private var showsPaneChrome: Bool {

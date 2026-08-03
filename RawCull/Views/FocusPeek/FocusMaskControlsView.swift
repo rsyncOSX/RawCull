@@ -19,6 +19,8 @@ struct FocusMaskControlsView: View {
             .buttonStyle(.plain)
             .disabled(!focusMaskAvailable)
             .help(showFocusMask ? "Hide focus map" : "Show likely in-focus edges")
+            .accessibilityLabel("Focus map")
+            .accessibilityValue(showFocusMask ? "Shown" : "Hidden")
 
             if let shortcutLabel {
                 Text(shortcutLabel)

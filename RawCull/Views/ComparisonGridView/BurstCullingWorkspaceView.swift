@@ -136,6 +136,7 @@ struct BurstCullingWorkspaceView: View {
         .controlSize(.large)
         .help(isReviewed ? "Unmark this burst as reviewed" : "Mark this burst as reviewed")
         .accessibilityValue(isReviewed ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isReviewed ? .isSelected : [])
     }
 
     private var shortcutBar: some View {

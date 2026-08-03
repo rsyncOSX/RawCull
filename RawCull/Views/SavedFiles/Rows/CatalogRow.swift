@@ -60,5 +60,7 @@ struct CatalogRow: View {
             },
         )
         .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(catalogName), \(fileCount) file\(fileCount == 1 ? "" : "s")")
     }
 }

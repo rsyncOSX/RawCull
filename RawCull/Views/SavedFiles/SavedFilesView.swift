@@ -72,21 +72,25 @@ struct SavedFilesView: View {
                     emptyCatalogs
                 } else {
                     ForEach(viewModel.cullingModel.savedFiles) { entry in
-                        CatalogRow(
-                            entry: entry,
-                            isSelected: selectedCatalog?.id == entry.id,
-                            isHovered: hoveredCatalog == entry.id,
-                        )
-                        .onTapGesture {
+                        let isSelected = selectedCatalog?.id == entry.id
+                        Button {
                             if selectedCatalog?.id != entry.id {
                                 selectedRecord = nil
                             }
                             selectedCatalog = entry
+                        } label: {
+                            CatalogRow(
+                                entry: entry,
+                                isSelected: isSelected,
+                                isHovered: hoveredCatalog == entry.id,
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                         .onHover { hovering in
                             hoveredCatalog = hovering ? entry.id : nil
                         }
-                        Divider().padding(.leading, 52)
+                        Divider().padding(.leading, 52).accessibilityHidden(true)
                     }
                 }
             }
@@ -130,16 +134,20 @@ struct SavedFilesView: View {
                     emptyRecords
                 } else {
                     ForEach(records) { record in
-                        FileRecordRow(
-                            record: record,
-                            isSelected: selectedRecord?.id == record.id,
-                            isHovered: hoveredRecord == record.id,
-                        )
-                        .onTapGesture { selectedRecord = record }
+                        let isSelected = selectedRecord?.id == record.id
+                        Button { selectedRecord = record } label: {
+                            FileRecordRow(
+                                record: record,
+                                isSelected: isSelected,
+                                isHovered: hoveredRecord == record.id,
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                         .onHover { hovering in
                             hoveredRecord = hovering ? record.id : nil
                         }
-                        Divider().padding(.leading, 16)
+                        Divider().padding(.leading, 16).accessibilityHidden(true)
                     }
                 }
             }

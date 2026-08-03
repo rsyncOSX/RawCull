@@ -49,6 +49,8 @@ struct ImageSourceToggleView: View {
         }
         .buttonStyle(.plain)
         .help(useThumbnailSource ? "Using thumbnail — switch to extracted JPG" : "Using extracted JPG — switch to thumbnail")
+        .accessibilityLabel("Image source")
+        .accessibilityValue(useThumbnailSource ? "Thumbnail" : "Extracted JPG")
         .padding(.horizontal, density == .compact ? 6 : 10)
         .padding(.vertical, density == .compact ? 5 : 9)
         .background(.regularMaterial, in: Capsule())
@@ -96,6 +98,9 @@ struct ImageSourceSelectorView: View {
         .buttonStyle(.plain)
         .foregroundStyle(selection.selected == source ? Color.accentColor : Color.primary)
         .help(helpText(for: source))
+        .accessibilityLabel(helpText(for: source))
+        .accessibilityValue(selection.selected == source ? "Selected" : "Not selected")
+        .accessibilityAddTraits(selection.selected == source ? .isSelected : [])
     }
 
     private func helpText(for source: ImagePreviewSource) -> String {

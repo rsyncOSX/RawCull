@@ -174,6 +174,7 @@ struct ImageItemView: View {
                             .font(.system(size: isSelected ? 17 : 15, weight: .bold))
                             .foregroundStyle(.white, selectionColor)
                             .padding(5)
+                            .accessibilityHidden(true)
                     }
                 }
                 // Rating and burst recommendation badges — top-left corner
@@ -219,7 +220,7 @@ struct ImageItemView: View {
 
             // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
             if let color = ratingColor {
-                color.frame(height: 4)
+                color.frame(height: 4).accessibilityHidden(true)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -237,6 +238,12 @@ struct ImageItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelect() }
         .onTapGesture(count: 1) { onSelect() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(file.name)
+        .accessibilityValue(ratingDisplay.help)
+        .accessibilityAddTraits(isSelectionHighlighted ? .isSelected : [])
+        .accessibilityAction { onSelect() }
+        .accessibilityAction(named: "Open image") { onDoubleSelect() }
     }
 
     private var borderColor: Color {

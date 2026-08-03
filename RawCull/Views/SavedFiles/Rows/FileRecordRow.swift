@@ -51,9 +51,18 @@ struct FileRecordRow: View {
             },
         )
         .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
     }
 
     private var fileIcon: String {
         "photo"
+    }
+
+    private var accessibilityDescription: String {
+        let name = record.fileName ?? "Unnamed File"
+        guard let rating = record.rating else { return "\(name), unrated" }
+        let description = RatingDisplay(rating: rating).help
+        return "\(name), \(description)"
     }
 }

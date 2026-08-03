@@ -93,6 +93,7 @@ private struct BurstGroupHeaderView: View {
                 .tint(isReviewed ? .green : nil)
                 .help("Mark this burst as reviewed")
                 .accessibilityValue(isReviewed ? "Selected" : "Not selected")
+                .accessibilityAddTraits(isReviewed ? .isSelected : [])
 
                 Button {
                     onDeferred(groupID)
@@ -104,6 +105,7 @@ private struct BurstGroupHeaderView: View {
                 .tint(isDeferred ? .orange : nil)
                 .help("Defer this burst for later review")
                 .accessibilityValue(isDeferred ? "Selected" : "Not selected")
+                .accessibilityAddTraits(isDeferred ? .isSelected : [])
             }
         }
         .padding(.horizontal, 16)

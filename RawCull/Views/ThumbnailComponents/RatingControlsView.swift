@@ -85,6 +85,9 @@ struct CurrentRatingBadgeView: View {
         .padding(.vertical, density == .compact ? 3 : 5)
         .background(rating.color.opacity(0.85), in: Capsule())
         .help(rating.help)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Current rating")
+        .accessibilityValue(rating.help)
     }
 
     private var iconSize: CGFloat {
@@ -127,6 +130,9 @@ struct RatingActionBarView: View {
                 }
                 .buttonStyle(.plain)
                 .help(help(for: rating))
+                .accessibilityLabel(help(for: rating))
+                .accessibilityValue(isActive(rating) ? "Selected" : "Not selected")
+                .accessibilityAddTraits(isActive(rating) ? .isSelected : [])
             }
         }
         .padding(.horizontal, density == .compact ? 7 : 10)

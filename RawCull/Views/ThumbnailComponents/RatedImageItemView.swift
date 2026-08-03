@@ -43,6 +43,7 @@ struct RatedImageItemView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.white, Color.teal)
                             .padding(5)
+                            .accessibilityHidden(true)
                     }
                 }
                 .overlay(alignment: .topLeading) {
@@ -65,7 +66,7 @@ struct RatedImageItemView: View {
 
                 // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
                 if let color = ratingColor {
-                    color.frame(height: 4)
+                    color.frame(height: 4).accessibilityHidden(true)
                 }
             }
         }
@@ -81,6 +82,12 @@ struct RatedImageItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelected() }
         .onTapGesture(count: 1) { onSelected() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(file.name)
+        .accessibilityValue(ratingDisplay.help)
+        .accessibilityAddTraits(isSelected || isMultiSelected ? .isSelected : [])
+        .accessibilityAction { onSelected() }
+        .accessibilityAction(named: "Open image") { onDoubleSelected() }
     }
 
     private var borderColor: Color {

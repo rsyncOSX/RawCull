@@ -507,7 +507,7 @@ complete only after its focused verification and commit succeed.
 | 4 — Thumbnail identity | Complete | Schema-v3 source/representation keys applied across disk, memory, scan, grid, and preview paths; focused normal/TSan and smoke gates passed |
 | 5 — Scan/grid contention | Complete | Low-risk catalog-identity grid gate prevents scan/UI competition; per-key extraction diagnostics added; focused normal/TSan and smoke gates passed |
 | 6 — Similarity persistence | Complete | Four uncovered persistence outcomes added; focused artifact/indexing/culling suites passed normally and under TSan; no production behavior fix required |
-| 7 — Accessibility | Pending | — |
+| 7 — Accessibility | Implementation complete | Saved-file rows use native buttons; bounded labels, values, actions, and selected traits added; Debug build and smoke gate passed; physical VoiceOver/keyboard evidence remains in Phase 9 |
 | 8 — Metadata and documentation | Pending | — |
 | 9 — Integrated regression | Pending | — |
 | 10 — Release handoff | Pending | — |
@@ -698,6 +698,30 @@ complete only after its focused verification and commit succeed.
 - Restart and migration checks against an actual copy of 2.3.3 user data remain
   in the Phase 9 manual release matrix; no installed-user-data result is
   inferred from isolated fixtures.
+
+#### Phase 7 bounded-accessibility evidence
+
+- Inventoried every remaining `onTapGesture`. The only remaining uses are the
+  intentional double-click zoom gestures in `ZoomOverlayView` and
+  `FileDetailView`, plus the coordinated single/double-click selection and zoom
+  gestures in `ImageItemView`, `RatedImageItemView`, and
+  `ComparisonImagePaneView`. Their click-count behavior was not changed.
+- Converted catalog and file-record rows in `SavedFilesView` from gesture-only
+  containers to plain native `Button` rows while retaining their row-wide hit
+  targets, hover rendering, selection bindings, and split-view navigation.
+- Added explicit names, values, selected traits, and named/default actions to
+  normal, rated, and comparison thumbnails. Decorative selection, rating, and
+  divider elements that duplicate spoken state are hidden from accessibility.
+- Added bounded state semantics to image-source, rating/reject, focus-mask,
+  focus-point, and burst-review controls. Existing enabled-state and keyboard
+  behavior remains owned by the native controls.
+- The Debug application build and authoritative smoke gate passed. Source
+  inspection confirms no unintended single-action gesture rows remain in the
+  bounded inventory.
+- Physical VoiceOver navigation, focus return, and keyboard-only operation
+  require interactive release-hardware checks. They remain explicit Phase 9
+  manual gates; this phase does not infer those results from compilation or
+  automated tests.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 
