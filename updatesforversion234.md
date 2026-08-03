@@ -508,7 +508,7 @@ complete only after its focused verification and commit succeed.
 | 5 — Scan/grid contention | Complete | Low-risk catalog-identity grid gate prevents scan/UI competition; per-key extraction diagnostics added; focused normal/TSan and smoke gates passed |
 | 6 — Similarity persistence | Complete | Four uncovered persistence outcomes added; focused artifact/indexing/culling suites passed normally and under TSan; no production behavior fix required |
 | 7 — Accessibility | Implementation complete | Saved-file rows use native buttons; bounded labels, values, actions, and selected traits added; Debug build and smoke gate passed; physical VoiceOver/keyboard evidence remains in Phase 9 |
-| 8 — Metadata and documentation | Pending | — |
+| 8 — Metadata and documentation | Local verification complete | Debug and Release resolve and build as 2.3.4 (231), macOS 26.2, arm64; README matches all seven resolved packages; App Store build-number availability remains a Phase 10 pre-upload check |
 | 9 — Integrated regression | Pending | — |
 | 10 — Release handoff | Pending | — |
 
@@ -722,6 +722,44 @@ complete only after its focused verification and commit succeed.
   require interactive release-hardware checks. They remain explicit Phase 9
   manual gates; this phase does not infer those results from compilation or
   automated tests.
+
+#### Phase 8 metadata-and-documentation evidence
+
+- Resolved Debug and Release build settings both report marketing version
+  2.3.4, build 231, deployment target macOS 26.2, supported platform macOS, and
+  architecture arm64.
+- Inspected both built application bundles. Their generated `Info.plist` files
+  report `CFBundleShortVersionString` 2.3.4, `CFBundleVersion` 231, and
+  `LSMinimumSystemVersion` 26.2; `file` identifies each executable as arm64
+  Mach-O. `AboutRawCullView` reads the first two generated bundle keys rather
+  than containing a duplicated version literal.
+- Updated the two stale README rows to RawParserKit 1.2.8 and RawCullCore 1.1.2.
+  Compared every README package row with `Package.resolved`; all seven package
+  names and exact versions now agree.
+- The README test section already describes `Smoke.xctestplan` as the sole
+  smoke-tag selector, the full Thread Sanitizer gate, and the dedicated stress
+  gate, matching the Phase 3 Makefile implementation.
+- Build 231 availability cannot be established from the local repository.
+  Confirm that it is unused in App Store Connect immediately before upload; if
+  consumed, increment both configurations, rebuild, reinspect both bundles,
+  and rerun Phases 9 and 10.
+
+#### RawCull 2.3.4 release record
+
+- Compatibility: macOS 26.2 or later on Apple Silicon; no new AI requirement.
+- Release summary: improves actual-pixel inspection consistency; handles
+  histogram conversion and supersession safely; fingerprints thumbnails by
+  source and representation; prevents selected-catalog grid decoding during
+  preload; strengthens similarity-persistence regression coverage and release
+  test selection; and improves accessibility semantics for saved-file rows and
+  key culling controls.
+- Known limitation: thumbnail extraction is gated during selected-catalog
+  preload rather than coalesced across the scan and UI actors. The grid resumes
+  when preload finishes, is cancelled, or is superseded.
+- Exact tested commit: pending Phase 9 clean-checkout verification.
+- DMG SHA-256: pending Phase 10 packaging.
+- App Store build: proposed build 231; availability and uploaded build pending
+  Phase 10.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 
@@ -1183,7 +1221,7 @@ Avoid mixing these fixes with macOS 27 or Core AI changes.
 
 ## Draft release-note summary
 
-> RawCull 2.3.4 is a maintenance and stabilization update for macOS 26. It improves zoom inspection consistency, safely handles image conversion failures, strengthens thumbnail cache correctness and release testing, and includes reliability improvements around catalog analysis. RawCull 2.3.4 requires macOS 26.2 or later and an Apple Silicon Mac.
+> RawCull 2.3.4 is a maintenance and stabilization update for macOS 26. It improves actual-pixel inspection consistency, safely handles histogram conversion and rapid image changes, strengthens thumbnail cache correctness and release testing, avoids grid decoding while the selected catalog is preloading, expands persistence regression coverage, and improves accessibility semantics in key culling controls. RawCull 2.3.4 requires macOS 26.2 or later and an Apple Silicon Mac, and adds no new AI requirement.
 
 ## Post-release policy
 
