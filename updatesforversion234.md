@@ -506,7 +506,7 @@ complete only after its focused verification and commit succeed.
 | 3 — Release gates | Complete | Smoke plan is the sole tag selector; deliberate red/green proof succeeded; Smoke, full TSan, performance stress, and exact-package Release gates passed |
 | 4 — Thumbnail identity | Complete | Schema-v3 source/representation keys applied across disk, memory, scan, grid, and preview paths; focused normal/TSan and smoke gates passed |
 | 5 — Scan/grid contention | Complete | Low-risk catalog-identity grid gate prevents scan/UI competition; per-key extraction diagnostics added; focused normal/TSan and smoke gates passed |
-| 6 — Similarity persistence | Pending | — |
+| 6 — Similarity persistence | Complete | Four uncovered persistence outcomes added; focused artifact/indexing/culling suites passed normally and under TSan; no production behavior fix required |
 | 7 — Accessibility | Pending | — |
 | 8 — Metadata and documentation | Pending | — |
 | 9 — Integrated regression | Pending | — |
@@ -670,6 +670,34 @@ complete only after its focused verification and commit succeed.
 - Three deterministic gate/metrics tests and the existing shared-cache and
   stress tests passed normally and under Thread Sanitizer, with no sanitizer
   diagnostic. `make test-smoke` passed.
+
+#### Phase 6 similarity-persistence evidence
+
+- Mapped existing coverage before adding cases. Existing suites already proved
+  identity round trips, incompatible/corrupt/invalid isolation, pruning and
+  clear, pre-replacement cancellation, recreation, changed/added sources,
+  legacy migration, partial generation failure, structured cancellation, and
+  latest-generation-wins behavior.
+- Added the four previously uncovered outcomes: a persistence-directory write
+  failure retains the generated embedding in memory; cancellation after one
+  record commit preserves that completed record and prevents later commits;
+  clearing the analysis directory leaves independent ratings and settings
+  files byte-for-byte unchanged; and indexing progress/phase reset after
+  successful, partial-generation, persistence-failure, cancellation, and
+  superseded terminal paths.
+- Added an async pre-record test seam to the actor-isolated artifact store. Its
+  production default is nil; it changes no production commit ordering or
+  persistence policy and permits deterministic partial-commit cancellation
+  without timing sleeps.
+- Added an explicit independence test proving that thumbnail purpose, size, and
+  cache-schema changes do not enter `SimilarityArtifactSourceFingerprint`.
+  Phase 4 therefore cannot invalidate similarity artifacts by itself.
+- Focused per-file artifact, durable indexing, burst-cache, and culling tests
+  passed. The artifact/indexing/culling set also passed under Thread Sanitizer
+  with no sanitizer diagnostic. `make test-smoke` passed.
+- Restart and migration checks against an actual copy of 2.3.3 user data remain
+  in the Phase 9 manual release matrix; no installed-user-data result is
+  inferred from isolated fixtures.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 

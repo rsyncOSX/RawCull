@@ -128,8 +128,13 @@ actor PerFileAnalysisArtifactStore {
     nonisolated static let recordSchemaVersion = 1
 
     nonisolated let storageDirectory: URL
+    private let beforeRecordCommit: (@Sendable (UUID) async -> Void)?
 
-    init(storageDirectory: URL? = nil) {
+    init(
+        storageDirectory: URL? = nil,
+        beforeRecordCommit: (@Sendable (UUID) async -> Void)? = nil,
+    ) {
+        self.beforeRecordCommit = beforeRecordCommit
         if let storageDirectory {
             self.storageDirectory = storageDirectory
         } else {
@@ -216,7 +221,7 @@ actor PerFileAnalysisArtifactStore {
         artifacts: [UUID: Data],
         sources: [UUID: SimilarityArtifactSource],
         signature: SimilarityArtifactPipelineSignature,
-    ) -> PerFileAnalysisArtifactCommitResult {
+    ) async -> PerFileAnalysisArtifactCommitResult {
         var committedSourceIDs: Set<UUID> = []
         var failures: [PerFileAnalysisArtifactWriteFailure] = []
 
@@ -255,6 +260,9 @@ actor PerFileAnalysisArtifactStore {
         )
 
         for (sourceID, payload) in orderedArtifacts {
+            if let beforeRecordCommit {
+                await beforeRecordCommit(sourceID)
+            }
             guard !Task.isCancelled else {
                 return PerFileAnalysisArtifactCommitResult(
                     committedSourceIDs: committedSourceIDs,

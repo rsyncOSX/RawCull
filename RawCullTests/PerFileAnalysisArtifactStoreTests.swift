@@ -8,6 +8,36 @@ import Testing
 @Suite("Per-file similarity artifact store")
 struct PerFileAnalysisArtifactStoreTests {
     @Test
+    func `thumbnail representation and schema do not alter similarity fingerprint`() {
+        let source = makeArtifactSource(name: "independent.ARW")
+        let similarityFingerprint = source.fingerprint
+        let grid = ThumbnailRequestKey(
+            source: ThumbnailSourceFingerprint(
+                url: source.url,
+                fileSize: source.fileSize,
+                modificationDate: source.modificationDate,
+                cacheSchemaVersion: 2,
+            ),
+            purpose: .grid,
+            requestedMaxPixelSize: 200,
+        )
+        let preview = ThumbnailRequestKey(
+            source: ThumbnailSourceFingerprint(
+                url: source.url,
+                fileSize: source.fileSize,
+                modificationDate: source.modificationDate,
+                cacheSchemaVersion: 3,
+            ),
+            purpose: .preview,
+            requestedMaxPixelSize: 1_616,
+        )
+
+        #expect(grid != preview)
+        #expect(source.fingerprint == similarityFingerprint)
+        #expect(source.fingerprint.modificationDate == source.modificationDate)
+    }
+
+    @Test
     func `valid artifact round trips and incompatible identities miss`() async throws {
         let store = makeIsolatedSimilarityArtifactStore()
         let source = makeArtifactSource(name: "round-trip.ARW")
@@ -186,6 +216,85 @@ struct PerFileAnalysisArtifactStoreTests {
 
         #expect(result.wasCancelled)
         #expect(loaded.artifacts[source.id] == original)
+    }
+
+    @Test
+    func `cancellation after first commit preserves completed record and stops later records`() async throws {
+        let gate = ArtifactStorePartialCommitGate()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullPartialCommit-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = PerFileAnalysisArtifactStore(
+            storageDirectory: root,
+            beforeRecordCommit: { _ in await gate.beforeCommit() },
+        )
+        let sourceDirectory = URL(fileURLWithPath: "/tmp/ordered-\(UUID().uuidString)")
+        let first = SimilarityArtifactSource(
+            id: UUID(),
+            url: sourceDirectory.appendingPathComponent("a-first.ARW"),
+            displayName: "a-first.ARW",
+            fileSize: 1_024,
+            modificationDate: Date(timeIntervalSince1970: 1_000),
+        )
+        let second = SimilarityArtifactSource(
+            id: UUID(),
+            url: sourceDirectory.appendingPathComponent("b-second.ARW"),
+            displayName: "b-second.ARW",
+            fileSize: 1_024,
+            modificationDate: Date(timeIntervalSince1970: 1_000),
+        )
+        let payload = try await makeValidVisionArtifact()
+        let sources = [first.id: first, second.id: second]
+        let task = Task {
+            await store.upsert(
+                artifacts: [first.id: payload, second.id: payload],
+                sources: sources,
+                signature: makeArtifactSignature(),
+            )
+        }
+
+        await gate.waitUntilSecondCommitIsWaiting()
+        task.cancel()
+        await gate.releaseSecondCommit()
+        let result = await task.value
+        let loaded = await store.load(
+            sources: [first, second],
+            signature: makeArtifactSignature(),
+        )
+
+        #expect(result.wasCancelled)
+        #expect(result.committedSourceIDs == Set([first.id]))
+        #expect(loaded.artifacts[first.id] == payload)
+        #expect(loaded.artifacts[second.id] == nil)
+    }
+
+    @Test
+    func `clearing analysis artifacts leaves ratings and settings files untouched`() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullArtifactClearIsolation-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let artifactDirectory = root.appendingPathComponent("AnalysisArtifacts/Similarity", isDirectory: true)
+        let ratingsURL = root.appendingPathComponent("ratings.json")
+        let settingsURL = root.appendingPathComponent("settings.json")
+        let ratings = Data("ratings-sentinel".utf8)
+        let settings = Data("settings-sentinel".utf8)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try ratings.write(to: ratingsURL)
+        try settings.write(to: settingsURL)
+        let store = PerFileAnalysisArtifactStore(storageDirectory: artifactDirectory)
+        let source = makeArtifactSource(name: "clear.ARW")
+        let payload = try await makeValidVisionArtifact()
+        _ = await store.upsert(
+            artifacts: [source.id: payload],
+            sources: [source.id: source],
+            signature: makeArtifactSignature(),
+        )
+
+        await store.clear()
+
+        #expect((await store.usage()).entryCount == 0)
+        #expect(try Data(contentsOf: ratingsURL) == ratings)
+        #expect(try Data(contentsOf: settingsURL) == settings)
     }
 }
 
@@ -393,6 +502,10 @@ struct SimilarityArtifactPersistenceTests {
         #expect(initialModel.embeddings[success.id] == payload)
         #expect(initialModel.embeddings[failure.id] == nil)
         #expect(initialModel.indexingGenerationFailures == [failure.id])
+        #expect(!initialModel.isIndexing)
+        #expect(initialModel.indexingProgress == 0)
+        #expect(initialModel.indexingTotal == 0)
+        #expect(initialModel.indexingPhase == .idle)
 
         let recorder = SimilarityProviderRecorder(payload: payload)
         let reloadedSuccess = makeArtifactFile(
@@ -417,6 +530,40 @@ struct SimilarityArtifactPersistenceTests {
 
         #expect(await recorder.requests() == ["failure.ARW"])
         #expect(reloadedModel.embeddings.count == 2)
+    }
+
+    @Test
+    func `persistence write failure keeps generated result usable and resets progress`() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RawCullPersistenceFailure-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let blockingFile = root.appendingPathComponent("not-a-directory")
+        try Data("block".utf8).write(to: blockingFile)
+        let store = PerFileAnalysisArtifactStore(
+            storageDirectory: blockingFile.appendingPathComponent("Similarity", isDirectory: true),
+        )
+        let payload = try await makeValidVisionArtifact()
+        let file = makeArtifactFile(
+            directory: root,
+            name: "usable.ARW",
+            size: 100,
+            modified: 100,
+        )
+        let model = SimilarityScoringModel(
+            embeddingProvider: { _, _ in payload },
+            artifactStore: store,
+        )
+
+        await model.indexFiles([file])
+
+        #expect(model.embeddings[file.id] == payload)
+        #expect(model.indexingPersistenceFailures.count == 1)
+        #expect(!model.isIndexing)
+        #expect(model.indexingProgress == 0)
+        #expect(model.indexingTotal == 0)
+        #expect(model.indexingEstimatedSeconds == 0)
+        #expect(model.indexingPhase == .idle)
     }
 }
 
@@ -472,6 +619,34 @@ private actor ArtifactStoreCancellationGate {
         for waiter in waiters {
             waiter.resume()
         }
+    }
+}
+
+private actor ArtifactStorePartialCommitGate {
+    private var commitCount = 0
+    private var secondCommitStarted = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func beforeCommit() async {
+        commitCount += 1
+        guard commitCount == 2 else { return }
+        secondCommitStarted = true
+        let waiters = startWaiters
+        startWaiters = []
+        for waiter in waiters { waiter.resume() }
+        await withCheckedContinuation { releaseWaiters.append($0) }
+    }
+
+    func waitUntilSecondCommitIsWaiting() async {
+        if secondCommitStarted { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    func releaseSecondCommit() {
+        let waiters = releaseWaiters
+        releaseWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 }
 
