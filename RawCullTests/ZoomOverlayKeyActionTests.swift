@@ -316,6 +316,16 @@ struct LoupeImageKeyActionTests {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleDevelopedRAW)
     }
 
+    @Test(.tags(.smoke), arguments: ["f", "F"])
+    func `F resolves to focus mask`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleFocusMask)
+    }
+
+    @Test(.tags(.smoke), arguments: ["a", "A"])
+    func `A resolves to autofocus points`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleFocusPoints)
+    }
+
     @Test(.tags(.smoke), arguments: ["z", "Z"])
     func `Z resolves to actual-pixels inspection`(characters: String) {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .inspectActualPixels)
