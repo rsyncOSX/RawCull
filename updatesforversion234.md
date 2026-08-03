@@ -502,7 +502,7 @@ complete only after its focused verification and commit succeed.
 |---|---|---|
 | 0 — Baseline | Complete | Baseline captured on 3 August 2026; commit 5da6ff4 |
 | 1 — Actual Pixels | Complete | 1:1 math and invalid-input handling verified by 9 focused tests, with and without Thread Sanitizer; smoke gate passed |
-| 2 — Histogram safety | Pending | — |
+| 2 — Histogram safety | Complete | Unified cancellable loader; 4 deterministic focused tests passed repeatedly and under Thread Sanitizer; smoke gate passed |
 | 3 — Release gates | Pending | — |
 | 4 — Thumbnail identity | Pending | — |
 | 5 — Scan/grid contention | Pending | — |
@@ -556,6 +556,26 @@ complete only after its focused verification and commit succeed.
 - Manual checks involving a physical display's backing scale remain part of
   the integrated Phase 9 release checklist; no physical-display result is
   inferred from the automated geometry tests.
+
+#### Phase 2 histogram evidence
+
+- `HistogramView` now has one `.task(id:)` lifecycle keyed by the selected
+  `NSImage` object's identity. Starting any load clears the displayed bins.
+- `HistogramLoadingModel` performs calculation through a structured
+  `@concurrent` helper and publishes only when the task is not cancelled and
+  its generation is still current. A superseded calculation cannot overwrite
+  the newer image's histogram even if the older calculation ignores task
+  cancellation.
+- Nil images and failed `NSImage` conversion leave the histogram empty. The
+  conversion failure is logged as a recoverable display problem; the histogram
+  path contains no `fatalError`.
+- `FileInspectorView` now keeps its image state private, clears it when file
+  identity changes, and checks cancellation before publishing the thumbnail.
+- Four focused tests cover nil/valid-to-nil clearing, conversion failure,
+  successful bin publication, and a controlled slow-A/fast-B supersession.
+  The actor-backed test gate uses no timing sleeps.
+- The focused suite passed normally and twice consecutively under Thread
+  Sanitizer, with no sanitizer diagnostic. The wider smoke gate also passed.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 

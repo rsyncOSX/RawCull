@@ -10,10 +10,48 @@ import OSLog
 import RawCullCore
 import SwiftUI
 
+@MainActor
+@Observable
+final class HistogramLoadingModel {
+    typealias ImageConverter = @MainActor (NSImage) -> CGImage?
+    typealias Calculator = @Sendable (CGImage) async -> [CGFloat]
+
+    private(set) var normalizedBins: [CGFloat] = []
+    private var generation: UInt64 = 0
+
+    func load(
+        image: NSImage?,
+        convert: ImageConverter,
+        calculate: Calculator,
+    ) async -> Bool {
+        generation &+= 1
+        let loadGeneration = generation
+        normalizedBins = []
+
+        guard let image, let cgImage = convert(image) else { return false }
+        let bins = await calculate(cgImage)
+        guard !Task.isCancelled, generation == loadGeneration else { return true }
+        normalizedBins = bins
+        return true
+    }
+
+    @concurrent
+    nonisolated static func calculateHistogram(from image: CGImage) async -> [CGFloat] {
+        HistogramCalculator.normalizedLuminanceHistogram(from: image)
+    }
+}
+
 struct HistogramView: View {
-    @Binding var nsImage: NSImage?
-    /// We compute the histogram data (0.0 to 1.0) once upon initialization
-    @State private var normalizedBins: [CGFloat] = []
+    @Binding private var nsImage: NSImage?
+    @State private var loader = HistogramLoadingModel()
+
+    init(nsImage: Binding<NSImage?>) {
+        _nsImage = nsImage
+    }
+
+    private var imageIdentity: ObjectIdentifier? {
+        nsImage.map(ObjectIdentifier.init)
+    }
 
     // --- View Body ---
 
@@ -24,7 +62,7 @@ struct HistogramView: View {
                 .clipShape(.rect(cornerRadius: 4))
 
             // The Histogram Path
-            HistogramPath(bins: normalizedBins)
+            HistogramPath(bins: loader.normalizedBins)
                 .fill(
                     LinearGradient(
                         gradient: Gradient(colors: [.blue, .purple]),
@@ -35,29 +73,18 @@ struct HistogramView: View {
                 // Inset slightly to prevent clipping
                 .padding(2)
         }
-        .onChange(of: nsImage) { _, newImage in
-            guard let newImage else { return }
-            guard let cgRef = newImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                Logger.process.warning("Could not initialize CGImage from NSImage")
-                return
-            }
-            Task {
-                normalizedBins = await calculateHistogram(from: cgRef)
-            }
-        }
         .frame(height: 150) // Default height
-        .task {
-            guard let nsImage else { return }
-            guard let cgRef = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                fatalError("Could not initialize CGImage from NSImage")
+        .task(id: imageIdentity) {
+            let converted = await loader.load(
+                image: nsImage,
+                convert: { image in
+                    image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                },
+                calculate: HistogramLoadingModel.calculateHistogram,
+            )
+            if nsImage != nil, !converted {
+                Logger.process.warning("HistogramView: could not convert the selected image to CGImage")
             }
-            normalizedBins = await calculateHistogram(from: cgRef)
         }
-    }
-
-    private nonisolated func calculateHistogram(from image: CGImage) async -> [CGFloat] {
-        await Task.detached(priority: .utility) {
-            HistogramCalculator.normalizedLuminanceHistogram(from: image)
-        }.value
     }
 }
