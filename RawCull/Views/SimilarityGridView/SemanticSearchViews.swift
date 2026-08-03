@@ -255,8 +255,8 @@ private struct SemanticSearchReadinessView: View {
                     Text(
                         "Enable “Use selected CLIP model for similarity” in AI Settings before indexing.",
                     )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     SettingsLink {
                         Label("Open AI Settings", systemImage: "gear")
                     }

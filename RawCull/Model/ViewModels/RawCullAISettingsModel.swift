@@ -63,11 +63,11 @@ final class RawCullAISettingsModel {
     @ObservationIgnored private let integration: RawCullAIIntegration
     @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private let similarityServiceDidChange: @MainActor (
-        any RawCullSimilarityServicing
+        any RawCullSimilarityServicing,
     ) -> Void
     @ObservationIgnored private let semanticSearchCapabilityDidChange: @MainActor (
         RawCullSemanticSearchCapabilityStatus,
-        (any RawCullSemanticSearchServicing)?
+        (any RawCullSemanticSearchServicing)?,
     ) -> Void
     @ObservationIgnored private let evidenceScan: @Sendable () async throws
         -> RawCullSavedBurstEvidenceScanResult
@@ -88,11 +88,11 @@ final class RawCullAISettingsModel {
         evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
         userDefaults: UserDefaults = .standard,
         similarityServiceDidChange: @escaping @MainActor (
-            any RawCullSimilarityServicing
+            any RawCullSimilarityServicing,
         ) -> Void = { _ in },
         semanticSearchCapabilityDidChange: @escaping @MainActor (
             RawCullSemanticSearchCapabilityStatus,
-            (any RawCullSemanticSearchServicing)?
+            (any RawCullSemanticSearchServicing)?,
         ) -> Void = { _, _ in },
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
@@ -167,6 +167,7 @@ final class RawCullAISettingsModel {
             case let .success(evidence):
                 savedBurstEvidence = evidence
                 savedBurstScanFailure = nil
+
             case let .failure(reason):
                 savedBurstEvidence = nil
                 savedBurstScanFailure = reason
@@ -304,6 +305,7 @@ private nonisolated extension RawCullAIModelDownloadState {
         switch self {
         case .ready, .failed:
             true
+
         case .checking, .unavailable, .licenceRequired, .notConfigured,
              .downloading, .validating, .installed, .removing:
             false

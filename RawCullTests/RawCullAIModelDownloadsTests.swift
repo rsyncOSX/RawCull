@@ -12,7 +12,7 @@ struct RawCullAIModelDownloadsTests {
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
-            .sam3,
+            .sam3
         ])
         #expect(catalog.models.allSatisfy {
             !$0.releaseReadiness.isReady
@@ -272,8 +272,7 @@ struct RawCullAIModelDownloadsTests {
 private final class ModelDownloadTestBundleToken {}
 
 private actor ModelDownloadServiceSpy:
-    RawCullAIModelDownloadServicing
-{
+    RawCullAIModelDownloadServicing {
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
     private var downloads = 0

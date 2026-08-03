@@ -107,7 +107,7 @@ private nonisolated struct RawCullAIModelResourceSnapshot: Equatable, Sendable {
                     .fileSizeKey,
                     .isDirectoryKey,
                     .isRegularFileKey,
-                    .isSymbolicLinkKey,
+                    .isSymbolicLinkKey
                 ])
                 if values.isDirectory == true {
                     kind = .directory
@@ -151,7 +151,7 @@ private nonisolated struct RawCullAIModelResourceSnapshot: Equatable, Sendable {
                     .fileSizeKey,
                     .isDirectoryKey,
                     .isRegularFileKey,
-                    .isSymbolicLinkKey,
+                    .isSymbolicLinkKey
                 ],
             ) else {
                 continue
@@ -181,7 +181,7 @@ nonisolated enum RawCullAIModelCandidates {
             bundle.resourceURL?
                 .appendingPathComponent("Models", isDirectory: true)
                 .appendingPathComponent(resourceName, isDirectory: true),
-            bundle.resourceURL?.appendingPathComponent(resourceName, isDirectory: true),
+            bundle.resourceURL?.appendingPathComponent(resourceName, isDirectory: true)
         ].compactMap(\.self)
 
         for candidate in bundledCandidates where !candidates.contains(candidate) {

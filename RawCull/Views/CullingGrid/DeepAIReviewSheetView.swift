@@ -24,7 +24,9 @@ struct DeepAIReviewSheetView: View {
                 onRun: onRun,
                 onCancel: onCancel,
                 onApply: {
-                    if let result { onApply(result) }
+                    if let result {
+                        onApply(result)
+                    }
                 },
                 onClose: onClose,
             )
@@ -38,7 +40,7 @@ struct DeepAIReviewSheetView: View {
             )
         }
         .padding(16)
-        .frame(minWidth: 1_080, idealWidth: 1_220, minHeight: 520, idealHeight: 640)
+        .frame(minWidth: 1080, idealWidth: 1220, minHeight: 520, idealHeight: 640)
         .interactiveDismissDisabled(feature.isRunning)
     }
 }
@@ -143,8 +145,10 @@ private struct DeepAIReviewSheetContent: View {
         switch failure {
         case let .modelUnavailable(reason):
             reason
+
         case .noCandidates:
             "This burst group has no candidates to review."
+
         case let .pipelineFailed(reason):
             "The in-process SAM 3 pipeline failed: \(reason)"
         }
@@ -305,7 +309,7 @@ private struct DeepAIReviewCandidateTable: View {
 
     private func promptTitle(_ candidate: DeepAIReviewCandidate) -> String {
         guard let prompt = candidate.maskPromptUsed else { return "—" }
-        let title: String = switch prompt {
+        let title = switch prompt {
         case .subject: "Subject"
         case .person: "Person"
         case .bird: "Bird"

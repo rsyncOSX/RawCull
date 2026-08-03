@@ -65,7 +65,6 @@ struct BurstGroupsHomeView: View {
             }
 
             Spacer()
-
         }
     }
 
@@ -143,8 +142,6 @@ struct BurstGroupsHomeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                
-                
                 .disabled(!resultsAreAvailable || counts.needsReview == 0)
             }
         }

@@ -127,15 +127,15 @@ nonisolated enum RawCullSemanticSearchCapabilityStatus: Equatable, Sendable {
     case checking(expectedLocations: [URL])
     case ready(
         location: URL?,
-        backend: SimilarityBackendDescriptor
+        backend: SimilarityBackendDescriptor,
     )
     case unavailable(
         reason: String,
-        expectedLocations: [URL]
+        expectedLocations: [URL],
     )
     case failed(
         location: URL?,
-        reason: String
+        reason: String,
     )
 
     var isReady: Bool {
@@ -286,8 +286,7 @@ nonisolated struct RawCullSavedBurstEvidenceScanner: Sendable {
                 visionEmbeddingCount += catalogVisionCount
                 if probe.similaritySignature.backendDescriptor.backend == "clip",
                    catalogClipCount == 0,
-                   catalogVisionCount > 0
-                {
+                   catalogVisionCount > 0 {
                     clipFallbackCatalogCount += 1
                 }
                 burstGroupCount += probe.groups.count { $0.fileIDs.count > 1 }

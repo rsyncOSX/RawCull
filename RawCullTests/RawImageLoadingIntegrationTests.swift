@@ -201,7 +201,7 @@ struct RawImageLoadingIntegrationTests {
                 pixelHeight: 5760,
             ),
             captureDate: captureDate,
-            captureTimeZoneOffsetSeconds: 7_200,
+            captureTimeZoneOffsetSeconds: 7200,
             focusLocation: "8640 5760 4320 2880",
             focusPoint: CGPoint(x: 0.5, y: 0.5),
         )
@@ -223,7 +223,7 @@ struct RawImageLoadingIntegrationTests {
         #expect(file.exifData?.camera == "Sony A1")
         #expect(file.afFocusNormalized == CGPoint(x: 0.5, y: 0.5))
         #expect(file.captureDate == captureDate)
-        #expect(file.captureTimeZoneOffsetSeconds == 7_200)
+        #expect(file.captureTimeZoneOffsetSeconds == 7200)
         #expect(file.dateModified == modificationDate)
         #expect(file.exifData?.exposureTimeSeconds == 0.001)
         #expect(file.exifData?.focalLengthMM == 400)

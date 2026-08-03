@@ -15,6 +15,7 @@ nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
         case let .selfHosted(manifestURL):
             manifestURL.scheme?.lowercased() == "https"
                 && manifestURL.host?.lowercased().hasSuffix(".invalid") == false
+
         case .appleHosted:
             true
         }
@@ -57,14 +58,19 @@ nonisolated enum RawCullAIModelDownloadError: Error, LocalizedError, Sendable {
         switch self {
         case .serviceNotConfigured:
             "The AI model download service has not been configured."
+
         case let .releaseBlocked(modelName):
             "\(modelName) is not approved for redistribution yet."
+
         case let .assetPackNotFound(assetPackID):
             "The model asset pack \(assetPackID) is not present in the download manifest."
+
         case let .downloadedModelNotFound(path):
             "The downloaded asset pack does not contain the expected model at \(path)."
+
         case let .licenceAcceptanceRequired(modelName):
             "Accept the verified licence for \(modelName) before downloading it."
+
         case let .missingVerifiedLicenceText(modelName):
             "A verified complete licence document has not been packaged for \(modelName)."
         }
@@ -92,8 +98,7 @@ nonisolated protocol RawCullAIModelDownloadServicing: Sendable {
 /// Apple-hosted packs. The downloader extension and Info.plist configuration
 /// select the host without changing this service.
 actor RawCullManagedBackgroundAssetsModelDownloadService:
-    RawCullAIModelDownloadServicing
-{
+    RawCullAIModelDownloadServicing {
     private let source: RawCullAIModelDownloadSource
 
     init(source: RawCullAIModelDownloadSource) {

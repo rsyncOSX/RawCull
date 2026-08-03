@@ -20,7 +20,7 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var boundaryEvidence: [BurstBoundaryEvidence]
     var results: [BurstAnalysisResult]
     var reviewStateSnapshots: [BurstReviewStateSnapshot]
-    var similarityArtifactSetDigest: String? = nil
+    var similarityArtifactSetDigest: String?
 }
 
 nonisolated struct BurstSimilaritySignature: Codable, Equatable {
@@ -256,7 +256,7 @@ actor BurstAnalysisCache {
             let fileManager = FileManager.default
             let resourceKeys: Set<URLResourceKey> = [
                 .isRegularFileKey,
-                .totalFileAllocatedSizeKey,
+                .totalFileAllocatedSizeKey
             ]
 
             guard let urls = try? fileManager.contentsOfDirectory(
@@ -326,8 +326,7 @@ actor BurstAnalysisCache {
                    artifact,
                    for: SimilarityScoringModel.source(for: file),
                    backends: similaritySignature.artifactBackendDescriptors,
-               )
-            {
+               ) {
                 return false
             }
         }

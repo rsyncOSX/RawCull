@@ -19,7 +19,9 @@ nonisolated struct RawCullSemanticSearchMatch: Equatable, Identifiable, Sendable
     let fileID: UUID
     let score: Float
 
-    var id: UUID { fileID }
+    var id: UUID {
+        fileID
+    }
 }
 
 nonisolated struct RawCullSemanticSearchArtifactFailure: Equatable, Sendable {
@@ -78,7 +80,7 @@ nonisolated protocol RawCullSemanticSearchServicing: Sendable {
         query: String,
         candidates: [RawCullSemanticSearchCandidate],
         progress: @escaping @Sendable (
-            RawCullSemanticSearchProgress
+            RawCullSemanticSearchProgress,
         ) async -> Void,
     ) async throws -> RawCullSemanticSearchOutput
 }
@@ -88,7 +90,7 @@ extension RawCullSemanticSearchServicing {
         query: String,
         candidates: [RawCullSemanticSearchCandidate],
         progress: @escaping @Sendable (
-            RawCullSemanticSearchProgress
+            RawCullSemanticSearchProgress,
         ) async -> Void,
     ) async throws -> RawCullSemanticSearchOutput {
         await progress(
@@ -145,7 +147,7 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
         query: String,
         candidates: [RawCullSemanticSearchCandidate],
         progress: @escaping @Sendable (
-            RawCullSemanticSearchProgress
+            RawCullSemanticSearchProgress,
         ) async -> Void,
     ) async throws -> RawCullSemanticSearchOutput {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -192,7 +194,7 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
         var ranked: [(
             match: RawCullSemanticSearchMatch,
             fileName: String,
-            catalogOrder: Int
+            catalogOrder: Int,
         )] = []
         var failures: [RawCullSemanticSearchArtifactFailure] = []
         ranked.reserveCapacity(compatibleCandidates.count)
@@ -226,7 +228,7 @@ nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServic
                                 score: score,
                             ),
                             candidate.fileName,
-                            candidate.catalogOrder
+                            candidate.catalogOrder,
                         ),
                     )
                 } else {

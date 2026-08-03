@@ -7,8 +7,8 @@ import Testing
 @Suite("Deep AI Review", .tags(.smoke))
 struct DeepAIReviewFeatureTests {
     @MainActor
-    @Test("Feature publishes a typed completed result")
-    func completedState() async throws {
+    @Test
+    func `Feature publishes a typed completed result`() async throws {
         let request = makeRequest(candidateCount: 2)
         let feature = DeepAIReviewFeature(
             availability: .available(location: nil),
@@ -24,8 +24,8 @@ struct DeepAIReviewFeatureTests {
     }
 
     @MainActor
-    @Test("Cancelling Deep Review cancels the owned in-process task")
-    func cancellation() async {
+    @Test
+    func `Cancelling Deep Review cancels the owned in-process task`() async {
         let request = makeRequest(candidateCount: 2)
         let service = CancellableDeepReviewService()
         let feature = DeepAIReviewFeature(
@@ -46,8 +46,8 @@ struct DeepAIReviewFeatureTests {
         #expect(await service.observedCancellation())
     }
 
-    @Test("Prompt policy and candidate limit match burst Deep Review")
-    func promptAndCandidatePolicy() {
+    @Test
+    func `Prompt policy and candidate limit match burst Deep Review`() {
         #expect(RawCullDeepAIReviewPipeline.promptAttempts(
             preset: .auto,
             subjectLabel: "Bird of prey",
@@ -64,8 +64,8 @@ struct DeepAIReviewFeatureTests {
         #expect(RawCullDeepAIReviewPipeline.selectedCandidateCount(from: 13) == 8)
     }
 
-    @Test("Subject-mask scorer measures detail only inside the mask")
-    func subjectMaskFocusEvidence() async throws {
+    @Test
+    func `Subject-mask scorer measures detail only inside the mask`() async throws {
         let image = try #require(makeStripedImage(width: 128, height: 128))
         let backgroundDetailImage = try #require(makeBackgroundStripedImage(width: 128, height: 128))
         let mask = try #require(makeCenteredMask(width: 128, height: 128))

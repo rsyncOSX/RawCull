@@ -236,8 +236,9 @@ final class RawCullViewModel {
             similaritySignature: similaritySignature,
         )
     }
+
     @ObservationIgnored var burstAnalysisMigrationLoad: @MainActor (
-        URL
+        URL,
     ) async -> BurstAnalysisCacheSnapshot? = { catalog in
         await BurstAnalysisCache.shared.loadMigrationCandidate(catalog: catalog)
     }

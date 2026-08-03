@@ -1,9 +1,9 @@
 import AppKit
 import Foundation
 import ImageIO
+import PhotoAIContracts
 import PhotoAnalysisKit
 @testable import RawCull
-import PhotoAIContracts
 import RawCullCore
 import Testing
 import UniformTypeIdentifiers
@@ -103,8 +103,7 @@ private actor NonFiniteArtifactProvider: ImageSimilarityArtifactProviding {
 
 private nonisolated struct MigrationArtifactBackend:
     ImageSimilarityArtifactProviding,
-    ImageSimilarityArtifactComparing
-{
+    ImageSimilarityArtifactComparing {
     let backendDescriptor: SimilarityBackendDescriptor
     var failingDisplayNames: Set<String> = []
     var recorder: MigrationArtifactCallRecorder?
@@ -286,7 +285,7 @@ private nonisolated func durableMigrationFile(
 ) throws -> FileItem {
     let values = try url.resourceValues(forKeys: [
         .fileSizeKey,
-        .contentModificationDateKey,
+        .contentModificationDateKey
     ])
     return FileItem(
         id: id,
@@ -405,8 +404,8 @@ private nonisolated func migrationCacheFileName(for catalog: URL) -> String {
 @MainActor
 @Suite("PhotoAIKit similarity migration", .serialized)
 struct PhotoAIKitSimilarityMigrationTests {
-    @Test("CLIP retains successful artifacts and excludes failed images", .tags(.critical))
-    func clipRetainsPartialArtifacts() async throws {
+    @Test(.tags(.critical))
+    func `CLIP retains successful artifacts and excludes failed images`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCLIPPartial-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -453,8 +452,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(service.artifactBackendDescriptors == [migrationCLIPBackend])
     }
 
-    @Test("CLIP partial indexing captures image decoding failures")
-    func clipPartialIndexingCapturesImageDecodingFailure() async throws {
+    @Test
+    func `CLIP partial indexing captures image decoding failures`() async throws {
         let missingURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("MissingCLIPImage-\(UUID().uuidString).raw")
         let source = AIImageSource(
@@ -487,8 +486,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(output.primaryFailureDiagnostic?.contains(source.displayName) == true)
     }
 
-    @Test("CLIP reindexes only missing or stale artifacts", .tags(.critical))
-    func clipReindexesOnlyMissingArtifacts() async throws {
+    @Test(.tags(.critical))
+    func `CLIP reindexes only missing or stale artifacts`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCLIPReindex-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -539,8 +538,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         })
     }
 
-    @Test("Durable indexing survives relaunch and reindexes only added or modified files", .tags(.critical))
-    func durableIndexingIsIncrementalAcrossRelaunches() async throws {
+    @Test(.tags(.critical))
+    func `Durable indexing survives relaunch and reindexes only added or modified files`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("DurableSimilarityIntegration-\(UUID().uuidString)", isDirectory: true)
         let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
@@ -554,7 +553,7 @@ struct PhotoAIKitSimilarityMigrationTests {
 
         let initialFiles = try [
             durableMigrationFile(at: firstURL),
-            durableMigrationFile(at: secondURL),
+            durableMigrationFile(at: secondURL)
         ]
         let initialRecorder = MigrationArtifactCallRecorder()
         let initialModel = SimilarityScoringModel(
@@ -571,7 +570,7 @@ struct PhotoAIKitSimilarityMigrationTests {
 
         let relaunchedFiles = try [
             durableMigrationFile(at: firstURL),
-            durableMigrationFile(at: secondURL),
+            durableMigrationFile(at: secondURL)
         ]
         let relaunchRecorder = MigrationArtifactCallRecorder()
         let relaunchedModel = SimilarityScoringModel(
@@ -583,13 +582,13 @@ struct PhotoAIKitSimilarityMigrationTests {
         )
         #expect(await relaunchedModel.hydrateArtifacts(relaunchedFiles) == 2)
         await relaunchedModel.indexFiles(relaunchedFiles)
-        #expect((await relaunchRecorder.snapshot()).isEmpty)
+        #expect(await (relaunchRecorder.snapshot()).isEmpty)
 
         try writeDurableMigrationFile(at: addedURL, bytes: [3])
         let expandedFiles = try [
             durableMigrationFile(at: firstURL),
             durableMigrationFile(at: secondURL),
-            durableMigrationFile(at: addedURL),
+            durableMigrationFile(at: addedURL)
         ]
         let addRecorder = MigrationArtifactCallRecorder()
         let expandedModel = SimilarityScoringModel(
@@ -607,7 +606,7 @@ struct PhotoAIKitSimilarityMigrationTests {
         let modifiedFiles = try [
             durableMigrationFile(at: firstURL),
             durableMigrationFile(at: secondURL),
-            durableMigrationFile(at: addedURL),
+            durableMigrationFile(at: addedURL)
         ]
         let modifyRecorder = MigrationArtifactCallRecorder()
         let modifiedModel = SimilarityScoringModel(
@@ -623,7 +622,7 @@ struct PhotoAIKitSimilarityMigrationTests {
 
         let remainingFiles = try [
             durableMigrationFile(at: firstURL),
-            durableMigrationFile(at: addedURL),
+            durableMigrationFile(at: addedURL)
         ]
         let removalModel = SimilarityScoringModel(
             similarityService: DurableMigrationSimilarityService(
@@ -639,8 +638,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         ).usage().entryCount == 3)
     }
 
-    @Test("Vision and CLIP artifacts coexist without cross-loading")
-    func durableStoreSeparatesSimilarityBackends() async throws {
+    @Test
+    func `Vision and CLIP artifacts coexist without cross-loading`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("DurableBackendSwitch-\(UUID().uuidString)", isDirectory: true)
         let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
@@ -648,7 +647,7 @@ struct PhotoAIKitSimilarityMigrationTests {
 
         let urls = [
             root.appendingPathComponent("first.ARW"),
-            root.appendingPathComponent("second.ARW"),
+            root.appendingPathComponent("second.ARW")
         ]
         try writeDurableMigrationFile(at: urls[0], bytes: [1])
         try writeDurableMigrationFile(at: urls[1], bytes: [2])
@@ -685,8 +684,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         })
     }
 
-    @Test("Partial indexing persists successes and isolates invalid payloads")
-    func durableStorePreservesPartialSuccesses() async throws {
+    @Test
+    func `Partial indexing persists successes and isolates invalid payloads`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("DurablePartialIndex-\(UUID().uuidString)", isDirectory: true)
         let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
@@ -695,7 +694,7 @@ struct PhotoAIKitSimilarityMigrationTests {
         let urls = [
             root.appendingPathComponent("valid.ARW"),
             root.appendingPathComponent("failed.ARW"),
-            root.appendingPathComponent("malformed.ARW"),
+            root.appendingPathComponent("malformed.ARW")
         ]
         try writeDurableMigrationFile(at: urls[0], bytes: [1])
         try writeDurableMigrationFile(at: urls[1], bytes: [2])
@@ -745,11 +744,11 @@ struct PhotoAIKitSimilarityMigrationTests {
         _ = await store.upsert(
             artifacts: [
                 invalidSource.id: nonFiniteArtifact,
-                malformedSource.id: malformedArtifact,
+                malformedSource.id: malformedArtifact
             ],
             sources: [
                 invalidSource.id: invalidSource,
-                malformedSource.id: malformedSource,
+                malformedSource.id: malformedSource
             ],
             pipeline: SimilarityScoringModel.artifactPipelineSignature,
         )
@@ -766,8 +765,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(await store.usage().entryCount == 1)
     }
 
-    @Test("Legacy burst artifacts migrate once into the per-file store")
-    func legacyBurstArtifactsMigrateIntoDurableStore() async throws {
+    @Test
+    func `Legacy burst artifacts migrate once into the per-file store`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("LegacyArtifactImport-\(UUID().uuidString)", isDirectory: true)
         let storeDirectory = root.appendingPathComponent("store", isDirectory: true)
@@ -812,8 +811,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(reloaded.embeddings[reloadedFile.id] == artifact)
     }
 
-    @Test("Non-finite CLIP output retries once then reloads the provider", .tags(.critical))
-    func clipReloadsProviderAfterNonFiniteRetry() async throws {
+    @Test(.tags(.critical))
+    func `Non-finite CLIP output retries once then reloads the provider`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCLIPRecovery-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -861,8 +860,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(output.primaryFailures.isEmpty)
     }
 
-    @Test("Persistent non-finite CLIP output is excluded after provider reload", .tags(.critical))
-    func clipExcludesPersistentNonFiniteOutput() async throws {
+    @Test(.tags(.critical))
+    func `Persistent non-finite CLIP output is excluded after provider reload`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCLIPPersistentNaN-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -912,8 +911,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(output.primaryFailures.first?.stage == .clipInference)
     }
 
-    @Test("Burst grouping excludes unindexed images and preserves hard boundaries", .tags(.critical))
-    func groupingExcludesUnindexedImages() async throws {
+    @Test(.tags(.critical))
+    func `Burst grouping excludes unindexed images and preserves hard boundaries`() async {
         let model = SimilarityScoringModel(
             similarityService: MigrationTestSimilarityService(),
             artifactStore: makeIsolatedSimilarityArtifactStore(),
@@ -937,8 +936,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(model.burstBoundaryEvidence.isEmpty)
     }
 
-    @Test("PhotoAIKit Vision indexing produces complete reusable artifacts", .tags(.critical))
-    func visionArtifactsAreDescriptorComplete() async throws {
+    @Test(.tags(.critical))
+    func `PhotoAIKit Vision indexing produces complete reusable artifacts`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitVisionArtifacts-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -993,8 +992,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(abs(sameImageDistance) < 0.000_001)
     }
 
-    @Test("RawCull ranking policy is preserved behind the PhotoAIKit boundary", .tags(.critical))
-    func rankingPolicyIsPreserved() async throws {
+    @Test(.tags(.critical))
+    func `RawCull ranking policy is preserved behind the PhotoAIKit boundary`() async throws {
         let model = SimilarityScoringModel(
             similarityService: MigrationTestSimilarityService(),
             artifactStore: makeIsolatedSimilarityArtifactStore(),
@@ -1010,7 +1009,7 @@ struct PhotoAIKitSimilarityMigrationTests {
             saliencyInfo: [
                 anchor.id: SaliencyInfo(subjectLabel: "bird"),
                 near.id: SaliencyInfo(subjectLabel: "person"),
-                far.id: SaliencyInfo(subjectLabel: "bird"),
+                far.id: SaliencyInfo(subjectLabel: "bird")
             ],
         )
 
@@ -1023,8 +1022,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(model.sortBySimilarity)
     }
 
-    @Test("Legacy burst artifacts are rejected and the current schema rebuild loads", .tags(.critical))
-    func legacyCacheIsInvalidated() async throws {
+    @Test(.tags(.critical))
+    func `Legacy burst artifacts are rejected and the current schema rebuild loads`() async {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitCacheMigration-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -1097,8 +1096,8 @@ struct PhotoAIKitSimilarityMigrationTests {
         #expect(rebuilt == snapshot)
     }
 
-    @Test("Partial CLIP cache excludes files without validated artifacts", .tags(.critical))
-    func partialCLIPCache() async throws {
+    @Test(.tags(.critical))
+    func `Partial CLIP cache excludes files without validated artifacts`() async {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitPartialCache-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -1137,7 +1136,7 @@ struct PhotoAIKitSimilarityMigrationTests {
                 indexed.id: migrationTestArtifact(
                     source: SimilarityScoringModel.source(for: indexed),
                     value: 1,
-                ),
+                )
             ],
             sharpnessScores: [:],
             saliencyInfo: [:],
@@ -1151,7 +1150,7 @@ struct PhotoAIKitSimilarityMigrationTests {
                     indexed.id: migrationTestArtifact(
                         source: SimilarityScoringModel.source(for: indexed),
                         value: 1,
-                    ),
+                    )
                 ],
             ),
         )
@@ -1180,11 +1179,10 @@ struct PhotoAIKitSimilarityMigrationTests {
     }
 
     @Test(
-        "PhotoAIKit Vision indexing and ranking benchmark",
         .timeLimit(.minutes(1)),
         .tags(.performance),
     )
-    func visionIndexingAndRankingBenchmark() async throws {
+    func `PhotoAIKit Vision indexing and ranking benchmark`() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoAIKitVisionBenchmark-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

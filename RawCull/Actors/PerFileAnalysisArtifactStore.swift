@@ -50,7 +50,7 @@ nonisolated struct PerFileAnalysisArtifactPruningPolicy: Equatable, Sendable {
     /// same path/backend/pipeline identity immediately.
     static let `default` = Self(
         maximumUnusedAge: .days(90),
-        maximumEntryCount: 50_000,
+        maximumEntryCount: 50000,
     )
 }
 
@@ -139,7 +139,7 @@ actor PerFileAnalysisArtifactStore {
                     }
 
                     artifacts[source.id] = artifact
-                    if Date().timeIntervalSince(record.lastAccessedAt) >= 86_400 {
+                    if Date().timeIntervalSince(record.lastAccessedAt) >= 86400 {
                         record.lastAccessedAt = Date()
                         try? encode(record).write(to: url, options: .atomic)
                     }
@@ -248,19 +248,18 @@ actor PerFileAnalysisArtifactStore {
                 let url = recordURL(for: identity)
                 let now = Date()
                 let existingCreatedAt = (try? decodeRecord(at: url))?.createdAt
-                let record = StoredRecord(
+                let record = try StoredRecord(
                     schemaVersion: Self.recordSchemaVersion,
                     identity: identity,
                     sourceDisplayName: source.displayName,
-                    artifactData: try SimilarityArtifactCodec.encode(artifact),
+                    artifactData: SimilarityArtifactCodec.encode(artifact),
                     createdAt: existingCreatedAt ?? now,
                     lastAccessedAt: now,
                 )
                 try encode(record).write(to: url, options: .atomic)
                 for (knownURL, knownRecord) in knownRecords
                     where knownURL != url
-                    && knownRecord.identity.isSuperseded(by: identity)
-                {
+                    && knownRecord.identity.isSuperseded(by: identity) {
                     try? FileManager.default.removeItem(at: knownURL)
                 }
                 knownRecords.removeAll { knownRecord in
@@ -305,7 +304,7 @@ actor PerFileAnalysisArtifactStore {
     func usage() -> PerFileAnalysisArtifactStoreUsage {
         let keys: Set<URLResourceKey> = [
             .isRegularFileKey,
-            .totalFileAllocatedSizeKey,
+            .totalFileAllocatedSizeKey
         ]
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: storageDirectory,
@@ -411,7 +410,7 @@ actor PerFileAnalysisArtifactStore {
         )
     }
 
-    private func encode<T: Encodable>(_ value: T) throws -> Data {
+    private func encode(_ value: some Encodable) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(value)

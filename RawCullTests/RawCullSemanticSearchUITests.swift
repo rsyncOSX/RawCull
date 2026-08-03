@@ -42,7 +42,7 @@ private nonisolated func semanticUIPresentation(
 @Suite("RawCull semantic search UI", .tags(.smoke))
 struct RawCullSemanticSearchUITests {
     @Test
-    func capabilityControls() {
+    func `capability controls`() {
         let ready = semanticUIPresentation()
         #expect(ready.showsSearchField)
         #expect(ready.canSubmitSearch)
@@ -72,7 +72,7 @@ struct RawCullSemanticSearchUITests {
     }
 
     @Test
-    func indexingState() {
+    func `indexing state`() {
         let presentation = semanticUIPresentation(
             searchState: .results(
                 RawCullSemanticSearchResultSummary(
@@ -104,7 +104,7 @@ struct RawCullSemanticSearchUITests {
     }
 
     @Test
-    func resultStates() {
+    func `result states`() {
         let partialSummary = RawCullSemanticSearchResultSummary(
             query: "backlit portrait",
             resultCount: 7,
@@ -160,7 +160,7 @@ struct RawCullSemanticSearchUITests {
     }
 
     @Test
-    func cancellationAndClearState() {
+    func `cancellation and clear state`() {
         let searching = semanticUIPresentation(
             searchState: .searching(query: "red fox at dusk"),
         )

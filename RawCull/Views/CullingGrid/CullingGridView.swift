@@ -85,8 +85,7 @@ private struct BurstGroupHeaderView: View {
 
             Button(action: onDeepReview) {
                 if viewModel.deepAIReviewFeature.isRunning,
-                   viewModel.deepAIReviewFeature.state.activeGroupID == analysis?.groupID
-                {
+                   viewModel.deepAIReviewFeature.state.activeGroupID == analysis?.groupID {
                     HStack(spacing: 5) {
                         ProgressView()
                             .controlSize(.small)

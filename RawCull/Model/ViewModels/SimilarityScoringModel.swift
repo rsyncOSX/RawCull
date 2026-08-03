@@ -74,14 +74,15 @@ nonisolated struct RawCullSemanticSearchResultSummary: Equatable, Sendable {
 nonisolated struct RawCullSemanticSearchDiagnosticResult:
     Equatable,
     Identifiable,
-    Sendable
-{
+    Sendable {
     let fileID: UUID
     let fileName: String
     let rank: Int
     let score: Float
 
-    var id: UUID { fileID }
+    var id: UUID {
+        fileID
+    }
 }
 
 nonisolated struct RawCullSemanticSearchDiagnostics: Equatable, Sendable {
@@ -437,8 +438,7 @@ final class SimilarityScoringModel {
                    let backend = descriptors.first(where: {
                        $0.backend == artifact.descriptor.backend
                            && $0.modelFingerprint == artifact.descriptor.modelFingerprint
-                   })
-                {
+                   }) {
                     invalidEntries.append((source, backend))
                 }
                 continue
@@ -464,8 +464,7 @@ final class SimilarityScoringModel {
                    for: Self.source(for: file),
                    backends: descriptors,
                    service: service,
-               )
-            {
+               ) {
                 embeddings.removeValue(forKey: file.id)
             }
         }
@@ -748,8 +747,7 @@ final class SimilarityScoringModel {
                        artifact,
                        for: source,
                        backend: semanticBackend,
-                   )
-                {
+                   ) {
                     semanticArtifacts[id] = artifact
                 }
             }
@@ -785,8 +783,7 @@ final class SimilarityScoringModel {
                     ),
                 )
             } else if service.backendDescriptor.backend == "clip",
-                      !indexingFailures.isEmpty
-            {
+                      !indexingFailures.isEmpty {
                 await recordSimilarityDiagnostic(
                     SimilarityDiagnosticsEvent(
                         timestamp: Date(),
@@ -968,7 +965,7 @@ final class SimilarityScoringModel {
         )
         semanticSearchState = .searching(query: trimmedQuery)
         let progressHandler: @Sendable (
-            RawCullSemanticSearchProgress
+            RawCullSemanticSearchProgress,
         ) async -> Void = { [model = self] progress in
             await model.acceptSemanticSearchProgress(
                 progress,
@@ -977,8 +974,8 @@ final class SimilarityScoringModel {
         }
         let work = Task<SemanticSearchTaskResult, Never> { @concurrent in
             do {
-                return .success(
-                    try await service.rank(
+                return try await .success(
+                    service.rank(
                         query: trimmedQuery,
                         candidates: candidates,
                         progress: progressHandler,
@@ -1032,7 +1029,7 @@ final class SimilarityScoringModel {
                 promptPolicyVersion: service.promptPolicyVersion,
                 durationMilliseconds: max(
                     0,
-                    Int(Date().timeIntervalSince(startedAt) * 1_000),
+                    Int(Date().timeIntervalSince(startedAt) * 1000),
                 ),
             )
             applySemanticSearchResultPresentation(
@@ -1204,8 +1201,8 @@ final class SimilarityScoringModel {
 
     // MARK: - Burst grouping
 
-    /// Cluster `files` into burst groups using a sequential O(n) distance pass.
-    /// `files` must be sorted by effective capture time before calling.
+    // Cluster `files` into burst groups using a sequential O(n) distance pass.
+    // `files` must be sorted by effective capture time before calling.
 
     func groupBursts(files: [FileItem]) async {
         Logger.process.debugMessageOnly(
@@ -1297,7 +1294,7 @@ final class SimilarityScoringModel {
                         previousID: evidence.previousID,
                         currentID: evidence.currentID,
                     ),
-                    distance
+                    distance,
                 )
             },
         )
@@ -1330,7 +1327,7 @@ final class SimilarityScoringModel {
                         previousID: evidence.previousID,
                         currentID: evidence.currentID,
                     ),
-                    distance
+                    distance,
                 )
             },
         )
@@ -1405,10 +1402,13 @@ final class SimilarityScoringModel {
         switch capability {
         case .checking:
             "Semantic search capability is still being checked."
+
         case .ready:
             "The semantic-search provider is not available."
+
         case let .unavailable(reason, _):
             reason
+
         case let .failed(_, reason):
             reason
         }
@@ -1482,8 +1482,7 @@ final class SimilarityScoringModel {
                 }
                 if let anchorLabel,
                    let candidateLabel = saliencyInfo[id]?.subjectLabel,
-                   anchorLabel != candidateLabel
-                {
+                   anchorLabel != candidateLabel {
                     distance += mismatchPenalty
                 }
                 result[id] = distance

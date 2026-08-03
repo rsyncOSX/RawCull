@@ -1,12 +1,12 @@
 import Foundation
 import PhotoAIContracts
-import Testing
 @testable import RawCull
+import Testing
 
 @Suite("Per-file analysis artifact store")
 struct PerFileAnalysisArtifactStoreTests {
-    @Test("CLIP and Vision artifacts round-trip independently")
-    func roundTripArtifacts() async throws {
+    @Test
+    func `CLIP and Vision artifacts round-trip independently`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let clipSource = try fixture.source(named: "clip.raw")
@@ -27,11 +27,11 @@ struct PerFileAnalysisArtifactStoreTests {
         let commit = await fixture.store.upsert(
             artifacts: [
                 clipSource.id: clipArtifact,
-                visionSource.id: visionArtifact,
+                visionSource.id: visionArtifact
             ],
             sources: [
                 clipSource.id: clipSource,
-                visionSource.id: visionSource,
+                visionSource.id: visionSource
             ],
             pipeline: fixture.pipeline,
         )
@@ -48,8 +48,8 @@ struct PerFileAnalysisArtifactStoreTests {
         #expect(loaded.misses.isEmpty)
     }
 
-    @Test("Source, backend, preview size, and pipeline changes are cache misses")
-    func identityMismatches() async throws {
+    @Test
+    func `Source, backend, preview size, and pipeline changes are cache misses`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let source = try fixture.source(named: "identity.raw")
@@ -110,7 +110,7 @@ struct PerFileAnalysisArtifactStoreTests {
                 preprocessingVersion: fixture.clipBackend.preprocessingVersion,
                 normalizationVersion: fixture.clipBackend.normalizationVersion,
                 configurationVersion: "different-configuration",
-            ),
+            )
         ]
         for descriptor in descriptorVariants {
             let mismatch = await fixture.store.load(
@@ -172,8 +172,8 @@ struct PerFileAnalysisArtifactStoreTests {
         #expect(staleSchemaCommit.failures.count == 1)
     }
 
-    @Test("A corrupt record is isolated from valid records")
-    func corruptRecordIsIsolated() async throws {
+    @Test
+    func `A corrupt record is isolated from valid records`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let first = try fixture.source(named: "first.raw")
@@ -186,7 +186,7 @@ struct PerFileAnalysisArtifactStoreTests {
                     backend: fixture.clipBackend,
                     dimensions: 1,
                     payload: Data([1]),
-                ),
+                )
             ],
             sources: [first.id: first],
             pipeline: fixture.pipeline,
@@ -200,7 +200,7 @@ struct PerFileAnalysisArtifactStoreTests {
                     backend: fixture.clipBackend,
                     dimensions: 1,
                     payload: Data([2]),
-                ),
+                )
             ],
             sources: [second.id: second],
             pipeline: fixture.pipeline,
@@ -219,13 +219,13 @@ struct PerFileAnalysisArtifactStoreTests {
             PerFileAnalysisArtifactCacheMiss(
                 sourceID: first.id,
                 reason: .corrupt,
-            ),
+            )
         ])
         #expect(fixture.recordURLs().count == 1)
     }
 
-    @Test("Usage, pruning, and clear operate on individual records")
-    func maintenanceOperations() async throws {
+    @Test
+    func `Usage, pruning, and clear operate on individual records`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let source = try fixture.source(named: "maintenance.raw")
@@ -245,7 +245,7 @@ struct PerFileAnalysisArtifactStoreTests {
         let prune = await fixture.store.prune(
             policy: PerFileAnalysisArtifactPruningPolicy(
                 maximumUnusedAge: .zero,
-                maximumEntryCount: 50_000,
+                maximumEntryCount: 50000,
             ),
             now: Date().addingTimeInterval(1),
         )
@@ -268,8 +268,8 @@ struct PerFileAnalysisArtifactStoreTests {
         #expect(await fixture.store.usage().entryCount == 0)
     }
 
-    @Test("Replacement is atomic and cancellation preserves completed records")
-    func atomicReplacementAndCancellation() async throws {
+    @Test
+    func `Replacement is atomic and cancellation preserves completed records`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let source = try fixture.source(named: "replacement.raw")

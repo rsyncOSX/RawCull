@@ -13,8 +13,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     var body: some ToolbarContent {
         if case let .results(summary) = viewModel.similarityModel.semanticSearchState,
-           summary.resultCount > 0
-        {
+           summary.resultCount > 0 {
             ToolbarItemGroup(placement: .status) {
                 Button {
                     Task {

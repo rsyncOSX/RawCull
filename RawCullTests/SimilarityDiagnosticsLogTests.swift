@@ -46,7 +46,7 @@ struct SimilarityDiagnosticsLogTests {
                     RawCullSimilarityIndexingFailure(
                         source: source,
                         message: failure.message,
-                    ),
+                    )
                 ],
                 validationFailures: [],
             ),

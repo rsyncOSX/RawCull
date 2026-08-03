@@ -75,7 +75,9 @@ extension RawCullSimilarityServicing {
         [backendDescriptor]
     }
 
-    nonisolated var requiresHomogeneousBatch: Bool { false }
+    nonisolated var requiresHomogeneousBatch: Bool {
+        false
+    }
 }
 
 /// Vision feature-print similarity service.
@@ -323,8 +325,7 @@ private actor RawCullCLIPFailureRecorder {
 }
 
 private actor RawCullRecoveringCLIPArtifactProvider:
-    ImageSimilarityArtifactProviding
-{
+    ImageSimilarityArtifactProviding {
     nonisolated let backendDescriptor: SimilarityBackendDescriptor
 
     private var provider: any ImageSimilarityArtifactProviding
@@ -430,8 +431,7 @@ private nonisolated struct RawCullCLIPFailureReport: Sendable {
 }
 
 private nonisolated struct RawCullDiagnosingArtifactProvider:
-    ImageSimilarityArtifactProviding
-{
+    ImageSimilarityArtifactProviding {
     let backendDescriptor: SimilarityBackendDescriptor
 
     private let provider: any ImageSimilarityArtifactProviding
@@ -498,8 +498,7 @@ private nonisolated struct RawCullDiagnosingImageDecoder: ImageDecoding {
 /// the package indexer's bounded parallelism effective instead of serializing
 /// all generation through one actor instance.
 private nonisolated struct RawCullParallelVisionArtifactProvider:
-    ImageSimilarityArtifactProviding
-{
+    ImageSimilarityArtifactProviding {
     let revision: Int
     let backendDescriptor: SimilarityBackendDescriptor
 
@@ -549,7 +548,7 @@ nonisolated struct RawCullSimilarityImageDecoder: ImageDecoding {
             kCGImageSourceCreateThumbnailFromImageAlways: false,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceShouldCacheImmediately: true
         ]
         guard let image = CGImageSourceCreateThumbnailAtIndex(
             imageSource,

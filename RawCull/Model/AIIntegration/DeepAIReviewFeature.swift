@@ -13,7 +13,9 @@ nonisolated enum DeepAIReviewPreset: String, CaseIterable, Codable, Identifiable
     case fullSubject
     case headFace
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 nonisolated enum DeepAIReviewConfidence: String, Codable, Sendable {
@@ -41,7 +43,9 @@ nonisolated enum DeepAIReviewCandidateIssue: Equatable, Hashable, Sendable {
 }
 
 nonisolated struct DeepAIReviewInputCandidate: Equatable, Identifiable, Sendable {
-    var id: UUID { fileID }
+    var id: UUID {
+        fileID
+    }
 
     let fileID: UUID
     let fileName: String
@@ -61,7 +65,9 @@ nonisolated struct DeepAIReviewRequest: Equatable, Sendable {
 }
 
 nonisolated struct DeepAIReviewCandidate: Equatable, Identifiable, Sendable {
-    var id: UUID { fileID }
+    var id: UUID {
+        fileID
+    }
 
     let fileID: UUID
     let fileName: String
@@ -125,12 +131,16 @@ nonisolated enum DeepAIReviewState: Equatable, Sendable {
         switch self {
         case .idle:
             nil
+
         case let .preparing(groupID, _), let .completing(groupID):
             groupID
+
         case let .running(progress):
             progress.groupID
+
         case let .failed(groupID, _):
             groupID
+
         case let .completed(result):
             result.groupID
         }
@@ -140,6 +150,7 @@ nonisolated enum DeepAIReviewState: Equatable, Sendable {
         switch self {
         case .preparing, .running, .completing:
             true
+
         case .idle, .failed, .completed:
             false
         }
@@ -174,7 +185,9 @@ final class DeepAIReviewFeature {
         self.service = service
     }
 
-    var isRunning: Bool { state.isRunning }
+    var isRunning: Bool {
+        state.isRunning
+    }
 
     func result(for signature: BurstGroupSignature) -> DeepAIReviewResult? {
         results[signature]
@@ -316,16 +329,20 @@ final class DeepAIReviewFeature {
         switch status {
         case .checking:
             "RawCull is still checking the SAM 3 model."
+
         case .available:
             "The SAM 3 in-process pipeline is unavailable."
+
         case let .missing(expectedLocations):
             expectedLocations.first.map {
                 "Install SAM 3 at \($0.path)."
             } ?? "Install the SAM 3 model."
+
         case let .invalid(location, reason):
             location.map {
                 "The SAM 3 model at \($0.path) is invalid: \(reason)"
             } ?? "The SAM 3 model is invalid: \(reason)"
+
         case let .unavailable(reason):
             reason
         }
@@ -388,7 +405,7 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
             try Task.checkCancellation()
             let context = CIContext(options: [
                 .cacheIntermediates: false,
-                .workingColorSpace: NSNull(),
+                .workingColorSpace: NSNull()
             ])
             guard let result = context.createCGImage(image, from: image.extent) else {
                 throw DeepAIReviewCandidateIssue.imageDecodeFailed
@@ -475,8 +492,10 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         switch preset {
         case .fullSubject:
             [.subject]
+
         case .headFace:
             specificPromptAttempts(subjectLabel: subjectLabel)
+
         case .auto:
             automaticPromptAttempts(subjectLabel: subjectLabel)
         }
@@ -569,7 +588,11 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
                 "RawCullDeepAIReviewPipeline.evaluate(): no subject mask was selected for \(candidate.fileName)",
             )
             let failure = selection.attempts.lazy.compactMap { attempt -> String? in
-                if case let .failed(reason) = attempt.outcome { reason } else { nil }
+                if case let .failed(reason) = attempt.outcome {
+                    reason
+                } else {
+                    nil
+                }
             }.first
             return Self.failedCandidate(
                 candidate,
@@ -708,8 +731,10 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         return switch preset {
         case .fullSubject:
             selectedPrompt == .subject
+
         case .headFace:
             !usedFallback && [.birdHead, .animalHead, .face].contains(selectedPrompt)
+
         case .auto:
             !usedFallback
         }
@@ -791,7 +816,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         let sorted = candidates.sorted {
             let lhs = $0.deepScore ?? -.infinity
             let rhs = $1.deepScore ?? -.infinity
-            if lhs == rhs { return $0.rank < $1.rank }
+            if lhs == rhs {
+                return $0.rank < $1.rank
+            }
             return lhs > rhs
         }
         let recommended = sorted.first { $0.deepScore?.isFinite == true }
@@ -811,7 +838,9 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         let cautions = candidates
             .flatMap(\.issues)
             .reduce(into: [DeepAIReviewCandidateIssue]()) { result, issue in
-                if !result.contains(issue) { result.append(issue) }
+                if !result.contains(issue) {
+                    result.append(issue)
+                }
             }
         let result = DeepAIReviewResult(
             groupID: request.groupID,

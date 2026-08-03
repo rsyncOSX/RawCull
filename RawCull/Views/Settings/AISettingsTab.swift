@@ -5,7 +5,7 @@ struct AISettingsTab: View {
 
     @State private var showModelDownloads = false
     @State private var showDeleteBurstDataConfirmation = false
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -45,7 +45,7 @@ struct AISettingsTab: View {
 
 private struct AIModelSettingsCard: View {
     @Bindable var model: RawCullAISettingsModel
-    
+
     let useonlyDataCompCLIP = true
 
     var body: some View {
@@ -70,7 +70,7 @@ private struct AIModelSettingsCard: View {
                     availableMessage: "DataComp CLIP model resources are installed.",
                     missingMessage: "DataComp CLIP is not installed.",
                 )
-                
+
                 if useonlyDataCompCLIP == false {
                     Divider()
 
@@ -93,7 +93,7 @@ private struct AIModelSettingsCard: View {
                     .font(.system(size: 12, weight: .medium))
                     .help("Choose the single CLIP model RawCull uses for similarity and semantic search.")
                 }
-                
+
                 Toggle(
                     "Use selected CLIP model for similarity",
                     isOn: $model.useCLIPForSimilarity,
@@ -283,7 +283,9 @@ private struct SavedBurstSimilarityEvidenceView: View {
     }
 
     private var statusTitle: String {
-        if scanFailure != nil { return "Unavailable" }
+        if scanFailure != nil {
+            return "Unavailable"
+        }
         guard let evidence else { return "Scanning..." }
         return switch evidence.backend {
         case .noSavedData: "No saved data"
@@ -295,7 +297,9 @@ private struct SavedBurstSimilarityEvidenceView: View {
     }
 
     private var iconName: String {
-        if scanFailure != nil { return "xmark.circle.fill" }
+        if scanFailure != nil {
+            return "xmark.circle.fill"
+        }
         guard let evidence else { return "internaldrive" }
         return switch evidence.backend {
         case .noSavedData: "tray"
@@ -307,7 +311,9 @@ private struct SavedBurstSimilarityEvidenceView: View {
     }
 
     private var statusColor: Color {
-        if scanFailure != nil { return .red }
+        if scanFailure != nil {
+            return .red
+        }
         guard let evidence else { return .secondary }
         return switch evidence.backend {
         case .noSavedData: .secondary

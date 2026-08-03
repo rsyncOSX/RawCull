@@ -32,8 +32,7 @@ nonisolated protocol RawCullAIModelLicenceAcceptanceStoring: Sendable {
 }
 
 actor RawCullAIModelLicenceAcceptanceFileStore:
-    RawCullAIModelLicenceAcceptanceStoring
-{
+    RawCullAIModelLicenceAcceptanceStoring {
     private struct Store: Codable, Sendable {
         var acceptances: [RawCullAIModelLicenceAcceptance]
     }

@@ -199,7 +199,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 releaseReadiness: .blocked(
                     reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
                 ),
-            ),
+            )
         ],
     )
 

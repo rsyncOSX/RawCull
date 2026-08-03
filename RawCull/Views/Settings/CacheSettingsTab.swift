@@ -115,7 +115,7 @@ struct CacheSettingsTab: View {
             thumbnailSize,
             fullSizeJPGSize,
             similarityArtifactUsage,
-            burstAnalysisUsage
+            burstAnalysisUsage,
         )
 
         guard !Task.isCancelled else { return }
@@ -136,10 +136,13 @@ struct CacheSettingsTab: View {
             switch cache {
             case .thumbnails:
                 await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
+
             case .fullSizeJPGs:
                 await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
+
             case .similarityArtifacts:
                 await PerFileAnalysisArtifactStore.shared.clear()
+
             case .burstAnalysis:
                 await BurstAnalysisCache.shared.clear()
             }
@@ -176,7 +179,9 @@ private enum DiskCacheKind: Hashable, Identifiable {
     case similarityArtifacts
     case burstAnalysis
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var title: String {
         switch self {
@@ -191,10 +196,13 @@ private enum DiskCacheKind: Hashable, Identifiable {
         switch self {
         case .thumbnails:
             "Cached thumbnails will be deleted and generated again when needed."
+
         case .fullSizeJPGs:
             "Cached full-size previews will be deleted and generated again when needed."
+
         case .similarityArtifacts:
             "Saved per-file similarity artifacts will be deleted and indexed again when needed."
+
         case .burstAnalysis:
             "Saved burst groups and analysis results for all catalogs will be deleted and analyzed again when needed."
         }
@@ -441,5 +449,4 @@ private struct DiskCacheRow: View {
             .accessibilityLabel("Clear \(kind.title)")
         }
     }
-
 }

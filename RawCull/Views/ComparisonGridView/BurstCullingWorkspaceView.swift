@@ -146,9 +146,9 @@ struct BurstCullingWorkspaceView: View {
                 .fontWeight(.semibold)
 
             Spacer()
-            
+
             Text("Extraced thumbnail is default, toggle J to view JPG")
-            
+
             Spacer()
 
             keyCap("P/N")
@@ -233,7 +233,6 @@ struct BurstCullingWorkspaceView: View {
 
             ScrollViewReader { proxy in
                 GeometryReader { geo in
-                    
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
@@ -295,9 +294,8 @@ struct BurstCullingWorkspaceView: View {
                         tagStrip(for: selectedFile)
                     }
                 }
-               
+
                 CandidateInspectorView(context: candidateInspectorContext)
-                
             }
             .padding(16)
         }
@@ -317,7 +315,7 @@ struct BurstCullingWorkspaceView: View {
             rating: viewModel.selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
         )
     }
-    
+
     private var fileDetails: some View {
         VStack(spacing: 12) {
             detailRow("Name", selectedFile?.name ?? "—")

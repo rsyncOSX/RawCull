@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
+import PhotoAIContracts
 import PhotoAnalysisKit
 @testable import RawCull
-import PhotoAIContracts
 import RawCullCore
 import Synchronization
 import Testing
@@ -11,7 +11,7 @@ private actor SavedFilesRecorder {
     private var snapshots: [[SavedFiles]] = []
     private var waiters: [(
         count: Int,
-        continuation: CheckedContinuation<[[SavedFiles]], Never>
+        continuation: CheckedContinuation<[[SavedFiles]], Never>,
     )] = []
 
     func record(_ savedFiles: [SavedFiles]) {
@@ -110,7 +110,7 @@ private nonisolated struct CancellationSimilarityService: RawCullSimilarityServi
             for _ in 0 ..< min(4, sources.count) {
                 guard let source = iterator.next() else { break }
                 group.addTask {
-                    (source, await probe.embedding())
+                    await (source, probe.embedding())
                 }
             }
 
@@ -141,7 +141,7 @@ private nonisolated struct CancellationSimilarityService: RawCullSimilarityServi
                       let next = iterator.next()
                 else { continue }
                 group.addTask {
-                    (next, await probe.embedding())
+                    await (next, probe.embedding())
                 }
             }
         }
@@ -199,11 +199,10 @@ private nonisolated struct SuspendingSimilarityService: RawCullSimilarityServici
     ) async throws -> RawCullSimilarityIndexingOutput {
         var artifacts: [UUID: SimilarityArtifact] = [:]
         for (offset, source) in sources.enumerated() {
-            let payload: Data
-            if source.url.lastPathComponent.hasPrefix("slow") {
-                payload = await probe.suspendIgnoringCancellation() ?? Data()
+            let payload: Data = if source.url.lastPathComponent.hasPrefix("slow") {
+                await probe.suspendIgnoringCancellation() ?? Data()
             } else {
-                payload = Data([2])
+                Data([2])
             }
             artifacts[source.id] = makeSimilarityTestArtifact(
                 source: source,
@@ -402,7 +401,7 @@ struct CullingModelTests {
         let previousDistanceID = UUID()
         model.embeddings = [
             anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
-            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate))
         ]
         model.anchorFileID = previousAnchorID
         model.distances = [previousDistanceID: 0.5]
@@ -969,7 +968,7 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == [
             "Z-earliest.ARW",
             "M-fallback.ARW",
-            "A-latest.ARW",
+            "A-latest.ARW"
         ])
     }
 
@@ -1590,7 +1589,7 @@ struct RawCullViewModelCullingTests {
                         repeating: UInt8(file.name.count % 255),
                         count: 256,
                     ),
-                )
+                ),
             )
         })
         snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
@@ -1784,7 +1783,7 @@ private func makeBurstSnapshot(
         let source = SimilarityScoringModel.source(for: file)
         return (
             file.id,
-            makeSimilarityTestArtifact(source: source)
+            makeSimilarityTestArtifact(source: source),
         )
     })
     return BurstAnalysisCacheSnapshot(

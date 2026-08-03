@@ -1,13 +1,13 @@
 import Foundation
-@testable import RawCull
 import PhotoAIContracts
+@testable import RawCull
 import RawCullCore
 import Testing
 
 @Suite("RawCull AI integration", .tags(.smoke))
 struct RawCullAIIntegrationTests {
-    @Test("AI paths retain RawCull's canonical data namespaces")
-    func canonicalPaths() {
+    @Test
+    func `AI paths retain RawCull's canonical data namespaces`() {
         let root = isolatedRoot()
         let paths = RawCullAIPaths(
             applicationSupportRoot: root.appendingPathComponent("Application Support"),
@@ -39,8 +39,8 @@ struct RawCullAIIntegrationTests {
     }
 
     @MainActor
-    @Test("Composition root reports the complete Phase 1 capability surface")
-    func capabilitySurface() async throws {
+    @Test
+    func `Composition root reports the complete Phase 1 capability surface`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -105,8 +105,8 @@ struct RawCullAIIntegrationTests {
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
     }
 
-    @Test("Saved burst scan reads existing Vision cache evidence")
-    func savedBurstEvidence() async throws {
+    @Test
+    func `Saved burst scan reads existing Vision cache evidence`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -129,7 +129,7 @@ struct RawCullAIIntegrationTests {
                 id: secondID,
                 url: root.appendingPathComponent("second.ARW"),
                 displayName: "second.ARW",
-            ),
+            )
         ]
         let validPayload = SavedBurstEvidencePayload(
             schemaVersion: BurstAnalysisCache.schemaVersion,
@@ -150,12 +150,12 @@ struct RawCullAIIntegrationTests {
                             sourceFingerprint: SourceFingerprint(source: source),
                         ),
                         payload: Data([UInt8(offset + 1)]),
-                    )
+                    ),
                 )
             }),
             groups: [
                 SavedBurstEvidenceGroup(fileIDs: [firstID, secondID]),
-                SavedBurstEvidenceGroup(fileIDs: [thirdID]),
+                SavedBurstEvidenceGroup(fileIDs: [thirdID])
             ],
         )
         let validData = try JSONEncoder().encode(validPayload)
@@ -178,8 +178,8 @@ struct RawCullAIIntegrationTests {
         #expect(evidence.backend == .visionFeaturePrint)
     }
 
-    @Test("Model validation is reused until candidate metadata changes")
-    func modelValidationCache() async throws {
+    @Test
+    func `Model validation is reused until candidate metadata changes`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(
@@ -229,8 +229,8 @@ struct RawCullAIIntegrationTests {
     }
 
     @MainActor
-    @Test("Cancelling Settings refresh cancels its evidence scan")
-    func settingsRefreshCancellation() async {
+    @Test
+    func `Cancelling Settings refresh cancels its evidence scan`() async {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = isolatedPaths(root: root)
@@ -260,8 +260,8 @@ struct RawCullAIIntegrationTests {
     }
 
     @MainActor
-    @Test("CLIP enablement and exclusive model selection persist")
-    func clipPreferencePersists() async throws {
+    @Test
+    func `CLIP enablement and exclusive model selection persist`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -315,7 +315,7 @@ struct RawCullAIIntegrationTests {
             "vision-feature-print",
             "vision-feature-print",
             "vision-feature-print",
-            "vision-feature-print",
+            "vision-feature-print"
         ])
         #expect(FileManager.default.fileExists(atPath: savedDataURL.path))
 

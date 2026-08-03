@@ -168,7 +168,7 @@ private struct SemanticCatalogFixture {
             try Data([UInt8(offset + 1)]).write(to: url, options: .atomic)
             let values = try url.resourceValues(forKeys: [
                 .fileSizeKey,
-                .contentModificationDateKey,
+                .contentModificationDateKey
             ])
             return FileItem(
                 url: url,
@@ -189,8 +189,7 @@ private struct SemanticCatalogFixture {
         var artifacts: [UUID: SimilarityArtifact] = [:]
         var sources: [UUID: AIImageSource] = [:]
         for (offset, value) in values.enumerated()
-            where files.indices.contains(offset)
-        {
+            where files.indices.contains(offset) {
             let file = files[offset]
             let source = SimilarityScoringModel.source(for: file)
             sources[file.id] = source
@@ -249,8 +248,8 @@ private nonisolated func semanticCandidate(
 
 @Suite("RawCull semantic search", .tags(.smoke))
 struct RawCullSemanticSearchTests {
-    @Test("Literal query encodes once, excludes Vision, isolates failures, and ranks deterministically")
-    func serviceRankingPolicy() async throws {
+    @Test
+    func `Literal query encodes once, excludes Vision, isolates failures, and ranks deterministically`() async throws {
         let provider = SemanticTestTextProvider()
         let service = RawCullCLIPSemanticSearchService(
             textProvider: provider,
@@ -282,15 +281,15 @@ struct RawCullSemanticSearchTests {
         #expect(output.matches.map(\.fileID) == [
             strongest.fileID,
             firstTie.fileID,
-            secondTie.fileID,
+            secondTie.fileID
         ])
         #expect(output.compatibleArtifactCount == 4)
         #expect(output.incompatibleArtifactCount == 1)
         #expect(output.failures.map(\.fileID) == [malformed.fileID])
     }
 
-    @Test("Empty query and Vision-only snapshots are distinct typed failures")
-    func typedAdmissionFailures() async {
+    @Test
+    func `Empty query and Vision-only snapshots are distinct typed failures`() async {
         let provider = SemanticTestTextProvider()
         let service = RawCullCLIPSemanticSearchService(
             textProvider: provider,
@@ -309,7 +308,7 @@ struct RawCullSemanticSearchTests {
                         order: 0,
                         backend: visionOnlyTestBackend,
                         value: 90,
-                    ),
+                    )
                 ],
             )
         }
@@ -317,8 +316,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Large searches show the top twenty and preserve full CLIP diagnostics")
-    func boundedResultsAndDiagnostics() async throws {
+    @Test
+    func `Large searches show the top twenty and preserve full CLIP diagnostics`() async throws {
         let names = (1 ... 25).map {
             let suffix = $0 < 10 ? "0\($0)" : "\($0)"
             return "image-\(suffix).raw"
@@ -385,8 +384,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Show all updates the admitted RawCull grid without rerunning CLIP")
-    func showAllUpdatesFilteredCatalog() async throws {
+    @Test
+    func `Show all updates the admitted RawCull grid without rerunning CLIP`() async throws {
         let names = (1 ... 25).map { "catalog-\($0).raw" }
         let fixture = try SemanticCatalogFixture(names: names)
         defer { fixture.remove() }
@@ -426,8 +425,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Clear restores the catalog without discarding the scoped burst index")
-    func adjustableCatalogWorkingSet() async throws {
+    @Test
+    func `Clear restores the catalog without discarding the scoped burst index`() async throws {
         let names = (1 ... 25).map { "scope-\($0).raw" }
         let fixture = try SemanticCatalogFixture(names: names)
         defer { fixture.remove() }
@@ -499,7 +498,7 @@ struct RawCullSemanticSearchTests {
             generation: viewModel.burstAnalysisGeneration,
         )
         viewModel.similarityModel.burstGroups = [
-            BurstGroup(id: 0, fileIDs: scopedFiles.map(\.id)),
+            BurstGroup(id: 0, fileIDs: scopedFiles.map(\.id))
         ]
 
         await viewModel.clearSemanticSearch()
@@ -522,8 +521,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Semantic selection scopes existing burst groups")
-    func semanticSelectionScopesBurstGroups() async throws {
+    @Test
+    func `Semantic selection scopes existing burst groups`() async throws {
         let fixture = try SemanticCatalogFixture(
             names: ["one.raw", "two.raw", "three.raw", "four.raw"],
         )
@@ -569,7 +568,7 @@ struct RawCullSemanticSearchTests {
                 id: 2,
                 fileIDs: selected.map(\.id),
             ),
-            BurstGroup(id: 3, fileIDs: [outside.id]),
+            BurstGroup(id: 3, fileIDs: [outside.id])
         ]
         viewModel.completedBurstAnalysisContext = CompletedBurstAnalysisContext(
             catalog: fixture.root,
@@ -581,14 +580,14 @@ struct RawCullSemanticSearchTests {
 
         #expect(viewModel.burstGroupsInActiveCatalogScope == [
             BurstGroup(id: 1, fileIDs: [selected[0].id]),
-            BurstGroup(id: 2, fileIDs: selected.map(\.id)),
+            BurstGroup(id: 2, fileIDs: selected.map(\.id))
         ])
         #expect(viewModel.canUseExistingBurstGroupIndexForActiveScope)
     }
 
     @MainActor
-    @Test("Preparing a reindex resets selection and restores the full catalog")
-    func fullCatalogReindexPreparation() async throws {
+    @Test
+    func `Preparing a reindex resets selection and restores the full catalog`() async throws {
         let names = (1 ... 25).map { "reindex-\($0).raw" }
         let fixture = try SemanticCatalogFixture(names: names)
         defer { fixture.remove() }
@@ -626,8 +625,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("A superseded query cannot overwrite the newer result")
-    func latestQueryWins() async throws {
+    @Test
+    func `A superseded query cannot overwrite the newer result`() async throws {
         let fixture = try SemanticCatalogFixture(names: ["one.raw"])
         defer { fixture.remove() }
         await fixture.persistCLIPArtifacts(values: [50])
@@ -663,8 +662,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Cancellation returns to idle and ignores a late provider response")
-    func cancellationRestoresIdle() async throws {
+    @Test
+    func `Cancellation returns to idle and ignores a late provider response`() async throws {
         let fixture = try SemanticCatalogFixture(names: ["one.raw"])
         defer { fixture.remove() }
         await fixture.persistCLIPArtifacts(values: [50])
@@ -702,8 +701,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Cached-only ranking composes with rating filters and clear restores catalog order")
-    func filteringAndClear() async throws {
+    @Test
+    func `Cached-only ranking composes with rating filters and clear restores catalog order`() async throws {
         let fixture = try SemanticCatalogFixture(
             names: ["c.raw", "a.raw", "b.raw"],
         )
@@ -728,7 +727,7 @@ struct RawCullSemanticSearchTests {
         viewModel.ratingCache = [
             "c.raw": 5,
             "a.raw": 0,
-            "b.raw": 5,
+            "b.raw": 5
         ]
         viewModel.ratingFilter = .stars(5)
         #expect(
@@ -752,8 +751,8 @@ struct RawCullSemanticSearchTests {
     }
 
     @MainActor
-    @Test("Partial index, empty index, provider failure, and model switch remain distinct")
-    func stateCoverage() async throws {
+    @Test
+    func `Partial index, empty index, provider failure, and model switch remain distinct`() async throws {
         let fixture = try SemanticCatalogFixture(
             names: ["one.raw", "two.raw", "three.raw"],
         )
