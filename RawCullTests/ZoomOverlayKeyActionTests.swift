@@ -265,7 +265,7 @@ struct ZoomViewportMathTests {
             viewportSize: CGSize(width: 1500, height: 1000),
         )
 
-        #expect(scale == 2.4)
+        #expect(scale == 4.0)
     }
 
     @Test(.tags(.smoke))
@@ -297,6 +297,89 @@ struct ZoomViewportMathTests {
             imageSize: CGSize(width: 6000, height: 4000),
             viewportSize: CGSize(width: 1500, height: 1000),
             normalizedFocusPoint: nil,
+        )
+
+        #expect(transform.scale == 4.0)
+        #expect(transform.offset == .zero)
+    }
+
+    @Test(.tags(.smoke))
+    func `portrait actual-pixels transform maps fitted preview to source pixels`() {
+        let transform = ZoomViewportMath.actualPixelsTransform(
+            imageSize: CGSize(width: 4000, height: 6000),
+            viewportSize: CGSize(width: 1000, height: 1500),
+            normalizedFocusPoint: nil,
+        )
+
+        #expect(transform.scale == 4.0)
+        #expect(transform.offset == .zero)
+    }
+
+    @Test(.tags(.smoke))
+    func `actual-pixels scale supports mismatched aspect ratios`() {
+        let scale = ZoomViewportMath.actualPixelsScale(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1200, height: 1200),
+        )
+
+        #expect(scale == 5.0)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus point offsets clamp at every image edge`() {
+        let imageSize = CGSize(width: 6000, height: 4000)
+        let viewportSize = CGSize(width: 1500, height: 1000)
+        let cases: [(CGPoint, CGSize)] = [
+            (CGPoint(x: 0, y: 0), CGSize(width: 2250, height: 1500)),
+            (CGPoint(x: 1, y: 0), CGSize(width: -2250, height: 1500)),
+            (CGPoint(x: 0, y: 1), CGSize(width: 2250, height: -1500)),
+            (CGPoint(x: 1, y: 1), CGSize(width: -2250, height: -1500)),
+        ]
+
+        for (focusPoint, expectedOffset) in cases {
+            let transform = ZoomViewportMath.actualPixelsTransform(
+                imageSize: imageSize,
+                viewportSize: viewportSize,
+                normalizedFocusPoint: focusPoint,
+            )
+            #expect(transform.scale == 4.0)
+            #expect(transform.offset == expectedOffset)
+        }
+    }
+
+    @Test(.tags(.smoke))
+    func `invalid dimensions return a finite centered fallback`() {
+        let invalidSizes = [
+            CGSize(width: 0, height: 100),
+            CGSize(width: -1, height: 100),
+            CGSize(width: CGFloat.infinity, height: 100),
+            CGSize(width: CGFloat.nan, height: 100),
+        ]
+        let validSize = CGSize(width: 100, height: 100)
+
+        for invalidSize in invalidSizes {
+            let invalidImage = ZoomViewportMath.actualPixelsTransform(
+                imageSize: invalidSize,
+                viewportSize: validSize,
+                normalizedFocusPoint: CGPoint(x: 0.5, y: 0.5),
+            )
+            let invalidViewport = ZoomViewportMath.actualPixelsTransform(
+                imageSize: validSize,
+                viewportSize: invalidSize,
+                normalizedFocusPoint: CGPoint(x: 0.5, y: 0.5),
+            )
+
+            #expect(invalidImage == ZoomViewportTransform(scale: 1.0, offset: .zero))
+            #expect(invalidViewport == ZoomViewportTransform(scale: 1.0, offset: .zero))
+        }
+    }
+
+    @Test(.tags(.smoke))
+    func `non-finite focus point keeps actual-pixels view centered`() {
+        let transform = ZoomViewportMath.actualPixelsTransform(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1500, height: 1000),
+            normalizedFocusPoint: CGPoint(x: CGFloat.nan, y: 0.5),
         )
 
         #expect(transform.scale == 4.0)

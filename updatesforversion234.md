@@ -500,8 +500,8 @@ complete only after its focused verification and commit succeed.
 
 | Phase | Status | Evidence |
 |---|---|---|
-| 0 — Baseline | Complete | Baseline captured on 3 August 2026; commit pending at time of entry |
-| 1 — Actual Pixels | Pending | — |
+| 0 — Baseline | Complete | Baseline captured on 3 August 2026; commit 5da6ff4 |
+| 1 — Actual Pixels | Complete | 1:1 math and invalid-input handling verified by 9 focused tests, with and without Thread Sanitizer; smoke gate passed |
 | 2 — Histogram safety | Pending | — |
 | 3 — Release gates | Pending | — |
 | 4 — Thumbnail identity | Pending | — |
@@ -536,6 +536,26 @@ complete only after its focused verification and commit succeed.
 - Baseline result bundles were written by Xcode under DerivedData for the smoke,
   full, and performance runs. Final release evidence will use explicit,
   stable result-bundle paths after Phase 3 repairs the gate commands.
+
+#### Phase 1 Actual Pixels evidence
+
+- Product decision: “Actual Pixels” means one source-image pixel per display
+  point before backing-scale conversion. The fit-relative scale is therefore
+  `1.0 / fitScale`; the previous additional 60% factor was removed.
+- `ZoomViewportMath` now rejects non-positive and non-finite dimensions and
+  derived values. Invalid dimensions and non-finite focus coordinates produce
+  the documented finite, centered fallback transform.
+- Nine focused `ZoomViewportMathTests` cover landscape and portrait images,
+  fit-upscaled and mismatched aspect ratios, all four clamped edges, absent
+  focus metadata, and invalid dimensions/focus coordinates.
+- The focused suite passed normally and with Thread Sanitizer enabled. No
+  sanitizer diagnostic appeared. The wider smoke gate also passed.
+- Project-wide terminology inspection found the Z shortcut and About text
+  consistently describe actual-pixel inspection. Unrelated 0.6 constants are
+  cache, animation, styling, or analysis parameters and were not changed.
+- Manual checks involving a physical display's backing scale remain part of
+  the integrated Phase 9 release checklist; no physical-display result is
+  inferred from the automated geometry tests.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 
