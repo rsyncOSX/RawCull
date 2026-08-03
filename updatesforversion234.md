@@ -881,7 +881,7 @@ passes.
    and rerun that focused suite plus all later phases. Do not waive a red P0
    gate.
 
-### Phase 10: package, release, and forward-merge
+### Phase 10: package, release, and 3.0.0 handoff
 
 1. Freeze the exact green commit. Build the Release archive from that commit
    without source changes between testing and packaging.
@@ -894,11 +894,12 @@ passes.
    version are verified. Record the App Store build number in the ledger.
 5. Tag the exact tested commit as 2.3.4 and confirm the tag resolves to that
    commit.
-6. Forward-merge the independent stabilization commits into RawCullAIModels.
-   Resolve macOS 27/Core AI differences there rather than changing the 2.3.4
-   release commit.
-7. Run the successor branch's smoke tests after the merge and create a tracked
-   follow-up for any intentionally deferred contention or accessibility work.
+6. Create the separate 3.0.0 stabilization plan described at the end of this
+   document. Reimplement each applicable requirement against the authoritative
+   AI architecture rather than merging the 2.3.4 implementation.
+7. Run the successor branch's AI and smoke tests after each independent 3.0.0
+   change, and create a tracked follow-up for any intentionally deferred
+   contention or accessibility work.
 
 ### Required evidence to mark the release plan complete
 
@@ -916,7 +917,7 @@ The release issue may be closed only when it contains:
   core-workflow manual QA evidence;
 - built-product version/minimum-system/architecture inspection;
 - signed/notarized/stapled installation evidence and DMG SHA-256;
-- the release tag and RawCullAIModels forward-merge reference.
+- the release tag and the tracked 3.0.0 stabilization-plan reference.
 
 Any unchecked P0 row, unexplained test-count change, persistent-data mismatch,
 reproducible crash, stale thumbnail after source replacement, stale async state
@@ -934,7 +935,8 @@ publication, or unresolved TSan report keeps 2.3.4 open.
 8. Update README, marketing version, and build number.
 9. Run the complete automated and manual release gates.
 10. Build, sign, notarize, staple, hash, and distribute the final artifacts.
-11. Merge the verified fixes into `RawCullAIModels`.
+11. Create the independent 3.0.0 stabilization plan and map every applicable
+    requirement to an AI-native implementation.
 
 ## Suggested commit structure
 
@@ -957,8 +959,112 @@ Avoid mixing these fixes with macOS 27 or Core AI changes.
 
 After release:
 
-1. Keep the 2.3.4 source branch and release artifacts available.
+1. Preserve the immutable 2.3.4 tag, source archive, and release artifacts. The
+   maintenance branch may be removed after release.
 2. Preserve 2.3.4 as the last compatible macOS 26 App Store version where App Store Connect permits it.
 3. Monitor crash reports and user feedback during the macOS 27 transition.
 4. Do not backport new AI or macOS 27 features.
 5. Backport only critical fixes that meet the maintenance criteria at the start of this document.
+
+## Create plan for version 3.0.0
+
+Use the completed 2.3.4 plan as a behavioral reference when creating the
+version 3.0.0 stabilization plan. Version 3.0.0 must receive independently
+designed fixes that preserve its AI architecture. Do not merge the completed
+2.3.4 branch into main or mechanically transplant its implementation.
+
+The following instructions should be supplied with the request to create the
+3.0.0 plan:
+
+> Create a detailed stabilization plan for RawCull 3.0.0 using the version
+> 2.3.4 plan as a behavioral and acceptance-criteria reference.
+>
+> This is a read-only planning task. Do not modify production code, tests,
+> project settings, dependencies, or Git history. Only update the requested
+> 3.0.0 planning document.
+>
+> Analyze the current main/version-3.0.0 implementation before proposing
+> changes. The AI architecture is authoritative and must be preserved,
+> including PhotoAIKit, Core AI models, CLIP similarity and semantic search,
+> SAM 3 Deep Review, model downloads, typed similarity artifacts, multiple
+> similarity backends, AI settings, diagnostics, and their tests.
+>
+> Do not merge, cherry-pick, copy wholesale, or mechanically transplant code
+> from version-2.3.4. Do not replace AI implementations with the older
+> Vision-only implementations. Treat version 2.3.4 as a source of behavioral
+> requirements, regression scenarios, and acceptance criteria—not as the
+> implementation for version 3.0.0.
+>
+> For every 2.3.4 work item, classify it as:
+>
+> - apply unchanged in behavior;
+> - adapt to the 3.0.0 AI architecture;
+> - already resolved—verification only;
+> - superseded by a 3.0.0 implementation;
+> - not applicable to macOS 27.
+>
+> For every applicable item, document:
+>
+> - the defect or invariant being carried forward;
+> - the current 3.0.0 code paths involved;
+> - the AI features and data that must remain intact;
+> - the exact files likely to change;
+> - the smallest safe implementation approach;
+> - concurrency, cancellation, persistence, and cache implications;
+> - focused automated tests;
+> - AI-specific regression tests;
+> - manual verification;
+> - acceptance criteria;
+> - rollback criteria and the safe rollback boundary.
+>
+> Preserve all persistent AI data formats and compatibility unless a migration
+> is explicitly designed and tested. Do not invalidate model downloads,
+> licence acceptance, semantic artifacts, similarity artifacts, ratings,
+> settings, saved-file records, or burst decisions merely to simplify a fix.
+>
+> Treat changes to SimilarityScoringModel, PerFileAnalysisArtifactStore,
+> BurstAnalysisCache, package dependencies, project metadata, test plans, cache
+> clearing, model-resource management, and backend selection as high risk.
+> Require an AI-specific regression matrix for these areas.
+>
+> Keep the 3.0.0 version metadata, macOS 27 deployment settings, AI
+> dependencies, model resources, entitlements, and release documentation
+> authoritative. Do not copy 2.3.4 version numbers, macOS 26 requirements,
+> package lockfile, or release notes into version 3.0.0.
+>
+> Add a detailed new section to the 3.0.0 planning document. Clearly
+> distinguish verified repository facts from proposed work, and do not claim
+> tests have passed unless they were actually run.
+
+### Required references for the 3.0.0 planning task
+
+Specify these inputs when requesting the plan:
+
+- Behavioral reference: version-2.3.4 at the immutable 2.3.4 release tag.
+- Reference document: updatesforversion234.md from that release tag.
+- Target implementation: the current main/version-3.0.0 branch.
+- Target document: updatesforversion300.md, or the selected 3.0.0 planning
+  document.
+
+The plan must inspect the target branch rather than assume that file names,
+types, cache identities, persistence formats, or tests still match 2.3.4.
+
+### Forward-application policy
+
+The following policy supersedes any earlier suggestion in this document to
+forward-merge the 2.3.4 implementation:
+
+1. Finish and verify each fix independently on version-2.3.4.
+2. Record the behavioral requirement, test scenario, and acceptance evidence.
+3. Evaluate the same requirement against the current 3.0.0 architecture.
+4. Implement an AI-native 3.0.0 fix in a separate commit and review.
+5. Run both the applicable stabilization tests and the complete AI regression
+   suites.
+6. Do not carry version-specific metadata, package resolution, deployment
+   targets, release notes, or distribution configuration from 2.3.4 to 3.0.0.
+
+After the 2.3.4 release, the maintenance branch may be removed from the active
+branch list, but the immutable 2.3.4 tag, source archive, signed release
+artifacts, SHA-256, release notes, and test evidence must be retained. The tag
+becomes the permanent historical reference after the AI code is the only
+active development line in the repository.
