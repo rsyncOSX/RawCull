@@ -9,7 +9,10 @@ real application behavior, not test-framework setup checks.
 - Smoke tests: fast deterministic checks carrying `.tags(.smoke)`. The
   `selectedTags` entry in `Smoke.xctestplan` is the sole selector used by
   `make test-smoke`; there is no parallel Makefile suite list.
-- Full tests: all test files with Thread Sanitizer enabled through `make test-full`.
+- Full tests: all test files with Thread Sanitizer enabled through
+  `make test-full`. The full plan is serialized because it deliberately mixes
+  tests of process-wide caches, settings, and other singleton state; smoke
+  tests remain parallelizable.
 - Performance / stress tests: the dedicated extreme-concurrency data-race
   check selected by `make test-performance`. This is not a timing benchmark
   unless a future test adds explicit duration assertions.

@@ -326,7 +326,8 @@ be updated.
 make test-smoke
 ```
 
-Full suite with Thread Sanitizer:
+Full suite with Thread Sanitizer (serialized because it includes tests of
+process-wide caches, settings, and other singleton state):
 
 ```bash
 make test-full

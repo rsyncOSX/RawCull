@@ -509,7 +509,7 @@ complete only after its focused verification and commit succeed.
 | 6 — Similarity persistence | Complete | Four uncovered persistence outcomes added; focused artifact/indexing/culling suites passed normally and under TSan; no production behavior fix required |
 | 7 — Accessibility | Implementation complete | Saved-file rows use native buttons; bounded labels, values, actions, and selected traits added; Debug build and smoke gate passed; physical VoiceOver/keyboard evidence remains in Phase 9 |
 | 8 — Metadata and documentation | Local verification complete | Debug and Release resolve and build as 2.3.4 (231), macOS 26.2, arm64; README matches all seven resolved packages; App Store build-number availability remains a Phase 10 pre-upload check |
-| 9 — Integrated regression | Pending | — |
+| 9 — Integrated regression | Automated gates complete; manual gates pending | Final smoke 93/101, full TSan 270/295, stress 1/1, and exact-package Release arm64 build passed; release-hardware, VoiceOver, real-catalog, minimum-OS, and copied-2.3.3-data matrix remains blocking |
 | 10 — Release handoff | Pending | — |
 
 #### Phase 0 baseline evidence
@@ -581,7 +581,7 @@ complete only after its focused verification and commit succeed.
 
 - `Smoke.xctestplan` is now the sole smoke selector and filters the RawCull test
   target with `selectedTags.tags = ["smoke"]`. The Makefile no longer maintains
-  a second `-only-testing` allow-list. Tests remain parallelizable.
+  a second `-only-testing` allow-list. Smoke tests remain parallelizable.
 - The source inventory contains 93 `.tags(.smoke)` declarations across six
   suites/files. The repaired smoke result contains those 93 unique test
   identifiers and 101 concrete cases after parameter expansion, including all
@@ -760,6 +760,40 @@ complete only after its focused verification and commit succeed.
 - DMG SHA-256: pending Phase 10 packaging.
 - App Store build: proposed build 231; availability and uploaded build pending
   Phase 10.
+
+#### Phase 9 integrated-regression evidence
+
+- Began from clean commit `ab711df`. The initial smoke gate passed. Two full
+  TSan attempts then stopped making progress while the test plan ran every
+  singleton-heavy suite in parallel; both were manually cancelled after a
+  bounded diagnostic window. Their cancellation failures are not counted as
+  product failures, and no Thread Sanitizer diagnostic appeared.
+- A serial diagnostic completed the entire target and exposed one genuine test
+  race: the persistence-retry test allowed only 200 scheduler yields for its
+  asynchronous failure to publish. It now waits on the actor that owns the save
+  attempt, eliminating the scheduler-speed assumption. The focused test passed
+  under Thread Sanitizer.
+- `RawCull.xctestplan` now serializes the complete TSan plan because it
+  deliberately exercises process-wide cache, settings, and singleton state.
+  The fast smoke plan remains parallel. This retains every full-plan test while
+  removing cross-suite scheduling as a release-gate variable.
+- Final `make test-smoke` passed 93 unique tests and 101 concrete parameterized
+  cases. Result bundle:
+  `Test-RawCull-2026.08.03_19-32-38-+0200.xcresult`.
+- Final `make test-full` passed 270 unique tests and 295 concrete parameterized
+  cases under Thread Sanitizer, with no sanitizer diagnostic. Result bundle:
+  `Test-RawCull-2026.08.03_19-30-51-+0200.xcresult`.
+- Final `make test-performance` passed its one selected extreme-concurrency
+  test. Result bundle: `Test-RawCull-2026.08.03_19-31-08-+0200.xcresult`.
+- The exact-`Package.resolved` Release arm64 build passed. Its only observed
+  warning was the pre-existing App Intents metadata notice that no
+  `AppIntents.framework` dependency exists; no RawCull compiler or concurrency
+  warning was emitted.
+- Interactive QA is not inferred from these gates. VoiceOver and keyboard
+  focus, actual-pixel behavior on a physical display, real RAW replacement and
+  scan-contention measurements, upgrade/restart behavior using copied 2.3.3
+  data, clean-account installation, minimum macOS 26.2, and the latest macOS 26
+  hardware matrix remain blocking manual release checks.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 

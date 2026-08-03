@@ -38,6 +38,12 @@ private actor FailingThenSuccessfulSave {
     func state() -> (attempts: Int, snapshots: [[SavedFiles]]) {
         (attempts, savedSnapshots)
     }
+
+    func waitForAttemptCount(_ count: Int) async {
+        while attempts < count {
+            await Task.yield()
+        }
+    }
 }
 
 private actor SharpnessScoreURLRecorder {
@@ -266,9 +272,7 @@ struct CullingModelTests {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
 
         model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
-        for _ in 0 ..< 200 where model.persistenceError == nil {
-            await Task.yield()
-        }
+        await saver.waitForAttemptCount(1)
 
         #expect(model.hasUnsavedChanges)
         #expect(model.persistenceError != nil)
