@@ -37,19 +37,19 @@ struct DataRaceDetectionTests {
     @Test
     func `memory cache supports concurrent nonisolated reads and writes`() async {
         let cache = await makeIsolatedCache()
-        let urls = (0 ..< 100).map { index in
-            URL(fileURLWithPath: "/tmp/rawcull-cache-race-\(index).jpg") as NSURL
+        let keys = (0 ..< 100).map { index in
+            makeThumbnailRequestKey(url: URL(fileURLWithPath: "/tmp/rawcull-cache-race-\(index).jpg"))
         }
 
         await withTaskGroup(of: Void.self) { group in
-            for (index, url) in urls.enumerated() {
+            for (index, key) in keys.enumerated() {
                 group.addTask {
                     if let thumbnail = createTestThumbnail(size: 10 + index % 5) {
-                        cache.setObject(thumbnail, forKey: url, cost: thumbnail.cost)
+                        cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
                     }
                 }
                 group.addTask {
-                    _ = cache.object(forKey: url)
+                    _ = cache.object(forKey: key)
                 }
             }
         }
@@ -57,26 +57,30 @@ struct DataRaceDetectionTests {
         let count = cache.getMemoryCacheCount()
         let cost = cache.getMemoryCacheCurrentCost()
         #expect(count >= 0)
-        #expect(count <= urls.count)
+        #expect(count <= keys.count)
         #expect(cost >= 0)
     }
 
     @Test
     func `grid cache supports concurrent nonisolated reads and writes`() async {
         let cache = await makeIsolatedCache()
-        let urls = (0 ..< 100).map { index in
-            URL(fileURLWithPath: "/tmp/rawcull-grid-race-\(index).jpg") as NSURL
+        let keys = (0 ..< 100).map { index in
+            makeThumbnailRequestKey(
+                url: URL(fileURLWithPath: "/tmp/rawcull-grid-race-\(index).jpg"),
+                purpose: .grid,
+                requestedMaxPixelSize: 200,
+            )
         }
 
         await withTaskGroup(of: Void.self) { group in
-            for (index, url) in urls.enumerated() {
+            for (index, key) in keys.enumerated() {
                 group.addTask {
                     if let thumbnail = createTestThumbnail(size: 8 + index % 5) {
-                        cache.setGridObject(thumbnail, forKey: url, cost: thumbnail.cost)
+                        cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
                     }
                 }
                 group.addTask {
-                    _ = cache.gridObject(forKey: url)
+                    _ = cache.gridObject(forKey: key)
                 }
             }
         }
@@ -84,7 +88,7 @@ struct DataRaceDetectionTests {
         let count = cache.getGridCacheCount()
         let cost = cache.getGridCacheCurrentCost()
         #expect(count >= 0)
-        #expect(count <= urls.count)
+        #expect(count <= keys.count)
         #expect(cost >= 0)
     }
 

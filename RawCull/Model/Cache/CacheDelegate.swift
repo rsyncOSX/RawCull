@@ -45,7 +45,7 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
                 let liveCost = SharedMemoryCache.shared.getGridCacheCurrentCost()
                 let liveCount = SharedMemoryCache.shared.getGridCacheCount()
                 Logger.process.debugMessageOnly(
-                    "EVICT grid url=\(thumb.url?.lastPathComponent ?? "<nil>") cost=\(thumb.cost) " +
+                    "EVICT grid path=\(thumb.requestKey?.source.standardizedPath ?? "<nil>") cost=\(thumb.cost) " +
                         "liveCost=\(liveCost) liveLimit=\(liveLimit) liveCount=\(liveCount)",
                 )
             #endif
@@ -55,15 +55,15 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
             // Record the evicted URL so a subsequent disk-fallback for the
             // same key can be classified as a boomerang miss in diagnostics.
             // Grid-cache evictions are intentionally not tracked.
-            if let url = thumb.url {
-                SharedMemoryCache.shared.noteEviction(url: url)
+            if let key = thumb.requestKey {
+                SharedMemoryCache.shared.noteEviction(key: key)
             }
             #if DEBUG
                 let liveLimit = SharedMemoryCache.shared.memoryCache.totalCostLimit
                 let liveCost = SharedMemoryCache.shared.getMemoryCacheCurrentCost()
                 let liveCount = SharedMemoryCache.shared.getMemoryCacheCount()
                 Logger.process.debugMessageOnly(
-                    "EVICT mem url=\(thumb.url?.lastPathComponent ?? "<nil>") cost=\(thumb.cost) " +
+                    "EVICT mem path=\(thumb.requestKey?.source.standardizedPath ?? "<nil>") cost=\(thumb.cost) " +
                         "liveCost=\(liveCost) liveLimit=\(liveLimit) liveCount=\(liveCount)",
                 )
             #endif
@@ -72,7 +72,7 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
             #if DEBUG
                 Logger.process.debugMessageOnly(
                     "EVICT unknown cache=\(ObjectIdentifier(cache).debugDescription) " +
-                        "url=\(thumb.url?.lastPathComponent ?? "<nil>") cost=\(thumb.cost)",
+                        "path=\(thumb.requestKey?.source.standardizedPath ?? "<nil>") cost=\(thumb.cost)",
                 )
             #endif
         }

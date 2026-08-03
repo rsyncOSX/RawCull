@@ -118,11 +118,11 @@ actor SharedMemoryCache {
 
     /// NSCache is thread-safe, so we bypass the actor's serialization for direct access.
     /// This allows synchronous lookups: SharedMemoryCache.shared.object(...) (no await needed)
-    nonisolated(unsafe) let memoryCache = NSCache<NSURL, CachedThumbnail>()
+    nonisolated(unsafe) let memoryCache = NSCache<ThumbnailRequestCacheKey, CachedThumbnail>()
 
     /// Dedicated in-memory-only cache for grid-size (≤500px) thumbnails.
-    /// Keyed by the same NSURL as memoryCache; never persisted to disk.
-    nonisolated(unsafe) let gridThumbnailCache = NSCache<NSURL, CachedThumbnail>()
+    /// Keyed by the same stable request identity as memoryCache; never persisted to disk.
+    nonisolated(unsafe) let gridThumbnailCache = NSCache<ThumbnailRequestCacheKey, CachedThumbnail>()
 
     /// Bytes per pixel used by `CachedThumbnail` to compute NSCache cost.
     /// Fixed at 4 (RGBA) — NSImage representations are always sRGB RGBA in
@@ -385,16 +385,17 @@ actor SharedMemoryCache {
 
     // MARK: - Synchronous Accessors (Non-isolated)
 
-    nonisolated func object(forKey key: NSURL) -> CachedThumbnail? {
-        memoryCache.object(forKey: key)
+    nonisolated func object(forKey key: ThumbnailRequestKey) -> CachedThumbnail? {
+        memoryCache.object(forKey: ThumbnailRequestCacheKey(key))
     }
 
-    nonisolated func setObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
-        if let existing = memoryCache.object(forKey: key) {
+    nonisolated func setObject(_ obj: CachedThumbnail, forKey key: ThumbnailRequestKey, cost: Int) {
+        let cacheKey = ThumbnailRequestCacheKey(key)
+        if let existing = memoryCache.object(forKey: cacheKey) {
             _memCost.withLock { $0 = max(0, $0 - existing.cost) }
             _memCount.withLock { $0 = max(0, $0 - 1) }
         }
-        memoryCache.setObject(obj, forKey: key, cost: cost)
+        memoryCache.setObject(obj, forKey: cacheKey, cost: cost)
         _memCost.withLock { $0 += cost }
         _memCount.withLock { $0 += 1 }
     }
@@ -419,16 +420,17 @@ actor SharedMemoryCache {
         _memCount.withLock { $0 = max(0, $0 - 1) }
     }
 
-    nonisolated func gridObject(forKey key: NSURL) -> CachedThumbnail? {
-        gridThumbnailCache.object(forKey: key)
+    nonisolated func gridObject(forKey key: ThumbnailRequestKey) -> CachedThumbnail? {
+        gridThumbnailCache.object(forKey: ThumbnailRequestCacheKey(key))
     }
 
-    nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
-        if let existing = gridThumbnailCache.object(forKey: key) {
+    nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: ThumbnailRequestKey, cost: Int) {
+        let cacheKey = ThumbnailRequestCacheKey(key)
+        if let existing = gridThumbnailCache.object(forKey: cacheKey) {
             _gridCost.withLock { $0 = max(0, $0 - existing.cost) }
             _gridCount.withLock { $0 = max(0, $0 - 1) }
         }
-        gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
+        gridThumbnailCache.setObject(obj, forKey: cacheKey, cost: cost)
         _gridCost.withLock { $0 += cost }
         _gridCount.withLock { $0 += 1 }
     }
@@ -455,12 +457,12 @@ actor SharedMemoryCache {
 
     // MARK: - Boomerang-miss helpers
 
-    nonisolated func noteEviction(url: NSURL) {
-        _evictedRing.withLock { $0.note(url) }
+    nonisolated func noteEviction(key: ThumbnailRequestKey) {
+        _evictedRing.withLock { $0.note(key) }
     }
 
-    nonisolated func wasRecentlyEvicted(url: NSURL) -> Bool {
-        _evictedRing.withLock { $0.contains(url) }
+    nonisolated func wasRecentlyEvicted(key: ThumbnailRequestKey) -> Bool {
+        _evictedRing.withLock { $0.contains(key) }
     }
 
     nonisolated func incrementColdExtract() {
@@ -592,7 +594,7 @@ actor SharedMemoryCache {
     }
 }
 
-/// Bounded FIFO of recently-evicted NSURLs from the main `memoryCache`.
+/// Bounded FIFO of recently-evicted request identities from `memoryCache`.
 /// Backing storage is a fixed-size array used as a ring (O(1) insert) plus a
 /// `Set` mirror for O(1) membership tests. Always accessed under
 /// `SharedMemoryCache._evictedRing`'s unfair lock — the struct itself
@@ -605,8 +607,8 @@ actor SharedMemoryCache {
 private struct EvictedRing {
     nonisolated static let capacity = 2000
 
-    private var buffer: [NSURL?]
-    private var set: Set<NSURL>
+    private var buffer: [ThumbnailRequestKey?]
+    private var set: Set<ThumbnailRequestKey>
     private var cursor: Int
 
     nonisolated init() {
@@ -615,17 +617,17 @@ private struct EvictedRing {
         cursor = 0
     }
 
-    nonisolated mutating func note(_ url: NSURL) {
+    nonisolated mutating func note(_ key: ThumbnailRequestKey) {
         if let old = buffer[cursor] {
             set.remove(old)
         }
-        buffer[cursor] = url
-        set.insert(url)
+        buffer[cursor] = key
+        set.insert(key)
         cursor = (cursor + 1) % Self.capacity
     }
 
-    nonisolated func contains(_ url: NSURL) -> Bool {
-        set.contains(url)
+    nonisolated func contains(_ key: ThumbnailRequestKey) -> Bool {
+        set.contains(key)
     }
 
     nonisolated mutating func clear() {

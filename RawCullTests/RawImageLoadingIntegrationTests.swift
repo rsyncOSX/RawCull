@@ -101,6 +101,7 @@ struct RawImageLoadingIntegrationTests {
             rawLoader: fakeLoader,
         )
         let rawURL = diskRoot.appendingPathComponent("source.arw")
+        try Data([0x52, 0x41, 0x57]).write(to: rawURL)
 
         let first = await provider.requestThumbnail(for: rawURL, targetSize: 256)
         let second = await provider.requestThumbnail(for: rawURL, targetSize: 256)

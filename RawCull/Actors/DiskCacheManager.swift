@@ -6,7 +6,6 @@ import RawParserKit
 import UniformTypeIdentifiers
 
 actor DiskCacheManager {
-    private static let cacheKeyVersion = "v2-oriented-thumbnails"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -25,26 +24,26 @@ actor DiskCacheManager {
         }
     }
 
-    /// Deterministic cache filename derived from the source file's path.
+    /// Deterministic cache filename derived from the complete source and
+    /// representation identity. Schema v3 prevents any v2 path-only artifact
+    /// from being considered after upgrade.
     ///
-    /// Formula: `cacheDirectory / MD5(cacheKeyVersion + sourceURL.standardized.path.utf8).hex + ".jpg"`.
+    /// Formula: `cacheDirectory / MD5(requestKey.deterministicComponent.utf8).hex + ".jpg"`.
     /// MD5 is used as a non-cryptographic filename hash — we only need a
     /// fixed-width, filesystem-safe string with a vanishingly small collision
     /// rate across one user's catalog. `CryptoKit.Insecure.MD5` makes the
-    /// "not-for-security" intent explicit. The version prefix invalidates
-    /// thumbnails cached before EXIF orientation was applied. `standardized`
-    /// resolves `..`/`.` components so two URLs pointing at the same file always
-    /// hash identically.
-    private func cacheURL(for sourceURL: URL) -> URL {
-        let standardizedPath = sourceURL.standardized.path
-        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)".utf8)
+    /// "not-for-security" intent explicit. The source fingerprint standardizes
+    /// paths and embeds the schema version, byte size, and millisecond
+    /// modification time; the representation adds purpose and pixel size.
+    func cacheURL(for key: ThumbnailRequestKey) -> URL {
+        let data = Data(key.deterministicComponent.utf8)
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
     }
 
-    func load(for sourceURL: URL) async -> NSImage? {
-        let fileURL = cacheURL(for: sourceURL)
+    func load(for key: ThumbnailRequestKey) async -> NSImage? {
+        let fileURL = cacheURL(for: key)
 
         return await Task.detached(priority: .userInitiated) {
             guard let image = OrientationNormalizedImageLoader.loadCGImage(from: fileURL) else { return nil }
@@ -57,8 +56,9 @@ actor DiskCacheManager {
     /// Accepts pre-encoded JPEG `Data` so callers never need to send a `CGImage`
     /// across an actor/task boundary.  Encode with `DiskCacheManager.jpegData(from:)`
     /// inside the actor that owns the image, then pass the resulting `Data` here.
-    func save(_ jpegData: Data, for sourceURL: URL) async {
-        let fileURL = cacheURL(for: sourceURL)
+    func save(_ jpegData: Data, for key: ThumbnailRequestKey) async {
+        guard !Task.isCancelled else { return }
+        let fileURL = cacheURL(for: key)
 
         // `Data` is Sendable — safe to hand off to a detached task.
         await Task.detached(priority: .background) {

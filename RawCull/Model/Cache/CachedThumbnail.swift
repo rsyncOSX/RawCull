@@ -25,16 +25,16 @@ import Foundation
 final class CachedThumbnail: NSObject, @unchecked Sendable {
     let image: NSImage
     nonisolated let cost: Int
-    /// NSURL of the cached item, retained so `CacheDelegate` can identify the
+    /// Stable request identity, retained so `CacheDelegate` can identify the
     /// evicted key in `cache(_:willEvictObject:)` (which only receives the
     /// value object). Used to populate `SharedMemoryCache`'s recently-evicted
     /// ring for boomerang-miss diagnostics. Optional for back-compat; nil
     /// disables eviction tracking for that entry.
-    nonisolated let url: NSURL?
+    nonisolated let requestKey: ThumbnailRequestKey?
 
-    nonisolated init(image: NSImage, url: NSURL? = nil) {
+    nonisolated init(image: NSImage, requestKey: ThumbnailRequestKey? = nil) {
         self.image = image
-        self.url = url
+        self.requestKey = requestKey
 
         // Calculate cost based on actual pixel dimensions from all representations
         // This ensures NSCache accurately tracks RAM footprint for LRU eviction

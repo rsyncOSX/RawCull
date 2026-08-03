@@ -86,8 +86,12 @@ actor ThumbnailLoader {
         // thumbnails in progress. Easy wa to fix this is to disable GridView and
         // rated GRide View when scamnning in progress.
         if targetSize <= 200 {
-            let nsUrl = file.url as NSURL
-            if let wrapper = SharedMemoryCache.shared.gridObject(forKey: nsUrl) {
+            let gridKey = ThumbnailRequestKey(
+                source: ThumbnailSourceFingerprint(file: file),
+                purpose: .grid,
+                requestedMaxPixelSize: 200,
+            )
+            if let wrapper = SharedMemoryCache.shared.gridObject(forKey: gridKey) {
                 return wrapper.image
             }
         }
@@ -100,8 +104,9 @@ actor ThumbnailLoader {
 
         let settings = await getSettings()
         let cgThumb = await RequestThumbnail.shared.requestThumbnail(
-            for: file.url,
+            for: file,
             targetSize: settings.thumbnailSizePreview,
+            purpose: .preview,
         )
 
         guard !Task.isCancelled else { return nil }

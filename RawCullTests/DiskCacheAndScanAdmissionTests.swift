@@ -354,11 +354,12 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let key = makeThumbnailRequestKey(url: source)
         let cgImage = try makeCacheTestCGImage(width: 40, height: 30)
         let data = try #require(DiskCacheManager.jpegData(from: cgImage))
 
-        await cache.save(data, for: source)
-        let loaded = await cache.load(for: source)
+        await cache.save(data, for: key)
+        let loaded = await cache.load(for: key)
         let size = await cache.getDiskCacheSize()
 
         #expect(loaded != nil)
@@ -373,10 +374,11 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let key = makeThumbnailRequestKey(url: source)
         let data = try makeOrientedJPEGData(width: 80, height: 40, orientation: 6)
 
-        await cache.save(data, for: source)
-        let loaded = try #require(await cache.load(for: source))
+        await cache.save(data, for: key)
+        let loaded = try #require(await cache.load(for: key))
 
         #expect(Int(loaded.size.width) == 40)
         #expect(Int(loaded.size.height) == 80)
@@ -388,12 +390,13 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let key = makeThumbnailRequestKey(url: source)
         let first = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage(width: 20, height: 20, color: .red)))
         let second = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage(width: 60, height: 40, color: .blue)))
 
-        await cache.save(first, for: source)
-        await cache.save(second, for: source)
-        let loaded = await cache.load(for: source)
+        await cache.save(first, for: key)
+        await cache.save(second, for: key)
+        let loaded = await cache.load(for: key)
         let entries = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
 
         #expect(entries.count == 1)
@@ -407,9 +410,10 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+        let key = makeThumbnailRequestKey(url: source)
         let data = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage()))
 
-        await cache.save(data, for: source)
+        await cache.save(data, for: key)
         let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
         let cachedFile = try #require(files.first)
         let oldDate = Date(timeIntervalSinceNow: -3 * 24 * 60 * 60)
@@ -531,8 +535,18 @@ struct ScanAndCreateThumbnailsCacheAdmissionTests {
         try Data().write(to: rawURL)
 
         let diskCache = DiskCacheManager(cacheDirectory: diskDirectory)
+        let previewKey = ThumbnailRequestKey(
+            source: try ThumbnailSourceFingerprint.readingMetadata(for: rawURL),
+            purpose: .preview,
+            requestedMaxPixelSize: 256,
+        )
+        let gridKey = ThumbnailRequestKey(
+            source: previewKey.source,
+            purpose: .grid,
+            requestedMaxPixelSize: 200,
+        )
         let jpegData = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage(width: 90, height: 60)))
-        await diskCache.save(jpegData, for: rawURL)
+        await diskCache.save(jpegData, for: previewKey)
 
         SharedMemoryCache.shared.removeAllObjects()
         SharedMemoryCache.shared.removeAllGridObjects()
@@ -541,7 +555,7 @@ struct ScanAndCreateThumbnailsCacheAdmissionTests {
         let processed = await provider.preloadCatalog(at: catalog, targetSize: 256)
 
         #expect(processed == 1)
-        #expect(SharedMemoryCache.shared.object(forKey: rawURL as NSURL) == nil)
-        #expect(SharedMemoryCache.shared.gridObject(forKey: rawURL as NSURL) != nil)
+        #expect(SharedMemoryCache.shared.object(forKey: previewKey) == nil)
+        #expect(SharedMemoryCache.shared.gridObject(forKey: gridKey) != nil)
     }
 }

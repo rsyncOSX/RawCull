@@ -1,6 +1,26 @@
 import Foundation
 @testable import RawCull
 
+func makeThumbnailRequestKey(
+    url: URL,
+    fileSize: Int64 = 1,
+    modificationDate: Date = Date(timeIntervalSince1970: 1_000),
+    purpose: ThumbnailPurpose = .preview,
+    requestedMaxPixelSize: Int = 256,
+    schemaVersion: Int = ThumbnailSourceFingerprint.currentCacheSchemaVersion,
+) -> ThumbnailRequestKey {
+    ThumbnailRequestKey(
+        source: ThumbnailSourceFingerprint(
+            url: url,
+            fileSize: fileSize,
+            modificationDate: modificationDate,
+            cacheSchemaVersion: schemaVersion,
+        ),
+        purpose: purpose,
+        requestedMaxPixelSize: requestedMaxPixelSize,
+    )
+}
+
 func makeIsolatedCache(
     name: String = #function,
     config: CacheConfig = .testing,

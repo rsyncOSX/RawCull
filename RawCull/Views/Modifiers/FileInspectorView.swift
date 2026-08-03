@@ -64,7 +64,11 @@ struct FileInspectorView: View {
             .formStyle(.grouped)
             .task(id: file) {
                 nsImage = nil
-                let cgImage = await RequestThumbnail().requestThumbnail(for: file.url, targetSize: 1024)
+                let cgImage = await RequestThumbnail().requestThumbnail(
+                    for: file,
+                    targetSize: 1024,
+                    purpose: .preview,
+                )
                 guard !Task.isCancelled, let cgImage else { return }
                 nsImage = NSImage(cgImage: cgImage, size: .zero)
             }

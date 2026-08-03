@@ -93,8 +93,22 @@ struct ThumbnailImageView: View {
             return nil
 
         case .list:
-            guard let url else { return nil }
-            let cgThumb = await RequestThumbnail.shared.requestThumbnail(for: url, targetSize: targetSize)
+            let cgThumb: CGImage?
+            if let file {
+                cgThumb = await RequestThumbnail.shared.requestThumbnail(
+                    for: file,
+                    targetSize: targetSize,
+                    purpose: .preview,
+                )
+            } else if let url {
+                cgThumb = await RequestThumbnail.shared.requestThumbnail(
+                    for: url,
+                    targetSize: targetSize,
+                    purpose: .preview,
+                )
+            } else {
+                return nil
+            }
             return cgThumb.map { NSImage(cgImage: $0, size: .zero) }
         }
     }

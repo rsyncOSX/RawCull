@@ -69,7 +69,7 @@ struct RequestThumbnailTests {
     @Test
     func `clear caches removes cached items and resets statistics`() async {
         let cache = await makeIsolatedCache()
-        let key = URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg") as NSURL
+        let key = makeThumbnailRequestKey(url: URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg"))
         let thumbnail = CachedThumbnail(image: createTestImage())
 
         cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)

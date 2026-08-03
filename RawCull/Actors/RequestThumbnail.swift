@@ -40,10 +40,45 @@ actor RequestThumbnail {
         await newTask.value
     }
 
-    func requestThumbnail(for url: URL, targetSize: Int) async -> CGImage? {
+    func requestThumbnail(
+        for file: FileItem,
+        targetSize: Int,
+        purpose: ThumbnailPurpose = .preview,
+    ) async -> CGImage? {
+        let key = ThumbnailRequestKey(
+            source: ThumbnailSourceFingerprint(file: file),
+            purpose: purpose,
+            requestedMaxPixelSize: targetSize,
+        )
+        return await requestThumbnail(for: file.url, key: key)
+    }
+
+    /// URL-only boundary for callers without scanned `FileItem` metadata.
+    /// Metadata is read once. If unavailable, extraction proceeds without any
+    /// persistent or in-memory reuse so a path-only stale hit is impossible.
+    func requestThumbnail(
+        for url: URL,
+        targetSize: Int,
+        purpose: ThumbnailPurpose = .preview,
+    ) async -> CGImage? {
+        guard let fingerprint = try? ThumbnailSourceFingerprint.readingMetadata(for: url) else {
+            guard !Task.isCancelled else { return nil }
+            let image = await rawLoader.thumbnailCGImage(for: url, maxPixelSize: targetSize)
+            guard !Task.isCancelled else { return nil }
+            return image
+        }
+        let key = ThumbnailRequestKey(
+            source: fingerprint,
+            purpose: purpose,
+            requestedMaxPixelSize: targetSize,
+        )
+        return await requestThumbnail(for: url, key: key)
+    }
+
+    private func requestThumbnail(for url: URL, key: ThumbnailRequestKey) async -> CGImage? {
         await ensureReady()
         do {
-            return try await resolveImage(for: url, targetSize: targetSize)
+            return try await resolveImage(for: url, key: key)
         } catch is CancellationError {
             return nil
         } catch {
@@ -52,8 +87,7 @@ actor RequestThumbnail {
         }
     }
 
-    private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
-        let nsUrl = url as NSURL
+    private func resolveImage(for url: URL, key: ThumbnailRequestKey) async throws -> CGImage {
         // Demand counter: total UI-driven thumbnail requests. Forms the
         // denominator for `true_hit_rate_pct` in Memory Diagnostics — unlike
         // the existing layer-relative `hit_rate_pct`, this includes branch C
@@ -61,7 +95,7 @@ actor RequestThumbnail {
         memoryCache.incrementDemandRequest()
 
         // A. Check RAM
-        if let wrapper = memoryCache.object(forKey: nsUrl) {
+        if let wrapper = memoryCache.object(forKey: key) {
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache)")
             await memoryCache.updateCacheMemory()
             let nsImage = wrapper.image
@@ -69,14 +103,14 @@ actor RequestThumbnail {
         }
 
         // B. Check Disk
-        if let diskImage = await diskCache.load(for: url) {
+        if let diskImage = await diskCache.load(for: key) {
             // Boomerang detection: a disk hit on a key the main RAM cache
             // recently evicted is the "scan polluted RAM, user paid disk cost
             // to get it back" pattern we're trying to quantify.
-            if memoryCache.wasRecentlyEvicted(url: nsUrl) {
+            if memoryCache.wasRecentlyEvicted(key: key) {
                 memoryCache.incrementBoomerangMiss()
             }
-            storeInMemory(diskImage, for: url)
+            storeInMemory(diskImage, for: key)
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in Disk Cache)")
             await memoryCache.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
@@ -87,7 +121,7 @@ actor RequestThumbnail {
 
         guard let cgImage = await rawLoader.thumbnailCGImage(
             for: url,
-            maxPixelSize: targetSize,
+            maxPixelSize: key.representation.requestedMaxPixelSize,
         ) else {
             throw RawImageLoadingError.invalidSource
         }
@@ -99,7 +133,8 @@ actor RequestThumbnail {
         // its denominator excludes this path entirely.
         memoryCache.incrementColdExtract()
 
-        storeInMemory(image, for: url)
+        try Task.checkCancellation()
+        storeInMemory(image, for: key)
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
@@ -107,8 +142,9 @@ actor RequestThumbnail {
             // Capture only `diskCache` (actor-isolated let) and the two value types.
             // No implicit `self` capture, no non-Sendable types crossing the boundary.
             let dcache = diskCache
+            let requestKey = key
             Task.detached(priority: .background) {
-                await dcache.save(jpegData, for: url)
+                await dcache.save(jpegData, for: requestKey)
             }
         } else {
             Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
@@ -136,10 +172,9 @@ actor RequestThumbnail {
         }.value
     }
 
-    private func storeInMemory(_ image: NSImage, for url: URL) {
-        let nsUrl = url as NSURL
-        guard memoryCache.object(forKey: nsUrl) == nil else { return }
-        let wrapper = CachedThumbnail(image: image, url: nsUrl)
-        memoryCache.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+    private func storeInMemory(_ image: NSImage, for key: ThumbnailRequestKey) {
+        guard memoryCache.object(forKey: key) == nil else { return }
+        let wrapper = CachedThumbnail(image: image, requestKey: key)
+        memoryCache.setObject(wrapper, forKey: key, cost: wrapper.cost)
     }
 }

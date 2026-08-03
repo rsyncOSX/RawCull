@@ -504,7 +504,7 @@ complete only after its focused verification and commit succeed.
 | 1 — Actual Pixels | Complete | 1:1 math and invalid-input handling verified by 9 focused tests, with and without Thread Sanitizer; smoke gate passed |
 | 2 — Histogram safety | Complete | Unified cancellable loader; 4 deterministic focused tests passed repeatedly and under Thread Sanitizer; smoke gate passed |
 | 3 — Release gates | Complete | Smoke plan is the sole tag selector; deliberate red/green proof succeeded; Smoke, full TSan, performance stress, and exact-package Release gates passed |
-| 4 — Thumbnail identity | Pending | — |
+| 4 — Thumbnail identity | Complete | Schema-v3 source/representation keys applied across disk, memory, scan, grid, and preview paths; focused normal/TSan and smoke gates passed |
 | 5 — Scan/grid contention | Pending | — |
 | 6 — Similarity persistence | Pending | — |
 | 7 — Accessibility | Pending | — |
@@ -609,6 +609,37 @@ complete only after its focused verification and commit succeed.
 - README and `RawCullTests/TEST_ARCHITECTURE.md` now document the one-selector
   rule, how to add smoke coverage, and the distinct responsibilities of Smoke,
   full TSan, and Performance commands.
+
+#### Phase 4 thumbnail-identity evidence
+
+- Added immutable `ThumbnailSourceFingerprint`, `ThumbnailRepresentation`, and
+  `ThumbnailRequestKey` values. Source identity contains the standardized path,
+  byte size, modification time quantized to milliseconds, and independent
+  thumbnail cache schema version 3. Representation identity contains grid or
+  preview purpose plus the requested maximum pixel size.
+- `DiskCacheManager`, `SharedMemoryCache`, `RequestThumbnail`,
+  `ScanAndCreateThumbnails`, and eviction/boomerang diagnostics now use the same
+  complete request identity. Disk filenames hash a length-delimited,
+  deterministic serialization of that identity and retain atomic JPEG writes.
+- File-based UI paths pass existing `FileItem.size` and `dateModified` metadata.
+  URL-only paths read file size and modification date once; when either cannot
+  be established, they decode without persistent or memory reuse instead of
+  accepting a stale path-only hit.
+- Grid and preview representations are distinct. A 200-pixel grid artifact
+  cannot resolve a 1024/1616-pixel preview request in memory or on disk.
+  Representation suitability additionally requires the decoded maximum
+  dimension to meet the requested dimension.
+- Schema v2/path-only entries remain physically clearable but cannot load as
+  schema v3. Cache clearing removes old and current schema artifacts.
+- Eight new identity tests cover stable keys, in-place source replacement,
+  metadata failure, decoded-size suitability, grid/preview separation, old
+  schema rejection, cross-schema clearing, and cancellation without an
+  incomplete disk artifact. Existing disk, scan-admission, request-provider,
+  raw-loader integration, and shared-cache counter tests were migrated to the
+  new identity.
+- The authoritative focused RawCull-plan pass succeeded. The affected cache,
+  identity, integration, and stress suites also passed under Thread Sanitizer
+  with no sanitizer diagnostic. `make test-smoke` passed.
 
 ### Phase 0: establish the closure ledger and reproducible baseline
 
