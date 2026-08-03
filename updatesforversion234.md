@@ -493,6 +493,50 @@ request so that completed work is verified rather than repeated:
 - Package.resolved contains RawParserKit 1.2.8 and RawCullCore 1.1.2, but the
   README table still says 1.2.6 and 1.1.0. The README correction remains open.
 
+### Execution ledger
+
+This ledger records work performed against the phase plan. A phase is marked
+complete only after its focused verification and commit succeed.
+
+| Phase | Status | Evidence |
+|---|---|---|
+| 0 — Baseline | Complete | Baseline captured on 3 August 2026; commit pending at time of entry |
+| 1 — Actual Pixels | Pending | — |
+| 2 — Histogram safety | Pending | — |
+| 3 — Release gates | Pending | — |
+| 4 — Thumbnail identity | Pending | — |
+| 5 — Scan/grid contention | Pending | — |
+| 6 — Similarity persistence | Pending | — |
+| 7 — Accessibility | Pending | — |
+| 8 — Metadata and documentation | Pending | — |
+| 9 — Integrated regression | Pending | — |
+| 10 — Release handoff | Pending | — |
+
+#### Phase 0 baseline evidence
+
+- Source commit: 9250d9f35e1f8f9d3bb6104c721ec31ade62fcc6
+- Host: Apple Silicon arm64, macOS 26.6 build 25G72
+- Toolchain: Xcode 26.6 build 17F113; Apple Swift 6.3.3
+- Application language mode: Swift 6 with Main Actor default isolation and
+  Approachable Concurrency
+- Test target: complete strict concurrency checking
+- Resolved-package SHA-256:
+  2563e9f3e0d45448d2cb8f8042fd4e80d40fe77564b3a624f8c72a4e52d45fa9
+- make test-smoke: passed. Output confirmed that several selected Swift
+  Testing suites and cases executed twice.
+- make test-full with Thread Sanitizer: failed on the known
+  ZoomViewportMathTests mismatch. The unique failures were the fit-upscaled
+  scale, focus-point transform, and missing-focus-point transform expectations;
+  one focus-point failure was reported twice. No Thread Sanitizer data-race
+  report appeared.
+- make test-performance: passed the dedicated extreme concurrent-load test.
+- Exact-package Release arm64 build: succeeded. The only observed warning was
+  Xcode's App Intents metadata notice that no AppIntents.framework dependency
+  was present; no new RawCull compiler warning was observed.
+- Baseline result bundles were written by Xcode under DerivedData for the smoke,
+  full, and performance runs. Final release evidence will use explicit,
+  stable result-bundle paths after Phase 3 repairs the gate commands.
+
 ### Phase 0: establish the closure ledger and reproducible baseline
 
 1. Create one tracked checklist with rows for work items 1–8 and columns for
