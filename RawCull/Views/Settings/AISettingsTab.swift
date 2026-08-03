@@ -5,7 +5,7 @@ struct AISettingsTab: View {
 
     @State private var showModelDownloads = false
     @State private var showDeleteBurstDataConfirmation = false
-
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -45,6 +45,8 @@ struct AISettingsTab: View {
 
 private struct AIModelSettingsCard: View {
     @Bindable var model: RawCullAISettingsModel
+    
+    let useonlyDataCompCLIP = true
 
     var body: some View {
         SettingsCard {
@@ -68,28 +70,30 @@ private struct AIModelSettingsCard: View {
                     availableMessage: "DataComp CLIP model resources are installed.",
                     missingMessage: "DataComp CLIP is not installed.",
                 )
+                
+                if useonlyDataCompCLIP == false {
+                    Divider()
 
-                Divider()
+                    AICapabilityStatusView(
+                        title: "OpenAI CLIP model",
+                        status: model.capabilities.clipModelStatus(for: .openAI),
+                        availableMessage: "OpenAI CLIP model resources are installed.",
+                        missingMessage: "OpenAI CLIP is not installed.",
+                    )
 
-                AICapabilityStatusView(
-                    title: "OpenAI CLIP model",
-                    status: model.capabilities.clipModelStatus(for: .openAI),
-                    availableMessage: "OpenAI CLIP model resources are installed.",
-                    missingMessage: "OpenAI CLIP is not installed.",
-                )
+                    Divider()
 
-                Divider()
-
-                Picker("Selected CLIP model", selection: $model.selectedCLIPModel) {
-                    ForEach(RawCullCLIPModel.allCases) { clipModel in
-                        Text(clipModel.displayName)
-                            .tag(clipModel)
+                    Picker("Selected CLIP model", selection: $model.selectedCLIPModel) {
+                        ForEach(RawCullCLIPModel.allCases) { clipModel in
+                            Text(clipModel.displayName)
+                                .tag(clipModel)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .font(.system(size: 12, weight: .medium))
+                    .help("Choose the single CLIP model RawCull uses for similarity and semantic search.")
                 }
-                .pickerStyle(.segmented)
-                .font(.system(size: 12, weight: .medium))
-                .help("Choose the single CLIP model RawCull uses for similarity and semantic search.")
-
+                
                 Toggle(
                     "Use selected CLIP model for similarity",
                     isOn: $model.useCLIPForSimilarity,
