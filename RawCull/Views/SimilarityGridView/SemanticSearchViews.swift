@@ -56,6 +56,7 @@ struct SemanticSearchControlsView: View {
         .background(.thinMaterial)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Semantic search")
+        .accessibilityValue(RawCullAccessibilityPresentation.semanticSearchValue(presentation))
     }
 
     private var presentation: SemanticSearchUIPresentation {
@@ -122,7 +123,8 @@ private struct SemanticSearchQueryEntryView: View {
                 }
 
                 if !queryText.isEmpty
-                    || viewModel.similarityModel.semanticSearchState != .idle {
+                    || viewModel.similarityModel.semanticSearchState != .idle
+                {
                     Button(action: clearSearch) {
                         Label("Clear", systemImage: "xmark.circle")
                     }

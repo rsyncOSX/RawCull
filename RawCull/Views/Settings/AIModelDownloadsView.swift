@@ -81,6 +81,7 @@ private struct AIModelDownloadRow: View {
                 AIModelDownloadIdentityView(
                     descriptor: presentation.descriptor,
                     state: presentation.state,
+                    licenceAccepted: presentation.licenceAccepted,
                 )
 
                 Divider()
@@ -124,6 +125,7 @@ private struct AIModelDownloadRow: View {
         } label: {
             Label("Review Licence", systemImage: "doc.text")
         }
+        .accessibilityHint("Reviews the complete model licence and verification status.")
 
         switch presentation.state {
         case .ready:
@@ -132,6 +134,7 @@ private struct AIModelDownloadRow: View {
             } label: {
                 Label("Download", systemImage: "arrow.down.circle")
             }
+            .accessibilityHint("Downloads this model locally using Managed Background Assets.")
 
         case .licenceRequired:
             Button {
@@ -139,6 +142,7 @@ private struct AIModelDownloadRow: View {
             } label: {
                 Label("Accept and Download", systemImage: "checkmark.shield")
             }
+            .accessibilityHint("Reviews the licence before this model can be downloaded.")
 
         case .downloading:
             Button(role: .cancel) {
@@ -146,6 +150,7 @@ private struct AIModelDownloadRow: View {
             } label: {
                 Label("Cancel Download", systemImage: "xmark.circle")
             }
+            .accessibilityHint("Cancels this model download without affecting installed models.")
 
         case .installed:
             Button(role: .destructive) {
@@ -153,6 +158,7 @@ private struct AIModelDownloadRow: View {
             } label: {
                 Label("Remove", systemImage: "trash")
             }
+            .accessibilityHint("Removes only RawCull's managed asset pack.")
 
         case .failed:
             Button {
@@ -160,6 +166,7 @@ private struct AIModelDownloadRow: View {
             } label: {
                 Label("Retry", systemImage: "arrow.clockwise")
             }
+            .accessibilityHint("Retries this model download.")
 
         case .checking, .unavailable, .notConfigured, .validating, .removing:
             EmptyView()
@@ -170,6 +177,7 @@ private struct AIModelDownloadRow: View {
 private struct AIModelDownloadIdentityView: View {
     let descriptor: RawCullAIModelDownloadDescriptor
     let state: RawCullAIModelDownloadState
+    let licenceAccepted: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -217,6 +225,12 @@ private struct AIModelDownloadIdentityView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(descriptor.displayName)
+        .accessibilityValue(RawCullAccessibilityPresentation.modelDownloadValue(
+            state: state,
+            licenceAccepted: licenceAccepted,
+        ))
     }
 }
 
@@ -245,6 +259,9 @@ private struct AIModelLicenceSummaryView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(descriptor.displayName) licence")
+        .accessibilityValue("\(descriptor.licence.name). \(licenceAccepted ? "Accepted" : "Not accepted"). \(descriptor.licence.summary)")
     }
 }
 
@@ -262,10 +279,13 @@ private struct AIModelDownloadProgressView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Model download progress")
+            .accessibilityValue(Text(progress, format: .percent.precision(.fractionLength(0))))
 
         case .checking, .validating, .removing:
             ProgressView(state.activityTitle)
                 .controlSize(.small)
+                .accessibilityLabel("Model download status")
+                .accessibilityValue(Text(state.activityTitle))
 
         case .unavailable, .licenceRequired, .notConfigured, .ready,
              .installed, .failed:
@@ -341,6 +361,11 @@ private struct AIModelLicenceReviewView: View {
                     }
                     .disabled(!canAccept || isAccepting)
                     .buttonStyle(.borderedProminent)
+                    .accessibilityHint(
+                        canAccept
+                            ? "Accepts the checksum-verified complete licence for this model."
+                            : "Acceptance is disabled until the complete licence and release evidence are verified.",
+                    )
                 }
             }
         }
@@ -422,7 +447,6 @@ private extension RawCullAIModelDownloadState {
         case .checking: "Checking model service…"
         case .validating: "Validating model…"
         case .removing: "Removing model…"
-
         case .unavailable, .licenceRequired, .notConfigured, .ready,
              .downloading, .installed, .failed:
             ""

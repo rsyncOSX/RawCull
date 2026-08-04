@@ -1,4 +1,5 @@
 RawCullTests/AICacheBoundaryTests
+RawCullTests/AccessibilityPresentationTests
 RawCullTests/ApertureHintTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests

@@ -101,6 +101,8 @@ private struct AIModelSettingsCard: View {
                 .font(.system(size: 12, weight: .medium))
                 .toggleStyle(.switch)
                 .help(Text(clipSimilarityHelp))
+                .accessibilityValue(similarityBackendMessage)
+                .accessibilityHint(String(localized: clipSimilarityHelp))
 
                 Text(similarityBackendMessage)
                     .font(.system(size: 11, weight: .medium))
@@ -110,6 +112,8 @@ private struct AIModelSettingsCard: View {
                             : .secondary,
                     )
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Active similarity backend")
+                    .accessibilityValue(similarityBackendMessage)
 
                 Divider()
 
@@ -122,7 +126,7 @@ private struct AIModelSettingsCard: View {
         }
     }
 
-    private var similarityBackendMessage: LocalizedStringResource {
+    private var similarityBackendMessage: String {
         let selectedName = model.selectedCLIPModel.displayName
         if model.useCLIPForSimilarity, model.selectedCLIPModelStatus.isAvailable {
             return "Similarity indexing uses the selected \(selectedName) CLIP model."
@@ -195,6 +199,7 @@ private struct AICapabilityStatusView: View {
                 Image(systemName: status.iconName)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(status.color)
+                    .accessibilityHidden(true)
 
                 Text("\(title):")
                     .font(.system(size: 12, weight: .medium))
@@ -205,14 +210,19 @@ private struct AICapabilityStatusView: View {
 
                 Spacer()
             }
-            .accessibilityElement(children: .combine)
-
             Text(detailMessage)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(RawCullAccessibilityPresentation.capabilityValue(
+            status: status,
+            availableMessage: availableMessage,
+            missingMessage: missingMessage,
+        ))
     }
 
     private var detailMessage: String {
@@ -256,6 +266,7 @@ private struct SavedBurstSimilarityEvidenceView: View {
                 Image(systemName: iconName)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(statusColor)
+                    .accessibilityHidden(true)
 
                 Text("Saved burst evidence:")
                     .font(.system(size: 12, weight: .medium))
@@ -272,14 +283,15 @@ private struct SavedBurstSimilarityEvidenceView: View {
                         .fixedSize()
                 }
             }
-            .accessibilityElement(children: .combine)
-
             Text(detailText)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Saved burst similarity evidence")
+        .accessibilityValue("\(statusTitle). \(detailText)")
     }
 
     private var statusTitle: String {

@@ -56,6 +56,20 @@ struct ComparisonImagePaneView: View {
             }
             .animation(.easeInOut(duration: 0.16), value: showsPaneChrome)
             .clipped()
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Comparison image \(file.name)")
+            .accessibilityValue(RawCullAccessibilityPresentation.imageValue(
+                rating: rating,
+                isSelected: isSelected,
+                isMultiSelected: false,
+            ))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .accessibilityAction(named: "Select image") { onSelect() }
+            .accessibilityAction(named: "Toggle zoom") {
+                guard allowsDoubleClickZoom else { return }
+                onSelect()
+                toggleZoom()
+            }
         }
         .background(Color.black.opacity(0.97))
     }

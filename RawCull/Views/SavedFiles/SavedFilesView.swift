@@ -72,17 +72,31 @@ struct SavedFilesView: View {
                     emptyCatalogs
                 } else {
                     ForEach(viewModel.cullingModel.savedFiles) { entry in
-                        CatalogRow(
-                            entry: entry,
-                            isSelected: selectedCatalog?.id == entry.id,
-                            isHovered: hoveredCatalog == entry.id,
-                        )
-                        .onTapGesture {
+                        Button {
                             if selectedCatalog?.id != entry.id {
                                 selectedRecord = nil
                             }
                             selectedCatalog = entry
+                        } label: {
+                            CatalogRow(
+                                entry: entry,
+                                isSelected: selectedCatalog?.id == entry.id,
+                                isHovered: hoveredCatalog == entry.id,
+                            )
+                            .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(
+                            entry.catalog?.lastPathComponent ?? "Unknown Catalog",
+                        )
+                        .accessibilityValue(RawCullAccessibilityPresentation.savedCatalogValue(
+                            fileCount: entry.filerecords?.count ?? 0,
+                            date: entry.dateStart,
+                            isSelected: selectedCatalog?.id == entry.id,
+                        ))
+                        .accessibilityAddTraits(
+                            selectedCatalog?.id == entry.id ? .isSelected : [],
+                        )
                         .onHover { hovering in
                             hoveredCatalog = hovering ? entry.id : nil
                         }
@@ -130,12 +144,26 @@ struct SavedFilesView: View {
                     emptyRecords
                 } else {
                     ForEach(records) { record in
-                        FileRecordRow(
-                            record: record,
+                        Button {
+                            selectedRecord = record
+                        } label: {
+                            FileRecordRow(
+                                record: record,
+                                isSelected: selectedRecord?.id == record.id,
+                                isHovered: hoveredRecord == record.id,
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(record.fileName ?? "Unnamed File")
+                        .accessibilityValue(RawCullAccessibilityPresentation.savedRecordValue(
+                            rating: record.rating,
+                            dateTagged: record.dateTagged,
                             isSelected: selectedRecord?.id == record.id,
-                            isHovered: hoveredRecord == record.id,
+                        ))
+                        .accessibilityAddTraits(
+                            selectedRecord?.id == record.id ? .isSelected : [],
                         )
-                        .onTapGesture { selectedRecord = record }
                         .onHover { hovering in
                             hoveredRecord = hovering ? record.id : nil
                         }

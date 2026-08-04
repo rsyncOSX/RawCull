@@ -95,6 +95,8 @@ struct ImageOverlayControlsView: View {
                 .background(.regularMaterial)
                 .clipShape(.rect(cornerRadius: 20))
                 .help(inspectorIsPresented ? "Hide candidate inspector" : "Show candidate inspector")
+                .accessibilityLabel("Candidate inspector")
+                .accessibilityValue(inspectorIsPresented ? "Shown" : "Hidden")
             }
 
             HStack {
@@ -108,6 +110,7 @@ struct ImageOverlayControlsView: View {
                 }
                 .disabled(!canZoomOut)
                 .help("Zoom out")
+                .accessibilityLabel("Zoom out")
 
                 Button {
                     onZoomReset()
@@ -117,6 +120,8 @@ struct ImageOverlayControlsView: View {
                 }
                 .disabled(!canReset)
                 .help("Reset zoom")
+                .accessibilityLabel("Reset zoom")
+                .accessibilityValue("\(scale * 100, format: .number.precision(.fractionLength(0))) percent")
 
                 Button {
                     onZoomIn()
@@ -128,6 +133,7 @@ struct ImageOverlayControlsView: View {
                 }
                 .disabled(!canZoomIn)
                 .help("Zoom in")
+                .accessibilityLabel("Zoom in")
             }
             .buttonStyle(.plain)
             .padding(.horizontal, zoomHorizontalPadding)

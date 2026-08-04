@@ -22,6 +22,16 @@ struct RatedImageItemView: View {
     var onDoubleSelected: () -> Void = {}
 
     var body: some View {
+        tileContent
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(file.name)
+            .accessibilityValue(accessibilitySummary)
+            .accessibilityAddTraits(isSelected || isMultiSelected ? .isSelected : [])
+            .accessibilityAction { onSelected() }
+            .accessibilityAction(named: "Open preview") { onDoubleSelected() }
+    }
+
+    private var tileContent: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading) {
                 ZStack {
@@ -81,6 +91,14 @@ struct RatedImageItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelected() }
         .onTapGesture(count: 1) { onSelected() }
+    }
+
+    private var accessibilitySummary: String {
+        RawCullAccessibilityPresentation.imageValue(
+            rating: ratingDisplay,
+            isSelected: isSelected,
+            isMultiSelected: isMultiSelected,
+        )
     }
 
     private var borderColor: Color {

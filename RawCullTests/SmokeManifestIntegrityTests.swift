@@ -25,6 +25,7 @@ struct SmokeManifestIntegrityTests {
 
 private let expectedSmokeSelectors = """
 RawCullTests/AICacheBoundaryTests
+RawCullTests/AccessibilityPresentationTests
 RawCullTests/ApertureHintTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests
@@ -71,6 +72,7 @@ RawCullTests/PhotoAIKitSimilarityMigrationTests/`Vision and CLIP artifacts coexi
 
 private let expectedTaggedSuites: Set<String> = [
     "AICacheBoundaryTests",
+    "AccessibilityPresentationTests",
     "ApertureHintTests",
     "BurstFrameCachePolicyTests",
     "BurstReviewKeyActionTests",

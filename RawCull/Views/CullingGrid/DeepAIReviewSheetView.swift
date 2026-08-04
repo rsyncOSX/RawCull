@@ -42,6 +42,13 @@ struct DeepAIReviewSheetView: View {
         .padding(16)
         .frame(minWidth: 1080, idealWidth: 1220, minHeight: 520, idealHeight: 640)
         .interactiveDismissDisabled(feature.isRunning)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Deep Review")
+        .accessibilityValue(RawCullAccessibilityPresentation.deepReviewValue(
+            state: feature.state,
+            cachedResult: result,
+            groupID: groupID,
+        ))
     }
 }
 
@@ -64,14 +71,17 @@ private struct DeepAIReviewSheetControls: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 420)
             .disabled(feature.isRunning)
+            .accessibilityHint("Selects the SAM 3 subject target used for local detail review.")
 
             if feature.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .buttonStyle(.bordered)
+                    .accessibilityHint("Cancels the active SAM 3 Deep Review.")
             } else {
                 Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
                     .buttonStyle(.borderedProminent)
                     .disabled(!canRun)
+                    .accessibilityHint("Runs local SAM 3 subject-detail analysis for this burst group.")
             }
 
             Spacer()
@@ -79,10 +89,12 @@ private struct DeepAIReviewSheetControls: View {
             Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
                 .buttonStyle(.borderedProminent)
                 .disabled(!canApply || feature.isRunning)
+                .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
 
             Button("Close", systemImage: "xmark", action: onClose)
                 .buttonStyle(.bordered)
                 .disabled(feature.isRunning)
+                .accessibilityHint("Closes Deep Review without changing the burst winner.")
         }
     }
 }
@@ -177,6 +189,17 @@ private struct DeepAIReviewProgressHeader: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("SAM 3 Deep Review progress")
+        .accessibilityValue(progressAccessibilityValue)
+    }
+
+    private var progressAccessibilityValue: String {
+        var value = "\(completedCount) of \(totalCount) candidates complete"
+        if let currentFileName {
+            value += ". Analyzing \(currentFileName)"
+        }
+        return value
     }
 }
 
@@ -205,6 +228,9 @@ private struct DeepAIReviewSummaryView: View {
                     .lineLimit(3)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(recommendationLabel)
+        .accessibilityValue(summaryAccessibilityValue)
     }
 
     private var recommendationLabel: String {
@@ -236,6 +262,23 @@ private struct DeepAIReviewSummaryView: View {
         case .medium: .orange
         case .low: .gray
         }
+    }
+
+    private var summaryAccessibilityValue: String {
+        let confidence = switch result.confidence {
+        case .high: "High confidence"
+        case .medium: "Medium confidence"
+        case .low: "Low confidence"
+        }
+        let preset = switch result.preset {
+        case .auto: "Auto target"
+        case .fullSubject: "Full Subject target"
+        case .headFace: "Head or Face target"
+        }
+        if explanation.isEmpty {
+            return "\(confidence). \(preset)."
+        }
+        return "\(confidence). \(preset). \(explanation)"
     }
 
     private var explanation: String {

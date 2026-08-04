@@ -103,11 +103,13 @@ struct BurstCandidateBadgeView: View {
 
     private var recommendationTitle: String? {
         if analysis.reviewState == .manualWinnerOverride,
-           analysis.recommendedFileID == candidate.fileID {
+           analysis.recommendedFileID == candidate.fileID
+        {
             return "Manual"
         }
         if analysis.reviewState == .manualWinnerOverride,
-           analysis.candidates.first?.fileID == candidate.fileID {
+           analysis.candidates.first?.fileID == candidate.fileID
+        {
             return "Auto best"
         }
         if analysis.recommendedFileID == candidate.fileID {
@@ -118,11 +120,13 @@ struct BurstCandidateBadgeView: View {
 
     private var rankColor: Color {
         if analysis.reviewState == .manualWinnerOverride,
-           analysis.recommendedFileID == candidate.fileID {
+           analysis.recommendedFileID == candidate.fileID
+        {
             return .orange
         }
         if analysis.reviewState == .manualWinnerOverride,
-           analysis.candidates.first?.fileID == candidate.fileID {
+           analysis.candidates.first?.fileID == candidate.fileID
+        {
             return .green
         }
         if analysis.recommendedFileID == candidate.fileID {
@@ -195,6 +199,16 @@ struct ImageItemView: View {
     var onDoubleSelect: () -> Void = {}
 
     var body: some View {
+        tileContent
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(file.name)
+            .accessibilityValue(accessibilitySummary)
+            .accessibilityAddTraits(isSelectionHighlighted ? .isSelected : [])
+            .accessibilityAction { onSelect() }
+            .accessibilityAction(named: "Open preview") { onDoubleSelect() }
+    }
+
+    private var tileContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Thumbnail area
             ZStack {
@@ -225,7 +239,8 @@ struct ImageItemView: View {
 
                         if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
                            let analysis = viewModel.burstAnalysisResult(for: groupID),
-                           let candidate = viewModel.burstCandidate(for: file) {
+                           let candidate = viewModel.burstCandidate(for: file)
+                        {
                             BurstCandidateBadgeView(
                                 candidate: candidate,
                                 analysis: analysis,
@@ -238,7 +253,8 @@ struct ImageItemView: View {
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if let semanticResultRank,
-                       let semanticResultCount {
+                       let semanticResultCount
+                    {
                         SemanticResultRankBadgeView(
                             rank: semanticResultRank,
                             resultCount: semanticResultCount,
@@ -288,6 +304,16 @@ struct ImageItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onDoubleSelect() }
         .onTapGesture(count: 1) { onSelect() }
+    }
+
+    private var accessibilitySummary: String {
+        RawCullAccessibilityPresentation.imageValue(
+            rating: ratingDisplay,
+            isSelected: isSelected,
+            isMultiSelected: isMultiSelected,
+            semanticRank: semanticResultRank,
+            semanticResultCount: semanticResultCount,
+        )
     }
 
     private var borderColor: Color {
