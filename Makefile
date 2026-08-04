@@ -5,9 +5,12 @@ VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCull.xcodeproj/project.pbxpr
 BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
+DMG_PATH = $(PWD)/$(APP).$(VERSION).dmg
+DMG_SHA256_PATH = $(DMG_PATH).sha256
 SIGNING_IDENTITY = "93M47F4H9T"
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
+XCODE_RELEASE_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination 'platform=macOS,arch=arm64' -configuration Release -onlyUsePackageVersionsFromResolvedFile
 SMOKE_TEST_MANIFEST = TestManifests/SmokeTests.txt
 PERFORMANCE_TEST_MANIFEST = TestManifests/PerformanceTests.txt
 SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
@@ -18,7 +21,7 @@ SMOKE_EXPECTED_TESTS = 173
 PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build
-build: clean archive sign-app notarize staple prepare-dmg open
+build: release-preflight clean archive sign-app notarize staple prepare-dmg hash-dmg open
 
 # Debug build - skips notarization and signing
 debug: clean archive-debug open-debug
@@ -58,13 +61,23 @@ test-performance: verify-performance-manifest
 		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
 
 # --- MAIN WORKFLOW FUNCTIONS --- #
+release-preflight:
+	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
+	@(git rev-parse --verify --quiet refs/tags/v2.3.4 >/dev/null || git rev-parse --verify --quiet refs/tags/2.3.4 >/dev/null) || (echo "Release blocked: immutable 2.3.4 tag is missing"; exit 1)
+	@if rg --quiet '"release_status": "blocked"' ModelAssets/Notices/*/PROVENANCE.json; then \
+		echo "Release blocked: model provenance audit is incomplete"; \
+		exit 1; \
+	fi
+	@if rg --quiet 'expectedArchiveSHA256: nil|releaseReadiness: \.blocked' RawCull/Model/AIIntegration/RawCullAIModelDownloadCatalog.swift; then \
+		echo "Release blocked: production model descriptors are incomplete"; \
+		exit 1; \
+	fi
+
 archive: clean
 	osascript -e 'display notification "Exporting application archive..." with title "Build the RawCull"'
 	echo "Exporting application archive (RELEASE)..."
 	xcodebuild \
-		-scheme $(APP) \
-		-destination 'platform=OS X,arch=arm64' \
-		-configuration Release archive \
+		$(XCODE_RELEASE_FLAGS) archive \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 	echo "Application built, starting the export archive..."
 	xcodebuild -exportArchive \
@@ -141,21 +154,38 @@ prepare-dmg:
 		--app-drop-link 375 175 \
 		--no-internet-enable \
 		--codesign 93M47F4H9T \
-		"$(APP).$(VERSION).dmg" \
+		"$(DMG_PATH)" \
 		$(APP_PATH)
 	echo "✅ DMG created successfully"
 	@echo "Submitting DMG for notarization..."
-	xcrun notarytool submit --keychain-profile "RsyncUI" --wait "$(APP).$(VERSION).dmg"
+	xcrun notarytool submit --keychain-profile "RsyncUI" --wait "$(DMG_PATH)"
 	
 	@echo "Stapling ticket to DMG..."
-	xcrun stapler staple "$(APP).$(VERSION).dmg"
+	xcrun stapler staple "$(DMG_PATH)"
+	xcrun stapler validate "$(DMG_PATH)"
+	hdiutil verify "$(DMG_PATH)"
 	
 	@echo "✅ DMG is now signed, notarized and stapled!"
+
+hash-dmg:
+	@echo "Writing final DMG SHA-256..."
+	shasum -a 256 "$(DMG_PATH)" > "$(DMG_SHA256_PATH)"
+	@cat "$(DMG_SHA256_PATH)"
+
+verify-downloaded-dmg:
+	@test -n "$(DOWNLOADED_DMG)" || (echo "Set DOWNLOADED_DMG to the downloaded DMG path"; exit 1)
+	@test -f "$(DMG_SHA256_PATH)" || (echo "Missing $(DMG_SHA256_PATH)"; exit 1)
+	@test -f "$(DOWNLOADED_DMG)" || (echo "Missing downloaded DMG: $(DOWNLOADED_DMG)"; exit 1)
+	@EXPECTED=$$(awk '{print $$1}' "$(DMG_SHA256_PATH)"); \
+	ACTUAL=$$(shasum -a 256 "$(DOWNLOADED_DMG)" | awk '{print $$1}'); \
+	test "$$EXPECTED" = "$$ACTUAL" || (echo "Downloaded DMG SHA-256 mismatch"; exit 1); \
+	echo "Downloaded DMG SHA-256 reproduced: $$ACTUAL"
 
 # --- HELPERS --- #
 clean:
 	rm -rf $(BUILD_PATH)
-	if [ -a $(PWD)/$(APP).$(VERSION).dmg ]; then rm $(PWD)/$(APP).$(VERSION).dmg; fi;
+	if [ -a "$(DMG_PATH)" ]; then rm "$(DMG_PATH)"; fi;
+	if [ -a "$(DMG_SHA256_PATH)" ]; then rm "$(DMG_SHA256_PATH)"; fi;
 
 check:
 	xcrun notarytool log f62c4146-0758-4942-baac-9575190858b8 --keychain-profile "RsyncUI"
@@ -178,4 +208,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug
+.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

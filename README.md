@@ -458,6 +458,20 @@ Release archive, signing, notarization, stapling, and DMG generation:
 make build
 ```
 
+The release target refuses to start from a dirty worktree, without the
+historical 2.3.4 tag, or while checked-in model provenance/descriptors remain
+release-blocked.
+
+The release build also writes `RawCull.3.0.0.dmg.sha256`. After publishing and
+downloading the DMG through its distribution path, reproduce that hash with:
+
+```bash
+make verify-downloaded-dmg DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.0.0.dmg
+```
+
+The archive target uses only the package versions in the checked-in
+`Package.resolved` file.
+
 Clean generated build output:
 
 ```bash
