@@ -111,7 +111,15 @@ struct MemoryDiagnosticsView: View {
             "cold%=\(coldRate)",
             "live=\(e.liveLimitMB)MB",
             "warn=\(e.pressureWarns)",
-            "crit=\(e.pressureCrits)"
+            "crit=\(e.pressureCrits)",
+            "thumb=\(e.activeThumbnailWork)/\(e.peakThumbnailWork)",
+            "dup=\(e.duplicateThumbnailKeys)",
+            "coal=\(e.coalescedThumbnailWaiters)",
+            "cancel=\(e.thumbnailCancellations)",
+            "infer=\(e.similarityInferenceStarts)/\(e.semanticSearchStarts)/\(e.deepReviewInferenceStarts)",
+            "hydrate=\(e.semanticHydrationStarts)",
+            "downloads=\(e.modelDownloadStarts)",
+            "firstgrid=\(e.latestFirstUsableGridMilliseconds.map(String.init) ?? "-")ms",
         ]
         return fields.joined(separator: "  ")
     }

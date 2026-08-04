@@ -321,6 +321,7 @@ actor RawCullAIModelDownloadCoordinator {
                 )
             }
         }
+        ContentionDiagnostics.shared.recordModelDownloadStart()
         return try await service.download(descriptor, progress: progress)
     }
 

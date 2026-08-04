@@ -84,18 +84,22 @@ actor ScanAndCreateThumbnails {
         await ensureReady()
         cancelPreload()
 
+        let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
+        let diagnosticsID = ContentionDiagnostics.shared.beginGridPreload(
+            catalogSize: urls.count,
+        )
+        let gateID = await ThumbnailPreloadGate.shared.begin(catalogURL: catalogURL)
+
         let task = Task<Int, Never> {
             successCount = 0
             processingTimes = []
             lastItemTime = nil
-
-            let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
             totalFilesToProcess = urls.count
 
             await fileHandlers?.maxfilesHandler(urls.count)
 
             return await withTaskGroup(of: Void.self) { group in
-                let maxConcurrent = RawImageLoadingConcurrency.batchExtractionLimit
+                let maxConcurrent = RawImageLoadingConcurrency.thumbnailPreloadLimit
 
                 for (index, url) in urls.enumerated() {
                     if Task.isCancelled {
@@ -108,7 +112,12 @@ actor ScanAndCreateThumbnails {
                     }
 
                     group.addTask {
-                        await self.processSingleFile(url, targetSize: targetSize, itemIndex: index)
+                        await self.processSingleFile(
+                            url,
+                            targetSize: targetSize,
+                            itemIndex: index,
+                            diagnosticsID: diagnosticsID,
+                        )
                     }
                 }
 
@@ -118,13 +127,29 @@ actor ScanAndCreateThumbnails {
         }
 
         preloadTask = task
-        return await task.value
+        let result = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        await ThumbnailPreloadGate.shared.end(gateID)
+        ContentionDiagnostics.shared.endGridPreload(preloadID: diagnosticsID)
+        if preloadTask == task {
+            preloadTask = nil
+        }
+        return result
     }
 
     // MARK: - Single File Processing
 
-    private func processSingleFile(_ url: URL, targetSize: Int, itemIndex _: Int) async {
+    private func processSingleFile(
+        _ url: URL,
+        targetSize: Int,
+        itemIndex _: Int,
+        diagnosticsID: UUID,
+    ) async {
         if Task.isCancelled {
+            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
 
@@ -137,7 +162,9 @@ actor ScanAndCreateThumbnails {
 
         // A. Check RAM
         if let previewKey, let wrapper = SharedMemoryCache.shared.object(forKey: previewKey) {
-            storeInGridCache(wrapper.image, for: gridKey)
+            if storeInGridCache(wrapper.image, for: gridKey) {
+                ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
+            }
             // Do not re-admit to memoryCache: object(forKey:) already touched
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
@@ -149,6 +176,7 @@ actor ScanAndCreateThumbnails {
         }
 
         if Task.isCancelled {
+            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
 
@@ -158,7 +186,9 @@ actor ScanAndCreateThumbnails {
             // RequestThumbnail (its branch B promotes on user-driven hits)
             // keeps LRU ordering aligned with UI traffic and prevents
             // scan-driven evictions from boomeranging UI-active items.
-            storeInGridCache(diskImage, for: gridKey)
+            if storeInGridCache(diskImage, for: gridKey) {
+                ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
+            }
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -168,20 +198,26 @@ actor ScanAndCreateThumbnails {
 
         // C. Extract from source file
         if Task.isCancelled {
+            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
         notifyExtractionNeeded()
 
-        guard let image = await rawLoader.thumbnailImage(
+        ContentionDiagnostics.shared.beginThumbnailWork(coldDecode: true)
+        let decodedImage = await rawLoader.thumbnailImage(
             for: url,
             maxPixelSize: targetSize,
-        ),
-            let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { return }
+        )
+        ContentionDiagnostics.shared.endThumbnailWork()
 
         if Task.isCancelled {
+            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
+
+        guard let image = decodedImage,
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return }
 
         // Invariant (uniform across branches A/B/C): scan never admits to
         // memoryCache. RequestThumbnail is the only admitter, so LRU
@@ -195,8 +231,8 @@ actor ScanAndCreateThumbnails {
             purpose: .preview,
             requestedPixelSize: targetSize,
         )
-        if sourceStillMatches {
-            storeInGridCache(image, for: gridKey)
+        if sourceStillMatches, storeInGridCache(image, for: gridKey) {
+            ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
         }
         let newCount = incrementAndGetCount()
         notifyFileHandler(newCount)
@@ -262,13 +298,14 @@ actor ScanAndCreateThumbnails {
         return successCount
     }
 
-    private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?) {
-        guard let key else { return }
-        guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return }
+    private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?) -> Bool {
+        guard let key else { return false }
+        guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return true }
         let gridSize: CGFloat = 200
-        guard let scaled = downscale(image, to: gridSize) else { return }
+        guard let scaled = downscale(image, to: gridSize) else { return false }
         let wrapper = CachedThumbnail(image: scaled, key: key)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: key, cost: wrapper.cost)
+        return true
     }
 
     private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {

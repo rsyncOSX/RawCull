@@ -80,19 +80,21 @@ actor ThumbnailLoader {
 
     func thumbnailLoader(file: FileItem, targetSize: Int) async -> NSImage? {
         // Fast path: return from dedicated 200px grid cache without acquiring a slot
-        // TODO: must fix that 200px thumbnails are not requested when scanning and
-        // creating thumbnails in progress. This will compete with the creating of
-        // thumbnails and happens if the grid view is open when scanning and creating
-        // thumbnails in progress. Easy wa to fix this is to disable GridView and
-        // rated GRide View when scamnning in progress.
         if targetSize <= 200 {
-            let gridKey = ThumbnailCacheKey.resolve(
+            if let image = cachedGridImage(for: file.url) {
+                return image
+            }
+
+            // Only grid misses for the catalog currently being preloaded wait.
+            // AI indexing, semantic search, Deep Review, model downloads, and
+            // requests for other catalogs never pass through this gate.
+            guard await ThumbnailPreloadGate.shared.waitUntilGridDecodeIsAvailable(
                 for: file.url,
-                purpose: .grid,
-                requestedPixelSize: 200,
-            )
-            if let gridKey, let wrapper = SharedMemoryCache.shared.gridObject(forKey: gridKey) {
-                return wrapper.image
+            ) else { return nil }
+            guard !Task.isCancelled else { return nil }
+
+            if let image = cachedGridImage(for: file.url) {
+                return image
             }
         }
 
@@ -115,6 +117,16 @@ actor ThumbnailLoader {
             return NSImage(cgImage: cgThumb, size: .zero)
         }
         return nil
+    }
+
+    private func cachedGridImage(for url: URL) -> NSImage? {
+        let gridKey = ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: .grid,
+            requestedPixelSize: 200,
+        )
+        guard let gridKey else { return nil }
+        return SharedMemoryCache.shared.gridObject(forKey: gridKey)?.image
     }
 
     /// Unblocks all continuations that are waiting for a concurrency slot as cancelled.

@@ -63,6 +63,20 @@ final class MemoryDiagnosticsViewModel {
         let memEvictions: Int
         let gridEvictions: Int
         let unkEvictions: Int
+        let coldThumbnailDecodes: Int
+        let duplicateThumbnailKeys: Int
+        let coalescedThumbnailWaiters: Int
+        let thumbnailCancellations: Int
+        let activeThumbnailWork: Int
+        let peakThumbnailWork: Int
+        let similarityInferenceStarts: Int
+        let semanticSearchStarts: Int
+        let deepReviewInferenceStarts: Int
+        let semanticHydrationStarts: Int
+        let modelDownloadStarts: Int
+        let gridPreloadStarts: Int
+        let latestGridCatalogSize: Int
+        let latestFirstUsableGridMilliseconds: Int?
     }
 
     private(set) var entries: [Entry] = []
@@ -128,6 +142,7 @@ final class MemoryDiagnosticsViewModel {
         let memEvicts = CacheDelegate.shared.getMemEvictionCount()
         let gridEvicts = CacheDelegate.shared.getGridEvictionCount()
         let unkEvicts = CacheDelegate.shared.getUnknownEvictionCount()
+        let contention = ContentionDiagnostics.shared.snapshot()
 
         let settings = SettingsViewModel.shared
         // let projected = settings.projectedRawCullMemoryBytes()
@@ -165,6 +180,20 @@ final class MemoryDiagnosticsViewModel {
             memEvictions: memEvicts,
             gridEvictions: gridEvicts,
             unkEvictions: unkEvicts,
+            coldThumbnailDecodes: contention.coldThumbnailDecodes,
+            duplicateThumbnailKeys: contention.duplicateThumbnailKeys,
+            coalescedThumbnailWaiters: contention.coalescedThumbnailWaiters,
+            thumbnailCancellations: contention.thumbnailCancellations,
+            activeThumbnailWork: contention.activeThumbnailWork,
+            peakThumbnailWork: contention.peakThumbnailWork,
+            similarityInferenceStarts: contention.similarityInferenceStarts,
+            semanticSearchStarts: contention.semanticSearchStarts,
+            deepReviewInferenceStarts: contention.deepReviewInferenceStarts,
+            semanticHydrationStarts: contention.semanticHydrationStarts,
+            modelDownloadStarts: contention.modelDownloadStarts,
+            gridPreloadStarts: contention.gridPreloadStarts,
+            latestGridCatalogSize: contention.latestGridCatalogSize,
+            latestFirstUsableGridMilliseconds: contention.latestFirstUsableGridMilliseconds,
         )
         entries.append(entry)
     }
@@ -222,7 +251,21 @@ final class MemoryDiagnosticsViewModel {
         "pressure_crits",
         "mem_evictions",
         "grid_evictions",
-        "unk_evictions"
+        "unk_evictions",
+        "cold_thumbnail_decodes",
+        "duplicate_thumbnail_keys",
+        "coalesced_thumbnail_waiters",
+        "thumbnail_cancellations",
+        "active_thumbnail_work",
+        "peak_thumbnail_work",
+        "similarity_inference_starts",
+        "semantic_search_starts",
+        "deep_review_inference_starts",
+        "semantic_hydration_starts",
+        "model_download_starts",
+        "grid_preload_starts",
+        "latest_grid_catalog_size",
+        "first_usable_grid_ms",
     ].joined(separator: "\t")
 }
 
@@ -235,7 +278,7 @@ extension MemoryDiagnosticsViewModel.Entry {
 
     func tsvRow() -> String {
         var fields: [String] = []
-        fields.reserveCapacity(25)
+        fields.reserveCapacity(44)
         fields.append(Self.isoFormatter.string(from: timestamp))
         fields.append(String(physicalMB))
         fields.append(String(usedMB))
@@ -267,6 +310,20 @@ extension MemoryDiagnosticsViewModel.Entry {
         fields.append(String(memEvictions))
         fields.append(String(gridEvictions))
         fields.append(String(unkEvictions))
+        fields.append(String(coldThumbnailDecodes))
+        fields.append(String(duplicateThumbnailKeys))
+        fields.append(String(coalescedThumbnailWaiters))
+        fields.append(String(thumbnailCancellations))
+        fields.append(String(activeThumbnailWork))
+        fields.append(String(peakThumbnailWork))
+        fields.append(String(similarityInferenceStarts))
+        fields.append(String(semanticSearchStarts))
+        fields.append(String(deepReviewInferenceStarts))
+        fields.append(String(semanticHydrationStarts))
+        fields.append(String(modelDownloadStarts))
+        fields.append(String(gridPreloadStarts))
+        fields.append(String(latestGridCatalogSize))
+        fields.append(latestFirstUsableGridMilliseconds.map(String.init) ?? "")
         return fields.joined(separator: "\t")
     }
 }

@@ -247,6 +247,7 @@ final class DeepAIReviewFeature {
                 Logger.process.debugMessageOnly(
                     "DeepAIReviewFeature.start(): invoking the Deep Review service",
                 )
+                ContentionDiagnostics.shared.recordInferenceStart(.deepReview)
                 let result = try await service.review(request) { progress in
                     await feature.receive(progress, generation: runGeneration)
                 }

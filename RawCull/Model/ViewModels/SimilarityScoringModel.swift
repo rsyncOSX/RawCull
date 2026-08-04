@@ -477,6 +477,7 @@ final class SimilarityScoringModel {
     /// for burst similarity.
     @discardableResult
     func hydrateSemanticArtifacts(_ files: [FileItem]) async -> Int {
+        ContentionDiagnostics.shared.recordSemanticHydrationStart()
         _semanticHydrationGeneration &+= 1
         let generation = _semanticHydrationGeneration
         semanticCatalogFileCount = files.count
@@ -652,6 +653,9 @@ final class SimilarityScoringModel {
         let workTask = Task<SimilarityIndexingTaskResult, Never> {
             @concurrent [weak self] in
             do {
+                ContentionDiagnostics.shared.recordInferenceStart(
+                    .similarityIndexing,
+                )
                 let output = try await service.index(
                     sources: sources,
                     maxPixelSize: thumbnailMaxPixelSize,
@@ -974,6 +978,9 @@ final class SimilarityScoringModel {
         }
         let work = Task<SemanticSearchTaskResult, Never> { @concurrent in
             do {
+                ContentionDiagnostics.shared.recordInferenceStart(
+                    .semanticSearch,
+                )
                 return try await .success(
                     service.rank(
                         query: trimmedQuery,
