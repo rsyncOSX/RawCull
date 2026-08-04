@@ -1250,3 +1250,86 @@ than only logged), and immediate quit/cancel/retry behavior has been exercised.
 After the 13 Critical findings are fixed, regenerate this table from the issue
 verdicts and move resolved entries to a dated closure section instead of
 deleting the review history.
+
+# 📊 Executive Summary
+A deep audit was performed on **RawCull** (a macOS photo culling and rating app) to see which reported bugs are actually dangerous and which are just minor annoyances or already prevented by the app's design.
+
+*   **Original Report:** Found 28 "Critical" bugs and 37 "Non-Critical" bugs.
+*   **The Reality Check:** After reviewing how the app *actually* runs, **only 13 bugs are truly Critical** (they can cause data loss, silent corruption, or target the wrong photo). 
+*   **The Good News:** 17 of the originally "Critical" bugs were downgraded because the app's current architecture already prevents them from happening, or the features aren't turned on yet.
+
+---
+
+# 🚨 1. The Biggest Problem: "Unrated" vs. "Keeper" Confusion
+**Impact: Critical (Data Integrity)**
+
+The app has a fundamental flaw in how it tracks photo ratings. It cannot tell the difference between **"I haven't rated this photo yet"** and **"I rated this photo 0 stars (Keep it)."**
+*   **Why it happens:** When the app's AI automatically scans photos for sharpness, it creates a database entry for them. The app mistakenly reads these scanned-but-unrated photos as "Keepers" (0 stars).
+*   **The User Impact:** 
+    *   Photos you haven't looked at yet will disappear from your "Unrated" filter.
+    *   App statistics will be wrong.
+    *   If you use "Undo" on a batch of photos, the app might permanently mark untouched photos as "Keepers."
+
+---
+
+# 💾 2. Data Loss & Saving Issues
+**Impact: Critical (Risk of losing user work)**
+
+The app struggles to save your work reliably, especially when you are working quickly or closing the app.
+*   **Quitting loses recent work:** The app waits about a third of a second to save your ratings to the disk to improve performance. However, if you close the app or the main window during that tiny window, **the app doesn't force a final save**, and your last few ratings are permanently lost.
+*   **Old saves overwriting new saves:** If you switch between photo folders (catalogs) quickly, an older background save can finish *after* a newer one, wiping out your recent edits with outdated data.
+*   **Corrupt files are treated as empty:** If your saved ratings file gets corrupted, the app doesn't warn you. It just assumes you have no saved data and starts fresh, which will eventually overwrite and destroy the corrupted (but potentially recoverable) file.
+
+---
+
+# 📂 3. Exporting & Copying Photos
+**Impact: Critical (Silent failures and overwritten files)**
+
+When you tell RawCull to copy or export your selected photos to a new folder, it isn't entirely honest about the results.
+*   **Silent Overwrites:** If you export two photos that happen to have the exact same filename (e.g., from different camera cards), the app will silently overwrite the first one with the second one without warning you.
+*   **Fake "Success" Messages:** If the copying process fails halfway through (e.g., your hard drive gets full, or a file is corrupted), the app's underlying engine suppresses the error. The app will still pop up a "Success!" message, leaving you missing photos without realizing it.
+*   **Missing Files in Export:** If a photo fails to process or convert during export, it is just dropped from the list. The final summary will say "Exported 50 photos" even if 3 failed and were left behind.
+
+---
+
+# 🖼️ 4. UI Glitches & "Ghost" Actions
+**Impact: Critical & Non-Critical (Targeting the wrong photos)**
+
+Because the app loads images and data in the background, rapid clicking causes visual glitches and accidental actions.
+*   **Rating Invisible Photos:** When photos are grouped into "bursts" (e.g., 5 similar shots collapsed into 1 thumbnail), keyboard shortcuts and batch-actions sometimes apply star ratings to the *hidden* photos inside the group, rather than the one you are actually looking at.
+*   **Ghost Focus Masks:** If you click rapidly through photos, the "Focus Point" overlay from the *previous* photo might stay on the screen for a few seconds. You might reject a photo because you think it's out of focus, when you're actually looking at the previous photo's focus mask.
+*   **Stale Thumbnails:** Rapidly scrolling or clicking can cause older thumbnails to flash on the screen because background loading tasks don't cancel properly when you move to a new photo.
+*   **Broken Zooming:** If you use the `+` and `-` buttons to zoom in, it breaks the trackpad/mouse "pinch-to-zoom" gesture, causing the image to violently snap to an unexpected size.
+
+---
+
+# 🤖 5. AI Models (Future Risks)
+**Impact: Not Relevant *Yet* (But Critical before release)**
+
+RawCull has AI features (like smart subject detection), but they are currently "gated" (turned off in the shipping version). 
+*   **The Risk:** The code that downloads these AI models does not verify their digital signatures or file hashes. If this feature is turned on as-is, a compromised server could send malicious or corrupted AI models to the user's Mac, and the app would blindly trust and install them. This must be fixed before the AI features are released to the public.
+
+---
+
+# 🧹 6. Minor Annoyances & Housekeeping
+**Impact: Non-Critical (Code smells, minor UX flaws, battery drain)**
+
+These won't destroy your photos, but they make the app feel unpolished or waste system resources.
+*   **Wasted Battery/CPU:** Many background tasks (like generating thumbnails or scanning folders) don't check if the user has canceled them. They keep running invisibly in the background, wasting processing power.
+*   **Accessibility Failures:** Some filter buttons are just colored circles with no text labels, making the app unusable for blind users relying on VoiceOver.
+*   **Misleading Menus:** The "Save" button in settings is colored red (the universal Mac color for "Destructive/Delete"), which confuses users.
+*   **Memory Leaks:** The diagnostic tool meant to check the app's memory usage actually causes memory leaks itself by never deleting its old logs.
+*   **Dependency Risk:** One of the app's background code libraries (`xgrammar`) is set to automatically update from an open branch, rather than being locked to a specific, tested version. This could accidentally introduce bugs in the future.
+
+---
+
+# 🛠️ The Recommended Action Plan
+
+The auditors recommend the development team fix the issues in this specific order:
+
+1.  **Protect the Data (Top Priority):** Fix the "Unrated vs. Keeper" logic. Ensure the app forces a save when the user quits. Make sure corrupted save files trigger an error instead of being overwritten.
+2.  **Make Exporting Honest:** Add collision detection so files don't overwrite each other. Make sure the app actually tells the user if a file copy fails or a photo is dropped.
+3.  **Fix Background Task Tracking:** Implement strict "cancellation tokens." If a user clicks a new photo, the app must instantly kill the background loading task for the *old* photo to prevent ghost images and wasted CPU.
+4.  **Lock Down UI Actions:** Ensure that keyboard shortcuts and batch ratings can *only* target photos that are currently visible on the screen.
+5.  **Clean Up the Minors:** Batch-fix the accessibility issues, memory leaks, and zoom glitches.
+6.  **Prepare for AI Release:** Add strict security hash checks to the AI model downloader before turning that feature on for the public.
