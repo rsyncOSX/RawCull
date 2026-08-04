@@ -125,12 +125,14 @@ nonisolated struct ZoomViewportTransform: Equatable {
 
 nonisolated enum ZoomViewportMath {
     static func aspectFitRect(imageSize: CGSize, in viewportSize: CGSize) -> CGRect {
-        guard imageSize.width > 0, imageSize.height > 0,
-              viewportSize.width > 0, viewportSize.height > 0
+        guard isFinitePositive(imageSize),
+              isFinitePositive(viewportSize)
         else { return .zero }
 
         let scale = min(viewportSize.width / imageSize.width, viewportSize.height / imageSize.height)
+        guard scale.isFinite, scale > 0 else { return .zero }
         let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        guard isFinitePositive(size) else { return .zero }
         return CGRect(
             x: (viewportSize.width - size.width) / 2,
             y: (viewportSize.height - size.height) / 2,
@@ -144,7 +146,10 @@ nonisolated enum ZoomViewportMath {
         guard fitRect.width > 0, fitRect.height > 0 else { return 1.0 }
         let fitScale = min(fitRect.width / imageSize.width, fitRect.height / imageSize.height)
         guard fitScale > 0, fitScale.isFinite else { return 1.0 }
-        return 0.6 / fitScale
+        let actualPixelsScale = 1.0 / fitScale
+        return actualPixelsScale.isFinite && actualPixelsScale > 0
+            ? actualPixelsScale
+            : 1.0
     }
 
     static func actualPixelsTransform(
@@ -153,7 +158,10 @@ nonisolated enum ZoomViewportMath {
         normalizedFocusPoint: CGPoint?,
     ) -> ZoomViewportTransform {
         let scale = actualPixelsScale(imageSize: imageSize, viewportSize: viewportSize)
-        guard let normalizedFocusPoint else {
+        guard let normalizedFocusPoint,
+              normalizedFocusPoint.x.isFinite,
+              normalizedFocusPoint.y.isFinite
+        else {
             return ZoomViewportTransform(scale: scale, offset: .zero)
         }
 
@@ -162,9 +170,13 @@ nonisolated enum ZoomViewportMath {
             return ZoomViewportTransform(scale: scale, offset: .zero)
         }
 
+        let clampedFocusPoint = CGPoint(
+            x: min(max(normalizedFocusPoint.x, 0), 1),
+            y: min(max(normalizedFocusPoint.y, 0), 1),
+        )
         let point = CGPoint(
-            x: fitRect.minX + normalizedFocusPoint.x * fitRect.width,
-            y: fitRect.minY + normalizedFocusPoint.y * fitRect.height,
+            x: fitRect.minX + clampedFocusPoint.x * fitRect.width,
+            y: fitRect.minY + clampedFocusPoint.y * fitRect.height,
         )
         let viewportCenter = CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
         let desiredOffset = CGSize(
@@ -183,12 +195,23 @@ nonisolated enum ZoomViewportMath {
         scaledImageSize: CGSize,
         viewportSize: CGSize,
     ) -> CGSize {
+        guard offset.width.isFinite,
+              offset.height.isFinite,
+              isFinitePositive(scaledImageSize),
+              isFinitePositive(viewportSize)
+        else { return .zero }
+
         let maxX = max(0, (scaledImageSize.width - viewportSize.width) / 2)
         let maxY = max(0, (scaledImageSize.height - viewportSize.height) / 2)
         return CGSize(
             width: min(max(offset.width, -maxX), maxX),
             height: min(max(offset.height, -maxY), maxY),
         )
+    }
+
+    private static func isFinitePositive(_ size: CGSize) -> Bool {
+        size.width.isFinite && size.width > 0
+            && size.height.isFinite && size.height > 0
     }
 }
 
