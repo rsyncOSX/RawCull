@@ -8,34 +8,14 @@ ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
 SIGNING_IDENTITY = "93M47F4H9T"
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
-SMOKE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/PhotoAnalysisKitIntegrationTests' \
-	'-only-testing:RawCullTests/SharpnessScoringTests' \
-	'-only-testing:RawCullTests/FocusNumericHelperTests' \
-	'-only-testing:RawCullTests/ApertureHintTests' \
-	'-only-testing:RawCullTests/ISOScalingTests' \
-	'-only-testing:RawCullTests/CullingModelTests/`cancelling similarity ranking stops its owned distance helper`()' \
-	'-only-testing:RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()' \
-	'-only-testing:RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()' \
-	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`burst home counts singleton images and live review states`()' \
-	'-only-testing:RawCullTests/CullingGridCoordinatorTests/`single image category excludes every multi-image burst`()' \
-	'-only-testing:RawCullTests/DeepAIReviewFeatureTests' \
-	'-only-testing:RawCullTests/RawCullAIIntegrationTests' \
-	'-only-testing:RawCullTests/RawCullSemanticSearchTests' \
-	'-only-testing:RawCullTests/RawCullSemanticSearchUITests' \
-	'-only-testing:RawCullTests/PerFileAnalysisArtifactStoreTests' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipWholeBatchFallback()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/clipReindexesCompleteBatch()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionArtifactsAreDescriptorComplete()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/rankingPolicyIsPreserved()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/legacyCacheIsInvalidated()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/durableIndexingIsIncrementalAcrossRelaunches()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/durableStoreSeparatesSimilarityBackends()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/durableStorePreservesPartialSuccesses()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/legacyBurstArtifactsMigrateIntoDurableStore()'
-PERFORMANCE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()' \
-	'-only-testing:RawCullTests/PhotoAIKitSimilarityMigrationTests/visionIndexingAndRankingBenchmark()'
+SMOKE_TEST_MANIFEST = TestManifests/SmokeTests.txt
+PERFORMANCE_TEST_MANIFEST = TestManifests/PerformanceTests.txt
+SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
+PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
+TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
+TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
+SMOKE_EXPECTED_TESTS = 157
+PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build
 build: clean archive sign-app notarize staple prepare-dmg open
@@ -44,14 +24,38 @@ build: clean archive sign-app notarize staple prepare-dmg open
 debug: clean archive-debug open-debug
 
 # Test targets
-test-smoke:
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO $(SMOKE_ONLY_TESTING)
+build-test-enumeration-verifier:
+	xcrun swiftc -module-cache-path $(TEST_ENUMERATION_MODULE_CACHE) \
+		Scripts/VerifyTestEnumeration.swift -o $(TEST_ENUMERATION_VERIFIER)
+
+verify-smoke-manifest: build-test-enumeration-verifier
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke \
+		-enumerate-tests \
+		-test-enumeration-style flat \
+		-test-enumeration-format json \
+		-test-enumeration-output-path $(SMOKE_ENUMERATION) \
+		-only-testing @$(SMOKE_TEST_MANIFEST)
+	$(TEST_ENUMERATION_VERIFIER) $(SMOKE_ENUMERATION) $(SMOKE_EXPECTED_TESTS)
+
+test-smoke: verify-smoke-manifest
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO \
+		-only-testing @$(SMOKE_TEST_MANIFEST)
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
 
-test-performance:
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance $(PERFORMANCE_ONLY_TESTING)
+verify-performance-manifest: build-test-enumeration-verifier
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \
+		-enumerate-tests \
+		-test-enumeration-style flat \
+		-test-enumeration-format json \
+		-test-enumeration-output-path $(PERFORMANCE_ENUMERATION) \
+		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
+	$(TEST_ENUMERATION_VERIFIER) $(PERFORMANCE_ENUMERATION) $(PERFORMANCE_EXPECTED_TESTS)
+
+test-performance: verify-performance-manifest
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \
+		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
 
 # --- MAIN WORKFLOW FUNCTIONS --- #
 archive: clean
@@ -174,4 +178,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug test-smoke test-full test-performance archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug
+.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug

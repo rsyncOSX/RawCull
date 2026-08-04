@@ -1,0 +1,41 @@
+RawCullTests/ApertureHintTests
+RawCullTests/BurstFrameCachePolicyTests
+RawCullTests/BurstReviewKeyActionTests
+RawCullTests/ComparisonGridDisplayStateTests
+RawCullTests/ComparisonGridNavigationTests
+RawCullTests/CullingGridCoordinatorTests
+RawCullTests/DeepAIReviewFeatureTests
+RawCullTests/FocusNumericHelperTests
+RawCullTests/HistogramLoadingTests
+RawCullTests/ISOScalingTests
+RawCullTests/ImageSourceSelectionStateTests
+RawCullTests/LoupeImageKeyActionTests
+RawCullTests/PerFileAnalysisArtifactStoreTests
+RawCullTests/PhotoAnalysisKitIntegrationTests
+RawCullTests/RawCullAIIntegrationTests
+RawCullTests/RawCullAIModelDownloadsTests
+RawCullTests/RawCullSemanticSearchTests
+RawCullTests/RawCullSemanticSearchUITests
+RawCullTests/SharpnessScoringTests
+RawCullTests/SmokeManifestIntegrityTests
+RawCullTests/ThumbnailKeyActionTests
+RawCullTests/ZoomOverlayKeyActionTests
+RawCullTests/ZoomOverlayNavigationContextTests
+RawCullTests/ZoomViewportMathTests
+RawCullTests/CullingModelTests/`cancelling similarity ranking stops its owned distance helper`()
+RawCullTests/CullingModelTests/`similarity indexing cancellation stops structured embedding workers`()
+RawCullTests/CullingModelTests/`superseded similarity indexing cannot commit or clear newer run state`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Burst grouping excludes unindexed images and preserves hard boundaries`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`CLIP partial indexing captures image decoding failures`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`CLIP reindexes only missing or stale artifacts`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`CLIP retains successful artifacts and excludes failed images`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Durable indexing survives relaunch and reindexes only added or modified files`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Legacy burst artifacts are rejected and the current schema rebuild loads`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Legacy burst artifacts migrate once into the per-file store`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Non-finite CLIP output retries once then reloads the provider`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Partial CLIP cache excludes files without validated artifacts`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Partial indexing persists successes and isolates invalid payloads`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Persistent non-finite CLIP output is excluded after provider reload`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`PhotoAIKit Vision indexing produces complete reusable artifacts`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`RawCull ranking policy is preserved behind the PhotoAIKit boundary`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`Vision and CLIP artifacts coexist without cross-loading`()

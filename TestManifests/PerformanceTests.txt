@@ -1,0 +1,2 @@
+RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()
+RawCullTests/PhotoAIKitSimilarityMigrationTests/`PhotoAIKit Vision indexing and ranking benchmark`()

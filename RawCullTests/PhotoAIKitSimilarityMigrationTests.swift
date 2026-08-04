@@ -402,7 +402,7 @@ private nonisolated func migrationCacheFileName(for catalog: URL) -> String {
 }
 
 @MainActor
-@Suite("PhotoAIKit similarity migration", .serialized)
+@Suite("PhotoAIKit similarity migration")
 struct PhotoAIKitSimilarityMigrationTests {
     @Test(.tags(.critical))
     func `CLIP retains successful artifacts and excludes failed images`() async throws {

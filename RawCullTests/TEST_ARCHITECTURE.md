@@ -4,12 +4,61 @@ RawCullVerify tests use the Swift Testing framework. The suite is intended to st
 small enough to run regularly and strict enough that passing tests represent
 real application behavior, not test-framework setup checks.
 
-## Test Categories
+## Test Categories and Manifests
 
-- Smoke tests: fast deterministic checks selected by `make test-smoke`.
+- Smoke tests: fast deterministic checks selected by `make test-smoke` through
+  `TestManifests/SmokeTests.txt`.
 - Full tests: all test files with Thread Sanitizer enabled through `make test-full`.
 - Performance / stress tests: long-running thread-safety stress checks and the
-  PhotoAIKit Vision similarity benchmark selected by `make test-performance`.
+  PhotoAIKit Vision similarity benchmark selected by `make test-performance`
+  through `TestManifests/PerformanceTests.txt`.
+
+Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
+checked-in response files are the selection authority. `make test-smoke` and
+`make test-performance` enumerate their response files before execution. The
+enumeration verifier rejects duplicate identifiers and count changes; the
+current baselines are 157 unique smoke identifiers (170 concrete invocations)
+and 2 unique performance identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
+source `.smoke` declaration whose containing suite is absent from the manifest.
+An intentional addition, removal, or rename therefore requires one reviewable
+update to the source test, response file, expected selector inventory, and Make
+enumeration count.
+
+The smoke manifest deliberately selects whole suites for every source smoke
+declaration, plus exact identifiers for core culling cancellation and the
+non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows:
+
+- PhotoAnalysisKit integration and Vision fallback:
+  `PhotoAnalysisKitIntegrationTests` and the exact Vision migration tests.
+- DataComp/OpenAI CLIP selection, model validation, downloads, and licence:
+  `RawCullAIIntegrationTests` and `RawCullAIModelDownloadsTests`.
+- Semantic hydration/search and UI state: `RawCullSemanticSearchTests` and
+  `RawCullSemanticSearchUITests`.
+- Deep Review and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
+- Typed persistence, backend separation, partial results, and legacy migration:
+  `PerFileAnalysisArtifactStoreTests` plus the exact non-benchmark
+  `PhotoAIKitSimilarityMigrationTests` identifiers.
+- Core culling, zoom, histogram, and comparison behavior: the corresponding
+  suite selectors and three exact `CullingModelTests` cancellation identifiers.
+
+The smoke and full plans remain parallelizable. The migration suite uses unique
+temporary stores and has no serialization trait. The Performance plan alone is
+non-parallel because its deliberate shared-cache TSan stress test exercises the
+production singleton while the Vision benchmark measures whole-operation timing.
+
+## Phase 3 Gate Verification — 2026-08-04
+
+- Red sentinel: a temporary 158th identifier failed intentionally;
+  `make test-smoke` propagated Xcode failure 65 and returned nonzero. The
+  sentinel source and selectors were then removed.
+- Green smoke: 157 unique identifiers, 170 concrete invocations, zero failures,
+  zero skips, and zero runtime warnings.
+- Full Thread Sanitizer plan: passed with no TSan diagnostics.
+- Performance plan: both enumerated identifiers ran and passed. The Vision
+  benchmark indexed 12 images and computed 500 distances; the shared-cache
+  stress test also passed.
+- Exact-package Release build: arm64 macOS build passed. The known app-extension
+  build-number mismatch (230 versus parent 231) remains assigned to Phase 8.
 
 ## Shared Test Base
 
