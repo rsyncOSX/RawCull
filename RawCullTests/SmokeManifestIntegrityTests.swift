@@ -24,6 +24,7 @@ struct SmokeManifestIntegrityTests {
 }
 
 private let expectedSmokeSelectors = """
+RawCullTests/AICacheBoundaryTests
 RawCullTests/ApertureHintTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests
@@ -45,6 +46,7 @@ RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests
 RawCullTests/ThumbnailKeyActionTests
+RawCullTests/TypedAIPersistenceMatrixTests
 RawCullTests/ZoomOverlayKeyActionTests
 RawCullTests/ZoomOverlayNavigationContextTests
 RawCullTests/ZoomViewportMathTests
@@ -68,6 +70,7 @@ RawCullTests/PhotoAIKitSimilarityMigrationTests/`Vision and CLIP artifacts coexi
 """.split(separator: "\n").map(String.init)
 
 private let expectedTaggedSuites: Set<String> = [
+    "AICacheBoundaryTests",
     "ApertureHintTests",
     "BurstFrameCachePolicyTests",
     "BurstReviewKeyActionTests",
@@ -87,6 +90,7 @@ private let expectedTaggedSuites: Set<String> = [
     "RawCullSemanticSearchUITests",
     "SharpnessScoringTests",
     "ThumbnailKeyActionTests",
+    "TypedAIPersistenceMatrixTests",
     "ZoomOverlayKeyActionTests",
     "ZoomOverlayNavigationContextTests",
     "ZoomViewportMathTests",

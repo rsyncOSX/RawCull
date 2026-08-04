@@ -59,6 +59,31 @@ nonisolated struct PerFileAnalysisArtifactPruneResult: Equatable, Sendable {
     let remainingEntryCount: Int
 }
 
+protocol SimilarityArtifactStoring: Actor {
+    func load(
+        sources: [AIImageSource],
+        allowedBackends: [SimilarityBackendDescriptor],
+        pipeline: SimilarityArtifactPipelineSignature,
+    ) async -> PerFileAnalysisArtifactLoadResult
+
+    func upsert(
+        artifacts: [UUID: SimilarityArtifact],
+        sources: [UUID: AIImageSource],
+        pipeline: SimilarityArtifactPipelineSignature,
+    ) async -> PerFileAnalysisArtifactCommitResult
+
+    func remove(
+        source: AIImageSource,
+        backend: SimilarityBackendDescriptor,
+        pipeline: SimilarityArtifactPipelineSignature,
+    ) async
+}
+
+typealias PerFileAnalysisArtifactWriteBarrier = @Sendable (
+    _ sourceID: UUID,
+    _ committedSourceIDs: Set<UUID>,
+) async -> Void
+
 /// RawCull-owned, per-source persistence for opaque PhotoAIKit similarity artifacts.
 ///
 /// Records are deliberately stored one per file/backend/pipeline identity. Each
@@ -66,13 +91,18 @@ nonisolated struct PerFileAnalysisArtifactPruneResult: Equatable, Sendable {
 /// stop later commits without invalidating records already written.
 /// Source paths follow `SourceFingerprint` semantics: moving or renaming a file
 /// is a cache miss; this store does not add implicit content hashing.
-actor PerFileAnalysisArtifactStore {
+actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
     static let shared = PerFileAnalysisArtifactStore()
     nonisolated static let recordSchemaVersion = 1
 
     nonisolated let storageDirectory: URL
+    private let writeBarrier: PerFileAnalysisArtifactWriteBarrier?
 
-    init(storageDirectory: URL? = nil) {
+    init(
+        storageDirectory: URL? = nil,
+        writeBarrier: PerFileAnalysisArtifactWriteBarrier? = nil,
+    ) {
+        self.writeBarrier = writeBarrier
         if let storageDirectory {
             self.storageDirectory = storageDirectory
         } else {
@@ -91,7 +121,7 @@ actor PerFileAnalysisArtifactStore {
         sources: [AIImageSource],
         allowedBackends: [SimilarityBackendDescriptor],
         pipeline: SimilarityArtifactPipelineSignature,
-    ) -> PerFileAnalysisArtifactLoadResult {
+    ) async -> PerFileAnalysisArtifactLoadResult {
         var artifacts: [UUID: SimilarityArtifact] = [:]
         var misses: [PerFileAnalysisArtifactCacheMiss] = []
         artifacts.reserveCapacity(sources.count)
@@ -170,7 +200,7 @@ actor PerFileAnalysisArtifactStore {
         artifacts: [UUID: SimilarityArtifact],
         sources: [UUID: AIImageSource],
         pipeline: SimilarityArtifactPipelineSignature,
-    ) -> PerFileAnalysisArtifactCommitResult {
+    ) async -> PerFileAnalysisArtifactCommitResult {
         var committedSourceIDs: Set<UUID> = []
         var failures: [PerFileAnalysisArtifactWriteFailure] = []
 
@@ -205,12 +235,9 @@ actor PerFileAnalysisArtifactStore {
         }
 
         for (sourceID, artifact) in orderedArtifacts {
+            await writeBarrier?(sourceID, committedSourceIDs)
             guard !Task.isCancelled else {
-                return PerFileAnalysisArtifactCommitResult(
-                    committedSourceIDs: committedSourceIDs,
-                    failures: failures,
-                    wasCancelled: true,
-                )
+                return cancelledArtifactCommit(committedSourceIDs, failures)
             }
             guard let source = sources[sourceID] else {
                 failures.append(
@@ -290,7 +317,7 @@ actor PerFileAnalysisArtifactStore {
         source: AIImageSource,
         backend: SimilarityBackendDescriptor,
         pipeline: SimilarityArtifactPipelineSignature,
-    ) {
+    ) async {
         let identity = LookupIdentity(
             sourceFingerprint: SourceFingerprint(source: source),
             artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
@@ -415,6 +442,17 @@ actor PerFileAnalysisArtifactStore {
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(value)
     }
+}
+
+private nonisolated func cancelledArtifactCommit(
+    _ committedSourceIDs: Set<UUID>,
+    _ failures: [PerFileAnalysisArtifactWriteFailure],
+) -> PerFileAnalysisArtifactCommitResult {
+    PerFileAnalysisArtifactCommitResult(
+        committedSourceIDs: committedSourceIDs,
+        failures: failures,
+        wasCancelled: true,
+    )
 }
 
 private nonisolated extension Duration {

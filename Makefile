@@ -14,7 +14,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 157
+SMOKE_EXPECTED_TESTS = 164
 PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build

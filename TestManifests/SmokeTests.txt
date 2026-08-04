@@ -1,3 +1,4 @@
+RawCullTests/AICacheBoundaryTests
 RawCullTests/ApertureHintTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests
@@ -19,6 +20,7 @@ RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests
 RawCullTests/ThumbnailKeyActionTests
+RawCullTests/TypedAIPersistenceMatrixTests
 RawCullTests/ZoomOverlayKeyActionTests
 RawCullTests/ZoomOverlayNavigationContextTests
 RawCullTests/ZoomViewportMathTests

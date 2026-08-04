@@ -348,6 +348,55 @@ struct PerFileAnalysisArtifactStoreTests {
         #expect(loadedAfterCancellation.misses.allSatisfy { $0.reason == .notFound })
         #expect(replaced.artifacts[source.id] == replacement)
     }
+
+    @Test
+    func `Cancellation during persistence retains only completed records`() async throws {
+        let gate = ArtifactStorePartialCommitGate()
+        let fixture = try ArtifactStoreFixture { _, committedSourceIDs in
+            await gate.pauseAfterFirstCommit(committedSourceIDs)
+        }
+        defer { fixture.remove() }
+
+        var sources: [UUID: AIImageSource] = [:]
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        for index in 0 ..< 3 {
+            let source = try fixture.source(named: "partial-\(index).raw")
+            sources[source.id] = source
+            artifacts[source.id] = fixture.artifact(
+                source: source,
+                backend: fixture.clipBackend,
+                dimensions: 1,
+                payload: Data([UInt8(index)]),
+            )
+        }
+
+        let store = fixture.store
+        let pipeline = fixture.pipeline
+        let sourcesToCommit = sources
+        let artifactsToCommit = artifacts
+        let commit = Task.detached { @concurrent in
+            await store.upsert(
+                artifacts: artifactsToCommit,
+                sources: sourcesToCommit,
+                pipeline: pipeline,
+            )
+        }
+        await gate.waitUntilPaused()
+        commit.cancel()
+        await gate.release()
+        let result = await commit.value
+        let loaded = await store.load(
+            sources: Array(sourcesToCommit.values),
+            allowedBackends: [fixture.clipBackend],
+            pipeline: pipeline,
+        )
+
+        #expect(result.wasCancelled)
+        #expect(result.committedSourceIDs.count == 1)
+        #expect(result.failures.isEmpty)
+        #expect(Set(loaded.artifacts.keys) == result.committedSourceIDs)
+        #expect(loaded.misses.count == 2)
+    }
 }
 
 private actor ArtifactStoreCancellationGate {
@@ -363,6 +412,30 @@ private actor ArtifactStoreCancellationGate {
 
     func waitUntilStarted() async {
         while !started {
+            await Task.yield()
+        }
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+private actor ArtifactStorePartialCommitGate {
+    private var isPaused = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func pauseAfterFirstCommit(_ committedSourceIDs: Set<UUID>) async {
+        guard committedSourceIDs.count == 1 else { return }
+        isPaused = true
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func waitUntilPaused() async {
+        while !isPaused {
             await Task.yield()
         }
     }
@@ -397,7 +470,9 @@ private nonisolated struct ArtifactStoreFixture: Sendable {
         configurationVersion: "revision-2",
     )
 
-    init() throws {
+    init(
+        writeBarrier: PerFileAnalysisArtifactWriteBarrier? = nil,
+    ) throws {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "PerFileAnalysisArtifactStoreTests-\(UUID().uuidString)",
@@ -409,6 +484,7 @@ private nonisolated struct ArtifactStoreFixture: Sendable {
         )
         store = PerFileAnalysisArtifactStore(
             storageDirectory: root.appendingPathComponent("store", isDirectory: true),
+            writeBarrier: writeBarrier,
         )
     }
 

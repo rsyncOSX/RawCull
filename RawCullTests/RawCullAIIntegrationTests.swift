@@ -92,6 +92,14 @@ struct RawCullAIIntegrationTests {
         ))
         #expect(integration.semanticSearchService(clipModel: .dataComp) == nil)
         #expect(integration.semanticSearchService(clipModel: .openAI) == nil)
+        #expect(integration.similarityService(
+            prefersCLIP: false,
+            clipModel: .dataComp,
+        ).backendDescriptor.backend == "vision-feature-print")
+        #expect(integration.similarityService(
+            prefersCLIP: true,
+            clipModel: .openAI,
+        ).backendDescriptor.backend == "vision-feature-print")
         #expect(capabilities.visionFeaturePrint == .available(location: nil))
         #expect(capabilities.subjectMaskStorage == .available(
             location: paths.subjectMaskDirectory,
@@ -228,6 +236,58 @@ struct RawCullAIIntegrationTests {
         #expect(changedProvider !== firstProvider)
     }
 
+    @Test
+    func `Missing and corrupt model resources recover after restoration`() async throws {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let assetURL = root.appendingPathComponent("model.aimodel")
+        try Data([1]).write(to: assetURL)
+        try JSONEncoder().encode(ModelBundleMetadata(
+            name: "Recoverable Model",
+            family: "test",
+            assets: ["main": assetURL.lastPathComponent],
+        )).write(to: root.appendingPathComponent("metadata.json"))
+        let descriptor = ModelResourceDescriptor(
+            kind: "test",
+            bundleDescriptor: ModelBundleDescriptor(
+                family: "test",
+                fallbackName: "Recoverable Model",
+                requiredRelativePaths: [],
+                acceptedAssetExtensions: ["aimodel"],
+            ),
+            preprocessingVersion: "test-v1",
+            configurationVersion: "test-v1",
+        )
+        let manager = RawCullAIModelResourceManager(
+            candidateURLs: [root],
+            factory: ModelProviderFactory(descriptor: descriptor) { _ in
+                guard try Data(contentsOf: assetURL).first == 1 else {
+                    throw RecoverableModelError.corrupt
+                }
+                return CachedTestModelProvider()
+            },
+        )
+
+        #expect(try await manager.load().provider != nil)
+
+        try Data([9, 9]).write(to: assetURL)
+        let corrupt = try await manager.load()
+        #expect(corrupt.provider == nil)
+        #expect(corrupt.providerInitializationFailure != nil)
+
+        try FileManager.default.removeItem(at: assetURL)
+        let missing = try await manager.load()
+        #expect(missing.provider == nil)
+        #expect(missing.capability.resource == nil)
+
+        try Data([1, 2, 3]).write(to: assetURL)
+        let restored = try await manager.load()
+        #expect(restored.provider != nil)
+        #expect(restored.providerInitializationFailure == nil)
+    }
+
     @MainActor
     @Test
     func `Cancelling Settings refresh cancels its evidence scan`() async {
@@ -345,6 +405,10 @@ struct RawCullAIIntegrationTests {
 }
 
 private final class CachedTestModelProvider: Sendable {}
+
+private enum RecoverableModelError: Error {
+    case corrupt
+}
 
 private actor SavedEvidenceCancellationProbe {
     private var started = false

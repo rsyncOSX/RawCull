@@ -242,7 +242,7 @@ final class SimilarityScoringModel {
         Task<SemanticSearchTaskResult, Never>?
     @ObservationIgnored private var _semanticSearchGeneration = 0
     @ObservationIgnored private var _semanticHydrationGeneration = 0
-    @ObservationIgnored private let artifactStore: PerFileAnalysisArtifactStore
+    @ObservationIgnored private let artifactStore: any SimilarityArtifactStoring
     @ObservationIgnored private let similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting
     @ObservationIgnored private var _artifactHydrationGeneration = 0
     @ObservationIgnored private var _indexingStartedAt: Date?
@@ -260,7 +260,7 @@ final class SimilarityScoringModel {
             expectedLocations: [],
         ),
         semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
-        artifactStore: PerFileAnalysisArtifactStore,
+        artifactStore: any SimilarityArtifactStoring,
         similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting = SimilarityDiagnosticsLog.shared,
     ) {
         self.similarityService = similarityService
