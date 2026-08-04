@@ -101,13 +101,48 @@ struct RawImageLoadingIntegrationTests {
             rawLoader: fakeLoader,
         )
         let rawURL = diskRoot.appendingPathComponent("source.arw")
+        try Data("source bytes".utf8).write(to: rawURL)
 
-        let first = await provider.requestThumbnail(for: rawURL, targetSize: 256)
-        let second = await provider.requestThumbnail(for: rawURL, targetSize: 256)
+        let first = await provider.requestThumbnail(for: rawURL, targetSize: 256, purpose: .preview)
+        let second = await provider.requestThumbnail(for: rawURL, targetSize: 256, purpose: .preview)
 
         #expect(first != nil)
         #expect(second != nil)
         #expect(await fakeLoader.thumbnailCGImageCalls == 1)
+    }
+
+    @Test
+    func `thumbnail request decodes a replacement written at the same path`() async throws {
+        let image = try makeRawImageLoadingTestCGImage()
+        let fakeLoader = FakeRawImageLoader(thumbnailCGImageResult: image)
+        let cache = await makeIsolatedCache()
+        let diskRoot = try makeRawImageLoadingTestRoot()
+        defer { try? FileManager.default.removeItem(at: diskRoot) }
+        let provider = RequestThumbnail(
+            diskCache: DiskCacheManager(
+                cacheDirectory: diskRoot.appendingPathComponent("Thumbnails", isDirectory: true),
+            ),
+            memoryCache: cache,
+            rawLoader: fakeLoader,
+        )
+        let rawURL = diskRoot.appendingPathComponent("replace.arw")
+        try Data([1]).write(to: rawURL)
+
+        let first = await provider.requestThumbnail(
+            for: rawURL,
+            targetSize: 256,
+            purpose: .preview,
+        )
+        try Data(repeating: 2, count: 4096).write(to: rawURL, options: .atomic)
+        let replacement = await provider.requestThumbnail(
+            for: rawURL,
+            targetSize: 256,
+            purpose: .preview,
+        )
+
+        #expect(first != nil)
+        #expect(replacement != nil)
+        #expect(await fakeLoader.thumbnailCGImageCalls == 2)
     }
 
     @Test

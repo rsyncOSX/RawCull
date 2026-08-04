@@ -63,7 +63,11 @@ struct FileInspectorView: View {
             }
             .formStyle(.grouped)
             .task(id: file) {
-                let cgImage = await RequestThumbnail().requestThumbnail(for: file.url, targetSize: 1024)
+                let cgImage = await RequestThumbnail().requestThumbnail(
+                    for: file.url,
+                    targetSize: 1024,
+                    purpose: .preview,
+                )
                 if let cgImage {
                     nsImage = NSImage(cgImage: cgImage, size: .zero)
                 }

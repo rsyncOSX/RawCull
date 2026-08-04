@@ -6,8 +6,8 @@ import RawParserKit
 import UniformTypeIdentifiers
 
 actor DiskCacheManager {
-    private static let cacheKeyVersion = "v2-oriented-thumbnails"
     let cacheDirectory: URL
+    private let schemaDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
         let folder: URL
@@ -17,37 +17,66 @@ actor DiskCacheManager {
             let paths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
             folder = paths[0].appendingPathComponent("no.blogspot.RawCull/Thumbnails")
         }
+        let currentSchemaDirectory = folder.appendingPathComponent(
+            ThumbnailCacheKey.schemaVersion,
+            isDirectory: true,
+        )
         self.cacheDirectory = folder
+        self.schemaDirectory = currentSchemaDirectory
         do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let fileManager = FileManager.default
+            try fileManager.createDirectory(at: currentSchemaDirectory, withIntermediateDirectories: true)
+
+            // Versions before the representation-aware schema stored JPEGs
+            // directly in the thumbnail root. Remove only those known legacy
+            // thumbnail entries; sibling directories and unrelated state are
+            // intentionally outside this migration.
+            let legacyEntries = try fileManager.contentsOfDirectory(
+                at: folder,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: .skipsHiddenFiles,
+            )
+            for entry in legacyEntries where entry.pathExtension.lowercased() == "jpg" {
+                let values = try entry.resourceValues(forKeys: [.isRegularFileKey])
+                if values.isRegularFile == true {
+                    try fileManager.removeItem(at: entry)
+                }
+            }
         } catch {
             Logger.process.warning("DiskCacheManager: Failed to create directory \(folder): \(error)")
         }
     }
 
-    /// Deterministic cache filename derived from the source file's path.
+    /// Deterministic cache filename derived from the complete source and
+    /// representation identity.
     ///
-    /// Formula: `cacheDirectory / MD5(cacheKeyVersion + sourceURL.standardized.path.utf8).hex + ".jpg"`.
+    /// Formula: `schemaDirectory / MD5(key.cacheIdentifier.utf8).hex + ".jpg"`.
     /// MD5 is used as a non-cryptographic filename hash — we only need a
     /// fixed-width, filesystem-safe string with a vanishingly small collision
-    /// rate across one user's catalog. `CryptoKit.Insecure.MD5` makes the
-    /// "not-for-security" intent explicit. The version prefix invalidates
-    /// thumbnails cached before EXIF orientation was applied. `standardized`
-    /// resolves `..`/`.` components so two URLs pointing at the same file always
-    /// hash identically.
-    private func cacheURL(for sourceURL: URL) -> URL {
-        let standardizedPath = sourceURL.standardized.path
-        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)".utf8)
+    /// rate across one user's thumbnail cache. `CryptoKit.Insecure.MD5` makes
+    /// the "not-for-security" intent explicit.
+    private func cacheURL(for key: ThumbnailCacheKey) -> URL {
+        let data = Data(key.cacheIdentifier.utf8)
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
-        return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
+        return schemaDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
     }
 
-    func load(for sourceURL: URL) async -> NSImage? {
-        let fileURL = cacheURL(for: sourceURL)
+    func cacheFileURL(for key: ThumbnailCacheKey) -> URL {
+        cacheURL(for: key)
+    }
+
+    func load(for key: ThumbnailCacheKey) async -> NSImage? {
+        let fileURL = cacheURL(for: key)
 
         return await Task.detached(priority: .userInitiated) {
-            guard let image = OrientationNormalizedImageLoader.loadCGImage(from: fileURL) else { return nil }
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+            guard let image = OrientationNormalizedImageLoader.loadCGImage(from: fileURL) else {
+                // A partial or corrupt JPEG must be a recoverable miss, never a
+                // sticky cache failure. Limit deletion to this schema entry.
+                try? FileManager.default.removeItem(at: fileURL)
+                return nil
+            }
             return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
         }.value
     }
@@ -57,8 +86,9 @@ actor DiskCacheManager {
     /// Accepts pre-encoded JPEG `Data` so callers never need to send a `CGImage`
     /// across an actor/task boundary.  Encode with `DiskCacheManager.jpegData(from:)`
     /// inside the actor that owns the image, then pass the resulting `Data` here.
-    func save(_ jpegData: Data, for sourceURL: URL) async {
-        let fileURL = cacheURL(for: sourceURL)
+    func save(_ jpegData: Data, for key: ThumbnailCacheKey) async {
+        guard !Task.isCancelled else { return }
+        let fileURL = cacheURL(for: key)
 
         // `Data` is Sendable — safe to hand off to a detached task.
         await Task.detached(priority: .background) {
@@ -93,7 +123,7 @@ actor DiskCacheManager {
     // MARK: - Cache utilities
 
     func getDiskCacheSize() async -> Int {
-        let directory = cacheDirectory
+        let directory = schemaDirectory
 
         return await Task.detached(priority: .utility) {
             let fileManager = FileManager.default
@@ -121,7 +151,7 @@ actor DiskCacheManager {
     }
 
     func pruneCache(maxAgeInDays: Int = 30) async {
-        let directory = cacheDirectory
+        let directory = schemaDirectory
 
         await Task.detached(priority: .utility) {
             let fileManager = FileManager.default

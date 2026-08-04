@@ -1,6 +1,25 @@
 import Foundation
 @testable import RawCull
 
+func makeThumbnailCacheKey(
+    sourceURL: URL,
+    purpose: ThumbnailCacheKey.Purpose = .preview,
+    requestedPixelSize: Int = 256,
+    fileSize: Int64 = 1,
+    modificationDate: Date = Date(timeIntervalSinceReferenceDate: 1),
+) -> ThumbnailCacheKey {
+    guard let key = ThumbnailCacheKey(
+        sourceURL: sourceURL,
+        fileSize: fileSize,
+        modificationDate: modificationDate,
+        purpose: purpose,
+        requestedPixelSize: requestedPixelSize,
+    ) else {
+        preconditionFailure("Test thumbnail key inputs must be valid")
+    }
+    return key
+}
+
 func makeIsolatedCache(
     name: String = #function,
     config: CacheConfig = .testing,

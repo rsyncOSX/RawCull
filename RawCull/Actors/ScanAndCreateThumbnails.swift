@@ -128,9 +128,16 @@ actor ScanAndCreateThumbnails {
             return
         }
 
+        let previewKey = ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: .preview,
+            requestedPixelSize: targetSize,
+        )
+        let gridKey = previewKey?.representation(purpose: .grid, requestedPixelSize: 200)
+
         // A. Check RAM
-        if let wrapper = SharedMemoryCache.shared.object(forKey: url as NSURL) {
-            storeInGridCache(wrapper.image, for: url)
+        if let previewKey, let wrapper = SharedMemoryCache.shared.object(forKey: previewKey) {
+            storeInGridCache(wrapper.image, for: gridKey)
             // Do not re-admit to memoryCache: object(forKey:) already touched
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
@@ -146,12 +153,12 @@ actor ScanAndCreateThumbnails {
         }
 
         // B. Check Disk
-        if let diskImage = await diskCache.load(for: url) {
+        if let previewKey, let diskImage = await diskCache.load(for: previewKey) {
             // Mirror to the grid cache only. Leaving memoryCache admission to
             // RequestThumbnail (its branch B promotes on user-driven hits)
             // keeps LRU ordering aligned with UI traffic and prevents
             // scan-driven evictions from boomeranging UI-active items.
-            storeInGridCache(diskImage, for: url)
+            storeInGridCache(diskImage, for: gridKey)
             await SharedMemoryCache.shared.updateCacheDisk()
             let newCount = incrementAndGetCount()
             notifyFileHandler(newCount)
@@ -183,7 +190,14 @@ actor ScanAndCreateThumbnails {
         // ~180 items and the user would pay a near-100% boomerang rate
         // on first browse. The disk JPEG saved below lets RequestThumbnail
         // branch B serve subsequent UI requests without cold extraction.
-        storeInGridCache(image, for: url)
+        let sourceStillMatches = previewKey == ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: .preview,
+            requestedPixelSize: targetSize,
+        )
+        if sourceStillMatches {
+            storeInGridCache(image, for: gridKey)
+        }
         let newCount = incrementAndGetCount()
         notifyFileHandler(newCount)
         updateEstimatedTime(itemsProcessed: newCount)
@@ -192,14 +206,17 @@ actor ScanAndCreateThumbnails {
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
-        guard let jpegData = DiskCacheManager.jpegData(from: cgImage) else {
+        guard sourceStillMatches,
+              let previewKey,
+              let jpegData = DiskCacheManager.jpegData(from: cgImage)
+        else {
             // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
             return
         }
 
         let dcache = diskCache
         Task.detached(priority: .background) {
-            await dcache.save(jpegData, for: url)
+            await dcache.save(jpegData, for: previewKey)
         }
     }
 
@@ -245,13 +262,13 @@ actor ScanAndCreateThumbnails {
         return successCount
     }
 
-    private func storeInGridCache(_ image: NSImage, for url: URL) {
-        let nsUrl = url as NSURL
-        guard SharedMemoryCache.shared.gridObject(forKey: nsUrl) == nil else { return }
+    private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?) {
+        guard let key else { return }
+        guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return }
         let gridSize: CGFloat = 200
         guard let scaled = downscale(image, to: gridSize) else { return }
-        let wrapper = CachedThumbnail(image: scaled)
-        SharedMemoryCache.shared.setGridObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+        let wrapper = CachedThumbnail(image: scaled, key: key)
+        SharedMemoryCache.shared.setGridObject(wrapper, forKey: key, cost: wrapper.cost)
     }
 
     private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {

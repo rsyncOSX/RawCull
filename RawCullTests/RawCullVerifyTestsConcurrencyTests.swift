@@ -16,7 +16,9 @@ enum ConcurrencyTests {
             cache.removeAllObjects()
             defer { cache.removeAllObjects() }
 
-            let key = URL(fileURLWithPath: "/tmp/replacement-main-cache.jpg") as NSURL
+            let key = makeThumbnailCacheKey(
+                sourceURL: URL(fileURLWithPath: "/tmp/replacement-main-cache.jpg"),
+            )
             let first = try #require(createTestThumbnail(size: 10))
             let second = try #require(createTestThumbnail(size: 20))
 
@@ -33,7 +35,11 @@ enum ConcurrencyTests {
             cache.removeAllGridObjects()
             defer { cache.removeAllGridObjects() }
 
-            let key = URL(fileURLWithPath: "/tmp/replacement-grid-cache.jpg") as NSURL
+            let key = makeThumbnailCacheKey(
+                sourceURL: URL(fileURLWithPath: "/tmp/replacement-grid-cache.jpg"),
+                purpose: .grid,
+                requestedPixelSize: 200,
+            )
             let first = try #require(createTestThumbnail(size: 10))
             let second = try #require(createTestThumbnail(size: 20))
 
@@ -61,7 +67,8 @@ enum ConcurrencyTests {
         @Test
         func `clear caches resets live counters and diagnostics`() async throws {
             let cache = await makeIsolatedCache()
-            let key = URL(fileURLWithPath: "/tmp/clear-counters.jpg") as NSURL
+            let sourceURL = URL(fileURLWithPath: "/tmp/clear-counters.jpg")
+            let key = makeThumbnailCacheKey(sourceURL: sourceURL)
             let thumbnail = try #require(createTestThumbnail(size: 12))
 
             cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
@@ -71,7 +78,7 @@ enum ConcurrencyTests {
             cache.incrementColdExtract()
             cache.incrementDemandRequest()
             cache.incrementBoomerangMiss()
-            cache.noteEviction(url: key)
+            cache.noteEviction(url: sourceURL as NSURL)
 
             await cache.clearCaches()
             let stats = await cache.getCacheStatistics()
@@ -85,7 +92,7 @@ enum ConcurrencyTests {
             #expect(cache.getColdExtractCount() == 0)
             #expect(cache.getDemandRequestCount() == 0)
             #expect(cache.getBoomerangMissCount() == 0)
-            #expect(!cache.wasRecentlyEvicted(url: key))
+            #expect(!cache.wasRecentlyEvicted(url: sourceURL as NSURL))
         }
     }
 

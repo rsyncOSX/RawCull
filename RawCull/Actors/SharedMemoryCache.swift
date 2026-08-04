@@ -118,11 +118,11 @@ actor SharedMemoryCache {
 
     /// NSCache is thread-safe, so we bypass the actor's serialization for direct access.
     /// This allows synchronous lookups: SharedMemoryCache.shared.object(...) (no await needed)
-    nonisolated(unsafe) let memoryCache = NSCache<NSURL, CachedThumbnail>()
+    nonisolated(unsafe) let memoryCache = NSCache<NSString, CachedThumbnail>()
 
     /// Dedicated in-memory-only cache for grid-size (≤500px) thumbnails.
-    /// Keyed by the same NSURL as memoryCache; never persisted to disk.
-    nonisolated(unsafe) let gridThumbnailCache = NSCache<NSURL, CachedThumbnail>()
+    /// Uses the same representation-aware identity as the persistent cache.
+    nonisolated(unsafe) let gridThumbnailCache = NSCache<NSString, CachedThumbnail>()
 
     /// Bytes per pixel used by `CachedThumbnail` to compute NSCache cost.
     /// Fixed at 4 (RGBA) — NSImage representations are always sRGB RGBA in
@@ -385,16 +385,17 @@ actor SharedMemoryCache {
 
     // MARK: - Synchronous Accessors (Non-isolated)
 
-    nonisolated func object(forKey key: NSURL) -> CachedThumbnail? {
-        memoryCache.object(forKey: key)
+    nonisolated func object(forKey key: ThumbnailCacheKey) -> CachedThumbnail? {
+        memoryCache.object(forKey: key.memoryCacheKey)
     }
 
-    nonisolated func setObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
-        if let existing = memoryCache.object(forKey: key) {
+    nonisolated func setObject(_ obj: CachedThumbnail, forKey key: ThumbnailCacheKey, cost: Int) {
+        let memoryKey = key.memoryCacheKey
+        if let existing = memoryCache.object(forKey: memoryKey) {
             _memCost.withLock { $0 = max(0, $0 - existing.cost) }
             _memCount.withLock { $0 = max(0, $0 - 1) }
         }
-        memoryCache.setObject(obj, forKey: key, cost: cost)
+        memoryCache.setObject(obj, forKey: memoryKey, cost: cost)
         _memCost.withLock { $0 += cost }
         _memCount.withLock { $0 += 1 }
     }
@@ -419,16 +420,17 @@ actor SharedMemoryCache {
         _memCount.withLock { $0 = max(0, $0 - 1) }
     }
 
-    nonisolated func gridObject(forKey key: NSURL) -> CachedThumbnail? {
-        gridThumbnailCache.object(forKey: key)
+    nonisolated func gridObject(forKey key: ThumbnailCacheKey) -> CachedThumbnail? {
+        gridThumbnailCache.object(forKey: key.memoryCacheKey)
     }
 
-    nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: NSURL, cost: Int) {
-        if let existing = gridThumbnailCache.object(forKey: key) {
+    nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: ThumbnailCacheKey, cost: Int) {
+        let memoryKey = key.memoryCacheKey
+        if let existing = gridThumbnailCache.object(forKey: memoryKey) {
             _gridCost.withLock { $0 = max(0, $0 - existing.cost) }
             _gridCount.withLock { $0 = max(0, $0 - 1) }
         }
-        gridThumbnailCache.setObject(obj, forKey: key, cost: cost)
+        gridThumbnailCache.setObject(obj, forKey: memoryKey, cost: cost)
         _gridCost.withLock { $0 += cost }
         _gridCount.withLock { $0 += 1 }
     }

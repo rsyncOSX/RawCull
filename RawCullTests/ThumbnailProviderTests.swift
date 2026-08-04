@@ -36,7 +36,11 @@ struct RequestThumbnailTests {
         let (provider, cache) = await makeIsolatedThumbnailProvider()
         let missingURL = URL(fileURLWithPath: "/nonexistent/rawcull-\(UUID().uuidString).jpg")
 
-        let result = await provider.requestThumbnail(for: missingURL, targetSize: 256)
+        let result = await provider.requestThumbnail(
+            for: missingURL,
+            targetSize: 256,
+            purpose: .preview,
+        )
         let stats = await cache.getCacheStatistics()
 
         #expect(result == nil)
@@ -55,7 +59,11 @@ struct RequestThumbnailTests {
         let result: CGImage? = await withTaskGroup(of: CGImage?.self) { group in
             group.cancelAll()
             group.addTask {
-                await provider.requestThumbnail(for: missingRaw, targetSize: 256)
+                await provider.requestThumbnail(
+                    for: missingRaw,
+                    targetSize: 256,
+                    purpose: .preview,
+                )
             }
             guard let result = await group.next() else {
                 return nil
@@ -69,7 +77,9 @@ struct RequestThumbnailTests {
     @Test
     func `clear caches removes cached items and resets statistics`() async {
         let cache = await makeIsolatedCache()
-        let key = URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg") as NSURL
+        let key = makeThumbnailCacheKey(
+            sourceURL: URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg"),
+        )
         let thumbnail = CachedThumbnail(image: createTestImage())
 
         cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)

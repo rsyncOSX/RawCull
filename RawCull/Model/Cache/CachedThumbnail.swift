@@ -61,4 +61,8 @@ final class CachedThumbnail: NSObject, @unchecked Sendable {
 
         super.init()
     }
+
+    convenience nonisolated init(image: NSImage, key: ThumbnailCacheKey) {
+        self.init(image: image, url: key.standardizedSourceURL as NSURL)
+    }
 }

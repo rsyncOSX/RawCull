@@ -40,10 +40,14 @@ actor RequestThumbnail {
         await newTask.value
     }
 
-    func requestThumbnail(for url: URL, targetSize: Int) async -> CGImage? {
+    func requestThumbnail(
+        for url: URL,
+        targetSize: Int,
+        purpose: ThumbnailCacheKey.Purpose,
+    ) async -> CGImage? {
         await ensureReady()
         do {
-            return try await resolveImage(for: url, targetSize: targetSize)
+            return try await resolveImage(for: url, targetSize: targetSize, purpose: purpose)
         } catch is CancellationError {
             return nil
         } catch {
@@ -52,8 +56,17 @@ actor RequestThumbnail {
         }
     }
 
-    private func resolveImage(for url: URL, targetSize: Int) async throws -> CGImage {
-        let nsUrl = url as NSURL
+    private func resolveImage(
+        for url: URL,
+        targetSize: Int,
+        purpose: ThumbnailCacheKey.Purpose,
+    ) async throws -> CGImage {
+        let cacheKey = ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: purpose,
+            requestedPixelSize: targetSize,
+        )
+        let sourceURL = url.standardizedFileURL as NSURL
         // Demand counter: total UI-driven thumbnail requests. Forms the
         // denominator for `true_hit_rate_pct` in Memory Diagnostics — unlike
         // the existing layer-relative `hit_rate_pct`, this includes branch C
@@ -61,7 +74,7 @@ actor RequestThumbnail {
         memoryCache.incrementDemandRequest()
 
         // A. Check RAM
-        if let wrapper = memoryCache.object(forKey: nsUrl) {
+        if let cacheKey, let wrapper = memoryCache.object(forKey: cacheKey) {
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache)")
             await memoryCache.updateCacheMemory()
             let nsImage = wrapper.image
@@ -69,14 +82,14 @@ actor RequestThumbnail {
         }
 
         // B. Check Disk
-        if let diskImage = await diskCache.load(for: url) {
+        if let cacheKey, let diskImage = await diskCache.load(for: cacheKey) {
             // Boomerang detection: a disk hit on a key the main RAM cache
             // recently evicted is the "scan polluted RAM, user paid disk cost
             // to get it back" pattern we're trying to quantify.
-            if memoryCache.wasRecentlyEvicted(url: nsUrl) {
+            if memoryCache.wasRecentlyEvicted(url: sourceURL) {
                 memoryCache.incrementBoomerangMiss()
             }
-            storeInMemory(diskImage, for: url)
+            storeInMemory(diskImage, for: cacheKey)
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in Disk Cache)")
             await memoryCache.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
@@ -99,18 +112,20 @@ actor RequestThumbnail {
         // its denominator excludes this path entirely.
         memoryCache.incrementColdExtract()
 
-        storeInMemory(image, for: url)
+        if let cacheKey {
+            storeInMemory(image, for: cacheKey)
+        }
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
-        if let jpegData = DiskCacheManager.jpegData(from: cgImage) {
+        if let cacheKey, let jpegData = DiskCacheManager.jpegData(from: cgImage) {
             // Capture only `diskCache` (actor-isolated let) and the two value types.
             // No implicit `self` capture, no non-Sendable types crossing the boundary.
             let dcache = diskCache
             Task.detached(priority: .background) {
-                await dcache.save(jpegData, for: url)
+                await dcache.save(jpegData, for: cacheKey)
             }
-        } else {
+        } else if cacheKey != nil {
             Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
         }
 
@@ -136,10 +151,9 @@ actor RequestThumbnail {
         }.value
     }
 
-    private func storeInMemory(_ image: NSImage, for url: URL) {
-        let nsUrl = url as NSURL
-        guard memoryCache.object(forKey: nsUrl) == nil else { return }
-        let wrapper = CachedThumbnail(image: image, url: nsUrl)
-        memoryCache.setObject(wrapper, forKey: nsUrl, cost: wrapper.cost)
+    private func storeInMemory(_ image: NSImage, for key: ThumbnailCacheKey) {
+        guard memoryCache.object(forKey: key) == nil else { return }
+        let wrapper = CachedThumbnail(image: image, key: key)
+        memoryCache.setObject(wrapper, forKey: key, cost: wrapper.cost)
     }
 }
