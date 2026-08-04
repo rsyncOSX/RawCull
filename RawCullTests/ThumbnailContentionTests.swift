@@ -98,8 +98,11 @@ struct ThumbnailContentionTests {
         }
 
         try await waitUntil {
-            fixture.diagnostics.snapshot().coalescedThumbnailWaiters
+            let loaderSnapshot = await fixture.loader.snapshot()
+            return fixture.diagnostics.snapshot().coalescedThumbnailWaiters
                 == requestCount - 1
+                && loaderSnapshot.calls == 1
+                && loaderSnapshot.waiters == 1
         }
         #expect(await fixture.loader.snapshot().calls == 1)
 
