@@ -14,7 +14,7 @@ struct SmokeManifestIntegrityTests {
     @Test
     func `every source smoke declaration has a suite selector`() throws {
         let taggedSuites = try sourceSuitesTaggedForSmoke()
-        let selectedSuites = Set(try smokeManifestSelectors().filter {
+        let selectedSuites = try Set(smokeManifestSelectors().filter {
             $0.split(separator: "/").count == 2
         }.compactMap { $0.split(separator: "/").last.map(String.init) })
 
@@ -97,7 +97,7 @@ private let expectedTaggedSuites: Set<String> = [
     "TypedAIPersistenceMatrixTests",
     "ZoomOverlayKeyActionTests",
     "ZoomOverlayNavigationContextTests",
-    "ZoomViewportMathTests",
+    "ZoomViewportMathTests"
 ]
 
 private func smokeManifestSelectors() throws -> [String] {

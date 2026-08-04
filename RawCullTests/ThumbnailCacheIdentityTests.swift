@@ -190,7 +190,7 @@ struct ThumbnailCacheIdentityTests {
                 preprocessingVersion: "clip-preprocess-1",
                 normalizationVersion: "l2-1",
                 configurationVersion: "clip-config-1",
-            ),
+            )
         ]
         let descriptorsBefore = backends.map {
             SimilarityArtifactDescriptor(

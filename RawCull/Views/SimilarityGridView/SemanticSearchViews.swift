@@ -123,8 +123,7 @@ private struct SemanticSearchQueryEntryView: View {
                 }
 
                 if !queryText.isEmpty
-                    || viewModel.similarityModel.semanticSearchState != .idle
-                {
+                    || viewModel.similarityModel.semanticSearchState != .idle {
                     Button(action: clearSearch) {
                         Label("Clear", systemImage: "xmark.circle")
                     }

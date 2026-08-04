@@ -379,7 +379,7 @@ struct ZoomViewportMathTests {
             CGSize(width: 0, height: 4000),
             CGSize(width: -1, height: 4000),
             CGSize(width: CGFloat.infinity, height: 4000),
-            CGSize(width: CGFloat.nan, height: 4000),
+            CGSize(width: CGFloat.nan, height: 4000)
         ]
 
         for invalidSize in invalidSizes {

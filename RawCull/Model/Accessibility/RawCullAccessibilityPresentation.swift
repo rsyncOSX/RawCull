@@ -98,8 +98,10 @@ enum RawCullAccessibilityPresentation {
         case .licenceRequired: "Licence acceptance required"
         case .notConfigured: "Download service not configured"
         case .ready: "Ready to download"
+
         case let .downloading(progress):
             "Downloading \(Int((min(max(progress, 0), 1) * 100).rounded())) percent"
+
         case .validating: "Validating downloaded model"
         case let .installed(location): "Installed at \(location.path)"
         case .removing: "Removing downloaded model"
@@ -115,10 +117,13 @@ enum RawCullAccessibilityPresentation {
         let availability = switch presentation.availability {
         case .checking:
             "Checking CLIP availability"
+
         case let .ready(_, backend):
             "Ready using \(backendDescription(backend))"
+
         case let .unavailable(reason, _):
             "Unavailable. \(reason)"
+
         case let .failed(_, reason):
             "Failed. \(reason)"
         }
@@ -126,16 +131,22 @@ enum RawCullAccessibilityPresentation {
         let activity = switch presentation.activity {
         case .idle:
             "Idle"
+
         case let .indexing(completed, total, phase):
             "Indexing \(phaseDescription(phase)), \(completed) of \(total)"
+
         case let .searching(query):
             "Searching for \(query)"
+
         case let .results(summary):
             "Showing \(summary.resultCount) of \(summary.rankedImageCount) ranked images"
+
         case let .emptyResults(summary):
             "No results for \(summary.query)"
+
         case let .emptyIndex(query, excludedFileCount):
             "No compatible index for \(query), \(excludedFileCount) images excluded"
+
         case let .failed(query, message):
             "Search for \(query) failed. \(message)"
         }
@@ -158,14 +169,19 @@ enum RawCullAccessibilityPresentation {
         return switch state {
         case .idle, .completed:
             "Idle. SAM 3 subject-detail review has not run for this group."
+
         case let .preparing(activeGroupID, totalCount) where activeGroupID == groupID:
             "Preparing SAM 3 Deep Review for \(count(totalCount, singular: "candidate"))."
+
         case let .running(progress) where progress.groupID == groupID:
             "Running SAM 3 Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
+
         case let .completing(activeGroupID) where activeGroupID == groupID:
             "Completing SAM 3 Deep Review."
+
         case let .failed(activeGroupID, failure) where activeGroupID == nil || activeGroupID == groupID:
             "Deep Review failed. \(deepReviewFailure(failure))"
+
         case .preparing, .running, .completing, .failed:
             "Idle. Another burst group owns the active Deep Review."
         }

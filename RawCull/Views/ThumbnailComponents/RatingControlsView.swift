@@ -110,7 +110,7 @@ struct RatingActionBarView: View {
         (2, "2", .yellow),
         (3, "3", .green),
         (4, "4", .blue),
-        (5, "5", .purple),
+        (5, "5", .purple)
     ]
 
     var body: some View {

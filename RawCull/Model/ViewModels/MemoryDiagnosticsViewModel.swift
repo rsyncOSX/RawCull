@@ -265,7 +265,7 @@ final class MemoryDiagnosticsViewModel {
         "model_download_starts",
         "grid_preload_starts",
         "latest_grid_catalog_size",
-        "first_usable_grid_ms",
+        "first_usable_grid_ms"
     ].joined(separator: "\t")
 }
 

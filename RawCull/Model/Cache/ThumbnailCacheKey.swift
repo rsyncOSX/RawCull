@@ -151,7 +151,7 @@ nonisolated struct ThumbnailCacheKey: Hashable, Sendable {
             "source-modification-bits=\(modificationBits)",
             "purpose=\(purpose.rawValue)",
             "requested-pixels=\(requestedPixelSize)",
-            "orientation=\(orientationPolicy.rawValue)",
+            "orientation=\(orientationPolicy.rawValue)"
         ].joined(separator: "|")
     }
 

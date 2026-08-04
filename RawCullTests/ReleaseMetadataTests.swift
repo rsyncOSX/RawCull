@@ -85,7 +85,7 @@ struct ReleaseMetadataTests {
         let expectedDestinations = [
             "no.blogspot.RawCull.models.clip-datacomp": "Models/CLIP-DataComp",
             "no.blogspot.RawCull.models.clip-openai": "Models/CLIP-OpenAI",
-            "no.blogspot.RawCull.models.sam3": "Models/SAM3",
+            "no.blogspot.RawCull.models.sam3": "Models/SAM3"
         ]
         var actualDestinations: [String: String] = [:]
         for assetPack in manifest.assetPacks {
@@ -119,7 +119,7 @@ struct ReleaseMetadataTests {
         let provenancePaths = [
             "ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json",
             "ModelAssets/Notices/CLIP-OpenAI/PROVENANCE.json",
-            "ModelAssets/Notices/SAM3/PROVENANCE.json",
+            "ModelAssets/Notices/SAM3/PROVENANCE.json"
         ]
 
         for path in provenancePaths {
@@ -144,7 +144,7 @@ struct ReleaseMetadataTests {
         let bundledLicenceHashes = [
             "OpenCLIP-DataComp-MIT.txt": "6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986",
             "OpenAI-CLIP-Tokenizer-MIT.txt": "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e",
-            "SAM3-SAM-License-2025-11-19.txt": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
+            "SAM3-SAM-License-2025-11-19.txt": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab"
         ]
         for (filename, expectedHash) in bundledLicenceHashes {
             let data = try repositoryData("RawCull/Resources/ModelLicences/\(filename)")

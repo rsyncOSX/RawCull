@@ -119,7 +119,7 @@ struct MemoryDiagnosticsView: View {
             "infer=\(e.similarityInferenceStarts)/\(e.semanticSearchStarts)/\(e.deepReviewInferenceStarts)",
             "hydrate=\(e.semanticHydrationStarts)",
             "downloads=\(e.modelDownloadStarts)",
-            "firstgrid=\(e.latestFirstUsableGridMilliseconds.map(String.init) ?? "-")ms",
+            "firstgrid=\(e.latestFirstUsableGridMilliseconds.map(String.init) ?? "-")ms"
         ]
         return fields.joined(separator: "  ")
     }

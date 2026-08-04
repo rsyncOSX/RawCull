@@ -447,6 +447,7 @@ private extension RawCullAIModelDownloadState {
         case .checking: "Checking model service…"
         case .validating: "Validating model…"
         case .removing: "Removing model…"
+
         case .unavailable, .licenceRequired, .notConfigured, .ready,
              .downloading, .installed, .failed:
             ""
