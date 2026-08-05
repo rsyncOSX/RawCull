@@ -41,7 +41,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/PhotoAIKit.git",
       "state" : {
-        "revision" : "2cb07d604beee3549df4d361a5d48b3e9506fb87"
+        "revision" : "1e2eaccd00947fbadda300e4a617842479cae7b9"
       }
     },
     {
@@ -157,8 +157,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system.git",
       "state" : {
-        "revision" : "50688cacbd41d547e9eb9f7a213542340b7c442b",
-        "version" : "1.7.5"
+        "revision" : "704705c5c51156ede21172a38654d522ce487074",
+        "version" : "1.8.0"
       }
     },
     {
@@ -176,7 +176,7 @@
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
         "branch" : "main",
-        "revision" : "cee45aa95b8cdb5b16a8e11c037336870ec22369"
+        "revision" : "ac23bccdf191f5bd68b328882431937dc15319b9"
       }
     },
     {
