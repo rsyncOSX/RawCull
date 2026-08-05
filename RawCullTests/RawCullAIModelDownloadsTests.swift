@@ -12,6 +12,7 @@ struct RawCullAIModelDownloadsTests {
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
+            .efficientSAM,
             .sam3
         ])
         #expect(catalog.models.allSatisfy {
@@ -28,7 +29,10 @@ struct RawCullAIModelDownloadsTests {
             guard let resourceName =
                 descriptor.licence.bundledTextResourceName
             else {
-                #expect(descriptor.id == .sam3)
+                #expect(
+                    descriptor.id == .efficientSAM
+                        || descriptor.id == .sam3,
+                )
                 continue
             }
             let url = try #require(licenceResourceURL(

@@ -171,7 +171,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 displayName: "EfficientSAM",
                 purpose: "Lightweight local subject segmentation for Deep Review.",
                 publisher: "Y. Xiong et al. / Apple Core AI conversion",
-                modelVersion: "EfficientSAM ViT-Tiny, 8×8 segment-everything",
+                modelVersion: "EfficientSAM ViT-Tiny, 4×4 segment-everything",
                 upstreamRevision: nil,
                 resourceName: "EfficientSAM",
                 assetPackID: "no.blogspot.RawCull.models.efficient-sam",
