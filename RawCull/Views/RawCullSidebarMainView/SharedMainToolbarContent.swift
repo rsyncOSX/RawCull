@@ -85,8 +85,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         },
                     )
                     .padding(.trailing, 8)
-                    // .disabled(viewModel.selectedSource == nil)
-                    .disabled(thereareRatedPhotos() == false)
+                    .disabled(!hasExplicitRatings)
                 }
             }
 
@@ -210,10 +209,8 @@ struct SharedMainToolbarContent: ToolbarContent {
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
     
-    private func thereareRatedPhotos() -> Bool {
-        if let catalog = viewModel.selectedSource?.url {
-            return viewModel.cullingModel.thereareRatedPhotos(in: catalog)
-        }
-        return false
+    private var hasExplicitRatings: Bool {
+        guard let catalog = viewModel.selectedSource?.url else { return false }
+        return viewModel.cullingModel.hasExplicitRatings(in: catalog)
     }
 }
