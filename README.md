@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > **This is the AI-based version of RawCull.** The `main` and
 > `version-3.0.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27
-> to build. For macOS 26, use `version-2.3.4` or `version-2.3.3`.
+> to build. For macOS 26, use `version-2.3.4`.
 
 RawCull is a native macOS photo review and culling application for Sony ARW RAW
 files. It combines fast embedded-preview loading with focus-point extraction,
@@ -23,7 +23,6 @@ persistence, and presentation.
 |---|---:|---|---|
 | `main`, `version-3.0.0` | macOS 27 | Xcode 27, Swift 6 | AI-based RawCull 3 with local CLIP semantic search and similarity, SAM 3 Deep Review, model validation, and Managed Background Assets support |
 | `version-2.3.4` | macOS 26.2 | Xcode 26, Swift 6 | macOS 26 release line using built-in Vision feature prints for visual similarity and burst grouping |
-| `version-2.3.3` | macOS 26.2 | Xcode 26, Swift 6 | Earlier macOS 26 release line, also using Vision feature prints rather than optional CLIP and SAM 3 models |
 
 All versions require an Apple Silicon Mac. The main difference between the
 macOS 26 and macOS 27 editions is the AI layer, not the basic photo-culling
