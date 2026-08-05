@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
 		E92E0F0B3017777200788A3C /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0A3017777200788A3C /* CoreAICLIPBackend */; };
+		E92E0F173017777200788A3C /* CoreAIEfficientSAMBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F163017777200788A3C /* CoreAIEfficientSAMBackend */; };
 		E92E0F0D3017777200788A3C /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0C3017777200788A3C /* CoreAISAM3Backend */; };
 		E92E0F0F3017777200788A3C /* PhotoAIContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F0E3017777200788A3C /* PhotoAIContracts */; };
 		E92E0F113017777200788A3C /* PhotoAIStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E92E0F103017777200788A3C /* PhotoAIStorage */; };
@@ -108,6 +109,7 @@
 				E9516F9A300A485300A9878F /* PhotoAnalysisKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E92E0F0B3017777200788A3C /* CoreAICLIPBackend in Frameworks */,
+				E92E0F173017777200788A3C /* CoreAIEfficientSAMBackend in Frameworks */,
 				E92E0F0F3017777200788A3C /* PhotoAIContracts in Frameworks */,
 				E92E0F133017777200788A3C /* PhotoAIWorkflows in Frameworks */,
 				E92E0F0D3017777200788A3C /* CoreAISAM3Backend in Frameworks */,
@@ -199,6 +201,7 @@
 				E95349CF2FF9902900A4C0C3 /* RawParserKit */,
 				E9516F99300A485300A9878F /* PhotoAnalysisKit */,
 				E92E0F0A3017777200788A3C /* CoreAICLIPBackend */,
+				E92E0F163017777200788A3C /* CoreAIEfficientSAMBackend */,
 				E92E0F0C3017777200788A3C /* CoreAISAM3Backend */,
 				E92E0F0E3017777200788A3C /* PhotoAIContracts */,
 				E92E0F103017777200788A3C /* PhotoAIStorage */,
@@ -857,6 +860,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
 			productName = CoreAISAM3Backend;
+		};
+		E92E0F163017777200788A3C /* CoreAIEfficientSAMBackend */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */;
+			productName = CoreAIEfficientSAMBackend;
 		};
 		E92E0F0E3017777200788A3C /* PhotoAIContracts */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -79,7 +79,7 @@ uploaded to an external inference service.
 - **Local caching:** Embeddings, masks, scores, and burst decisions are cached
   so compatible results can be reused in later sessions.
 
-### CLIP and SAM 3
+### CLIP, SAM 3, and EfficientSAM
 
 Both are trained neural networks, but they produce different evidence:
 
@@ -123,8 +123,9 @@ resulting subject mask.
   OpenAI CLIP Core AI model bundles. RawCull uses the model selected in
   **Settings > AI** and falls back to Vision feature prints when it is missing
   or invalid. Semantic search requires a valid CLIP model.
-- Deep Review requires a validated, PhotoAIKit-compatible SAM 3 Core AI model
-  bundle and remains unavailable without one.
+- Deep Review requires a validated, PhotoAIKit-compatible SAM 3 or EfficientSAM
+  Core AI model bundle. SAM 3 supports text-guided targets; EfficientSAM uses
+  point-grid subject discovery.
 - Each bundle must contain `metadata.json`, the selected `.aimodel` or
   `.aimodelc` asset, and all resources declared by its manifest.
 - Models are not bundled with RawCull. **Settings > AI > Download AI Models**
@@ -142,6 +143,7 @@ validate them. Standard non-sandboxed locations are:
 ```text
 ~/Library/Application Support/RawCull/Models/CLIP-DataComp/
 ~/Library/Application Support/RawCull/Models/CLIP-OpenAI/
+~/Library/Application Support/RawCull/Models/EfficientSAM/
 ~/Library/Application Support/RawCull/Models/SAM3/
 ```
 
@@ -150,12 +152,14 @@ Sandboxed builds use:
 ```text
 ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-DataComp/
 ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-OpenAI/
+~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/EfficientSAM/
 ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/SAM3/
 ```
 
 **Settings > AI** displays the exact expected paths. To enable CLIP, select
 exactly one of **DataComp** or **OpenAI**, validate it, and enable **Use selected
-CLIP model for similarity**. To use SAM 3, analyze a catalog into burst groups,
+CLIP model for similarity**. To use segmentation, select **SAM 3** or
+**EfficientSAM** as the Deep Review model, analyze a catalog into burst groups,
 choose **Deep Review** on a burst, select the review target, and run the review.
 
 See [Model asset packs](ModelAssets/README.md) for the release blockers,

@@ -36,6 +36,23 @@
       ]
     },
     {
+      "assetPackID": "no.blogspot.RawCull.models.efficient-sam",
+      "downloadPolicy": {
+        "onDemand": {}
+      },
+      "fileSelectors": [
+        {
+          "directory": {
+            "source": "EfficientSAM",
+            "destination": "Models/EfficientSAM"
+          }
+        }
+      ],
+      "platforms": [
+        "macOS"
+      ]
+    },
+    {
       "assetPackID": "no.blogspot.RawCull.models.sam3",
       "downloadPolicy": {
         "onDemand": {}
