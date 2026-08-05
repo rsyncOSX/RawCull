@@ -168,16 +168,16 @@ enum RawCullAccessibilityPresentation {
         }
         return switch state {
         case .idle, .completed:
-            "Idle. SAM 3 subject-detail review has not run for this group."
+            "Idle. AI subject-detail review has not run for this group."
 
         case let .preparing(activeGroupID, totalCount) where activeGroupID == groupID:
-            "Preparing SAM 3 Deep Review for \(count(totalCount, singular: "candidate"))."
+            "Preparing Deep Review for \(count(totalCount, singular: "candidate"))."
 
         case let .running(progress) where progress.groupID == groupID:
-            "Running SAM 3 Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
+            "Running Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
 
         case let .completing(activeGroupID) where activeGroupID == groupID:
-            "Completing SAM 3 Deep Review."
+            "Completing Deep Review."
 
         case let .failed(activeGroupID, failure) where activeGroupID == nil || activeGroupID == groupID:
             "Deep Review failed. \(deepReviewFailure(failure))"
@@ -222,7 +222,7 @@ enum RawCullAccessibilityPresentation {
         switch failure {
         case let .modelUnavailable(reason): reason
         case .noCandidates: "No candidates are available"
-        case let .pipelineFailed(reason): "The SAM 3 pipeline failed. \(reason)"
+        case let .pipelineFailed(reason): "The segmentation pipeline failed. \(reason)"
         }
     }
 

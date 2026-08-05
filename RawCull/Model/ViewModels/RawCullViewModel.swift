@@ -146,7 +146,7 @@ final class RawCullViewModel {
     /// Similarity scoring model — PhotoAIKit artifacts with RawCull-owned ranking policy.
     var similarityModel: SimilarityScoringModel
 
-    /// Dedicated SAM 3 burst-review feature. It owns the in-process workflow
+    /// Dedicated AI segmentation burst-review feature. It owns the in-process workflow
     /// and typed operation state; the central view model only adapts inputs and
     /// applies a user-confirmed recommendation.
     let deepAIReviewFeature: DeepAIReviewFeature

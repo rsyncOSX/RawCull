@@ -10,7 +10,10 @@ struct AISettingsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 AIModelSettingsCard(model: model)
-                AIIntegrationReadinessCard(capabilities: model.capabilities)
+                AIIntegrationReadinessCard(
+                    capabilities: model.capabilities,
+                    selectedSegmentationModel: model.selectedSegmentationModel,
+                )
 
                 HStack {
                     Button {
@@ -57,10 +60,43 @@ private struct AIModelSettingsCard: View {
 
                 AICapabilityStatusView(
                     title: "SAM 3 model",
-                    status: model.capabilities.sam3Model,
+                    status: model.capabilities.segmentationModelStatus(for: .sam3),
                     availableMessage: "SAM 3 model resources are installed.",
                     missingMessage: "SAM 3 model resources are not installed.",
                 )
+
+                Divider()
+
+                AICapabilityStatusView(
+                    title: "EfficientSAM model",
+                    status: model.capabilities.segmentationModelStatus(for: .efficientSAM),
+                    availableMessage: "EfficientSAM model resources are installed.",
+                    missingMessage: "EfficientSAM model resources are not installed.",
+                )
+
+                Divider()
+
+                Picker(
+                    "Deep Review segmentation model",
+                    selection: $model.selectedSegmentationModel,
+                ) {
+                    ForEach(RawCullSegmentationModel.allCases) { segmentationModel in
+                        Text(segmentationModel.displayName)
+                            .tag(segmentationModel)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .font(.system(size: 12, weight: .medium))
+                .help("Choose the local segmentation model RawCull uses for Deep Review.")
+
+                Text(segmentationModelMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(
+                        model.selectedSegmentationModelStatus.isAvailable
+                            ? .green
+                            : .secondary,
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Divider()
 
@@ -140,6 +176,14 @@ private struct AIModelSettingsCard: View {
         return "Similarity indexing currently uses Vision feature prints."
     }
 
+    private var segmentationModelMessage: String {
+        let name = model.selectedSegmentationModel.displayName
+        if model.selectedSegmentationModelStatus.isAvailable {
+            return "Deep Review uses the selected \(name) model."
+        }
+        return "The selected \(name) model becomes active when its bundle is installed and valid."
+    }
+
     private var clipSimilarityHelp: LocalizedStringResource {
         if model.selectedCLIPModelStatus.isAvailable {
             return "Use validated \(model.selectedCLIPModel.displayName) CLIP embeddings. Invalid output is retried before an image is excluded."
@@ -150,6 +194,7 @@ private struct AIModelSettingsCard: View {
 
 private struct AIIntegrationReadinessCard: View {
     let capabilities: RawCullAICapabilities
+    let selectedSegmentationModel: RawCullSegmentationModel
 
     var body: some View {
         SettingsCard {
@@ -177,10 +222,10 @@ private struct AIIntegrationReadinessCard: View {
                 Divider()
 
                 AICapabilityStatusView(
-                    title: "In-process SAM 3 review",
+                    title: "In-process \(selectedSegmentationModel.displayName) review",
                     status: capabilities.inProcessMaskGeneration,
-                    availableMessage: "SAM 3 mask generation runs inside RawCull.",
-                    missingMessage: "In-process mask generation needs a valid SAM 3 model.",
+                    availableMessage: "\(selectedSegmentationModel.displayName) mask generation runs inside RawCull.",
+                    missingMessage: "In-process mask generation needs a valid \(selectedSegmentationModel.displayName) model.",
                 )
             }
         }

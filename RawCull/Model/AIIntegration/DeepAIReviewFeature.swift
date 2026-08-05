@@ -177,7 +177,7 @@ final class DeepAIReviewFeature {
 
     init(
         availability: RawCullAICapabilityStatus = .unavailable(
-            reason: "SAM 3 has not been configured for in-process review.",
+            reason: "A segmentation model has not been configured for in-process review.",
         ),
         service: (any DeepAIReviewServicing)? = nil,
     ) {
@@ -329,20 +329,20 @@ final class DeepAIReviewFeature {
     ) -> String {
         switch status {
         case .checking:
-            "RawCull is still checking the SAM 3 model."
+            "RawCull is still checking the selected segmentation model."
 
         case .available:
-            "The SAM 3 in-process pipeline is unavailable."
+            "The selected in-process segmentation pipeline is unavailable."
 
         case let .missing(expectedLocations):
             expectedLocations.first.map {
-                "Install SAM 3 at \($0.path)."
-            } ?? "Install the SAM 3 model."
+                "Install the selected segmentation model at \($0.path)."
+            } ?? "Install the selected segmentation model."
 
         case let .invalid(location, reason):
             location.map {
-                "The SAM 3 model at \($0.path) is invalid: \(reason)"
-            } ?? "The SAM 3 model is invalid: \(reason)"
+                "The selected segmentation model at \($0.path) is invalid: \(reason)"
+            } ?? "The selected segmentation model is invalid: \(reason)"
 
         case let .unavailable(reason):
             reason

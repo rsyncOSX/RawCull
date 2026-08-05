@@ -5,6 +5,7 @@ import Foundation
 nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identifiable, Sendable {
     case clipDataComp = "clip-datacomp"
     case clipOpenAI = "clip-openai"
+    case efficientSAM = "efficient-sam"
     case sam3
 
     var id: String {
@@ -15,7 +16,7 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
         switch self {
         case .clipDataComp: .dataComp
         case .clipOpenAI: .openAI
-        case .sam3: nil
+        case .efficientSAM, .sam3: nil
         }
     }
 }
@@ -163,6 +164,43 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 ),
                 releaseReadiness: .blocked(
                     reason: "Redistribution remains disabled until the licence, immutable revision, and source checksums for the exact checkpoint weights are verified.",
+                ),
+            ),
+            RawCullAIModelDownloadDescriptor(
+                id: .efficientSAM,
+                displayName: "EfficientSAM",
+                purpose: "Lightweight local subject segmentation for Deep Review.",
+                publisher: "Y. Xiong et al. / Apple Core AI conversion",
+                modelVersion: "EfficientSAM ViT-Tiny, 8×8 segment-everything",
+                upstreamRevision: nil,
+                resourceName: "EfficientSAM",
+                assetPackID: "no.blogspot.RawCull.models.efficient-sam",
+                assetPackModelPath: "Models/EfficientSAM",
+                upstreamSourceURL: requiredURL(
+                    "https://github.com/yformer/EfficientSAM",
+                ),
+                modelCardURL: requiredURL(
+                    "https://github.com/apple/coreai-models/tree/main/models/efficient-sam",
+                ),
+                conversionInformationURL: requiredURL(
+                    "https://github.com/apple/coreai-models/blob/main/models/efficient-sam/README.md",
+                ),
+                expectedArchiveSHA256: nil,
+                downloadByteCount: nil,
+                installedByteCount: nil,
+                licence: RawCullAIModelLicenceDescriptor(
+                    name: "Apache License 2.0",
+                    version: "2.0",
+                    summary: "EfficientSAM is distributed under the Apache License 2.0; preserve its notices when redistributing the converted model.",
+                    completeTextURL: requiredURL(
+                        "https://github.com/yformer/EfficientSAM/blob/main/LICENSE",
+                    ),
+                    bundledTextResourceName: nil,
+                    textSHA256: nil,
+                    requiresExplicitAcceptance: false,
+                ),
+                releaseReadiness: .blocked(
+                    reason: "The EfficientSAM bundle is not release-ready until its exact source revision, checkpoint checksum, converted asset fingerprint, archive checksum, and notices are recorded.",
                 ),
             ),
             RawCullAIModelDownloadDescriptor(

@@ -71,17 +71,17 @@ private struct DeepAIReviewSheetControls: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 420)
             .disabled(feature.isRunning)
-            .accessibilityHint("Selects the SAM 3 subject target used for local detail review.")
+            .accessibilityHint("Selects the subject target used for local detail review.")
 
             if feature.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .buttonStyle(.bordered)
-                    .accessibilityHint("Cancels the active SAM 3 Deep Review.")
+                    .accessibilityHint("Cancels the active Deep Review.")
             } else {
                 Button("Run Deep Review", systemImage: "sparkle.magnifyingglass", action: onRun)
                     .buttonStyle(.borderedProminent)
                     .disabled(!canRun)
-                    .accessibilityHint("Runs local SAM 3 subject-detail analysis for this burst group.")
+                    .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
             }
 
             Spacer()
@@ -146,7 +146,7 @@ private struct DeepAIReviewSheetContent: View {
                 ContentUnavailableView(
                     "No Deep Review Yet",
                     systemImage: "sparkle.magnifyingglass",
-                    description: Text("Run SAM 3 subject-detail analysis for this burst group."),
+                    description: Text("Run local AI subject-detail analysis for this burst group."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -162,7 +162,7 @@ private struct DeepAIReviewSheetContent: View {
             "This burst group has no candidates to review."
 
         case let .pipelineFailed(reason):
-            "The in-process SAM 3 pipeline failed: \(reason)"
+            "The in-process segmentation pipeline failed: \(reason)"
         }
     }
 }
@@ -190,7 +190,7 @@ private struct DeepAIReviewProgressHeader: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("SAM 3 Deep Review progress")
+        .accessibilityLabel("Deep Review progress")
         .accessibilityValue(progressAccessibilityValue)
     }
 

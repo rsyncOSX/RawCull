@@ -98,7 +98,7 @@ private struct BurstGroupHeaderView: View {
             .controlSize(.regular)
             .buttonStyle(.bordered)
             .disabled(viewModel.isDeepAIReviewUnavailable || analysis == nil)
-            .help("Open an in-process SAM 3 subject-detail review")
+            .help("Open an in-process AI subject-detail review")
 
             if let groupID = analysis?.groupID {
                 Button {

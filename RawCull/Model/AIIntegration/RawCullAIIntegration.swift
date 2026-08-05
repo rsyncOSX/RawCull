@@ -1,4 +1,5 @@
 import CoreAICLIPBackend
+import CoreAIEfficientSAMBackend
 import CoreAISAM3Backend
 import Foundation
 import OSLog
@@ -15,6 +16,8 @@ import VisionFeaturePrintBackend
 final class RawCullAIIntegration {
     let paths: RawCullAIPaths
     let sam3ModelResourceManager: RawCullAIModelResourceManager<CoreAISAM3Provider>
+    let efficientSAMModelResourceManager:
+        RawCullAIModelResourceManager<CoreAIEfficientSAMProvider>
     let clipDataCompModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
     let clipOpenAIModelResourceManager:
@@ -39,7 +42,9 @@ final class RawCullAIIntegration {
     private let subjectMaskStores: [any SubjectMaskStoring]
     private let defaultPrompt: SubjectSegmentationPrompt
     private let inputMaxSide: Int
-    private var activeSAM3ModelIdentity: ModelIdentity?
+    private var selectedSegmentationModel: RawCullSegmentationModel = .defaultSelection
+    private var segmentationProviders: [RawCullSegmentationModel: any SubjectSegmenting] = [:]
+    private var activeSegmentationModelIdentity: ModelIdentity?
     private var capabilitySnapshot: RawCullAICapabilities
 
     init(
@@ -58,6 +63,12 @@ final class RawCullAIIntegration {
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         )
+        let efficientSAMCandidateURLs = RawCullAIModelCandidates.urls(
+            installedDirectory: paths.efficientSAMModelDirectory,
+            resourceName: RawCullSegmentationModel.efficientSAM.resourceName,
+            bundle: bundle,
+            allowsBundledFallback: allowsBundledModelFallback,
+        )
         let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
             installedDirectory: paths.clipDataCompModelDirectory,
             resourceName: RawCullCLIPModel.dataComp.resourceName,
@@ -73,6 +84,10 @@ final class RawCullAIIntegration {
         self.sam3ModelResourceManager = RawCullAIModelResourceManager(
             candidateURLs: sam3CandidateURLs,
             factory: CoreAISAM3Provider.factory,
+        )
+        self.efficientSAMModelResourceManager = RawCullAIModelResourceManager(
+            candidateURLs: efficientSAMCandidateURLs,
+            factory: CoreAIEfficientSAMProvider.factory,
         )
         self.clipDataCompModelResourceManager = RawCullAIModelResourceManager(
             candidateURLs: clipDataCompCandidateURLs,
@@ -106,7 +121,7 @@ final class RawCullAIIntegration {
         self.defaultPrompt = defaultPrompt
         self.inputMaxSide = inputMaxSide
 
-        let sam3Provider = UnavailableSAM3Provider()
+        let sam3Provider = UnavailableSegmentationProvider()
         let configuration = SubjectMaskRepositoryConfiguration(
             defaultPrompt: defaultPrompt,
             modelIdentity: sam3Provider.modelIdentity,
@@ -134,9 +149,12 @@ final class RawCullAIIntegration {
         self.deepAIReviewFeature = DeepAIReviewFeature(
             availability: .checking(expectedLocations: sam3CandidateURLs),
         )
-        self.activeSAM3ModelIdentity = nil
+        self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
-            sam3Model: .checking(expectedLocations: sam3CandidateURLs),
+            segmentationModels: [
+                .sam3: .checking(expectedLocations: sam3CandidateURLs),
+                .efficientSAM: .checking(expectedLocations: efficientSAMCandidateURLs)
+            ],
             clipModels: [
                 .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
                 .openAI: .checking(expectedLocations: clipOpenAICandidateURLs)
@@ -155,11 +173,29 @@ final class RawCullAIIntegration {
         capabilitySnapshot
     }
 
+    func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
+        guard selectedSegmentationModel != model else { return }
+        selectedSegmentationModel = model
+        let status = capabilitySnapshot.segmentationModelStatus(for: model)
+        capabilitySnapshot = RawCullAICapabilities(
+            segmentationModels: capabilitySnapshot.segmentationModels,
+            clipModels: capabilitySnapshot.clipModels,
+            semanticSearchByCLIPModel: capabilitySnapshot.semanticSearchByCLIPModel,
+            visionFeaturePrint: capabilitySnapshot.visionFeaturePrint,
+            subjectMaskStorage: capabilitySnapshot.subjectMaskStorage,
+            inProcessMaskGeneration: status,
+        )
+        activateSelectedSegmentationProvider(availability: status)
+    }
+
     func setManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async {
         await sam3ModelResourceManager.setManagedCandidateURL(
             locations[.sam3],
+        )
+        await efficientSAMModelResourceManager.setManagedCandidateURL(
+            locations[.efficientSAM],
         )
         await clipDataCompModelResourceManager.setManagedCandidateURL(
             locations[.clipDataComp],
@@ -235,20 +271,20 @@ final class RawCullAIIntegration {
     @discardableResult
     func refreshCapabilities() async throws -> RawCullAICapabilities {
         async let sam3Load = sam3ModelResourceManager.load()
+        async let efficientSAMLoad = efficientSAMModelResourceManager.load()
         async let clipDataCompLoad = clipDataCompModelResourceManager.load()
         async let clipOpenAILoad = clipOpenAIModelResourceManager.load()
-        let (sam3, clipDataComp, clipOpenAI) = try await (
+        let (sam3, efficientSAM, clipDataComp, clipOpenAI) = try await (
             sam3Load,
+            efficientSAMLoad,
             clipDataCompLoad,
             clipOpenAILoad,
         )
         try Task.checkCancellation()
 
-        if let provider = sam3.provider {
-            installSAM3ProviderIfNeeded(provider)
-        } else {
-            installUnavailableSAM3ProviderIfNeeded()
-        }
+        segmentationProviders = [:]
+        segmentationProviders[.sam3] = sam3.provider
+        segmentationProviders[.efficientSAM] = efficientSAM.provider
         clipSimilarityProviders = [
             .dataComp: clipDataComp.provider,
             .openAI: clipOpenAI.provider
@@ -262,6 +298,10 @@ final class RawCullAIIntegration {
             sam3.capability,
             providerInitializationFailure: sam3.providerInitializationFailure,
         )
+        let efficientSAMStatus = Self.capabilityStatus(
+            efficientSAM.capability,
+            providerInitializationFailure: efficientSAM.providerInitializationFailure,
+        )
         let clipDataCompStatus = Self.capabilityStatus(
             clipDataComp.capability,
             providerInitializationFailure: clipDataComp.providerInitializationFailure,
@@ -270,8 +310,19 @@ final class RawCullAIIntegration {
             clipOpenAI.capability,
             providerInitializationFailure: clipOpenAI.providerInitializationFailure,
         )
+        let segmentationStatuses: [
+            RawCullSegmentationModel: RawCullAICapabilityStatus
+        ] = [
+            .sam3: sam3Status,
+            .efficientSAM: efficientSAMStatus
+        ]
+        let selectedSegmentationStatus = segmentationStatuses[
+            selectedSegmentationModel,
+        ] ?? .unavailable(
+            reason: "The selected segmentation model was not configured.",
+        )
         let capabilities = RawCullAICapabilities(
-            sam3Model: sam3Status,
+            segmentationModels: segmentationStatuses,
             clipModels: [
                 .dataComp: clipDataCompStatus,
                 .openAI: clipOpenAIStatus
@@ -288,21 +339,12 @@ final class RawCullAIIntegration {
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,
-            inProcessMaskGeneration: sam3Status,
-        )
-        deepAIReviewFeature.install(
-            service: sam3.provider.map { _ in
-                RawCullDeepAIReviewPipeline(
-                    selector: subjectMaskSelector,
-                    maximumPixelSize: min(
-                        inputMaxSide,
-                        SharpnessScoringSizeOption.maximumPixelSize,
-                    ),
-                )
-            },
-            availability: sam3Status,
+            inProcessMaskGeneration: selectedSegmentationStatus,
         )
         capabilitySnapshot = capabilities
+        activateSelectedSegmentationProvider(
+            availability: capabilities.inProcessMaskGeneration,
+        )
         return capabilities
     }
 
@@ -392,19 +434,42 @@ final class RawCullAIIntegration {
         }
     }
 
-    private func installSAM3ProviderIfNeeded(_ provider: any SubjectSegmenting) {
-        guard activeSAM3ModelIdentity != provider.modelIdentity else { return }
-        activeSAM3ModelIdentity = provider.modelIdentity
-        installSAM3Provider(provider)
+    private func activateSelectedSegmentationProvider(
+        availability: RawCullAICapabilityStatus,
+    ) {
+        let provider = segmentationProviders[selectedSegmentationModel]
+        if let provider {
+            installSegmentationProviderIfNeeded(provider)
+        } else {
+            installUnavailableSegmentationProviderIfNeeded()
+        }
+        deepAIReviewFeature.install(
+            service: provider.map { _ in
+                RawCullDeepAIReviewPipeline(
+                    selector: subjectMaskSelector,
+                    maximumPixelSize: min(
+                        inputMaxSide,
+                        SharpnessScoringSizeOption.maximumPixelSize,
+                    ),
+                )
+            },
+            availability: availability,
+        )
     }
 
-    private func installUnavailableSAM3ProviderIfNeeded() {
-        guard activeSAM3ModelIdentity != nil else { return }
-        activeSAM3ModelIdentity = nil
-        installSAM3Provider(UnavailableSAM3Provider())
+    private func installSegmentationProviderIfNeeded(_ provider: any SubjectSegmenting) {
+        guard activeSegmentationModelIdentity != provider.modelIdentity else { return }
+        activeSegmentationModelIdentity = provider.modelIdentity
+        installSegmentationProvider(provider)
     }
 
-    private func installSAM3Provider(_ provider: any SubjectSegmenting) {
+    private func installUnavailableSegmentationProviderIfNeeded() {
+        guard activeSegmentationModelIdentity != nil else { return }
+        activeSegmentationModelIdentity = nil
+        installSegmentationProvider(UnavailableSegmentationProvider())
+    }
+
+    private func installSegmentationProvider(_ provider: any SubjectSegmenting) {
         let configuration = SubjectMaskRepositoryConfiguration(
             defaultPrompt: defaultPrompt,
             modelIdentity: provider.modelIdentity,
@@ -428,7 +493,7 @@ final class RawCullAIIntegration {
     }
 }
 
-private struct UnavailableSAM3Provider: SubjectSegmenting {
+private struct UnavailableSegmentationProvider: SubjectSegmenting {
     let modelIdentity = ModelIdentity(
         family: "sam3",
         name: "unavailable",
@@ -438,7 +503,7 @@ private struct UnavailableSAM3Provider: SubjectSegmenting {
 
     func segment(_: SubjectSegmentationRequest) async throws -> SubjectSegmentationResult {
         throw SubjectSegmentationError.providerFailure(
-            "SAM 3 model resources are not installed.",
+            "The selected segmentation model resources are not installed.",
         )
     }
 }

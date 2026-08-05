@@ -18,6 +18,8 @@ nonisolated struct RawCullAIModelDownloadPresentation: Equatable, Identifiable, 
 final class RawCullAISettingsModel {
     static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
     static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
+    static let selectedSegmentationModelPreferenceKey =
+        "RawCullAI.selectedSegmentationModel"
 
     private(set) var capabilities: RawCullAICapabilities
     private(set) var savedBurstEvidence: RawCullSavedBurstEvidence?
@@ -58,8 +60,18 @@ final class RawCullAISettingsModel {
         capabilities.semanticSearchStatus(for: selectedModel)
     }
 
+    var selectedSegmentationModel: RawCullSegmentationModel {
+        get { selectedSegmenter }
+        set { setSelectedSegmentationModel(newValue) }
+    }
+
+    var selectedSegmentationModelStatus: RawCullAICapabilityStatus {
+        capabilities.segmentationModelStatus(for: selectedSegmenter)
+    }
+
     private var prefersCLIPForSimilarity: Bool
     private var selectedModel: RawCullCLIPModel
+    private var selectedSegmenter: RawCullSegmentationModel
     @ObservationIgnored private let integration: RawCullAIIntegration
     @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private let similarityServiceDidChange: @MainActor (
@@ -110,6 +122,11 @@ final class RawCullAISettingsModel {
         )
         .flatMap(RawCullCLIPModel.init(rawValue:))
         ?? .defaultSelection
+        self.selectedSegmenter = userDefaults.string(
+            forKey: Self.selectedSegmentationModelPreferenceKey,
+        )
+        .flatMap(RawCullSegmentationModel.init(rawValue:))
+        ?? .defaultSelection
         let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
             cacheDirectory: integration.paths.burstAnalysisDirectory,
         )
@@ -129,6 +146,8 @@ final class RawCullAISettingsModel {
                 ($0.id, .checking)
             },
         )
+        self.capabilities = integration.capabilities()
+        integration.setSelectedSegmentationModel(selectedSegmenter)
         self.capabilities = integration.capabilities()
     }
 
@@ -250,6 +269,17 @@ final class RawCullAISettingsModel {
         selectedModel = model
         userDefaults.set(model.rawValue, forKey: Self.selectedCLIPModelPreferenceKey)
         applySimilarityPreference()
+    }
+
+    func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
+        guard selectedSegmenter != model else { return }
+        selectedSegmenter = model
+        userDefaults.set(
+            model.rawValue,
+            forKey: Self.selectedSegmentationModelPreferenceKey,
+        )
+        integration.setSelectedSegmentationModel(model)
+        capabilities = integration.capabilities()
     }
 
     /// Intentionally empty until a safe saved-data deletion workflow exists.

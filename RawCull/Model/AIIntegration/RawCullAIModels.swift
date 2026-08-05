@@ -30,6 +30,30 @@ nonisolated enum RawCullCLIPModel: String, CaseIterable, Hashable, Identifiable,
     }
 }
 
+/// The mutually exclusive subject-segmentation backends available to Deep Review.
+nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Identifiable, Sendable {
+    case sam3
+    case efficientSAM = "efficient-sam"
+
+    static let defaultSelection = Self.sam3
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .sam3: "SAM 3"
+        case .efficientSAM: "EfficientSAM"
+        }
+    }
+
+    var resourceName: String {
+        switch self {
+        case .sam3: "SAM3"
+        case .efficientSAM: "EfficientSAM"
+        }
+    }
+}
+
 /// RawCull-owned locations used by the AI integration boundary.
 ///
 /// Existing application support and cache roots stay under RawCull's canonical
@@ -38,6 +62,7 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
     let applicationSupportDirectory: URL
     let modelsDirectory: URL
     let sam3ModelDirectory: URL
+    let efficientSAMModelDirectory: URL
     let clipDataCompModelDirectory: URL
     let clipOpenAIModelDirectory: URL
     let modelLicenceAcceptancesURL: URL
@@ -57,6 +82,8 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
         self.modelsDirectory = modelsDirectory
         self.sam3ModelDirectory = modelsDirectory
             .appendingPathComponent("SAM3", isDirectory: true)
+        self.efficientSAMModelDirectory = modelsDirectory
+            .appendingPathComponent("EfficientSAM", isDirectory: true)
         self.clipDataCompModelDirectory = modelsDirectory
             .appendingPathComponent(
                 RawCullCLIPModel.dataComp.resourceName,
@@ -97,6 +124,13 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
         switch model {
         case .dataComp: clipDataCompModelDirectory
         case .openAI: clipOpenAIModelDirectory
+        }
+    }
+
+    func segmentationModelDirectory(for model: RawCullSegmentationModel) -> URL {
+        switch model {
+        case .sam3: sam3ModelDirectory
+        case .efficientSAM: efficientSAMModelDirectory
         }
     }
 }
@@ -149,7 +183,7 @@ nonisolated enum RawCullSemanticSearchCapabilityStatus: Equatable, Sendable {
 
 /// The Phase 1 readiness surface described by `doc/futureaiintegration.md`.
 nonisolated struct RawCullAICapabilities: Equatable, Sendable {
-    let sam3Model: RawCullAICapabilityStatus
+    let segmentationModels: [RawCullSegmentationModel: RawCullAICapabilityStatus]
     let clipModels: [RawCullCLIPModel: RawCullAICapabilityStatus]
     let semanticSearchByCLIPModel: [
         RawCullCLIPModel: RawCullSemanticSearchCapabilityStatus
@@ -157,6 +191,18 @@ nonisolated struct RawCullAICapabilities: Equatable, Sendable {
     let visionFeaturePrint: RawCullAICapabilityStatus
     let subjectMaskStorage: RawCullAICapabilityStatus
     let inProcessMaskGeneration: RawCullAICapabilityStatus
+
+    var sam3Model: RawCullAICapabilityStatus {
+        segmentationModelStatus(for: .sam3)
+    }
+
+    func segmentationModelStatus(
+        for model: RawCullSegmentationModel,
+    ) -> RawCullAICapabilityStatus {
+        segmentationModels[model] ?? .unavailable(
+            reason: "\(model.displayName) capability was not configured.",
+        )
+    }
 
     func clipModelStatus(
         for model: RawCullCLIPModel,
