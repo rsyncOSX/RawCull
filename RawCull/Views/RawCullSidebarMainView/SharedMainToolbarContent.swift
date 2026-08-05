@@ -85,7 +85,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                         },
                     )
                     .padding(.trailing, 8)
-                    .disabled(viewModel.selectedSource == nil)
+                    // .disabled(viewModel.selectedSource == nil)
+                    .disabled(thereareRatedPhotos() == false)
                 }
             }
 
@@ -207,5 +208,12 @@ struct SharedMainToolbarContent: ToolbarContent {
         }
         viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
+    }
+    
+    private func thereareRatedPhotos() -> Bool {
+        if let catalog = viewModel.selectedSource?.url {
+            return viewModel.cullingModel.thereareRatedPhotos(in: catalog)
+        }
+        return false
     }
 }

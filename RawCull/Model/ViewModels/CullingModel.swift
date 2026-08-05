@@ -54,6 +54,22 @@ final class CullingModel {
         }
     }
 
+    func thereareRatedPhotos(in catalog: URL) -> Bool {
+        if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
+            if let files = savedFiles[index].filerecords {
+                
+                let test = files.compactMap { file in
+                    if let rating = file.rating {
+                        return rating >= 2
+                    }
+                    return nil
+                }
+                return test.count > 0
+            }
+        }
+        return false
+    }
+    
     func resetSavedFiles(in catalog: URL) {
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
             savedFiles[index].filerecords = []
