@@ -305,9 +305,9 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
-    
+
     private var hasExplicitRatings: Bool {
-            guard let catalog = viewModel.selectedSource?.url else { return false }
-            return viewModel.cullingModel.hasExplicitRatings(in: catalog)
-        }
+        guard let catalog = viewModel.selectedSource?.url else { return false }
+        return viewModel.cullingModel.hasExplicitRatings(in: catalog)
+    }
 }

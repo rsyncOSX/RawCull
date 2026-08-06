@@ -37,7 +37,9 @@ nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Ident
 
     static let defaultSelection = Self.sam3
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {

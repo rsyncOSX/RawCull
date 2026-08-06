@@ -223,13 +223,13 @@ final class CullingModel {
         saveTask = nil
         await persist(savedFiles)
     }
-    
+
     func hasExplicitRatings(in catalog: URL) -> Bool {
-            savedFiles
-                .first(where: { $0.catalog == catalog })?
-                .filerecords?
-                .contains(where: { $0.rating != nil }) ?? false
-        }
+        savedFiles
+            .first(where: { $0.catalog == catalog })?
+            .filerecords?
+            .contains(where: { $0.rating != nil }) ?? false
+    }
 
     private func persist(_ snapshot: [SavedFiles]) async {
         do {
