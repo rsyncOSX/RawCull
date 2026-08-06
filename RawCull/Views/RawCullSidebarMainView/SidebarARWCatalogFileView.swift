@@ -36,7 +36,9 @@ struct SidebarARWCatalogFileView: View {
                 }
             } else if scanning {
                 ProgressView("Scanning images: \(counterScannedFiles)")
-            } else if files.isEmpty, !scanning {
+            } else if files.isEmpty,
+                        !scanning,
+                        viewModel.cullingModel.savedFiles.count ==  0 {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
                 } description: {
