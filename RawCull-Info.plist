@@ -7,7 +7,7 @@
 	<key>BAHasManagedAssetPacks</key>
 	<true/>
 	<key>BAManifestURL</key>
-	<string>https://example.invalid/rawcull/models/manifest.json</string>
+	<string>https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v1/manifest.json</string>
 	<key>BAUsesAppleHosting</key>
 	<false/>
 	<key>CFBundleDevelopmentRegion</key>

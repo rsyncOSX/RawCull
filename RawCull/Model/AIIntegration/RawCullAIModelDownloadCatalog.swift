@@ -113,8 +113,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     "https://huggingface.co/laion/CLIP-ViT-B-32-256x256-DataComp-s34B-b86K",
                 ),
                 conversionInformationURL: nil,
-                expectedArchiveSHA256: nil,
-                downloadByteCount: nil,
+                expectedArchiveSHA256: "fae9cab286e0e3605d27de01865122f177d515984b152610005cc793012bd3aa",
+                downloadByteCount: 282_967_394,
                 installedByteCount: nil,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",
@@ -127,9 +127,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     textSHA256: "6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986",
                     requiresExplicitAcceptance: false,
                 ),
-                releaseReadiness: .blocked(
-                    reason: "The converted bundle is not release-ready because its exact source-checkpoint revision and source-file checksums have not been cryptographically recorded.",
-                ),
+                releaseReadiness: .ready,
             ),
             RawCullAIModelDownloadDescriptor(
                 id: .clipOpenAI,
@@ -237,7 +235,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 releaseReadiness: .blocked(
                     reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
                 ),
-            )
+            ),
         ],
     )
 

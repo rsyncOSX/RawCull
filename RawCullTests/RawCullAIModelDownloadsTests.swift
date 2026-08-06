@@ -6,23 +6,37 @@ import Testing
 @Suite("AI model downloads", .tags(.smoke))
 struct RawCullAIModelDownloadsTests {
     @Test
-    func `Production models remain blocked by the licence audit`() throws {
+    func `Production catalog enables only the published DataComp pack`() throws {
         let catalog = RawCullAIModelDownloadCatalog.production
 
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
             .efficientSAM,
-            .sam3
+            .sam3,
         ])
-        #expect(catalog.models.allSatisfy {
-            !$0.releaseReadiness.isReady
-        })
+        #expect(
+            catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
+                == true,
+        )
+        #expect(
+            catalog.models
+                .filter { $0.id != .clipDataComp }
+                .allSatisfy { !$0.releaseReadiness.isReady },
+        )
+        #expect(
+            catalog.descriptor(for: .clipDataComp)?.expectedArchiveSHA256
+                == "fae9cab286e0e3605d27de01865122f177d515984b152610005cc793012bd3aa",
+        )
+        #expect(
+            catalog.descriptor(for: .clipDataComp)?.downloadByteCount
+                == 282_967_394,
+        )
         #expect(
             RawCullAIModelDownloadSource.selfHosted(
-                manifestURL:
-                RawCullAIModelDownloadSource.placeholderManifestURL,
-            ).isConfigured == false,
+                manifestURL: RawCullAIModelDownloadSource
+                    .productionManifestURL,
+            ).isConfigured,
         )
 
         for descriptor in catalog.models {
@@ -81,6 +95,21 @@ struct RawCullAIModelDownloadsTests {
         }
 
         #expect(await service.downloadCount() == 0)
+    }
+
+    @Test
+    func `Unconfigured managed service avoids Background Assets access`() async {
+        let service = RawCullManagedBackgroundAssetsModelDownloadService(
+            source: .selfHosted(
+                manifestURL: RawCullAIModelDownloadSource.testManifestURL,
+            ),
+        )
+
+        let state = await service.state(
+            for: testDescriptor(readiness: .ready),
+        )
+
+        #expect(state == .notConfigured)
     }
 
     @MainActor
@@ -276,7 +305,8 @@ struct RawCullAIModelDownloadsTests {
 private final class ModelDownloadTestBundleToken {}
 
 private actor ModelDownloadServiceSpy:
-    RawCullAIModelDownloadServicing {
+    RawCullAIModelDownloadServicing
+{
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
     private var downloads = 0

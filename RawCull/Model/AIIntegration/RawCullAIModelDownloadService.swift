@@ -6,9 +6,24 @@ nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
     case selfHosted(manifestURL: URL)
     case appleHosted
 
-    static let placeholderManifestURL = URL(
+    static let productionManifestURL = URL(
+        string: "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v1/manifest.json",
+    )!
+    static let testManifestURL = URL(
         string: "https://example.invalid/rawcull/models/manifest.json",
     )!
+
+    /// Background Assets cannot validate the relocated application bundle used
+    /// by Xcode's unit-test runner. Keep live networking disabled in that host;
+    /// tests inject download services when they exercise transfer behavior.
+    static var liveManifestURL: URL {
+        if ProcessInfo.processInfo.environment[
+            "XCTestConfigurationFilePath",
+        ] != nil {
+            return testManifestURL
+        }
+        return productionManifestURL
+    }
 
     var isConfigured: Bool {
         switch self {
@@ -98,7 +113,8 @@ nonisolated protocol RawCullAIModelDownloadServicing: Sendable {
 /// Apple-hosted packs. The downloader extension and Info.plist configuration
 /// select the host without changing this service.
 actor RawCullManagedBackgroundAssetsModelDownloadService:
-    RawCullAIModelDownloadServicing {
+    RawCullAIModelDownloadServicing
+{
     private let source: RawCullAIModelDownloadSource
 
     init(source: RawCullAIModelDownloadSource) {
@@ -108,6 +124,10 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     func state(
         for descriptor: RawCullAIModelDownloadDescriptor,
     ) async -> RawCullAIModelDownloadState {
+        guard source.isConfigured else {
+            return .notConfigured
+        }
+
         if AssetPackManager.shared.assetPackIsAvailableLocally(
             withID: descriptor.assetPackID,
         ) {
@@ -116,10 +136,6 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             } catch {
                 return .failed(message: String(describing: error))
             }
-        }
-
-        guard source.isConfigured else {
-            return .notConfigured
         }
 
         do {
@@ -224,8 +240,8 @@ actor RawCullAIModelDownloadCoordinator {
         RawCullAIModelDownloadCoordinator(
             service: RawCullManagedBackgroundAssetsModelDownloadService(
                 source: .selfHosted(
-                    manifestURL:
-                    RawCullAIModelDownloadSource.placeholderManifestURL,
+                    manifestURL: RawCullAIModelDownloadSource
+                        .liveManifestURL,
                 ),
             ),
             acceptanceStore: RawCullAIModelLicenceAcceptanceFileStore(

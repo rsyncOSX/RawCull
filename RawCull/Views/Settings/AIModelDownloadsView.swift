@@ -60,7 +60,7 @@ private struct AIModelDownloadsHeader: View {
             Text("AI Model Downloads")
                 .font(.title2.weight(.semibold))
 
-            Text("RawCull uses on-demand Managed Background Assets. The current self-hosted endpoint is a safe placeholder, and downloads remain disabled until both the server and each model's redistribution evidence are complete.")
+            Text("RawCull uses on-demand Managed Background Assets. Available models download only when you choose Download and run locally after installation.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -447,7 +447,6 @@ private extension RawCullAIModelDownloadState {
         case .checking: "Checking model service…"
         case .validating: "Validating model…"
         case .removing: "Removing model…"
-
         case .unavailable, .licenceRequired, .notConfigured, .ready,
              .downloading, .installed, .failed:
             ""
