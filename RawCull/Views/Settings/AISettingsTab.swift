@@ -50,6 +50,7 @@ private struct AIModelSettingsCard: View {
     @Bindable var model: RawCullAISettingsModel
 
     let useonlyDataCompCLIP = true
+    let useonlySAM3 = true
 
     var body: some View {
         SettingsCard {
@@ -64,31 +65,35 @@ private struct AIModelSettingsCard: View {
                     availableMessage: "SAM 3 model resources are installed.",
                     missingMessage: "SAM 3 model resources are not installed.",
                 )
+                
+                if useonlySAM3 == false {
+                    Divider()
 
-                Divider()
+                    AICapabilityStatusView(
+                        title: "EfficientSAM model",
+                        status: model.capabilities.segmentationModelStatus(for: .efficientSAM),
+                        availableMessage: "EfficientSAM model resources are installed.",
+                        missingMessage: "EfficientSAM model resources are not installed.",
+                    )
 
-                AICapabilityStatusView(
-                    title: "EfficientSAM model",
-                    status: model.capabilities.segmentationModelStatus(for: .efficientSAM),
-                    availableMessage: "EfficientSAM model resources are installed.",
-                    missingMessage: "EfficientSAM model resources are not installed.",
-                )
+                    Divider()
 
-                Divider()
-
-                Picker(
-                    "Deep Review segmentation model",
-                    selection: $model.selectedSegmentationModel,
-                ) {
-                    ForEach(RawCullSegmentationModel.allCases) { segmentationModel in
-                        Text(segmentationModel.displayName)
-                            .tag(segmentationModel)
+                    Picker(
+                        "Deep Review segmentation model",
+                        selection: $model.selectedSegmentationModel,
+                    ) {
+                        ForEach(RawCullSegmentationModel.allCases) { segmentationModel in
+                            Text(segmentationModel.displayName)
+                                .tag(segmentationModel)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .font(.system(size: 12, weight: .medium))
-                .help("Choose the local segmentation model RawCull uses for Deep Review.")
+                    .pickerStyle(.segmented)
+                    .font(.system(size: 12, weight: .medium))
+                    .help("Choose the local segmentation model RawCull uses for Deep Review.")
 
+                }
+
+                
                 Text(segmentationModelMessage)
                     .font(.system(size: 11))
                     .foregroundStyle(
