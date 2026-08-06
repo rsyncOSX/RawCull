@@ -388,6 +388,25 @@ private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAna
 
 @MainActor
 struct CullingModelTests {
+    
+    @Test
+        func `hasExplicitRatings requires a non-nil rating in the requested catalog`() {
+            let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+            let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+            let otherCatalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+            model.mergeScoringResults(
+                [CullingScoringResult(fileName: "unrated.ARW", score: 0.75, saliencySubject: nil)],
+                in: catalog,
+            )
+
+            #expect(!model.hasExplicitRatings(in: catalog))
+            #expect(!model.hasExplicitRatings(in: otherCatalog))
+
+            model.updateRating(fileName: "rejected.ARW", rating: -1, in: catalog)
+            #expect(model.hasExplicitRatings(in: catalog))
+        }
+    
     @Test
     func `cancelling similarity ranking stops its owned distance helper`() async {
         let probe = SimilarityDistanceCancellationProbe()

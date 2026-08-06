@@ -126,7 +126,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         },
                     )
                     .padding(.trailing, 8)
-                    .disabled(viewModel.selectedSource == nil)
+                    .disabled(!hasExplicitRatings)
                 }
             }
 
@@ -305,4 +305,9 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
+    
+    private var hasExplicitRatings: Bool {
+            guard let catalog = viewModel.selectedSource?.url else { return false }
+            return viewModel.cullingModel.hasExplicitRatings(in: catalog)
+        }
 }
