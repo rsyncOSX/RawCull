@@ -119,6 +119,34 @@ struct ReleaseMetadataTests {
     }
 
     @Test
+    func `Background Assets metadata is complete`() throws {
+        let appInfo = try propertyList("RawCull-Info.plist")
+        let initialRestrictions = try #require(
+            appInfo["BAInitialDownloadRestrictions"] as? [String: Any],
+        )
+        #expect(initialRestrictions["BADownloadAllowance"] as? Int == 0)
+        #expect(initialRestrictions["BAEssentialDownloadAllowance"] as? Int == 0)
+        #expect(
+            initialRestrictions["BADownloadDomainAllowList"] as? [String]
+                == ["github.com", "*.githubusercontent.com"],
+        )
+
+        let infoPlist = try PropertyListSerialization.propertyList(
+            from: repositoryData("RawCullModelDownloader/Info.plist"),
+            format: nil,
+        )
+        let root = try #require(infoPlist as? [String: Any])
+        let attributes = try #require(
+            root["EXAppExtensionAttributes"] as? [String: Any],
+        )
+
+        #expect(
+            attributes["EXExtensionPointIdentifier"] as? String
+                == "com.apple.background-asset-downloader-extension",
+        )
+    }
+
+    @Test
     func `model provenance notice hashes are complete and blocked`() throws {
         let provenancePaths = [
             "ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json",

@@ -23,7 +23,7 @@
 	<key>EXAppExtensionAttributes</key>
 	<dict>
 		<key>EXExtensionPointIdentifier</key>
-		<string>com.apple.backgroundassets.managed</string>
+		<string>com.apple.background-asset-downloader-extension</string>
 	</dict>
 </dict>
 </plist>
