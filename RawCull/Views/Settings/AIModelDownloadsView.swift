@@ -60,7 +60,7 @@ private struct AIModelDownloadsHeader: View {
             Text("AI Model Downloads")
                 .font(.title2.weight(.semibold))
 
-            Text("RawCull uses on-demand Managed Background Assets. Available models download only when you choose Download and run locally after installation.")
+            Text("RawCull uses on-demand Managed Background Assets. macOS stores and manages downloaded models, which run locally after installation. Their current access location can change between app launches.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -152,7 +152,9 @@ private struct AIModelDownloadRow: View {
             }
             .accessibilityHint("Cancels this model download without affecting installed models.")
 
-        case .installed:
+        case let .installed(location):
+            ModelLocationButton(location: location)
+
             Button(role: .destructive) {
                 showRemoveConfirmation = true
             } label: {
@@ -204,6 +206,12 @@ private struct AIModelDownloadIdentityView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+
+            if case .installed = state {
+                Text("Stored and managed by macOS.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             if case let .blocked(reason) = descriptor.releaseReadiness {
                 Label {

@@ -62,12 +62,8 @@ enum RawCullAccessibilityPresentation {
                 "Checking availability."
             }
 
-        case let .available(location):
-            if let location {
-                "Available. \(availableMessage) Location: \(location.path)"
-            } else {
-                "Available. \(availableMessage)"
-            }
+        case .available:
+            "Available. \(availableMessage)"
 
         case let .missing(expectedLocations):
             if let location = expectedLocations.first {
@@ -103,7 +99,7 @@ enum RawCullAccessibilityPresentation {
             "Downloading \(Int((min(max(progress, 0), 1) * 100).rounded())) percent"
 
         case .validating: "Validating downloaded model"
-        case let .installed(location): "Installed at \(location.path)"
+        case .installed: "Installed and managed by macOS"
         case .removing: "Removing downloaded model"
         case let .failed(message): "Download failed. \(message)"
         }

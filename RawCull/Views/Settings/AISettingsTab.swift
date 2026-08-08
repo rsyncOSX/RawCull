@@ -62,6 +62,7 @@ private struct AIModelSettingsCard: View {
                         status: model.capabilities.segmentationModelStatus(for: .sam3),
                         availableMessage: "SAM 3 model resources are installed.",
                         missingMessage: "SAM 3 model resources are not installed.",
+                        showsLocationAction: true,
                     )
 
                     Text(segmentationModelMessage)
@@ -82,6 +83,7 @@ private struct AIModelSettingsCard: View {
                         status: model.capabilities.clipModelStatus(for: clipModel),
                         availableMessage: "\(clipModel.displayName) CLIP model resources are installed.",
                         missingMessage: "\(clipModel.displayName) CLIP is not installed.",
+                        showsLocationAction: true,
                     )
                 }
 
@@ -177,6 +179,7 @@ private struct AIIntegrationReadinessCard: View {
                     status: capabilities.visionFeaturePrint,
                     availableMessage: "Vision feature-print similarity is available.",
                     missingMessage: "Vision feature-print similarity is unavailable.",
+                    showsLocationAction: false,
                 )
 
                 Divider()
@@ -186,6 +189,7 @@ private struct AIIntegrationReadinessCard: View {
                     status: capabilities.subjectMaskStorage,
                     availableMessage: "PhotoAIKit mask storage is ready at RawCull's cache location.",
                     missingMessage: "Subject mask storage is unavailable.",
+                    showsLocationAction: false,
                 )
 
                 Divider()
@@ -195,6 +199,7 @@ private struct AIIntegrationReadinessCard: View {
                     status: capabilities.inProcessMaskGeneration,
                     availableMessage: "\(selectedSegmentationModel.displayName) mask generation runs inside RawCull.",
                     missingMessage: "In-process mask generation needs a valid \(selectedSegmentationModel.displayName) model.",
+                    showsLocationAction: false,
                 )
             }
         }
@@ -206,37 +211,46 @@ private struct AICapabilityStatusView: View {
     let status: RawCullAICapabilityStatus
     let availableMessage: String
     let missingMessage: String
+    let showsLocationAction: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: status.iconName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(status.color)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: status.iconName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(status.color)
+                        .accessibilityHidden(true)
 
-                Text("\(title):")
-                    .font(.system(size: 12, weight: .medium))
+                    Text("\(title):")
+                        .font(.system(size: 12, weight: .medium))
 
-                Text(status.displayTitle)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(status.color)
+                    Text(status.displayTitle)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(status.color)
 
-                Spacer()
+                    Spacer()
+                }
+                Text(detailMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(detailMessage)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(RawCullAccessibilityPresentation.capabilityValue(
+                status: status,
+                availableMessage: availableMessage,
+                missingMessage: missingMessage,
+            ))
+
+            if showsLocationAction,
+               case let .available(location?) = status
+            {
+                ModelLocationButton(location: location)
+            }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(RawCullAccessibilityPresentation.capabilityValue(
-            status: status,
-            availableMessage: availableMessage,
-            missingMessage: missingMessage,
-        ))
     }
 
     private var detailMessage: String {
@@ -247,10 +261,7 @@ private struct AICapabilityStatusView: View {
             }
             return "Checking model resources at \(first.path)."
 
-        case let .available(location):
-            if let location {
-                return "\(availableMessage) Location: \(location.path)"
-            }
+        case .available:
             return availableMessage
 
         case let .missing(expectedLocations):

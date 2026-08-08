@@ -38,10 +38,19 @@ struct AccessibilityPresentationTests {
             availableMessage: "SAM 3 is installed.",
             missingMessage: "SAM 3 is not installed.",
         ) == "Missing. SAM 3 is not installed. Expected location: /Models/SAM3")
+        #expect(RawCullAccessibilityPresentation.capabilityValue(
+            status: .available(location: URL(fileURLWithPath: "/temporary/model")),
+            availableMessage: "DataComp CLIP is installed.",
+            missingMessage: "DataComp CLIP is not installed.",
+        ) == "Available. DataComp CLIP is installed.")
         #expect(RawCullAccessibilityPresentation.modelDownloadValue(
             state: .downloading(progress: 0.42),
             licenceAccepted: true,
         ) == "Downloading 42 percent. Licence accepted.")
+        #expect(RawCullAccessibilityPresentation.modelDownloadValue(
+            state: .installed(location: URL(fileURLWithPath: "/temporary/model")),
+            licenceAccepted: true,
+        ) == "Installed and managed by macOS. Licence accepted.")
         #expect(RawCullAccessibilityPresentation.modelDownloadValue(
             state: .failed(message: "Checksum mismatch"),
             licenceAccepted: false,
