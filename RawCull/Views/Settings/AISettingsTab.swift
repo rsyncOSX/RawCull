@@ -49,9 +49,6 @@ struct AISettingsTab: View {
 private struct AIModelSettingsCard: View {
     @Bindable var model: RawCullAISettingsModel
 
-    let useonlyDataCompCLIP = true
-    let useonlySAM3 = true
-
     var body: some View {
         SettingsCard {
             VStack(alignment: .leading, spacing: 12) {
@@ -59,73 +56,40 @@ private struct AIModelSettingsCard: View {
                     .font(.system(size: 14, weight: .semibold))
                 Divider()
 
-                AICapabilityStatusView(
-                    title: "SAM 3 model",
-                    status: model.capabilities.segmentationModelStatus(for: .sam3),
-                    availableMessage: "SAM 3 model resources are installed.",
-                    missingMessage: "SAM 3 model resources are not installed.",
-                )
-                
-                if useonlySAM3 == false {
-                    Divider()
-
+                if RawCullAIModelInclusion.includeSAM3 {
                     AICapabilityStatusView(
-                        title: "EfficientSAM model",
-                        status: model.capabilities.segmentationModelStatus(for: .efficientSAM),
-                        availableMessage: "EfficientSAM model resources are installed.",
-                        missingMessage: "EfficientSAM model resources are not installed.",
+                        title: "SAM 3 model",
+                        status: model.capabilities.segmentationModelStatus(for: .sam3),
+                        availableMessage: "SAM 3 model resources are installed.",
+                        missingMessage: "SAM 3 model resources are not installed.",
                     )
 
-                    Divider()
-
-                    Picker(
-                        "Deep Review segmentation model",
-                        selection: $model.selectedSegmentationModel,
-                    ) {
-                        ForEach(RawCullSegmentationModel.allCases) { segmentationModel in
-                            Text(segmentationModel.displayName)
-                                .tag(segmentationModel)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .font(.system(size: 12, weight: .medium))
-                    .help("Choose the local segmentation model RawCull uses for Deep Review.")
-
+                    Text(segmentationModelMessage)
+                        .font(.system(size: 11))
+                        .foregroundStyle(
+                            model.selectedSegmentationModelStatus.isAvailable
+                                ? .green
+                                : .secondary,
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                
-                Text(segmentationModelMessage)
-                    .font(.system(size: 11))
-                    .foregroundStyle(
-                        model.selectedSegmentationModelStatus.isAvailable
-                            ? .green
-                            : .secondary,
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Divider()
-
-                AICapabilityStatusView(
-                    title: "DataComp CLIP model",
-                    status: model.capabilities.clipModelStatus(for: .dataComp),
-                    availableMessage: "DataComp CLIP model resources are installed.",
-                    missingMessage: "DataComp CLIP is not installed.",
-                )
-
-                if useonlyDataCompCLIP == false {
+                ForEach(RawCullAIModelInclusion.clipModels) { clipModel in
                     Divider()
 
                     AICapabilityStatusView(
-                        title: "OpenAI CLIP model",
-                        status: model.capabilities.clipModelStatus(for: .openAI),
-                        availableMessage: "OpenAI CLIP model resources are installed.",
-                        missingMessage: "OpenAI CLIP is not installed.",
+                        title: "\(clipModel.displayName) CLIP model",
+                        status: model.capabilities.clipModelStatus(for: clipModel),
+                        availableMessage: "\(clipModel.displayName) CLIP model resources are installed.",
+                        missingMessage: "\(clipModel.displayName) CLIP is not installed.",
                     )
+                }
 
+                if RawCullAIModelInclusion.clipModels.count > 1 {
                     Divider()
 
                     Picker("Selected CLIP model", selection: $model.selectedCLIPModel) {
-                        ForEach(RawCullCLIPModel.allCases) { clipModel in
+                        ForEach(RawCullAIModelInclusion.clipModels) { clipModel in
                             Text(clipModel.displayName)
                                 .tag(clipModel)
                         }

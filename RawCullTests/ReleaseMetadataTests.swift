@@ -88,7 +88,6 @@ struct ReleaseMetadataTests {
         let expectedDestinations = [
             "no.blogspot.RawCull.models.clip-datacomp": "Models/CLIP-DataComp",
             "no.blogspot.RawCull.models.clip-openai": "Models/CLIP-OpenAI",
-            "no.blogspot.RawCull.models.efficient-sam": "Models/EfficientSAM",
             "no.blogspot.RawCull.models.sam3": "Models/SAM3",
         ]
         var actualDestinations: [String: String] = [:]
@@ -106,8 +105,8 @@ struct ReleaseMetadataTests {
             #expect(catalog.contains("assetPackID: \"\(assetPackID)\""))
             #expect(catalog.contains("assetPackModelPath: \"\(destination)\""))
         }
-        #expect(catalog.components(separatedBy: "expectedArchiveSHA256: nil").count - 1 == 3)
-        #expect(catalog.components(separatedBy: "releaseReadiness: .blocked").count - 1 == 3)
+        #expect(catalog.components(separatedBy: "expectedArchiveSHA256: nil").count - 1 == 2)
+        #expect(catalog.components(separatedBy: "releaseReadiness: .blocked").count - 1 == 2)
 
         let documentation = try repositoryText("ModelAssets/README.md")
         for (assetPackID, destination) in expectedDestinations {

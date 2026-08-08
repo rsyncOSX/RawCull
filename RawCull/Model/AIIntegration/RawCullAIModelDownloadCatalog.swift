@@ -21,6 +21,35 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
     }
 }
 
+/// Code-only switches controlling which AI models RawCull presents in Settings
+/// and in the model-download sheet.
+nonisolated enum RawCullAIModelInclusion {
+    static let includeOpenAICLIP = false
+    static let includeDataCompCLIP = true
+    static let includeSAM3 = true
+
+    static var clipModels: [RawCullCLIPModel] {
+        RawCullCLIPModel.allCases.filter { model in
+            switch model {
+            case .dataComp: includeDataCompCLIP
+            case .openAI: includeOpenAICLIP
+            }
+        }
+    }
+
+    static var segmentationModels: [RawCullSegmentationModel] {
+        includeSAM3 ? [.sam3] : []
+    }
+
+    fileprivate static var downloadIDs: Set<RawCullAIModelDownloadID> {
+        var ids: Set<RawCullAIModelDownloadID> = []
+        if includeDataCompCLIP { ids.insert(.clipDataComp) }
+        if includeOpenAICLIP { ids.insert(.clipOpenAI) }
+        if includeSAM3 { ids.insert(.sam3) }
+        return ids
+    }
+}
+
 nonisolated struct RawCullAIModelLicenceDescriptor: Equatable, Sendable {
     let name: String
     let version: String?
@@ -94,8 +123,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
         models.first { $0.id == id }
     }
 
-    static let production = Self(
-        models: [
+    static let production: Self = {
+        let models = [
             RawCullAIModelDownloadDescriptor(
                 id: .clipDataComp,
                 displayName: "DataComp CLIP",
@@ -165,43 +194,6 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 ),
             ),
             RawCullAIModelDownloadDescriptor(
-                id: .efficientSAM,
-                displayName: "EfficientSAM",
-                purpose: "Lightweight local subject segmentation for Deep Review.",
-                publisher: "Y. Xiong et al. / Apple Core AI conversion",
-                modelVersion: "EfficientSAM ViT-Tiny, 4×4 segment-everything",
-                upstreamRevision: nil,
-                resourceName: "EfficientSAM",
-                assetPackID: "no.blogspot.RawCull.models.efficient-sam",
-                assetPackModelPath: "Models/EfficientSAM",
-                upstreamSourceURL: requiredURL(
-                    "https://github.com/yformer/EfficientSAM",
-                ),
-                modelCardURL: requiredURL(
-                    "https://github.com/apple/coreai-models/tree/main/models/efficient-sam",
-                ),
-                conversionInformationURL: requiredURL(
-                    "https://github.com/apple/coreai-models/blob/main/models/efficient-sam/README.md",
-                ),
-                expectedArchiveSHA256: nil,
-                downloadByteCount: nil,
-                installedByteCount: nil,
-                licence: RawCullAIModelLicenceDescriptor(
-                    name: "Apache License 2.0",
-                    version: "2.0",
-                    summary: "EfficientSAM is distributed under the Apache License 2.0; preserve its notices when redistributing the converted model.",
-                    completeTextURL: requiredURL(
-                        "https://github.com/yformer/EfficientSAM/blob/main/LICENSE",
-                    ),
-                    bundledTextResourceName: nil,
-                    textSHA256: nil,
-                    requiresExplicitAcceptance: false,
-                ),
-                releaseReadiness: .blocked(
-                    reason: "The EfficientSAM bundle is not release-ready until its exact source revision, checkpoint checksum, converted asset fingerprint, archive checksum, and notices are recorded.",
-                ),
-            ),
-            RawCullAIModelDownloadDescriptor(
                 id: .sam3,
                 displayName: "Meta SAM 3",
                 purpose: "Local subject segmentation for Deep Review.",
@@ -236,8 +228,13 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
                 ),
             ),
-        ],
-    )
+        ]
+        return Self(
+            models: models.filter {
+                RawCullAIModelInclusion.downloadIDs.contains($0.id)
+            },
+        )
+    }()
 
     private static func requiredURL(_ string: String) -> URL {
         guard let url = URL(string: string) else {

@@ -6,13 +6,12 @@ import Testing
 @Suite("AI model downloads", .tags(.smoke))
 struct RawCullAIModelDownloadsTests {
     @Test
-    func `Production catalog enables only the published DataComp pack`() throws {
+    func `Production catalog includes only configured models`() throws {
         let catalog = RawCullAIModelDownloadCatalog.production
 
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
-            .efficientSAM,
             .sam3,
         ])
         #expect(
@@ -44,8 +43,7 @@ struct RawCullAIModelDownloadsTests {
                 descriptor.licence.bundledTextResourceName
             else {
                 #expect(
-                    descriptor.id == .efficientSAM
-                        || descriptor.id == .sam3,
+                    descriptor.id == .sam3,
                 )
                 continue
             }

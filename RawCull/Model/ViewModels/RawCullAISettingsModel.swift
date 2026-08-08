@@ -117,15 +117,23 @@ final class RawCullAISettingsModel {
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
-        self.selectedModel = userDefaults.string(
+        let savedCLIPModel = userDefaults.string(
             forKey: Self.selectedCLIPModelPreferenceKey,
         )
         .flatMap(RawCullCLIPModel.init(rawValue:))
+        self.selectedModel = savedCLIPModel.flatMap { model in
+            RawCullAIModelInclusion.clipModels.contains(model) ? model : nil
+        }
+        ?? RawCullAIModelInclusion.clipModels.first
         ?? .defaultSelection
-        self.selectedSegmenter = userDefaults.string(
+        let savedSegmentationModel = userDefaults.string(
             forKey: Self.selectedSegmentationModelPreferenceKey,
         )
         .flatMap(RawCullSegmentationModel.init(rawValue:))
+        self.selectedSegmenter = savedSegmentationModel.flatMap { model in
+            RawCullAIModelInclusion.segmentationModels.contains(model) ? model : nil
+        }
+        ?? RawCullAIModelInclusion.segmentationModels.first
         ?? .defaultSelection
         let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
             cacheDirectory: integration.paths.burstAnalysisDirectory,
@@ -265,6 +273,7 @@ final class RawCullAISettingsModel {
     }
 
     func setSelectedCLIPModel(_ model: RawCullCLIPModel) {
+        guard RawCullAIModelInclusion.clipModels.contains(model) else { return }
         guard selectedModel != model else { return }
         selectedModel = model
         userDefaults.set(model.rawValue, forKey: Self.selectedCLIPModelPreferenceKey)
@@ -272,6 +281,9 @@ final class RawCullAISettingsModel {
     }
 
     func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
+        guard RawCullAIModelInclusion.segmentationModels.contains(model) else {
+            return
+        }
         guard selectedSegmenter != model else { return }
         selectedSegmenter = model
         userDefaults.set(
