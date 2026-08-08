@@ -7,7 +7,7 @@ APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
 DMG_PATH = $(PWD)/$(APP).$(VERSION).dmg
 DMG_SHA256_PATH = $(DMG_PATH).sha256
-SIGNING_IDENTITY = "93M47F4H9T"
+MODEL_DOWNLOADER_PATH = $(BUILD_PATH)/$(APP).app/Contents/Extensions/RawCullModelDownloader.appex
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
 XCODE_RELEASE_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination 'platform=macOS,arch=arm64' -configuration Release -onlyUsePackageVersionsFromResolvedFile
@@ -83,7 +83,8 @@ archive: clean
 	xcodebuild -exportArchive \
 		-exportOptionsPlist "exportOptions.plist" \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
-		-exportPath $(BUILD_PATH)
+		-exportPath $(BUILD_PATH) \
+		-allowProvisioningUpdates
 	echo "Project archived successfully (RELEASE)"
 
 archive-debug: clean
@@ -96,25 +97,32 @@ archive-debug: clean
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 	echo "Application built, starting the export archive..."
 	xcodebuild -exportArchive \
-		-exportOptionsPlist "exportOptions.plist" \
+		-exportOptionsPlist "exportOptionsDebug.plist" \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
 		-exportPath $(BUILD_PATH)
 	echo "Debug build completed successfully"
 
 sign-app:
-	osascript -e 'display notification "Signing application..." with title "Build the RawCull"'
-	echo "Signing application with Developer ID..."
-	codesign --deep --force \
-		--options runtime \
-		--sign $(SIGNING_IDENTITY) \
-		--timestamp \
-		$(APP_PATH)
-	echo "Verifying signature..."
+	osascript -e 'display notification "Verifying Developer ID signatures..." with title "Build the RawCull"'
+	echo "Verifying exported Developer ID signatures..."
+	@test -d "$(MODEL_DOWNLOADER_PATH)" || (echo "Missing model downloader extension: $(MODEL_DOWNLOADER_PATH)"; exit 1)
+	@EXTENSION_SIGNATURE=$$(codesign -dv --verbose=4 "$(MODEL_DOWNLOADER_PATH)" 2>&1); \
+		echo "$$EXTENSION_SIGNATURE"; \
+		echo "$$EXTENSION_SIGNATURE" | grep -q "Authority=Developer ID Application:" || \
+			(echo "RawCullModelDownloader is not signed with Developer ID Application"; exit 1); \
+		echo "$$EXTENSION_SIGNATURE" | grep -q "Timestamp=" || \
+			(echo "RawCullModelDownloader signature has no secure timestamp"; exit 1)
+	codesign --verify --strict --verbose=4 "$(MODEL_DOWNLOADER_PATH)"
 	codesign --verify --deep --strict --verbose=2 $(APP_PATH)
-	codesign -dv --verbose=4 $(APP_PATH)
+	@APP_SIGNATURE=$$(codesign -dv --verbose=4 $(APP_PATH) 2>&1); \
+		echo "$$APP_SIGNATURE"; \
+		echo "$$APP_SIGNATURE" | grep -q "Authority=Developer ID Application:" || \
+			(echo "RawCull is not signed with Developer ID Application"; exit 1); \
+		echo "$$APP_SIGNATURE" | grep -q "Timestamp=" || \
+			(echo "RawCull signature has no secure timestamp"; exit 1)
 	echo "Creating zip for notarization..."
 	ditto -c -k --keepParent $(APP_PATH) $(ZIP_PATH)
-	echo "Application signed successfully"
+	echo "Developer ID signatures verified successfully"
 
 notarize:
 	osascript -e 'display notification "Submitting app for notarization..." with title "Build the RawCull"'
