@@ -63,7 +63,7 @@ test-performance: verify-performance-manifest
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
-	@(git rev-parse --verify --quiet refs/tags/v2.3.4 >/dev/null || git rev-parse --verify --quiet refs/tags/2.3.4 >/dev/null) || (echo "Release blocked: immutable 2.3.4 tag is missing"; exit 1)
+	@(git rev-parse --verify --quiet refs/tags/v3.0.0 >/dev/null || git rev-parse --verify --quiet refs/tags/3.0.0 >/dev/null) || (echo "Release blocked: immutable 3.0.0 tag is missing"; exit 1)
 	@if rg --quiet '"release_status": "blocked"' ModelAssets/Notices/*/PROVENANCE.json; then \
 		echo "Release blocked: model provenance audit is incomplete"; \
 		exit 1; \
