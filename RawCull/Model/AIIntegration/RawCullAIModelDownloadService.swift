@@ -113,8 +113,7 @@ nonisolated protocol RawCullAIModelDownloadServicing: Sendable {
 /// Apple-hosted packs. The downloader extension and Info.plist configuration
 /// select the host without changing this service.
 actor RawCullManagedBackgroundAssetsModelDownloadService:
-    RawCullAIModelDownloadServicing
-{
+    RawCullAIModelDownloadServicing {
     private let source: RawCullAIModelDownloadSource
 
     init(source: RawCullAIModelDownloadSource) {

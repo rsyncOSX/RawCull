@@ -70,12 +70,15 @@ struct FileTableRowView: View {
                         switch viewModel.rating(for: file) {
                         case nil:
                             Text("Unrated").foregroundStyle(.secondary)
+
                         case -1:
                             Label("Rejected", systemImage: "xmark.circle.fill")
                                 .foregroundStyle(.red)
+
                         case 0:
                             Label("Keeper", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
+
                         case let rating?:
                             HStack(spacing: 2) {
                                 ForEach(2 ... 5, id: \.self) { star in

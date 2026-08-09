@@ -417,7 +417,7 @@ struct CullingModelTests {
         model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
 
         model.applyRatingStates(
-            Dictionary(uniqueKeysWithValues: [("one.ARW", Optional<Int>.none)]),
+            Dictionary(uniqueKeysWithValues: [("one.ARW", Int?.none)]),
             in: catalog,
         )
 

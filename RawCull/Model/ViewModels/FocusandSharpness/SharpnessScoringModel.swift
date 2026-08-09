@@ -256,7 +256,7 @@ final class SharpnessScoringModel {
                     }
                 },
             ), !Task.isCancelled,
-                self.activeScoringGeneration == generation
+            self.activeScoringGeneration == generation
             else { return }
 
             self.scores = Dictionary(

@@ -20,7 +20,9 @@ struct SavedFilesReadFailure: Error, Equatable, Identifiable {
     let url: URL
     let message: String
 
-    var id: URL { url }
+    var id: URL {
+        url
+    }
 }
 
 enum SavedFilesReadResult {

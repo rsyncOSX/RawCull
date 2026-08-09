@@ -124,8 +124,8 @@ final class RawCullAISettingsModel {
         self.selectedModel = savedCLIPModel.flatMap { model in
             RawCullAIModelInclusion.clipModels.contains(model) ? model : nil
         }
-        ?? RawCullAIModelInclusion.clipModels.first
-        ?? .defaultSelection
+            ?? RawCullAIModelInclusion.clipModels.first
+            ?? .defaultSelection
         let savedSegmentationModel = userDefaults.string(
             forKey: Self.selectedSegmentationModelPreferenceKey,
         )
@@ -133,8 +133,8 @@ final class RawCullAISettingsModel {
         self.selectedSegmenter = savedSegmentationModel.flatMap { model in
             RawCullAIModelInclusion.segmentationModels.contains(model) ? model : nil
         }
-        ?? RawCullAIModelInclusion.segmentationModels.first
-        ?? .defaultSelection
+            ?? RawCullAIModelInclusion.segmentationModels.first
+            ?? .defaultSelection
         let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
             cacheDirectory: integration.paths.burstAnalysisDirectory,
         )

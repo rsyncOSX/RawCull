@@ -246,8 +246,7 @@ private struct AICapabilityStatusView: View {
             ))
 
             if showsLocationAction,
-               case let .available(location?) = status
-            {
+               case let .available(location?) = status {
                 ModelLocationButton(location: location)
             }
         }

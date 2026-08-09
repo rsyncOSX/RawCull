@@ -43,9 +43,15 @@ nonisolated enum RawCullAIModelInclusion {
 
     fileprivate static var downloadIDs: Set<RawCullAIModelDownloadID> {
         var ids: Set<RawCullAIModelDownloadID> = []
-        if includeDataCompCLIP { ids.insert(.clipDataComp) }
-        if includeOpenAICLIP { ids.insert(.clipOpenAI) }
-        if includeSAM3 { ids.insert(.sam3) }
+        if includeDataCompCLIP {
+            ids.insert(.clipDataComp)
+        }
+        if includeOpenAICLIP {
+            ids.insert(.clipOpenAI)
+        }
+        if includeSAM3 {
+            ids.insert(.sam3)
+        }
         return ids
     }
 }
@@ -227,7 +233,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 releaseReadiness: .blocked(
                     reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
                 ),
-            ),
+            )
         ]
         return Self(
             models: models.filter {
