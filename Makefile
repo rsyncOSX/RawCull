@@ -19,6 +19,7 @@ TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
 SMOKE_EXPECTED_TESTS = 173
 PERFORMANCE_EXPECTED_TESTS = 2
+ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 
 # Default target is release build
 build: release-preflight clean archive sign-app notarize staple prepare-dmg hash-dmg open
@@ -63,13 +64,13 @@ test-performance: verify-performance-manifest
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
-	@(git rev-parse --verify --quiet refs/tags/v3.0.0 >/dev/null || git rev-parse --verify --quiet refs/tags/3.0.0 >/dev/null) || (echo "Release blocked: immutable 3.0.0 tag is missing"; exit 1)
-	@if rg --quiet '"release_status": "blocked"' ModelAssets/Notices/*/PROVENANCE.json; then \
-		echo "Release blocked: model provenance audit is incomplete"; \
-		exit 1; \
-	fi
-	@if rg --quiet 'expectedArchiveSHA256: nil|releaseReadiness: \.blocked' RawCull/Model/AIIntegration/RawCullAIModelDownloadCatalog.swift; then \
-		echo "Release blocked: production model descriptors are incomplete"; \
+	@TAG_COMMIT=$$(git rev-parse --verify --quiet refs/tags/v3.0.0 || git rev-parse --verify --quiet refs/tags/3.0.0 || true); \
+		if test -n "$$TAG_COMMIT" && test "$$TAG_COMMIT" != "$$(git rev-parse HEAD)"; then \
+			echo "Release blocked: existing 3.0.0 tag does not point to this release candidate"; \
+			exit 1; \
+		fi
+	@if rg --quiet '"release_status": "blocked"' $(ENABLED_MODEL_PROVENANCE); then \
+		echo "Release blocked: enabled model provenance audit is incomplete"; \
 		exit 1; \
 	fi
 

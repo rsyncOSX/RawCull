@@ -1,5 +1,9 @@
 # Phase 9 — integrated AI and compatibility regression
 
+> Historical ledger: the green results below apply only to commit `c86906b`.
+> Later beta commits require fresh gates before they can become a release
+> candidate.
+
 ## Outcome
 
 The automated source gates are green on

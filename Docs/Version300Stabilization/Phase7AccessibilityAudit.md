@@ -52,7 +52,8 @@ interactive descendants remain exposed.
   loupe, zoom overlay, and image-source state.
 - Focused AI suites cover download consent/actions, semantic-search UI state,
   and Deep Review cancellation/results.
-- The exact smoke manifest enumerates 169 unique tests and passes all 169.
+- At the Phase 7 commit, the exact smoke manifest enumerated 169 unique tests
+  and passed all 169. Later phase counts are recorded separately.
 - SwiftFormat lint passes for every touched Swift source.
 
 ## Hands-on VoiceOver release checklist

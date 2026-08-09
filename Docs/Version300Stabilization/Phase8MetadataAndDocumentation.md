@@ -1,5 +1,9 @@
 # Phase 8 — 3.0.0 metadata and AI documentation
 
+> Historical ledger: this file records the Phase 8 commit and its build 300
+> artifacts. The active Xcode 27 beta uses build 301. Checksums below are
+> snapshots of the recorded commit, not invariants for later beta commits.
+
 ## Scope
 
 This phase aligns local application and downloader-extension metadata, makes

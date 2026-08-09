@@ -11,17 +11,10 @@ struct RawCullAIModelDownloadsTests {
 
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
-            .clipOpenAI,
-            .sam3,
         ])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
                 == true,
-        )
-        #expect(
-            catalog.models
-                .filter { $0.id != .clipDataComp }
-                .allSatisfy { !$0.releaseReadiness.isReady },
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.expectedArchiveSHA256

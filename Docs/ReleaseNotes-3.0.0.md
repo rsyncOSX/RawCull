@@ -1,7 +1,8 @@
-# RawCull 3.0.0 release notes
+# RawCull 3.0.0 beta release notes
 
 RawCull 3 introduces an optional local-AI layer while retaining the core RAW
-culling workflow. It requires macOS 27 on Apple Silicon.
+culling workflow. This beta requires macOS 27 on Apple Silicon and is expected
+to change with Xcode 27 and its package ecosystem before release.
 
 ## Highlights
 
@@ -27,17 +28,18 @@ its manifest. Manual bundles live below `RawCull/Models` in the user's
 Application Support directory; sandboxed and non-sandboxed paths are listed in
 the project README.
 
-Semantic search needs a valid CLIP model. SAM 3 Deep Review needs a valid SAM 3
-bundle. Model binaries, embeddings, and masks may require substantial disk
-space; exact archive and installed sizes are not published because the three
-download packs are not yet release-ready. The first use of a portable Core AI
-model can also take longer while macOS specializes it for the current Mac.
+Semantic search needs a valid CLIP model. DataComp CLIP is the only managed
+download currently exposed by the beta. OpenAI CLIP and SAM 3 remain excluded
+from the production download catalogue while their release reviews are open.
+Model binaries, embeddings, and masks may require substantial disk space. The
+first use of a portable Core AI model can also take longer while macOS
+specializes it for the current Mac.
 
 ## Known limitations
 
-- Managed Background Assets uses a non-routable placeholder manifest. The
-  in-app download flow remains disabled until archive checksums, sizes,
-  provenance, and redistribution requirements are complete.
+- Managed Background Assets uses the versioned `v1` GitHub manifest for the
+  enabled DataComp pack. OpenAI CLIP and SAM 3 are not exposed for managed
+  download.
 - DataComp CLIP lacks a cryptographic binding from the converted asset to its
   exact source checkpoint. OpenAI CLIP still needs immutable source-revision
   and checkpoint-licence verification. Ungated SAM 3 redistribution still
@@ -48,23 +50,24 @@ model can also take longer while macOS specializes it for the current Mac.
 - VoiceOver traversal, clean-account installation, model-download resume, and
   the real-model/hardware matrix remain manual release gates.
 
-## Release engineering record
+## Current beta engineering record
 
 - Marketing version: 3.0.0
-- Provisional build: 300; App Store Connect availability must be confirmed
+- Provisional build: 301; App Store Connect availability must be confirmed
   before archive or upload
 - Minimum system: macOS 27, Apple Silicon (`arm64`)
 - Bundle identifier: `no.blogspot.RawCull`
-- Stabilization source before this metadata phase:
-  `a62f8a9a627fb8f313174b3dcb4135ccb49a4dfe`
-- Package lock SHA-256:
-  `07ac998bb08e7caccdebdc049cb24dc5e26be8c16a6e83c68f5eabdd9eba4345`
+- Current beta package-lock snapshot SHA-256:
+  `f2d3b6bb5b1d58745a6094ad6261239260d68960725d366f29fb423e241d5036`
 - Model manifest template SHA-256:
   `d422ff5c5fe39370212e704deebd1300587ca9505f605af9ffd2d6960aa5f87e`
-- Model notice catalog aggregate SHA-256:
-  `4b14bce3e3ee9f45d82a4c52a0aee8b1d481a3c009ca423485f732f9ea86f656`
 - Signed artifact, notarization, stapling, Gatekeeper, final artifact SHA-256,
   and immutable tag: pending the Phase 10 release handoff
+
+The package-lock checksum is point-in-time evidence, not a permanent
+invariant. Xcode may legitimately refresh `Package.resolved` during beta
+development. Record a new checksum after dependency review and again when the
+final release candidate is frozen.
 
 The model runtime and licence checksums recorded for this release are audited
 in [`ModelAssets/README.md`](../ModelAssets/README.md). They are provenance

@@ -1,8 +1,8 @@
 # RawCull model asset packs
 
 `manifest.template.json` is the developer-side Managed Background Assets
-manifest skeleton for the four optional model bundles. It contains no model
-files and is not served by the application.
+manifest skeleton for the three managed-download model bundles. It contains no
+model files and is not served by the application.
 
 `Notices` is the checked-in source for each pack's licence, attribution, and
 provenance catalog. Copy the matching catalog into the release staging tree at

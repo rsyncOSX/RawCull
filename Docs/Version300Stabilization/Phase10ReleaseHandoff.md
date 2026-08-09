@@ -1,5 +1,9 @@
 # Phase 10 — independent 3.0.0 release handoff
 
+> Historical ledger: this was a blocked handoff snapshot, not the current beta
+> source of truth. Its hashes remain useful for reproducing that commit but are
+> not expected to match later Xcode-generated beta inputs.
+
 ## Handoff status
 
 RawCull 3.0.0 is **blocked before archive**. This phase prepares a fail-closed
@@ -15,7 +19,7 @@ evidence commit follows it. Once every manual and external blocker is closed,
 the four ordered Phase 9 gates must run again on the exact clean commit that
 will be tagged, with no subsequent source edit.
 
-## Frozen checked-in inputs
+## Inputs frozen for this handoff snapshot
 
 | Input | SHA-256 |
 |---|---|

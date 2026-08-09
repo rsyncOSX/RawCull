@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 157 unique smoke identifiers (170 concrete invocations)
+current baselines are 173 unique smoke identifiers (186 concrete invocations)
 and 2 unique performance identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -46,7 +46,10 @@ temporary stores and has no serialization trait. The Performance plan alone is
 non-parallel because its deliberate shared-cache TSan stress test exercises the
 production singleton while the Vision benchmark measures whole-operation timing.
 
-## Phase 3 Gate Verification — 2026-08-04
+## Historical Phase 3 Gate Verification — 2026-08-04
+
+The counts below record the Phase 3 commit and are not the current manifest
+baseline shown above.
 
 - Red sentinel: a temporary 158th identifier failed intentionally;
   `make test-smoke` propagated Xcode failure 65 and returned nonzero. The

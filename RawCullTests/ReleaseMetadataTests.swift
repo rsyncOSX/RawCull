@@ -20,7 +20,7 @@ struct ReleaseMetadataTests {
         #expect(extensionBlocks.count == 2)
         for block in appBlocks + extensionBlocks {
             #expect(buildSetting("MARKETING_VERSION", in: block) == "3.0.0")
-            #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == "300")
+            #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == "301")
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
             #expect(buildSetting("ENABLE_HARDENED_RUNTIME", in: block) == "YES")
