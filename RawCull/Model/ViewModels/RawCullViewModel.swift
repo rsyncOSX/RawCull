@@ -92,6 +92,9 @@ final class RawCullViewModel {
     }
 
     var selectedFileIDs: Set<FileItem.ID> = []
+    /// Ordered IDs currently rendered by the culling grid. Keyboard and loupe
+    /// navigation use this projection so hidden burst frames cannot become targets.
+    var cullingGridRenderedFileIDs: [FileItem.ID] = []
     var issorting: Bool = false
     var progress: Double = 0
     var max: Double = 0
@@ -195,6 +198,8 @@ final class RawCullViewModel {
     var activeSheet: ActiveSheet?
 
     var rawDiagnosticsPresentation: RawDiagnosticsPresentation?
+    @ObservationIgnored var rawDiagnosticsTask: Task<Void, Never>?
+    @ObservationIgnored var rawDiagnosticsGeneration: UUID?
     var operationFailurePresentation: OperationFailurePresentation?
 
     /// Closure to count scanning files
@@ -206,6 +211,7 @@ final class RawCullViewModel {
     var preloadTask: Task<Void, Never>?
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
+    @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
     @ObservationIgnored var similarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var semanticSimilarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
@@ -383,13 +389,11 @@ final class RawCullViewModel {
     // MARK: - Focus Points
 
     func getFocusPoints() -> [FocusPoint]? {
-        guard focusPoints != nil else { return nil }
-        if let imageName = selectedFile?.name,
-           let points = focusPoints?.filter({ $0.sourceFile == imageName }),
-           points.count == 1 {
-            return points[0].focusPoints
-        }
-        return nil
+        guard let imageName = selectedFile?.name else { return nil }
+        let points = focusPoints?
+            .filter { $0.sourceFile == imageName }
+            .flatMap(\.focusPoints) ?? []
+        return points.isEmpty ? nil : points
     }
 
     // MARK: - Security-scoped resource lifecycle

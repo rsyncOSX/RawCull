@@ -24,6 +24,27 @@ struct CullingGridSelectionState: Equatable {
 }
 
 enum CullingGridSelectionCoordinator {
+    static func reconcileSelection(
+        _ state: CullingGridSelectionState,
+        visibleIDs: [FileItem.ID],
+    ) -> CullingGridSelectionState {
+        let visibleIDSet = Set(visibleIDs)
+        var next = state
+        next.selectedFileIDs.formIntersection(visibleIDSet)
+        if let selectedID = next.selectedFileID,
+           !visibleIDSet.contains(selectedID) {
+            next.selectedFileID = visibleIDs.first
+        }
+        return next
+    }
+
+    static func actionFiles(
+        requestedIDs: Set<FileItem.ID>,
+        renderedFiles: [FileItem],
+    ) -> [FileItem] {
+        renderedFiles.filter { requestedIDs.contains($0.id) }
+    }
+
     static func toggleSelection(
         fileID: FileItem.ID,
         state: CullingGridSelectionState,

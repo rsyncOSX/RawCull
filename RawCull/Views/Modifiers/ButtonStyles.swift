@@ -80,6 +80,7 @@ private struct PressureAnimatedButton: View {
     let isEnabled: Bool
 
     @State private var isAnimatingPressure = false
+    @State private var pressureResetTask: Task<Void, Never>?
 
     var body: some View {
         let pressed = configuration.isPressed
@@ -133,15 +134,22 @@ private struct PressureAnimatedButton: View {
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .onChange(of: pressed) { _, newValue in
                 if newValue, !isAnimatingPressure {
+                    pressureResetTask?.cancel()
                     // Button was just pressed
                     isAnimatingPressure = true
                 } else if !newValue, isAnimatingPressure {
                     // Button was released - hold the animation for specified duration
-                    Task {
+                    pressureResetTask?.cancel()
+                    pressureResetTask = Task {
                         try? await Task.sleep(for: .seconds(pressureHoldDuration))
+                        guard !Task.isCancelled else { return }
                         isAnimatingPressure = false
                     }
                 }
+            }
+            .onDisappear {
+                pressureResetTask?.cancel()
+                pressureResetTask = nil
             }
     }
 }

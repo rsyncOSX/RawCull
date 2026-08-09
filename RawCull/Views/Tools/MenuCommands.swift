@@ -16,10 +16,12 @@ struct MenuCommands: Commands {
     var body: some Commands {
         CommandMenu("Actions") {
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
+                .disabled(extractJPGs == nil)
 
             Divider()
 
             CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
+                .disabled(aborttask == nil)
         }
 
         CommandMenu("Diagnostics") {

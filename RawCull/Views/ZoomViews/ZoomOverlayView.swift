@@ -409,6 +409,9 @@ struct ZoomOverlayView: View {
         .onChange(of: sourceSelection.selected) { _, _ in reload() }
         .onChange(of: viewModel.selectedFile) { _, _ in
             guard viewModel.zoomOverlayVisible else { return }
+            maskTask?.cancel()
+            maskTask = nil
+            focusMask = nil
             sourceSelection.resetForNewImage()
             clearRAWMessage()
             pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
@@ -633,6 +636,7 @@ struct ZoomOverlayView: View {
         guard let cg = viewModel.zoomOverlayCGImage,
               let selectedFile = viewModel.selectedFile
         else { return }
+        let selectedFileID = selectedFile.id
         let downscaled = cg.downscaled(toWidth: 1024)
         let source = downscaled ?? cg
         let config = focusMaskConfig(for: selectedFile)
@@ -645,7 +649,9 @@ struct ZoomOverlayView: View {
             aperture: selectedFile.exifData?.apertureValue,
             scoringSource: sourceSelection.selected == .developedRAW ? .rawDemosaic : .embeddedPreview,
         )
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled,
+              viewModel.selectedFile?.id == selectedFileID
+        else { return }
         await MainActor.run {
             self.focusMask = result.mask
             if let breakdown = result.breakdown {
@@ -843,11 +849,17 @@ struct ZoomOverlayView: View {
     }
 
     private func increaseZoom() {
-        withAnimation(.spring()) { currentScale = min(5.0, currentScale + 0.4) }
+        withAnimation(.spring()) {
+            currentScale = min(5.0, currentScale + 0.4)
+            lastScale = currentScale
+        }
     }
 
     private func decreaseZoom() {
-        withAnimation(.spring()) { currentScale = max(0.5, currentScale - 0.4) }
+        withAnimation(.spring()) {
+            currentScale = max(0.5, currentScale - 0.4)
+            lastScale = currentScale
+        }
     }
 }
 

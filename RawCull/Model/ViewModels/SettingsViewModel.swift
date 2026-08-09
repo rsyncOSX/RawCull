@@ -8,6 +8,19 @@
 import Foundation
 import OSLog
 
+private actor SettingsFileWriter {
+    static let shared = SettingsFileWriter()
+
+    func write(_ data: Data, to fileURL: URL) throws {
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+            attributes: nil,
+        )
+        try data.write(to: fileURL, options: .atomic)
+    }
+}
+
 // Observable settings manager for app configuration
 // Persists settings to JSON in Application Support directory
 
@@ -198,8 +211,6 @@ final class SettingsViewModel {
             validateSettings()
 
             let fileURL = settingsURL
-            let dirURL = fileURL.deletingLastPathComponent()
-
             let settingsToSave = SavedSettings(
                 memoryCacheSizeMB: memoryCacheSizeMB,
                 gridCacheSizeMB: gridCacheSizeMB,
@@ -233,14 +244,7 @@ final class SettingsViewModel {
 
             // Offload blocking directory creation and file write to a background thread
             // to avoid stalling the MainActor. data and URLs are Sendable value types.
-            try await Task.detached(priority: .background) {
-                try FileManager.default.createDirectory(
-                    at: dirURL,
-                    withIntermediateDirectories: true,
-                    attributes: nil,
-                )
-                try data.write(to: fileURL, options: .atomic)
-            }.value
+            try await SettingsFileWriter.shared.write(data, to: fileURL)
 
             Logger.process.debugMessageOnly("Settings saved successfully")
         } catch {

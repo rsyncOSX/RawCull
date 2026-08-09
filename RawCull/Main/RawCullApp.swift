@@ -8,12 +8,33 @@
 import OSLog
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private weak var viewModel: RawCullViewModel?
+    private var terminationTask: Task<Void, Never>?
+
+    func configure(viewModel: RawCullViewModel) {
+        self.viewModel = viewModel
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         true
     }
 
-    func applicationWillTerminate(_: Notification) {}
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let viewModel else { return .terminateNow }
+        guard terminationTask == nil else { return .terminateLater }
+
+        terminationTask = Task {
+            let didSave = await viewModel.cullingModel.flushPersistence()
+            if didSave {
+                viewModel.stopActiveSecurityScopedAccess()
+            }
+            terminationTask = nil
+            sender.reply(toApplicationShouldTerminate: didSave)
+        }
+        return .terminateLater
+    }
 }
 
 @main
@@ -66,10 +87,8 @@ struct RawCullApp: App {
                 .task {
                     await aiSettingsModel.refresh()
                 }
-                .onDisappear {
-                    // Quit the app when the main window is closed
-                    performCleanupTask()
-                    NSApplication.shared.terminate(nil)
+                .onAppear {
+                    appDelegate.configure(viewModel: viewModel)
                 }
         }
         .windowToolbarStyle(.unified)
@@ -103,11 +122,6 @@ struct RawCullApp: App {
                 .environment(viewModel)
         }
         .defaultSize(width: 840, height: 720)
-    }
-
-    private func performCleanupTask() {
-        Logger.process.debugMessageOnly("RawCullApp: performCleanupTask(), shutting down, doing clean up")
-        viewModel.stopActiveSecurityScopedAccess()
     }
 }
 

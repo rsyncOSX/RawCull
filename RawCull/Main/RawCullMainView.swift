@@ -115,14 +115,21 @@ struct RawCullMainView: View {
                 dismissButton: .default(Text("OK")),
             )
         }
-        .alert("Changes Not Saved", isPresented: persistenceErrorIsPresented) {
+        .alert(persistenceAlertTitle, isPresented: persistenceErrorIsPresented) {
             Button("Retry") {
                 Task {
                     await viewModel.cullingModel.retryPersistence()
                 }
             }
+            if viewModel.cullingModel.persistenceLoadFailure != nil {
+                Button("Archive Damaged File and Reset", role: .destructive) {
+                    Task {
+                        await viewModel.cullingModel.archiveCorruptStoreAndReset()
+                    }
+                }
+            }
         } message: {
-            Text("RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")")
+            Text(persistenceAlertMessage)
         }
         .alert("Full Burst Re-index?", isPresented: burstFullReindexIsPresented) {
             if viewModel.hasExistingBurstGroupIndex {
@@ -183,6 +190,19 @@ struct RawCullMainView: View {
             get: { viewModel.cullingModel.persistenceError != nil },
             set: { _ in },
         )
+    }
+
+    private var persistenceAlertTitle: String {
+        viewModel.cullingModel.persistenceLoadFailure == nil
+            ? "Changes Not Saved"
+            : "Saved Culling Data Is Damaged"
+    }
+
+    private var persistenceAlertMessage: String {
+        if viewModel.cullingModel.persistenceLoadFailure != nil {
+            return "RawCull preserved the damaged file and blocked rating changes so it cannot be overwritten. Retry after repairing the file, or archive it and start with an empty saved-data store.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")"
+        }
+        return "RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")"
     }
 
     private var burstFullReindexIsPresented: Binding<Bool> {

@@ -15,6 +15,11 @@ struct ComparisonGridView: View {
     @State private var keyMonitor: Any?
     @State private var scrollPositionID: FileItem.ID?
     @State private var scrollSettleTask: Task<Void, Never>?
+    @State private var reloadTasksByFileID: [FileItem.ID: Task<Void, Never>] = [:]
+    @State private var reloadGenerationByFileID: [FileItem.ID: UUID] = [:]
+    @State private var bulkLoadGeneration: UUID?
+    @State private var imageMutationRevision = 0
+    @State private var focusRegenerationTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -57,9 +62,7 @@ struct ComparisonGridView: View {
                                             viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
                                         },
                                         onSourceChange: {
-                                            Task {
-                                                await reloadImage(for: file)
-                                            }
+                                            startReloadImage(for: file)
                                         },
                                     )
                                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -118,6 +121,11 @@ struct ComparisonGridView: View {
         .onDisappear {
             removeKeyMonitor()
             scrollSettleTask?.cancel()
+            focusRegenerationTask?.cancel()
+            reloadTasksByFileID.values.forEach { $0.cancel() }
+            reloadTasksByFileID = [:]
+            reloadGenerationByFileID = [:]
+            bulkLoadGeneration = nil
         }
         .task(id: loadKey) {
             selectFirstComparisonFileIfNeeded()
@@ -134,9 +142,8 @@ struct ComparisonGridView: View {
             showCandidateInspector = false
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            Task {
-                await regenerateFocusMasks()
-            }
+            focusRegenerationTask?.cancel()
+            focusRegenerationTask = Task { await regenerateFocusMasks() }
         }
     }
 
@@ -200,40 +207,61 @@ struct ComparisonGridView: View {
     }
 
     private func loadImages() async {
+        let generation = UUID()
+        let mutationRevision = imageMutationRevision
+        bulkLoadGeneration = generation
         let result = await ComparisonGridImageCoordinator.loadImages(
             files: files,
             sourceFlags: useThumbnailSourceByFileID,
             viewModel: viewModel,
         )
+        guard !Task.isCancelled,
+              bulkLoadGeneration == generation,
+              imageMutationRevision == mutationRevision
+        else { return }
         imageStates = result.states
         useThumbnailSourceByFileID = result.sourceFlags
+        bulkLoadGeneration = nil
     }
 
-    private func reloadImage(for file: FileItem) async {
+    private func startReloadImage(for file: FileItem) {
+        reloadTasksByFileID[file.id]?.cancel()
+        imageMutationRevision &+= 1
+        let generation = UUID()
+        reloadGenerationByFileID[file.id] = generation
         imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
-        let state = await ComparisonGridImageCoordinator.reloadImage(
-            for: file,
-            sourceFlags: useThumbnailSourceByFileID,
-            viewModel: viewModel,
-        )
-        guard !Task.isCancelled else { return }
-        imageStates[file.id] = state
+        let sourceFlags = useThumbnailSourceByFileID
+        reloadTasksByFileID[file.id] = Task {
+            let state = await ComparisonGridImageCoordinator.reloadImage(
+                for: file,
+                sourceFlags: sourceFlags,
+                viewModel: viewModel,
+            )
+            guard !Task.isCancelled,
+                  reloadGenerationByFileID[file.id] == generation
+            else { return }
+            imageStates[file.id] = state
+            reloadTasksByFileID[file.id] = nil
+            reloadGenerationByFileID[file.id] = nil
+        }
     }
 
     private func regenerateFocusMasks() async {
+        let mutationRevision = imageMutationRevision
         let updatedStates = await ComparisonGridImageCoordinator.regenerateFocusMasks(
             files: files,
             states: imageStates,
             viewModel: viewModel,
         )
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, imageMutationRevision == mutationRevision else { return }
         imageStates = updatedStates
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
-        guard let points = viewModel.focusPoints?.filter({ $0.sourceFile == file.name }),
-              points.count == 1 else { return nil }
-        return points[0].focusPoints
+        let points = viewModel.focusPoints?
+            .filter { $0.sourceFile == file.name }
+            .flatMap(\.focusPoints) ?? []
+        return points.isEmpty ? nil : points
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {

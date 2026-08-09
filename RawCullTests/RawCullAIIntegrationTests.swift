@@ -328,6 +328,10 @@ struct RawCullAIIntegrationTests {
         let defaultsSuite = "RawCullAIIntegrationTests.\(UUID().uuidString)"
         let userDefaults = try #require(UserDefaults(suiteName: defaultsSuite))
         defer { userDefaults.removePersistentDomain(forName: defaultsSuite) }
+        userDefaults.set(
+            RawCullCLIPModel.dataComp.rawValue,
+            forKey: RawCullAISettingsModel.selectedCLIPModelPreferenceKey,
+        )
 
         let paths = isolatedPaths(root: root)
         try FileManager.default.createDirectory(
@@ -353,7 +357,7 @@ struct RawCullAIIntegrationTests {
         )
 
         #expect(model.useCLIPForSimilarity)
-        #expect(model.selectedCLIPModel == .openAI)
+        #expect(model.selectedCLIPModel == .dataComp)
         await model.refresh()
         model.useCLIPForSimilarity = false
         #expect(!model.useCLIPForSimilarity)
@@ -372,7 +376,6 @@ struct RawCullAIIntegrationTests {
             ) == RawCullCLIPModel.dataComp.rawValue,
         )
         #expect(selectedBackends == [
-            "vision-feature-print",
             "vision-feature-print",
             "vision-feature-print",
             "vision-feature-print"

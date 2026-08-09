@@ -16,6 +16,19 @@ import DecodeEncodeGeneric
 import Foundation
 import OSLog
 
+struct SavedFilesReadFailure: Error, Equatable, Identifiable {
+    let url: URL
+    let message: String
+
+    var id: URL { url }
+}
+
+enum SavedFilesReadResult {
+    case missing(URL)
+    case loaded([SavedFiles])
+    case failed(SavedFilesReadFailure)
+}
+
 @MainActor
 final class ReadSavedFilesJSON {
     private let fileName = "savedfiles.json"
@@ -35,9 +48,9 @@ final class ReadSavedFilesJSON {
         self.savedFilesURL = savedFilesURL
     }
 
-    func readjsonfilesavedfiles() -> [SavedFiles]? {
+    func read() -> SavedFilesReadResult {
         guard FileManager.default.fileExists(atPath: savePath.path) else {
-            return nil
+            return .missing(savePath)
         }
 
         let decodeimport = DecodeGeneric()
@@ -46,16 +59,29 @@ final class ReadSavedFilesJSON {
                 decodeimport.decodeArray(DecodeSavedFiles.self, fromFile: savePath.path)
 
             Logger.process.debugMessageOnly("ReadSavedFilesJSON - read filerecords from permanent storage")
-            return data.map { element in
+            return .loaded(data.map { element in
                 SavedFiles(element)
-            }
+            })
         } catch let err {
-            let error = err
             Logger.process.errorMessageOnly(
-                "ReadSavedFilesJSON: some ERROR encoding filerecords \(error)",
+                "ReadSavedFilesJSON: failed to decode saved files: \(err)",
             )
+            return .failed(SavedFilesReadFailure(url: savePath, message: err.localizedDescription))
         }
-        return nil
+    }
+
+    func readjsonfilesavedfiles() -> [SavedFiles]? {
+        guard case let .loaded(savedFiles) = read() else { return nil }
+        return savedFiles
+    }
+
+    static func archiveCorruptStore(at url: URL) throws -> URL {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        let archiveURL = url.deletingLastPathComponent()
+            .appendingPathComponent("savedfiles-corrupt-\(timestamp).json")
+        try FileManager.default.moveItem(at: url, to: archiveURL)
+        return archiveURL
     }
 
     deinit {

@@ -11,7 +11,7 @@ actor FullSizeJPGDiskCache {
         case developedRAW
     }
 
-    private static let cacheKeyVersion = "v5-embedded-jpg-orientation"
+    private static let cacheKeyVersion = "v6-source-identity"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -32,8 +32,13 @@ actor FullSizeJPGDiskCache {
 
     private func cacheURL(for sourceURL: URL, variant: Variant) -> URL {
         let standardizedPath = sourceURL.standardized.path
+        let values = try? sourceURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let fileSize = values?.fileSize ?? -1
+        let modificationTime = values?.contentModificationDate?.timeIntervalSince1970 ?? -1
         let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue)"
-        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)\(variantKey)".utf8)
+        let data = Data(
+            "\(Self.cacheKeyVersion):\(standardizedPath):\(fileSize):\(modificationTime)\(variantKey)".utf8,
+        )
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")

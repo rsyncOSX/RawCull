@@ -6,14 +6,22 @@ struct SavedFilesView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(RawCullViewModel.self) private var viewModel
 
-    @State private var selectedCatalog: SavedFiles?
-    @State private var selectedRecord: FileRecord?
+    @State private var selectedCatalogID: SavedFiles.ID?
+    @State private var selectedRecordID: FileRecord.ID?
     @State private var hoveredCatalog: UUID?
     @State private var hoveredRecord: UUID?
     @State private var showResetAlert = false
 
     private var records: [FileRecord] {
         selectedCatalog?.filerecords ?? []
+    }
+
+    private var selectedCatalog: SavedFiles? {
+        viewModel.cullingModel.savedFiles.first { $0.id == selectedCatalogID }
+    }
+
+    private var selectedRecord: FileRecord? {
+        records.first { $0.id == selectedRecordID }
     }
 
     var body: some View {
@@ -54,8 +62,8 @@ struct SavedFilesView: View {
         .alert("Reset Saved Files", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
                 viewModel.cullingModel.resetAllSavedFiles()
-                selectedCatalog = nil
-                selectedRecord = nil
+                selectedCatalogID = nil
+                selectedRecordID = nil
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -73,14 +81,14 @@ struct SavedFilesView: View {
                 } else {
                     ForEach(viewModel.cullingModel.savedFiles) { entry in
                         Button {
-                            if selectedCatalog?.id != entry.id {
-                                selectedRecord = nil
+                            if selectedCatalogID != entry.id {
+                                selectedRecordID = nil
                             }
-                            selectedCatalog = entry
+                            selectedCatalogID = entry.id
                         } label: {
                             CatalogRow(
                                 entry: entry,
-                                isSelected: selectedCatalog?.id == entry.id,
+                                isSelected: selectedCatalogID == entry.id,
                                 isHovered: hoveredCatalog == entry.id,
                             )
                             .frame(maxWidth: .infinity)
@@ -92,10 +100,10 @@ struct SavedFilesView: View {
                         .accessibilityValue(RawCullAccessibilityPresentation.savedCatalogValue(
                             fileCount: entry.filerecords?.count ?? 0,
                             date: entry.dateStart,
-                            isSelected: selectedCatalog?.id == entry.id,
+                            isSelected: selectedCatalogID == entry.id,
                         ))
                         .accessibilityAddTraits(
-                            selectedCatalog?.id == entry.id ? .isSelected : [],
+                            selectedCatalogID == entry.id ? .isSelected : [],
                         )
                         .onHover { hovering in
                             hoveredCatalog = hovering ? entry.id : nil
@@ -145,11 +153,11 @@ struct SavedFilesView: View {
                 } else {
                     ForEach(records) { record in
                         Button {
-                            selectedRecord = record
+                            selectedRecordID = record.id
                         } label: {
                             FileRecordRow(
                                 record: record,
-                                isSelected: selectedRecord?.id == record.id,
+                                isSelected: selectedRecordID == record.id,
                                 isHovered: hoveredRecord == record.id,
                             )
                             .frame(maxWidth: .infinity)
@@ -159,10 +167,10 @@ struct SavedFilesView: View {
                         .accessibilityValue(RawCullAccessibilityPresentation.savedRecordValue(
                             rating: record.rating,
                             dateTagged: record.dateTagged,
-                            isSelected: selectedRecord?.id == record.id,
+                            isSelected: selectedRecordID == record.id,
                         ))
                         .accessibilityAddTraits(
-                            selectedRecord?.id == record.id ? .isSelected : [],
+                            selectedRecordID == record.id ? .isSelected : [],
                         )
                         .onHover { hovering in
                             hoveredRecord = hovering ? record.id : nil

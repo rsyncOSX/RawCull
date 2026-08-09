@@ -31,7 +31,11 @@ struct FocusPoint: Identifiable {
         let parts = focusLocation
             .split(separator: " ")
             .compactMap { Double($0) }
-        guard parts.count == 4 else { return nil }
+        guard parts.count == 4,
+              parts.allSatisfy(\.isFinite),
+              parts[0] > 0,
+              parts[1] > 0
+        else { return nil }
         self.id = UUID()
         sensorWidth = CGFloat(parts[0])
         sensorHeight = CGFloat(parts[1])

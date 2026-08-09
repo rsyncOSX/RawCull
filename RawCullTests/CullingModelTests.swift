@@ -389,6 +389,65 @@ private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAna
 @MainActor
 struct CullingModelTests {
     @Test
+    func `scored photo stays unrated while explicit keeper is rated`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.mergeScoringResults(
+            [CullingScoringResult(fileName: "scored.ARW", score: 0.7, saliencySubject: nil)],
+            in: catalog,
+        )
+        model.updateRating(fileName: "keeper.ARW", rating: 0, in: catalog)
+
+        #expect(model.isUnrated(photo: "scored.ARW", in: catalog))
+        #expect(model.rating(for: "scored.ARW", in: catalog) == nil)
+        #expect(!model.isUnrated(photo: "keeper.ARW", in: catalog))
+        #expect(model.rating(for: "keeper.ARW", in: catalog) == 0)
+        #expect(model.isUnrated(photo: "missing.ARW", in: catalog))
+    }
+
+    @Test
+    func `restoring unrated state preserves scoring metadata`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        model.mergeScoringResults(
+            [CullingScoringResult(fileName: "one.ARW", score: 0.8, saliencySubject: "bird")],
+            in: catalog,
+        )
+        model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
+
+        model.applyRatingStates(
+            Dictionary(uniqueKeysWithValues: [("one.ARW", Optional<Int>.none)]),
+            in: catalog,
+        )
+
+        let record = model.savedFiles.first?.filerecords?.first
+        #expect(record?.rating == nil)
+        #expect(record?.dateTagged == nil)
+        #expect(record?.sharpnessScore == 0.8)
+        #expect(record?.saliencySubject == "bird")
+    }
+
+    @Test
+    func `corrupt load blocks mutations and preserves in-memory state`() {
+        let url = URL(fileURLWithPath: "/tmp/savedfiles-\(UUID().uuidString).json")
+        let failure = SavedFilesReadFailure(url: url, message: "Malformed JSON")
+        let model = CullingModel(
+            saveDelayNanoseconds: 0,
+            saveHandler: { _ in },
+            loadHandler: { .failed(failure) },
+        )
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        #expect(!model.loadSavedFiles())
+        model.updateRating(fileName: "one.ARW", rating: 5, in: catalog)
+
+        #expect(model.savedFiles.isEmpty)
+        #expect(model.persistenceLoadFailure == failure)
+        #expect(model.persistenceError != nil)
+    }
+
+    @Test
     func `hasExplicitRatings requires a non-nil rating in the requested catalog`() {
         let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
@@ -697,6 +756,23 @@ struct CullingModelTests {
     }
 
     @Test
+    func `SavedFiles equality includes records and burst overrides`() {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let lhs = SavedFiles(
+            catalog: catalog,
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 2),
+        )
+        let rhs = SavedFiles(
+            catalog: catalog,
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 5),
+        )
+
+        #expect(lhs != rhs)
+    }
+
+    @Test
     func `updateRating recreates records after reset leaves empty catalog`() async {
         let recorder = SavedFilesRecorder()
         let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
@@ -718,6 +794,53 @@ struct CullingModelTests {
 
 @MainActor
 struct SavedFilesJSONTests {
+    @Test
+    func `reader distinguishes missing and corrupt stores`() throws {
+        let missingURL = makeIsolatedSavedFilesURL()
+        let root = savedFilesTestRoot(for: missingURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        guard case let .missing(readURL) = ReadSavedFilesJSON(savedFilesURL: missingURL).read() else {
+            Issue.record("Expected a missing-store result")
+            return
+        }
+        #expect(readURL == missingURL)
+
+        try FileManager.default.createDirectory(
+            at: missingURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+        )
+        try Data("{not-json".utf8).write(to: missingURL)
+
+        guard case let .failed(failure) = ReadSavedFilesJSON(savedFilesURL: missingURL).read() else {
+            Issue.record("Expected a corrupt-store failure")
+            return
+        }
+        #expect(failure.url == missingURL)
+        #expect(try Data(contentsOf: missingURL) == Data("{not-json".utf8))
+    }
+
+    @Test
+    func `second write preserves previous store as backup`() async throws {
+        let fileURL = makeIsolatedSavedFilesURL()
+        let root = savedFilesTestRoot(for: fileURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        var saved = SavedFiles(
+            catalog: catalog,
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 2),
+        )
+        try await WriteSavedFilesJSON.write([saved], to: fileURL)
+        saved.filerecords?[0].rating = 5
+
+        try await WriteSavedFilesJSON.write([saved], to: fileURL)
+
+        let backupURL = fileURL.deletingLastPathComponent().appendingPathComponent("savedfiles.backup.json")
+        let backup = try JSONDecoder().decode([DecodeSavedFiles].self, from: Data(contentsOf: backupURL))
+        #expect(backup.first?.filerecords?.first?.rating == 2)
+    }
+
     @Test
     func `write creates Application Support directory and saved files JSON`() async throws {
         let fileURL = makeIsolatedSavedFilesURL()
@@ -847,6 +970,10 @@ struct RawCullViewModelCullingTests {
         viewModel.selectedSource = catalog
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         viewModel.cullingModel.updateRatings(fileNames: ["one.ARW", "two.ARW"], rating: 2, in: catalog.url)
+        viewModel.cullingModel.mergeScoringResults(
+            [CullingScoringResult(fileName: "scored.ARW", score: 0.7, saliencySubject: nil)],
+            in: catalog.url,
+        )
 
         viewModel.rebuildRatingCache()
 
@@ -859,9 +986,11 @@ struct RawCullViewModelCullingTests {
         let viewModel = RawCullViewModel()
         let rejected = makeCullingTestFile("rejected.ARW")
         let keeper = makeCullingTestFile("keeper.ARW")
+        let unrated = makeCullingTestFile("unrated.ARW")
         let star = makeCullingTestFile("star.ARW")
         viewModel.ratingCache = [
             rejected.name: -1,
+            keeper.name: 0,
             star.name: 4
         ]
 
@@ -871,6 +1000,7 @@ struct RawCullViewModelCullingTests {
 
         viewModel.ratingFilter = .keepers
         #expect(viewModel.passesRatingFilter(keeper))
+        #expect(!viewModel.passesRatingFilter(unrated))
         #expect(!viewModel.passesRatingFilter(star))
 
         viewModel.ratingFilter = .stars(4)

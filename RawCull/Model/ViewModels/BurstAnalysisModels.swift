@@ -121,5 +121,5 @@ struct BurstAnalysisProgress: Codable, Equatable {
 
 struct BurstUndoEntry: Equatable {
     let groupID: Int
-    let previousRatingsByFileName: [String: Int]
+    let previousRatingsByFileName: [String: Int?]
 }

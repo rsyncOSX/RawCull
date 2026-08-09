@@ -32,29 +32,53 @@ struct CullingScoringResult {
 final class CullingModel {
     private(set) var savedFiles = [SavedFiles]()
     private(set) var persistenceError: String?
+    private(set) var persistenceLoadFailure: SavedFilesReadFailure?
     private(set) var hasUnsavedChanges = false
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private let saveDelayNanoseconds: UInt64
     @ObservationIgnored private let saveHandler: @Sendable ([SavedFiles]) async throws -> Void
+    @ObservationIgnored private let loadHandler: @MainActor () -> SavedFilesReadResult
+    @ObservationIgnored private var persistenceRevision: UInt64 = 0
 
     init(
         saveDelayNanoseconds: UInt64 = 350_000_000,
         saveHandler: @escaping @Sendable ([SavedFiles]) async throws -> Void = { savedFiles in
             try await WriteSavedFilesJSON.write(savedFiles)
         },
+        loadHandler: @escaping @MainActor () -> SavedFilesReadResult = {
+            ReadSavedFilesJSON().read()
+        },
     ) {
         self.saveDelayNanoseconds = saveDelayNanoseconds
         self.saveHandler = saveHandler
+        self.loadHandler = loadHandler
     }
 
-    func loadSavedFiles() {
-        if let readjson = ReadSavedFilesJSON().readjsonfilesavedfiles() {
-            savedFiles = readjson
+    @discardableResult
+    func loadSavedFiles() -> Bool {
+        switch loadHandler() {
+        case .missing:
+            savedFiles = []
+            persistenceLoadFailure = nil
+            persistenceError = nil
+            return true
+
+        case let .loaded(loadedFiles):
+            savedFiles = loadedFiles
+            persistenceLoadFailure = nil
+            persistenceError = nil
+            return true
+
+        case let .failed(failure):
+            persistenceLoadFailure = failure
+            persistenceError = "RawCull could not read saved culling data at \(failure.url.path). The file has been preserved and automatic changes are blocked. \(failure.message)"
+            return false
         }
     }
 
     func resetSavedFiles(in catalog: URL) {
+        guard canMutate else { return }
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
             savedFiles[index].filerecords = []
             savedFiles[index].burstWinnerOverrides = []
@@ -63,6 +87,7 @@ final class CullingModel {
     }
 
     func resetAllSavedFiles() {
+        guard canMutate else { return }
         savedFiles.removeAll()
         scheduleSave()
     }
@@ -77,10 +102,15 @@ final class CullingModel {
     }
 
     func isUnrated(photo: String, in catalog: URL) -> Bool {
-        guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else {
-            return false
-        }
-        return savedFiles[index].filerecords?.contains { $0.fileName == photo } ?? false
+        rating(for: photo, in: catalog) == nil
+    }
+
+    func rating(for photo: String, in catalog: URL) -> Int? {
+        savedFiles
+            .first(where: { $0.catalog == catalog })?
+            .filerecords?
+            .first(where: { $0.fileName == photo })?
+            .rating
     }
 
     func updateRating(fileName: String, rating: Int, in catalog: URL) {
@@ -88,7 +118,7 @@ final class CullingModel {
     }
 
     func updateRatings(fileNames: [String], rating: Int, in catalog: URL) {
-        guard !fileNames.isEmpty else { return }
+        guard canMutate, !fileNames.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
 
@@ -104,7 +134,7 @@ final class CullingModel {
     }
 
     func applyRatings(_ ratingsByFileName: [String: Int], in catalog: URL) {
-        guard !ratingsByFileName.isEmpty else { return }
+        guard canMutate, !ratingsByFileName.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
 
@@ -119,8 +149,30 @@ final class CullingModel {
         scheduleSave()
     }
 
+    func applyRatingStates(_ ratingsByFileName: [String: Int?], in catalog: URL) {
+        guard canMutate, !ratingsByFileName.isEmpty else { return }
+        let date = Date().en_string_from_date()
+        let catalogIndex = ensureCatalog(catalog, dateStart: date)
+
+        for (fileName, rating) in ratingsByFileName {
+            if let recordIndex = savedFiles[catalogIndex].filerecords?
+                .firstIndex(where: { $0.fileName == fileName }) {
+                savedFiles[catalogIndex].filerecords?[recordIndex].rating = rating
+                savedFiles[catalogIndex].filerecords?[recordIndex].dateTagged = rating == nil ? nil : date
+            } else if let rating {
+                upsertRecord(
+                    catalogIndex: catalogIndex,
+                    fileName: fileName,
+                    dateTagged: date,
+                    rating: rating,
+                )
+            }
+        }
+        scheduleSave()
+    }
+
     func mergeScoringResults(_ results: [CullingScoringResult], in catalog: URL) {
-        guard !results.isEmpty else { return }
+        guard canMutate, !results.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
 
@@ -141,6 +193,7 @@ final class CullingModel {
 
     // periphery:ignore
     func upsertBurstWinnerOverride(_ override: BurstWinnerOverride, in catalog: URL) {
+        guard canMutate else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
         let normalizedOverride = BurstWinnerOverride(
@@ -176,6 +229,7 @@ final class CullingModel {
     }
 
     func pruneStaleBurstOverrides(validFileNames: Set<String>, in catalog: URL) {
+        guard canMutate else { return }
         guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
         let original = savedFiles[index].burstWinnerOverrides ?? []
         let pruned = original.filter {
@@ -195,11 +249,14 @@ final class CullingModel {
     }
 
     private func scheduleSave() {
+        persistenceRevision &+= 1
         let snapshot = savedFiles
+        let revision = persistenceRevision
         let delay = saveDelayNanoseconds
 
         saveTask?.cancel()
         hasUnsavedChanges = true
+        guard persistenceLoadFailure == nil else { return }
         saveTask = Task {
             do {
                 try await Task.sleep(nanoseconds: delay)
@@ -207,21 +264,44 @@ final class CullingModel {
                 return
             }
             guard !Task.isCancelled else { return }
-            await persist(snapshot)
+            _ = await persist(snapshot, revision: revision)
         }
     }
 
-    func retryPersistence() async {
+    @discardableResult
+    func retryPersistence() async -> Bool {
+        if persistenceLoadFailure != nil {
+            return loadSavedFiles()
+        }
         saveTask?.cancel()
         saveTask = nil
-        await persist(savedFiles)
+        return await persist(savedFiles, revision: persistenceRevision)
     }
 
-    func flushPersistence() async {
-        guard hasUnsavedChanges else { return }
+    @discardableResult
+    func flushPersistence() async -> Bool {
+        guard persistenceLoadFailure == nil else { return false }
+        guard hasUnsavedChanges else { return true }
         saveTask?.cancel()
         saveTask = nil
-        await persist(savedFiles)
+        return await persist(savedFiles, revision: persistenceRevision)
+    }
+
+    @discardableResult
+    func archiveCorruptStoreAndReset() async -> Bool {
+        guard let failure = persistenceLoadFailure else { return true }
+        do {
+            _ = try ReadSavedFilesJSON.archiveCorruptStore(at: failure.url)
+            savedFiles = []
+            persistenceLoadFailure = nil
+            persistenceError = nil
+            persistenceRevision &+= 1
+            hasUnsavedChanges = true
+            return await persist(savedFiles, revision: persistenceRevision)
+        } catch {
+            persistenceError = "RawCull could not preserve the damaged saved-data file. \(error.localizedDescription)"
+            return false
+        }
     }
 
     func hasExplicitRatings(in catalog: URL) -> Bool {
@@ -231,17 +311,24 @@ final class CullingModel {
             .contains(where: { $0.rating != nil }) ?? false
     }
 
-    private func persist(_ snapshot: [SavedFiles]) async {
+    private func persist(_ snapshot: [SavedFiles], revision: UInt64) async -> Bool {
         do {
             try await saveHandler(snapshot)
-            guard snapshot == savedFiles else { return }
-            hasUnsavedChanges = false
-            persistenceError = nil
+            if revision == persistenceRevision {
+                hasUnsavedChanges = false
+                persistenceError = nil
+            }
+            return true
         } catch {
             hasUnsavedChanges = true
             persistenceError = error.localizedDescription
             Logger.process.errorMessageOnly("CullingModel: failed to persist saved files: \(error)")
+            return false
         }
+    }
+
+    private var canMutate: Bool {
+        persistenceLoadFailure == nil
     }
 
     private func ensureCatalog(_ catalog: URL, dateStart: String?) -> Int {

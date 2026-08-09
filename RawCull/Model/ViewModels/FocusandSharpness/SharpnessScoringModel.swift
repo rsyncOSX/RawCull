@@ -63,6 +63,8 @@ final class SharpnessScoringModel {
     }
 
     private var _scoringTask: Task<Void, Never>?
+    @ObservationIgnored private var activeScoringRequest: ScoringRequest?
+    @ObservationIgnored private var activeScoringGeneration: UUID?
     @ObservationIgnored private nonisolated let analysisAdapter: RawCullPhotoAnalysisAdapter
     private var scoringCompletionTimes = [TimeInterval]()
     private var lastScoringCompletionTime: Date?
@@ -112,6 +114,8 @@ final class SharpnessScoringModel {
     func cancelScoring() {
         _scoringTask?.cancel()
         _scoringTask = nil
+        activeScoringRequest = nil
+        activeScoringGeneration = nil
         isScoring = false
         scores = [:]
         saliencyInfo = [:]
@@ -176,13 +180,25 @@ final class SharpnessScoringModel {
             return
         }
 
-        if let existingTask = _scoringTask {
+        let request = ScoringRequest(
+            fileIDs: files.map(\.id),
+            signature: scoringSignature,
+            maximumConcurrentTasks: effectiveMaxConcurrentScoringTasks,
+        )
+
+        if let existingTask = _scoringTask,
+           activeScoringRequest == request {
             Logger.process.debugMessageOnly(
-                "SharpnessScoringModel.scoreFiles(): awaiting the existing scoring task",
+                "SharpnessScoringModel.scoreFiles(): coalescing an identical scoring request",
             )
             await existingTask.value
             return
         }
+
+        _scoringTask?.cancel()
+        let generation = UUID()
+        activeScoringRequest = request
+        activeScoringGeneration = generation
 
         isScoring = true
 
@@ -213,11 +229,15 @@ final class SharpnessScoringModel {
 
         let workTask = Task {
             defer {
-                Logger.process.debugMessageOnly(
-                    "SharpnessScoringModel.scoreFiles(): scoring task finished with \(self.scores.count) scores",
-                )
-                self._scoringTask = nil
-                self.isScoring = false
+                if self.activeScoringGeneration == generation {
+                    Logger.process.debugMessageOnly(
+                        "SharpnessScoringModel.scoreFiles(): scoring task finished with \(self.scores.count) scores",
+                    )
+                    self._scoringTask = nil
+                    self.activeScoringRequest = nil
+                    self.activeScoringGeneration = nil
+                    self.isScoring = false
+                }
             }
 
             guard let results = await analysisAdapter.analyzeBatch(
@@ -228,13 +248,16 @@ final class SharpnessScoringModel {
                 maximumConcurrentTasks: maxConcurrent,
                 progress: { completedCount, totalCount in
                     await MainActor.run {
+                        guard self.activeScoringGeneration == generation else { return }
                         self.recordScoringProgress(
                             completedCount: completedCount,
                             totalCount: totalCount,
                         )
                     }
                 },
-            ), !Task.isCancelled else { return }
+            ), !Task.isCancelled,
+                self.activeScoringGeneration == generation
+            else { return }
 
             self.scores = Dictionary(
                 uniqueKeysWithValues: results.compactMap { result in
@@ -262,6 +285,12 @@ final class SharpnessScoringModel {
 
         _scoringTask = workTask
         await workTask.value
+    }
+
+    private struct ScoringRequest: Equatable {
+        let fileIDs: [FileItem.ID]
+        let signature: SharpnessScoringSignature
+        let maximumConcurrentTasks: Int
     }
 
     private func recordScoringProgress(completedCount: Int, totalCount: Int) {

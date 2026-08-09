@@ -106,6 +106,29 @@ struct CullingGridCoordinatorTests {
         #expect(shift.selectedFileIDs == Set(ids[0 ... 3]))
     }
 
+    @Test
+    func `hidden files are pruned from selection and action targets`() {
+        let visible = makeGridTestFile("visible.ARW")
+        let hidden = makeGridTestFile("hidden.ARW")
+        let state = CullingGridSelectionState(
+            selectedFileID: hidden.id,
+            selectedFileIDs: [visible.id, hidden.id],
+        )
+
+        let reconciled = CullingGridSelectionCoordinator.reconcileSelection(
+            state,
+            visibleIDs: [visible.id],
+        )
+        let targets = CullingGridSelectionCoordinator.actionFiles(
+            requestedIDs: state.selectedFileIDs,
+            renderedFiles: [visible],
+        )
+
+        #expect(reconciled.selectedFileID == visible.id)
+        #expect(reconciled.selectedFileIDs == [visible.id])
+        #expect(targets.map(\.id) == [visible.id])
+    }
+
     @Test(.tags(.smoke))
     func `badge selection counts and matching ids come from burst and saliency labels`() {
         let best = makeGridTestFile("best.ARW")

@@ -51,6 +51,9 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                            viewModel.showsBurstGroups,
                            !viewModel.similarityModel.burstGroups.isEmpty {
                             let visible = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, $0) })
+                            if !viewModel.cullingGridRenderedFileIDs.isEmpty {
+                                return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+                            }
                             return viewModel.similarityModel.burstGroups.flatMap { group in
                                 group.fileIDs.compactMap { visible[$0] }
                             }

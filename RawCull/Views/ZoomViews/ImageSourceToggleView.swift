@@ -24,7 +24,8 @@ nonisolated struct ImageSourceSelectionState: Equatable {
     }
 
     mutating func markDevelopedRAWUnavailable() {
-        selected = previous
+        selected = previous == .developedRAW ? .thumbnail : previous
+        previous = .developedRAW
         rawUnavailable = true
     }
 

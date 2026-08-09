@@ -7,6 +7,7 @@ import SwiftUI
 
 struct FileTableRowView: View {
     @Bindable var viewModel: RawCullViewModel
+    @State private var searchTask: Task<Void, Never>?
 
     var body: some View {
         let filteredFiles = viewModel.filteredFiles.compactMap { file in
@@ -65,16 +66,28 @@ struct FileTableRowView: View {
                 sortOrder: $viewModel.sortOrder,
             ) {
                 TableColumn("Rating") { file in
-                    HStack(spacing: 2) {
-                        let rating = viewModel.getRating(for: file)
-                        ForEach(2 ... 5, id: \.self) { star in
-                            Image(systemName: star <= rating ? "star.fill" : "star")
-                                .foregroundStyle(star <= rating ? .yellow : .gray)
-                                .font(.system(size: 12))
+                    Group {
+                        switch viewModel.rating(for: file) {
+                        case nil:
+                            Text("Unrated").foregroundStyle(.secondary)
+                        case -1:
+                            Label("Rejected", systemImage: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                        case 0:
+                            Label("Keeper", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        case let rating?:
+                            HStack(spacing: 2) {
+                                ForEach(2 ... 5, id: \.self) { star in
+                                    Image(systemName: star <= rating ? "star.fill" : "star")
+                                        .foregroundStyle(star <= rating ? .yellow : .gray)
+                                        .font(.system(size: 12))
+                                }
+                            }
                         }
                     }
                 }
-                .width(90)
+                .width(110)
 
                 TableColumn("Name", value: \.name) { file in
                     HStack(spacing: 8) {
@@ -107,9 +120,14 @@ struct FileTableRowView: View {
             }
         }
         .onChange(of: viewModel.searchText) { _, _ in
-            Task(priority: .background) {
+            searchTask?.cancel()
+            searchTask = Task(priority: .background) {
                 await viewModel.handleSearchTextChange()
             }
+        }
+        .onDisappear {
+            searchTask?.cancel()
+            searchTask = nil
         }
     }
 }

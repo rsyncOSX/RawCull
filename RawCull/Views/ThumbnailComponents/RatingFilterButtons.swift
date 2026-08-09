@@ -33,6 +33,9 @@ struct RatingFilterButtons: View {
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())
                 .help(rating == -1 ? "Show only rejected images" : "Show only \(rating)-star images")
+                .accessibilityLabel(rating == -1 ? "Rejected images" : "\(rating)-star images")
+                .accessibilityValue(activeRating == rating ? "Selected" : "Not selected")
+                .accessibilityAddTraits(activeRating == rating ? .isSelected : [])
             }
 
             // Keepers button (rating == 0)
@@ -49,6 +52,9 @@ struct RatingFilterButtons: View {
             .buttonStyle(.borderless)
             .contentShape(Rectangle())
             .help("Show only keepers (rating 0)")
+            .accessibilityLabel("Keeper images")
+            .accessibilityValue(activeRating == 0 ? "Selected" : "Not selected")
+            .accessibilityAddTraits(activeRating == 0 ? .isSelected : [])
 
             if activeRating != nil {
                 Button { onClear() } label: {
@@ -58,6 +64,7 @@ struct RatingFilterButtons: View {
                 .buttonStyle(.borderless)
                 .contentShape(Rectangle())
                 .help("Show all thumbnails")
+                .accessibilityLabel("Clear rating filter")
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }

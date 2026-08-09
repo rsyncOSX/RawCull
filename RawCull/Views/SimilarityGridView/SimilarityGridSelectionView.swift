@@ -72,6 +72,10 @@ struct SimilarityGridSelectionView: View {
                 SemanticSearchFailureView(message: message)
             }
         }
+        .onDisappear {
+            pendingRegroupTask?.cancel()
+            pendingRegroupTask = nil
+        }
     }
 
     private func scheduleBurstRegroup() {

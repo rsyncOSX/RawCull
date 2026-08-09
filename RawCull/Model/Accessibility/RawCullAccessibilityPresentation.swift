@@ -170,7 +170,7 @@ enum RawCullAccessibilityPresentation {
             "Preparing Deep Review for \(count(totalCount, singular: "candidate"))."
 
         case let .running(progress) where progress.groupID == groupID:
-            "Running Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
+            "Running SAM 3 Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
 
         case let .completing(activeGroupID) where activeGroupID == groupID:
             "Completing Deep Review."

@@ -1325,11 +1325,352 @@ These won't destroy your photos, but they make the app feel unpolished or waste 
 
 # 🛠️ The Recommended Action Plan
 
-The auditors recommend the development team fix the issues in this specific order:
+This plan covers **Protect the Data**, **Fix Background Task Tracking**,
+**Lock Down UI Actions**, and **Clean Up the Minors**. Export correctness and
+the gated AI downloader remain separate release workstreams. The phases below
+are ordered by dependency and user risk rather than by the section order of
+the findings.
 
-1.  **Protect the Data (Top Priority):** Fix the "Unrated vs. Keeper" logic. Ensure the app forces a save when the user quits. Make sure corrupted save files trigger an error instead of being overwritten.
-2.  **Make Exporting Honest:** Add collision detection so files don't overwrite each other. Make sure the app actually tells the user if a file copy fails or a photo is dropped.
-3.  **Fix Background Task Tracking:** Implement strict "cancellation tokens." If a user clicks a new photo, the app must instantly kill the background loading task for the *old* photo to prevent ghost images and wasted CPU.
-4.  **Lock Down UI Actions:** Ensure that keyboard shortcuts and batch ratings can *only* target photos that are currently visible on the screen.
-5.  **Clean Up the Minors:** Batch-fix the accessibility issues, memory leaks, and zoom glitches.
-6.  **Prepare for AI Release:** Add strict security hash checks to the AI model downloader before turning that feature on for the public.
+## Planning rules
+
+- A durable culling decision must never depend on a display fallback. `nil`
+  means unrated; `0` means the user explicitly chose Keeper.
+- An asynchronous result may update the app only while its request identity is
+  still current. Cancellation reduces wasted work; identity validation is the
+  final protection against stale commits.
+- Selection, navigation, batch actions, and keyboard shortcuts must consume the
+  same ordered file projection that SwiftUI renders.
+- Every Critical fix lands with a deterministic regression test. Avoid timing-
+  based sleeps in concurrency tests; use controlled continuations or test
+  doubles to decide completion order.
+- Keep changes reviewable. Mix findings only when they share an invariant or
+  code seam, as described below.
+
+## Phase 0 — Establish safety fixtures and failure seams
+
+Do this before changing behavior so subsequent phases can prove that data is
+not lost.
+
+1. Add saved-store fixtures for:
+   - a missing store;
+   - a valid store containing unrated, Keeper, rejected, and starred records;
+   - an older valid schema;
+   - malformed/truncated JSON.
+2. Make persistence and expensive image/scoring operations injectable in
+   tests. Test doubles must be able to pause, fail, observe cancellation, and
+   complete requests out of order.
+3. Add small, pure test seams for the rendered file projection and command
+   target validation. UI tests should verify wiring; most visibility rules can
+   then be tested without launching a window.
+4. Record the current Swift concurrency assumptions in the implementation
+   notes: Swift 6, complete strict concurrency for tests, Main Actor default
+   isolation for the app, and Approachable Concurrency enabled. New work must
+   preserve explicit ownership rather than adding `Task.detached`,
+   `nonisolated(unsafe)`, or `@unchecked Sendable` escape hatches.
+
+**Exit gate:** the new fixtures and controllable test doubles compile, and the
+existing focused culling, sharpness, and grid tests still pass unchanged.
+
+## Phase 1 — Protect culling data end to end
+
+This is the release-blocking foundation. Complete it before changing scoring,
+selection, or image-loading behavior.
+
+### 1A. Make rating state explicit
+
+1. Make `FileRecord.rating` the single source of truth:
+   - `nil` = unrated;
+   - `-1` = rejected;
+   - `0` = explicit Keeper;
+   - `2...5` = explicit star rating.
+2. Replace decision-making through `getRating(...) ?? 0`-style fallbacks with
+   an optional rating query or a small explicit rating-state value. A display
+   helper may still choose a visual fallback, but filters, statistics, undo,
+   and persistence may not use it.
+3. Rebuild `ratingCache` with explicit ratings only. Make `isUnrated` return
+   true when the catalog, record, or rating is absent, and rename it if needed
+   so callers do not need inverted logic.
+4. Update all rating consumers together: Unrated/Keeper filters, scan
+   statistics, rating presentation, sharpness/burst target filters, and any
+   accessibility descriptions.
+5. Change burst undo snapshots to store optional prior ratings. Restoring an
+   unrated photo must remove only its explicit rating while preserving its
+   scoring metadata; it must not create a Keeper record.
+
+**Regression tests:** scored-but-unrated stays Unrated; explicit Keeper stays
+Keeper; statistics distinguish all states; filters are mutually correct; and
+burst undo restores `nil` instead of persisting `0`.
+
+### 1B. Give persistence a real commit identity
+
+1. Increment a monotonic in-memory persistence revision for every mutation.
+   Capture both revision and snapshot when scheduling a save.
+2. On save success, clear `hasUnsavedChanges` only if the completed revision is
+   still current. A stale completion may never mark newer state clean.
+3. Fix `SavedFiles` equality/hash semantics to include persisted payloads, or
+   stop using model equality for commit ownership entirely. Prefer the revision
+   for save correctness even after equality is fixed.
+4. Make `flushPersistence()` and retry return a success/failure result so
+   catalog switching and termination can stop when durability is not assured.
+5. Keep writes serialized through the existing writer actor and preserve the
+   atomic replacement behavior.
+
+**Regression tests:** two edits around a paused save; an older completion after
+a newer edit; failed save followed by retry of the newest state; and flush
+during the debounce window.
+
+### 1C. Separate “missing” from “corrupt” saved data
+
+1. Change the reader to return a typed outcome: missing, loaded data, or a
+   recoverable read/decode failure with the source URL and underlying error.
+2. Never replace in-memory state with an empty array after a corrupt read, and
+   block automatic saves to that path while recovery is unresolved.
+3. Surface a persistent, user-facing recovery alert. Safe actions are to retry,
+   reveal/preserve the damaged file, restore a known-good backup if available,
+   or explicitly reset. A reset must first move the damaged file to a dated
+   backup; it must not silently overwrite it.
+4. Maintain one known-good backup when replacing the store so a partial write,
+   schema mistake, or manual corruption has a recovery path.
+5. Emit failure logs in Release builds as well as showing the alert.
+
+**Regression tests:** missing is a clean first run; malformed and incompatible
+stores do not enable writes; recovery preserves the damaged bytes; explicit
+reset archives them; and a valid older schema still loads.
+
+### 1D. Flush at destructive lifecycle boundaries
+
+1. Before replacing catalog state, await a successful persistence flush. If it
+   fails, keep the current catalog and its in-memory edits active and show the
+   persistence recovery UI.
+2. Remove unconditional termination from the main window's `onDisappear`.
+3. Route app termination through `NSApplicationDelegate`: return
+   `.terminateLater`, await the flush, stop security-scoped access after the
+   flush, then call `reply(toApplicationShouldTerminate:)`. Reject termination
+   when the save fails so the user can retry or explicitly discard.
+4. Ensure repeated Quit requests share the same owned flush operation instead
+   of starting overlapping writes.
+
+**Regression tests:** switch catalogs immediately after rating; quit
+immediately after rating; save failure during switch/quit; retry then quit; and
+closing the main window while a diagnostics window remains open.
+
+**Phase 1 exit gate:** no path can confuse unrated with Keeper, load corruption
+cannot be overwritten without explicit recovery, and every catalog/termination
+transition either durably flushes the newest revision or remains in the app
+with a visible error.
+
+## Phase 2 — Make the rendered file set the action boundary
+
+Do this next because it prevents new durable changes from targeting photos the
+user cannot see.
+
+1. Create one ordered “rendered files” projection for each grid mode. In burst
+   mode it must apply filtering, review-queue state, collapsed/clean state, and
+   `BurstGroupCleanViewPolicy.visibleFiles(...)` exactly once.
+2. Use that projection for all of the following:
+   - `ForEach` rendering;
+   - single and shift-range selection;
+   - “select matching badge”;
+   - batch rating/rejection;
+   - left/right keyboard navigation;
+   - zoom-overlay navigation.
+3. When a filter or collapse operation hides a selected ID, immediately prune
+   it from multi-selection and move or clear the primary selection using a
+   documented nearest-visible rule.
+4. Add a final target guard at the mutation boundary. Rating commands should
+   intersect requested IDs with the current rendered-ID set immediately before
+   writing, even if the selection was valid when the command began.
+5. Disable menu and keyboard commands when there is no focused scene, no
+   selected visible photo, or no valid batch target. A command must not silently
+   no-op or retain a hidden target.
+6. Keep stable `FileItem.ID` identity throughout the projection; do not use
+   indices, offsets, or mutable presentation content as SwiftUI identity.
+
+**Regression tests:** collapsed burst members cannot be selected, navigated
+to, zoomed to, or rated; collapsing/filtering prunes an existing selection;
+range order matches screen order; a state change between command dispatch and
+mutation rejects the now-hidden target; and commands disable without focus.
+
+**Phase 2 exit gate:** every culling mutation can be traced to a file ID in the
+currently rendered projection at the moment of mutation.
+
+## Phase 3 — Track background work by owner and request identity
+
+Cancellation is cooperative, so this phase combines owned task handles with
+request keys/generations. A canceled operation may finish internally, but it
+must be unable to publish stale pixels, analysis, progress, or persisted data.
+
+### 3A. Standardize the per-feature pattern
+
+For each feature below, define:
+
+1. an owner that retains the task for exactly as long as its result is useful;
+2. an immutable request key containing the inputs that define correctness;
+3. cancellation of the previous owned task when the key changes;
+4. cancellation checkpoints after expensive suspension points and inside long
+   loops; and
+5. a current-key check immediately before every UI or persistence commit.
+
+Prefer SwiftUI `.task(id:)` for view-lifetime work and structured child tasks
+for parallel work. Use stored unstructured tasks only when work intentionally
+outlives one view callback, and cancel/nil them during owner teardown.
+
+### 3B. Fix scoring request ownership
+
+1. Define the sharpness request key from the ordered/set file IDs, scoring
+   source, effective detector configuration/signature, thumbnail size, and
+   concurrency setting.
+2. Coalesce only identical requests. A different request cancels and replaces
+   the current generation (or enters an explicit queue if later product
+   requirements require both).
+3. Keep progress and result dictionaries generation-owned. Only the current
+   generation may clear, publish, or persist them; an old task's `defer` must
+   not clear a newer task reference or `isScoring` state.
+4. Propagate cancellation into batch analysis workers and check it before
+   merging scoring results into `CullingModel`.
+
+**Regression tests:** overlap full-catalog and scoped-burst requests with
+different sources/configurations; identical requests coalesce; the old task
+observes cancellation; and only the new generation publishes and persists.
+
+### 3C. Fix selected-photo and comparison evidence
+
+1. Key comparison image work by file ID, selected image source, and analysis
+   configuration. Source toggles cancel the prior per-file load; bulk loads
+   cannot publish partial canceled dictionaries over newer state.
+2. Clear a pane to an explicit loading state before starting its replacement
+   request. Commit only when the pane's full key is still current.
+3. On zoom selection change, cancel mask generation and clear the old
+   `focusMask` synchronously before loading the new image. Key regenerated masks
+   by file ID and configuration.
+4. Give raw diagnostics requests the selected file ID/generation guard. Clear
+   the previous histogram/diagnostics when selection changes or loading fails.
+5. Replace detached comparison sharpening with structured, cancellation-
+   inheriting work, with checkpoints around CPU-heavy processing.
+
+**Regression tests:** deliberately finish old image/source/mask/diagnostics
+requests last and prove none can repaint the new file; canceled bulk loads
+cannot replace newer dictionaries; leaving the view cancels sharpening.
+
+### 3D. Close adjacent task-lifetime leaks
+
+1. Convert table search to `.task(id: searchText)` or one owned search task and
+   reject stale query results.
+2. Cancel the similarity regroup debounce when its view disappears.
+3. Retain and replace the pressed-state animation reset task so old timers
+   cannot modify a new press.
+4. Clear `countingScannedFiles` when the sidebar disappears and avoid retaining
+   stale view state in the longer-lived model.
+5. Make directory discovery inherit/check cancellation and bound file metadata
+   fan-out to a measured concurrency limit.
+
+**Phase 3 exit gate:** cancellation/lifetime tests cover every owned task, and
+no stale request can commit even when a test double ignores cancellation and
+finishes last.
+
+## Phase 4 — Clean up the remaining Non-Critical findings
+
+Land these as focused batches after the integrity phases. Minor fixes already
+touching a Phase 2 or Phase 3 file should accompany that phase when doing so
+reduces duplicated state logic.
+
+### 4A. Zoom and image-state polish
+
+1. Route toolbar, keyboard, and gesture zoom through one clamped setter that
+   updates both the displayed scale and the gesture baseline.
+2. Reset zoom/pan baselines when the file changes and test mixed button/pinch
+   sequences in the main thumbnail and zoom overlay.
+3. Make developed-RAW failure choose the next actually available source rather
+   than falling back to the same unavailable source.
+4. Clear stale thumbnails/histograms at request start, even where existing
+   cancellation already prevents a late repaint.
+5. Honor the requested `ThumbnailLoader` target size and add source metadata to
+   full-size cache identity so replaced files cannot reuse stale previews.
+
+### 4B. Accessibility and command semantics
+
+1. Give every rating-filter control a localized accessibility label, value,
+   hint where useful, button trait, and selected state. Do not rely on color or
+   `.help` as its accessible name.
+2. Remove the destructive role from the Settings Save action and reserve that
+   role for irreversible actions.
+3. Render and announce rejected, unrated, Keeper, and star states distinctly in
+   the table and shared rating controls.
+4. Verify keyboard focus, disabled command state, and VoiceOver reading order
+   for grid and comparison actions.
+
+### 4C. Memory, cache, diagnostics, and metadata robustness
+
+1. Cap the memory diagnostics sample history with an explicit rolling limit;
+   stopping or restarting a session must release its task and samples as
+   documented.
+2. Add a byte-budget eviction policy to the thumbnail disk cache alongside age
+   pruning, and exercise it with large synthetic catalogs.
+3. Replace off-main `NSImage.lockFocus()` drawing with a bitmap/`CGContext`
+   path, then re-audit the remaining `NSImage` sendability assumptions. Do not
+   widen unsafe annotations.
+4. Validate focus metadata dimensions and finiteness before normalization, and
+   merge legitimate multiple AF points for the same file instead of requiring
+   exactly one model.
+5. Keep files missing similarity artifacts visible as singleton/unavailable
+   groups rather than dropping them from the burst workflow.
+6. Resolve Saved Files detail selection through stable IDs so it observes live
+   model updates.
+7. Serialize Settings saves, preserve Release error logging, and pin the moving
+   `xgrammar` dependency to a reviewed version or commit before updating the
+   lockfile.
+
+### 4D. Minor UX and cleanup correctness
+
+1. Distinguish “catalog is empty” from “current filters have no matches.”
+2. Bound or cancel every delayed UI task during owner teardown.
+3. Report cleanup failures that leave temporary metadata behind and renew stale
+   security-scoped bookmarks. These copy-adjacent items may land with the
+   separate export/copy workstream if that code is already being changed there.
+4. Remove or harden unused crash-prone helpers rather than leaving latent traps.
+
+**Phase 4 exit gate:** focused unit/interaction tests pass, VoiceOver labels and
+command states are manually checked, memory diagnostics remain bounded during
+an extended run, and cache/zoom behavior is exercised on replaced files and
+mixed input methods.
+
+## Recommended delivery slices
+
+Use the following review/merge order; do not combine all phases into one pull
+request:
+
+1. **Test seams and saved-store fixtures** (Phase 0).
+2. **Rating state plus undo/statistics/filter migration** (Phase 1A).
+3. **Persistence revision, corruption recovery, catalog and quit flush**
+   (Phases 1B–1D). These belong together because the recovery UI must understand
+   every reason a transition can be refused.
+4. **Rendered projection plus guarded action targets** (Phase 2).
+5. **Sharpness request identity** (Phase 3B).
+6. **Image/mask/diagnostics generations plus adjacent task cleanup**
+   (Phases 3C–3D).
+7. **Zoom/accessibility polish** (Phases 4A–4B).
+8. **Resource and housekeeping batches** (Phases 4C–4D), split further by
+   subsystem when useful.
+
+After every slice, run the focused tests first and then the full RawCull test
+suite. After slices 3, 4, and 6, also perform a manual adversarial pass: rate
+then immediately quit/switch catalogs; rapidly collapse/filter/navigate and use
+shortcuts; and rapidly switch photos/sources while image and mask work is in
+flight.
+
+## Completion criteria
+
+These four workstreams are complete only when:
+
+- unrated, Keeper, rejected, and starred decisions survive scoring, undo,
+  relaunch, catalog switching, and immediate quit without changing meaning;
+- corrupt saved data is preserved and produces an actionable error instead of
+  an empty writable store;
+- every durable UI action targets a currently rendered file at commit time;
+- superseded tasks are canceled where possible and are always rejected at
+  commit time;
+- stale pixels, masks, diagnostics, and progress cannot be presented under a
+  newer file/request identity; and
+- the scoped Non-Critical accessibility, memory, zoom, cache, diagnostics, and
+  housekeeping findings are either closed with tests or explicitly assigned to
+  the separate export/AI workstreams with a documented reopen condition.

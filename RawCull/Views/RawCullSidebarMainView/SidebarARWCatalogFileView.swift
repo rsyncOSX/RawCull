@@ -36,9 +36,7 @@ struct SidebarARWCatalogFileView: View {
                 }
             } else if scanning {
                 ProgressView("Scanning images: \(counterScannedFiles)")
-            } else if files.isEmpty,
-                      !scanning,
-                      viewModel.cullingModel.savedFiles.isEmpty {
+            } else if viewModel.files.isEmpty, !scanning {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
                 } description: {
@@ -49,6 +47,12 @@ struct SidebarARWCatalogFileView: View {
                     } label: {
                         Label("Add Catalog", systemImage: "plus")
                     }
+                }
+            } else if files.isEmpty {
+                ContentUnavailableView {
+                    Label("No Matching Files", systemImage: "line.3.horizontal.decrease.circle")
+                } description: {
+                    Text("The catalog contains RAW images, but none match the current filters.")
                 }
             } else {
                 ZStack {
@@ -142,6 +146,9 @@ struct SidebarARWCatalogFileView: View {
                     self.counterScannedFiles = count
                 }
             }
+        }
+        .onDisappear {
+            viewModel.countingScannedFiles = nil
         }
     }
 

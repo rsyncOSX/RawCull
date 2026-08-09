@@ -171,9 +171,19 @@ struct MainThumbnailImageView: View {
                                     canZoomOut: viewModel.scale > 0.5,
                                     canZoomIn: viewModel.scale < 4.0,
                                     canReset: viewModel.scale != 1.0 || viewModel.offset != .zero,
-                                    onZoomOut: { withAnimation(.spring()) { viewModel.scale = max(0.5, viewModel.scale - 0.2) } },
+                                    onZoomOut: {
+                                        withAnimation(.spring()) {
+                                            viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                            viewModel.lastScale = viewModel.scale
+                                        }
+                                    },
                                     onZoomReset: { withAnimation(.spring()) { viewModel.resetZoom() } },
-                                    onZoomIn: { withAnimation(.spring()) { viewModel.scale = min(4.0, viewModel.scale + 0.2) } },
+                                    onZoomIn: {
+                                        withAnimation(.spring()) {
+                                            viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                            viewModel.lastScale = viewModel.scale
+                                        }
+                                    },
                                 )
                                 .padding(.bottom, 12)
                             }

@@ -215,7 +215,7 @@ display value.
 
 | Package (resolved identity) | Resolved pin | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
-| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `2cb07d604beee3549df4d361a5d48b3e9506fb87` | AI contracts, validated Core AI resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
+| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `1e2eaccd00947fbadda300e4a617842479cae7b9` | AI contracts, validated Core AI resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
 | [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | `1.2.0` | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.2.8` | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
@@ -238,9 +238,9 @@ though RawCull does not import their products directly:
 | `swift-huggingface` | `0.9.0` | Hugging Face model download and metadata support used by model tooling |
 | `swift-jinja` | `2.4.2` | Prompt-template rendering used by model tooling |
 | `swift-nio` | `2.101.3` | Networking and event-loop support used transitively |
-| `swift-system` | `1.7.5` | System-call wrappers used transitively |
+| `swift-system` | `1.8.0` | System-call wrappers used transitively |
 | `swift-transformers` | `1.3.3` | Tokenizer and transformer model support used by the AI package graph |
-| `xgrammar` | revision `cee45aa95b8cdb5b16a8e11c037336870ec22369` | Grammar-constrained model tooling |
+| `xgrammar` | revision `3210db25b1d144a26904dce5935102f38e014902` | Grammar-constrained model tooling; the lockfile records this reviewed commit while the upstream transitive requirement remains `main` |
 | `yyjson` | `0.12.0` | C JSON engine used by transitive model tooling |
 
 ## Workflows and package boundaries

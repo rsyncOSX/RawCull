@@ -525,7 +525,7 @@ extension RawCullViewModel {
         guard let entry = lastBurstUndoEntry,
               let selectedSource
         else { return }
-        cullingModel.applyRatings(entry.previousRatingsByFileName, in: selectedSource.url)
+        cullingModel.applyRatingStates(entry.previousRatingsByFileName, in: selectedSource.url)
         rebuildRatingCache()
         lastBurstUndoEntry = nil
         if var result = burstAnalysisResults[entry.groupID] {
@@ -699,7 +699,7 @@ extension RawCullViewModel {
             targets = activeFiles.filter { selectedFileIDs.contains($0.id) }
         } else if case let .stars(rating) = ratingFilter {
             let visible = filteredFiles.isEmpty ? activeFiles : filteredFiles
-            targets = visible.filter { getRating(for: $0) == rating }
+            targets = visible.filter { self.rating(for: $0) == rating }
         } else {
             targets = activeFiles
         }
@@ -817,7 +817,7 @@ extension RawCullViewModel {
     private func captureUndo(groupID: Int, files: [FileItem]) {
         lastBurstUndoEntry = BurstUndoEntry(
             groupID: groupID,
-            previousRatingsByFileName: Dictionary(uniqueKeysWithValues: files.map { ($0.name, getRating(for: $0)) }),
+            previousRatingsByFileName: Dictionary(uniqueKeysWithValues: files.map { ($0.name, rating(for: $0)) }),
         )
     }
 

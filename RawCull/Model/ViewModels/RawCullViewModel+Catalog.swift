@@ -13,6 +13,22 @@ extension RawCullViewModel {
             return
         }
 
+        let previousSource = currentselectedSource
+        catalogTransitionTask?.cancel()
+        catalogTransitionTask = Task {
+            guard await cullingModel.flushPersistence() else {
+                if selectedSource == source {
+                    selectedSource = previousSource
+                }
+                return
+            }
+            guard !Task.isCancelled, selectedSource == source else { return }
+            beginCatalogLoad(for: source)
+            catalogTransitionTask = nil
+        }
+    }
+
+    private func beginCatalogLoad(for source: ARWSourceCatalog?) {
         selectedFileID = nil
         selectedFileIDs = []
 
@@ -128,7 +144,7 @@ extension RawCullViewModel {
         }
 
         scanning = false
-        cullingModel.loadSavedFiles()
+        guard cullingModel.loadSavedFiles() else { return }
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
@@ -199,8 +215,20 @@ extension RawCullViewModel {
     }
 
     func handleSearchTextChange() async {
+        let requestedSearchText = searchText
+        let requestedSortOrder = sortOrder
+        let requestedFiles = files
         issorting = true
-        var sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
+        var sorted = await ScanFiles.sortFiles(
+            requestedFiles,
+            by: requestedSortOrder,
+            searchText: requestedSearchText,
+        )
+        guard !Task.isCancelled,
+              searchText == requestedSearchText,
+              sortOrder == requestedSortOrder,
+              files.map(\.id) == requestedFiles.map(\.id)
+        else { return }
         sorted = applyFilters(to: sorted)
         filteredFiles = sorted
         issorting = false

@@ -24,7 +24,7 @@ extension RawCullViewModel {
 
         if case let .stars(rating) = ratingFilter {
             let visible = filteredFiles.isEmpty ? ordered : filteredFiles
-            return visible.filter { getRating(for: $0) == rating }
+            return visible.filter { self.rating(for: $0) == rating }
         }
 
         return ordered

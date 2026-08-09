@@ -86,6 +86,7 @@ final class MemoryDiagnosticsViewModel {
     @ObservationIgnored private let memoryModel = MemoryViewModel()
 
     static let samplingInterval: Duration = .seconds(5)
+    static let maximumEntryCount = 720
 
     deinit {
         samplingTask?.cancel()
@@ -196,6 +197,9 @@ final class MemoryDiagnosticsViewModel {
             latestFirstUsableGridMilliseconds: contention.latestFirstUsableGridMilliseconds,
         )
         entries.append(entry)
+        if entries.count > Self.maximumEntryCount {
+            entries.removeFirst(entries.count - Self.maximumEntryCount)
+        }
     }
 
     private nonisolated func bytesToMB(_ bytes: UInt64) -> Int {
