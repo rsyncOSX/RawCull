@@ -7,6 +7,8 @@
 > `version-3.0.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27
 > to build. For macOS 26, use `version-2.3.4`.
 
+**The version 3.0.0 beta is removed; a new beta will be uploaded in some days. There have been some changes to how the AI models are exported for CoreAI which has impacts on, like, the semantic search.**
+
 RawCull is a native macOS photo review and culling application for Sony ARW RAW
 files. It combines fast embedded-preview loading with focus-point extraction,
 sharpness analysis, visual similarity, burst grouping, ratings, and selective
