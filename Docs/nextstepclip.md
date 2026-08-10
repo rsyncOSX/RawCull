@@ -1,4 +1,4 @@
-# OpenAI CLIP: Next-Step Cookbook
+# CLIP Verification Cookbook
 
 This cookbook starts from the state reached after correcting OpenAI CLIP ViT-B/32 preprocessing in PhotoAIKit and rebuilding RawCullFB. It is intended to be followed later, in order, without relying on the history of the debugging session.
 
@@ -13,7 +13,8 @@ The OpenAI CLIP integration now passes the technical parity and integration sani
 - A JPEG/end-to-end parity floor of `0.998` passes.
 - The corrected semantic run completed all 77 queries and all 453 image-similarity anchors.
 - Semantic ranking no longer exhibits the previous integration collapse.
-- The corrected RawCullFB Release build succeeded against the local sibling PhotoAIKit.
+- The corrected RawCullFB Release build succeeded, and RawCullFB now pins the
+  same published PhotoAIKit revision remotely.
 
 The technical integration is therefore credible. Production release still requires labeled semantic relevance and image-similarity evaluation.
 
@@ -47,14 +48,16 @@ There are three relevant projects:
 | PhotoAIKit | `/Users/thomas/GitHub/RawCull/PhotoAIKit` | Corrected CLIP preprocessing implementation |
 | RawCullFB | `/Users/thomas/GitHub/RawCull/RawCullFB` | Application consuming PhotoAIKit |
 
-PhotoAIKit currently contains uncommitted changes in:
+PhotoAIKit is clean and the corrected implementation is committed at:
 
-- `Sources/CoreAICLIPBackend/CoreAICLIPProvider.swift`
-- `Tests/PhotoAIKitTests/CLIPTextCapabilityTests.swift`
+```text
+6e3216027b267c27ccaf99d334807b18ea1aaec9
+```
 
-RawCullFB currently points to the local sibling package at `../PhotoAIKit`. This local reference is useful for development, but it must be replaced with a published, immutable PhotoAIKit revision before a release build is distributed.
-
-Do not discard either project's changes while completing this cookbook.
+RawCullFB already uses the remote PhotoAIKit repository pinned to that exact
+revision. Treat it as `PHOTOAIKIT_REVISION` throughout this cookbook. If a later
+revision is tested, record it explicitly and repeat parity, indexing, semantic,
+and similarity validation before accepting the change.
 
 ## 3. Phase A: finalize PhotoAIKit
 
@@ -68,7 +71,8 @@ git diff -- Sources/CoreAICLIPBackend/CoreAICLIPProvider.swift
 git diff -- Tests/PhotoAIKitTests/CLIPTextCapabilityTests.swift
 ```
 
-Expected modified files are only the provider and its tests. Investigate any additional file before staging it.
+The checkout should now be clean. Any modification is new work and must be
+reviewed independently before it becomes part of the verified configuration.
 
 The implementation should include all of the following:
 
@@ -87,14 +91,10 @@ swift test --filter CLIPTextCapabilityTests
 swift test
 ```
 
-Expected result at the time this cookbook was written:
+Require every selected test and the complete suite to pass. Test counts are not
+a release gate and may increase as PhotoAIKit evolves.
 
-- 17 focused CLIP tests pass.
-- 38 total tests in four suites pass.
-
-If the test count increases later, require all tests to pass; do not treat the old count as a fixed maximum.
-
-### A3. Commit and publish PhotoAIKit
+### A3. Verify the published PhotoAIKit revision
 
 First confirm the branch and remote:
 
@@ -104,39 +104,27 @@ git branch --show-current
 git remote -v
 ```
 
-Then stage only the two intended files:
+Verify the reviewed revision and clean state:
 
 ```sh
-git add Sources/CoreAICLIPBackend/CoreAICLIPProvider.swift
-git add Tests/PhotoAIKitTests/CLIPTextCapabilityTests.swift
-git diff --cached --check
-git diff --cached --stat
+PHOTOAIKIT_REVISION='6e3216027b267c27ccaf99d334807b18ea1aaec9'
+
+test "$(git rev-parse HEAD)" = "$PHOTOAIKIT_REVISION"
+test -z "$(git status --porcelain)"
+git show --stat --oneline "$PHOTOAIKIT_REVISION"
 ```
 
-Commit using the project's normal convention. One suitable message is:
-
-```sh
-git commit -m "Match OpenAI CLIP image preprocessing to reference"
-```
-
-Push the current branch only after reviewing the commit:
-
-```sh
-git show --stat --oneline HEAD
-git push origin "$(git branch --show-current)"
-git rev-parse HEAD
-```
-
-Save the full revision printed by `git rev-parse HEAD`. Call it `PHOTOAIKIT_REVISION` in the remaining steps. If the repository uses releases or tags, create the release/tag according to the project's normal policy after the commit has passed CI.
+RawCullFB's release configuration must resolve this immutable remote revision,
+not a developer-local package path.
 
 ## 4. Phase B: make parity testing reproducible
 
 ### B1. Immutable fixture locations
 
-The parity inputs and OpenAI reference outputs are stored here:
+The parity inputs and OpenAI reference outputs are currently stored here:
 
 ```text
-/Users/thomas/GitHub/RawCull/RawCull/Docs/CLIPParityFixtures/
+/Users/thomas/Downloads/CLIPParityFixtures/
 ├── images/
 ├── manifest.json
 └── reference/
@@ -145,7 +133,10 @@ The parity inputs and OpenAI reference outputs are stored here:
     └── openai-clip-reference-tensors.npz
 ```
 
-Do not replace fixture images or regenerate the reference tensors during an ordinary application release. Any intentional fixture/reference change must be reviewed as a benchmark change.
+Do not replace fixture images or regenerate the reference tensors during an
+ordinary application release. Verify every image against `manifest.json`. If
+the fixtures are later copied into RawCull, preserve the exact bytes and update
+this path without changing the benchmark.
 
 ### B2. Ensure CLIPBench uses the intended PhotoAIKit
 
@@ -171,7 +162,7 @@ Use the release build and the corrected model bundle:
 ```sh
 cd /Users/thomas/GitHubCLIPtests/CLIPBench
 swift run -c release clipbench parity \
-  --reference /Users/thomas/GitHub/RawCull/RawCull/Docs/CLIPParityFixtures/reference/openai-clip-reference.json \
+  --reference /Users/thomas/Downloads/CLIPParityFixtures/reference/openai-clip-reference.json \
   --model /Users/thomas/ModelAssets/Release/Models/CLIP-OpenAI \
   --minimum-cosine 0.998
 ```
@@ -191,9 +182,9 @@ The lossless test isolates preprocessing and model execution. The JPEG test veri
 
 When the benchmark harness gains CI support, run both gates for every change to CLIP preprocessing, model loading, normalization, or embedding storage.
 
-## 5. Phase C: replace RawCullFB's local dependency with the published revision
+## 5. Phase C: verify RawCullFB's published PhotoAIKit revision
 
-### C1. Confirm the temporary local state
+### C1. Confirm the remote dependency state
 
 ```sh
 cd /Users/thomas/GitHub/RawCull/RawCullFB
@@ -202,11 +193,15 @@ rg -n 'PhotoAIKit|XCLocalSwiftPackageReference|XCRemoteSwiftPackageReference' \
   RawCullFB.xcodeproj/project.pbxproj
 ```
 
-The development configuration currently contains an `XCLocalSwiftPackageReference` for `../PhotoAIKit`.
+The verified configuration contains an `XCRemoteSwiftPackageReference` for
+`https://github.com/rsyncOSX/PhotoAIKit` at
+`6e3216027b267c27ccaf99d334807b18ea1aaec9`. Stop if a local package reference
+or a different revision appears.
 
-### C2. Switch back to an immutable remote dependency
+### C2. Recover the immutable remote dependency if needed
 
-Use Xcode's package-dependency editor where practical:
+These are recovery instructions if the remote pin is lost. Use Xcode's
+package-dependency editor where practical:
 
 1. Open `RawCullFB.xcodeproj`.
 2. Select the RawCullFB project.
@@ -216,7 +211,6 @@ Use Xcode's package-dependency editor where practical:
 6. Select the exact revision saved as `PHOTOAIKIT_REVISION`.
 7. Reattach the same PhotoAIKit products to the RawCullFB target if Xcode does not preserve them:
    - `CoreAICLIPBackend`
-   - `CoreAIEfficientSAMBackend`
    - `CoreAISAM3Backend`
    - `PhotoAIContracts`
    - `PhotoAIStorage`
@@ -281,10 +275,10 @@ If no rebuild occurs after changing from the old provider to the corrected provi
 
 ## 7. Phase E: rerun the 77-query semantic test
 
-Use the immutable query list:
+Use the immutable query list currently checked into RawCullFB:
 
 ```text
-/Users/thomas/GitHub/RawCull/RawCull/Docs/semantictest.txt
+/Users/thomas/GitHub/RawCull/RawCullFB/semantictest.txt
 ```
 
 Save the new result without overwriting the previous corrected baseline. Include the revision or date in the filename, for example:
@@ -527,8 +521,8 @@ Do not respond to a quality regression by tuning thresholds until the resolved c
 
 When work resumes, use this short sequence:
 
-1. Review, test, commit, and publish PhotoAIKit.
-2. Pin RawCullFB to the published revision.
+1. Verify and test PhotoAIKit revision `6e3216027b267c27ccaf99d334807b18ea1aaec9`.
+2. Verify RawCullFB remains pinned to that remote revision.
 3. Build RawCullFB Release.
 4. Run both parity gates.
 5. Confirm the catalog reindexes.
@@ -540,11 +534,14 @@ When work resumes, use this short sequence:
 11. Run the operational benchmark.
 12. Make and document the release decision.
 
-At the current point, model-integration debugging is no longer the primary task. The next evidence needed is reproducible dependency pinning followed by labeled product-quality evaluation.
+At the current point, dependency pinning and the corrected preprocessing are in
+place. The remaining evidence is reproducible bundle parity followed by labeled
+product-quality evaluation for each retained CLIP model.
 
 ## 14. Complete DataComp CLIP verification track
 
-DataComp OpenCLIP is the second supported candidate. OpenAI CLIP remains the control model. Do not spend further validation time on SigLIP2 unless the project scope changes explicitly.
+DataComp OpenCLIP is one of the two retained CLIP models. OpenAI CLIP remains
+the control model. SigLIP2 is outside the RawCull release scope.
 
 The corrected PhotoAIKit image path applies to DataComp because the DataComp metadata declares:
 
@@ -557,6 +554,17 @@ The corrected PhotoAIKit image path applies to DataComp because the DataComp met
 Consequently, DataComp uses the Pillow-compatible bicubic resize and center-crop implementation and receives the new preprocessing-version suffix. Old DataComp image embeddings must be rebuilt.
 
 This shared code path does **not** prove DataComp correctness. DataComp has different weights, a 256-pixel input, an OpenCLIP text encoder, and its own export. It needs independent reference parity and retrieval-quality evaluation.
+
+Current technical evidence:
+
+- the corrected staged bundle is metadata version `0.4`;
+- its pretrained identity is `datacomp_s34b_b86k`;
+- its runtime fingerprint is
+  `6a3639a2049b8a4ea23fe04c3083e199a4f505433f7c8bd0748b3c8d4fcb1572`;
+- the 77-query and 453-anchor RawCullFB run completed; and
+- the recorded Core AI parity minimum was `0.9936`, below the provisional
+  `0.998` gate, so numerical parity still requires investigation or a fresh
+  rerun with the final fixture and PhotoAIKit revision.
 
 ### 14.1 DataComp validation stages
 
@@ -700,16 +708,10 @@ Stop if the metadata identifies another checkpoint, resolution, tokenizer, prepr
 
 Use the same ten image bytes and the same ten descriptive prompts used for OpenAI CLIP. This keeps model comparisons controlled.
 
-At the time this section was written, the complete fixture directory was available at:
+The complete fixture directory is available at:
 
 ```text
 /Users/thomas/Downloads/CLIPParityFixtures
-```
-
-If it has been restored to the RawCull repository, use this path instead:
-
-```text
-/Users/thomas/GitHub/RawCull/RawCull/Docs/CLIPParityFixtures
 ```
 
 Set one existing path and verify all checksums before generating a reference:
@@ -900,12 +902,15 @@ Use the exact same catalog and query bytes used for the corrected OpenAI run. Th
 /Users/thomas/GitHub/RawCull/RawCullFB/semantictest.txt
 ```
 
-If the canonical `Docs/semantictest.txt` is restored, verify the two files are identical before choosing one:
+If a canonical `Docs/semantictest.txt` is added later, verify the two files are
+identical before choosing one:
 
 ```sh
-cmp \
-  /Users/thomas/GitHub/RawCull/RawCullFB/semantictest.txt \
-  /Users/thomas/GitHub/RawCull/RawCull/Docs/semantictest.txt
+if test -f /Users/thomas/GitHub/RawCull/RawCull/Docs/semantictest.txt; then
+  cmp \
+    /Users/thomas/GitHub/RawCull/RawCullFB/semantictest.txt \
+    /Users/thomas/GitHub/RawCull/RawCull/Docs/semantictest.txt
+fi
 ```
 
 Save the DataComp result under an unambiguous name:
@@ -1058,3 +1063,462 @@ Selection policy:
 - [ ] Selection decision documented with failure examples and tradeoffs.
 
 DataComp is verified only after every numerical parity gate passes and the labeled comparison demonstrates acceptable product behavior. Sharing PhotoAIKit's corrected preprocessing path is necessary, but it is not sufficient evidence on its own.
+
+## 15. Complete OpenAI CLIP verification track
+
+OpenAI CLIP ViT-B/32 is the control model and the second retained CLIP option.
+The phases earlier in this cookbook document how the preprocessing defect was
+found and corrected. This section provides the complete, repeatable track from
+checkpoint identity through the final OpenAI-versus-DataComp decision.
+
+Current technical evidence:
+
+- PhotoAIKit is pinned at
+  `6e3216027b267c27ccaf99d334807b18ea1aaec9`;
+- the installed bundle uses metadata version `0.4` and source revision
+  `3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268`;
+- its runtime fingerprint is
+  `a71ceca116e13b334b0679c95bd85d7ecda14fd68bd7a3ea84b83c286005f45b`;
+- corrected parity reached `1.0000` for text and approximately `0.9988`
+  minimum end-to-end image cosine;
+- the 77-query and 453-anchor RawCullFB run completed; and
+- labeled semantic relevance and labeled similarity operating curves are still
+  required before making a product-quality claim.
+
+### 15.1 OpenAI validation stages
+
+Complete these stages in order:
+
+1. Verify the exact immutable OpenAI checkpoint and source file.
+2. Export a fresh Core AI bundle from the verified checkpoint.
+3. Verify metadata, functions, tokenizer, and runtime fingerprint.
+4. Generate Transformers reference embeddings from the same checkpoint.
+5. Run text and image parity on the immutable ten-fixture set.
+6. Verify the complete fixture ranking matrix.
+7. Install the validated candidate without changing its identity.
+8. Rebuild a clean OpenAI catalog index.
+9. Run all 77 semantic queries and all 453 similarity anchors.
+10. Apply the same relevance and image-pair labels used for DataComp.
+11. Compare quality and operational cost.
+12. Record the model-selection and release decision.
+
+Do not continue to retrieval-quality evaluation while checkpoint identity,
+metadata, fingerprint, or numerical parity is unresolved.
+
+### 15.2 Establish the exact checkpoint identity
+
+The required source is:
+
+| Field | Required value |
+|---|---|
+| Repository | `openai/clip-vit-base-patch32` |
+| Revision | `3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268` |
+| Weight file | `pytorch_model.bin` |
+| Byte size | `605247071` |
+| SHA-256 | `a63082132ba4f97a80bea76823f544493bffa8082296d62d71581a4feff1576f` |
+| Architecture | `ViT-B-32` |
+| Resolution | `224 × 224` |
+
+Do not convert an unpinned resolution of `main`. The checkpoint identity must
+be recorded separately from the converted runtime fingerprint.
+
+### 15.3 Prepare isolated source, model, and reference directories
+
+Do not overwrite the installed release bundle while reproducing verification:
+
+```sh
+OPENAI_REVISION='3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268'
+OPENAI_VALIDATION_ROOT=/Users/thomas/ModelAssets/Staging/OpenAI-CLIP-Validation
+OPENAI_HF_HOME="$OPENAI_VALIDATION_ROOT/huggingface"
+OPENAI_MODEL_ROOT="$OPENAI_VALIDATION_ROOT/Models"
+OPENAI_REFERENCE_ROOT="$OPENAI_VALIDATION_ROOT/Reference"
+
+mkdir -p \
+  "$OPENAI_HF_HOME" \
+  "$OPENAI_MODEL_ROOT" \
+  "$OPENAI_REFERENCE_ROOT"
+```
+
+Record the toolchain and exact PhotoAIKit revision:
+
+```sh
+cd /Users/thomas/GitHub/RawCull/PhotoAIKit
+git rev-parse HEAD
+git status --short
+uv --version
+xcrun swift --version
+xcodebuild -version
+```
+
+Required PhotoAIKit revision:
+
+```text
+6e3216027b267c27ccaf99d334807b18ea1aaec9
+```
+
+### 15.4 Download and verify the pinned OpenAI snapshot
+
+Use an evidence-specific Hugging Face cache. The second download verifies that
+the repository's cached `main` reference resolves to the required revision
+before the exporter runs offline:
+
+```sh
+export HF_HOME="$OPENAI_HF_HOME"
+
+OPENAI_SNAPSHOT="$(hf download openai/clip-vit-base-patch32 \
+  config.json \
+  pytorch_model.bin \
+  merges.txt \
+  preprocessor_config.json \
+  special_tokens_map.json \
+  tokenizer.json \
+  tokenizer_config.json \
+  vocab.json \
+  README.md \
+  --revision "$OPENAI_REVISION" \
+  --quiet)"
+
+OPENAI_MAIN_SNAPSHOT="$(hf download openai/clip-vit-base-patch32 \
+  config.json \
+  pytorch_model.bin \
+  merges.txt \
+  preprocessor_config.json \
+  special_tokens_map.json \
+  tokenizer.json \
+  tokenizer_config.json \
+  vocab.json \
+  README.md \
+  --revision main \
+  --quiet)"
+
+test "$(basename "$OPENAI_SNAPSHOT")" = "$OPENAI_REVISION"
+test "$OPENAI_MAIN_SNAPSHOT" = "$OPENAI_SNAPSHOT"
+test "$(shasum -a 256 "$OPENAI_SNAPSHOT/pytorch_model.bin" | cut -d ' ' -f 1)" = \
+  'a63082132ba4f97a80bea76823f544493bffa8082296d62d71581a4feff1576f'
+test "$(stat -f '%z' "$OPENAI_SNAPSHOT/pytorch_model.bin")" = '605247071'
+```
+
+If any check fails, stop. Do not substitute another revision or weight format.
+
+### 15.5 Export a fresh OpenAI Core AI bundle
+
+Keep the verified cache active and force offline model and tokenizer loading:
+
+```sh
+cd /Users/thomas/GitHub/RawCull/PhotoAIKit
+
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+uv run Tools/export_clip.py \
+  --model openai \
+  --dtype float16 \
+  --output-dir "$OPENAI_MODEL_ROOT" \
+  --bundle-name CLIP-OpenAI
+```
+
+Do not pass `--dynamic` or `--overwrite` for a verification export. The
+expected output is:
+
+```text
+CLIP-OpenAI/
+├── metadata.json
+├── tokenizer/
+├── clip-vit-base-patch32_float16_static.aimodel/
+└── clip-vit-base-patch32_float16_static_source.aimodel/
+```
+
+The `_source.aimodel` directory is conversion evidence, not a runtime asset.
+Keep it out of the downloadable model pack.
+
+### 15.6 Inspect metadata and fingerprint
+
+```sh
+OPENAI_STAGED_BUNDLE="$OPENAI_MODEL_ROOT/CLIP-OpenAI"
+OPENAI_RUNTIME_ASSET="$OPENAI_STAGED_BUNDLE/clip-vit-base-patch32_float16_static.aimodel"
+
+test -f "$OPENAI_STAGED_BUNDLE/metadata.json"
+test -f "$OPENAI_STAGED_BUNDLE/tokenizer/tokenizer.json"
+test -d "$OPENAI_RUNTIME_ASSET"
+
+sed -n '1,180p' "$OPENAI_STAGED_BUNDLE/metadata.json"
+python3 /Users/thomas/GitHub/RawCull/PhotoAIKit/Tools/model_fingerprint.py \
+  "$OPENAI_RUNTIME_ASSET"
+```
+
+Required metadata values:
+
+```text
+metadata_version       0.4
+family                 clip
+source_model           openai/clip-vit-base-patch32
+source_revision        3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268
+architecture           ViT-B-32
+embedding_dimensions   512
+preprocessing_version  clip-srgb-shortest-center-bicubic-224-chw-v3
+width / height         224 / 224
+resize / crop          shortest-side / center
+interpolation          bicubic
+context_length         77
+padding_token_id       49407
+image function         image_encoder
+text function          text_encoder
+normalization_version  l2-v1
+```
+
+The printed fingerprint must equal `asset_fingerprints.main.value`. Stop if the
+source revision is absent, the runtime asset name differs, or the fingerprint
+does not match.
+
+### 15.7 Select and verify the immutable parity fixtures
+
+Use the same bytes and prompts as DataComp:
+
+```sh
+OPENAI_FIXTURE_ROOT=/Users/thomas/Downloads/CLIPParityFixtures
+
+test -f "$OPENAI_FIXTURE_ROOT/manifest.json"
+test -f "$OPENAI_FIXTURE_ROOT/images/01-dog-outdoors.jpg"
+test -f "$OPENAI_FIXTURE_ROOT/images/10-yellow-sunflower.jpg"
+```
+
+Verify all ten image checksums against `manifest.json`. Do not redownload or
+replace individual fixtures during a model comparison.
+
+### 15.8 Generate the OpenAI Transformers reference
+
+PhotoAIKit's reference generator uses the same OpenAI model identity as the
+exporter:
+
+```sh
+cd /Users/thomas/GitHub/RawCull/PhotoAIKit
+
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+uv run Tools/generate_clip_reference.py \
+  --model openai \
+  --image "$OPENAI_FIXTURE_ROOT/images/01-dog-outdoors.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/02-person-portrait.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/03-car-road.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/04-city-night.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/05-mountain-landscape.png" \
+  --image "$OPENAI_FIXTURE_ROOT/images/06-beetle-macro.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/07-kitchen-interior.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/08-motion-blur.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/09-sign-text.jpg" \
+  --image "$OPENAI_FIXTURE_ROOT/images/10-yellow-sunflower.jpg" \
+  --text "a woman with a dog outdoors" \
+  --text "a portrait of a woman wearing sunglasses" \
+  --text "an old car driving on a country road" \
+  --text "an illuminated city building at night" \
+  --text "mountains surrounding a large lake" \
+  --text "a macro photograph of an insect" \
+  --text "the interior of a kitchen" \
+  --text "a colorful amusement ride with motion blur" \
+  --text "a green road sign with white text" \
+  --text "a yellow sunflower" \
+  --output "$OPENAI_REFERENCE_ROOT/openai-clip-reference.json"
+```
+
+The reference must identify model `openai`, architecture `ViT-B-32`, ten image
+entries, and ten text entries.
+
+The immutable reference already present at
+`/Users/thomas/Downloads/CLIPParityFixtures/reference/openai-clip-reference.json`
+may be used instead when its fixture checksums and source identity are verified.
+Do not replace that reference merely because a new run differs.
+
+### 15.9 Run OpenAI reference parity
+
+Verify CLIPBench's PhotoAIKit dependency, then build a fresh release binary:
+
+```sh
+cd /Users/thomas/GitHubCLIPtests/CLIPBench
+rg -n 'package\(path:.*PhotoAIKit|PhotoAIKit' Package.swift
+swift package show-dependencies | rg -C 2 PhotoAIKit
+swift build -c release --product clipbench
+```
+
+Run parity:
+
+```sh
+.build/release/clipbench parity \
+  --reference "$OPENAI_REFERENCE_ROOT/openai-clip-reference.json" \
+  --model "$OPENAI_STAGED_BUNDLE" \
+  --minimum-cosine 0.998
+```
+
+Requirements:
+
+- every text cosine is at least `0.999`;
+- every lossless/model-path image cosine is at least `0.999`;
+- every end-to-end JPEG/PNG image cosine is at least `0.998`; and
+- every unexpectedly large maximum-absolute error is investigated.
+
+The corrected recorded result was `1.0000` for all text fixtures and
+approximately `0.9988` minimum image cosine. A passing aggregate minimum does
+not excuse an unexplained individual regression.
+
+### 15.10 Verify the ten-fixture ranking matrix
+
+Compare the complete 10 × 10 image-to-text cosine matrix from Transformers and
+Core AI. For every prompt, record expected image, reference rank, Core AI rank,
+score difference, and any near-tie. Require identical top-k ordering except for
+documented float16 near-ties.
+
+If CLIPBench cannot emit the matrix, extend the benchmark. The 77-query catalog
+run is not a substitute for reference ranking parity.
+
+### 15.11 Install the validated OpenAI candidate
+
+Preserve the currently installed bundle until rollback is no longer required.
+Promote the staged candidate through the normal model-installation process, then
+compare metadata and fingerprints:
+
+```sh
+OPENAI_INSTALLED_BUNDLE=/Users/thomas/ModelAssets/Release/Models/CLIP-OpenAI
+
+diff -u \
+  "$OPENAI_STAGED_BUNDLE/metadata.json" \
+  "$OPENAI_INSTALLED_BUNDLE/metadata.json"
+```
+
+The currently installed verified runtime fingerprint is
+`a71ceca116e13b334b0679c95bd85d7ecda14fd68bd7a3ea84b83c286005f45b`.
+A fresh conversion may legitimately have a new fingerprint; if so, record it,
+repackage the model, and rebuild every index.
+
+### 15.12 Force a clean OpenAI reindex
+
+In RawCullFB:
+
+1. select `CLIP-OpenAI`;
+2. verify the displayed model identity and source revision;
+3. verify preprocessing version
+   `clip-srgb-shortest-center-bicubic-224-chw-v3`;
+4. verify the model fingerprint matches the installed bundle;
+5. rebuild the complete catalog index; and
+6. record the final indexed item count.
+
+OpenAI and DataComp indexes are never interchangeable. A changed fingerprint,
+preprocessing version, model, or tokenizer requires a new index.
+
+### 15.13 Run the OpenAI semantic and similarity test
+
+Use:
+
+```text
+/Users/thomas/GitHub/RawCull/RawCullFB/semantictest.txt
+```
+
+Use the same catalog and result limit as DataComp. Save the report as:
+
+```text
+OpenAI-ViT-B-32-semantic-test-results-<short-photoaikit-revision>.txt
+```
+
+The completed current report is:
+
+```text
+/Users/thomas/Downloads/testphotos/ViT-B-32-semantic-test-results.txt
+```
+
+Its required evidence fields are:
+
+```text
+status             completed
+completed_queries  77
+total_queries      77
+similarity_status  completed
+catalog            /Users/thomas/Downloads/testphotos
+```
+
+Also verify that its fingerprint is the intended OpenAI fingerprint. Reports
+from a different catalog, query file, result limit, model fingerprint, or
+incomplete index are not comparable.
+
+### 15.14 OpenAI collapse and sanity checks
+
+Calculate the same diagnostics as DataComp:
+
+- top-1 score distribution and top-1/top-2 margins;
+- distinct top-1 images and most frequent winner;
+- unrelated-query and paraphrase top-10 overlap;
+- unique images across all top-50 results;
+- cold and warmed query latency; and
+- nearest-image distribution, reciprocity, and threshold counts.
+
+The corrected OpenAI baseline recorded in Section 1 has 53 distinct top-1
+images, a most frequent top-1 count of four, and 418 unique images across all
+top-50 results. Treat a return to the earlier universal-hub behavior as an
+integration regression even if parity happens to pass.
+
+These are diagnostic checks, not relevance labels. A diverse wrong result set
+is still wrong.
+
+### 15.15 Apply the shared human relevance labels
+
+For each query, pool and deduplicate:
+
+```text
+OpenAI top five ∪ DataComp top five
+```
+
+Blind the model source where practical and apply the same `0`, `1`, and `2`
+labels defined in Phase F. Calculate Precision@1, Precision@5, MRR, nDCG@5,
+category-level results, and uncertainty estimates where supported.
+
+Do not select OpenAI merely because it is the control model. Selection requires
+acceptable labeled quality and understandable failures.
+
+### 15.16 Compare image similarity on shared labeled pairs
+
+Use the exact pair benchmark and product definitions from Phase G for both
+models. For OpenAI report:
+
+- duplicate and near-duplicate recall;
+- hard-negative false-positive rate;
+- precision-recall AUC;
+- the selected operating threshold; and
+- representative false positives and false negatives.
+
+Do not reuse the DataComp cosine threshold. Each model needs independent
+calibration even though both output normalized 512-dimensional embeddings.
+
+### 15.17 Benchmark OpenAI operational cost and decide
+
+Use the same hardware, OS, process state, catalog, warm-up, and measurement
+procedure as DataComp. Record bundle size, index size, cold load, warm
+P50/P95/P99 latency, indexing throughput, peak memory, and energy impact.
+
+Fill the shared decision table in Section 14.17. Both models may remain user
+choices if both meet the release gates. There is no requirement to declare one
+universal winner: OpenAI may be preferable for one catalog while DataComp is
+preferable for another. Document the default and the reason for it.
+
+### 15.18 OpenAI completion checklist
+
+- [ ] Exact OpenAI repository, revision, source file, bytes, and SHA-256 recorded.
+- [ ] Fresh Float16 static bundle exported from the verified offline cache.
+- [ ] Metadata version, source revision, functions, tokenizer, and preprocessing reviewed.
+- [ ] Runtime fingerprint recomputed and matched to metadata.
+- [ ] Ten-image/ten-text reference identity and fixture checksums verified.
+- [ ] Text parity meets `0.999`.
+- [ ] Lossless image parity meets `0.999`.
+- [ ] End-to-end JPEG parity meets `0.998`.
+- [ ] Ten-fixture ranking matrix is equivalent, allowing only documented near-ties.
+- [ ] Validated bundle promoted without changing identity.
+- [ ] Old OpenAI index invalidated and the catalog fully reindexed.
+- [ ] All 77 queries and all 453 similarity anchors complete.
+- [ ] No semantic collapse or universal hub remains.
+- [ ] OpenAI/DataComp pooled results use the same relevance labels.
+- [ ] Semantic metrics and category failures are reviewed.
+- [ ] Similarity operating curves use the same labeled image pairs.
+- [ ] OpenAI-specific similarity threshold is selected from product error costs.
+- [ ] Latency, throughput, memory, bundle size, and index size are compared.
+- [ ] Weight redistribution, notices, provenance, and archive evidence pass separately.
+- [ ] The choice to ship OpenAI, DataComp, or both is documented.
+
+OpenAI is technically verified only when its pinned checkpoint, converted
+runtime, parity evidence, index, and completed RawCullFB report all identify the
+same model. Production release additionally requires labeled product-quality
+acceptance and independent redistribution clearance.
