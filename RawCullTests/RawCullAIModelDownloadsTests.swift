@@ -103,6 +103,39 @@ struct RawCullAIModelDownloadsTests {
         #expect(state == .notConfigured)
     }
 
+    @Test
+    func `macOS 27 beta 5 avoids fatal Background Assets validation`() async {
+        #expect(
+            !RawCullBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                    "Version 27.0 (Build 26A5406e)",
+            ),
+        )
+        #expect(
+            RawCullBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                    "Version 27.0 (Build 26A5406f)",
+            ),
+        )
+
+        let service = RawCullManagedBackgroundAssetsModelDownloadService(
+            source: .selfHosted(
+                manifestURL: RawCullAIModelDownloadSource
+                    .productionManifestURL,
+            ),
+            backgroundAssetsRuntimeIsUsable: false,
+        )
+        let state = await service.state(
+            for: testDescriptor(readiness: .ready),
+        )
+
+        #expect(
+            state == .failed(
+                message: RawCullBackgroundAssetsRuntime.unavailableMessage,
+            ),
+        )
+    }
+
     @MainActor
     @Test
     func `Verified acceptance gates and unlocks a ready download`() async throws {

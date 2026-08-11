@@ -37,6 +37,28 @@ nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
     }
 }
 
+nonisolated enum RawCullBackgroundAssetsRuntime {
+    static let macOS27Beta5Build = "26A5406e"
+
+    static var isUsable: Bool {
+        isUsable(
+            operatingSystemVersionString: ProcessInfo.processInfo
+                .operatingSystemVersionString,
+        )
+    }
+
+    static func isUsable(
+        operatingSystemVersionString: String,
+    ) -> Bool {
+        !operatingSystemVersionString.contains(macOS27Beta5Build)
+    }
+
+    static let unavailableMessage =
+        "AI model downloads are temporarily unavailable on macOS 27 beta 5 "
+        + "(build \(macOS27Beta5Build)) because of a Background Assets "
+        + "validation regression."
+}
+
 nonisolated enum RawCullAIModelDownloadState: Equatable, Sendable {
     case checking
     case unavailable(reason: LocalizedStringResource)
@@ -63,6 +85,7 @@ nonisolated struct RawCullAIModelDownloadsSnapshot: Equatable, Sendable {
 
 nonisolated enum RawCullAIModelDownloadError: Error, LocalizedError, Sendable {
     case serviceNotConfigured
+    case backgroundAssetsUnavailable(String)
     case releaseBlocked(String)
     case assetPackNotFound(String)
     case downloadedModelNotFound(String)
@@ -73,6 +96,9 @@ nonisolated enum RawCullAIModelDownloadError: Error, LocalizedError, Sendable {
         switch self {
         case .serviceNotConfigured:
             "The AI model download service has not been configured."
+
+        case let .backgroundAssetsUnavailable(message):
+            message
 
         case let .releaseBlocked(modelName):
             "\(modelName) is not approved for redistribution yet."
@@ -115,9 +141,15 @@ nonisolated protocol RawCullAIModelDownloadServicing: Sendable {
 actor RawCullManagedBackgroundAssetsModelDownloadService:
     RawCullAIModelDownloadServicing {
     private let source: RawCullAIModelDownloadSource
+    private let backgroundAssetsRuntimeIsUsable: Bool
 
-    init(source: RawCullAIModelDownloadSource) {
+    init(
+        source: RawCullAIModelDownloadSource,
+        backgroundAssetsRuntimeIsUsable: Bool = RawCullBackgroundAssetsRuntime
+            .isUsable,
+    ) {
         self.source = source
+        self.backgroundAssetsRuntimeIsUsable = backgroundAssetsRuntimeIsUsable
     }
 
     func state(
@@ -125,6 +157,11 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     ) async -> RawCullAIModelDownloadState {
         guard source.isConfigured else {
             return .notConfigured
+        }
+        guard backgroundAssetsRuntimeIsUsable else {
+            return .failed(
+                message: RawCullBackgroundAssetsRuntime.unavailableMessage,
+            )
         }
 
         if AssetPackManager.shared.assetPackIsAvailableLocally(
@@ -158,6 +195,11 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     ) async throws -> URL {
         guard source.isConfigured else {
             throw RawCullAIModelDownloadError.serviceNotConfigured
+        }
+        guard backgroundAssetsRuntimeIsUsable else {
+            throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
+                RawCullBackgroundAssetsRuntime.unavailableMessage,
+            )
         }
         try Task.checkCancellation()
 
@@ -193,6 +235,11 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     func remove(
         _ descriptor: RawCullAIModelDownloadDescriptor,
     ) async throws {
+        guard backgroundAssetsRuntimeIsUsable else {
+            throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
+                RawCullBackgroundAssetsRuntime.unavailableMessage,
+            )
+        }
         try Task.checkCancellation()
         try await AssetPackManager.shared.remove(
             assetPackWithID: descriptor.assetPackID,
