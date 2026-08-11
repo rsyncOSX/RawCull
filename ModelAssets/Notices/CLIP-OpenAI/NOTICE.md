@@ -17,12 +17,10 @@ the asset pack.
 
 ## Release status
 
-This catalog does not claim that the OpenAI CLIP repository's MIT licence
-independently establishes redistribution terms for the exact Hugging Face
-checkpoint weights. Although the local cache contains an immutable snapshot
-and source-weight checksum that predate conversion, the exporter did not
-record that binding in its output. RawCull therefore keeps this pack blocked
-pending final licence and provenance verification.
+RawCull publishes this pack in the v2 model release. The release catalog
+records the immutable Hugging Face revision, verified source-weight checksum,
+converted-model fingerprint, immutable archive checksum, and the complete
+accompanying OpenAI and Apple licence notices.
 
 The model can produce inaccurate or biased results and is provided without
 warranty under the accompanying licences.

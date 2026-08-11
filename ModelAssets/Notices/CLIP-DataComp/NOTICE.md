@@ -20,10 +20,9 @@ the asset pack.
 
 ## Release status
 
-This catalog supplies attribution and licence texts; it does not by itself
-clear the asset for release. The exact source checkpoint used by the exporter
-was not recorded with a source-file checksum, so RawCull keeps this pack
-blocked until that provenance gap is resolved.
+RawCull publishes this pack in the v2 model release. The release catalog
+records the immutable archive checksum, the upstream reference revision, the
+runtime fingerprint, and the complete accompanying licence notices.
 
 The model can produce inaccurate or biased results and is provided without
 warranty under the accompanying licences.

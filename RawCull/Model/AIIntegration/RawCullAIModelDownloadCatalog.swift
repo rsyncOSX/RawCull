@@ -148,8 +148,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     "https://huggingface.co/laion/CLIP-ViT-B-32-256x256-DataComp-s34B-b86K",
                 ),
                 conversionInformationURL: nil,
-                expectedArchiveSHA256: "fae9cab286e0e3605d27de01865122f177d515984b152610005cc793012bd3aa",
-                downloadByteCount: 282_967_394,
+                expectedArchiveSHA256: "7ee162d01c18ae4ba414bc6d2d95135eadf14c6b013371513cf3a32f31bd9740",
+                downloadByteCount: 282_967_218,
                 installedByteCount: nil,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",
@@ -170,7 +170,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 purpose: "Image similarity, burst grouping, and semantic search.",
                 publisher: "OpenAI",
                 modelVersion: "ViT-B/32",
-                upstreamRevision: nil,
+                upstreamRevision: "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
                 resourceName: "CLIP-OpenAI",
                 assetPackID: "no.blogspot.RawCull.models.clip-openai",
                 assetPackModelPath: "Models/CLIP-OpenAI",
@@ -181,13 +181,13 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     "https://huggingface.co/openai/clip-vit-base-patch32",
                 ),
                 conversionInformationURL: nil,
-                expectedArchiveSHA256: nil,
-                downloadByteCount: nil,
+                expectedArchiveSHA256: "31e60a9cd13bc7349a33cdc8a162a9a62ac460371e4d18406c0d3cf7ebda01e0",
+                downloadByteCount: 282_865_714,
                 installedByteCount: nil,
                 licence: RawCullAIModelLicenceDescriptor(
-                    name: "Licence verification pending",
+                    name: "MIT License",
                     version: nil,
-                    summary: "The OpenAI source and tokenizer are MIT-licensed, but RawCull has not yet verified that those terms cover the exact checkpoint weights selected for conversion.",
+                    summary: "The OpenAI CLIP copyright and permission notice must accompany redistributed copies.",
                     completeTextURL: requiredURL(
                         "https://github.com/openai/CLIP/blob/main/LICENSE",
                     ),
@@ -195,9 +195,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     textSHA256: "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e",
                     requiresExplicitAcceptance: false,
                 ),
-                releaseReadiness: .blocked(
-                    reason: "Redistribution remains disabled until the licence, immutable revision, and source checksums for the exact checkpoint weights are verified.",
-                ),
+                releaseReadiness: .ready,
             ),
             RawCullAIModelDownloadDescriptor(
                 id: .sam3,
@@ -233,7 +231,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 releaseReadiness: .blocked(
                     reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
                 ),
-            )
+            ),
         ]
         return Self(
             models: models.filter {

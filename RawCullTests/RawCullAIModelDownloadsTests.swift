@@ -10,7 +10,8 @@ struct RawCullAIModelDownloadsTests {
         let catalog = RawCullAIModelDownloadCatalog.production
 
         #expect(catalog.models.map(\.id) == [
-            .clipDataComp
+            .clipDataComp,
+            .clipOpenAI,
         ])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
@@ -18,11 +19,27 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.expectedArchiveSHA256
-                == "fae9cab286e0e3605d27de01865122f177d515984b152610005cc793012bd3aa",
+                == "7ee162d01c18ae4ba414bc6d2d95135eadf14c6b013371513cf3a32f31bd9740",
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.downloadByteCount
-                == 282_967_394,
+                == 282_967_218,
+        )
+        #expect(
+            catalog.descriptor(for: .clipOpenAI)?.releaseReadiness.isReady
+                == true,
+        )
+        #expect(
+            catalog.descriptor(for: .clipOpenAI)?.upstreamRevision
+                == "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+        )
+        #expect(
+            catalog.descriptor(for: .clipOpenAI)?.expectedArchiveSHA256
+                == "31e60a9cd13bc7349a33cdc8a162a9a62ac460371e4d18406c0d3cf7ebda01e0",
+        )
+        #expect(
+            catalog.descriptor(for: .clipOpenAI)?.downloadByteCount
+                == 282_865_714,
         )
         #expect(
             RawCullAIModelDownloadSource.selfHosted(
@@ -108,13 +125,13 @@ struct RawCullAIModelDownloadsTests {
         #expect(
             !RawCullBackgroundAssetsRuntime.isUsable(
                 operatingSystemVersionString:
-                    "Version 27.0 (Build 26A5406e)",
+                "Version 27.0 (Build 26A5406e)",
             ),
         )
         #expect(
             RawCullBackgroundAssetsRuntime.isUsable(
                 operatingSystemVersionString:
-                    "Version 27.0 (Build 26A5406f)",
+                "Version 27.0 (Build 26A5406f)",
             ),
         )
 
@@ -134,6 +151,33 @@ struct RawCullAIModelDownloadsTests {
                 message: RawCullBackgroundAssetsRuntime.unavailableMessage,
             ),
         )
+    }
+
+    @Test
+    func `Published CLIP models expose the Background Assets runtime failure`() async {
+        let failure = RawCullAIModelDownloadState.failed(
+            message: RawCullBackgroundAssetsRuntime.unavailableMessage,
+        )
+        let service = ModelDownloadServiceSpy(
+            state: failure,
+            downloadURL: temporaryRoot()
+                .appendingPathComponent("DownloadedModel"),
+        )
+        let store = RawCullAIModelLicenceAcceptanceFileStore(
+            fileURL: temporaryRoot()
+                .appendingPathComponent("acceptances.json"),
+            licenceBundle: licenceBundle(),
+        )
+        let coordinator = RawCullAIModelDownloadCoordinator(
+            catalog: .production,
+            service: service,
+            acceptanceStore: store,
+        )
+
+        let snapshot = await coordinator.snapshot()
+
+        #expect(snapshot.states[.clipDataComp] == failure)
+        #expect(snapshot.states[.clipOpenAI] == failure)
     }
 
     @MainActor
@@ -329,7 +373,8 @@ struct RawCullAIModelDownloadsTests {
 private final class ModelDownloadTestBundleToken {}
 
 private actor ModelDownloadServiceSpy:
-    RawCullAIModelDownloadServicing {
+    RawCullAIModelDownloadServicing
+{
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
     private var downloads = 0

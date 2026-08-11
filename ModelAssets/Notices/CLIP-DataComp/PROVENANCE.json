@@ -1,7 +1,12 @@
 {
-  "catalog_version": 1,
-  "release_status": "blocked",
-  "release_blocker": "The exact source checkpoint used by the exporter was not cryptographically bound to the converted asset.",
+  "catalog_version": 2,
+  "release_status": "ready",
+  "release": {
+    "tag": "v2",
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-datacomp",
+    "download_size": 282967218,
+    "archive_sha256": "7ee162d01c18ae4ba414bc6d2d95135eadf14c6b013371513cf3a32f31bd9740"
+  },
   "model": {
     "bundle": "CLIP-DataComp",
     "asset": "Models/CLIP-DataComp/ViT-B-32-256-datacomp_s34b_b86k_float16_static.aimodel",

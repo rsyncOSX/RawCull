@@ -1,14 +1,20 @@
 {
-  "catalog_version": 1,
-  "release_status": "blocked",
-  "release_blocker": "The exact checkpoint weights still require final licence verification and the exporter did not record their immutable revision.",
+  "catalog_version": 2,
+  "release_status": "ready",
+  "release": {
+    "tag": "v2",
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-openai",
+    "download_size": 282865714,
+    "archive_sha256": "31e60a9cd13bc7349a33cdc8a162a9a62ac460371e4d18406c0d3cf7ebda01e0"
+  },
   "model": {
     "bundle": "CLIP-OpenAI",
     "asset": "Models/CLIP-OpenAI/clip-vit-base-patch32_float16_static.aimodel",
     "architecture": "ViT-B-32",
     "precision": "float16",
     "static_shapes": true,
-    "runtime_main_mlirb_sha256": "34b1c3f2eccfac50e5c47eeb33029b8c488fb7f3712d50d6d46965625a6a3798"
+    "exporter_fingerprint_algorithm": "directory-tree-sha256-v1",
+    "exporter_fingerprint": "a71ceca116e13b334b0679c95bd85d7ecda14fd68bd7a3ea84b83c286005f45b"
   },
   "upstream": {
     "project": "openai/clip-vit-base-patch32",
@@ -16,8 +22,8 @@
     "local_cache_snapshot_revision": "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
     "source_weight_file": "pytorch_model.bin",
     "source_weight_sha256": "a63082132ba4f97a80bea76823f544493bffa8082296d62d71581a4feff1576f",
-    "source_revision_recorded_by_exporter": null,
-    "evidence_note": "The local Hugging Face cache predates conversion, but the exporter output does not cryptographically bind this snapshot to the converted asset."
+    "source_revision_recorded_by_exporter": "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+    "evidence_note": "The exported metadata records this immutable Hugging Face revision, and the source weight file was verified before conversion."
   },
   "tokenizer": {
     "source": "openai/clip-vit-base-patch32",
@@ -27,7 +33,8 @@
   "conversion": {
     "producer": "coreai-core 1.0.0b2",
     "model_creation_date": "2026-07-10T16:32:47Z",
-    "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286"
+    "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286",
+    "photoaikit_revision": "6e3216027b267c27ccaf99d334807b18ea1aaec9"
   },
   "licences": [
     {
