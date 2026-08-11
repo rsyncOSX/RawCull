@@ -47,7 +47,7 @@ struct ReleaseMetadataTests {
         #expect(appInfo["BAAppGroupID"] as? String == "group.no.blogspot.RawCull.model-assets")
         #expect(
             appInfo["BAManifestURL"] as? String
-                == "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v1/manifest.json",
+                == "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/manifest.json",
         )
         #expect(appInfo["BAUsesAppleHosting"] as? Bool == false)
 

@@ -19,7 +19,7 @@
 		<integer>0</integer>
 	</dict>
 	<key>BAManifestURL</key>
-	<string>https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v1/manifest.json</string>
+	<string>https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/manifest.json</string>
 	<key>BAUsesAppleHosting</key>
 	<false/>
 	<key>CFBundleDevelopmentRegion</key>
