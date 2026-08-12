@@ -2,11 +2,10 @@
 
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
-**This is the AI-based version of RawCull.** The `main` and `version-3.0.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27  to build. For macOS 26, use `version-2.3.4`.
+> [!IMPORTANT]
+> **This is the AI-based version of RawCull.** The `main` and `version-3.0.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27  to build. For macOS 26, use `version-2.3.4`.
 
-> [!Version 3.0.0 beta is removed]
->The version 3.0.0 beta has been removed. Modifications to the AI model export process for CoreAI have affected semantic search functionality. Additionally, Xcode 27 beta 5 appears to contain a bug that prevents model downloads; consequently, no new betas will be released until this issue is resolved. If you wish to evaluate version 3.0.0, please contact me—manual installation of the models is possible.
-
+> The version 3.0.0 beta has been removed. Modifications to the AI model export process for CoreAI have affected semantic search functionality. Additionally, Xcode 27 beta 5 appears to contain a bug that prevents model downloads; consequently, no new betas will be released until this issue is resolved. If you wish to evaluate version 3.0.0, please contact me—manual installation of the models is possible.
 
 RawCull is a native macOS photo review and culling application for Sony ARW RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
