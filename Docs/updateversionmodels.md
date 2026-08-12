@@ -153,12 +153,16 @@ In each `PROVENANCE.json`, update:
 - `release_status`;
 - `release.tag`;
 - `release.asset_url`;
-- `release.download_size`;
-- `release.archive_sha256`;
 - upstream revisions and source checksums;
 - tokenizer evidence where applicable;
 - converted-model fingerprints; and
 - conversion tool and dependency revisions.
+
+Archive byte sizes and SHA-256 values belong in the generated external
+manifest, the application download catalog, and release-host metadata. Do not
+embed them in a provenance file packaged inside the same archive: changing the
+embedded record would change the archive checksum and make the record
+self-referential.
 
 Remove `release_blocker` only when the blocker has genuinely been resolved.
 Keep it present and nonempty for blocked models.

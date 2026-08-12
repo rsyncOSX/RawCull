@@ -19,11 +19,11 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.expectedArchiveSHA256
-                == "7ee162d01c18ae4ba414bc6d2d95135eadf14c6b013371513cf3a32f31bd9740",
+                == "cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7",
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.downloadByteCount
-                == 282_967_218,
+                == 282_966_632,
         )
         #expect(
             catalog.descriptor(for: .clipOpenAI)?.releaseReadiness.isReady
@@ -35,11 +35,11 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(
             catalog.descriptor(for: .clipOpenAI)?.expectedArchiveSHA256
-                == "31e60a9cd13bc7349a33cdc8a162a9a62ac460371e4d18406c0d3cf7ebda01e0",
+                == "e9181157c2d4012db2e6478949488f9906696a4ed78ecaa10235d9762621136c",
         )
         #expect(
             catalog.descriptor(for: .clipOpenAI)?.downloadByteCount
-                == 282_865_714,
+                == 282_866_068,
         )
         #expect(
             RawCullAIModelDownloadSource.selfHosted(

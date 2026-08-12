@@ -8,6 +8,9 @@ This notice catalog accompanies RawCull's converted
 - Meta's SAM 3 model, weights, code, and derivatives are governed by the SAM
   License dated November 19, 2025. The complete agreement is in
   `SAM3-SAM-License-2025-11-19.txt`.
+- The bundled text tokenizer is compatible with OpenAI CLIP and contains the
+  OpenAI CLIP tokenizer vocabulary. Its complete MIT notice is in
+  `OpenAI-CLIP-Tokenizer-MIT.txt`.
 - The conversion recipe was adapted from Apple `coreai-models`. Its complete
   BSD 3-Clause notice is in `Apple-coreai-models-BSD-3-Clause.txt`.
 

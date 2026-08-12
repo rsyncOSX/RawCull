@@ -3,9 +3,7 @@
   "release_status": "ready",
   "release": {
     "tag": "v2",
-    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-datacomp",
-    "download_size": 282967218,
-    "archive_sha256": "7ee162d01c18ae4ba414bc6d2d95135eadf14c6b013371513cf3a32f31bd9740"
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-datacomp"
   },
   "model": {
     "bundle": "CLIP-DataComp",
@@ -14,9 +12,9 @@
     "pretrained": "datacomp_s34b_b86k",
     "precision": "float16",
     "static_shapes": true,
-    "runtime_main_mlirb_sha256": "70b6a8b3502626dbfd4e228dff1e060e06606c93e7a19c8f260dba95b9a7d01e",
+    "runtime_main_mlirb_sha256": "41596f6f7a9f8f8d1171b0056f4e3a90902ef88d73303713ab3bed4847b6266d",
     "exporter_fingerprint_algorithm": "directory-tree-sha256-v1",
-    "exporter_fingerprint": "7767e107112578d4556c04818fdb77f4f41d601e677c8ee5df71268139ce3ba3"
+    "exporter_fingerprint": "6a3639a2049b8a4ea23fe04c3083e199a4f505433f7c8bd0748b3c8d4fcb1572"
   },
   "upstream": {
     "project": "mlfoundations/open_clip",
@@ -31,7 +29,7 @@
   },
   "conversion": {
     "producer": "coreai-core 1.0.0b2",
-    "model_creation_date": "2026-07-27T13:53:46Z",
+    "model_creation_date": "2026-08-10T04:46:25Z",
     "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286"
   },
   "licences": [

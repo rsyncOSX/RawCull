@@ -148,8 +148,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     "https://huggingface.co/laion/CLIP-ViT-B-32-256x256-DataComp-s34B-b86K",
                 ),
                 conversionInformationURL: nil,
-                expectedArchiveSHA256: "7ee162d01c18ae4ba414bc6d2d95135eadf14c6b013371513cf3a32f31bd9740",
-                downloadByteCount: 282_967_218,
+                expectedArchiveSHA256: "cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7",
+                downloadByteCount: 282_966_632,
                 installedByteCount: nil,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",
@@ -181,8 +181,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     "https://huggingface.co/openai/clip-vit-base-patch32",
                 ),
                 conversionInformationURL: nil,
-                expectedArchiveSHA256: "31e60a9cd13bc7349a33cdc8a162a9a62ac460371e4d18406c0d3cf7ebda01e0",
-                downloadByteCount: 282_865_714,
+                expectedArchiveSHA256: "e9181157c2d4012db2e6478949488f9906696a4ed78ecaa10235d9762621136c",
+                downloadByteCount: 282_866_068,
                 installedByteCount: nil,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",

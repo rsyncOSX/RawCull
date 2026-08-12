@@ -36,6 +36,12 @@
       "sha256": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab"
     },
     {
+      "component": "OpenAI CLIP tokenizer",
+      "spdx": "MIT",
+      "file": "OpenAI-CLIP-Tokenizer-MIT.txt",
+      "sha256": "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e"
+    },
+    {
       "component": "Apple coreai-models conversion recipe",
       "spdx": "BSD-3-Clause",
       "file": "Apple-coreai-models-BSD-3-Clause.txt",

@@ -21,8 +21,9 @@ the asset pack.
 ## Release status
 
 RawCull publishes this pack in the v2 model release. The release catalog
-records the immutable archive checksum, the upstream reference revision, the
-runtime fingerprint, and the complete accompanying licence notices.
+records its download size and version, while the release host records the
+archive checksum. This notice catalog records the upstream reference revision,
+runtime fingerprint, and complete accompanying licence notices.
 
 The model can produce inaccurate or biased results and is provided without
 warranty under the accompanying licences.

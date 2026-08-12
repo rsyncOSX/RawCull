@@ -3,9 +3,7 @@
   "release_status": "ready",
   "release": {
     "tag": "v2",
-    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-openai",
-    "download_size": 282865714,
-    "archive_sha256": "31e60a9cd13bc7349a33cdc8a162a9a62ac460371e4d18406c0d3cf7ebda01e0"
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-openai"
   },
   "model": {
     "bundle": "CLIP-OpenAI",
@@ -13,8 +11,9 @@
     "architecture": "ViT-B-32",
     "precision": "float16",
     "static_shapes": true,
+    "runtime_main_mlirb_sha256": "828e6ef52700c48b9c72696d785f5b45bd01a06748c538eb284cf3a42f2530da",
     "exporter_fingerprint_algorithm": "directory-tree-sha256-v1",
-    "exporter_fingerprint": "a71ceca116e13b334b0679c95bd85d7ecda14fd68bd7a3ea84b83c286005f45b"
+    "exporter_fingerprint": "24a20d7c5c88da2afe3ed81dca0ddf223450dd6afd1f3aff34be7acfc48f4914"
   },
   "upstream": {
     "project": "openai/clip-vit-base-patch32",
@@ -32,7 +31,7 @@
   },
   "conversion": {
     "producer": "coreai-core 1.0.0b2",
-    "model_creation_date": "2026-07-10T16:32:47Z",
+    "model_creation_date": "2026-08-10T06:27:23Z",
     "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286",
     "photoaikit_revision": "6e3216027b267c27ccaf99d334807b18ea1aaec9"
   },

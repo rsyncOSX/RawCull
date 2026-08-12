@@ -18,9 +18,10 @@ the asset pack.
 ## Release status
 
 RawCull publishes this pack in the v2 model release. The release catalog
-records the immutable Hugging Face revision, verified source-weight checksum,
-converted-model fingerprint, immutable archive checksum, and the complete
-accompanying OpenAI and Apple licence notices.
+records its download size and version, while the release host records the
+archive checksum. This notice catalog records the immutable Hugging Face
+revision, verified source-weight checksum, converted-model fingerprint, and
+complete accompanying OpenAI and Apple licence notices.
 
 The model can produce inaccurate or biased results and is provided without
 warranty under the accompanying licences.
