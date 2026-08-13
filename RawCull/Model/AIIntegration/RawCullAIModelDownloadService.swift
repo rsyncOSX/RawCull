@@ -140,6 +140,9 @@ nonisolated protocol RawCullAIModelDownloadServicing: Sendable {
 /// select the host without changing this service.
 actor RawCullManagedBackgroundAssetsModelDownloadService:
     RawCullAIModelDownloadServicing {
+    /// Compile-time switch for testing Background Assets on affected OS builds.
+    /// Set to `false` and rebuild to bypass the macOS 27 beta 5 guard.
+    private let isBackgroundAssetsRuntimeGuardEnabled = false
     private let source: RawCullAIModelDownloadSource
     private let backgroundAssetsRuntimeIsUsable: Bool
 
@@ -158,7 +161,8 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         guard source.isConfigured else {
             return .notConfigured
         }
-        guard backgroundAssetsRuntimeIsUsable else {
+        guard !isBackgroundAssetsRuntimeGuardEnabled
+            || backgroundAssetsRuntimeIsUsable else {
             return .failed(
                 message: RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -196,7 +200,8 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         guard source.isConfigured else {
             throw RawCullAIModelDownloadError.serviceNotConfigured
         }
-        guard backgroundAssetsRuntimeIsUsable else {
+        guard !isBackgroundAssetsRuntimeGuardEnabled
+            || backgroundAssetsRuntimeIsUsable else {
             throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
                 RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -235,7 +240,8 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     func remove(
         _ descriptor: RawCullAIModelDownloadDescriptor,
     ) async throws {
-        guard backgroundAssetsRuntimeIsUsable else {
+        guard !isBackgroundAssetsRuntimeGuardEnabled
+            || backgroundAssetsRuntimeIsUsable else {
             throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
                 RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
