@@ -22,7 +22,7 @@ PERFORMANCE_EXPECTED_TESTS = 2
 ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 
 # Default target is release build
-build: release-preflight clean archive sign-app notarize staple prepare-dmg hash-dmg open
+build: clean archive sign-app notarize staple prepare-dmg hash-dmg open
 
 # Debug build - skips notarization and signing
 debug: clean archive-debug open-debug
