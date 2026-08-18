@@ -161,6 +161,42 @@ private nonisolated struct CancellationSimilarityService: RawCullSimilarityServi
     }
 }
 
+private nonisolated struct ImmediateSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        for (offset, source) in sources.enumerated() {
+            artifacts[source.id] = makeSimilarityTestArtifact(
+                source: source,
+                payload: Data([UInt8(offset + 1)]),
+            )
+            await progress?(
+                RawCullSimilarityIndexingProgress(
+                    completed: offset + 1,
+                    total: sources.count,
+                    currentSourceID: source.id,
+                ),
+            )
+        }
+        return RawCullSimilarityIndexingOutput(
+            artifacts: artifacts,
+            failures: [],
+        )
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        similarityTestDistance(from: left, to: right)
+    }
+}
+
 private actor SimilarityEmbeddingSuspensionProbe {
     private var startedCount = 0
     private var continuations: [CheckedContinuation<Void, Never>] = []
@@ -497,6 +533,29 @@ struct CullingModelTests {
         #expect(model.anchorFileID == previousAnchorID)
         #expect(model.distances == [previousDistanceID: 0.5])
         #expect(model.sortBySimilarity == false)
+    }
+
+    @Test
+    func `find similar indexes a fresh catalog before ranking`() async {
+        let viewModel = RawCullViewModel(
+            similarityService: ImmediateSimilarityService(),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let anchor = makeCullingTestFile("fresh-anchor.ARW")
+        let candidate = makeCullingTestFile("fresh-candidate.ARW")
+        viewModel.files = [anchor, candidate]
+        viewModel.filteredFiles = [anchor, candidate]
+        viewModel.selectedFileID = anchor.id
+
+        #expect(!viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
+
+        await viewModel.findSimilarToSelected()
+
+        #expect(viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
+        #expect(viewModel.similarityModel.anchorFileID == anchor.id)
+        #expect(viewModel.similarityModel.distances[candidate.id] != nil)
+        #expect(viewModel.similarityModel.sortBySimilarity)
+        #expect(viewModel.filteredFiles.first?.id == anchor.id)
     }
 
     @Test

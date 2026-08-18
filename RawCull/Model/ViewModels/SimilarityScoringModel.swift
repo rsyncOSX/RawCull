@@ -219,6 +219,10 @@ final class SimilarityScoringModel {
         similarityService.artifactBackendDescriptors
     }
 
+    func hasCompleteSimilarityIndex(for files: [FileItem]) -> Bool {
+        !files.isEmpty && files.allSatisfy { embeddings[$0.id] != nil }
+    }
+
     var semanticSearchBackendDescriptor: SimilarityBackendDescriptor? {
         semanticSearchService?.backendDescriptor
     }

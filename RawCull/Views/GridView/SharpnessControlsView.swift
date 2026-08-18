@@ -65,20 +65,22 @@ struct SharpnessControlsView: View {
         }
 
         Toggle(isOn: $viewModel.similarityModel.sortBySimilarity) {
-            Label("Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
+            if viewModel.similarityModel.isIndexing {
+                Label("Indexing \(similarityBackendName)…", systemImage: "photo.stack")
+            } else if needsSimilarityIndex {
+                Label("Index & Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
+            } else {
+                Label("Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
+            }
         }
         .toggleStyle(.button)
         .font(.caption)
         .disabled(
-            viewModel.selectedFile == nil
-                && !viewModel.similarityModel.sortBySimilarity
-                && !viewModel.hasCompletedBurstAnalysis,
+            (viewModel.selectedFile == nil
+                && !viewModel.similarityModel.sortBySimilarity)
+                || viewModel.similarityModel.isIndexing,
         )
-        .help(
-            viewModel.similarityModel.sortBySimilarity
-                ? "Stop sorting by similarity"
-                : "Rank all images by \(similarityBackendName) similarity to the selected image",
-        )
+        .help(similarityHelp)
         .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, isEnabled in
             if isEnabled {
                 viewModel.sharpnessModel.sortBySharpness = false
@@ -103,5 +105,22 @@ struct SharpnessControlsView: View {
         viewModel.similarityModel.backendDescriptor.backend == "clip"
             ? "CLIP"
             : "Vision"
+    }
+
+    private var needsSimilarityIndex: Bool {
+        !viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files)
+    }
+
+    private var similarityHelp: String {
+        if viewModel.similarityModel.isIndexing {
+            return "Building the \(similarityBackendName) similarity index"
+        }
+        if viewModel.similarityModel.sortBySimilarity {
+            return "Stop sorting by similarity"
+        }
+        if needsSimilarityIndex {
+            return "Build missing \(similarityBackendName) index entries, then rank images by similarity to the selected image"
+        }
+        return "Rank all images by \(similarityBackendName) similarity to the selected image"
     }
 }
