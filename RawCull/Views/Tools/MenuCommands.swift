@@ -9,11 +9,20 @@ import Foundation
 import SwiftUI
 
 struct MenuCommands: Commands {
+    @FocusedBinding(\.addCatalog) private var addCatalog
     @FocusedBinding(\.aborttask) private var aborttask
     @FocusedBinding(\.extractJPGs) private var extractJPGs
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Add Catalog…") {
+                addCatalog = true
+            }
+            .keyboardShortcut("o", modifiers: .command)
+            .disabled(addCatalog == nil)
+        }
+
         CommandMenu("Actions") {
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
                 .disabled(extractJPGs == nil)
@@ -68,11 +77,20 @@ struct FocusedAborttask: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+struct FocusedAddCatalog: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
 struct FocusedExtractJPGs: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
 extension FocusedValues {
+    var addCatalog: FocusedAddCatalog.Value? {
+        get { self[FocusedAddCatalog.self] }
+        set { self[FocusedAddCatalog.self] = newValue }
+    }
+
     var aborttask: FocusedAborttask.Value? {
         get { self[FocusedAborttask.self] }
         set { self[FocusedAborttask.self] = newValue }

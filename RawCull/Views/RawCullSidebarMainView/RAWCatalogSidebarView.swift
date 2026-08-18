@@ -3,7 +3,6 @@ import SwiftUI
 struct RAWCatalogSidebarView: View {
     @Binding var sources: [ARWSourceCatalog]
     @Binding var selectedSource: ARWSourceCatalog?
-    @Binding var isShowingPicker: Bool
 
     let cullingModel: CullingModel
 
@@ -15,15 +14,5 @@ struct RAWCatalogSidebarView: View {
             }
         }
         .navigationTitle("Catalogs")
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 12) {
-                Button(action: { isShowingPicker = true }, label: {
-                    Label("Add Catalog", systemImage: "plus")
-                })
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
-            }
-            .padding()
-        }
     }
 }

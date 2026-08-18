@@ -7,7 +7,6 @@ struct SidebarARWCatalogFileView: View {
     }
 
     @Bindable var viewModel: RawCullViewModel
-    @Binding var isShowingPicker: Bool
     @Binding var progress: Double
     @Binding var selectedSource: ARWSourceCatalog?
 
@@ -29,9 +28,7 @@ struct SidebarARWCatalogFileView: View {
                 ContentUnavailableView {
                     Label("No Catalog Selected", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("Add a Catalog to start culling your photos.")
-                } actions: {
-                    Button("+ Add Catalog") { isShowingPicker = true }
+                    Text("Choose File > Add Catalog… to start culling your photos.")
                 }
             } else if scanning {
                 ProgressView("Scanning images: \(counterScannedFiles)")
@@ -39,13 +36,7 @@ struct SidebarARWCatalogFileView: View {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("This folder has no RAW images. Try a different folder.")
-                } actions: {
-                    Button {
-                        isShowingPicker = true
-                    } label: {
-                        Label("Add Catalog", systemImage: "plus")
-                    }
+                    Text("This folder has no RAW images. Choose File > Add Catalog… to try a different folder.")
                 }
             } else if files.isEmpty {
                 ContentUnavailableView {

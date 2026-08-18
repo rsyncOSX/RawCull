@@ -178,6 +178,7 @@ struct RawCullMainView: View {
         }
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
         .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
+        .focusedSceneValue(\.addCatalog, $viewModel.isShowingPicker)
         .onChange(of: viewModel.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
             viewModel.focusExtractJPGs = false
@@ -223,13 +224,11 @@ struct RawCullMainView: View {
             RAWCatalogSidebarView(
                 sources: $viewModel.sources,
                 selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
                 cullingModel: viewModel.cullingModel,
             )
         } content: {
             SidebarARWCatalogFileView(
                 viewModel: viewModel,
-                isShowingPicker: $viewModel.isShowingPicker,
                 progress: $viewModel.progress,
                 selectedSource: $viewModel.selectedSource,
                 scanning: $viewModel.scanning,
@@ -272,6 +271,7 @@ struct RawCullMainView: View {
                 abort: abort,
             )
         }
+        .toolbar(removing: .sidebarToggle)
         .task {
             columnVisibility = .doubleColumn
         }
@@ -380,7 +380,6 @@ struct RawCullMainView: View {
                 RAWCatalogSidebarView(
                     sources: $viewModel.sources,
                     selectedSource: $viewModel.selectedSource,
-                    isShowingPicker: $viewModel.isShowingPicker,
                     cullingModel: viewModel.cullingModel,
                 )
             } detail: {
@@ -394,6 +393,7 @@ struct RawCullMainView: View {
                     CandidateInspectorView(context: candidateInspectorContext)
                 }
             }
+            .toolbar(removing: .sidebarToggle)
             .task {
                 columnVisibility = .detailOnly
             }
