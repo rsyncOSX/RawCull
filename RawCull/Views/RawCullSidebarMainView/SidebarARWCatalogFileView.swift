@@ -18,7 +18,6 @@ struct SidebarARWCatalogFileView: View {
     @Binding var cgImage: CGImage?
 
     @State var counterScannedFiles: Int = 0
-    @State var verticalimages: Bool = true
 
     let issorting: Bool
     let max: Double
@@ -58,28 +57,18 @@ struct SidebarARWCatalogFileView: View {
                 ZStack {
                     VStack(alignment: .leading) {
                         HStack {
+                            
                             ConditionalGlassButton(
-                                systemImage: verticalimages == true ? "text.justify" : "photo.stack",
-                                text: verticalimages ? "Table" : "Images",
-                                helpText: "View table or images",
+                                systemImage: "trash",
+                                text: "Clear",
+                                helpText: "Clear rated files",
                                 style: .softCapsule,
                             ) {
-                                verticalimages.toggle()
+                                viewModel.alertType = .clearRatedFiles
+                                viewModel.showingAlert = true
                             }
-
-                            if verticalimages {
-                                ConditionalGlassButton(
-                                    systemImage: "arrow.counterclockwise",
-                                    text: "Clear",
-                                    helpText: "Clear rated files",
-                                    style: .softCapsule,
-                                ) {
-                                    viewModel.alertType = .clearRatedFiles
-                                    viewModel.showingAlert = true
-                                }
-                                .disabled(viewModel.creatingthumbnails)
-                            }
-
+                            .disabled(viewModel.creatingthumbnails)
+                            
                             ConditionalGlassButton(
                                 systemImage: "photo.badge.arrow.down",
                                 text: "Cache JPGs",
@@ -102,14 +91,9 @@ struct SidebarARWCatalogFileView: View {
                             // left side. If verticalimage == false then show ARW
                             // files in a table view
 
-                            if verticalimages {
-                                ImageTableVerticalView(viewModel: viewModel)
-                            } else {
-                                // This is the plain table view
-                                FileTableRowView(viewModel: viewModel)
-                            }
+                            ImageTableVerticalView(viewModel: viewModel)
                         }
-                        .frame(width: verticalimages ? (thumbnailSizeGrid + 20) : 510)
+                        .frame(width: thumbnailSizeGrid + 20)
                         .fixedSize(horizontal: true, vertical: false)
 
                         if creatingThumbnails {
