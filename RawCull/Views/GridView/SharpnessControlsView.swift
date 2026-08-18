@@ -65,18 +65,19 @@ struct SharpnessControlsView: View {
         }
 
         Toggle(isOn: $viewModel.similarityModel.sortBySimilarity) {
-            Label("Find Similar", systemImage: "photo.stack")
+            Label("Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
         }
         .toggleStyle(.button)
         .font(.caption)
         .disabled(
             viewModel.selectedFile == nil
-                && !viewModel.similarityModel.sortBySimilarity,
+                && !viewModel.similarityModel.sortBySimilarity
+            && !viewModel.hasCompletedBurstAnalysis,
         )
         .help(
             viewModel.similarityModel.sortBySimilarity
                 ? "Stop sorting by similarity"
-                : "Rank all images by visual similarity to the selected image",
+                : "Rank all images by \(similarityBackendName) similarity to the selected image",
         )
         .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, isEnabled in
             if isEnabled {
@@ -96,5 +97,11 @@ struct SharpnessControlsView: View {
                 Text("Calibrating focus-mask threshold, please wait...")
             }
         }
+    }
+
+    private var similarityBackendName: String {
+        viewModel.similarityModel.backendDescriptor.backend == "clip"
+            ? "CLIP"
+            : "Vision"
     }
 }

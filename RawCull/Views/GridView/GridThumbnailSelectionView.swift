@@ -21,8 +21,6 @@ struct GridThumbnailSelectionView: View {
         CullingGridView(viewModel: viewModel) {
             if !viewModel.showsBurstGroups {
                 SharpnessControlsView(viewModel: viewModel)
-
-                Divider().frame(height: 20)
             }
         }
     }
