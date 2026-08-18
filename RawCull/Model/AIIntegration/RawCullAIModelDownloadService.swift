@@ -55,8 +55,8 @@ nonisolated enum RawCullBackgroundAssetsRuntime {
 
     static let unavailableMessage =
         "AI model downloads are temporarily unavailable on macOS 27 beta 5 "
-        + "(build \(macOS27Beta5Build)) because of a Background Assets "
-        + "validation regression."
+            + "(build \(macOS27Beta5Build)) because of a Background Assets "
+            + "validation regression."
 }
 
 nonisolated enum RawCullAIModelDownloadState: Equatable, Sendable {
@@ -162,7 +162,8 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             return .notConfigured
         }
         guard !isBackgroundAssetsRuntimeGuardEnabled
-            || backgroundAssetsRuntimeIsUsable else {
+            || backgroundAssetsRuntimeIsUsable
+        else {
             return .failed(
                 message: RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -201,7 +202,8 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             throw RawCullAIModelDownloadError.serviceNotConfigured
         }
         guard !isBackgroundAssetsRuntimeGuardEnabled
-            || backgroundAssetsRuntimeIsUsable else {
+            || backgroundAssetsRuntimeIsUsable
+        else {
             throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
                 RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -241,7 +243,8 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         _ descriptor: RawCullAIModelDownloadDescriptor,
     ) async throws {
         guard !isBackgroundAssetsRuntimeGuardEnabled
-            || backgroundAssetsRuntimeIsUsable else {
+            || backgroundAssetsRuntimeIsUsable
+        else {
             throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
                 RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
