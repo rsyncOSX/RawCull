@@ -72,7 +72,7 @@ struct SharpnessControlsView: View {
         .disabled(
             viewModel.selectedFile == nil
                 && !viewModel.similarityModel.sortBySimilarity
-            && !viewModel.hasCompletedBurstAnalysis,
+                && !viewModel.hasCompletedBurstAnalysis,
         )
         .help(
             viewModel.similarityModel.sortBySimilarity

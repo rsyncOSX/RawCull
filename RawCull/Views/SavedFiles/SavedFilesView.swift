@@ -51,7 +51,6 @@ struct SavedFilesView: View {
                     systemImage: "trash",
                     text: "Reset",
                     helpText: "Clean up data from previous saves",
-                    style: .softCapsule,
                 ) {
                     showResetAlert = true
                 }

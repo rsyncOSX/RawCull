@@ -154,61 +154,37 @@ private struct PressureAnimatedButton: View {
     }
 }
 
-enum ConditionalGlassButtonStyleOption {
-    case refinedGlass
-    case softCapsule
-}
-
 struct ConditionalGlassButton: View {
-    @Environment(\.colorScheme) var colorScheme
-
     let systemImage: String
-    let text: String?
-    let helpText: String
+    let text: LocalizedStringResource
+    let helpText: LocalizedStringResource
     let role: ButtonRole?
-    var textcolor: Bool = false
-    let style: ConditionalGlassButtonStyleOption
     let action: () -> Void
 
     init(
         systemImage: String,
-        text: String? = nil,
-        helpText: String,
+        text: LocalizedStringResource,
+        helpText: LocalizedStringResource,
         role: ButtonRole? = nil,
-        textcolor: Bool = false,
-        style: ConditionalGlassButtonStyleOption = .refinedGlass,
         action: @escaping () -> Void,
     ) {
         self.systemImage = systemImage
         self.text = text
         self.helpText = helpText
         self.role = role
-        self.textcolor = textcolor
-        self.style = style
         self.action = action
     }
 
     var body: some View {
-        if style == .softCapsule {
-            Button(role: role, action: action) {
-                Label {
-                    if let text {
-                        Text(text)
-                            .foregroundColor(textcolor ? .green : (colorScheme == .dark ? .white : .black))
-                    }
-                } icon: {
-                    if !systemImage.isEmpty {
-                        Image(systemName: systemImage)
-                    }
-                }
+        Button(role: role, action: action) {
+            Label {
+                Text(text)
+            } icon: {
+                Image(systemName: systemImage)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.thinMaterial, in: Capsule())
-            .overlay { Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5) }
-            .help(helpText)
-            .labelStyle(.iconOnly)
         }
+        .buttonStyle(.glass)
+        .labelStyle(.iconOnly)
+        .help(Text(helpText))
     }
 }

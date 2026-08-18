@@ -57,23 +57,20 @@ struct SidebarARWCatalogFileView: View {
                 ZStack {
                     VStack(alignment: .leading) {
                         HStack {
-                            
                             ConditionalGlassButton(
                                 systemImage: "trash",
                                 text: "Clear",
                                 helpText: "Clear rated files",
-                                style: .softCapsule,
                             ) {
                                 viewModel.alertType = .clearRatedFiles
                                 viewModel.showingAlert = true
                             }
                             .disabled(viewModel.creatingthumbnails)
-                            
+
                             ConditionalGlassButton(
                                 systemImage: "photo.badge.arrow.down",
                                 text: "Cache JPGs",
                                 helpText: "Cache extracted JPG previews for this catalog",
-                                style: .softCapsule,
                             ) {
                                 viewModel.alertType = .createJPGDiskCache
                                 viewModel.showingAlert = true
