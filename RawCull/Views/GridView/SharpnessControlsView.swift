@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SharpnessControlsView: View {
     @Bindable var viewModel: RawCullViewModel
+    @State private var isShowingCLIPIndexConfirmation = false
 
     var body: some View {
         // Score button — calibrates from the burst then scores
@@ -64,7 +65,7 @@ struct SharpnessControlsView: View {
             }
         }
 
-        Toggle(isOn: $viewModel.similarityModel.sortBySimilarity) {
+        Toggle(isOn: similaritySortingBinding) {
             if viewModel.similarityModel.isIndexing {
                 Label("Indexing \(similarityBackendName)…", systemImage: "photo.stack")
             } else if needsSimilarityIndex {
@@ -81,6 +82,17 @@ struct SharpnessControlsView: View {
                 || viewModel.similarityModel.isIndexing,
         )
         .help(similarityHelp)
+        .confirmationDialog(
+            "Index images with CLIP?",
+            isPresented: $isShowingCLIPIndexConfirmation,
+        ) {
+            Button("Index & Find Similar") {
+                viewModel.similarityModel.sortBySimilarity = true
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("RawCull will build missing CLIP index entries before finding images similar to the selected image. This may take some time.")
+        }
         .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, isEnabled in
             if isEnabled {
                 viewModel.sharpnessModel.sortBySharpness = false
@@ -105,6 +117,19 @@ struct SharpnessControlsView: View {
         viewModel.similarityModel.backendDescriptor.backend == "clip"
             ? "CLIP"
             : "Vision"
+    }
+
+    private var similaritySortingBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.similarityModel.sortBySimilarity },
+            set: { isEnabled in
+                if isEnabled, needsSimilarityIndex, similarityBackendName == "CLIP" {
+                    isShowingCLIPIndexConfirmation = true
+                } else {
+                    viewModel.similarityModel.sortBySimilarity = isEnabled
+                }
+            },
+        )
     }
 
     private var needsSimilarityIndex: Bool {
