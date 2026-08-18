@@ -58,21 +58,6 @@ struct SharedMainToolbarContent: ToolbarContent {
         if !usesBurstWorkspaceChrome {
             Group {
                 ToolbarItem(placement: .status) {
-                    Button(action: openCopyView) {
-                        Label("Copy", systemImage: "document.on.document")
-                    }
-                    .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
-                    .help("Copy tagged images to destination...")
-                }
-
-                ToolbarItem(placement: .status) {
-                    Button(action: toggleshowsavedfiles) {
-                        Label("Saved Files", systemImage: "square.and.arrow.down")
-                    }
-                    .help("Show saved files")
-                }
-
-                ToolbarItem(placement: .status) {
                     Button(action: toggleInspector) {
                         Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
                     }
@@ -221,15 +206,6 @@ struct SharedMainToolbarContent: ToolbarContent {
         case .keepers: 0
         case let .stars(n): n
         }
-    }
-
-    private func openCopyView() {
-        viewModel.sheetType = .copytasksview
-        viewModel.showcopyARWFilesView = true
-    }
-
-    private func toggleshowsavedfiles() {
-        viewModel.showSavedFiles.toggle()
     }
 
     private func selectGridMode() {

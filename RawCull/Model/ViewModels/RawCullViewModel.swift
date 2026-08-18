@@ -105,6 +105,8 @@ final class RawCullViewModel {
 
     var focusaborttask: Bool = false
     var focusExtractJPGs: Bool = false
+    var focusCopyTaggedFiles: Bool = false
+    var focusShowSavedFiles: Bool = false
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
     var extractJPGDestination: ARWSourceCatalog?
 

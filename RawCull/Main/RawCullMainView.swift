@@ -179,10 +179,27 @@ struct RawCullMainView: View {
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
         .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
         .focusedSceneValue(\.addCatalog, $viewModel.isShowingPicker)
+        .focusedSceneValue(\.copyTaggedFiles, $viewModel.focusCopyTaggedFiles)
+        .focusedSceneValue(\.showSavedFiles, $viewModel.focusShowSavedFiles)
+        .focusedSceneValue(
+            \.canCopyTaggedFiles,
+            viewModel.selectedSource != nil && !viewModel.creatingthumbnails,
+        )
         .onChange(of: viewModel.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
             viewModel.focusExtractJPGs = false
             viewModel.presentExtractJPGsSheet()
+        }
+        .onChange(of: viewModel.focusCopyTaggedFiles) { _, shouldPresent in
+            guard shouldPresent else { return }
+            viewModel.focusCopyTaggedFiles = false
+            viewModel.sheetType = .copytasksview
+            viewModel.showcopyARWFilesView = true
+        }
+        .onChange(of: viewModel.focusShowSavedFiles) { _, shouldPresent in
+            guard shouldPresent else { return }
+            viewModel.focusShowSavedFiles = false
+            viewModel.showSavedFiles = true
         }
     }
 
