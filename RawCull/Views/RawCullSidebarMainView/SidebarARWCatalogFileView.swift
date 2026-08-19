@@ -71,6 +71,8 @@ struct SidebarARWCatalogFileView: View {
                                     files.isEmpty ||
                                     viewModel.creatingthumbnails,
                             )
+
+                            LoupeSortBadge(status: sortStatus)
                         }
                         .padding()
 
@@ -140,5 +142,71 @@ struct SidebarARWCatalogFileView: View {
             return "Caching JPGs"
         }
         return "Extracting JPGs"
+    }
+
+    private var sortStatus: LoupeSortStatus {
+        if viewModel.similarityModel.sortBySimilarity {
+            return .similarity
+        }
+        if viewModel.sharpnessModel.sortBySharpness {
+            return .sharpness
+        }
+        return .name
+    }
+}
+
+private enum LoupeSortStatus {
+    case name
+    case sharpness
+    case similarity
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .name: "Name"
+        case .sharpness: "Sharpness"
+        case .similarity: "Similarity"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .name: "textformat"
+        case .sharpness: "scope"
+        case .similarity: "photo.stack"
+        }
+    }
+
+    var helpText: LocalizedStringResource {
+        switch self {
+        case .name: "Images are sorted by name"
+        case .sharpness: "Images are sorted by sharpness"
+        case .similarity: "Images are sorted by similarity"
+        }
+    }
+}
+
+private struct LoupeSortBadge: View {
+    let status: LoupeSortStatus
+
+    var body: some View {
+        Label {
+            Text(status.title)
+        } icon: {
+            Image(systemName: status.systemImage)
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(.regularMaterial, in: Capsule())
+        .overlay {
+            Capsule()
+                .strokeBorder(.primary.opacity(0.12), lineWidth: 0.5)
+        }
+        .help(Text(status.helpText))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Image sorting")
+        .accessibilityValue(Text(status.helpText))
     }
 }
