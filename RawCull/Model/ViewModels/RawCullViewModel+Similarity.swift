@@ -41,7 +41,11 @@ extension RawCullViewModel {
             using: catalogFiles,
             saliencyInfo: sharpnessModel.saliencyInfo,
         )
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled,
+              selectedFile?.id == anchor.id,
+              similarityModel.sortBySimilarity,
+              Set(files.map(\.id)) == catalogFileIDs
+        else { return }
         await handleSortOrderChange()
     }
 

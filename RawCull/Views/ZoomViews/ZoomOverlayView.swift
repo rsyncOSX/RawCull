@@ -474,7 +474,9 @@ struct ZoomOverlayView: View {
         }
 
         let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
-        return viewModel.sharpnessModel.sortBySharpness
+        let usesAnalysisSortOrder = viewModel.sharpnessModel.sortBySharpness
+            || viewModel.similarityModel.sortBySimilarity
+        return usesAnalysisSortOrder
             ? filtered
             : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }

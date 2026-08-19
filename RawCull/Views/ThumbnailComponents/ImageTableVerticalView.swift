@@ -119,10 +119,15 @@ struct ImageTableVerticalView: View {
     }
 
     private var sortedFiles: [FileItem] {
-        guard !viewModel.sharpnessModel.sortBySharpness else { return filteredFiles }
+        guard !usesAnalysisSortOrder else { return filteredFiles }
         return filteredFiles.sorted { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
+    }
+
+    private var usesAnalysisSortOrder: Bool {
+        viewModel.sharpnessModel.sortBySharpness
+            || viewModel.similarityModel.sortBySimilarity
     }
 
     private func ratingValue(for file: FileItem) -> Int {

@@ -10,6 +10,7 @@ import SwiftUI
 struct SharpnessControlsView: View {
     @Bindable var viewModel: RawCullViewModel
     @State private var isShowingCLIPIndexConfirmation = false
+    @State private var preservesSimilarityOrderOnDisable = false
 
     var body: some View {
         // Score button — calibrates from the burst then scores
@@ -97,11 +98,24 @@ struct SharpnessControlsView: View {
             if isEnabled {
                 viewModel.sharpnessModel.sortBySharpness = false
                 Task { await viewModel.findSimilarToSelected() }
+            } else if preservesSimilarityOrderOnDisable {
+                preservesSimilarityOrderOnDisable = false
             } else if !viewModel.sharpnessModel.sortBySharpness {
                 Task(priority: .background) {
                     await viewModel.handleSortOrderChange()
                 }
             }
+        }
+        .onChange(of: viewModel.selectedFileID) { oldID, newID in
+            guard oldID != newID,
+                  viewModel.similarityModel.sortBySimilarity
+            else { return }
+
+            // A new selection prepares Find Similar for a new anchor while
+            // preserving the currently displayed similarity ranking.
+            preservesSimilarityOrderOnDisable = true
+            viewModel.similarityModel.cancelSimilarityRanking()
+            viewModel.similarityModel.sortBySimilarity = false
         }
 
         // Spinner shown while calibrating is in progress

@@ -913,6 +913,14 @@ final class SimilarityScoringModel {
         sortBySimilarity = true
     }
 
+    /// Stop only the current image-to-image ranking operation while retaining
+    /// the last completed distances and their displayed order.
+    func cancelSimilarityRanking() {
+        _rankingTask?.cancel()
+        _rankingTask = nil
+        _rankingGeneration &+= 1
+    }
+
     /// Rank an admitted catalog snapshot using only compatible cached CLIP
     /// artifacts. No source image decoding or image embedding generation is
     /// reachable from this operation.

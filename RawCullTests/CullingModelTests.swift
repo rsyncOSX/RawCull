@@ -536,6 +536,42 @@ struct CullingModelTests {
     }
 
     @Test
+    func `disarming similarity ranking preserves the last completed order`() async {
+        let probe = SimilarityDistanceCancellationProbe()
+        let model = SimilarityScoringModel(
+            similarityService: CancellationDistanceSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let anchor = makeCullingTestFile("replacement-anchor.ARW")
+        let candidate = makeCullingTestFile("replacement-candidate.ARW")
+        let previousAnchorID = UUID()
+        let previousDistances: [UUID: Float] = [UUID(): 0.25]
+        model.embeddings = [
+            anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate)),
+        ]
+        model.anchorFileID = previousAnchorID
+        model.distances = previousDistances
+        model.sortBySimilarity = true
+
+        let ranking = Task {
+            await model.rankSimilar(
+                to: anchor.id,
+                using: [anchor, candidate],
+            )
+        }
+        await probe.waitUntilStarted()
+        model.cancelSimilarityRanking()
+        model.sortBySimilarity = false
+        await ranking.value
+
+        #expect(probe.didObserveCancellation())
+        #expect(model.anchorFileID == previousAnchorID)
+        #expect(model.distances == previousDistances)
+        #expect(model.sortBySimilarity == false)
+    }
+
+    @Test
     func `find similar indexes a fresh catalog before ranking`() async {
         let viewModel = RawCullViewModel(
             similarityService: ImmediateSimilarityService(),
