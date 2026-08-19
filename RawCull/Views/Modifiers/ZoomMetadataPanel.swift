@@ -35,8 +35,8 @@ struct ZoomMetadataPanel: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(width: 340)
-        .frame(maxHeight: 620, alignment: .topLeading)
+        .frame(width: 260)
+        .frame(maxHeight: 600, alignment: .topLeading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -119,6 +119,9 @@ struct ZoomMetadataPanel: View {
             sectionTitle("Quick Actions")
 
             HStack(spacing: 8) {
+                
+                Spacer()
+                
                 Button("Show in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([file.url])
                 }
