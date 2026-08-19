@@ -57,20 +57,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
         if !usesBurstWorkspaceChrome {
             Group {
-                if viewModel.mainViewMode == .loupe {
-                    ToolbarItem(placement: .status) {
-                        Button(action: toggleMetadataPanel) {
-                            Label(
-                                "Metadata",
-                                systemImage: viewModel.showsLoupeMetadataPanel
-                                    ? "info.square.fill"
-                                    : "info.square",
-                            )
-                        }
-                        .help(viewModel.showsLoupeMetadataPanel ? "Hide metadata (E)" : "Show metadata (E)")
-                    }
-                }
-
+                
                 ToolbarItem(placement: .status) {
                     Button {
                         viewModel.activeSheet = .scoringParams
