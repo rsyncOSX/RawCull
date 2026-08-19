@@ -230,6 +230,7 @@ private struct ShortcutSection: Identifiable {
             tint: .teal,
             shortcuts: [
                 ShortcutRow(["+", "-"], "Zoom in or out"),
+                ShortcutRow(["E"], "Show or hide image metadata"),
                 ShortcutRow(["J"], "Show the embedded JPEG"),
                 ShortcutRow(["R"], "Show the developed RAW preview"),
                 ShortcutRow(["Z"], "Open actual-pixel inspection")

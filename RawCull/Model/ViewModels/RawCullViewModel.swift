@@ -86,7 +86,7 @@ final class RawCullViewModel {
     var previouslySelectedFileID: FileItem.ID?
     var sortOrder = [KeyPathComparator(\FileItem.name)]
     var isShowingPicker = false
-    var hideInspector = true
+    var showsLoupeMetadataPanel = true
     var selectedFile: FileItem? {
         files.first { $0.id == selectedFileID }
     }

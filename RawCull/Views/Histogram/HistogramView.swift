@@ -62,7 +62,7 @@ final class HistogramPresentationModel {
 }
 
 struct HistogramView: View {
-    @Binding var nsImage: NSImage?
+    let nsImage: NSImage?
     @State private var presentation = HistogramPresentationModel()
 
     private var imageIdentity: ObjectIdentifier? {

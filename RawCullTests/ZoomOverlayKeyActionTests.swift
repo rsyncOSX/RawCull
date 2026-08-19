@@ -430,6 +430,11 @@ struct LoupeImageKeyActionTests {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleFocusPoints)
     }
 
+    @Test(.tags(.smoke), arguments: ["e", "E"])
+    func `E resolves to metadata panel`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleMetadata)
+    }
+
     @Test(.tags(.smoke), arguments: ["z", "Z"])
     func `Z resolves to actual-pixels inspection`(characters: String) {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .inspectActualPixels)

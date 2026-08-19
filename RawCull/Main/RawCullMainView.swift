@@ -302,11 +302,6 @@ struct RawCullMainView: View {
             )
             await SharedMemoryCache.shared.setFileHandlers(handlers)
         }
-        .inspector(isPresented: $viewModel.hideInspector) {
-            FileInspectorView(
-                file: viewModel.selectedFile,
-            )
-        }
         .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
             handlePickerResult(result)
         }

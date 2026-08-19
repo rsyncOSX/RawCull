@@ -9,7 +9,7 @@ import SwiftUI
 
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
-    let toggleInspector: () -> Void
+    let toggleMetadataPanel: () -> Void
 
     var body: some ToolbarContent {
         if case let .results(summary) = viewModel.similarityModel.semanticSearchState,
@@ -57,11 +57,18 @@ struct SharedMainToolbarContent: ToolbarContent {
 
         if !usesBurstWorkspaceChrome {
             Group {
-                ToolbarItem(placement: .status) {
-                    Button(action: toggleInspector) {
-                        Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
+                if viewModel.mainViewMode == .loupe {
+                    ToolbarItem(placement: .status) {
+                        Button(action: toggleMetadataPanel) {
+                            Label(
+                                "Metadata",
+                                systemImage: viewModel.showsLoupeMetadataPanel
+                                    ? "info.square.fill"
+                                    : "info.square",
+                            )
+                        }
+                        .help(viewModel.showsLoupeMetadataPanel ? "Hide metadata (E)" : "Show metadata (E)")
                     }
-                    .help("Show inspector")
                 }
 
                 ToolbarItem(placement: .status) {
