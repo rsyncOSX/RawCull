@@ -210,6 +210,11 @@ struct BurstCullingWorkspaceView: View {
                         ZoomMetadataPanel(
                             file: selectedFile,
                             image: metadataImage,
+                            cullingMetadata: ZoomCullingMetadata.make(
+                                for: selectedFile,
+                                viewModel: viewModel,
+                                burstAnalysis: analysis,
+                            ),
                             onHide: hideMetadataPanel,
                         )
                         .padding(64)

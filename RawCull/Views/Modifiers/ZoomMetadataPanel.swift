@@ -4,13 +4,14 @@ import SwiftUI
 struct ZoomMetadataPanel: View {
     let file: FileItem
     let image: NSImage?
+    let cullingMetadata: ZoomCullingMetadata
     let onHide: () -> Void
 
     @State private var isCollapsed = false
 
     private let columns = [
         GridItem(.fixed(92), alignment: .trailing),
-        GridItem(.flexible(minimum: 120), alignment: .leading),
+        GridItem(.flexible(minimum: 120), alignment: .leading)
     ]
 
     var body: some View {
@@ -21,6 +22,11 @@ struct ZoomMetadataPanel: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         histogramSection
+
+                        if cullingMetadata.hasDecisionEvidence {
+                            metadataSection("Culling", rows: cullingMetadata.decisionRows)
+                        }
+
                         metadataSection("File Attributes", rows: fileAttributeRows)
 
                         if !cameraSettingRows.isEmpty {
@@ -35,8 +41,8 @@ struct ZoomMetadataPanel: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(width: 260)
-        .frame(maxHeight: 600, alignment: .topLeading)
+        .frame(width: 300)
+        .frame(maxHeight: 680, alignment: .topLeading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -119,9 +125,8 @@ struct ZoomMetadataPanel: View {
             sectionTitle("Quick Actions")
 
             HStack(spacing: 8) {
-                
                 Spacer()
-                
+
                 Button("Show in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([file.url])
                 }
@@ -141,8 +146,8 @@ struct ZoomMetadataPanel: View {
                 id: "path",
                 label: "Path",
                 value: file.url.deletingLastPathComponent().path(),
-                allowsMultipleLines: true,
-            ),
+                allowsMultipleLines: true
+            )
         ]
 
         if let captureDate = file.captureDate {
@@ -209,7 +214,7 @@ struct ZoomMetadataPanel: View {
     }
 }
 
-private struct MetadataRow: Identifiable {
+struct MetadataRow: Identifiable {
     let id: String
     let label: LocalizedStringKey
     let value: String

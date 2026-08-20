@@ -179,6 +179,10 @@ struct MainThumbnailImageView: View {
                                         ZoomMetadataPanel(
                                             file: file,
                                             image: currentDisplayedImage,
+                                            cullingMetadata: ZoomCullingMetadata.make(
+                                                for: file,
+                                                viewModel: viewModel,
+                                            ),
                                             onHide: {
                                                 withAnimation(.snappy) {
                                                     viewModel.showsLoupeMetadataPanel = false
