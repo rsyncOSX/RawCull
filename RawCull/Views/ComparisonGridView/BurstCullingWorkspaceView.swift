@@ -5,12 +5,14 @@ nonisolated enum BurstReviewKeyAction: Equatable {
     case previousImage
     case nextImage
     case nextGroup
+    case toggleMetadata
 
     nonisolated static func resolve(characters: String?) -> BurstReviewKeyAction? {
         switch characters {
         case "p", "P": .previousImage
         case "n", "N": .nextImage
         case "g", "G": .nextGroup
+        case "e", "E": .toggleMetadata
         default: nil
         }
     }
@@ -40,6 +42,7 @@ struct BurstCullingWorkspaceView: View {
     @State private var imageCache: [BurstFrameCacheKey: ComparisonImageState] = [:]
     @State private var viewportState = ComparisonViewportInteractionState()
     @State private var sourceSelection = ImageSourceSelectionState()
+    @State private var showsMetadataPanel = true
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -49,17 +52,10 @@ struct BurstCullingWorkspaceView: View {
             shortcutBar
             Divider()
 
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    imageStage
-                    Divider()
-                    filmstrip
-                }
-
+            VStack(spacing: 0) {
+                imageStage
                 Divider()
-
-                inspector
-                    .frame(width: 340)
+                filmstrip
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -73,7 +69,7 @@ struct BurstCullingWorkspaceView: View {
         .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
         .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpPnNgG012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAeExXpPnNgG012345tT")) { press in
             handleKeyPress(press.characters)
         }
         .task(id: imageLoadKey) {
@@ -161,6 +157,8 @@ struct BurstCullingWorkspaceView: View {
             Text("source")
             keyCap("F/A")
             Text("focus")
+            keyCap("E")
+            Text("info")
             keyCap("2–5")
             Text("rate")
             keyCap("0")
@@ -206,6 +204,17 @@ struct BurstCullingWorkspaceView: View {
                 .overlay(alignment: .topLeading) {
                     tagStrip(for: selectedFile)
                         .padding(64)
+                }
+                .overlay(alignment: .topTrailing) {
+                    if showsMetadataPanel {
+                        ZoomMetadataPanel(
+                            file: selectedFile,
+                            image: metadataImage,
+                            onHide: hideMetadataPanel,
+                        )
+                        .padding(64)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
                 }
             } else {
                 ContentUnavailableView("No burst frame", systemImage: "photo")
@@ -279,81 +288,6 @@ struct BurstCullingWorkspaceView: View {
         .background(.quaternary.opacity(0.28))
     }
 
-    private var inspector: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                inspectorCard("Rating") {
-                    RatingActionBarView(
-                        currentRating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
-                        onSelect: applyRating,
-                    )
-                }
-
-                inspectorCard("Tags") {
-                    if let selectedFile {
-                        tagStrip(for: selectedFile)
-                    }
-                }
-
-                CandidateInspectorView(context: candidateInspectorContext)
-            }
-            .padding(16)
-        }
-        .background(Color.black.opacity(0.13))
-    }
-
-    private var candidateInspectorContext: CandidateInspectorContext? {
-        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
-        return CandidateInspectorContext.make(
-            selectedFile: viewModel.selectedFile,
-            result: viewModel.burstAnalysisResult(for: groupID),
-            files: viewModel.files,
-            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
-            sharpnessScores: viewModel.sharpnessModel.scores,
-            sharpnessBreakdowns: viewModel.sharpnessModel.breakdowns,
-            focusPoints: viewModel.focusPoints,
-            rating: viewModel.selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
-        )
-    }
-
-    private var fileDetails: some View {
-        VStack(spacing: 12) {
-            detailRow("Name", selectedFile?.name ?? "—")
-            detailRow("Burst", "\(burstNumber.formatted(.number.precision(.integerLength(2))))  ·  \(files.count) frames")
-            detailRow("Catalog", viewModel.selectedSource?.name ?? "—")
-            detailRow("Similarity", String(format: "%.2f group", viewModel.similarityModel.burstSensitivity))
-            detailRow("Status", statusTitle)
-        }
-    }
-
-    private func inspectorCard(
-        _ title: String,
-        @ViewBuilder content: () -> some View,
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(title).font(.headline)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.quaternary.opacity(0.48), in: .rect(cornerRadius: 14))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(.separator.opacity(0.65), lineWidth: 1)
-        }
-    }
-
-    private func detailRow(_ title: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title).foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.callout.monospaced())
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-        }
-    }
-
     private func tagStrip(for file: FileItem) -> some View {
         HStack(spacing: 8) {
             let rating = RatingDisplay(
@@ -417,6 +351,14 @@ struct BurstCullingWorkspaceView: View {
         return imageCache[cacheKey(for: selectedFile, source: sourceSelection.selected)]
     }
 
+    private var metadataImage: NSImage? {
+        if let nsImage = imageState?.nsImage {
+            return nsImage
+        }
+        guard let cgImage = imageState?.cgImage else { return nil }
+        return NSImage(cgImage: cgImage, size: .zero)
+    }
+
     private var selectedIndex: Int {
         guard let selectedFile else { return 0 }
         return files.firstIndex { $0.id == selectedFile.id } ?? 0
@@ -424,16 +366,6 @@ struct BurstCullingWorkspaceView: View {
 
     private var burstNumber: Int {
         (viewModel.similarityModel.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
-    }
-
-    private var statusTitle: String {
-        switch analysis?.reviewState {
-        case .deferred: "Deferred"
-        case .reviewed: "Reviewed"
-        case .decisionApplied: "Decision applied"
-        case .manualWinnerOverride: "Manual pick"
-        default: "Needs review"
-        }
     }
 
     private func selectFirstFileIfNeeded() {
@@ -461,6 +393,18 @@ struct BurstCullingWorkspaceView: View {
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
         viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: files)
+    }
+
+    private func hideMetadataPanel() {
+        withAnimation(.snappy) {
+            showsMetadataPanel = false
+        }
+    }
+
+    private func toggleMetadataPanel() {
+        withAnimation(.snappy) {
+            showsMetadataPanel.toggle()
+        }
     }
 
     private var imageLoadKey: String {
@@ -670,6 +614,9 @@ struct BurstCullingWorkspaceView: View {
 
             case .nextGroup:
                 viewModel.advanceToNextBurstGroup(after: groupID)
+
+            case .toggleMetadata:
+                toggleMetadataPanel()
             }
             return .handled
         }

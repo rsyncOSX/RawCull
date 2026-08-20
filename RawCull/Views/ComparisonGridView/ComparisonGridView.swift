@@ -401,6 +401,9 @@ struct ComparisonGridView: View {
         case .nextGroup:
             guard let groupID = viewModel.activeBurstComparisonGroupID else { return .ignored }
             viewModel.advanceToNextBurstGroup(after: groupID)
+
+        case .toggleMetadata:
+            return .ignored
         }
         return .handled
     }

@@ -90,13 +90,15 @@ struct ComparisonGridNavigationTests {
 @Suite("BurstReviewKeyAction")
 struct BurstReviewKeyActionTests {
     @Test(.tags(.smoke))
-    func `n p and g resolve burst review navigation`() {
+    func `burst review shortcuts resolve navigation and metadata`() {
         #expect(BurstReviewKeyAction.resolve(characters: "n") == .nextImage)
         #expect(BurstReviewKeyAction.resolve(characters: "N") == .nextImage)
         #expect(BurstReviewKeyAction.resolve(characters: "p") == .previousImage)
         #expect(BurstReviewKeyAction.resolve(characters: "P") == .previousImage)
         #expect(BurstReviewKeyAction.resolve(characters: "g") == .nextGroup)
         #expect(BurstReviewKeyAction.resolve(characters: "G") == .nextGroup)
+        #expect(BurstReviewKeyAction.resolve(characters: "e") == .toggleMetadata)
+        #expect(BurstReviewKeyAction.resolve(characters: "E") == .toggleMetadata)
         #expect(BurstReviewKeyAction.resolve(characters: "0") == nil)
     }
 }
