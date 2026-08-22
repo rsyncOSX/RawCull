@@ -52,7 +52,6 @@ struct BurstCullingWorkspaceView: View {
 
             VStack(spacing: 0) {
                 imageStage
-                shortcutGuide
                 Divider()
                 filmstrip
             }
@@ -142,28 +141,26 @@ struct BurstCullingWorkspaceView: View {
                 separator
                 shortcut("+/−", action: "zoom")
                 separator
-                shortcut("J/R", action: "source")
-                separator
-                shortcut("F/A", action: "focus")
-                separator
-                shortcut("E", action: "info")
-                separator
                 shortcut("2–5", action: "rate")
                 separator
                 shortcut("0", action: "pick")
                 separator
                 shortcut("X", action: "reject")
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(.regularMaterial, in: .rect(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(.white.opacity(0.12), lineWidth: 1)
+            }
         }
         .scrollIndicators(.hidden)
         .font(.caption.monospaced())
-        .foregroundStyle(.tertiary)
-        .padding(.vertical, 7)
-        .background(.quaternary.opacity(0.16))
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Keyboard shortcuts: P or N changes frame, G opens the next group, plus or minus zooms, J or R changes source, F or A changes focus display, E toggles information, 2 through 5 rates, 0 picks, and X rejects")
+        .accessibilityLabel("Keyboard shortcuts: P or N changes frame, G opens the next group, plus or minus zooms, 2 through 5 rates, 0 picks, and X rejects")
     }
 
     private var imageStage: some View {
@@ -194,29 +191,42 @@ struct BurstCullingWorkspaceView: View {
                     allowsDoubleClickZoom: false,
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(48)
-                .overlay(alignment: .topLeading) {
-                    tagStrip(for: selectedFile)
-                        .padding(64)
-                }
-                .overlay(alignment: .topTrailing) {
-                    if showsMetadataPanel {
-                        ZoomMetadataPanel(
-                            file: selectedFile,
-                            image: metadataImage,
-                            cullingMetadata: ZoomCullingMetadata.make(
-                                for: selectedFile,
-                                viewModel: viewModel,
-                                burstAnalysis: analysis,
-                            ),
-                            onHide: hideMetadataPanel,
-                        )
-                        .padding(64)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                    }
-                }
+                .padding(.horizontal, 82)
+                .padding(.top, 36)
+                .padding(.bottom, 2)
             } else {
                 ContentUnavailableView("No burst frame", systemImage: "photo")
+            }
+
+            if let selectedFile {
+                VStack(spacing: 0) {
+                    BurstEvidenceShelf(
+                        file: selectedFile,
+                        image: metadataImage,
+                        rating: ratingDisplay(for: selectedFile),
+                        isSuggested: analysis?.recommendedFileID == selectedFile.id,
+                        rank: selectedIndex + 1,
+                        frameCount: files.count,
+                        sharpness: selectedCandidate?.sharpnessComponent,
+                        overallScore: selectedCandidate?.overallScore,
+                        exif: ExifSummary.make(from: selectedFile.exifData),
+                        showsDetails: showsMetadataPanel,
+                        toggleDetails: toggleMetadataPanel,
+                    )
+                    .padding(.top, 12)
+                    Spacer()
+                    shortcutGuide
+                        .padding(.bottom, 12)
+                }
+                .padding(.horizontal, 116)
+                .allowsHitTesting(true)
+            }
+
+            if let selectedFile {
+                tagStrip(for: selectedFile)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(18)
+                    .allowsHitTesting(false)
             }
 
             HStack {
@@ -343,6 +353,11 @@ struct BurstCullingWorkspaceView: View {
         viewModel.burstAnalysisResult(for: groupID)
     }
 
+    private var selectedCandidate: BurstCandidateScore? {
+        guard let selectedFile else { return nil }
+        return analysis?.candidates.first { $0.fileID == selectedFile.id }
+    }
+
     private var isReviewed: Bool {
         analysis?.reviewState == .reviewed
     }
@@ -399,12 +414,6 @@ struct BurstCullingWorkspaceView: View {
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
         viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: files)
-    }
-
-    private func hideMetadataPanel() {
-        withAnimation(.snappy) {
-            showsMetadataPanel = false
-        }
     }
 
     private func toggleMetadataPanel() {
@@ -632,6 +641,110 @@ struct BurstCullingWorkspaceView: View {
             keyCode: 0,
             navigationAxis: .horizontal,
         ))
+    }
+}
+
+private struct BurstEvidenceShelf: View {
+    let file: FileItem
+    let image: NSImage?
+    let rating: RatingDisplay
+    let isSuggested: Bool
+    let rank: Int
+    let frameCount: Int
+    let sharpness: Float?
+    let overallScore: Float?
+    let exif: ExifSummary
+    let showsDetails: Bool
+    let toggleDetails: () -> Void
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 16) {
+                HStack(spacing: 9) {
+                    Text(file.name)
+                        .font(.callout.weight(.semibold).monospaced())
+                        .lineLimit(1)
+
+                    if isSuggested {
+                        evidenceBadge("Suggested", color: .orange)
+                    }
+
+                    evidenceBadge("#\(rank) / \(frameCount)", color: .secondary)
+                }
+
+                Divider().frame(height: 34)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    scoreRow("Sharpness", value: sharpness)
+                    scoreRow("Overall", value: overallScore)
+                }
+                .frame(minWidth: 108)
+
+                HistogramView(nsImage: image, height: 42)
+                    .frame(width: 150)
+                    .accessibilityLabel("Luminance histogram")
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(exif.exposureParts.joined(separator: "   "))
+                    if showsDetails {
+                        Text(exif.gearParts.joined(separator: "   "))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption.monospaced())
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
+                Button(action: toggleDetails) {
+                    HStack(spacing: 6) {
+                        Text("Info")
+                        Text("E")
+                            .font(.caption2.weight(.bold).monospaced())
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(.quaternary, in: .rect(cornerRadius: 4))
+                    }
+                }
+                .buttonStyle(.plain)
+                .help(showsDetails ? "Hide extended image information (E)" : "Show extended image information (E)")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: .rect(cornerRadius: 9))
+        .overlay {
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(.white.opacity(0.15), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.28), radius: 12, y: 4)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func scoreRow(_ title: String, value: Float?) -> some View {
+        HStack(spacing: 6) {
+            Text(title).foregroundStyle(.secondary)
+            Text(value.map(percent) ?? "—")
+                .fontWeight(.semibold)
+                .monospacedDigit()
+        }
+        .font(.caption)
+    }
+
+    private func percent(_ value: Float) -> String {
+        value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    private func evidenceBadge(_ title: String, color: Color) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold).monospaced())
+            .foregroundStyle(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.13), in: .rect(cornerRadius: 5))
+            .overlay {
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(color.opacity(0.45), lineWidth: 1)
+            }
     }
 }
 

@@ -63,6 +63,7 @@ final class HistogramPresentationModel {
 
 struct HistogramView: View {
     let nsImage: NSImage?
+    var height: CGFloat = 150
     @State private var presentation = HistogramPresentationModel()
 
     private var imageIdentity: ObjectIdentifier? {
@@ -89,7 +90,7 @@ struct HistogramView: View {
                 // Inset slightly to prevent clipping
                 .padding(2)
         }
-        .frame(height: 150) // Default height
+        .frame(height: height)
         .task(id: imageIdentity) {
             await presentation.load(image: nsImage)
         }
