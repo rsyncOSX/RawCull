@@ -5,14 +5,12 @@ nonisolated enum BurstReviewKeyAction: Equatable {
     case previousImage
     case nextImage
     case nextGroup
-    case toggleMetadata
 
     nonisolated static func resolve(characters: String?) -> BurstReviewKeyAction? {
         switch characters {
         case "p", "P": .previousImage
         case "n", "N": .nextImage
         case "g", "G": .nextGroup
-        case "e", "E": .toggleMetadata
         default: nil
         }
     }
@@ -41,8 +39,7 @@ struct BurstCullingWorkspaceView: View {
 
     @State private var imageCache: [BurstFrameCacheKey: ComparisonImageState] = [:]
     @State private var viewportState = ComparisonViewportInteractionState()
-    @State private var sourceSelection = ImageSourceSelectionState()
-    @State private var showsMetadataPanel = true
+    @State private var sourceSelection = ImageSourceSelectionState(initialSource: .embeddedJPG)
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -67,7 +64,7 @@ struct BurstCullingWorkspaceView: View {
         .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
         .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAeExXpPnNgG012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpPnNgG012345tT")) { press in
             handleKeyPress(press.characters)
         }
         .task(id: imageLoadKey) {
@@ -210,8 +207,6 @@ struct BurstCullingWorkspaceView: View {
                         sharpness: selectedCandidate?.sharpnessComponent,
                         overallScore: selectedCandidate?.overallScore,
                         exif: ExifSummary.make(from: selectedFile.exifData),
-                        showsDetails: showsMetadataPanel,
-                        toggleDetails: toggleMetadataPanel,
                     )
                     .padding(.top, 12)
                     Spacer()
@@ -414,12 +409,6 @@ struct BurstCullingWorkspaceView: View {
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
         viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: files)
-    }
-
-    private func toggleMetadataPanel() {
-        withAnimation(.snappy) {
-            showsMetadataPanel.toggle()
-        }
     }
 
     private var imageLoadKey: String {
@@ -630,8 +619,6 @@ struct BurstCullingWorkspaceView: View {
             case .nextGroup:
                 viewModel.advanceToNextBurstGroup(after: groupID)
 
-            case .toggleMetadata:
-                toggleMetadataPanel()
             }
             return .handled
         }
@@ -654,8 +641,6 @@ private struct BurstEvidenceShelf: View {
     let sharpness: Float?
     let overallScore: Float?
     let exif: ExifSummary
-    let showsDetails: Bool
-    let toggleDetails: () -> Void
 
     var body: some View {
         VStack(spacing: 6) {
@@ -681,32 +666,17 @@ private struct BurstEvidenceShelf: View {
                 .frame(minWidth: 108)
 
                 HistogramView(nsImage: image, height: 42)
-                    .frame(width: 150)
+                    .frame(width: 110)
                     .accessibilityLabel("Luminance histogram")
 
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(exif.exposureParts.joined(separator: "   "))
-                    if showsDetails {
-                        Text(exif.gearParts.joined(separator: "   "))
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(exif.gearParts.joined(separator: "   "))
+                        .foregroundStyle(.secondary)
                 }
                 .font(.caption.monospaced())
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-
-                Button(action: toggleDetails) {
-                    HStack(spacing: 6) {
-                        Text("Info")
-                        Text("E")
-                            .font(.caption2.weight(.bold).monospaced())
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 3)
-                            .background(.quaternary, in: .rect(cornerRadius: 4))
-                    }
-                }
-                .buttonStyle(.plain)
-                .help(showsDetails ? "Hide extended image information (E)" : "Show extended image information (E)")
+                .frame(maxWidth: 560, alignment: .trailing)
             }
         }
         .padding(.horizontal, 16)

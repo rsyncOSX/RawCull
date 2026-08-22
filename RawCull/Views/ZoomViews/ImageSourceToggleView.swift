@@ -7,9 +7,14 @@ nonisolated enum ImagePreviewSource: Hashable {
 }
 
 nonisolated struct ImageSourceSelectionState: Equatable {
-    var selected: ImagePreviewSource = .thumbnail
-    private(set) var previous: ImagePreviewSource = .thumbnail
+    var selected: ImagePreviewSource
+    private(set) var previous: ImagePreviewSource
     private(set) var rawUnavailable = false
+
+    init(initialSource: ImagePreviewSource = .thumbnail) {
+        selected = initialSource
+        previous = initialSource
+    }
 
     mutating func select(_ source: ImagePreviewSource) {
         guard source != selected else { return }
