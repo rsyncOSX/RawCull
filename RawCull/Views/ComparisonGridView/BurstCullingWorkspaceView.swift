@@ -49,11 +49,10 @@ struct BurstCullingWorkspaceView: View {
         VStack(spacing: 0) {
             workspaceHeader
             Divider()
-            shortcutBar
-            Divider()
 
             VStack(spacing: 0) {
                 imageStage
+                shortcutGuide
                 Divider()
                 filmstrip
             }
@@ -134,42 +133,37 @@ struct BurstCullingWorkspaceView: View {
         .accessibilityValue(isReviewed ? "Selected" : "Not selected")
     }
 
-    private var shortcutBar: some View {
-        HStack(spacing: 8) {
-            Text("Groups  /  Bursts  /")
-                .foregroundStyle(.secondary)
-            Text(selectedFile?.name ?? "No frame selected")
-                .fontWeight(.semibold)
-
-            Spacer()
-
-            Text("Extraced thumbnail is default, toggle J to view JPG")
-
-            Spacer()
-
-            keyCap("P/N")
-            Text("frame")
-            keyCap("G")
-            Text("next group")
-            keyCap("+/-")
-            Text("zoom")
-            keyCap("J/R")
-            Text("source")
-            keyCap("F/A")
-            Text("focus")
-            keyCap("E")
-            Text("info")
-            keyCap("2–5")
-            Text("rate")
-            keyCap("0")
-            Text("pick")
-            keyCap("X")
-            Text("reject")
+    private var shortcutGuide: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 7) {
+                shortcut("P/N", action: "frame")
+                separator
+                shortcut("G", action: "next group")
+                separator
+                shortcut("+/−", action: "zoom")
+                separator
+                shortcut("J/R", action: "source")
+                separator
+                shortcut("F/A", action: "focus")
+                separator
+                shortcut("E", action: "info")
+                separator
+                shortcut("2–5", action: "rate")
+                separator
+                shortcut("0", action: "pick")
+                separator
+                shortcut("X", action: "reject")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
         }
-        .font(.callout.monospaced())
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .scrollIndicators(.hidden)
+        .font(.caption.monospaced())
+        .foregroundStyle(.tertiary)
+        .padding(.vertical, 7)
+        .background(.quaternary.opacity(0.16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Keyboard shortcuts: P or N changes frame, G opens the next group, plus or minus zooms, J or R changes source, F or A changes focus display, E toggles information, 2 through 5 rates, 0 picks, and X rejects")
     }
 
     private var imageStage: some View {
@@ -311,11 +305,18 @@ struct BurstCullingWorkspaceView: View {
         }
     }
 
-    private func keyCap(_ title: String) -> some View {
-        Text(title)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(.quaternary, in: .rect(cornerRadius: 5))
+    private func shortcut(_ key: String, action: LocalizedStringKey) -> some View {
+        HStack(spacing: 4) {
+            Text(key)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+            Text(action)
+        }
+    }
+
+    private var separator: some View {
+        Text("·")
+            .accessibilityHidden(true)
     }
 
     private func navigationButton(systemImage: String, delta: Int) -> some View {
