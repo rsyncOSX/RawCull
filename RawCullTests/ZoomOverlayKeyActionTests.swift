@@ -175,6 +175,13 @@ struct ThumbnailKeyActionTests {
 
 @Suite("ImageSourceSelectionState")
 struct ImageSourceSelectionStateTests {
+    @Test(.tags(.smoke))
+    func `selection can start with an extracted JPEG`() {
+        let state = ImageSourceSelectionState(initialSource: .embeddedJPG)
+
+        #expect(state.selected == .embeddedJPG)
+    }
+
     @Test(.tags(.smoke), arguments: [ImagePreviewSource.embeddedJPG, .developedRAW])
     func `extraction source toggles against thumbnail`(source: ImagePreviewSource) {
         var state = ImageSourceSelectionState()
