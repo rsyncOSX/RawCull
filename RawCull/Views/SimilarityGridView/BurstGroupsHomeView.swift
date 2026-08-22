@@ -13,8 +13,6 @@ struct BurstGroupsHomeView: View {
                 groupCount: viewModel.similarityModel.burstGroups.filter { $0.fileIDs.count > 1 }.count,
                 resultsAreAvailable: resultsAreAvailable,
                 showResults: showResults,
-                showScoringParameters: { viewModel.activeSheet = .scoringParams },
-                reindex: reindex,
             )
             .frame(width: 270)
 
@@ -22,7 +20,14 @@ struct BurstGroupsHomeView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    header
+                    BurstGroupsHomeHeader(
+                        completionSummary: completionSummary,
+                        similarityIndexIsRunning: viewModel.similarityModel.isIndexing,
+                        maintenanceActionsAreDisabled: controlsAreBusy,
+                        showScoringParameters: { viewModel.activeSheet = .scoringParams },
+                        reindex: reindex,
+                        indexSimilarity: indexSimilarity,
+                    )
                     BurstScanBanner(
                         isComplete: resultsAreAvailable,
                         isRunning: burstScanIsRunning,
@@ -31,17 +36,17 @@ struct BurstGroupsHomeView: View {
                         burstHomeProgressCounter
                     }
 
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .top, spacing: 20) {
-                            reviewQueueCard
-                            toolsCard
-                        }
-                        VStack(spacing: 20) {
-                            reviewQueueCard
-                            toolsCard
-                        }
+                    Button(action: analyzeBursts) {
+                        Label(
+                            resultsAreAvailable ? "Analyze Bursts Again" : "Analyze Bursts",
+                            systemImage: "waveform.path.ecg",
+                        )
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(controlsAreBusy || viewModel.activeCatalogFiles.isEmpty)
 
+                    reviewQueueCard
                     suggestedPicksCard
                 }
                 .frame(maxWidth: 1400, alignment: .leading)
@@ -51,21 +56,6 @@ struct BurstGroupsHomeView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .frame(minWidth: 760, minHeight: 560)
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Burst Groups")
-                    .font(.system(size: 34, weight: .bold))
-                Text("Analyze the catalog, then open a queue to review frames. \(completionSummary)")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-        }
     }
 
     @ViewBuilder
@@ -146,68 +136,6 @@ struct BurstGroupsHomeView: View {
             }
         }
         .frame(minWidth: 560)
-    }
-
-    private var toolsCard: some View {
-        BurstDashboardCard(title: "Tools", trailing: "Catalog actions") {
-            Button(action: analyzeBursts) {
-                HStack(spacing: 14) {
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.title2)
-                        .frame(width: 40, height: 40)
-                        .background(.quaternary, in: .rect(cornerRadius: 9))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Analyze Bursts").font(.headline)
-                        Text("Cluster similar frames into review groups")
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text("Run")
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(.white)
-                        .background(Color.accentColor, in: .rect(cornerRadius: 8))
-                }
-                .padding(14)
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .disabled(controlsAreBusy || viewModel.activeCatalogFiles.isEmpty)
-            .background(Color.accentColor.opacity(0.1), in: .rect(cornerRadius: 12))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.accentColor.opacity(0.55), lineWidth: 1)
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                BurstToolTile(
-                    title: "Scoring Parameters",
-                    detail: "Threshold, pick-of-burst, tag weights",
-                    systemImage: "slider.horizontal.3",
-                    action: { viewModel.activeSheet = .scoringParams },
-                )
-                BurstToolTile(
-                    title: "Re-index",
-                    detail: "Refresh embeddings for this catalog",
-                    systemImage: "arrow.clockwise",
-                    action: reindex,
-                )
-                BurstToolTile(
-                    title: "Single Images",
-                    detail: "\(counts.singleImages) frames outside burst groups",
-                    systemImage: "photo",
-                    action: { showResults(.singleImages) },
-                )
-                BurstToolTile(
-                    title: "Index Similarity",
-                    detail: "Build or refresh similarity index",
-                    systemImage: "scope",
-                    action: indexSimilarity,
-                )
-            }
-        }
-        .frame(minWidth: 470)
     }
 
     private var suggestedPicksCard: some View {
@@ -391,8 +319,6 @@ private struct BurstGroupsSidebar: View {
     let groupCount: Int
     let resultsAreAvailable: Bool
     let showResults: (BurstReviewQueueFilter) -> Void
-    let showScoringParameters: () -> Void
-    let reindex: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -436,11 +362,6 @@ private struct BurstGroupsSidebar: View {
             }
             .disabled(!resultsAreAvailable)
 
-            sidebarSection("TOOLS") {
-                BurstSidebarRow(title: "Scoring Parameters", systemImage: "slider.horizontal.3", action: showScoringParameters)
-                BurstSidebarRow(title: "Re-index", systemImage: "arrow.clockwise", action: reindex)
-            }
-
             Spacer()
         }
         .padding(24)
@@ -457,6 +378,56 @@ private struct BurstGroupsSidebar: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
             content()
+        }
+    }
+}
+
+private struct BurstGroupsHomeHeader: View {
+    let completionSummary: String
+    let similarityIndexIsRunning: Bool
+    let maintenanceActionsAreDisabled: Bool
+    let showScoringParameters: () -> Void
+    let reindex: () -> Void
+    let indexSimilarity: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Burst Groups")
+                    .font(.system(size: 34, weight: .bold))
+                Text("Analyze the catalog, then open a queue to review frames. \(completionSummary)")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Menu {
+                Button(action: showScoringParameters) {
+                    Label("Scoring Parameters", systemImage: "slider.horizontal.3")
+                }
+
+                Divider()
+
+                Button(action: reindex) {
+                    Label("Re-index Catalog", systemImage: "arrow.clockwise")
+                }
+                .disabled(maintenanceActionsAreDisabled)
+
+                Button(action: indexSimilarity) {
+                    Label(
+                        similarityIndexIsRunning ? "Cancel Similarity Index" : "Index Similarity",
+                        systemImage: similarityIndexIsRunning ? "xmark.circle" : "scope",
+                    )
+                }
+                .disabled(maintenanceActionsAreDisabled && !similarityIndexIsRunning)
+            } label: {
+                Label("More", systemImage: "ellipsis")
+            }
+            .menuStyle(.button)
+            .controlSize(.large)
+            .help("Catalog maintenance actions")
         }
     }
 }
@@ -593,39 +564,6 @@ private struct BurstSimilarityThresholdControl: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(Color.black.opacity(0.12), in: .rect(cornerRadius: 10))
-    }
-}
-
-private struct BurstToolTile: View {
-    let title: String
-    let detail: String
-    let systemImage: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.title3)
-                    .frame(width: 38, height: 38)
-                    .background(.quaternary, in: .rect(cornerRadius: 9))
-                Text(title).font(.headline)
-                Text(detail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-            .padding(16)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .background(Color.black.opacity(0.08), in: .rect(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.separator.opacity(0.6), lineWidth: 1)
-        }
     }
 }
 
