@@ -18,44 +18,105 @@ struct BurstGroupsHomeView: View {
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    BurstGroupsHomeHeader(
-                        completionSummary: completionSummary,
-                        similarityIndexIsRunning: viewModel.similarityModel.isIndexing,
-                        maintenanceActionsAreDisabled: controlsAreBusy,
-                        showScoringParameters: { viewModel.activeSheet = .scoringParams },
-                        reindex: reindex,
-                        indexSimilarity: indexSimilarity,
-                    )
-                    BurstScanBanner(
-                        isComplete: resultsAreAvailable,
-                        isRunning: burstScanIsRunning,
-                        runningText: burstScanStatusText,
-                    ) {
-                        burstHomeProgressCounter
-                    }
-
-                    Button(action: analyzeBursts) {
-                        Label(
-                            resultsAreAvailable ? "Analyze Bursts Again" : "Analyze Bursts",
-                            systemImage: "waveform.path.ecg",
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        BurstGroupsHomeHeader(
+                            similarityIndexIsRunning: viewModel.similarityModel.isIndexing,
+                            maintenanceActionsAreDisabled: controlsAreBusy,
+                            showScoringParameters: { viewModel.activeSheet = .scoringParams },
+                            reindex: reindex,
+                            indexSimilarity: indexSimilarity,
                         )
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(controlsAreBusy || viewModel.activeCatalogFiles.isEmpty)
 
-                    reviewQueueCard
-                    suggestedPicksCard
+                        nextUpCard
+
+                        Text("Your queue")
+                            .font(.headline)
+                            .padding(.horizontal, 4)
+
+                        queueCards
+
+                        Text("Recent groups")
+                            .font(.headline)
+                            .padding(.horizontal, 4)
+
+                        recentGroupsCard
+                    }
+                    .frame(maxWidth: 1320, alignment: .leading)
+                    .padding(32)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .frame(maxWidth: 1400, alignment: .leading)
-                .padding(36)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                BurstIndexStatusBar(
+                    isIndexing: viewModel.similarityModel.isIndexing,
+                    hasResults: resultsAreAvailable,
+                    indexedCount: viewModel.similarityModel.indexingProgress,
+                    totalCount: max(viewModel.similarityModel.indexingTotal, viewModel.activeCatalogFiles.count),
+                )
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .frame(minWidth: 760, minHeight: 560)
+    }
+
+    private var nextUpCard: some View {
+        BurstNextUpCard(
+            resultsAreAvailable: resultsAreAvailable,
+            isRunning: burstScanIsRunning,
+            runningText: burstScanStatusText,
+            fileCount: viewModel.activeCatalogFiles.count,
+            reviewedCount: completedCount,
+            groupCount: burstGroupCount,
+            controlsAreBusy: controlsAreBusy,
+            analyzeBursts: analyzeBursts,
+            openNeedsReview: { showResults(.needsReview) },
+        ) {
+            burstHomeProgressCounter
+        }
+    }
+
+    private var queueCards: some View {
+        HStack(spacing: 16) {
+            BurstQueueActionCard(
+                title: "Needs review",
+                detail: "Open bursts that need your decision.",
+                count: counts.needsReview,
+                color: .red,
+                systemImage: "exclamationmark.triangle",
+                action: { showResults(.needsReview) },
+            )
+            BurstQueueActionCard(
+                title: "Saved for later",
+                detail: "Bursts you’ve deferred for later.",
+                count: counts.deferred,
+                color: .orange,
+                systemImage: "bookmark",
+                action: { showResults(.deferred) },
+            )
+            BurstQueueActionCard(
+                title: "Completed",
+                detail: "Bursts you’ve finished reviewing.",
+                count: completedCount,
+                color: .green,
+                systemImage: "checkmark.circle",
+                action: { showResults(.reviewed) },
+            )
+        }
+        .disabled(!resultsAreAvailable)
+    }
+
+    @ViewBuilder
+    private var recentGroupsCard: some View {
+        if suggestedPicks.isEmpty {
+            BurstRecentGroupsEmptyState(resultsAreAvailable: resultsAreAvailable)
+        } else {
+            BurstRecentGroupsCard(picks: suggestedPicks) { pick in
+                viewModel.burstReviewQueueFilter = .all
+                viewModel.similarityModel.burstModeActive = true
+                viewModel.selectedFileID = pick.file.id
+            }
+        }
     }
 
     @ViewBuilder
@@ -204,6 +265,10 @@ struct BurstGroupsHomeView: View {
             .count
     }
 
+    private var completedCount: Int {
+        viewModel.burstReviewQueueCounts.reviewed
+    }
+
     private var coveredFileCount: Int {
         min(
             viewModel.activeCatalogFiles.count,
@@ -335,28 +400,18 @@ private struct BurstGroupsSidebar: View {
             }
 
             sidebarSection("WORKFLOW") {
-                BurstSidebarRow(title: "Burst Groups", systemImage: "line.3.horizontal", isSelected: true) {}
+                BurstSidebarRow(title: "Overview", systemImage: "house", isSelected: true) {}
                 BurstSidebarRow(title: "All bursts", count: groupCount, systemImage: "square.grid.2x2") {
                     showResults(.all)
                 }
                 .disabled(!resultsAreAvailable)
-                BurstSidebarRow(title: "Cull workspace", systemImage: "rectangle.split.2x1") {
+                BurstSidebarRow(title: "Needs review", count: counts.needsReview, countColor: .orange, systemImage: "exclamationmark.triangle") {
                     showResults(.needsReview)
                 }
-                .disabled(!resultsAreAvailable)
-            }
-
-            sidebarSection("QUEUES") {
-                BurstSidebarRow(title: "Deferred", count: counts.deferred, countColor: .orange, systemImage: "clock") {
-                    showResults(.deferred)
+                BurstSidebarRow(title: "Reviewed", count: counts.markedReviewed, countColor: .green, systemImage: "checkmark.circle") {
+                    showResults(.reviewed)
                 }
-                BurstSidebarRow(title: "Marked Reviewed", count: counts.markedReviewed, countColor: .green, systemImage: "checkmark.circle") {
-                    showResults(.markedReviewed)
-                }
-                BurstSidebarRow(title: "Needs Review", count: counts.needsReview, countColor: .red, systemImage: "tray.full") {
-                    showResults(.needsReview)
-                }
-                BurstSidebarRow(title: "Single Images", count: counts.singleImages, countColor: .blue, systemImage: "photo") {
+                BurstSidebarRow(title: "Single images", count: counts.singleImages, countColor: .blue, systemImage: "photo") {
                     showResults(.singleImages)
                 }
             }
@@ -383,7 +438,6 @@ private struct BurstGroupsSidebar: View {
 }
 
 private struct BurstGroupsHomeHeader: View {
-    let completionSummary: String
     let similarityIndexIsRunning: Bool
     let maintenanceActionsAreDisabled: Bool
     let showScoringParameters: () -> Void
@@ -395,7 +449,7 @@ private struct BurstGroupsHomeHeader: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Burst Groups")
                     .font(.system(size: 34, weight: .bold))
-                Text("Analyze the catalog, then open a queue to review frames. \(completionSummary)")
+                Text("Find the strongest frame from every sequence.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -429,6 +483,278 @@ private struct BurstGroupsHomeHeader: View {
             .controlSize(.large)
             .help("Catalog maintenance actions")
         }
+    }
+}
+
+private struct BurstNextUpCard<Trailing: View>: View {
+    let resultsAreAvailable: Bool
+    let isRunning: Bool
+    let runningText: String
+    let fileCount: Int
+    let reviewedCount: Int
+    let groupCount: Int
+    let controlsAreBusy: Bool
+    let analyzeBursts: () -> Void
+    let openNeedsReview: () -> Void
+    @ViewBuilder let trailing: Trailing
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Next up")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 28) {
+                Image(systemName: resultsAreAvailable ? "photo.stack.fill" : "photo.on.rectangle.angled")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 112)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(title)
+                        .font(.title2.weight(.bold))
+                    Text(detail)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 10) {
+                        Label("\(fileCount) photos", systemImage: "clock")
+                        Text("·")
+                        Text(resultsAreAvailable ? "Ready to review" : "About a minute")
+                    }
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                    HStack(spacing: 14) {
+                        Button(action: resultsAreAvailable ? openNeedsReview : analyzeBursts) {
+                            Label(
+                                resultsAreAvailable ? "Open Review Queue" : "Find Burst Groups",
+                                systemImage: resultsAreAvailable ? "arrow.right" : "waveform.path.ecg",
+                            )
+                            .frame(minWidth: 250)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(controlsAreBusy || fileCount == 0)
+
+                        if isRunning {
+                            trailing
+                        }
+                    }
+                }
+
+                Spacer(minLength: 24)
+
+                BurstReviewProgressRing(
+                    reviewedCount: reviewedCount,
+                    totalCount: resultsAreAvailable ? groupCount : fileCount,
+                )
+                .padding(.trailing, 28)
+            }
+        }
+        .padding(24)
+        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 14))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(.separator.opacity(0.65), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var title: String {
+        if isRunning { return "Finding burst groups" }
+        return resultsAreAvailable ? "Continue reviewing your bursts" : "Start by finding burst groups"
+    }
+
+    private var detail: String {
+        if isRunning { return runningText }
+        if resultsAreAvailable {
+            return "Compare each sequence side by side and keep the strongest frames."
+        }
+        return "We’ll cluster visually similar photos so you can compare them side by side."
+    }
+}
+
+private struct BurstReviewProgressRing: View {
+    let reviewedCount: Int
+    let totalCount: Int
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(.primary.opacity(0.14), lineWidth: 15)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 15, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 5) {
+                Image(systemName: "person.2.fill")
+                    .foregroundStyle(.secondary)
+                Text("\(reviewedCount) of \(totalCount)")
+                    .font(.title3.weight(.bold).monospacedDigit())
+                Text("reviewed")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 170, height: 170)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(reviewedCount) of \(totalCount) burst groups reviewed")
+    }
+
+    private var progress: Double {
+        guard totalCount > 0 else { return 0 }
+        return min(Double(reviewedCount) / Double(totalCount), 1)
+    }
+}
+
+private struct BurstQueueActionCard: View {
+    let title: String
+    let detail: String
+    let count: Int
+    let color: Color
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(color)
+                    .frame(width: 52, height: 52)
+                    .background(color.opacity(0.13), in: .rect(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.headline)
+                    Text(detail)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(count, format: .number)
+                    .font(.system(size: 30, weight: .medium, design: .monospaced))
+                    .foregroundStyle(color)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.separator.opacity(0.65), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct BurstRecentGroupsEmptyState: View {
+    let resultsAreAvailable: Bool
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "photo.stack")
+                .font(.system(size: 42, weight: .light))
+                .foregroundStyle(.secondary)
+            Text(resultsAreAvailable ? "No recent groups" : "No burst groups yet")
+                .font(.title3.weight(.medium))
+            Text(resultsAreAvailable
+                ? "Open a review queue to continue culling."
+                : "Run Find Burst Groups to create your first review queue.")
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 165)
+        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.separator.opacity(0.65), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct BurstRecentGroupsCard: View {
+    let picks: [BurstSuggestedPick]
+    let action: (BurstSuggestedPick) -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ForEach(picks) { pick in
+                Button { action(pick) } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ThumbnailImageView(
+                            file: pick.file,
+                            targetSize: 220,
+                            style: .grid,
+                            showsShimmer: true,
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 130)
+                        .clipped()
+
+                        Text("Burst \(pick.groupID + 1, format: .number)")
+                            .font(.headline.monospaced())
+                        Text(pick.subject ?? pick.file.name)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(.separator.opacity(0.65), lineWidth: 1)
+                }
+            }
+        }
+    }
+}
+
+private struct BurstIndexStatusBar: View {
+    let isIndexing: Bool
+    let hasResults: Bool
+    let indexedCount: Int
+    let totalCount: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "externaldrive")
+            if isIndexing {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: hasResults ? "checkmark.circle" : "exclamationmark.circle")
+                    .foregroundStyle(hasResults ? Color.green : Color.orange)
+            }
+            Text(hasResults ? "Similarity index ready" : "Similarity index not built")
+                .foregroundStyle(hasResults ? Color.secondary : Color.orange)
+            Text("·")
+            Text("\(displayedCount) of \(totalCount) indexed")
+                .monospacedDigit()
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .background(.quaternary.opacity(0.18))
+        .overlay(alignment: .top) { Divider() }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var displayedCount: Int {
+        hasResults ? totalCount : min(indexedCount, totalCount)
     }
 }
 
