@@ -201,7 +201,6 @@ struct BurstCullingWorkspaceView: View {
                         file: selectedFile,
                         image: metadataImage,
                         rating: ratingDisplay(for: selectedFile),
-                        isSuggested: analysis?.recommendedFileID == selectedFile.id,
                         rank: selectedIndex + 1,
                         frameCount: files.count,
                         sharpness: selectedCandidate?.sharpnessComponent,
@@ -635,7 +634,6 @@ private struct BurstEvidenceShelf: View {
     let file: FileItem
     let image: NSImage?
     let rating: RatingDisplay
-    let isSuggested: Bool
     let rank: Int
     let frameCount: Int
     let sharpness: Float?
@@ -649,10 +647,6 @@ private struct BurstEvidenceShelf: View {
                     Text(file.name)
                         .font(.callout.weight(.semibold).monospaced())
                         .lineLimit(1)
-
-                    if isSuggested {
-                        evidenceBadge("Suggested", color: .orange)
-                    }
 
                     evidenceBadge("#\(rank) / \(frameCount)", color: .secondary)
                 }
