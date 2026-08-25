@@ -86,9 +86,6 @@ actor ScanAndCreateThumbnails {
         cancelPreload()
 
         let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
-        let diagnosticsID = ContentionDiagnostics.shared.beginGridPreload(
-            catalogSize: urls.count,
-        )
         let gateID = await ThumbnailPreloadGate.shared.begin(catalogURL: catalogURL)
 
         let task = Task<Int, Never> {
@@ -118,7 +115,6 @@ actor ScanAndCreateThumbnails {
                             url,
                             targetSize: targetSize,
                             itemIndex: index,
-                            diagnosticsID: diagnosticsID,
                         )
                     }
                 }
@@ -135,7 +131,6 @@ actor ScanAndCreateThumbnails {
             task.cancel()
         }
         await ThumbnailPreloadGate.shared.end(gateID)
-        ContentionDiagnostics.shared.endGridPreload(preloadID: diagnosticsID)
         if preloadTask == task {
             preloadTask = nil
         }
@@ -148,10 +143,8 @@ actor ScanAndCreateThumbnails {
         _ url: URL,
         targetSize: Int,
         itemIndex _: Int,
-        diagnosticsID: UUID,
     ) async {
         if Task.isCancelled {
-            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
 
@@ -164,19 +157,15 @@ actor ScanAndCreateThumbnails {
 
         // A. Check RAM
         if let previewKey, let wrapper = SharedMemoryCache.shared.object(forKey: previewKey) {
-            if storeInGridCache(wrapper.image, for: gridKey) {
-                ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
-            }
+            _ = storeInGridCache(wrapper.image, for: gridKey)
             // Do not re-admit to memoryCache: object(forKey:) already touched
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
-            await SharedMemoryCache.shared.updateCacheMemory()
             recordCompletion(succeeded: true)
             return
         }
 
         if Task.isCancelled {
-            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
 
@@ -186,30 +175,22 @@ actor ScanAndCreateThumbnails {
             // RequestThumbnail (its branch B promotes on user-driven hits)
             // keeps LRU ordering aligned with UI traffic and prevents
             // scan-driven evictions from boomeranging UI-active items.
-            if storeInGridCache(diskImage, for: gridKey) {
-                ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
-            }
-            await SharedMemoryCache.shared.updateCacheDisk()
+            _ = storeInGridCache(diskImage, for: gridKey)
             recordCompletion(succeeded: true)
             return
         }
 
         // C. Extract from source file
         if Task.isCancelled {
-            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
         notifyExtractionNeeded()
 
-        ContentionDiagnostics.shared.beginThumbnailWork(coldDecode: true)
         let decodedImage = await rawLoader.thumbnailImage(
             for: url,
             maxPixelSize: targetSize,
         )
-        ContentionDiagnostics.shared.endThumbnailWork()
-
         if Task.isCancelled {
-            ContentionDiagnostics.shared.recordThumbnailCancellation()
             return
         }
 
@@ -232,8 +213,8 @@ actor ScanAndCreateThumbnails {
             purpose: .preview,
             requestedPixelSize: targetSize,
         )
-        if sourceStillMatches, storeInGridCache(image, for: gridKey) {
-            ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
+        if sourceStillMatches {
+            _ = storeInGridCache(image, for: gridKey)
         }
         recordCompletion(succeeded: true)
 
@@ -306,7 +287,7 @@ actor ScanAndCreateThumbnails {
         guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return true }
         let gridSize: CGFloat = 200
         guard let scaled = downscale(image, to: gridSize) else { return false }
-        let wrapper = CachedThumbnail(image: scaled, key: key)
+        let wrapper = CachedThumbnail(image: scaled)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: key, cost: wrapper.cost)
         return true
     }

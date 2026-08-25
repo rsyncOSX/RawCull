@@ -28,20 +28,20 @@ enum BurstReviewQueuePolicy {
     nonisolated static func effectiveState(for result: BurstAnalysisResult) -> BurstReviewState {
         switch result.reviewState {
         case .reviewed, .decisionApplied, .manualWinnerOverride:
-            return .reviewed
+            .reviewed
 
         case .deferred:
-            return .deferred
+            .deferred
 
         case .none, .algorithmReviewed, .needsReview:
             // An algorithm recommendation is still waiting for the user to
             // review or apply it, even when confidence is high.
-            return .needsReview
+            .needsReview
         }
     }
 
     nonisolated static func includes(_ result: BurstAnalysisResult, filter: BurstReviewQueueFilter) -> Bool {
-        return switch filter {
+        switch filter {
         case .all:
             true
 

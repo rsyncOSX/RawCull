@@ -71,37 +71,6 @@ nonisolated struct RawCullSemanticSearchResultSummary: Equatable, Sendable {
     }
 }
 
-nonisolated struct RawCullSemanticSearchDiagnosticResult:
-    Equatable,
-    Identifiable,
-    Sendable {
-    let fileID: UUID
-    let fileName: String
-    let rank: Int
-    let score: Float
-
-    var id: UUID {
-        fileID
-    }
-}
-
-nonisolated struct RawCullSemanticSearchDiagnostics: Equatable, Sendable {
-    let query: String
-    let promptPolicyVersion: String
-    let backendDescriptor: SimilarityBackendDescriptor
-    let textEmbeddingDescriptor: TextEmbeddingDescriptor
-    let durationMilliseconds: Int
-    let compatibleArtifactCount: Int
-    let incompatibleArtifactCount: Int
-    let scoringFailureCount: Int
-    let highestScore: Float?
-    let medianScore: Float?
-    let lowestScore: Float?
-    let scoreSpread: Float?
-    let topScoreGap: Float?
-    let results: [RawCullSemanticSearchDiagnosticResult]
-}
-
 nonisolated enum RawCullSemanticSearchState: Equatable, Sendable {
     case idle
     case searching(query: String)
@@ -145,8 +114,6 @@ final class SimilarityScoringModel {
     private(set) var semanticScores: [UUID: Float] = [:]
     private(set) var semanticResultOrder: [UUID: Int] = [:]
     private(set) var semanticSearchProgress: RawCullSemanticSearchProgress?
-    private(set) var semanticSearchDiagnostics: RawCullSemanticSearchDiagnostics?
-    private(set) var semanticSearchShowsAllResults = false
     private(set) var semanticIndexedFileCount = 0
     private(set) var semanticCatalogFileCount = 0
 
@@ -243,7 +210,6 @@ final class SimilarityScoringModel {
     @ObservationIgnored private var _semanticSearchGeneration = 0
     @ObservationIgnored private var _semanticHydrationGeneration = 0
     @ObservationIgnored private let artifactStore: any SimilarityArtifactStoring
-    @ObservationIgnored private let similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting
     @ObservationIgnored private var _artifactHydrationGeneration = 0
     @ObservationIgnored private var _indexingStartedAt: Date?
     @ObservationIgnored private var _groupingTask: Task<BurstGroupingOutput?, Never>?
@@ -261,13 +227,11 @@ final class SimilarityScoringModel {
         ),
         semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
         artifactStore: any SimilarityArtifactStoring,
-        similarityDiagnosticsWriter: any SimilarityDiagnosticsWriting = SimilarityDiagnosticsLog.shared,
     ) {
         self.similarityService = similarityService
         self.semanticSearchCapability = semanticSearchCapability
         self.semanticSearchService = semanticSearchService
         self.artifactStore = artifactStore
-        self.similarityDiagnosticsWriter = similarityDiagnosticsWriter
     }
 
     // MARK: - Public API
@@ -281,8 +245,6 @@ final class SimilarityScoringModel {
         semanticScores = [:]
         semanticResultOrder = [:]
         semanticSearchProgress = nil
-        semanticSearchDiagnostics = nil
-        semanticSearchShowsAllResults = false
         semanticIndexedFileCount = 0
         semanticCatalogFileCount = 0
         semanticSearchState = .idle
@@ -348,8 +310,6 @@ final class SimilarityScoringModel {
         semanticScores = [:]
         semanticResultOrder = [:]
         semanticSearchProgress = nil
-        semanticSearchDiagnostics = nil
-        semanticSearchShowsAllResults = false
         semanticSearchState = .idle
     }
 
@@ -385,8 +345,6 @@ final class SimilarityScoringModel {
         semanticScores = [:]
         semanticResultOrder = [:]
         semanticSearchProgress = nil
-        semanticSearchDiagnostics = nil
-        semanticSearchShowsAllResults = false
         semanticIndexedFileCount = 0
         semanticCatalogFileCount = 0
         semanticSearchState = .idle
@@ -477,7 +435,6 @@ final class SimilarityScoringModel {
     /// for burst similarity.
     @discardableResult
     func hydrateSemanticArtifacts(_ files: [FileItem]) async -> Int {
-        ContentionDiagnostics.shared.recordSemanticHydrationStart()
         _semanticHydrationGeneration &+= 1
         let generation = _semanticHydrationGeneration
         semanticCatalogFileCount = files.count
@@ -653,9 +610,6 @@ final class SimilarityScoringModel {
         let workTask = Task<SimilarityIndexingTaskResult, Never> {
             @concurrent [weak self] in
             do {
-                ContentionDiagnostics.shared.recordInferenceStart(
-                    .similarityIndexing,
-                )
                 let output = try await service.index(
                     sources: sources,
                     maxPixelSize: thumbnailMaxPixelSize,
@@ -770,40 +724,6 @@ final class SimilarityScoringModel {
                     "SimilarityScoringModel: \(self.indexingFailures.count) artifacts failed validation or generation",
                 )
             }
-            if output.usedWholeBatchFallback {
-                await recordSimilarityDiagnostic(
-                    SimilarityDiagnosticsEvent(
-                        timestamp: Date(),
-                        backend: service.backendDescriptor,
-                        requestedImageCount: sources.count,
-                        thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-                        summary: output.primaryFailureDiagnostic,
-                        outcome: .visionFallback(
-                            artifactsCreated: durableOutput.artifacts.count,
-                            clipFailures: output.primaryFailures,
-                            visionFailures: output.failures,
-                            validationFailures: durableOutput.invalidFailures,
-                        ),
-                    ),
-                )
-            } else if service.backendDescriptor.backend == "clip",
-                      !indexingFailures.isEmpty {
-                await recordSimilarityDiagnostic(
-                    SimilarityDiagnosticsEvent(
-                        timestamp: Date(),
-                        backend: service.backendDescriptor,
-                        requestedImageCount: sources.count,
-                        thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-                        summary: output.primaryFailureDiagnostic,
-                        outcome: .partialCLIP(
-                            artifactsCreated: durableOutput.artifacts.count,
-                            clipFailures: output.primaryFailures,
-                            generationFailures: output.failures,
-                            validationFailures: durableOutput.invalidFailures,
-                        ),
-                    ),
-                )
-            }
             Logger.process.debugMessageOnly(
                 "SimilarityScoringModel.indexFiles(): indexed \(durableOutput.artifacts.count)/\(toIndex.count) files with PhotoAIKit"
                     + (output.usedWholeBatchFallback ? " using Vision fallback" : ""),
@@ -814,18 +734,6 @@ final class SimilarityScoringModel {
             Logger.process.warning(
                 "SimilarityScoringModel: PhotoAIKit indexing failed: \(message)",
             )
-            if service.requiresHomogeneousBatch {
-                await recordSimilarityDiagnostic(
-                    SimilarityDiagnosticsEvent(
-                        timestamp: Date(),
-                        backend: service.backendDescriptor,
-                        requestedImageCount: sources.count,
-                        thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-                        summary: nil,
-                        outcome: .indexingFailure(message: message),
-                    ),
-                )
-            }
 
         case .cancelled:
             break
@@ -835,19 +743,6 @@ final class SimilarityScoringModel {
         Logger.process.debugMessageOnly(
             "SimilarityScoringModel.indexFiles(): indexing finished with \(embeddings.count) stored artifacts",
         )
-    }
-
-    private func recordSimilarityDiagnostic(
-        _ event: SimilarityDiagnosticsEvent,
-    ) async {
-        do {
-            try await similarityDiagnosticsWriter.record(event)
-        } catch {
-            let message = String(describing: error)
-            Logger.process.error(
-                "SimilarityScoringModel: could not persist CLIP diagnostic: \(message, privacy: .public)",
-            )
-        }
     }
 
     /// Compute and store distances from `anchorID` to all other artifacts.
@@ -936,8 +831,6 @@ final class SimilarityScoringModel {
         semanticScores = [:]
         semanticResultOrder = [:]
         semanticSearchProgress = nil
-        semanticSearchDiagnostics = nil
-        semanticSearchShowsAllResults = false
 
         guard let service = semanticSearchService else {
             semanticSearchState = .failed(
@@ -967,10 +860,6 @@ final class SimilarityScoringModel {
             return
         }
 
-        let fileNames = Dictionary(
-            uniqueKeysWithValues: files.map { ($0.id, $0.name) },
-        )
-        let startedAt = Date()
         semanticSearchProgress = .encodingText(
             query: trimmedQuery,
             candidateCount: candidates.count,
@@ -986,9 +875,6 @@ final class SimilarityScoringModel {
         }
         let work = Task<SemanticSearchTaskResult, Never> { @concurrent in
             do {
-                ContentionDiagnostics.shared.recordInferenceStart(
-                    .semanticSearch,
-                )
                 return try await .success(
                     service.rank(
                         query: trimmedQuery,
@@ -1036,16 +922,6 @@ final class SimilarityScoringModel {
                 query: output.query,
                 completedCount: output.compatibleArtifactCount,
                 candidateCount: output.compatibleArtifactCount,
-            )
-            semanticSearchDiagnostics = Self.makeSemanticSearchDiagnostics(
-                output: output,
-                fileNames: fileNames,
-                backendDescriptor: service.backendDescriptor,
-                promptPolicyVersion: service.promptPolicyVersion,
-                durationMilliseconds: max(
-                    0,
-                    Int(Date().timeIntervalSince(startedAt) * 1000),
-                ),
             )
             applySemanticSearchResultPresentation(
                 output: output,
@@ -1111,7 +987,6 @@ final class SimilarityScoringModel {
                 ($0.element.fileID, $0.offset)
             },
         )
-        semanticSearchShowsAllResults = selectedCount == semanticMatches.count
         semanticSearchState = .results(
             RawCullSemanticSearchResultSummary(
                 query: summary.query,
@@ -1159,58 +1034,6 @@ final class SimilarityScoringModel {
                 ),
                 scoringFailureCount: output.failures.count,
             ),
-        )
-    }
-
-    private nonisolated static func makeSemanticSearchDiagnostics(
-        output: RawCullSemanticSearchOutput,
-        fileNames: [UUID: String],
-        backendDescriptor: SimilarityBackendDescriptor,
-        promptPolicyVersion: String,
-        durationMilliseconds: Int,
-    ) -> RawCullSemanticSearchDiagnostics {
-        let results = output.matches.enumerated().map { offset, match in
-            RawCullSemanticSearchDiagnosticResult(
-                fileID: match.fileID,
-                fileName: fileNames[match.fileID] ?? match.fileID.uuidString,
-                rank: offset + 1,
-                score: match.score,
-            )
-        }
-        let scores = results.map(\.score)
-        let highestScore = scores.first
-        let lowestScore = scores.last
-        let medianScore: Float? = if scores.isEmpty {
-            nil
-        } else if scores.count.isMultiple(of: 2) {
-            (scores[scores.count / 2 - 1] + scores[scores.count / 2]) / 2
-        } else {
-            scores[scores.count / 2]
-        }
-        let scoreSpread: Float? = if let highestScore, let lowestScore {
-            highestScore - lowestScore
-        } else {
-            nil
-        }
-        let topScoreGap: Float? = scores.count > 1
-            ? scores[0] - scores[1]
-            : nil
-
-        return RawCullSemanticSearchDiagnostics(
-            query: output.query,
-            promptPolicyVersion: promptPolicyVersion,
-            backendDescriptor: backendDescriptor,
-            textEmbeddingDescriptor: output.textEmbeddingDescriptor,
-            durationMilliseconds: durationMilliseconds,
-            compatibleArtifactCount: output.compatibleArtifactCount,
-            incompatibleArtifactCount: output.incompatibleArtifactCount,
-            scoringFailureCount: output.failures.count,
-            highestScore: highestScore,
-            medianScore: medianScore,
-            lowestScore: lowestScore,
-            scoreSpread: scoreSpread,
-            topScoreGap: topScoreGap,
-            results: results,
         )
     }
 

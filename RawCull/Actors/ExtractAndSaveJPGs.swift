@@ -204,7 +204,6 @@ actor ExtractAndSaveJPGs {
         extractJPEGSTask = nil
         Logger.process.debugMessageOnly("ExtractAndSaveJPGs: Preload Cancelled")
     }
-
 }
 
 nonisolated struct JPGExportFailure: Sendable, Equatable {

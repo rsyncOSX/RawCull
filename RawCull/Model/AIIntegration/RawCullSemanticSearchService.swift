@@ -69,7 +69,6 @@ nonisolated enum RawCullSemanticSearchError: Error, Equatable, Sendable {
 /// Query embeddings are intentionally scoped to one call and are not persisted.
 nonisolated protocol RawCullSemanticSearchServicing: Sendable {
     var backendDescriptor: SimilarityBackendDescriptor { get }
-    var promptPolicyVersion: String { get }
 
     func rank(
         query: String,
@@ -109,10 +108,7 @@ extension RawCullSemanticSearchServicing {
 /// primitive cosine similarity. RawCull owns catalog admission, cancellation,
 /// failure isolation, and deterministic ranking.
 nonisolated struct RawCullCLIPSemanticSearchService: RawCullSemanticSearchServicing {
-    static let literalPromptPolicyVersion = "literal-v1"
-
     let backendDescriptor: SimilarityBackendDescriptor
-    let promptPolicyVersion = Self.literalPromptPolicyVersion
 
     private let textProvider: any TextEmbeddingProviding
     private let comparator: any ImageTextSimilarityComparing

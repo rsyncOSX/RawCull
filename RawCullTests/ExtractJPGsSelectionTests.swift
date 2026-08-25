@@ -140,7 +140,7 @@ struct ExtractJPGsOutputURLTests {
     func `failed exports still advance completed count and report every failure`() async {
         let files = [
             makeExtractJPGTestFile("A.ARW"),
-            makeExtractJPGTestFile("B.ARW"),
+            makeExtractJPGTestFile("B.ARW")
         ]
         let recorder = JPGExportProgressRecorder()
         let actor = ExtractAndSaveJPGs(

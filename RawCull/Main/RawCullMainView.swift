@@ -98,11 +98,6 @@ struct RawCullMainView: View {
         .sheet(isPresented: $viewModel.showSavedFiles) {
             SavedFilesView()
         }
-        .sheet(item: $viewModel.rawDiagnosticsPresentation) { presentation in
-            RawFileDiagnosticsView(log: presentation.log) {
-                viewModel.rawDiagnosticsPresentation = nil
-            }
-        }
         .sheet(isPresented: $viewModel.showcopyARWFilesView) {
             CopyARWFilesView(
                 viewModel: viewModel,

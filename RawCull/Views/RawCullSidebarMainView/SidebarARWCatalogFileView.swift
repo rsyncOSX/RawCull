@@ -18,95 +18,93 @@ struct SidebarARWCatalogFileView: View {
     let issorting: Bool
 
     var body: some View {
-        Group {
-            if selectedSource == nil {
-                // Empty State when no catalog is selected
-                ContentUnavailableView {
-                    Label("No Catalog Selected", systemImage: "folder.badge.plus")
-                } description: {
-                    Text("Choose File > Add Catalog… to start culling your photos.")
-                }
-            } else if scanning {
-                ProgressView("Scanning images: \(viewModel.scanDiscoveredCount)")
-            } else if viewModel.files.isEmpty, !scanning {
-                ContentUnavailableView {
-                    Label("No Files Found", systemImage: "folder.badge.plus")
-                } description: {
-                    Text("This folder has no RAW images. Choose File > Add Catalog… to try a different folder.")
-                }
-            } else if files.isEmpty {
-                ContentUnavailableView {
-                    Label("No Matching Files", systemImage: "line.3.horizontal.decrease.circle")
-                } description: {
-                    Text("The catalog contains RAW images, but none match the current filters.")
-                }
-            } else {
-                ZStack {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            ConditionalGlassButton(
-                                systemImage: "trash",
-                                text: "Clear",
-                                helpText: "Clear rated files",
-                            ) {
-                                viewModel.alertType = .clearRatedFiles
-                                viewModel.showingAlert = true
-                            }
-                            .disabled(viewModel.creatingthumbnails)
-
-                            ConditionalGlassButton(
-                                systemImage: "photo.badge.arrow.down",
-                                text: "Cache JPGs",
-                                helpText: "Cache extracted JPG previews for this catalog",
-                            ) {
-                                viewModel.alertType = .createJPGDiskCache
-                                viewModel.showingAlert = true
-                            }
-                            .disabled(
-                                selectedSource == nil ||
-                                    files.isEmpty ||
-                                    viewModel.creatingthumbnails,
-                            )
-
-                            LoupeSortBadge(status: sortStatus)
+        if selectedSource == nil {
+            // Empty State when no catalog is selected
+            ContentUnavailableView {
+                Label("No Catalog Selected", systemImage: "folder.badge.plus")
+            } description: {
+                Text("Choose File > Add Catalog… to start culling your photos.")
+            }
+        } else if scanning {
+            ProgressView("Scanning images: \(viewModel.scanDiscoveredCount)")
+        } else if viewModel.files.isEmpty, !scanning {
+            ContentUnavailableView {
+                Label("No Files Found", systemImage: "folder.badge.plus")
+            } description: {
+                Text("This folder has no RAW images. Choose File > Add Catalog… to try a different folder.")
+            }
+        } else if files.isEmpty {
+            ContentUnavailableView {
+                Label("No Matching Files", systemImage: "line.3.horizontal.decrease.circle")
+            } description: {
+                Text("The catalog contains RAW images, but none match the current filters.")
+            }
+        } else {
+            ZStack {
+                VStack(alignment: .leading) {
+                    HStack {
+                        ConditionalGlassButton(
+                            systemImage: "trash",
+                            text: "Clear",
+                            helpText: "Clear rated files",
+                        ) {
+                            viewModel.alertType = .clearRatedFiles
+                            viewModel.showingAlert = true
                         }
-                        .padding()
+                        .disabled(viewModel.creatingthumbnails)
 
-                        Group {
-                            // Default start show all thumbnails vertical on the
-                            // left side. If verticalimage == false then show ARW
-                            // files in a table view
-
-                            ImageTableVerticalView(viewModel: viewModel)
+                        ConditionalGlassButton(
+                            systemImage: "photo.badge.arrow.down",
+                            text: "Cache JPGs",
+                            helpText: "Cache extracted JPG previews for this catalog",
+                        ) {
+                            viewModel.alertType = .createJPGDiskCache
+                            viewModel.showingAlert = true
                         }
-                        .frame(width: thumbnailSizeGrid + 20)
-                        .fixedSize(horizontal: true, vertical: false)
+                        .disabled(
+                            selectedSource == nil ||
+                                files.isEmpty ||
+                                viewModel.creatingthumbnails,
+                        )
 
-                        if creatingThumbnails {
-                            ProgressCount(
-                                completed: viewModel.fileOperationCompleted,
-                                total: viewModel.fileOperationTotal,
-                                estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
-                                statusText: progressStatusText,
-                            )
-                        }
+                        LoupeSortBadge(status: sortStatus)
                     }
+                    .padding()
 
-                    if issorting {
-                        HStack {
-                            ProgressView()
-                                .fixedSize()
+                    Group {
+                        // Default start show all thumbnails vertical on the
+                        // left side. If verticalimage == false then show ARW
+                        // files in a table view
 
-                            Text("Sorting files…")
-                                .font(.title)
-                                .foregroundColor(Color.green)
-                        }
-                        .padding()
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
+                        ImageTableVerticalView(viewModel: viewModel)
+                    }
+                    .frame(width: thumbnailSizeGrid + 20)
+                    .fixedSize(horizontal: true, vertical: false)
+
+                    if creatingThumbnails {
+                        ProgressCount(
+                            completed: viewModel.fileOperationCompleted,
+                            total: viewModel.fileOperationTotal,
+                            estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
+                            statusText: progressStatusText,
                         )
                     }
+                }
+
+                if issorting {
+                    HStack {
+                        ProgressView()
+                            .fixedSize()
+
+                        Text("Sorting files…")
+                            .font(.title)
+                            .foregroundColor(Color.green)
+                    }
+                    .padding()
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1),
+                    )
                 }
             }
         }

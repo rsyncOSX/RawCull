@@ -533,7 +533,7 @@ struct CullingGridCoordinatorTests {
                 fileIDs: safeFiles.map(\.id),
                 confidence: .high,
                 isSafeForOneClickCulling: true,
-            ),
+            )
         ]
 
         #expect(viewModel.burstReviewSummary == BurstReviewSummary(
@@ -552,7 +552,7 @@ struct CullingGridCoordinatorTests {
             (.needsReview, 2),
             (.deferred, 1),
             (.markedReviewed, 1),
-            (.reviewed, 2),
+            (.reviewed, 2)
         ]
         for (filter, expectedCount) in expectedCounts {
             viewModel.burstReviewQueueFilter = filter

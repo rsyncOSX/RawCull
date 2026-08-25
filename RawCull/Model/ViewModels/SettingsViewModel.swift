@@ -285,35 +285,6 @@ final class SettingsViewModel {
         await saveSettings()
     }
 
-    /**
-     // MARK: - Memory Projection
-
-     /// Empirically-calibrated projection of RawCull's RAM payload from the two
-     /// cache-size sliders. App baseline (no caches populated) is ~100 MB.
-     /// Interpolates between baseline and a per-slider payload ceiling using
-     /// each slider's fraction of its own range, weighted by the slider's
-     /// range share of the combined payload. Calibration anchor: with
-     /// `thumbnailCostPerPixel=4`, mem=8000 MB / grid=2000 MB, real process
-     /// RSS measured ~9330 MB peak; `maxPayloadMB = 9300` makes the formula
-     /// reproduce that ceiling. Used by both the Cache settings tab and the
-     /// Memory Diagnostics console (the console logs this side-by-side with
-     /// the real process RSS so the calibration can be tuned against real usage).
-     func projectedRawCullMemoryBytes() -> UInt64 {
-         let memMin = 1000.0, memMax = 8000.0
-         let gridMin = 400.0, gridMax = 2000.0
-         let memFrac = (Double(memoryCacheSizeMB) - memMin) / (memMax - memMin)
-         let gridFrac = (Double(gridCacheSizeMB) - gridMin) / (gridMax - gridMin)
-         let memRange = memMax - memMin
-         let gridRange = gridMax - gridMin
-         let totalRange = memRange + gridRange
-         let combined = memFrac * (memRange / totalRange) + gridFrac * (gridRange / totalRange)
-         let baselineMB = 100.0
-         let maxPayloadMB = 9300.0
-         let clamped = min(1.0, max(0.0, combined))
-         let projectedMB = baselineMB + clamped * maxPayloadMB
-         return UInt64(projectedMB * 1024.0 * 1024.0)
-     }
-     */
     /// Get a snapshot of current settings (safe to call from any context)
     nonisolated func asyncgetsettings() async -> SavedSettings {
         await MainActor.run {

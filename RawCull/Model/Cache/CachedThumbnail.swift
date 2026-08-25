@@ -6,14 +6,8 @@
 //
 //  Plain reference wrapper for `NSImage` thumbnails held in NSCache.
 //
-//  Originally `DiscardableThumbnail`, conforming to `NSDiscardableContent` so
-//  the OS could purge bitmap pages under memory pressure. Memory Diagnostics
-//  measurement (round 3) showed `NSCache` was using that conformance to evict
-//  wrappers aggressively at low utilization (~8% of the configured 30 GB
-//  cap) — every eviction paired 1:1 with a `discardContentIfPossible` call,
-//  collapsing the RAM hit rate to <5%. The wrapper now holds a plain
-//  reference so eviction is driven only by our explicit `totalCostLimit` /
-//  `countLimit` and the `handleMemoryPressureEvent` handler.
+//  The wrapper holds a plain reference so eviction is driven by the configured
+//  `totalCostLimit`, `countLimit`, and explicit memory-pressure handling.
 //
 import AppKit
 import Foundation
@@ -25,16 +19,8 @@ import Foundation
 final class CachedThumbnail: NSObject, @unchecked Sendable {
     let image: NSImage
     nonisolated let cost: Int
-    /// NSURL of the cached item, retained so `CacheDelegate` can identify the
-    /// evicted key in `cache(_:willEvictObject:)` (which only receives the
-    /// value object). Used to populate `SharedMemoryCache`'s recently-evicted
-    /// ring for boomerang-miss diagnostics. Optional for back-compat; nil
-    /// disables eviction tracking for that entry.
-    nonisolated let url: NSURL?
-
-    nonisolated init(image: NSImage, url: NSURL? = nil) {
+    nonisolated init(image: NSImage) {
         self.image = image
-        self.url = url
 
         // Calculate cost based on actual pixel dimensions from all representations
         // This ensures NSCache accurately tracks RAM footprint for LRU eviction
@@ -60,9 +46,5 @@ final class CachedThumbnail: NSObject, @unchecked Sendable {
         cost = Int(Double(totalCost) * 1.1)
 
         super.init()
-    }
-
-    convenience nonisolated init(image: NSImage, key: ThumbnailCacheKey) {
-        self.init(image: image, url: key.standardizedSourceURL as NSURL)
     }
 }

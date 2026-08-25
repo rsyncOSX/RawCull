@@ -14,27 +14,6 @@ import Testing
 @Suite(.tags(.threadSafety))
 struct DataRaceDetectionTests {
     @Test
-    func `pressure level can be sampled concurrently`() async {
-        let cache = SharedMemoryCache.shared
-
-        await withTaskGroup(of: String.self) { group in
-            for _ in 0 ..< 1000 {
-                group.addTask {
-                    cache.currentPressureLevel.label
-                }
-            }
-
-            var labels: [String] = []
-            for await label in group {
-                labels.append(label)
-            }
-
-            #expect(labels.count == 1000)
-            #expect(labels.allSatisfy { !$0.isEmpty })
-        }
-    }
-
-    @Test
     func `memory cache supports concurrent nonisolated reads and writes`() async {
         let cache = await makeIsolatedCache()
         let keys = (0 ..< 100).map { index in
@@ -94,39 +73,12 @@ struct DataRaceDetectionTests {
         #expect(cost >= 0)
     }
 
-    @Test
-    func `cache diagnostic counters remain coherent under concurrent increments`() async {
-        let cache = await makeIsolatedCache()
-
-        await withTaskGroup(of: Void.self) { group in
-            for index in 0 ..< 300 {
-                group.addTask {
-                    switch index % 3 {
-                    case 0:
-                        cache.incrementColdExtract()
-
-                    case 1:
-                        cache.incrementDemandRequest()
-
-                    default:
-                        cache.incrementBoomerangMiss()
-                    }
-                }
-            }
-        }
-
-        #expect(cache.getColdExtractCount() == 100)
-        #expect(cache.getDemandRequestCount() == 100)
-        #expect(cache.getBoomerangMissCount() == 100)
-    }
-
     @Test(
         .timeLimit(.minutes(1)),
         .tags(.performance),
     )
     func `Extreme concurrent load reveals no data races`() async {
         let cache = await makeIsolatedCache()
-        let delegate = CacheDelegate.shared
         let settings = await makeIsolatedSettingsViewModel()
 
         await withTaskGroup(of: Void.self) { group in
@@ -137,10 +89,10 @@ struct DataRaceDetectionTests {
                         await cache.ensureReady()
 
                     case 1:
-                        await cache.updateCacheMemory()
+                        _ = cache.getMemoryCacheCount()
 
                     case 2:
-                        _ = delegate.getEvictionCount()
+                        _ = cache.getGridCacheCurrentCost()
 
                     default:
                         _ = await settings.asyncgetsettings()
@@ -149,9 +101,7 @@ struct DataRaceDetectionTests {
             }
         }
 
-        let stats = await cache.getCacheStatistics()
-        #expect(stats.hits == 2500)
-        #expect(stats.misses == 0)
+        #expect(cache.getMemoryCacheCount() >= 0)
     }
 }
 

@@ -330,7 +330,6 @@ private nonisolated struct MatrixSimilarityService: RawCullSimilarityServicing {
 
 private nonisolated struct MatrixSemanticService: RawCullSemanticSearchServicing {
     let backendDescriptor: SimilarityBackendDescriptor
-    let promptPolicyVersion = "matrix-v1"
 
     func rank(
         query _: String,

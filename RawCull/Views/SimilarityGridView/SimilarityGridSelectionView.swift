@@ -46,7 +46,6 @@ struct SimilarityGridSelectionView: View {
                 CullingGridView(viewModel: viewModel) {
                     SemanticSearchResultsHeaderView(
                         summary: summary,
-                        diagnostics: viewModel.similarityModel.semanticSearchDiagnostics,
                         onSetShowsAllResults: { showsAll in
                             Task {
                                 await viewModel.setSemanticSearchShowsAllResults(
