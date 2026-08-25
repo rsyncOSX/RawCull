@@ -550,7 +550,7 @@ extension RawCullViewModel {
               let selectedSource
         else { return }
         cullingModel.applyRatingStates(entry.previousRatingsByFileName, in: selectedSource.url)
-        rebuildRatingCache()
+        refreshCullingDerivedState()
         lastBurstUndoEntry = nil
         if var result = burstAnalysisResults[entry.groupID] {
             result.reviewState = burstReviewStates[entry.groupID] ?? .none

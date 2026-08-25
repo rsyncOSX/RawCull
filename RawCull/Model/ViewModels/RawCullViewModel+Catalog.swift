@@ -34,6 +34,8 @@ extension RawCullViewModel {
 
         cancelCatalogLoad()
         currentselectedSource = source
+        resetCatalogWorkingSet()
+        scanning = source != nil
 
         guard let url = source?.url else {
             activeCatalogLoadURL = nil
@@ -86,6 +88,7 @@ extension RawCullViewModel {
     func handleSourceChange(url: URL) async {
         guard isActiveCatalogLoad(url) else { return }
         scanning = true
+        scanDiscoveredCount = 0
 
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
@@ -94,13 +97,11 @@ extension RawCullViewModel {
         burstReviewQueueFilter = .all
 
         let scan = ScanFiles()
-        let onProgress = countingScannedFiles
-
         let scannedFiles = await scan.scanFiles(
             url: url,
             onProgress: { [weak self] count in
                 guard let self, self.isActiveCatalogLoad(url) else { return }
-                onProgress?(count)
+                self.scanDiscoveredCount = count
             },
         )
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
@@ -129,7 +130,8 @@ extension RawCullViewModel {
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         await similarityModel.hydrateSemanticArtifacts(scannedFiles)
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-        filteredFiles = applyFilters(to: sortedFiles)
+        catalogDisplayCandidates = sortedFiles
+        filteredFiles = applyFilters(to: catalogDisplayCandidates)
         preselectFirstVisibleFileByName()
 
         guard !files.isEmpty else {
@@ -208,9 +210,9 @@ extension RawCullViewModel {
 
     func handleSortOrderChange() async {
         issorting = true
-        var sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
-        sorted = applyFilters(to: sorted)
-        filteredFiles = sorted
+        let sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
+        catalogDisplayCandidates = sorted
+        filteredFiles = applyFilters(to: catalogDisplayCandidates)
         issorting = false
     }
 
@@ -271,7 +273,7 @@ extension RawCullViewModel {
     /// Applies the active rating filter and sharpness sort to a pre-sorted file list.
     /// When similarity mode is active, similarity sort runs last and takes precedence
     /// over sharpness sort, with the anchor image always ranked first.
-    private func applyFilters(to files: [FileItem]) -> [FileItem] {
+    func applyFilters(to files: [FileItem]) -> [FileItem] {
         var result = applyNonSemanticFilters(to: files)
         if similarityModel.hasSemanticSearchResults {
             let resultOrder = similarityModel.semanticResultOrder
@@ -324,5 +326,17 @@ extension RawCullViewModel {
             result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
         }
         return result
+    }
+
+    /// Clears every catalog-scoped value together so counts never describe a
+    /// source other than `selectedSource` while a transition is in flight.
+    private func resetCatalogWorkingSet() {
+        files = []
+        catalogDisplayCandidates = []
+        filteredFiles = []
+        scanDiscoveredCount = 0
+        focusPoints = nil
+        ratingCache = [:]
+        taggedNamesCache = []
     }
 }

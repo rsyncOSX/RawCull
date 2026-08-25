@@ -92,13 +92,13 @@ final class CullingModel {
         scheduleSave()
     }
 
-    func countSelectedFiles(in catalog: URL) -> Int {
-        if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
-            if let filerecords = savedFiles[index].filerecords {
-                return filerecords.count
-            }
-        }
-        return 0
+    func explicitRatingCount(in catalog: URL) -> Int {
+        savedFiles
+            .first(where: { $0.catalog == catalog })?
+            .filerecords?
+            .lazy
+            .filter { $0.rating != nil }
+            .count ?? 0
     }
 
     func isUnrated(photo: String, in catalog: URL) -> Bool {

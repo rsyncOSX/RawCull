@@ -59,9 +59,9 @@ struct RawCullMainView: View {
                     Spacer()
 
                     ProgressCount(
-                        progress: $viewModel.progress,
-                        estimatedSeconds: $viewModel.estimatedSeconds,
-                        max: viewModel.max,
+                        completed: viewModel.fileOperationCompleted,
+                        total: viewModel.fileOperationTotal,
+                        estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
                         statusText: "Extracting JPGs",
                     )
                     .frame(maxWidth: 480)
@@ -250,14 +250,12 @@ struct RawCullMainView: View {
         } content: {
             SidebarARWCatalogFileView(
                 viewModel: viewModel,
-                progress: $viewModel.progress,
                 selectedSource: $viewModel.selectedSource,
                 scanning: $viewModel.scanning,
                 creatingThumbnails: $viewModel.creatingthumbnails,
                 nsImage: $nsImage,
                 cgImage: $cgImage,
                 issorting: viewModel.issorting,
-                max: viewModel.max,
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")

@@ -7,7 +7,6 @@ struct SidebarARWCatalogFileView: View {
     }
 
     @Bindable var viewModel: RawCullViewModel
-    @Binding var progress: Double
     @Binding var selectedSource: ARWSourceCatalog?
 
     @Binding var scanning: Bool
@@ -16,10 +15,7 @@ struct SidebarARWCatalogFileView: View {
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
-    @State var counterScannedFiles: Int = 0
-
     let issorting: Bool
-    let max: Double
 
     var body: some View {
         Group {
@@ -31,7 +27,7 @@ struct SidebarARWCatalogFileView: View {
                     Text("Choose File > Add Catalog… to start culling your photos.")
                 }
             } else if scanning {
-                ProgressView("Scanning images: \(counterScannedFiles)")
+                ProgressView("Scanning images: \(viewModel.scanDiscoveredCount)")
             } else if viewModel.files.isEmpty, !scanning {
                 ContentUnavailableView {
                     Label("No Files Found", systemImage: "folder.badge.plus")
@@ -87,10 +83,12 @@ struct SidebarARWCatalogFileView: View {
                         .fixedSize(horizontal: true, vertical: false)
 
                         if creatingThumbnails {
-                            ProgressCount(progress: $progress,
-                                          estimatedSeconds: $viewModel.estimatedSeconds,
-                                          max: Double(max),
-                                          statusText: progressStatusText)
+                            ProgressCount(
+                                completed: viewModel.fileOperationCompleted,
+                                total: viewModel.fileOperationTotal,
+                                estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
+                                statusText: progressStatusText,
+                            )
                         }
                     }
 
@@ -111,18 +109,6 @@ struct SidebarARWCatalogFileView: View {
                     }
                 }
             }
-        }
-        .task(id: scanning) {
-            viewModel.countingScannedFiles = { count in
-                // Ensure UI state changes happen on the main actor
-                Task { @MainActor in
-                    // It's safe to access self on the main actor
-                    self.counterScannedFiles = count
-                }
-            }
-        }
-        .onDisappear {
-            viewModel.countingScannedFiles = nil
         }
     }
 

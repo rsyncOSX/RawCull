@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 @testable import RawCull
 import RawCullCore
@@ -12,6 +13,18 @@ private func makeExtractJPGTestFile(_ name: String) -> FileItem {
         exifData: nil,
         afFocusNormalized: nil,
     )
+}
+
+private nonisolated struct MissingEmbeddedPreviewLoader: FullSizePreviewLoading {
+    func loadEmbeddedPreview(for _: URL) async -> CGImage? {
+        nil
+    }
+}
+
+@MainActor
+private final class JPGExportProgressRecorder {
+    var completed: [Int] = []
+    var total = 0
 }
 
 @MainActor
@@ -123,6 +136,37 @@ struct ExtractJPGsSelectionTests {
 }
 
 struct ExtractJPGsOutputURLTests {
+    @Test
+    func `failed exports still advance completed count and report every failure`() async {
+        let files = [
+            makeExtractJPGTestFile("A.ARW"),
+            makeExtractJPGTestFile("B.ARW"),
+        ]
+        let recorder = JPGExportProgressRecorder()
+        let actor = ExtractAndSaveJPGs(
+            files: files,
+            destinationCatalogURL: URL(fileURLWithPath: "/tmp/destination", isDirectory: true),
+            exportMode: .embeddedJPG,
+            previewLoader: MissingEmbeddedPreviewLoader(),
+        )
+        let handlers = await CreateFileHandlers().createFileHandlers(
+            fileHandler: { recorder.completed.append($0) },
+            maxfilesHandler: { recorder.total = $0 },
+            estimatedTimeHandler: { _ in },
+            memorypressurewarning: { _ in },
+            onExtractionNeeded: {},
+        )
+        await actor.setFileHandlers(handlers)
+
+        let result = await actor.extractAndSavejpgs()
+        let progress = await MainActor.run { (recorder.completed, recorder.total) }
+
+        #expect(result.succeeded == 0)
+        #expect(result.failures.count == files.count)
+        #expect(progress.1 == files.count)
+        #expect(progress.0.contains(files.count))
+    }
+
     @Test
     func `embedded export writes natural jpg name in destination catalog`() {
         let source = URL(fileURLWithPath: "/tmp/source/Alpha.ARW")
