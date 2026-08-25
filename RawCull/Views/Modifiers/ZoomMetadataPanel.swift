@@ -146,7 +146,7 @@ struct ZoomMetadataPanel: View {
                 id: "path",
                 label: "Path",
                 value: file.url.deletingLastPathComponent().path(),
-                allowsMultipleLines: true
+                allowsMultipleLines: true,
             )
         ]
 

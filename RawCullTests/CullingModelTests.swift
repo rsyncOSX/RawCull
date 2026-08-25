@@ -548,7 +548,7 @@ struct CullingModelTests {
         let previousDistances: [UUID: Float] = [UUID(): 0.25]
         model.embeddings = [
             anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
-            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate))
         ]
         model.anchorFileID = previousAnchorID
         model.distances = previousDistances

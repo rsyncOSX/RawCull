@@ -564,12 +564,16 @@ private struct BurstNextUpCard<Trailing: View>: View {
     }
 
     private var title: String {
-        if isRunning { return "Finding burst groups" }
+        if isRunning {
+            return "Finding burst groups"
+        }
         return resultsAreAvailable ? "Continue reviewing your bursts" : "Start by finding burst groups"
     }
 
     private var detail: String {
-        if isRunning { return runningText }
+        if isRunning {
+            return runningText
+        }
         if resultsAreAvailable {
             return "Compare each sequence side by side and keep the strongest frames."
         }

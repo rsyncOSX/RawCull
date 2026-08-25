@@ -617,7 +617,6 @@ struct BurstCullingWorkspaceView: View {
 
             case .nextGroup:
                 viewModel.advanceToNextBurstGroup(after: groupID)
-
             }
             return .handled
         }
