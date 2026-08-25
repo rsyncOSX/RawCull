@@ -279,7 +279,7 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `review queue policy includes uncertain groups and excludes completed states`() {
+    func `review queue policy includes every pending group and excludes completed states`() {
         let low = makeReviewQueueResult(groupID: 1, confidence: .low)
         let caution = makeReviewQueueResult(
             groupID: 2,
@@ -301,14 +301,16 @@ struct CullingGridCoordinatorTests {
         #expect(!BurstReviewQueuePolicy.includes(reviewed, filter: .needsReview))
         #expect(BurstReviewQueuePolicy.includes(deferred, filter: .deferred))
         #expect(!BurstReviewQueuePolicy.includes(applied, filter: .needsReview))
+        #expect(BurstReviewQueuePolicy.includes(safeRecommendation, filter: .needsReview))
         #expect(!BurstReviewQueuePolicy.includes(safeRecommendation, filter: .reviewed))
 
         let counts = BurstReviewQueuePolicy.counts(
             for: [low, caution, reviewed, deferred, applied, safeRecommendation],
         )
-        #expect(counts.needsReview == 2)
+        #expect(counts.needsReview == 3)
         #expect(counts.deferred == 1)
         #expect(counts.reviewed == 2)
+        #expect(counts.needsReview + counts.deferred + counts.reviewed == 6)
     }
 
     @Test(.tags(.smoke))
@@ -522,14 +524,14 @@ struct CullingGridCoordinatorTests {
             singleImages: 2,
             deferred: 1,
             markedReviewed: 1,
-            needsReview: 1,
+            needsReview: 2,
         ))
         #expect(viewModel.burstReviewQueueCounts.reviewed == 2)
 
         viewModel.markBurstGroupReviewed(groupID: 1)
 
         #expect(viewModel.burstGroupsHomeCounts.markedReviewed == 2)
-        #expect(viewModel.burstGroupsHomeCounts.needsReview == 0)
+        #expect(viewModel.burstGroupsHomeCounts.needsReview == 1)
     }
 
     @Test(.tags(.smoke))
