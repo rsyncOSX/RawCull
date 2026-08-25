@@ -60,11 +60,6 @@ enum ActiveSheet: String, Identifiable {
     }
 }
 
-struct RawDiagnosticsPresentation: Identifiable {
-    let id = UUID()
-    let log: String
-}
-
 struct OperationFailurePresentation: Identifiable {
     let id = UUID()
     let title: String
@@ -205,9 +200,6 @@ final class RawCullViewModel {
     /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
     var activeSheet: ActiveSheet?
 
-    var rawDiagnosticsPresentation: RawDiagnosticsPresentation?
-    @ObservationIgnored var rawDiagnosticsTask: Task<Void, Never>?
-    @ObservationIgnored var rawDiagnosticsGeneration: UUID?
     var operationFailurePresentation: OperationFailurePresentation?
 
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?

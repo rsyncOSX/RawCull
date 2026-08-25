@@ -133,7 +133,6 @@ private actor SemanticSearchGate {
 
 private nonisolated struct GatedSemanticSearchService: RawCullSemanticSearchServicing {
     let backendDescriptor = semanticTestBackend
-    let promptPolicyVersion = "literal-v1"
     let gate: SemanticSearchGate
 
     func rank(
@@ -317,7 +316,7 @@ struct RawCullSemanticSearchTests {
 
     @MainActor
     @Test
-    func `Large searches show the top twenty and preserve full CLIP diagnostics`() async throws {
+    func `Large searches show the top twenty and can expand all results`() async throws {
         let names = (1 ... 25).map {
             let suffix = $0 < 10 ? "0\($0)" : "\($0)"
             return "image-\(suffix).raw"
@@ -355,31 +354,16 @@ struct RawCullSemanticSearchTests {
             candidateCount: 25,
         ))
 
-        let diagnostics = try #require(model.semanticSearchDiagnostics)
-        #expect(diagnostics.query == "bird in flight")
-        #expect(diagnostics.promptPolicyVersion == "literal-v1")
-        #expect(diagnostics.textEmbeddingDescriptor == semanticTestTextDescriptor)
-        #expect(diagnostics.results.count == 25)
-        #expect(diagnostics.results.first?.fileName == "image-25.raw")
-        #expect(diagnostics.results.last?.fileName == "image-01.raw")
-        #expect(abs((diagnostics.highestScore ?? 0) - 0.25) < 0.0001)
-        #expect(abs((diagnostics.medianScore ?? 0) - 0.13) < 0.0001)
-        #expect(abs((diagnostics.lowestScore ?? 0) - 0.01) < 0.0001)
-        #expect(abs((diagnostics.scoreSpread ?? 0) - 0.24) < 0.0001)
-        #expect(abs((diagnostics.topScoreGap ?? 0) - 0.01) < 0.0001)
-
         model.setSemanticSearchShowsAllResults(true)
         summary = try #require(model.semanticSearchState.resultSummary)
         #expect(summary.resultCount == 25)
         #expect(summary.hiddenRankedImageCount == 0)
-        #expect(model.semanticSearchShowsAllResults)
         #expect(model.semanticResultOrder.count == 25)
 
         model.setSemanticSearchShowsAllResults(false)
         summary = try #require(model.semanticSearchState.resultSummary)
         #expect(summary.resultCount == 20)
         #expect(summary.hiddenRankedImageCount == 5)
-        #expect(!model.semanticSearchShowsAllResults)
         #expect(model.semanticResultOrder.count == 20)
     }
 

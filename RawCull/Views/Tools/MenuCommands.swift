@@ -15,7 +15,6 @@ struct MenuCommands: Commands {
     @FocusedBinding(\.copyTaggedFiles) private var copyTaggedFiles
     @FocusedBinding(\.showSavedFiles) private var showSavedFiles
     @FocusedValue(\.canCopyTaggedFiles) private var canCopyTaggedFiles
-    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -46,16 +45,6 @@ struct MenuCommands: Commands {
 
             CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
                 .disabled(aborttask == nil)
-        }
-
-        CommandMenu("Diagnostics") {
-            Button("Memory Console") {
-                openWindow(id: "memory-diagnostics")
-            }
-
-            Button("Similarity Console") {
-                openWindow(id: "similarity-diagnostics")
-            }
         }
     }
 }

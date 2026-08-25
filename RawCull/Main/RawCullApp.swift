@@ -103,17 +103,6 @@ struct RawCullApp: App {
                 .environment(viewModel)
         }
 
-        Window("Memory Console", id: "memory-diagnostics") {
-            MemoryDiagnosticsView()
-                .environment(viewModel)
-        }
-        .defaultSize(width: 720, height: 480)
-
-        Window("Similarity Console", id: "similarity-diagnostics") {
-            SimilarityDiagnosticsView()
-        }
-        .defaultSize(width: 860, height: 560)
-
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()
                 .background(.windowBackground)

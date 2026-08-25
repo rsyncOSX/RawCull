@@ -21,18 +21,15 @@ actor RequestThumbnail {
     private var setupTask: Task<Void, Never>?
     private var inFlightRequests: [ThumbnailCacheKey: InFlightRequest] = [:]
     private let diskCache: DiskCacheManager
-    private let diagnostics: ContentionDiagnostics
     private let memoryCache: SharedMemoryCache
     private let rawLoader: any RawImageLoading
 
     init(
         diskCache: DiskCacheManager? = nil,
-        diagnostics: ContentionDiagnostics = .shared,
         memoryCache: SharedMemoryCache = .shared,
         rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
-        self.diagnostics = diagnostics
         self.memoryCache = memoryCache
         self.rawLoader = rawLoader
     }
@@ -56,10 +53,6 @@ actor RequestThumbnail {
         purpose: ThumbnailCacheKey.Purpose,
     ) async -> CGImage? {
         await ensureReady()
-
-        // Count callers rather than producers: exact-key callers may share one
-        // producer below, but every UI request remains demand traffic.
-        memoryCache.incrementDemandRequest()
 
         guard let cacheKey = ThumbnailCacheKey.resolve(
             for: url,
@@ -131,13 +124,11 @@ actor RequestThumbnail {
         cacheKey: ThumbnailCacheKey,
     ) {
         guard !Task.isCancelled else {
-            diagnostics.recordThumbnailCancellation()
             continuation.resume(returning: nil)
             return
         }
 
         if var request = inFlightRequests[cacheKey] {
-            diagnostics.recordDuplicateThumbnailKey()
             request.waiters[waiterID] = continuation
             inFlightRequests[cacheKey] = request
             return
@@ -172,7 +163,6 @@ actor RequestThumbnail {
               let continuation = request.waiters.removeValue(forKey: waiterID)
         else { return }
 
-        diagnostics.recordThumbnailCancellation()
         continuation.resume(returning: nil)
         if request.waiters.isEmpty {
             inFlightRequests.removeValue(forKey: cacheKey)
@@ -202,27 +192,17 @@ actor RequestThumbnail {
         targetSize: Int,
         cacheKey: ThumbnailCacheKey?,
     ) async throws -> CGImage {
-        let sourceURL = url.standardizedFileURL as NSURL
-
         // A. Check RAM
         if let cacheKey, let wrapper = memoryCache.object(forKey: cacheKey) {
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache)")
-            await memoryCache.updateCacheMemory()
             let nsImage = wrapper.image
             return try await nsImageToCGImage(nsImage)
         }
 
         // B. Check Disk
         if let cacheKey, let diskImage = await diskCache.load(for: cacheKey) {
-            // Boomerang detection: a disk hit on a key the main RAM cache
-            // recently evicted is the "scan polluted RAM, user paid disk cost
-            // to get it back" pattern we're trying to quantify.
-            if memoryCache.wasRecentlyEvicted(url: sourceURL) {
-                memoryCache.incrementBoomerangMiss()
-            }
             storeInMemory(diskImage, for: cacheKey)
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in Disk Cache)")
-            await memoryCache.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
         }
 
@@ -230,9 +210,6 @@ actor RequestThumbnail {
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
         try Task.checkCancellation()
-        diagnostics.beginThumbnailWork(coldDecode: true)
-        defer { diagnostics.endThumbnailWork() }
-
         guard let cgImage = await rawLoader.thumbnailCGImage(
             for: url,
             maxPixelSize: targetSize,
@@ -242,12 +219,6 @@ actor RequestThumbnail {
         try Task.checkCancellation()
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        // Cold extraction: not in RAM, not on disk, decoded from ARW source.
-        // The third bucket of demand traffic — without it, the layer-relative
-        // hit rate (`hit_rate_pct`) is meaningless during a fresh scan because
-        // its denominator excludes this path entirely.
-        memoryCache.incrementColdExtract()
-
         if let cacheKey {
             storeInMemory(image, for: cacheKey)
         }
@@ -289,18 +260,7 @@ actor RequestThumbnail {
 
     private func storeInMemory(_ image: NSImage, for key: ThumbnailCacheKey) {
         guard memoryCache.object(forKey: key) == nil else { return }
-        let wrapper = CachedThumbnail(image: image, key: key)
+        let wrapper = CachedThumbnail(image: image)
         memoryCache.setObject(wrapper, forKey: key, cost: wrapper.cost)
     }
-
-    #if DEBUG
-        func inFlightSnapshotForTesting() -> (requests: Int, waiters: Int) {
-            (
-                requests: inFlightRequests.count,
-                waiters: inFlightRequests.values.reduce(0) {
-                    $0 + $1.waiters.count
-                },
-            )
-        }
-    #endif
 }

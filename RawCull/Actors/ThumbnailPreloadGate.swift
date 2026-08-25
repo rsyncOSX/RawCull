@@ -32,7 +32,6 @@ actor ThumbnailPreloadGate {
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 guard !Task.isCancelled else {
-                    ContentionDiagnostics.shared.recordThumbnailCancellation()
                     continuation.resume(returning: false)
                     return
                 }
@@ -50,7 +49,6 @@ actor ThumbnailPreloadGate {
 
     private func cancelWaiter(id: UUID) {
         guard let waiter = waiters.removeValue(forKey: id) else { return }
-        ContentionDiagnostics.shared.recordThumbnailCancellation()
         waiter.continuation.resume(returning: false)
     }
 
@@ -68,10 +66,4 @@ actor ThumbnailPreloadGate {
         let sourceCatalog = sourceURL.standardizedFileURL.deletingLastPathComponent()
         return activeCatalogs.values.contains(sourceCatalog)
     }
-
-    #if DEBUG
-        func snapshotForTesting() -> (activeCatalogs: Int, waiters: Int) {
-            (activeCatalogs.count, waiters.count)
-        }
-    #endif
 }

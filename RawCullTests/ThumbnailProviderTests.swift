@@ -20,20 +20,16 @@ func createTestImage(width: Int = 100, height: Int = 100) -> NSImage {
 
 struct RequestThumbnailTests {
     @Test
-    func `new isolated cache starts with empty statistics`() async {
+    func `new isolated cache starts empty`() async {
         let cache = await makeIsolatedCache()
-        let stats = await cache.getCacheStatistics()
 
-        #expect(stats.hitRate == 0)
-        #expect(stats.hits == 0)
-        #expect(stats.misses == 0)
         #expect(cache.getMemoryCacheCount() == 0)
         #expect(cache.getGridCacheCount() == 0)
     }
 
     @Test
     func `thumbnail request for missing file returns nil`() async {
-        let (provider, cache) = await makeIsolatedThumbnailProvider()
+        let (provider, _) = await makeIsolatedThumbnailProvider()
         let missingURL = URL(fileURLWithPath: "/nonexistent/rawcull-\(UUID().uuidString).jpg")
 
         let result = await provider.requestThumbnail(
@@ -41,11 +37,7 @@ struct RequestThumbnailTests {
             targetSize: 256,
             purpose: .preview,
         )
-        let stats = await cache.getCacheStatistics()
-
         #expect(result == nil)
-        #expect(stats.hits == 0)
-        #expect(stats.misses == 0)
     }
 
     @Test(.tags(.critical))
@@ -75,7 +67,7 @@ struct RequestThumbnailTests {
     }
 
     @Test
-    func `clear caches removes cached items and resets statistics`() async {
+    func `clear caches removes cached items`() async {
         let cache = await makeIsolatedCache()
         let key = makeThumbnailCacheKey(
             sourceURL: URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg"),
@@ -84,14 +76,8 @@ struct RequestThumbnailTests {
 
         cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
         cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
-        await cache.updateCacheMemory()
-        await cache.updateCacheDisk()
-
         await cache.clearCaches()
-        let stats = await cache.getCacheStatistics()
 
-        #expect(stats.hits == 0)
-        #expect(stats.misses == 0)
         #expect(cache.getMemoryCacheCount() == 0)
         #expect(cache.getMemoryCacheCurrentCost() == 0)
         #expect(cache.getGridCacheCount() == 0)

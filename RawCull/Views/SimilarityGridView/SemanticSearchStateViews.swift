@@ -73,10 +73,7 @@ struct SemanticSearchUnavailableView: View {
 
 struct SemanticSearchResultsHeaderView: View {
     let summary: RawCullSemanticSearchResultSummary
-    let diagnostics: RawCullSemanticSearchDiagnostics?
     let onSetShowsAllResults: (Bool) -> Void
-
-    @State private var diagnosticsPresented = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -86,17 +83,8 @@ struct SemanticSearchResultsHeaderView: View {
 
             SemanticSearchResultActionsView(
                 summary: summary,
-                diagnosticsAvailable: diagnostics != nil,
                 onSetShowsAllResults: onSetShowsAllResults,
-                onShowDiagnostics: {
-                    diagnosticsPresented = true
-                },
             )
-        }
-        .sheet(isPresented: $diagnosticsPresented) {
-            if let diagnostics {
-                SemanticSearchDiagnosticsView(diagnostics: diagnostics)
-            }
         }
     }
 }
@@ -125,9 +113,7 @@ private struct SemanticSearchResultsSummaryView: View {
 
 private struct SemanticSearchResultActionsView: View {
     let summary: RawCullSemanticSearchResultSummary
-    let diagnosticsAvailable: Bool
     let onSetShowsAllResults: (Bool) -> Void
-    let onShowDiagnostics: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -154,15 +140,6 @@ private struct SemanticSearchResultActionsView: View {
                 .buttonStyle(.bordered)
                 .accessibilityHint("Hides lower-ranked images without running CLIP again.")
             }
-
-            Button {
-                onShowDiagnostics()
-            } label: {
-                Label("CLIP Details", systemImage: "waveform.path.ecg")
-            }
-            .buttonStyle(.bordered)
-            .disabled(!diagnosticsAvailable)
-            .accessibilityHint("Shows the literal query, model details, score distribution, and every raw cosine score.")
         }
     }
 }
@@ -222,8 +199,8 @@ private struct SemanticSearchLiveStatusView: View {
             Text(
                 """
                 CLIP does not extract words or tags during indexing. It \
-                compares this text vector with cached image vectors; exact \
-                raw scores appear in CLIP Details when ranking finishes.
+                compares this text vector with cached image vectors and ranks \
+                the closest matches.
                 """,
             )
             .font(.caption)

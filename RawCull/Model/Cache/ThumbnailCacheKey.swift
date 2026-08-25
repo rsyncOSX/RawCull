@@ -122,10 +122,6 @@ nonisolated struct ThumbnailCacheKey: Hashable, Sendable {
         self.orientationPolicy = orientationPolicy
     }
 
-    var standardizedSourceURL: URL {
-        source.standardizedURL
-    }
-
     func representation(
         purpose: Purpose,
         requestedPixelSize: Int,
