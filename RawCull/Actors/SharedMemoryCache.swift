@@ -54,6 +54,7 @@ actor SharedMemoryCache {
             }
         }
     }
+
     private let _currentPressureLevel = OSAllocatedUnfairLock(
         initialState: MemoryPressureLevel.normal,
     )

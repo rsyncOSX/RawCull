@@ -734,6 +734,7 @@ final class SimilarityScoringModel {
             Logger.process.warning(
                 "SimilarityScoringModel: PhotoAIKit indexing failed: \(message)",
             )
+
         case .cancelled:
             break
         }

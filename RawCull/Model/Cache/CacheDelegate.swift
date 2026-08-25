@@ -7,6 +7,7 @@
 
 import AppKit
 import Foundation
+
 /// Keeps the cache usage shown in Settings accurate when `NSCache` evicts items.
 ///
 /// Sendability invariant: `NSCache` may invoke delegate callbacks from
