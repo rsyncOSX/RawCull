@@ -14,8 +14,12 @@ struct RawCullMainView: View {
     @State private var dismissedMemoryPressureWarning = false
     @State var columnVisibility = NavigationSplitViewVisibility.doubleColumn
 
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var cgImage: CGImage?
+    // periphery:ignore
     @State private var nsImage: NSImage?
+    // periphery:ignore
     @State private var showCandidateInspector = false
     @State private var showsDetailedBurstComparison = false
 

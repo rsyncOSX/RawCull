@@ -26,6 +26,8 @@ struct CacheSettingsTab: View {
     @State private var isLoadingDiskCaches = false
     @State private var cachePendingPurge: DiskCacheKind?
     @State private var purgingCache: DiskCacheKind?
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var showPurgeConfirmation = false
     @State private var memoryModel = MemoryViewModel()
 

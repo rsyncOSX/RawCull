@@ -214,26 +214,6 @@ extension RawCullViewModel {
         issorting = false
     }
 
-    func handleSearchTextChange() async {
-        let requestedSearchText = searchText
-        let requestedSortOrder = sortOrder
-        let requestedFiles = files
-        issorting = true
-        var sorted = await ScanFiles.sortFiles(
-            requestedFiles,
-            by: requestedSortOrder,
-            searchText: requestedSearchText,
-        )
-        guard !Task.isCancelled,
-              searchText == requestedSearchText,
-              sortOrder == requestedSortOrder,
-              files.map(\.id) == requestedFiles.map(\.id)
-        else { return }
-        sorted = applyFilters(to: sorted)
-        filteredFiles = sorted
-        issorting = false
-    }
-
     /// Snapshot the current non-semantic catalog ordering and metadata
     /// admission. Semantic ranking is applied after these filters, so ratings
     /// and filename filtering continue to compose with text search.

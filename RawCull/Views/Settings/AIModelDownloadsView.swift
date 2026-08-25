@@ -4,6 +4,8 @@ struct AIModelDownloadsView: View {
     let model: RawCullAISettingsModel
 
     @Environment(\.dismiss) private var dismiss
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var selectedLicenceID: RawCullAIModelDownloadID?
 
     var body: some View {

@@ -351,14 +351,6 @@ extension RawCullViewModel {
             || deepAIReviewFeature.isRunning
     }
 
-    func deepAIReviewResult(for groupFiles: [FileItem]) -> DeepAIReviewResult? {
-        guard let signature = BurstGroupSignature(
-            files: groupFiles,
-            catalog: selectedSource?.url,
-        ) else { return nil }
-        return deepAIReviewFeature.result(for: signature)
-    }
-
     func startDeepAIReview(for groupFiles: [FileItem]) async {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.startDeepAIReview(): requested Deep Review for \(groupFiles.count) files",

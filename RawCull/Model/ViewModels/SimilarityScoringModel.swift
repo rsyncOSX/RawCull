@@ -150,10 +150,6 @@ final class SimilarityScoringModel {
     private(set) var semanticIndexedFileCount = 0
     private(set) var semanticCatalogFileCount = 0
 
-    var semanticExcludedFileCount: Int {
-        max(0, semanticCatalogFileCount - semanticIndexedFileCount)
-    }
-
     var semanticSearchSelectionCount: Int {
         semanticResultOrder.count
     }

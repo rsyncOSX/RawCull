@@ -4,9 +4,6 @@ import PhotoAnalysisKit
 typealias FocusDetectorConfig = PhotoAnalysisKit.SharpnessConfiguration
 typealias FocusFailureKind = PhotoAnalysisKit.FocusFailureKind
 typealias FocusMaskRegionSource = PhotoAnalysisKit.FocusMaskRegionSource
-typealias FocusEvidenceRegion = PhotoAnalysisKit.FocusEvidenceRegion
-typealias FocusEvidenceOverlayStyle = PhotoAnalysisKit.FocusEvidenceOverlayStyle
-typealias FocusEvidenceConfidence = PhotoAnalysisKit.FocusEvidenceConfidence
 typealias FocusPatchRanking = PhotoAnalysisKit.FocusPatchRanking
 typealias FocusEvidence = PhotoAnalysisKit.FocusEvidence
 typealias FocusCalibrationResult = PhotoAnalysisKit.FocusCalibrationResult

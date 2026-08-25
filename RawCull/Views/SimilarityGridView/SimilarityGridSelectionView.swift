@@ -11,6 +11,8 @@ import SwiftUI
 struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
 
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var analyzeBurstsRequested: Bool = false
     @State private var pendingRegroupTask: Task<Void, Never>?
 
