@@ -290,14 +290,22 @@ struct CullingGridCoordinatorTests {
         let reviewed = makeReviewQueueResult(groupID: 3, confidence: .low, reviewState: .reviewed)
         let deferred = makeReviewQueueResult(groupID: 4, confidence: .low, reviewState: .deferred)
         let applied = makeReviewQueueResult(groupID: 5, confidence: .low, reviewState: .decisionApplied)
+        let safeRecommendation = makeReviewQueueResult(
+            groupID: 6,
+            confidence: .high,
+            isSafeForOneClickCulling: true,
+        )
 
         #expect(BurstReviewQueuePolicy.includes(low, filter: .needsReview))
         #expect(BurstReviewQueuePolicy.includes(caution, filter: .needsReview))
         #expect(!BurstReviewQueuePolicy.includes(reviewed, filter: .needsReview))
         #expect(BurstReviewQueuePolicy.includes(deferred, filter: .deferred))
         #expect(!BurstReviewQueuePolicy.includes(applied, filter: .needsReview))
+        #expect(!BurstReviewQueuePolicy.includes(safeRecommendation, filter: .reviewed))
 
-        let counts = BurstReviewQueuePolicy.counts(for: [low, caution, reviewed, deferred, applied])
+        let counts = BurstReviewQueuePolicy.counts(
+            for: [low, caution, reviewed, deferred, applied, safeRecommendation],
+        )
         #expect(counts.needsReview == 2)
         #expect(counts.deferred == 1)
         #expect(counts.reviewed == 2)
@@ -469,6 +477,7 @@ struct CullingGridCoordinatorTests {
         let deferredFiles = [makeGridTestFile("deferred-one.ARW"), makeGridTestFile("deferred-two.ARW")]
         let reviewedFiles = [makeGridTestFile("reviewed-one.ARW"), makeGridTestFile("reviewed-two.ARW")]
         let appliedFiles = [makeGridTestFile("applied-one.ARW"), makeGridTestFile("applied-two.ARW")]
+        let safeFiles = [makeGridTestFile("safe-one.ARW"), makeGridTestFile("safe-two.ARW")]
         let viewModel = RawCullViewModel()
 
         viewModel.similarityModel.burstGroups = [
@@ -477,7 +486,8 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 2, fileIDs: deferredFiles.map(\.id)),
             BurstGroup(id: 3, fileIDs: [secondSingle.id]),
             BurstGroup(id: 4, fileIDs: reviewedFiles.map(\.id)),
-            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id))
+            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id)),
+            BurstGroup(id: 6, fileIDs: safeFiles.map(\.id))
         ]
         viewModel.burstAnalysisResults = [
             1: makeReviewQueueResult(groupID: 1, fileIDs: needsReviewFiles.map(\.id), confidence: .low),
@@ -499,7 +509,13 @@ struct CullingGridCoordinatorTests {
                 confidence: .high,
                 reviewState: .decisionApplied,
                 isSafeForOneClickCulling: true,
-            )
+            ),
+            6: makeReviewQueueResult(
+                groupID: 6,
+                fileIDs: safeFiles.map(\.id),
+                confidence: .high,
+                isSafeForOneClickCulling: true,
+            ),
         ]
 
         #expect(viewModel.burstGroupsHomeCounts == BurstGroupsHomeCounts(
@@ -508,6 +524,7 @@ struct CullingGridCoordinatorTests {
             markedReviewed: 1,
             needsReview: 1,
         ))
+        #expect(viewModel.burstReviewQueueCounts.reviewed == 2)
 
         viewModel.markBurstGroupReviewed(groupID: 1)
 
