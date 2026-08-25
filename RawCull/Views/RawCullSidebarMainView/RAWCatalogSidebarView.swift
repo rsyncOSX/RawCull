@@ -10,7 +10,7 @@ struct RAWCatalogSidebarView: View {
         List(sources, selection: $selectedSource) { source in
             NavigationLink(value: source) {
                 Label(source.name, systemImage: "folder.badge.plus")
-                    .badge("(" + String(cullingModel.countSelectedFiles(in: source.url)) + ")")
+                    .badge("(" + String(cullingModel.explicitRatingCount(in: source.url)) + ")")
             }
         }
         .navigationTitle("Catalogs")

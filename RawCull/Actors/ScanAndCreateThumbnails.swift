@@ -14,6 +14,7 @@ actor ScanAndCreateThumbnails {
     // MARK: - Isolated State
 
     private var successCount = 0
+    private var completedCount = 0
     private let diskCache: DiskCacheManager
 
     // Timing tracking
@@ -92,6 +93,7 @@ actor ScanAndCreateThumbnails {
 
         let task = Task<Int, Never> {
             successCount = 0
+            completedCount = 0
             processingTimes = []
             lastItemTime = nil
             totalFilesToProcess = urls.count
@@ -169,9 +171,7 @@ actor ScanAndCreateThumbnails {
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
             await SharedMemoryCache.shared.updateCacheMemory()
-            let newCount = incrementAndGetCount()
-            notifyFileHandler(newCount)
-            updateEstimatedTime(itemsProcessed: newCount)
+            recordCompletion(succeeded: true)
             return
         }
 
@@ -190,9 +190,7 @@ actor ScanAndCreateThumbnails {
                 ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
             }
             await SharedMemoryCache.shared.updateCacheDisk()
-            let newCount = incrementAndGetCount()
-            notifyFileHandler(newCount)
-            updateEstimatedTime(itemsProcessed: newCount)
+            recordCompletion(succeeded: true)
             return
         }
 
@@ -217,7 +215,10 @@ actor ScanAndCreateThumbnails {
 
         guard let image = decodedImage,
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { return }
+        else {
+            recordCompletion(succeeded: false)
+            return
+        }
 
         // Invariant (uniform across branches A/B/C): scan never admits to
         // memoryCache. RequestThumbnail is the only admitter, so LRU
@@ -234,9 +235,7 @@ actor ScanAndCreateThumbnails {
         if sourceStillMatches, storeInGridCache(image, for: gridKey) {
             ContentionDiagnostics.shared.markFirstUsableGrid(preloadID: diagnosticsID)
         }
-        let newCount = incrementAndGetCount()
-        notifyFileHandler(newCount)
-        updateEstimatedTime(itemsProcessed: newCount)
+        recordCompletion(succeeded: true)
 
         // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
@@ -293,9 +292,13 @@ actor ScanAndCreateThumbnails {
 
     // MARK: - Cache Helpers
 
-    private func incrementAndGetCount() -> Int {
-        successCount += 1
-        return successCount
+    private func recordCompletion(succeeded: Bool) {
+        completedCount += 1
+        if succeeded {
+            successCount += 1
+        }
+        notifyFileHandler(completedCount)
+        updateEstimatedTime(itemsProcessed: completedCount)
     }
 
     private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?) -> Bool {

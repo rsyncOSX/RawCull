@@ -502,6 +502,20 @@ struct CullingModelTests {
     }
 
     @Test
+    func `explicit rating count excludes scoring-only records`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.mergeScoringResults(
+            [CullingScoringResult(fileName: "scored.ARW", score: 0.75, saliencySubject: nil)],
+            in: catalog,
+        )
+        model.updateRating(fileName: "rated.ARW", rating: -1, in: catalog)
+
+        #expect(model.explicitRatingCount(in: catalog) == 1)
+    }
+
+    @Test
     func `cancelling similarity ranking stops its owned distance helper`() async {
         let probe = SimilarityDistanceCancellationProbe()
         let model = SimilarityScoringModel(
@@ -660,7 +674,7 @@ struct CullingModelTests {
         model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
         let snapshots = await recorder.waitForSnapshotCount(1)
 
-        #expect(model.countSelectedFiles(in: catalog) == 1)
+        #expect(model.explicitRatingCount(in: catalog) == 1)
         #expect(model.savedFiles.first?.catalog == catalog)
         #expect(model.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
         #expect(model.savedFiles.first?.filerecords?.first?.rating == 3)
@@ -747,7 +761,7 @@ struct CullingModelTests {
         model.resetSavedFiles(in: catalog)
         _ = await recorder.waitForSnapshotCount(1)
 
-        #expect(model.countSelectedFiles(in: catalog) == 0)
+        #expect(model.explicitRatingCount(in: catalog) == 0)
         #expect(model.savedFiles.first?.filerecords == [])
     }
 
@@ -1358,6 +1372,64 @@ struct RawCullViewModelCullingTests {
         viewModel.updateRating(for: files, rating: 5)
 
         #expect(viewModel.ratingCache == ["one.ARW": 5, "two.ARW": 5])
+    }
+
+    @Test
+    func `rating mutations refresh the active rating-filter count`() {
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let first = makeCullingTestFile("one.ARW")
+        let second = makeCullingTestFile("two.ARW")
+        viewModel.selectedSource = catalog
+        viewModel.files = [first, second]
+        viewModel.catalogDisplayCandidates = [first, second]
+        viewModel.filteredFiles = [first, second]
+        viewModel.ratingFilter = .stars(3)
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRating(for: first, rating: 3)
+        #expect(viewModel.filteredFiles.map(\.name) == ["one.ARW"])
+
+        viewModel.updateRating(for: second, rating: 3)
+        #expect(viewModel.filteredFiles.map(\.name) == ["one.ARW", "two.ARW"])
+
+        viewModel.updateRating(for: first, rating: 2)
+        #expect(viewModel.filteredFiles.map(\.name) == ["two.ARW"])
+    }
+
+    @Test
+    func `clear all culling state synchronizes caches filters and persisted data`() async {
+        let recorder = SavedFilesRecorder()
+        let viewModel = RawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let file = makeCullingTestFile("one.ARW")
+        viewModel.selectedSource = catalog
+        viewModel.files = [file]
+        viewModel.catalogDisplayCandidates = [file]
+        viewModel.filteredFiles = [file]
+        viewModel.ratingFilter = .stars(3)
+        viewModel.cullingModel = CullingModel(
+            saveDelayNanoseconds: 30_000_000_000,
+            saveHandler: { snapshot in await recorder.record(snapshot) },
+        )
+        viewModel.updateRating(for: file, rating: 3)
+
+        viewModel.clearAllCullingState()
+        let didSave = await viewModel.cullingModel.flushPersistence()
+        let snapshots = await recorder.waitForSnapshotCount(1)
+
+        #expect(didSave)
+        #expect(viewModel.cullingModel.savedFiles.isEmpty)
+        #expect(viewModel.ratingCache.isEmpty)
+        #expect(viewModel.taggedNamesCache.isEmpty)
+        #expect(viewModel.filteredFiles.isEmpty)
+        #expect(snapshots.last?.isEmpty == true)
     }
 
     @Test

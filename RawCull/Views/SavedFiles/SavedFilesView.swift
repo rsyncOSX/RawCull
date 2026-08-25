@@ -60,7 +60,7 @@ struct SavedFilesView: View {
         .frame(minWidth: 820, minHeight: 500)
         .alert("Reset Saved Files", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
-                viewModel.cullingModel.resetAllSavedFiles()
+                viewModel.clearAllCullingState()
                 selectedCatalogID = nil
                 selectedRecordID = nil
             }

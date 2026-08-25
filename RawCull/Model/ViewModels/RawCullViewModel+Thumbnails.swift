@@ -7,15 +7,15 @@ import OSLog
 
 extension RawCullViewModel {
     func fileHandler(_ update: Int) {
-        progress = Double(update)
+        fileOperationCompleted = update
     }
 
     func maxfilesHandler(_ maxfiles: Int) {
-        max = Double(maxfiles)
+        fileOperationTotal = maxfiles
     }
 
     func estimatedTimeHandler(_ seconds: Int) {
-        estimatedSeconds = seconds
+        fileOperationEstimatedSeconds = seconds
     }
 
     func setMemoryPressureWarning(_ warning: Bool) {
@@ -56,9 +56,9 @@ extension RawCullViewModel {
               !exportFiles.isEmpty
         else { return }
 
-        progress = 0
-        max = Double(exportFiles.count)
-        estimatedSeconds = 0
+        fileOperationCompleted = 0
+        fileOperationTotal = exportFiles.count
+        fileOperationEstimatedSeconds = 0
         creatingthumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
@@ -116,9 +116,9 @@ extension RawCullViewModel {
 
         jpgCacheWarmTask?.cancel()
 
-        progress = 0
-        max = Double(extractionFiles.count)
-        estimatedSeconds = 0
+        fileOperationCompleted = 0
+        fileOperationTotal = extractionFiles.count
+        fileOperationEstimatedSeconds = 0
         creatingthumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(

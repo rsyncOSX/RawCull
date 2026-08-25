@@ -275,11 +275,11 @@ struct ScanStatsSheetView: View {
 
     private var cullingStats: (rejected: Int, kept: Int, r2: Int, r3: Int, r4: Int, r5: Int, unrated: Int, total: Int) {
         guard let catalog = viewModel.selectedSource?.url else {
-            let n = viewModel.filteredFiles.count
+            let n = viewModel.files.count
             return (0, 0, 0, 0, 0, 0, n, n)
         }
         var rejected = 0, kept = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, unrated = 0
-        for file in viewModel.filteredFiles {
+        for file in viewModel.files {
             if viewModel.cullingModel.isUnrated(photo: file.name, in: catalog) {
                 unrated += 1
             } else {
@@ -294,7 +294,7 @@ struct ScanStatsSheetView: View {
                 }
             }
         }
-        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.filteredFiles.count)
+        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.files.count)
     }
 
     private var totalSize: String {

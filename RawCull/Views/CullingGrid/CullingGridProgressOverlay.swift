@@ -6,15 +6,9 @@ struct CullingGridProgressOverlay: View {
     var body: some View {
         if viewModel.sharpnessModel.isScoring {
             ProgressCount(
-                progress: Binding(
-                    get: { Double(viewModel.sharpnessModel.scoringProgress) },
-                    set: { _ in },
-                ),
-                estimatedSeconds: Binding(
-                    get: { viewModel.sharpnessModel.scoringEstimatedSeconds },
-                    set: { _ in },
-                ),
-                max: Double(viewModel.sharpnessModel.scoringTotal),
+                completed: viewModel.sharpnessModel.scoringProgress,
+                total: viewModel.sharpnessModel.scoringTotal,
+                estimatedSeconds: viewModel.sharpnessModel.scoringEstimatedSeconds,
                 statusText: "Scoring sharpness...",
             )
             .frame(maxWidth: 480)
@@ -34,15 +28,9 @@ struct CullingGridProgressOverlay: View {
 
         if viewModel.similarityModel.isIndexing {
             ProgressCount(
-                progress: Binding(
-                    get: { Double(viewModel.similarityModel.indexingProgress) },
-                    set: { _ in },
-                ),
-                estimatedSeconds: Binding(
-                    get: { viewModel.similarityModel.indexingEstimatedSeconds },
-                    set: { _ in },
-                ),
-                max: Double(viewModel.similarityModel.indexingTotal),
+                completed: viewModel.similarityModel.indexingProgress,
+                total: viewModel.similarityModel.indexingTotal,
+                estimatedSeconds: viewModel.similarityModel.indexingEstimatedSeconds,
                 statusText: "Indexing similarity...",
             )
             .frame(maxWidth: 480)

@@ -31,6 +31,7 @@ actor ExtractAndSaveJPGs {
 
     private var extractJPEGSTask: Task<JPGExportResult, Never>?
     private var successCount = 0
+    private var completedCount = 0
 
     private var fileHandlers: FileHandlers?
 
@@ -84,6 +85,7 @@ actor ExtractAndSaveJPGs {
         if let filteredFilesURLs {
             let task = Task {
                 successCount = 0
+                completedCount = 0
                 failures = []
                 processingTimes = []
                 // let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
@@ -122,47 +124,60 @@ actor ExtractAndSaveJPGs {
     }
 
     private func processSingleExtraction(_ url: URL) async {
-        if Task.isCancelled {
-            return
-        } // ← NEW
+        guard !Task.isCancelled else { return }
+        let failureMessage = await exportFailureMessage(for: url)
+        guard !Task.isCancelled else { return }
 
-        switch exportMode {
-        case .embeddedJPG:
-            guard let cgImage = await embeddedJPEGImage(from: url) else { return }
-            if Task.isCancelled {
-                return
-            } // ← NEW: critical one
-
-            guard let jpegData = SaveJPGImage.jpegData(from: cgImage) else { return }
-
-            guard await save(jpegData, originalURL: url) else { return }
-
-        case .demosaicedRAW:
-            guard let jpegData = try? await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0) else { return }
-            if Task.isCancelled {
-                return
-            }
-
-            guard await save(jpegData, originalURL: url) else { return }
+        if let failureMessage {
+            failures.append(JPGExportFailure(
+                fileName: url.lastPathComponent,
+                message: failureMessage,
+            ))
+        } else {
+            successCount += 1
         }
 
-        let newCount = incrementAndGetCount()
-        await fileHandlers?.fileHandler(newCount)
-        await updateEstimatedTime(itemsProcessed: newCount)
+        completedCount += 1
+        await fileHandlers?.fileHandler(completedCount)
+        await updateEstimatedTime(itemsProcessed: completedCount)
     }
 
     private func embeddedJPEGImage(from url: URL) async -> CGImage? {
         await previewLoader.loadEmbeddedPreview(for: url)
     }
 
-    private func save(_ jpegData: Data, originalURL: URL) async -> Bool {
-        guard let destinationCatalogURL else { return false }
+    private func exportFailureMessage(for url: URL) async -> String? {
+        let jpegData: Data
+        switch exportMode {
+        case .embeddedJPG:
+            guard let cgImage = await embeddedJPEGImage(from: url) else {
+                return "Could not decode the embedded JPG preview."
+            }
+            guard let data = SaveJPGImage.jpegData(from: cgImage) else {
+                return "Could not encode the embedded JPG preview."
+            }
+            jpegData = data
+
+        case .demosaicedRAW:
+            guard let data = try? await SonyRawFormat.createFullSizeJPEG(from: url, quality: 1.0) else {
+                return "Could not decode and render the RAW image."
+            }
+            jpegData = data
+        }
+
+        guard !Task.isCancelled else { return nil }
+        return await saveFailureMessage(jpegData, originalURL: url)
+    }
+
+    private func saveFailureMessage(_ jpegData: Data, originalURL: URL) async -> String? {
+        guard let destinationCatalogURL else {
+            return "The destination folder is unavailable."
+        }
         do {
             try await saveHandler(jpegData, originalURL, destinationCatalogURL, exportMode)
-            return true
+            return nil
         } catch {
-            failures.append(JPGExportFailure(fileName: originalURL.lastPathComponent, message: error.localizedDescription))
-            return false
+            return error.localizedDescription
         }
     }
 
@@ -190,10 +205,6 @@ actor ExtractAndSaveJPGs {
         Logger.process.debugMessageOnly("ExtractAndSaveJPGs: Preload Cancelled")
     }
 
-    private func incrementAndGetCount() -> Int {
-        successCount += 1
-        return successCount
-    }
 }
 
 nonisolated struct JPGExportFailure: Sendable, Equatable {

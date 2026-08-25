@@ -96,9 +96,13 @@ final class RawCullViewModel {
     /// navigation use this projection so hidden burst frames cannot become targets.
     var cullingGridRenderedFileIDs: [FileItem.ID] = []
     var issorting: Bool = false
-    var progress: Double = 0
-    var max: Double = 0
-    var estimatedSeconds: Int = 0
+    /// Number of RAW files discovered by the active catalog scan. This is
+    /// reset with the catalog working set and is the source of truth for the
+    /// scanning progress label.
+    var scanDiscoveredCount: Int = 0
+    var fileOperationCompleted: Int = 0
+    var fileOperationTotal: Int = 0
+    var fileOperationEstimatedSeconds: Int = 0
     var creatingthumbnails: Bool = false
     var scanning: Bool = true
     var showingAlert: Bool = false
@@ -206,9 +210,6 @@ final class RawCullViewModel {
     @ObservationIgnored var rawDiagnosticsGeneration: UUID?
     var operationFailurePresentation: OperationFailurePresentation?
 
-    /// Closure to count scanning files
-    var countingScannedFiles: (@Sendable (Int) -> Void)?
-
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
     var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
     var currentScanAndExtractJPGsActor: ScanAndExtractJPGs?
@@ -219,6 +220,9 @@ final class RawCullViewModel {
     @ObservationIgnored var similarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var semanticSimilarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
+    /// Full name-sorted/search-filtered catalog projection before rating,
+    /// sharpness, and similarity filters are applied.
+    @ObservationIgnored var catalogDisplayCandidates: [FileItem] = []
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
