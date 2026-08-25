@@ -26,7 +26,6 @@ struct SemanticSearchControlsView: View {
                 SemanticSearchReadinessView(
                     presentation: presentation,
                     onIndex: indexSimilarity,
-                    onCancelIndexing: viewModel.similarityModel.cancelIndexing,
                 )
 
             case let .checking(expectedLocations):
@@ -213,7 +212,7 @@ private struct SemanticSearchTitleRow: View {
 
             Spacer(minLength: 12)
 
-            if presentation.showsSearchField {
+            if presentation.showsSearchField, !presentation.isIndexing {
                 Text(
                     "\(presentation.coverage.indexedFileCount) of \(presentation.coverage.catalogFileCount) indexed",
                     comment: "Semantic-search coverage: first value is indexed images and second is all catalog images.",
@@ -236,7 +235,6 @@ private struct SemanticSearchTitleRow: View {
 private struct SemanticSearchReadinessView: View {
     let presentation: SemanticSearchUIPresentation
     let onIndex: () -> Void
-    let onCancelIndexing: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -244,10 +242,7 @@ private struct SemanticSearchReadinessView: View {
 
             Spacer(minLength: 12)
 
-            if presentation.isIndexing {
-                Button("Cancel Indexing", role: .cancel, action: onCancelIndexing)
-                    .buttonStyle(.bordered)
-            } else if presentation.showsIndexSimilarityAction {
+            if presentation.showsIndexSimilarityAction, !presentation.isIndexing {
                 if presentation.activeBackendCanIndex {
                     Button("Index Similarity", action: onIndex)
                         .buttonStyle(.bordered)
@@ -274,22 +269,10 @@ private struct SemanticSearchReadinessView: View {
             coverageStatus
 
         case let .indexing(completed, total, phase):
-            HStack(spacing: 8) {
-                if total > 0 {
-                    ProgressView(
-                        value: Double(completed),
-                        total: Double(total),
-                    )
-                    .frame(maxWidth: 180)
-                } else {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-                Text(indexingStatus(completed: completed, total: total, phase: phase))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
+            Label("Catalog setup continues in Burst Groups below.", systemImage: "arrow.down.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityHint(indexingStatus(completed: completed, total: total, phase: phase))
 
         case let .searching(query):
             HStack(spacing: 8) {

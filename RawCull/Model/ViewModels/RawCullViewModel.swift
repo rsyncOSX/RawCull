@@ -164,6 +164,8 @@ final class RawCullViewModel {
     var activeBurstComparisonGroupID: Int?
     var lastBurstUndoEntry: BurstUndoEntry?
     var burstFullReindexRequest: BurstFullReindexRequest?
+    var isPreparingBurstCatalog = false
+    @ObservationIgnored var burstCatalogPreparationGeneration = 0
 
     /// Currently selected catalog for which startAccessingSecurityScopedResource()
     /// has succeeded. Access is scoped to the active catalog, not every catalog

@@ -225,17 +225,49 @@ extension RawCullViewModel {
     func reindexBurstAnalysis() async {
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
 
+        burstCatalogPreparationGeneration &+= 1
+        let preparationGeneration = burstCatalogPreparationGeneration
+        isPreparingBurstCatalog = true
+        defer {
+            if burstCatalogPreparationGeneration == preparationGeneration {
+                isPreparingBurstCatalog = false
+            }
+        }
+
         await prepareForFullCatalogReindex()
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
         await burstAnalysisCache.delete(catalog: catalog)
         await similarityModel.hydrateArtifacts(files)
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
         await similarityModel.indexFiles(files, forceRefresh: true)
-        guard !Task.isCancelled else { return }
+        guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
         await startBurstAnalysis(
             catalog: catalog,
             files: fullCatalogBurstAnalysisFiles,
         )
+    }
+
+    private func isCurrentBurstCatalogPreparation(_ generation: Int) -> Bool {
+        !Task.isCancelled
+            && burstCatalogPreparationGeneration == generation
+            && isPreparingBurstCatalog
+    }
+
+    func cancelBurstCatalogPreparation() {
+        burstFullReindexRequest = nil
+        burstCatalogPreparationGeneration &+= 1
+        isPreparingBurstCatalog = false
+
+        burstAnalysisTask?.cancel()
+        burstAnalysisTask = nil
+        burstAnalysisGeneration &+= 1
+        burstAnalysisProgress = BurstAnalysisProgress()
+
+        sharpnessModel.cancelScoring()
+        similarityModel.cancelIndexing()
+        if similarityModel.isGrouping {
+            similarityModel.clearBurstGrouping()
+        }
     }
 
     func prepareForFullCatalogReindex() async {

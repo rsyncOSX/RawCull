@@ -22,14 +22,20 @@ struct BurstGroupsHomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         BurstGroupsHomeHeader(
-                            similarityIndexIsRunning: viewModel.similarityModel.isIndexing,
                             maintenanceActionsAreDisabled: controlsAreBusy,
                             showScoringParameters: { viewModel.activeSheet = .scoringParams },
                             reindex: reindex,
                             indexSimilarity: indexSimilarity,
                         )
 
-                        nextUpCard
+                        if catalogPreparationPresentation.isRunning {
+                            BurstCatalogPreparationView(
+                                presentation: catalogPreparationPresentation,
+                                cancel: cancelCatalogPreparation,
+                            )
+                        } else {
+                            nextUpCard
+                        }
 
                         Text("Your queue")
                             .font(.headline)
@@ -47,13 +53,6 @@ struct BurstGroupsHomeView: View {
                     .padding(32)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-
-                BurstIndexStatusBar(
-                    isIndexing: viewModel.similarityModel.isIndexing,
-                    hasResults: resultsAreAvailable,
-                    indexedCount: viewModel.similarityModel.indexingProgress,
-                    totalCount: max(viewModel.similarityModel.indexingTotal, viewModel.activeCatalogFiles.count),
-                )
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -63,17 +62,13 @@ struct BurstGroupsHomeView: View {
     private var nextUpCard: some View {
         BurstNextUpCard(
             resultsAreAvailable: resultsAreAvailable,
-            isRunning: burstScanIsRunning,
-            runningText: burstScanStatusText,
             fileCount: viewModel.activeCatalogFiles.count,
             reviewedCount: completedCount,
             groupCount: burstGroupCount,
             controlsAreBusy: controlsAreBusy,
             analyzeBursts: analyzeBursts,
             openNeedsReview: { showResults(.needsReview) },
-        ) {
-            burstHomeProgressCounter
-        }
+        )
     }
 
     private var queueCards: some View {
@@ -119,25 +114,6 @@ struct BurstGroupsHomeView: View {
         }
     }
 
-    @ViewBuilder
-    private var burstHomeProgressCounter: some View {
-        if viewModel.sharpnessModel.isScoring {
-            BurstHomeProgressCount(
-                progress: viewModel.sharpnessModel.scoringProgress,
-                estimatedSeconds: viewModel.sharpnessModel.scoringEstimatedSeconds,
-                max: viewModel.sharpnessModel.scoringTotal,
-            )
-        }
-
-        if viewModel.similarityModel.isIndexing {
-            BurstHomeProgressCount(
-                progress: viewModel.similarityModel.indexingProgress,
-                estimatedSeconds: viewModel.similarityModel.indexingEstimatedSeconds,
-                max: viewModel.similarityModel.indexingTotal,
-            )
-        }
-    }
-
     private var counts: BurstGroupsHomeCounts {
         viewModel.burstGroupsHomeCounts
     }
@@ -160,32 +136,41 @@ struct BurstGroupsHomeView: View {
         analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
     }
 
-    private var burstScanIsRunning: Bool {
-        analyzeBurstsRequested || viewModel.burstAnalysisProgress.isRunning
-    }
-
     private var controlsAreBusy: Bool {
-        viewModel.sharpnessModel.isScoring
+        viewModel.isPreparingBurstCatalog
+            || viewModel.sharpnessModel.isCalibratingSharpnessScoring
+            || viewModel.sharpnessModel.isScoring
             || viewModel.similarityModel.isIndexing
             || viewModel.similarityModel.isGrouping
             || burstAnalysisIsBusy
     }
 
-    private var burstScanStatusText: String {
-        if viewModel.sharpnessModel.isScoring {
-            return "Burst scan in progress — scoring sharpness…"
-        }
-        if viewModel.similarityModel.isIndexing {
-            return viewModel.similarityModel.indexingPhase == .saving
-                ? "Burst scan in progress — saving similarity artifacts…"
-                : "Burst scan in progress — indexing similarity…"
-        }
-        if viewModel.similarityModel.isGrouping {
-            return "Burst scan in progress — grouping bursts…"
-        }
-        return viewModel.burstAnalysisProgress.isRunning
-            ? viewModel.burstAnalysisProgress.statusText
-            : "Burst scan starting…"
+    private var catalogPreparationPresentation: BurstCatalogPreparationPresentation {
+        let similarityModel = viewModel.similarityModel
+        let sharpnessModel = viewModel.sharpnessModel
+        return BurstCatalogPreparationPresentation(
+            isPreparingCatalog: viewModel.isPreparingBurstCatalog,
+            fileCount: viewModel.activeCatalogFiles.count,
+            semanticIndexedCount: similarityModel.semanticIndexedFileCount,
+            semanticCatalogCount: similarityModel.semanticCatalogFileCount,
+            isIndexing: similarityModel.isIndexing,
+            indexingProgress: similarityModel.indexingProgress,
+            indexingTotal: similarityModel.indexingTotal,
+            indexingEstimatedSeconds: similarityModel.indexingEstimatedSeconds,
+            isSavingIndex: similarityModel.indexingPhase == .saving,
+            isCalibratingSharpness: sharpnessModel.isCalibratingSharpnessScoring,
+            isScoringSharpness: sharpnessModel.isScoring,
+            sharpnessScoreCount: sharpnessModel.scores.count,
+            sharpnessProgress: sharpnessModel.scoringProgress,
+            sharpnessTotal: sharpnessModel.scoringTotal,
+            sharpnessEstimatedSeconds: sharpnessModel.scoringEstimatedSeconds,
+            isFindingBurstGroups: analyzeBurstsRequested
+                || viewModel.burstAnalysisProgress.isRunning
+                || similarityModel.isGrouping,
+            burstAnalysisStep: viewModel.burstAnalysisProgress.step,
+            resultsAreAvailable: resultsAreAvailable,
+            burstGroupCount: burstGroupCount,
+        )
     }
 
     private var suggestedPicks: [BurstSuggestedPick] {
@@ -235,11 +220,12 @@ struct BurstGroupsHomeView: View {
     }
 
     private func indexSimilarity() {
-        if viewModel.similarityModel.isIndexing {
-            viewModel.similarityModel.cancelIndexing()
-        } else {
-            Task { await viewModel.indexSimilarity() }
-        }
+        Task { await viewModel.indexSimilarity() }
+    }
+
+    private func cancelCatalogPreparation() {
+        analyzeBurstsRequested = false
+        viewModel.cancelBurstCatalogPreparation()
     }
 }
 
@@ -302,7 +288,6 @@ private struct BurstGroupsSidebar: View {
 }
 
 private struct BurstGroupsHomeHeader: View {
-    let similarityIndexIsRunning: Bool
     let maintenanceActionsAreDisabled: Bool
     let showScoringParameters: () -> Void
     let reindex: () -> Void
@@ -334,12 +319,9 @@ private struct BurstGroupsHomeHeader: View {
                 .disabled(maintenanceActionsAreDisabled)
 
                 Button(action: indexSimilarity) {
-                    Label(
-                        similarityIndexIsRunning ? "Cancel Similarity Index" : "Index Similarity",
-                        systemImage: similarityIndexIsRunning ? "xmark.circle" : "scope",
-                    )
+                    Label("Index Similarity", systemImage: "scope")
                 }
-                .disabled(maintenanceActionsAreDisabled && !similarityIndexIsRunning)
+                .disabled(maintenanceActionsAreDisabled)
             } label: {
                 Label("More", systemImage: "ellipsis")
             }
@@ -350,17 +332,14 @@ private struct BurstGroupsHomeHeader: View {
     }
 }
 
-private struct BurstNextUpCard<Trailing: View>: View {
+private struct BurstNextUpCard: View {
     let resultsAreAvailable: Bool
-    let isRunning: Bool
-    let runningText: String
     let fileCount: Int
     let reviewedCount: Int
     let groupCount: Int
     let controlsAreBusy: Bool
     let analyzeBursts: () -> Void
     let openNeedsReview: () -> Void
-    @ViewBuilder let trailing: Trailing
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -402,10 +381,6 @@ private struct BurstNextUpCard<Trailing: View>: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                         .disabled(controlsAreBusy || fileCount == 0)
-
-                        if isRunning {
-                            trailing
-                        }
                     }
                 }
 
@@ -428,16 +403,10 @@ private struct BurstNextUpCard<Trailing: View>: View {
     }
 
     private var title: String {
-        if isRunning {
-            return "Finding burst groups"
-        }
-        return resultsAreAvailable ? "Continue reviewing your bursts" : "Start by finding burst groups"
+        resultsAreAvailable ? "Continue reviewing your bursts" : "Start by finding burst groups"
     }
 
     private var detail: String {
-        if isRunning {
-            return runningText
-        }
         if resultsAreAvailable {
             return "Compare each sequence side by side and keep the strongest frames."
         }
@@ -591,41 +560,6 @@ private struct BurstRecentGroupsCard: View {
     }
 }
 
-private struct BurstIndexStatusBar: View {
-    let isIndexing: Bool
-    let hasResults: Bool
-    let indexedCount: Int
-    let totalCount: Int
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "externaldrive")
-            if isIndexing {
-                ProgressView().controlSize(.small)
-            } else {
-                Image(systemName: hasResults ? "checkmark.circle" : "exclamationmark.circle")
-                    .foregroundStyle(hasResults ? Color.green : Color.orange)
-            }
-            Text(hasResults ? "Similarity index ready" : "Similarity index not built")
-                .foregroundStyle(hasResults ? Color.secondary : Color.orange)
-            Text("·")
-            Text("\(displayedCount) of \(totalCount) indexed")
-                .monospacedDigit()
-        }
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-        .background(.quaternary.opacity(0.18))
-        .overlay(alignment: .top) { Divider() }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var displayedCount: Int {
-        hasResults ? totalCount : min(indexedCount, totalCount)
-    }
-}
-
 private struct BurstSidebarRow: View {
     let title: String
     var count: Int?
@@ -657,75 +591,6 @@ private struct BurstSidebarRow: View {
                 RoundedRectangle(cornerRadius: 9)
                     .stroke(Color.accentColor.opacity(0.7), lineWidth: 1)
             }
-        }
-    }
-}
-
-private struct BurstHomeProgressCount: View {
-    let progress: Int
-    let estimatedSeconds: Int
-    let max: Int
-
-    @State private var displayedEstimatedSeconds = 0
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .stroke(Color.primary.opacity(0.18), lineWidth: 4)
-
-                if max > 0 {
-                    Circle()
-                        .trim(from: 0, to: completionFraction)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.blue, .cyan],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing,
-                            ),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round),
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
-                }
-
-                Text(progress, format: .number)
-                    .font(.callout.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.primary)
-                    .contentTransition(.numericText(countsDown: false))
-            }
-            .frame(width: 44, height: 44)
-
-            Text("Estimated time left: \(formattedTime)")
-                .font(.callout.weight(.medium).monospacedDigit())
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(progress) of \(max). Estimated time left: \(formattedTime)")
-        .onAppear {
-            updateDisplayedEstimatedSeconds(estimatedSeconds)
-        }
-        .onChange(of: estimatedSeconds) { _, newValue in
-            updateDisplayedEstimatedSeconds(newValue)
-        }
-    }
-
-    private var completionFraction: Double {
-        min(Double(progress) / Double(max), 1)
-    }
-
-    private var formattedTime: String {
-        if displayedEstimatedSeconds < 60 {
-            return "\(displayedEstimatedSeconds)s"
-        }
-        return "\(displayedEstimatedSeconds / 60)m \(displayedEstimatedSeconds % 60)s"
-    }
-
-    private func updateDisplayedEstimatedSeconds(_ newValue: Int) {
-        let clampedValue = Swift.max(0, newValue)
-        if clampedValue == 0 || displayedEstimatedSeconds == 0 || clampedValue <= displayedEstimatedSeconds {
-            displayedEstimatedSeconds = clampedValue
         }
     }
 }

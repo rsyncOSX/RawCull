@@ -71,7 +71,8 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
         )
-        await sharpnessModel.calibrateFromBurst(files)
+        let shouldContinue = await sharpnessModel.calibrateFromBurst(files)
+        guard shouldContinue, !Task.isCancelled else { return }
         await sharpnessModel.scoreFiles(files)
         // scores is cleared at the start of scoreFiles and only written on clean completion —
         // an empty dict means the run was cancelled, so skip the write.
