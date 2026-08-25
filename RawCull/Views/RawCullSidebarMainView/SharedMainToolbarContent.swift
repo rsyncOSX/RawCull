@@ -189,7 +189,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         if let semanticSelectionCount {
             return semanticSelectionCount < 2
         }
-        return viewModel.burstReviewQueueCounts.needsReview == 0
+        return viewModel.burstReviewSummary.needsReview == 0
     }
 
     private var activeRatingInt: Int? {

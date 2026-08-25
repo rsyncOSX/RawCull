@@ -14,17 +14,14 @@ enum BurstReviewQueueFilter: String, CaseIterable, Identifiable {
     }
 }
 
-struct BurstReviewQueueCounts: Equatable {
-    var needsReview: Int = 0
-    var deferred: Int = 0
-    var reviewed: Int = 0
-}
-
-struct BurstGroupsHomeCounts: Equatable {
+struct BurstReviewSummary: Equatable {
+    var totalGroups: Int = 0
+    var burstGroups: Int = 0
     var singleImages: Int = 0
+    var needsReview: Int = 0
     var deferred: Int = 0
     var markedReviewed: Int = 0
-    var needsReview: Int = 0
+    var completed: Int = 0
 }
 
 enum BurstReviewQueuePolicy {
@@ -44,7 +41,6 @@ enum BurstReviewQueuePolicy {
     }
 
     nonisolated static func includes(_ result: BurstAnalysisResult, filter: BurstReviewQueueFilter) -> Bool {
-        guard result.fileIDs.count > 1 else { return false }
         return switch filter {
         case .all:
             true
@@ -66,18 +62,41 @@ enum BurstReviewQueuePolicy {
         }
     }
 
-    nonisolated static func counts(for results: some Sequence<BurstAnalysisResult>) -> BurstReviewQueueCounts {
-        results.reduce(into: BurstReviewQueueCounts()) { counts, result in
-            guard result.fileIDs.count > 1 else { return }
+    nonisolated static func summary(
+        for groups: some Sequence<BurstGroup>,
+        resultsByGroupID: [Int: BurstAnalysisResult],
+    ) -> BurstReviewSummary {
+        groups.reduce(into: BurstReviewSummary()) { summary, group in
+            summary.totalGroups += 1
+
+            guard group.fileIDs.count > 1 else {
+                summary.singleImages += 1
+                return
+            }
+
+            summary.burstGroups += 1
+
+            guard let result = resultsByGroupID[group.id] else {
+                // The group list is authoritative. A missing analysis result
+                // must remain visible as pending instead of vanishing from all
+                // workflow counts.
+                summary.needsReview += 1
+                return
+            }
+
+            if result.reviewState == .reviewed {
+                summary.markedReviewed += 1
+            }
+
             switch effectiveState(for: result) {
             case .needsReview:
-                counts.needsReview += 1
+                summary.needsReview += 1
 
             case .deferred:
-                counts.deferred += 1
+                summary.deferred += 1
 
             case .reviewed:
-                counts.reviewed += 1
+                summary.completed += 1
 
             case .none, .algorithmReviewed, .manualWinnerOverride, .decisionApplied:
                 assertionFailure("effectiveState(for:) must return a workflow state")

@@ -9,8 +9,7 @@ struct BurstGroupsHomeView: View {
     var body: some View {
         HStack(spacing: 0) {
             BurstGroupsSidebar(
-                counts: counts,
-                groupCount: viewModel.similarityModel.burstGroups.filter { $0.fileIDs.count > 1 }.count,
+                summary: summary,
                 resultsAreAvailable: resultsAreAvailable,
                 showResults: showResults,
             )
@@ -56,7 +55,7 @@ struct BurstGroupsHomeView: View {
         BurstNextUpCard(
             resultsAreAvailable: resultsAreAvailable,
             fileCount: viewModel.activeCatalogFiles.count,
-            reviewedCount: completedCount,
+            completedCount: completedCount,
             groupCount: burstGroupCount,
             controlsAreBusy: controlsAreBusy,
             catalogPreparation: catalogPreparationPresentation,
@@ -70,7 +69,7 @@ struct BurstGroupsHomeView: View {
             BurstQueueActionCard(
                 title: "Needs review",
                 detail: "Open bursts that need your decision.",
-                count: counts.needsReview,
+                count: summary.needsReview,
                 color: .red,
                 systemImage: "exclamationmark.triangle",
                 action: { showResults(.needsReview) },
@@ -78,7 +77,7 @@ struct BurstGroupsHomeView: View {
             BurstQueueActionCard(
                 title: "Saved for later",
                 detail: "Bursts you’ve deferred for later.",
-                count: counts.deferred,
+                count: summary.deferred,
                 color: .orange,
                 systemImage: "bookmark",
                 action: { showResults(.deferred) },
@@ -108,8 +107,8 @@ struct BurstGroupsHomeView: View {
         }
     }
 
-    private var counts: BurstGroupsHomeCounts {
-        viewModel.burstGroupsHomeCounts
+    private var summary: BurstReviewSummary {
+        viewModel.burstReviewSummary
     }
 
     private var resultsAreAvailable: Bool {
@@ -117,13 +116,11 @@ struct BurstGroupsHomeView: View {
     }
 
     private var burstGroupCount: Int {
-        viewModel.burstGroupsInActiveCatalogScope
-            .filter { $0.fileIDs.count > 1 }
-            .count
+        summary.burstGroups
     }
 
     private var completedCount: Int {
-        viewModel.burstReviewQueueCounts.reviewed
+        summary.completed
     }
 
     private var burstAnalysisIsBusy: Bool {
@@ -219,8 +216,7 @@ struct BurstGroupsHomeView: View {
 }
 
 private struct BurstGroupsSidebar: View {
-    let counts: BurstGroupsHomeCounts
-    let groupCount: Int
+    let summary: BurstReviewSummary
     let resultsAreAvailable: Bool
     let showResults: (BurstReviewQueueFilter) -> Void
 
@@ -240,17 +236,17 @@ private struct BurstGroupsSidebar: View {
 
             sidebarSection("WORKFLOW") {
                 BurstSidebarRow(title: "Overview", systemImage: "house", isSelected: true) {}
-                BurstSidebarRow(title: "All bursts", count: groupCount, systemImage: "square.grid.2x2") {
+                BurstSidebarRow(title: "All bursts", count: summary.burstGroups, systemImage: "square.grid.2x2") {
                     showResults(.all)
                 }
                 .disabled(!resultsAreAvailable)
-                BurstSidebarRow(title: "Needs review", count: counts.needsReview, countColor: .orange, systemImage: "exclamationmark.triangle") {
+                BurstSidebarRow(title: "Needs review", count: summary.needsReview, countColor: .orange, systemImage: "exclamationmark.triangle") {
                     showResults(.needsReview)
                 }
-                BurstSidebarRow(title: "Reviewed", count: counts.markedReviewed, countColor: .green, systemImage: "checkmark.circle") {
+                BurstSidebarRow(title: "Completed", count: summary.completed, countColor: .green, systemImage: "checkmark.circle") {
                     showResults(.reviewed)
                 }
-                BurstSidebarRow(title: "Single images", count: counts.singleImages, countColor: .blue, systemImage: "photo") {
+                BurstSidebarRow(title: "Single images", count: summary.singleImages, countColor: .blue, systemImage: "photo") {
                     showResults(.singleImages)
                 }
             }
@@ -324,7 +320,7 @@ private struct BurstGroupsHomeHeader: View {
 private struct BurstNextUpCard: View {
     let resultsAreAvailable: Bool
     let fileCount: Int
-    let reviewedCount: Int
+    let completedCount: Int
     let groupCount: Int
     let controlsAreBusy: Bool
     let catalogPreparation: BurstCatalogPreparationPresentation
@@ -395,7 +391,7 @@ private struct BurstNextUpCard: View {
                 Spacer(minLength: 24)
 
                 BurstReviewProgressRing(
-                    reviewedCount: reviewedCount,
+                    completedCount: completedCount,
                     totalCount: resultsAreAvailable ? groupCount : fileCount,
                 )
                 .padding(.trailing, 28)
@@ -439,7 +435,7 @@ private struct BurstNextUpCard: View {
 }
 
 private struct BurstReviewProgressRing: View {
-    let reviewedCount: Int
+    let completedCount: Int
     let totalCount: Int
 
     var body: some View {
@@ -454,21 +450,21 @@ private struct BurstReviewProgressRing: View {
             VStack(spacing: 5) {
                 Image(systemName: "person.2.fill")
                     .foregroundStyle(.secondary)
-                Text("\(reviewedCount) of \(totalCount)")
+                Text("\(completedCount) of \(totalCount)")
                     .font(.title3.weight(.bold).monospacedDigit())
-                Text("reviewed")
+                Text("completed")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
         }
         .frame(width: 170, height: 170)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(reviewedCount) of \(totalCount) burst groups reviewed")
+        .accessibilityLabel("\(completedCount) of \(totalCount) burst groups completed")
     }
 
     private var progress: Double {
         guard totalCount > 0 else { return 0 }
-        return min(Double(reviewedCount) / Double(totalCount), 1)
+        return min(Double(completedCount) / Double(totalCount), 1)
     }
 }
 

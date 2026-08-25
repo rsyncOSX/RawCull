@@ -196,11 +196,12 @@ struct ScanStatsSheetView: View {
                 .foregroundStyle(.secondary)
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
-                let counts = viewModel.burstReviewQueueCounts
-                minorInfoRow("Total groups", "\(viewModel.similarityModel.burstGroups.count)")
-                minorInfoRow("Needs review", "\(counts.needsReview)")
-                minorInfoRow("Deferred", "\(counts.deferred)")
-                minorInfoRow("Reviewed", "\(counts.reviewed)")
+                let summary = viewModel.burstReviewSummary
+                minorInfoRow("Burst groups", "\(summary.burstGroups)")
+                minorInfoRow("Single images", "\(summary.singleImages)")
+                minorInfoRow("Needs review", "\(summary.needsReview)")
+                minorInfoRow("Deferred", "\(summary.deferred)")
+                minorInfoRow("Completed", "\(summary.completed)")
             }
             .font(.caption)
         }

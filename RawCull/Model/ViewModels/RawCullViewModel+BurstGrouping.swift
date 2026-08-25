@@ -560,38 +560,10 @@ extension RawCullViewModel {
 
     // MARK: - Review queue
 
-    var burstReviewQueueCounts: BurstReviewQueueCounts {
-        let eligibleGroupIDs = Set(
-            burstGroupsInActiveCatalogScope
-                .filter { $0.fileIDs.count > 1 }
-                .map(\.id),
-        )
-        return BurstReviewQueuePolicy.counts(
-            for: burstAnalysisResults.values.filter {
-                eligibleGroupIDs.contains($0.groupID)
-            },
-        )
-    }
-
-    var burstGroupsHomeCounts: BurstGroupsHomeCounts {
-        let reviewCounts = burstReviewQueueCounts
-        let scopedMultiImageGroupIDs = Set(
-            burstGroupsInActiveCatalogScope
-                .filter { $0.fileIDs.count > 1 }
-                .map(\.id),
-        )
-        return BurstGroupsHomeCounts(
-            singleImages: burstGroupsInActiveCatalogScope.reduce(into: 0) { count, group in
-                if group.fileIDs.count == 1 {
-                    count += 1
-                }
-            },
-            deferred: reviewCounts.deferred,
-            markedReviewed: burstAnalysisResults.values.count { result in
-                scopedMultiImageGroupIDs.contains(result.groupID)
-                    && result.reviewState == .reviewed
-            },
-            needsReview: reviewCounts.needsReview,
+    var burstReviewSummary: BurstReviewSummary {
+        BurstReviewQueuePolicy.summary(
+            for: burstGroupsInActiveCatalogScope,
+            resultsByGroupID: burstAnalysisResults,
         )
     }
 
@@ -635,7 +607,7 @@ extension RawCullViewModel {
         let scopedGroups = burstGroupsInActiveCatalogScope
         switch burstReviewQueueFilter {
         case .all:
-            return scopedGroups
+            return scopedGroups.filter { $0.fileIDs.count > 1 }
 
         case .singleImages:
             return scopedGroups.filter { $0.fileIDs.count == 1 }
@@ -646,7 +618,9 @@ extension RawCullViewModel {
 
         return scopedGroups.filter { group in
             guard group.fileIDs.count > 1 else { return false }
-            guard let result = burstAnalysisResults[group.id] else { return false }
+            guard let result = burstAnalysisResults[group.id] else {
+                return burstReviewQueueFilter == .needsReview
+            }
             return BurstReviewQueuePolicy.includes(result, filter: burstReviewQueueFilter)
         }
     }
