@@ -62,6 +62,14 @@ struct BurstCatalogPreparationPresentation: Equatable {
         activeStage != nil
     }
 
+    var overallCompletionFraction: Double {
+        guard !stages.isEmpty else { return 0 }
+        let completed = stages.reduce(0) { result, stage in
+            result + stage.status.completionFraction
+        }
+        return completed / Double(stages.count)
+    }
+
     init(
         isPreparingCatalog: Bool,
         fileCount: Int,
