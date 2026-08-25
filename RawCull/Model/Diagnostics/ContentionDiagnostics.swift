@@ -164,5 +164,4 @@ final nonisolated class ContentionDiagnostics: @unchecked Sendable {
             )
         }
     }
-
 }
