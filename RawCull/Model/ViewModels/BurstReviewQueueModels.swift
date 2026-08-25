@@ -14,29 +14,33 @@ enum BurstReviewQueueFilter: String, CaseIterable, Identifiable {
     }
 }
 
-struct BurstReviewQueueCounts: Equatable {
-    var needsReview: Int = 0
-    var deferred: Int = 0
-    var reviewed: Int = 0
-}
-
-struct BurstGroupsHomeCounts: Equatable {
+struct BurstReviewSummary: Equatable {
+    var totalGroups: Int = 0
+    var burstGroups: Int = 0
     var singleImages: Int = 0
+    var needsReview: Int = 0
     var deferred: Int = 0
     var markedReviewed: Int = 0
-    var needsReview: Int = 0
+    var completed: Int = 0
 }
 
 enum BurstReviewQueuePolicy {
     nonisolated static func effectiveState(for result: BurstAnalysisResult) -> BurstReviewState {
-        if result.reviewState != .none, result.reviewState != .algorithmReviewed {
-            return result.reviewState
+        switch result.reviewState {
+        case .reviewed, .decisionApplied, .manualWinnerOverride:
+            return .reviewed
+
+        case .deferred:
+            return .deferred
+
+        case .none, .algorithmReviewed, .needsReview:
+            // An algorithm recommendation is still waiting for the user to
+            // review or apply it, even when confidence is high.
+            return .needsReview
         }
-        return needsReview(result) ? .needsReview : .reviewed
     }
 
     nonisolated static func includes(_ result: BurstAnalysisResult, filter: BurstReviewQueueFilter) -> Bool {
-        guard result.fileIDs.count > 1 else { return false }
         return switch filter {
         case .all:
             true
@@ -54,46 +58,49 @@ enum BurstReviewQueuePolicy {
             result.reviewState == .reviewed
 
         case .reviewed:
-            switch result.reviewState {
-            case .reviewed, .decisionApplied, .manualWinnerOverride:
-                true
-
-            default:
-                false
-            }
+            effectiveState(for: result) == .reviewed
         }
     }
 
-    nonisolated static func counts(for results: some Sequence<BurstAnalysisResult>) -> BurstReviewQueueCounts {
-        results.reduce(into: BurstReviewQueueCounts()) { counts, result in
-            guard result.fileIDs.count > 1 else { return }
-            switch result.reviewState {
+    nonisolated static func summary(
+        for groups: some Sequence<BurstGroup>,
+        resultsByGroupID: [Int: BurstAnalysisResult],
+    ) -> BurstReviewSummary {
+        groups.reduce(into: BurstReviewSummary()) { summary, group in
+            summary.totalGroups += 1
+
+            guard group.fileIDs.count > 1 else {
+                summary.singleImages += 1
+                return
+            }
+
+            summary.burstGroups += 1
+
+            guard let result = resultsByGroupID[group.id] else {
+                // The group list is authoritative. A missing analysis result
+                // must remain visible as pending instead of vanishing from all
+                // workflow counts.
+                summary.needsReview += 1
+                return
+            }
+
+            if result.reviewState == .reviewed {
+                summary.markedReviewed += 1
+            }
+
+            switch effectiveState(for: result) {
             case .needsReview:
-                counts.needsReview += 1
+                summary.needsReview += 1
 
             case .deferred:
-                counts.deferred += 1
+                summary.deferred += 1
 
-            case .reviewed, .decisionApplied, .manualWinnerOverride:
-                counts.reviewed += 1
+            case .reviewed:
+                summary.completed += 1
 
-            case .none, .algorithmReviewed:
-                if needsReview(result) {
-                    counts.needsReview += 1
-                }
+            case .none, .algorithmReviewed, .manualWinnerOverride, .decisionApplied:
+                assertionFailure("effectiveState(for:) must return a workflow state")
             }
         }
-    }
-
-    private nonisolated static func needsReview(_ result: BurstAnalysisResult) -> Bool {
-        guard result.reviewState != .decisionApplied,
-              result.reviewState != .manualWinnerOverride
-        else { return false }
-
-        return result.reviewState == .needsReview
-            || result.confidence != .high
-            || !result.cautions.isEmpty
-            || result.recommendedFileID == nil
-            || !result.isSafeForOneClickCulling
     }
 }

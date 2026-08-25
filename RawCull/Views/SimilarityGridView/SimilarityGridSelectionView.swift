@@ -123,7 +123,7 @@ private struct BurstGroupHeaderControlsView: View {
         let sensitivity = viewModel.similarityModel.burstSensitivity.formatted(
             .number.precision(.fractionLength(2)),
         )
-        let groupCount = viewModel.similarityModel.burstGroups.count
+        let groupCount = viewModel.burstReviewSummary.totalGroups
 
         HStack(spacing: 8) {
             HStack(spacing: 8) {

@@ -552,7 +552,7 @@ struct CullingGridView<Header: View>: View {
         case .needsReview: "Needs Review"
         case .deferred: "Deferred"
         case .markedReviewed: "Marked Reviewed"
-        case .reviewed: "Reviewed"
+        case .reviewed: "Completed"
         }
     }
 
