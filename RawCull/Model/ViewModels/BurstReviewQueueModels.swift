@@ -54,7 +54,7 @@ enum BurstReviewQueuePolicy {
             result.reviewState == .reviewed
 
         case .reviewed:
-            switch effectiveState(for: result) {
+            switch result.reviewState {
             case .reviewed, .decisionApplied, .manualWinnerOverride:
                 true
 
@@ -67,7 +67,7 @@ enum BurstReviewQueuePolicy {
     nonisolated static func counts(for results: some Sequence<BurstAnalysisResult>) -> BurstReviewQueueCounts {
         results.reduce(into: BurstReviewQueueCounts()) { counts, result in
             guard result.fileIDs.count > 1 else { return }
-            switch effectiveState(for: result) {
+            switch result.reviewState {
             case .needsReview:
                 counts.needsReview += 1
 
@@ -78,7 +78,9 @@ enum BurstReviewQueuePolicy {
                 counts.reviewed += 1
 
             case .none, .algorithmReviewed:
-                break
+                if needsReview(result) {
+                    counts.needsReview += 1
+                }
             }
         }
     }
