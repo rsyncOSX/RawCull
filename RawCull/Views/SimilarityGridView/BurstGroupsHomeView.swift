@@ -28,14 +28,7 @@ struct BurstGroupsHomeView: View {
                             indexSimilarity: indexSimilarity,
                         )
 
-                        if catalogPreparationPresentation.isRunning {
-                            BurstCatalogPreparationView(
-                                presentation: catalogPreparationPresentation,
-                                cancel: cancelCatalogPreparation,
-                            )
-                        } else {
-                            nextUpCard
-                        }
+                        nextUpCard
 
                         Text("Your queue")
                             .font(.headline)
@@ -66,6 +59,7 @@ struct BurstGroupsHomeView: View {
             reviewedCount: completedCount,
             groupCount: burstGroupCount,
             controlsAreBusy: controlsAreBusy,
+            catalogPreparation: catalogPreparationPresentation,
             analyzeBursts: analyzeBursts,
             openNeedsReview: { showResults(.needsReview) },
         )
@@ -164,9 +158,9 @@ struct BurstGroupsHomeView: View {
             sharpnessProgress: sharpnessModel.scoringProgress,
             sharpnessTotal: sharpnessModel.scoringTotal,
             sharpnessEstimatedSeconds: sharpnessModel.scoringEstimatedSeconds,
-            isFindingBurstGroups: analyzeBurstsRequested
-                || viewModel.burstAnalysisProgress.isRunning
-                || similarityModel.isGrouping,
+            isFindingBurstGroups: similarityModel.isGrouping
+                || (viewModel.isPreparingBurstCatalog
+                    && viewModel.burstAnalysisProgress.isRunning),
             burstAnalysisStep: viewModel.burstAnalysisProgress.step,
             resultsAreAvailable: resultsAreAvailable,
             burstGroupCount: burstGroupCount,
@@ -221,11 +215,6 @@ struct BurstGroupsHomeView: View {
 
     private func indexSimilarity() {
         Task { await viewModel.indexSimilarity() }
-    }
-
-    private func cancelCatalogPreparation() {
-        analyzeBurstsRequested = false
-        viewModel.cancelBurstCatalogPreparation()
     }
 }
 
@@ -338,6 +327,7 @@ private struct BurstNextUpCard: View {
     let reviewedCount: Int
     let groupCount: Int
     let controlsAreBusy: Bool
+    let catalogPreparation: BurstCatalogPreparationPresentation
     let analyzeBursts: () -> Void
     let openNeedsReview: () -> Void
 
@@ -365,7 +355,25 @@ private struct BurstNextUpCard: View {
                     HStack(spacing: 10) {
                         Label("\(fileCount) photos", systemImage: "clock")
                         Text("·")
-                        Text(resultsAreAvailable ? "Ready to review" : "About a minute")
+
+                        ZStack(alignment: .leading) {
+                            Text(resultsAreAvailable ? "Ready to review" : "About a minute")
+                                .opacity(catalogPreparation.isRunning ? 0 : 1)
+                                .accessibilityHidden(catalogPreparation.isRunning)
+
+                            HStack(spacing: 6) {
+                                ProgressView(
+                                    value: catalogPreparation.overallCompletionFraction,
+                                )
+                                .frame(width: 48)
+
+                                Text(catalogPreparationStatus)
+                                    .lineLimit(1)
+                            }
+                            .opacity(catalogPreparation.isRunning ? 1 : 0)
+                            .accessibilityHidden(!catalogPreparation.isRunning)
+                        }
+                        .frame(width: 190, alignment: .leading)
                     }
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -411,6 +419,22 @@ private struct BurstNextUpCard: View {
             return "Compare each sequence side by side and keep the strongest frames."
         }
         return "We’ll cluster visually similar photos so you can compare them side by side."
+    }
+
+    private var catalogPreparationStatus: LocalizedStringResource {
+        switch catalogPreparation.activeStage {
+        case .semanticIndex:
+            "Indexing photos…"
+
+        case .sharpness:
+            "Scoring sharpness…"
+
+        case .burstGroups:
+            "Finding burst groups…"
+
+        case nil:
+            "Preparing…"
+        }
     }
 }
 
