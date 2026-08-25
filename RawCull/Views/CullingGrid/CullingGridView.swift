@@ -358,7 +358,6 @@ struct CullingGridView<Header: View>: View {
         .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isGrouping)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
-        .toolbar { sharedSelectionStatusToolbar }
         .sheet(item: $deepReviewPresentation) { presentation in
             DeepAIReviewSheetView(
                 feature: viewModel.deepAIReviewFeature,
@@ -807,19 +806,4 @@ private struct DeepAIReviewPresentation: Identifiable {
     let groupID: Int
     let groupSignature: BurstGroupSignature
     let files: [FileItem]
-}
-
-// MARK: - Toolbar
-
-extension CullingGridView {
-    @ToolbarContentBuilder
-    var sharedSelectionStatusToolbar: some ToolbarContent {
-        if viewModel.selectedFileIDs.count > 1 {
-            ToolbarItem(placement: .status) {
-                Text("\(viewModel.selectedFileIDs.count) selected — press a rating key to apply")
-                    .font(.caption)
-                    .foregroundStyle(Color.secondary)
-            }
-        }
-    }
 }
