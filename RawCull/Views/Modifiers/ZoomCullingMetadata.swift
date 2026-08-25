@@ -213,14 +213,14 @@ extension ZoomCullingMetadata {
     private var clipSimilarityRow: MetadataRow? {
         switch clipSimilarity {
         case .anchor:
-            return MetadataRow(
+            MetadataRow(
                 id: "clipSimilarity",
                 label: "CLIP Similarity",
                 value: "Reference image",
             )
 
         case let .distance(distance) where distance.isFinite:
-            return MetadataRow(
+            MetadataRow(
                 id: "clipSimilarity",
                 label: "CLIP Similarity",
                 value: "\(decimal(distance)) distance · lower is closer",
@@ -228,7 +228,7 @@ extension ZoomCullingMetadata {
             )
 
         case .distance, .none:
-            return nil
+            nil
         }
     }
 

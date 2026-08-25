@@ -57,7 +57,6 @@ struct SharedMainToolbarContent: ToolbarContent {
 
         if !usesBurstWorkspaceChrome {
             Group {
-                
                 ToolbarItem(placement: .status) {
                     Button {
                         viewModel.activeSheet = .scoringParams
