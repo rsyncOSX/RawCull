@@ -139,7 +139,6 @@ actor ThumbnailLoader {
     }
 
     #if DEBUG
-        // periphery:ignore
         func slotSnapshotForTesting() -> (
             activeTasks: Int,
             pendingContinuations: Int,
@@ -154,12 +153,10 @@ actor ThumbnailLoader {
             )
         }
 
-        // periphery:ignore
         func acquireSlotForTesting() async -> Bool {
             await acquireSlot() == .granted
         }
 
-        // periphery:ignore
         func releaseSlotForTesting() {
             releaseSlot()
         }

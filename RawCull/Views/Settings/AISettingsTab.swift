@@ -4,7 +4,6 @@ struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
     @State private var showModelDownloads = false
-    @State private var showDeleteBurstDataConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -417,16 +416,6 @@ private extension RawCullAICapabilityStatus {
         case .available: .green
         case .missing, .unavailable: .orange
         case .invalid: .red
-        }
-    }
-
-    var primaryLocation: URL? {
-        switch self {
-        case let .checking(expectedLocations): expectedLocations.first
-        case let .available(location): location
-        case let .missing(expectedLocations): expectedLocations.first
-        case let .invalid(location, _): location
-        case .unavailable: nil
         }
     }
 }

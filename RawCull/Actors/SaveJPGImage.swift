@@ -12,21 +12,6 @@ import RawParserKit
 import UniformTypeIdentifiers
 
 actor SaveJPGImage {
-    /// Saves pre-encoded JPEG data next to the source RAW file.
-    /// - Parameters:
-    ///   - jpegData: JPEG data encoded by the caller before crossing actor boundaries.
-    ///   - originalURL: The URL of the source ARW file (used to generate the filename).
-    func save(_ jpegData: Data, originalURL: URL) async throws {
-        let outputURL = originalURL.deletingPathExtension().appendingPathExtension("jpg")
-
-        Logger.process.info("ExtractEmbeddedPreview: Attempting to save to \(outputURL.path)")
-
-        try await Task.detached(priority: .background) {
-            try jpegData.write(to: outputURL, options: .atomic)
-            Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
-        }.value
-    }
-
     /// Saves pre-encoded JPEG data into a selected destination catalog.
     func save(
         _ jpegData: Data,

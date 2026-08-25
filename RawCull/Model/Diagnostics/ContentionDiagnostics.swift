@@ -165,9 +165,4 @@ final nonisolated class ContentionDiagnostics: @unchecked Sendable {
         }
     }
 
-    #if DEBUG
-        func resetForTesting() {
-            state.withLock { $0 = State() }
-        }
-    #endif
 }

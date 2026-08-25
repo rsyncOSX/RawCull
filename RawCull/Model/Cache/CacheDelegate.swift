@@ -97,7 +97,6 @@ final class CacheDelegate: NSObject, NSCacheDelegate, @unchecked Sendable {
         unknownEvictionCount.withLock { $0 }
     }
 
-    // periphery:ignore
     nonisolated func resetEvictionCount() {
         memEvictionCount.withLock { $0 = 0 }
         gridEvictionCount.withLock { $0 = 0 }

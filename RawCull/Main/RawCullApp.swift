@@ -43,7 +43,6 @@ struct RawCullApp: App {
 
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
     @State private var viewModel: RawCullViewModel
-    @State private var aiIntegration: RawCullAIIntegration
     @State private var aiSettingsModel: RawCullAISettingsModel
 
     init() {
@@ -57,7 +56,6 @@ struct RawCullApp: App {
         _viewModel = State(
             initialValue: viewModel,
         )
-        _aiIntegration = State(initialValue: integration)
         _aiSettingsModel = State(
             initialValue: RawCullAISettingsModel(
                 integration: integration,

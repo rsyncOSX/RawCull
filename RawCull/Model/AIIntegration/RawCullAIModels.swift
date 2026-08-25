@@ -128,13 +128,6 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
         case .openAI: clipOpenAIModelDirectory
         }
     }
-
-    func segmentationModelDirectory(for model: RawCullSegmentationModel) -> URL {
-        switch model {
-        case .sam3: sam3ModelDirectory
-        case .efficientSAM: efficientSAMModelDirectory
-        }
-    }
 }
 
 /// A common, structured capability state for model resources and host services.
@@ -173,14 +166,6 @@ nonisolated enum RawCullSemanticSearchCapabilityStatus: Equatable, Sendable {
         location: URL?,
         reason: String,
     )
-
-    var isReady: Bool {
-        if case .ready = self {
-            true
-        } else {
-            false
-        }
-    }
 }
 
 /// The Phase 1 readiness surface described by `doc/futureaiintegration.md`.

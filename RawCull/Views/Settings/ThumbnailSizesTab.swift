@@ -12,7 +12,10 @@ struct ThumbnailSizesTab: View {
         SettingsViewModel.shared
     }
 
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var showResetConfirmation = false
+    // periphery:ignore
     @State private var showSaveSettingsConfirmation = false
 
     var body: some View {

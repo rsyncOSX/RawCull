@@ -191,7 +191,6 @@ final class CullingModel {
         scheduleSave()
     }
 
-    // periphery:ignore
     func upsertBurstWinnerOverride(_ override: BurstWinnerOverride, in catalog: URL) {
         guard canMutate else { return }
         let date = Date().en_string_from_date()

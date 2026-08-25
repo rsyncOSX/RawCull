@@ -13,16 +13,9 @@ nonisolated struct RawImageFileMetadata: Sendable {
 
 nonisolated protocol RawImageLoading: Sendable {
     func fileMetadata(for url: URL) async -> RawImageFileMetadata?
-    func exifMetadata(for url: URL) async -> ExifMetadata?
     func thumbnailCGImage(for url: URL, maxPixelSize: Int) async -> CGImage?
     func thumbnailImage(for url: URL, maxPixelSize: Int) async -> NSImage?
     func previewCGImage(for url: URL) async -> CGImage?
-}
-
-extension RawImageLoading {
-    nonisolated func exifMetadata(for url: URL) async -> ExifMetadata? {
-        await fileMetadata(for: url)?.exifMetadata
-    }
 }
 
 nonisolated enum RawImageLoadingError: Error {
