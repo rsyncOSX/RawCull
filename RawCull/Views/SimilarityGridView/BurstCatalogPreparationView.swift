@@ -62,11 +62,6 @@ struct BurstCatalogPreparationPresentation: Equatable {
         activeStage != nil
     }
 
-    var overallCompletionFraction: Double {
-        guard !stages.isEmpty else { return 0 }
-        return stages.map(\.status.completionFraction).reduce(0, +) / Double(stages.count)
-    }
-
     init(
         isPreparingCatalog: Bool,
         fileCount: Int,
@@ -196,22 +191,6 @@ struct BurstCatalogPreparationView: View {
         VStack(alignment: .leading, spacing: 18) {
             header
 
-            VStack(spacing: 7) {
-                HStack {
-                    Text("Overall progress")
-                    Spacer()
-                    Text(overallProgressText)
-                        .fontWeight(.semibold)
-                        .monospacedDigit()
-                }
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-                ProgressView(value: presentation.overallCompletionFraction)
-                    .accessibilityLabel("Overall catalog setup progress")
-                    .accessibilityValue(Text(overallProgressText))
-            }
-
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 0) {
                     stageViews(axis: .horizontal)
@@ -282,19 +261,6 @@ struct BurstCatalogPreparationView: View {
 
     private var activeStepNumber: Int {
         (presentation.activeStage?.rawValue ?? 0) + 1
-    }
-
-    private var overallProgressText: LocalizedStringResource {
-        let percentage = presentation.overallCompletionFraction.formatted(
-            .percent.precision(.fractionLength(0)),
-        )
-        guard let estimatedSeconds = presentation.estimatedSeconds else {
-            return "\(percentage)"
-        }
-        let duration = Duration.seconds(estimatedSeconds).formatted(
-            .units(allowed: [.minutes, .seconds], width: .abbreviated),
-        )
-        return "\(percentage) · About \(duration) remaining"
     }
 
     private var activeStageDetail: LocalizedStringResource {
