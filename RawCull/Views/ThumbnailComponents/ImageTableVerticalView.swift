@@ -17,7 +17,6 @@ struct ImageTableVerticalView: View {
     }
 
     @Bindable var viewModel: RawCullViewModel
-    @State private var hoveredFileKey: String?
 
     var body: some View {
         VStack(alignment: .center) {
@@ -31,7 +30,6 @@ struct ImageTableVerticalView: View {
                                     ImageItemView(
                                         viewModel: viewModel,
                                         file: file,
-                                        isHovered: hoveredFileKey == file.id.uuidString,
                                         isSelected: viewModel.selectedFileID == file.id,
                                         thumbnailSize: settings.thumbnailSizeGrid,
                                         ratingValue: ratingValue(for: file),
@@ -52,9 +50,6 @@ struct ImageTableVerticalView: View {
                                              */
                                     )
                                     .id(file.id)
-                                    .onHover { isHovered in
-                                        hoveredFileKey = isHovered ? file.id.uuidString : nil
-                                    }
                                 }
                             }
                             .padding(.vertical)
