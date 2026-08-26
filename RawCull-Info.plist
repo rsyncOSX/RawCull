@@ -6,6 +6,10 @@
 	<string>group.no.blogspot.RawCull.model-assets</string>
 	<key>BAHasManagedAssetPacks</key>
 	<true/>
+	<key>BAEssentialMaxInstallSize</key>
+	<integer>0</integer>
+	<key>BAMaxInstallSize</key>
+	<integer>0</integer>
 	<key>BAInitialDownloadRestrictions</key>
 	<dict>
 		<key>BADownloadAllowance</key>
