@@ -225,7 +225,7 @@ struct PerFileAnalysisArtifactStoreTests {
     }
 
     @Test
-    func `Usage, pruning, and clear operate on individual records`() async throws {
+    func `Usage and clear operate on individual records`() async throws {
         let fixture = try ArtifactStoreFixture()
         defer { fixture.remove() }
         let source = try fixture.source(named: "maintenance.raw")
@@ -241,29 +241,11 @@ struct PerFileAnalysisArtifactStoreTests {
             pipeline: fixture.pipeline,
         )
 
-        let usageBeforePrune = await fixture.store.usage()
-        let prune = await fixture.store.prune(
-            policy: PerFileAnalysisArtifactPruningPolicy(
-                maximumUnusedAge: .zero,
-                maximumEntryCount: 50000,
-            ),
-            now: Date().addingTimeInterval(1),
-        )
-        let usageAfterPrune = await fixture.store.usage()
+        let usage = await fixture.store.usage()
 
-        #expect(usageBeforePrune.entryCount == 1)
-        #expect(usageBeforePrune.size > 0)
-        #expect(prune.removedEntryCount == 1)
-        #expect(usageAfterPrune == PerFileAnalysisArtifactStoreUsage(
-            size: 0,
-            entryCount: 0,
-        ))
+        #expect(usage.entryCount == 1)
+        #expect(usage.size > 0)
 
-        _ = await fixture.store.upsert(
-            artifacts: [source.id: artifact],
-            sources: [source.id: source],
-            pipeline: fixture.pipeline,
-        )
         await fixture.store.clear()
         #expect(await fixture.store.usage().entryCount == 0)
     }

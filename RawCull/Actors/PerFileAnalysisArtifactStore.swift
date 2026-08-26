@@ -41,24 +41,6 @@ nonisolated struct PerFileAnalysisArtifactStoreUsage: Equatable, Sendable {
     let entryCount: Int
 }
 
-nonisolated struct PerFileAnalysisArtifactPruningPolicy: Equatable, Sendable {
-    var maximumUnusedAge: Duration
-    var maximumEntryCount: Int
-
-    /// Retain recently used records for 90 days and cap the cache at 50,000
-    /// entries. A successful replacement removes older fingerprints for the
-    /// same path/backend/pipeline identity immediately.
-    static let `default` = Self(
-        maximumUnusedAge: .days(90),
-        maximumEntryCount: 50000,
-    )
-}
-
-nonisolated struct PerFileAnalysisArtifactPruneResult: Equatable, Sendable {
-    let removedEntryCount: Int
-    let remainingEntryCount: Int
-}
-
 protocol SimilarityArtifactStoring: Actor {
     func load(
         sources: [AIImageSource],
@@ -367,48 +349,6 @@ actor PerFileAnalysisArtifactStore: SimilarityArtifactStoring {
         }
     }
 
-    func prune(
-        policy: PerFileAnalysisArtifactPruningPolicy = .default,
-        now: Date = Date(),
-    ) -> PerFileAnalysisArtifactPruneResult {
-        let urls = recordURLs()
-        let maximumAge = policy.maximumUnusedAge.timeInterval
-        var retained: [(url: URL, lastAccessedAt: Date)] = []
-        var removedEntryCount = 0
-
-        for url in urls {
-            guard let record = try? decodeRecord(at: url),
-                  record.schemaVersion == Self.recordSchemaVersion
-            else {
-                try? FileManager.default.removeItem(at: url)
-                removedEntryCount += 1
-                continue
-            }
-
-            if now.timeIntervalSince(record.lastAccessedAt) > maximumAge {
-                try? FileManager.default.removeItem(at: url)
-                removedEntryCount += 1
-            } else {
-                retained.append((url, record.lastAccessedAt))
-            }
-        }
-
-        if retained.count > policy.maximumEntryCount {
-            let overflow = retained.count - policy.maximumEntryCount
-            for entry in retained.sorted(by: {
-                $0.lastAccessedAt < $1.lastAccessedAt
-            }).prefix(overflow) {
-                try? FileManager.default.removeItem(at: entry.url)
-                removedEntryCount += 1
-            }
-        }
-
-        return PerFileAnalysisArtifactPruneResult(
-            removedEntryCount: removedEntryCount,
-            remainingEntryCount: max(0, urls.count - removedEntryCount),
-        )
-    }
-
     private func recordURLs() -> [URL] {
         (try? FileManager.default.contentsOfDirectory(
             at: storageDirectory,
@@ -453,18 +393,6 @@ private nonisolated func cancelledArtifactCommit(
         failures: failures,
         wasCancelled: true,
     )
-}
-
-private nonisolated extension Duration {
-    static func days(_ value: Int) -> Self {
-        .seconds(value * 24 * 60 * 60)
-    }
-
-    var timeInterval: TimeInterval {
-        let components = self.components
-        return TimeInterval(components.seconds)
-            + TimeInterval(components.attoseconds) / 1_000_000_000_000_000_000
-    }
 }
 
 private nonisolated struct LookupIdentity: Codable, Equatable, Sendable {

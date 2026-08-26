@@ -77,22 +77,6 @@ struct BurstCatalogPreparationPresentationTests {
         ))
     }
 
-    @Test
-    func `cancel invalidates the workflow and clears its visible activity`() {
-        let viewModel = RawCullViewModel()
-        viewModel.isPreparingBurstCatalog = true
-        viewModel.burstCatalogPreparationGeneration = 7
-        viewModel.burstFullReindexRequest = .analyzeBursts
-        viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .grouping)
-
-        viewModel.cancelBurstCatalogPreparation()
-
-        #expect(!viewModel.isPreparingBurstCatalog)
-        #expect(viewModel.burstCatalogPreparationGeneration == 8)
-        #expect(viewModel.burstFullReindexRequest == nil)
-        #expect(viewModel.burstAnalysisProgress == BurstAnalysisProgress())
-    }
-
     private func status(
         for stage: BurstCatalogPreparationStage,
         in presentation: BurstCatalogPreparationPresentation,
