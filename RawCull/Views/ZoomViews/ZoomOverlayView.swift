@@ -98,7 +98,6 @@ nonisolated struct ZoomOverlayNavigationContext: Equatable {
         var seen = Set<FileItem.ID>()
         self.orderedFileIDs = orderedFileIDs.filter { seen.insert($0).inserted }
     }
-
 }
 
 nonisolated struct ZoomViewportTransform: Equatable {
