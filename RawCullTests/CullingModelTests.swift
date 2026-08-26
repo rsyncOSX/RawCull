@@ -1690,12 +1690,14 @@ struct RawCullViewModelCullingTests {
             await gate.load()
         }
 
-        let analysis = Task { await viewModel.analyzeBursts() }
+        let analysis = Task {
+            await viewModel.restoreExistingFullCatalogBurstAnalysis()
+        }
         await gate.waitUntilStarted()
 
         viewModel.cancelAndResetBurstAnalysis()
         await gate.resume(returning: snapshot)
-        await analysis.value
+        _ = await analysis.value
 
         #expect(viewModel.burstAnalysisTask == nil)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
@@ -1961,7 +1963,7 @@ struct RawCullViewModelCullingTests {
             await recorder.record(savedSnapshot)
         }
 
-        await viewModel.analyzeBursts()
+        #expect(await viewModel.restoreExistingFullCatalogBurstAnalysis())
         viewModel.selectedFileIDs = [first.id]
         viewModel.filteredFiles = [first]
         viewModel.markBurstGroupReviewed(groupID: 0)

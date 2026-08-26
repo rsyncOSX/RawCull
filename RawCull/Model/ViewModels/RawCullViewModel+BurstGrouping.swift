@@ -11,33 +11,6 @@ import RawCullCore
 extension RawCullViewModel {
     // MARK: - Intelligent burst analysis
 
-    /// Run the full intelligent burst analysis pipeline: load cache when valid,
-    /// score sharpness, index similarity, group bursts, rank candidates, and
-    /// persist the analysis artifacts.
-    func analyzeBursts() async {
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.analyzeBursts(): starting burst analysis",
-        )
-        guard let catalog = selectedSource?.url, !files.isEmpty else {
-            Logger.process.debugMessageOnly(
-                "RawCullViewModel.analyzeBursts(): skipped because the catalog or files are unavailable",
-            )
-            return
-        }
-        let sorted = burstAnalysisTargetFiles
-        guard !sorted.isEmpty else {
-            Logger.process.debugMessageOnly(
-                "RawCullViewModel.analyzeBursts(): skipped because no files match the active analysis scope",
-            )
-            return
-        }
-
-        await startBurstAnalysis(
-            catalog: catalog,
-            files: sorted,
-        )
-    }
-
     private func startBurstAnalysis(
         catalog: URL,
         files sorted: [FileItem],
@@ -61,7 +34,7 @@ extension RawCullViewModel {
             task.cancel()
         }
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.analyzeBursts(): burst analysis task returned",
+            "RawCullViewModel.startBurstAnalysis(): burst analysis task returned",
         )
     }
 
@@ -251,23 +224,6 @@ extension RawCullViewModel {
         !Task.isCancelled
             && burstCatalogPreparationGeneration == generation
             && isPreparingBurstCatalog
-    }
-
-    func cancelBurstCatalogPreparation() {
-        burstFullReindexRequest = nil
-        burstCatalogPreparationGeneration &+= 1
-        isPreparingBurstCatalog = false
-
-        burstAnalysisTask?.cancel()
-        burstAnalysisTask = nil
-        burstAnalysisGeneration &+= 1
-        burstAnalysisProgress = BurstAnalysisProgress()
-
-        sharpnessModel.cancelScoring()
-        similarityModel.cancelIndexing()
-        if similarityModel.isGrouping {
-            similarityModel.clearBurstGrouping()
-        }
     }
 
     func prepareForFullCatalogReindex() async {

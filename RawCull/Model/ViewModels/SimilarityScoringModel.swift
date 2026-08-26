@@ -151,7 +151,6 @@ final class SimilarityScoringModel {
     private(set) var indexingFailures: [RawCullSimilarityIndexingFailure] = []
     private(set) var indexingPersistenceFailures: [PerFileAnalysisArtifactWriteFailure] = []
     private(set) var indexingOperationFailure: String?
-    private(set) var indexingDiagnostic: String?
 
     // MARK: Sort flag
 
@@ -273,7 +272,6 @@ final class SimilarityScoringModel {
         indexingFailures = []
         indexingPersistenceFailures = []
         indexingOperationFailure = nil
-        indexingDiagnostic = nil
         indexingPhase = .idle
     }
 
@@ -563,7 +561,6 @@ final class SimilarityScoringModel {
         indexingFailures = []
         indexingPersistenceFailures = []
         indexingOperationFailure = nil
-        indexingDiagnostic = nil
         _indexingStartedAt = Date()
 
         let service = similarityService
@@ -691,7 +688,6 @@ final class SimilarityScoringModel {
         switch result {
         case let .success(durableOutput):
             let output = durableOutput.serviceOutput
-            indexingDiagnostic = output.primaryFailureDiagnostic
             if let diagnostic = output.primaryFailureDiagnostic {
                 Logger.process.warning(
                     "SimilarityScoringModel: \(diagnostic, privacy: .public)",

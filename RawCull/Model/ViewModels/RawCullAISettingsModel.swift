@@ -294,10 +294,6 @@ final class RawCullAISettingsModel {
         capabilities = integration.capabilities()
     }
 
-    /// Intentionally empty until a safe saved-data deletion workflow exists.
-    /// Existing RawCull burst analysis data must not be deleted by a placeholder.
-    func deleteSavedBurstData() async {}
-
     private func performModelDownload(
         _ id: RawCullAIModelDownloadID,
     ) async {

@@ -98,21 +98,6 @@ nonisolated struct ZoomOverlayNavigationContext: Equatable {
         var seen = Set<FileItem.ID>()
         self.orderedFileIDs = orderedFileIDs.filter { seen.insert($0).inserted }
     }
-
-    func destinationID(from currentID: FileItem.ID, delta: Int) -> FileItem.ID? {
-        guard let currentIndex = orderedFileIDs.firstIndex(of: currentID) else { return nil }
-        let destinationIndex = currentIndex + delta
-        guard orderedFileIDs.indices.contains(destinationIndex) else { return nil }
-        return orderedFileIDs[destinationIndex]
-    }
-
-    func canNavigatePrevious(from currentID: FileItem.ID) -> Bool {
-        destinationID(from: currentID, delta: -1) != nil
-    }
-
-    func canNavigateNext(from currentID: FileItem.ID) -> Bool {
-        destinationID(from: currentID, delta: 1) != nil
-    }
 }
 
 nonisolated struct ZoomViewportTransform: Equatable {

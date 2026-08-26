@@ -440,7 +440,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.filteredFiles.count == 20)
         #expect(viewModel.activeCatalogFiles.count == 20)
 
-        await viewModel.setSemanticSearchSelectionCount(7)
+        await viewModel.adjustSemanticSearchSelection(by: -13)
 
         let selectedIDs = Set(viewModel.filteredFiles.map(\.id))
         #expect(viewModel.filteredFiles.count == 7)
@@ -535,7 +535,7 @@ struct RawCullSemanticSearchTests {
             ) == 4,
         )
         await viewModel.searchSemantically(for: "wildlife")
-        await viewModel.setSemanticSearchSelectionCount(2)
+        await viewModel.adjustSemanticSearchSelection(by: -2)
 
         let selected = viewModel.filteredFiles
         let outside = try #require(

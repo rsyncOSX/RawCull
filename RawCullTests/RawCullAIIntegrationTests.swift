@@ -334,14 +334,6 @@ struct RawCullAIIntegrationTests {
         )
 
         let paths = isolatedPaths(root: root)
-        try FileManager.default.createDirectory(
-            at: paths.burstAnalysisDirectory,
-            withIntermediateDirectories: true,
-        )
-        let savedDataURL = paths.burstAnalysisDirectory
-            .appendingPathComponent("must-remain.json")
-        try Data("saved".utf8).write(to: savedDataURL)
-
         let integration = RawCullAIIntegration(
             paths: paths,
             bundle: .main,
@@ -365,8 +357,6 @@ struct RawCullAIIntegrationTests {
 
         model.useCLIPForSimilarity = true
         model.selectedCLIPModel = .dataComp
-        await model.deleteSavedBurstData()
-
         #expect(model.useCLIPForSimilarity)
         #expect(model.selectedCLIPModel == .dataComp)
         #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey))
@@ -380,8 +370,6 @@ struct RawCullAIIntegrationTests {
             "vision-feature-print",
             "vision-feature-print"
         ])
-        #expect(FileManager.default.fileExists(atPath: savedDataURL.path))
-
         let relaunchedModel = RawCullAISettingsModel(
             integration: integration,
             userDefaults: userDefaults,

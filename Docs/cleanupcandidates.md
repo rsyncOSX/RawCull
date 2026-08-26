@@ -1,131 +1,85 @@
-# Cleanup Candidates After Diagnostics Removal
+# Cleanup Plan After Diagnostics Removal
 
-This report identifies remaining cleanup candidates after removal of the
-Diagnostics menu and its supporting code. It is an inspection report only;
-none of the candidates described here have been implemented.
+This document tracks cleanup following removal of the Diagnostics menu and its
+supporting code. The unused-function phase is complete. Remaining work is
+limited to documentation, imports, comments, and a source-file rename.
 
-## High-confidence cleanup
+## Completed: remove unused production APIs
 
-### Remove the write-only indexing diagnostic state
+The following APIs were reachable only from tests, or were never read at all,
+and have been removed with their obsolete test coverage:
 
-`SimilarityScoringModel.indexingDiagnostic` is reset and assigned, but never
-read. The property and its assignments can be removed while retaining the
-existing warning log for `primaryFailureDiagnostic`.
+- `RawCullAISettingsModel.deleteSavedBurstData()`, an empty placeholder with
+  no production caller.
+- `RawCullViewModel.analyzeBursts()`, a legacy wrapper superseded by
+  `restoreExistingFullCatalogBurstAnalysis()` and `reindexBurstAnalysis()`.
+  The affected tests now exercise the production restore workflow.
+- `RawCullViewModel.cancelBurstCatalogPreparation()`, which had no UI or other
+  production caller.
+- `RawCullViewModel.setSemanticSearchSelectionCount(_:)`, a test-only wrapper.
+  Semantic-search tests now use the production adjustment API.
+- `ZoomOverlayNavigationContext.destinationID(from:delta:)`,
+  `canNavigatePrevious(from:)`, and `canNavigateNext(from:)`. These helpers
+  were tested but unused by the overlay.
+- `PerFileAnalysisArtifactStore.prune(policy:now:)` and its policy/result
+  types, plus the private `Duration` helpers used only by pruning. Automatic
+  pruning had no application-lifecycle integration. The active `usage()` and
+  `clear()` maintenance APIs remain covered.
+- `SimilarityScoringModel.indexingDiagnostic`, a write-only property. The
+  warning log for `primaryFailureDiagnostic` remains active.
 
-- `RawCull/Model/ViewModels/SimilarityScoringModel.swift`
+Related tests and the smoke-test count were updated with the removals.
 
-### Remove unused imports
+## Retained after re-audit
 
-The following imports have no remaining usages:
+`ZoomOverlayNavigationContext` itself is active production state. The zoom
+overlay reads `orderedFileIDs` to constrain navigation to the launch context,
+and the initializer still removes duplicate IDs. The context and its focused
+deduplication test must remain.
 
-- `OSLog` in `RawCull/Main/RawCullApp.swift`
-- `OSLog` in `RawCull/Main/RawCullMainView.swift`
-- `OSLog` in `RawCull/Model/ViewModels/RawCullViewModel.swift`
-- `Foundation` in `RawCull/Views/Tools/MenuCommands.swift`
+Intentional test-support APIs, including deterministic cache paths, cache
+reset methods, concurrency-slot snapshots, and test cache configurations, also
+remain. They should not be treated as dead code solely because the application
+target does not call them.
 
-### Update stale README documentation
+Active `debugMessageOnly` and `debugThreadOnly` logging remains useful
+operational instrumentation and should not be removed in bulk.
 
-The repository structure in `README.md` still lists the deleted
-`Model/Diagnostics` directory. The README also describes cache diagnostics
-that were removed. In particular, review:
+## Remaining cleanup plan
 
-- The `SharedMemoryCache` responsibility description
-- The `Model/Cache` directory description
-- The deleted `Model/Diagnostics` directory entry
+Complete the non-functional cleanup in small, reviewable steps:
 
-### Remove commented-out logging
+1. Remove imports confirmed unused by the compiler:
+   - `OSLog` from `RawCull/Main/RawCullApp.swift`
+   - `OSLog` from `RawCull/Main/RawCullMainView.swift`
+   - `OSLog` from `RawCull/Model/ViewModels/RawCullViewModel.swift`
+   - `Foundation` from `RawCull/Views/Tools/MenuCommands.swift`
+2. Remove commented-out logger statements from:
+   - `RawCull/Actors/SharedMemoryCache.swift`
+   - `RawCull/Actors/RequestThumbnail.swift`
+   - `RawCull/Actors/ScanAndCreateThumbnails.swift`
+3. Rename
+   `RawCull/Views/SimilarityGridView/BurstCatalogPreparationView.swift` to
+   `BurstCatalogPreparationPresentation.swift`, because it contains
+   presentation types rather than a SwiftUI view. Update the Xcode project
+   reference if it is not file-system synchronized.
+4. Refresh `README.md` by removing the deleted `Model/Diagnostics` directory
+   and revising the `SharedMemoryCache` and `Model/Cache` descriptions so they
+   no longer promise removed diagnostics.
+5. Run a Debug build, the focused cleanup suites, smoke-manifest enumeration,
+   and Periphery. Review new findings manually so test-support hooks and
+   framework-driven entry points are not removed.
 
-There are approximately a dozen commented-out logger statements in:
+## Validation
 
-- `RawCull/Actors/SharedMemoryCache.swift`
-- `RawCull/Actors/RequestThumbnail.swift`
-- `RawCull/Actors/ScanAndCreateThumbnails.swift`
-
-These are inactive comment debris and can be removed without changing
-behavior. Active debug logging should not be removed as part of this cleanup.
-
-### Rename the burst preparation source file
-
-`RawCull/Views/SimilarityGridView/BurstCatalogPreparationView.swift` no longer
-contains a SwiftUI view. It now contains only the burst catalog preparation
-presentation types. A name such as
-`BurstCatalogPreparationPresentation.swift` would reflect its current role.
-
-## Additional dead-code candidates
-
-Periphery identified the following production APIs as unused. Some remain in
-use by tests, so removing them would require corresponding test updates.
-
-### Empty saved-data deletion placeholder
-
-`RawCullAISettingsModel.deleteSavedBurstData()` is intentionally empty and is
-only called by a test. Unless it is being retained as a planned API, the
-placeholder and its test can be removed.
-
-- `RawCull/Model/ViewModels/RawCullAISettingsModel.swift`
-
-### Unused burst-analysis wrapper
-
-`RawCullViewModel.analyzeBursts()` is only called by tests. Production code
-uses the current restore/re-index workflow and `reindexBurstAnalysis()`.
-The wrapper is a removal candidate after its tests are updated to exercise the
-active production entry points.
-
-- `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`
-
-### Test-only burst preparation cancellation
-
-`RawCullViewModel.cancelBurstCatalogPreparation()` has no production caller
-and is only exercised by tests. It can be removed if cancellation is not meant
-to return to the UI.
-
-- `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift`
-
-### Test-only semantic selection wrapper
-
-`RawCullViewModel.setSemanticSearchSelectionCount(_:)` is only called by
-tests. The underlying `SimilarityScoringModel` method remains active and is
-used by production code.
-
-- `RawCull/Model/ViewModels/RawCullViewModel+Similarity.swift`
-
-### Unused zoom navigation context
-
-`ZoomOverlayNavigationContext` is created and stored by production code, but
-none of its navigation methods are read by production code. Its methods are
-only used by the dedicated test suite. The stored view-model property, context
-type, assignment, and tests should either be connected to the actual zoom
-navigation implementation or removed together.
-
-- `RawCull/Views/ZoomViews/ZoomOverlayView.swift`
-- `RawCull/Model/ViewModels/RawCullViewModel.swift`
-
-### Artifact pruning needs a keep-or-remove decision
-
-`PerFileAnalysisArtifactPruningPolicy`, its prune-result type, and
-`PerFileAnalysisArtifactStore.prune(policy:now:)` are tested but never invoked
-by production code. This should not be removed blindly. Either:
-
-1. Connect pruning to application lifecycle or cache maintenance, or
-2. Remove the unused policy, implementation, and tests if automatic pruning is
-   no longer planned.
-
-- `RawCull/Actors/PerFileAnalysisArtifactStore.swift`
-
-## Items to retain
-
-Most of the other Periphery findings are intentional test-support APIs, such
-as deterministic cache paths, cache reset methods, concurrency slot snapshots,
-and test cache configurations. They should not be treated as ordinary dead
-code solely because the application target does not call them.
-
-Active `debugMessageOnly` and `debugThreadOnly` logging also remains useful
-operational instrumentation and compiles out of Debug-only logging paths as
-designed. A bulk removal of active logging is not recommended.
-
-## Validation performed
-
-- A Debug macOS application build succeeded after the Diagnostics removal.
-- Periphery completed and reported 28 warnings; the relevant candidates were
-  manually separated from intentional test-support APIs.
-- The inspection itself made no source changes.
+- Debug macOS application build: passed.
+- Focused suites passed: `CullingModelTests`,
+  `RawCullSemanticSearchTests`, `BurstCatalogPreparationPresentationTests`,
+  `ZoomOverlayNavigationContextTests`,
+  `PerFileAnalysisArtifactStoreTests`, and `RawCullAIIntegrationTests`.
+- Native Xcode smoke enumeration succeeded with 177 enabled tests and no
+  duplicate identifiers; `SMOKE_EXPECTED_TESTS` now matches that count.
+- Periphery completed after the cleanup with no findings.
+- `make verify-smoke-manifest` remains unavailable because the Makefile refers
+  to the missing `Scripts/VerifyTestEnumeration.swift`. Native Xcode
+  enumeration was used for this cleanup instead.

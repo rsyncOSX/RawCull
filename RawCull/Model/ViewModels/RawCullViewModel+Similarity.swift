@@ -87,12 +87,6 @@ extension RawCullViewModel {
         await refreshSemanticSearchSelection()
     }
 
-    func setSemanticSearchSelectionCount(_ count: Int) async {
-        discardScopedBurstAnalysisIfNeeded()
-        similarityModel.setSemanticSearchSelectionCount(count)
-        await refreshSemanticSearchSelection()
-    }
-
     /// Cancel text ranking and immediately restore the ordinary catalog order.
     func clearSemanticSearch() async {
         similarityModel.clearSemanticSearch()
