@@ -11,7 +11,7 @@ actor FullSizeJPGDiskCache {
         case developedRAW
     }
 
-    private static let cacheKeyVersion = "v6-source-identity"
+    private static let cacheKeyVersion = "v7-source-jpeg-orientation"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -60,7 +60,15 @@ actor FullSizeJPGDiskCache {
         let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         return await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
+            guard variant == .embeddedJPG,
+                  let data = try? Data(contentsOf: fileURL)
+            else {
+                return OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
+            }
+            return OrientationNormalizedImageLoader.loadEmbeddedPreview(
+                from: data,
+                sourceURL: sourceURL,
+            )
         }.value
     }
 
@@ -88,7 +96,10 @@ actor FullSizeJPGDiskCache {
             nil,
         ) else { return nil }
 
-        let options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.85]
+        let options: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: 0.85,
+            kCGImagePropertyOrientation: 1,
+        ]
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return mutableData as Data

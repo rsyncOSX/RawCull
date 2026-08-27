@@ -180,8 +180,9 @@ private struct SemanticResultRankBadgeView: View {
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
 
+    @State private var isHovered = false
+
     let file: FileItem
-    let isHovered: Bool
     let isSelected: Bool
     var isMultiSelected: Bool = false
     let thumbnailSize: Int
@@ -296,6 +297,7 @@ struct ImageItemView: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
         .onTapGesture(count: 2) { onDoubleSelect() }
         .onTapGesture(count: 1) { onSelect() }
     }

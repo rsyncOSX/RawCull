@@ -8,8 +8,6 @@ struct SavedFilesView: View {
 
     @State private var selectedCatalogID: SavedFiles.ID?
     @State private var selectedRecordID: FileRecord.ID?
-    @State private var hoveredCatalog: UUID?
-    @State private var hoveredRecord: UUID?
     @State private var showResetAlert = false
 
     private var records: [FileRecord] {
@@ -88,7 +86,6 @@ struct SavedFilesView: View {
                             CatalogRow(
                                 entry: entry,
                                 isSelected: selectedCatalogID == entry.id,
-                                isHovered: hoveredCatalog == entry.id,
                             )
                             .frame(maxWidth: .infinity)
                         }
@@ -104,9 +101,6 @@ struct SavedFilesView: View {
                         .accessibilityAddTraits(
                             selectedCatalogID == entry.id ? .isSelected : [],
                         )
-                        .onHover { hovering in
-                            hoveredCatalog = hovering ? entry.id : nil
-                        }
                         Divider().padding(.leading, 52)
                     }
                 }
@@ -157,7 +151,6 @@ struct SavedFilesView: View {
                             FileRecordRow(
                                 record: record,
                                 isSelected: selectedRecordID == record.id,
-                                isHovered: hoveredRecord == record.id,
                             )
                             .frame(maxWidth: .infinity)
                         }
@@ -171,9 +164,6 @@ struct SavedFilesView: View {
                         .accessibilityAddTraits(
                             selectedRecordID == record.id ? .isSelected : [],
                         )
-                        .onHover { hovering in
-                            hoveredRecord = hovering ? record.id : nil
-                        }
                         Divider().padding(.leading, 16)
                     }
                 }

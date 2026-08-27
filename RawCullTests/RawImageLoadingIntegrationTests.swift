@@ -8,11 +8,13 @@ private actor FakeRawImageLoader: RawImageLoading {
     private(set) var thumbnailCGImageCalls = 0
     private(set) var thumbnailImageCalls = 0
     private(set) var previewCGImageCalls = 0
+    private(set) var embeddedPreviewJPEGDataCalls = 0
     private(set) var fileMetadataCalls = 0
     private let fileMetadataResult: RawImageFileMetadata?
     private let thumbnailCGImageResult: CGImage?
     private let thumbnailImageResult: NSImage?
     private let previewCGImageResult: CGImage?
+    private let embeddedPreviewJPEGDataResult: Data?
     private let suspendPreviewUntilCancelled: Bool
 
     init(
@@ -20,12 +22,14 @@ private actor FakeRawImageLoader: RawImageLoading {
         thumbnailCGImageResult: CGImage? = nil,
         thumbnailImageResult: NSImage? = nil,
         previewCGImageResult: CGImage? = nil,
+        embeddedPreviewJPEGDataResult: Data? = nil,
         suspendPreviewUntilCancelled: Bool = false,
     ) {
         self.fileMetadataResult = fileMetadataResult
         self.thumbnailCGImageResult = thumbnailCGImageResult
         self.thumbnailImageResult = thumbnailImageResult
         self.previewCGImageResult = previewCGImageResult
+        self.embeddedPreviewJPEGDataResult = embeddedPreviewJPEGDataResult
         self.suspendPreviewUntilCancelled = suspendPreviewUntilCancelled
     }
 
@@ -53,6 +57,15 @@ private actor FakeRawImageLoader: RawImageLoading {
             return nil
         }
         return previewCGImageResult
+    }
+
+    func embeddedPreviewJPEGData(
+        for _: URL,
+        matchingPixelWidth _: Int,
+        height _: Int,
+    ) async -> Data? {
+        embeddedPreviewJPEGDataCalls += 1
+        return embeddedPreviewJPEGDataResult
     }
 }
 
@@ -162,6 +175,33 @@ struct RawImageLoadingIntegrationTests {
         #expect(first != nil)
         #expect(second != nil)
         #expect(await fakeLoader.previewCGImageCalls == 1)
+    }
+
+    @Test
+    func `full size preview loader caches original embedded JPEG without recoding`() async throws {
+        let preview = try makeRawImageLoadingTestCGImage(width: 40, height: 30)
+        let embeddedJPEG = try #require(FullSizeJPGDiskCache.jpegData(from: preview))
+        let fakeLoader = FakeRawImageLoader(
+            previewCGImageResult: preview,
+            embeddedPreviewJPEGDataResult: embeddedJPEG,
+        )
+        let root = try makeRawImageLoadingTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cacheDirectory = root.appendingPathComponent("FullSizeJPGs", isDirectory: true)
+        let rawURL = root.appendingPathComponent("original-preview.arw")
+        let cache = FullSizeJPGDiskCache(cacheDirectory: cacheDirectory)
+        let loader = FullSizePreviewLoader(rawLoader: fakeLoader, fullSizeCache: cache)
+
+        let image = await loader.loadEmbeddedPreview(for: rawURL)
+        let cachedFiles = try FileManager.default.contentsOfDirectory(
+            at: cacheDirectory,
+            includingPropertiesForKeys: nil,
+        )
+        let cachedFile = try #require(cachedFiles.first)
+
+        #expect(image != nil)
+        #expect(try Data(contentsOf: cachedFile) == embeddedJPEG)
+        #expect(await fakeLoader.embeddedPreviewJPEGDataCalls == 1)
     }
 
     @Test

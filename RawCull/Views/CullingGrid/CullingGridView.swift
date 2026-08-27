@@ -217,7 +217,6 @@ struct CullingGridView<Header: View>: View {
     @ViewBuilder let header: () -> Header
     var batchBadgeSelectionEnabled: () -> Bool = { false }
 
-    @State private var hoveredFileID: FileItem.ID?
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var batchRating: Int = 3
     @State private var cleanViewEnabled: Bool = true
@@ -306,7 +305,6 @@ struct CullingGridView<Header: View>: View {
                                         ImageItemView(
                                             viewModel: viewModel,
                                             file: file,
-                                            isHovered: hoveredFileID == file.id,
                                             isSelected: viewModel.selectedFileID == file.id,
                                             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
                                             thumbnailSize: 200,
@@ -324,9 +322,6 @@ struct CullingGridView<Header: View>: View {
                                             onDoubleSelect: { handleDoubleSelect(for: file) },
                                         )
                                         .id(file.id)
-                                        .onHover { isHovered in
-                                            hoveredFileID = isHovered ? file.id : nil
-                                        }
                                     }
                                 }
                             }
@@ -570,7 +565,6 @@ struct CullingGridView<Header: View>: View {
         ImageItemView(
             viewModel: viewModel,
             file: file,
-            isHovered: hoveredFileID == file.id,
             isSelected: viewModel.selectedFileID == file.id,
             isMultiSelected: viewModel.selectedFileIDs.contains(file.id),
             thumbnailSize: 200,
@@ -610,9 +604,6 @@ struct CullingGridView<Header: View>: View {
                         ForEach(group.files, id: \.id) { file in
                             burstCell(file: file)
                                 .id(file.id)
-                                .onHover { isHovering in
-                                    hoveredFileID = isHovering ? file.id : nil
-                                }
                         }
                     }
                     .padding(16)
