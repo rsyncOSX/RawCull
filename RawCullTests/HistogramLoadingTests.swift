@@ -41,6 +41,28 @@ struct HistogramLoadingTests {
     }
 
     @Test(.tags(.smoke))
+    func `bounds histogram sample while preserving aspect ratio`() throws {
+        let image = try makeSplitCGImage(width: 1_024, height: 512)
+
+        let sampledImage = HistogramLoader.sampledImage(from: image)
+
+        #expect(sampledImage.width == HistogramLoader.maximumSampleDimension)
+        #expect(sampledImage.height == HistogramLoader.maximumSampleDimension / 2)
+    }
+
+    @Test(.tags(.smoke))
+    func `sampled histogram preserves dominant luminance values`() async throws {
+        let image = try makeSplitCGImage(width: 1_024, height: 512)
+
+        let histogram = try await HistogramLoader.calculate(from: image)
+
+        #expect(histogram.count == 256)
+        #expect(histogram[0] == 1)
+        #expect(histogram[255] == 1)
+        #expect(histogram[1 ..< 255].allSatisfy { $0 == 0 })
+    }
+
+    @Test(.tags(.smoke))
     func `slow cancelled image cannot overwrite fast replacement`() async throws {
         let model = HistogramPresentationModel()
         let slowImage = try #require(makeImage(red: 0))
@@ -83,6 +105,24 @@ struct HistogramLoadingTests {
         context?.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
         guard let cgImage = context?.makeImage() else { return nil }
         return NSImage(cgImage: cgImage, size: NSSize(width: 2, height: 2))
+    }
+
+    private func makeSplitCGImage(width: Int, height: Int) throws -> CGImage {
+        let context = try #require(CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+                | CGImageAlphaInfo.premultipliedLast.rawValue,
+        ))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width / 2, height: height))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: width / 2, y: 0, width: width / 2, height: height))
+        return try #require(context.makeImage())
     }
 }
 
