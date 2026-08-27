@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct FileRecordRow: View {
+    @State private var isHovered = false
+
     let record: FileRecord
     let isSelected: Bool
-    let isHovered: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -51,6 +52,7 @@ struct FileRecordRow: View {
             },
         )
         .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
     }
 
     private var fileIcon: String {
