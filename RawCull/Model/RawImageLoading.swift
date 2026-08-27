@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import ImageIO
 import RawParserKit
 
 nonisolated struct RawImageFileMetadata: Sendable {
@@ -16,6 +17,11 @@ nonisolated protocol RawImageLoading: Sendable {
     func thumbnailCGImage(for url: URL, maxPixelSize: Int) async -> CGImage?
     func thumbnailImage(for url: URL, maxPixelSize: Int) async -> NSImage?
     func previewCGImage(for url: URL) async -> CGImage?
+    func embeddedPreviewJPEGData(
+        for url: URL,
+        matchingPixelWidth pixelWidth: Int,
+        height pixelHeight: Int,
+    ) async -> Data?
 }
 
 nonisolated enum RawImageLoadingError: Error {
@@ -77,6 +83,62 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
 
     func previewCGImage(for url: URL) async -> CGImage? {
         await RawParserKit.RawImageLoader.shared.previewImage(for: url)
+    }
+
+    /// Returns the camera-authored JPEG bytes only when they match the preview
+    /// that RawParserKit decoded. This avoids a second lossy JPEG encode while
+    /// preserving the existing preview-selection and sizing behavior.
+    @concurrent
+    func embeddedPreviewJPEGData(
+        for url: URL,
+        matchingPixelWidth pixelWidth: Int,
+        height pixelHeight: Int,
+    ) async -> Data? {
+        guard !Task.isCancelled else { return nil }
+
+        switch url.pathExtension.lowercased() {
+        case SupportedFileType.arw.rawValue:
+            guard let locations = SonyMakerNoteParser.embeddedJPEGLocations(from: url) else {
+                return nil
+            }
+            for location in [locations.fullJPEG, locations.preview, locations.thumbnail].compactMap(\.self) {
+                guard !Task.isCancelled else { return nil }
+                if let data = SonyMakerNoteParser.readEmbeddedJPEGData(at: location, from: url),
+                   Self.jpegData(data, matchesPixelWidth: pixelWidth, height: pixelHeight) {
+                    return data
+                }
+            }
+        case SupportedFileType.nef.rawValue:
+            guard let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) else {
+                return nil
+            }
+            for location in [locations.preview, locations.ifd1JPEG].compactMap(\.self) {
+                guard !Task.isCancelled else { return nil }
+                if let data = NikonMakerNoteParser.readEmbeddedJPEGData(at: location, from: url),
+                   Self.jpegData(data, matchesPixelWidth: pixelWidth, height: pixelHeight) {
+                    return data
+                }
+            }
+        default:
+            return nil
+        }
+        return nil
+    }
+
+    private static func jpegData(_ data: Data, matchesPixelWidth pixelWidth: Int, height pixelHeight: Int) -> Bool {
+        guard let dimensions = jpegPixelDimensions(from: data) else { return false }
+        return (dimensions.width == pixelWidth && dimensions.height == pixelHeight)
+            || (dimensions.width == pixelHeight && dimensions.height == pixelWidth)
+    }
+
+    private static func jpegPixelDimensions(from data: Data) -> (width: Int, height: Int)? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, options) as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue
+        else { return nil }
+        return (width, height)
     }
 
     private static func focusLocation(from metadata: RawImageMetadata) -> String? {
