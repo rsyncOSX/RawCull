@@ -238,8 +238,15 @@ private struct SemanticSearchReadinessView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
-            activityStatus
-                .lineLimit(2, reservesSpace: true)
+            ZStack(alignment: .leading) {
+                Text(verbatim: " \n ")
+                    .font(.caption)
+                    .hidden()
+                    .accessibilityHidden(true)
+
+                activityStatus
+                    .lineLimit(2)
+            }
 
             Spacer(minLength: 12)
 
