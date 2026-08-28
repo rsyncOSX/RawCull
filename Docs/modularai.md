@@ -1,7 +1,7 @@
 # Modular AI Refactoring Plan
 
-Status: active on the `version-3.2.0` development branch. Phase 0 is complete
-from the trusted `version-3.1.1` baseline; Phases 1 through 12 have not started.
+Status: active on the `version-3.2.0` development branch. Phase 0 validation is
+pending against the `version-3.1.1` baseline; Phases 1 through 12 have not started.
 
 ## Purpose
 
@@ -221,7 +221,9 @@ graphs or repeated artifact copies.
 
 ## Validation commands
 
-The following checked-in commands are the standard gates:
+The following checked-in commands are the standard gates. They must be executable
+from a clean checkout; a missing helper, fixture, manifest, or test plan is a failed
+gate rather than an external prerequisite:
 
 ```sh
 make test-smoke
@@ -245,7 +247,10 @@ xcodebuild \
 `make test-smoke` verifies the checked-in smoke manifest and its expected test
 enumeration before running it. When a test identifier is intentionally added,
 removed, or renamed, update the source, `TestManifests/SmokeTests.txt`, manifest
-integrity expectations, and Make enumeration count together.
+integrity expectations, the Make enumeration count, and
+`RawCullTests/TEST_ARCHITECTURE.md` together. Apply the equivalent updates to the
+performance manifest and count when performance coverage changes. Prefer generated
+or verifier-reported counts over manually duplicated totals.
 
 Do not run the expensive performance suite after documentation-only or pure-rename
 commits. Run it whenever indexing, ranking, cache serialization, artifact mapping,
@@ -262,6 +267,31 @@ task isolation, or package boundaries change.
 3. Run the existing AI-focused suites and identify any important workflow without a
    characterization test.
 4. Add only the missing characterization tests. Do not create new abstractions yet.
+
+### Baseline validation record
+
+Phase 0 is complete only when this record shows every gate passing. Update it in the
+same commit that changes the Phase 0 status; do not rely on an unlinked local run.
+
+| Input | Recorded value |
+|---|---|
+| Baseline branch | `version-3.1.1` |
+| Baseline commit | `2cf926ba5069e3094807800714b7df1258d601ab` |
+| Xcode | 27.0 (build `27A5252f`) |
+| `Package.resolved` SHA-256 | `dcf8f3b02c9c847a918439624a61e99d86986614e172daf15883b404794d8c20` |
+
+| Gate | Status | Evidence |
+|---|---|---|
+| Smoke enumeration | Pass | 179 unique identifiers verified on 2026-08-28 after restoring the checked-in verifier. |
+| Performance enumeration | Pass | 2 unique identifiers verified on 2026-08-28. |
+| `make test-smoke` | **Fail** | `ReleaseMetadataTests`, `RawCullAIModelDownloadsTests`, and `PhotoAnalysisKitIntegrationTests` each reported one failure on 2026-08-28. |
+| `make test-full` | Pending | Re-run after the smoke failures are resolved. |
+| `make test-performance` | Pending | Re-run after the smoke failures are resolved. |
+| Exact-package Release build | Pending | Re-run after the smoke failures are resolved. |
+
+Before marking the phase complete, add a scenario-to-test table mapping every
+baseline scenario below to a named automated test or a dated manual acceptance
+record.
 
 Important baseline scenarios include:
 
@@ -323,8 +353,8 @@ moved.
 
 - The dependency direction is documented and mechanically checked.
 - No concrete model provider is imported by a view or general view model.
-- Runtime output is byte-for-byte unchanged because this phase contains no logic
-  edits.
+- No production runtime code changed, persisted compatibility fixtures are
+  unchanged, and the existing characterization gates remain green.
 
 ### Rollback
 
@@ -444,7 +474,8 @@ narrow presentation boundary.
 - Open Settings repeatedly and confirm the model is not recreated.
 - Validate missing, corrupt, restored, and installed model presentation.
 - Change CLIP and segmentation selections and relaunch.
-- Start and cancel a model download.
+- Start and cancel a model download using the configured production/staging source
+  or an explicitly injected debug service, and record which source was used.
 - Verify licence acceptance and model removal state.
 
 ### Exit criteria
@@ -752,6 +783,20 @@ Create it only if the established boundary has all of these properties:
 If those conditions are not met, keep an app-local module/folder. PhotoAIKit already
 provides the reusable backend package; another package is not automatically better.
 
+### Decision record
+
+Record one explicit architecture decision before this phase is considered complete:
+
+1. **Keep the boundary app-local.** Document which package criteria are not met,
+   why an app-local boundary is preferable, and what evidence would justify
+   revisiting the decision.
+2. **Extract `RawCullIntelligence`.** Record the accepted dependency graph, target
+   ownership, injected application concerns, resource ownership, and the commit for
+   each extraction step.
+
+Choosing to keep the boundary app-local is a valid completion of this phase. Do not
+leave the phase indefinitely pending merely because package extraction was rejected.
+
 ### Package extraction sequence, if chosen
 
 1. Move pure contracts only and pass all gates.
@@ -763,6 +808,28 @@ provides the reusable backend package; another package is not automatically bett
 
 Run smoke and Release builds after every target-membership change. Run full and
 performance suites after moving executable logic.
+
+### Tests
+
+- import-boundary check
+- `make test-smoke`
+- exact-package Release build after every target-membership change
+- `make test-full` and `make test-performance` after moving executable logic
+
+### Exit criteria
+
+- The decision and its evidence are recorded in contributor documentation.
+- If the boundary stays app-local, all final dependency rules can still be
+  mechanically enforced.
+- If a package is extracted, it has no SwiftUI, app-composition, Background Assets,
+  or implicit application-path dependencies, and all gates are green after each
+  extraction step.
+
+### Rollback
+
+If extraction is attempted, revert its independently reviewable commits in reverse
+order while retaining the decision record and lessons learned. Persisted formats
+must remain compatible throughout, so no user-data rollback is required.
 
 ## Phase 12: remove compatibility forwarding and finalize enforcement
 
@@ -800,6 +867,25 @@ performance suites after moving executable logic.
 ## Manual acceptance matrix
 
 Run this matrix at the end of phases 3, 6, 7, 8, and 12 as applicable:
+
+### Repeatable prerequisites and evidence
+
+- Use a versioned test catalog with a recorded file inventory and checksum. Keep a
+  pristine copy for add, replace, rename, remove, and corrupt-cache scenarios.
+- Record the application commit, macOS and Xcode builds, selected model manifests and
+  fingerprints, preference setup, and cache state for every run.
+- Use validated DataComp, OpenAI CLIP, SAM 3, and EfficientSAM bundles where the
+  scenario requires them. Record a manual check as unavailable rather than silently
+  skipping it when a licensed model resource is not available.
+- Exercise model download through the configured production/staging source or an
+  explicitly injected debug service; never substitute live network behavior for a
+  deterministic cancellation or failure fixture.
+- Use injected test/debug services for precise cancellation points, corrupt results,
+  provider failures, and partial candidate failures that cannot be reproduced
+  reliably through the release UI. Such scenarios must also have a named automated
+  test.
+- Store the dated result or link it from the phase record before advancing to the
+  next phase.
 
 ### Startup and settings
 
@@ -931,8 +1017,8 @@ burst extraction or a new Swift package.
    Deep Review is still optional.
 2. Re-run the import inventory because file names and dependencies may have changed.
 3. Reconcile the plan with current tests and Make manifest counts.
-4. Start at Phase 0 even if the code still resembles the architecture described
-   here.
+4. Re-run the Phase 0 baseline gates against the current commit before resuming
+   production refactoring, even if Phase 0 was completed previously.
 5. Implement only one numbered phase or subphase at a time.
 6. Record test results and manual checks before beginning the next phase.
 7. Do not skip directly to file moves or a package split.

@@ -12,7 +12,7 @@ The application is written in Swift 6 and SwiftUI. Focused Swift packages own im
 ## Purpose of the version-3.2.0 branch
 
 The `version-3.2.0` branch is the development branch for modularizing RawCull's
-AI architecture. It starts from the trusted `version-3.1.1` baseline and will
+AI architecture. It starts from the `version-3.1.1` baseline and will
 incrementally establish one clear application-level owner for intelligence
 features, narrow the interfaces used by views and general application code, and
 separate similarity, semantic search, burst analysis, Deep Review, model
@@ -31,7 +31,7 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 
 | Phase | Purpose | Status |
 |---|---|---|
-| 0 | Establish a trustworthy baseline from `version-3.1.1` before production refactoring begins. | **Complete** |
+| 0 | Establish a trustworthy baseline from `version-3.1.1` before production refactoring begins. | **Validation pending** |
 | 1 | Define, document, inventory, and mechanically enforce the AI dependency boundary. | Not started |
 | 2 | Introduce one stable intelligence runtime without moving behavior. | Not started |
 | 3 | Replace app-level settings callbacks with one typed configuration path. | Not started |
@@ -53,7 +53,7 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 
 | Branch | Minimum macOS | Development toolchain | Main characteristics |
 |---|---:|---|---|
-| `version-3.2.0` | macOS 27 | Xcode 27, Swift 6 | Modular AI architecture refactor based on the trusted RawCull 3.1.1 behavior and data formats |
+| `version-3.2.0` | macOS 27 | Xcode 27, Swift 6 | Modular AI architecture refactor based on RawCull 3.1.1 behavior and data formats |
 | `main`, `version-3.1.1` | macOS 27 | Xcode 27, Swift 6 | AI-based RawCull 3 with local CLIP semantic search and similarity, SAM 3 Deep Review, model validation, and Managed Background Assets support |
 | `version-2.3.4` | macOS 26.2 | Xcode 26, Swift 6 | macOS 26 release line using built-in Vision feature prints for visual similarity and burst grouping |
 
