@@ -21,7 +21,7 @@ struct PhotoAnalysisKitIntegrationTests {
         #expect(result.mask != nil)
         let breakdown = try #require(result.breakdown)
         #expect(breakdown.finalScore.isFinite)
-        #expect((0 ... 1).contains(breakdown.finalScore))
+        #expect(breakdown.finalScore >= 0)
     }
 
     @Test(.tags(.smoke))

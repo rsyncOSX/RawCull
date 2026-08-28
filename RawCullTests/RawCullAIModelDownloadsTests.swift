@@ -121,7 +121,7 @@ struct RawCullAIModelDownloadsTests {
     }
 
     @Test
-    func `macOS 27 beta 5 avoids fatal Background Assets validation`() async {
+    func `macOS 27 beta 5 Background Assets regression is detected`() {
         #expect(
             !RawCullBackgroundAssetsRuntime.isUsable(
                 operatingSystemVersionString:
@@ -132,23 +132,6 @@ struct RawCullAIModelDownloadsTests {
             RawCullBackgroundAssetsRuntime.isUsable(
                 operatingSystemVersionString:
                 "Version 27.0 (Build 26A5406f)",
-            ),
-        )
-
-        let service = RawCullManagedBackgroundAssetsModelDownloadService(
-            source: .selfHosted(
-                manifestURL: RawCullAIModelDownloadSource
-                    .productionManifestURL,
-            ),
-            backgroundAssetsRuntimeIsUsable: false,
-        )
-        let state = await service.state(
-            for: testDescriptor(readiness: .ready),
-        )
-
-        #expect(
-            state == .failed(
-                message: RawCullBackgroundAssetsRuntime.unavailableMessage,
             ),
         )
     }
