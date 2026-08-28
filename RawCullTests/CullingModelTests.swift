@@ -1945,12 +1945,17 @@ struct RawCullViewModelCullingTests {
         let second = makeCullingTestFile("B.ARW")
         let group = BurstGroup(id: 0, fileIDs: [first.id, second.id])
         let result = makeCullingBurstResult(groupID: 0, files: [first, second])
-        let snapshot = makeBurstSnapshot(
+        var snapshot = makeBurstSnapshot(
             catalog: catalog.url,
             files: [first, second],
             groups: [group],
             results: [result],
             reviewStateSnapshots: [],
+        )
+        snapshot.embeddings = [:]
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: [first, second],
+            artifacts: [:],
         )
         let recorder = BurstCacheSaveRecorder()
 

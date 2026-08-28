@@ -31,7 +31,7 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 
 | Phase | Purpose | Status |
 |---|---|---|
-| 0 | Establish a trustworthy baseline from `version-3.1.1` before production refactoring begins. | **Validation pending** |
+| 0 | Establish a trustworthy baseline from `version-3.1.1` before production refactoring begins. | **Complete (2026-08-28)** |
 | 1 | Define, document, inventory, and mechanically enforce the AI dependency boundary. | Not started |
 | 2 | Introduce one stable intelligence runtime without moving behavior. | Not started |
 | 3 | Replace app-level settings callbacks with one typed configuration path. | Not started |

@@ -1,7 +1,8 @@
 # Modular AI Refactoring Plan
 
-Status: active on the `version-3.2.0` development branch. Phase 0 validation is
-pending against the `version-3.1.1` baseline; Phases 1 through 12 have not started.
+Status: active on the `version-3.2.0` development branch. Phase 0 was completed
+on 2026-08-28 against the `version-3.1.1` baseline; Phases 1 through 12 have not
+started.
 
 ## Purpose
 
@@ -277,33 +278,41 @@ same commit that changes the Phase 0 status; do not rely on an unlinked local ru
 |---|---|
 | Baseline branch | `version-3.1.1` |
 | Baseline commit | `2cf926ba5069e3094807800714b7df1258d601ab` |
+| Validation date | 2026-08-28 |
 | Xcode | 27.0 (build `27A5252f`) |
 | `Package.resolved` SHA-256 | `dcf8f3b02c9c847a918439624a61e99d86986614e172daf15883b404794d8c20` |
+
+Selected resolved AI and image-analysis dependencies:
+
+| Package | Resolved revision or version |
+|---|---|
+| `coreai-models` | `bffc38fe48f50e4e962ac9772b64a5b55a605286` |
+| `PhotoAIKit` | `1e2eaccd00947fbadda300e4a617842479cae7b9` |
+| `PhotoAnalysisKit` | `1.2.2` |
+| `RawCullCore` | `1.1.2` |
+| `RawParserKit` | `1.2.8` |
 
 | Gate | Status | Evidence |
 |---|---|---|
 | Smoke enumeration | Pass | 179 unique identifiers verified on 2026-08-28 after restoring the checked-in verifier. |
 | Performance enumeration | Pass | 2 unique identifiers verified on 2026-08-28. |
-| `make test-smoke` | **Fail** | `ReleaseMetadataTests`, `RawCullAIModelDownloadsTests`, and `PhotoAnalysisKitIntegrationTests` each reported one failure on 2026-08-28. |
-| `make test-full` | Pending | Re-run after the smoke failures are resolved. |
-| `make test-performance` | Pending | Re-run after the smoke failures are resolved. |
-| Exact-package Release build | Pending | Re-run after the smoke failures are resolved. |
+| `make test-smoke` | Pass | Checked-in smoke manifest passed on 2026-08-28 after correcting its three stale expectations. |
+| `make test-full` | Pass | Full test plan passed with Thread Sanitizer on 2026-08-28; result bundle: `Test-RawCull-2026.08.28_15-37-34-+0200.xcresult`. |
+| `make test-performance` | Pass | Checked-in performance manifest passed on 2026-08-28. |
+| Exact-package Release build | Pass | Resolved-package arm64 Release build completed successfully on 2026-08-28. |
 
-Before marking the phase complete, add a scenario-to-test table mapping every
-baseline scenario below to a named automated test or a dated manual acceptance
-record.
+Baseline scenario traceability:
 
-Important baseline scenarios include:
-
-- app composition with Vision before CLIP validation;
-- settings refresh and provider switching;
-- semantic search with compatible, missing, partial, and stale indexes;
-- model switch during or after hydration;
-- burst cache hit, miss, migration, reindex, regroup, and cancellation;
-- Deep Review completion, cancellation, unavailable provider, and recommendation
-  application;
-- independent cache clearing;
-- model download/licence state restoration.
+| Scenario | Automated characterization |
+|---|---|
+| App composition with Vision before CLIP validation | `RawCullAIIntegrationTests.Composition root reports the complete Phase 1 capability surface`; `RawCullAIIntegrationTests.Saved burst scan reads existing Vision cache evidence` |
+| Settings refresh and provider switching | `RawCullAIIntegrationTests.Cancelling Settings refresh cancels its evidence scan`; `RawCullAIIntegrationTests.CLIP enablement and exclusive model selection persist`; `RawCullAIIntegrationTests.Model validation is reused until candidate metadata changes` |
+| Semantic search with compatible, missing, partial, and stale indexes | `RawCullSemanticSearchTests.Literal query encodes once, excludes Vision, isolates failures, and ranks deterministically`; `RawCullSemanticSearchTests.Partial index, empty index, provider failure, and model switch remain distinct`; `RawCullSemanticSearchTests.Preparing a reindex resets selection and restores the full catalog` |
+| Model switch during or after hydration | `TypedAIPersistenceMatrixTests.superseded semantic hydration cannot publish an older backend`; `TypedAIPersistenceMatrixTests.dataComp and OpenAI artifacts relaunch without cross-loading` |
+| Burst cache hit, miss, migration, reindex, regroup, and cancellation | `RawCullViewModelCullingTests.restoring an existing full burst index never starts scoring or indexing`; `RawCullViewModelCullingTests.burst cache rejects a different similarity signature`; `PhotoAIKitSimilarityMigrationTests.Legacy burst artifacts migrate once into the per-file store`; `PhotoAIKitSimilarityMigrationTests.CLIP reindexes only missing or stale artifacts`; `RawCullViewModelCullingTests.live regroup review state follows membership instead of group id`; `RawCullViewModelCullingTests.cancelled burst analysis cannot apply a late cache result` |
+| Deep Review completion, cancellation, unavailable provider, and recommendation application | `DeepAIReviewFeatureTests.Feature publishes a typed completed result`; `DeepAIReviewFeatureTests.Cancelling Deep Review cancels the owned in-process task`; `RawCullAIIntegrationTests.Composition root reports the complete Phase 1 capability surface`; `RawCullViewModelCullingTests.applying Deep Review winner rates it three stars and marks group reviewed` |
+| Independent cache clearing | `AICacheBoundaryTests.independent cache clears preserve ratings settings decisions models and licences`; `RawCullViewModelCullingTests.burst cache reports usage and clears every catalog snapshot` |
+| Model download and licence-state restoration | `RawCullAIModelDownloadsTests.Verified acceptance gates and unlocks a ready download`; `RawCullAIModelDownloadsTests.A changed licence checksum invalidates prior acceptance`; `RawCullAIModelDownloadsTests.Published CLIP models expose the Background Assets runtime failure` |
 
 ### Tests
 
