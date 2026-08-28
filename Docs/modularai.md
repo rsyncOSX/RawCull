@@ -1,8 +1,8 @@
 # Modular AI Refactoring Plan
 
-Status: active on the `version-3.2.0` development branch. Phase 0 was completed
-on 2026-08-28 against the `version-3.1.1` baseline; Phases 1 through 12 have not
-started.
+Status: active on the `version-3.2.0` development branch. Phases 0 and 1 were
+completed on 2026-08-28 against the `version-3.1.1` baseline; Phases 2 through 12
+have not started.
 
 ## Purpose
 
@@ -333,6 +333,10 @@ Baseline scenario traceability:
 Drop only the new characterization-test commits. No production state is affected.
 
 ## Phase 1: define and enforce the dependency boundary
+
+Status: completed on 2026-08-28. The policy and import inventory are recorded in
+`Docs/ai-dependency-boundary.md`; the repository rule is implemented by
+`Scripts/VerifyAIImportBoundary.sh` and `make verify-ai-import-boundary`.
 
 ### Changes
 

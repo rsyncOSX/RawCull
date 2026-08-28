@@ -61,6 +61,9 @@ test-performance: verify-performance-manifest
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \
 		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
 
+verify-ai-import-boundary:
+	./Scripts/VerifyAIImportBoundary.sh
+
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
@@ -217,4 +220,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
