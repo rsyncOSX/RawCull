@@ -21,7 +21,19 @@ struct SidebarARWCatalogFileView: View {
         if selectedSource == nil {
             // Empty State when no catalog is selected
             ContentUnavailableView {
-                Label("No Catalog Selected", systemImage: "folder.badge.plus")
+                Label {
+                    Text("No Catalog Selected")
+                } icon: {
+                    Button {
+                        viewModel.isShowingPicker = true
+                    } label: {
+                        Image(systemName: "folder.badge.plus")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Add Catalog…")
+                    .accessibilityLabel("Add Catalog")
+                    .accessibilityHint("Opens the folder picker to select a catalog.")
+                }
             } description: {
                 Text("Choose File > Add Catalog… to start culling your photos.")
             }

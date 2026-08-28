@@ -239,6 +239,7 @@ private struct SemanticSearchReadinessView: View {
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             activityStatus
+                .lineLimit(2, reservesSpace: true)
 
             Spacer(minLength: 12)
 
@@ -298,7 +299,6 @@ private struct SemanticSearchReadinessView: View {
             Text("Search failed: \(message)")
                 .font(.caption)
                 .foregroundStyle(.red)
-                .lineLimit(2)
         }
     }
 
