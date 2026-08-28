@@ -1,7 +1,7 @@
 # Modular AI Refactoring Plan
 
-Status: proposed for a future development branch. No implementation work has
-started.
+Status: active on the `version-3.2.0` development branch. Phase 0 is complete
+from the trusted `version-3.1.1` baseline; Phases 1 through 12 have not started.
 
 ## Purpose
 
