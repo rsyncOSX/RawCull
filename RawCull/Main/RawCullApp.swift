@@ -43,33 +43,15 @@ struct RawCullApp: App {
 
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
     @State private var viewModel: RawCullViewModel
-    @State private var aiSettingsModel: RawCullAISettingsModel
+    @State private var intelligenceRuntime: RawCullIntelligenceRuntime
 
     init() {
-        let integration = RawCullAIIntegration()
-        let viewModel = RawCullViewModel(
-            similarityService: integration.visionSimilarityService,
-            semanticSearchCapability: integration.capabilities()
-                .semanticSearchStatus(for: .defaultSelection),
-            deepAIReviewFeature: integration.deepAIReviewFeature,
-        )
+        let applicationState = RawCullApplicationState.live()
         _viewModel = State(
-            initialValue: viewModel,
+            initialValue: applicationState.viewModel,
         )
-        _aiSettingsModel = State(
-            initialValue: RawCullAISettingsModel(
-                integration: integration,
-                similarityServiceDidChange: { [weak viewModel] service in
-                    viewModel?.setSimilarityService(service)
-                },
-                semanticSearchCapabilityDidChange: {
-                    [weak viewModel] capability, service in
-                    viewModel?.setSemanticSearchCapability(
-                        capability,
-                        service: service,
-                    )
-                },
-            ),
+        _intelligenceRuntime = State(
+            initialValue: applicationState.intelligenceRuntime,
         )
     }
 
@@ -83,7 +65,7 @@ struct RawCullApp: App {
                     await viewModel.applyStoredScoringSettings()
                 }
                 .task {
-                    await aiSettingsModel.refresh()
+                    await intelligenceRuntime.settingsModel.refresh()
                 }
                 .onAppear {
                     appDelegate.configure(viewModel: viewModel)
@@ -99,7 +81,7 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView(aiSettingsModel: aiSettingsModel)
+            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel)
                 .environment(viewModel)
         }
 

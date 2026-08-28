@@ -42,6 +42,7 @@ RawCullTests/PerFileAnalysisArtifactStoreTests
 RawCullTests/PhotoAnalysisKitIntegrationTests
 RawCullTests/RawCullAIIntegrationTests
 RawCullTests/RawCullAIModelDownloadsTests
+RawCullTests/RawCullIntelligenceRuntimeTests
 RawCullTests/RawCullSemanticSearchTests
 RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/ReleaseMetadataTests
@@ -89,6 +90,7 @@ private let expectedTaggedSuites: Set<String> = [
     "PhotoAnalysisKitIntegrationTests",
     "RawCullAIIntegrationTests",
     "RawCullAIModelDownloadsTests",
+    "RawCullIntelligenceRuntimeTests",
     "RawCullSemanticSearchTests",
     "RawCullSemanticSearchUITests",
     "ReleaseMetadataTests",

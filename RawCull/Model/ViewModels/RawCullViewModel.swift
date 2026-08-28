@@ -257,6 +257,14 @@ final class RawCullViewModel {
     }
 
     init(
+        similarityModel: SimilarityScoringModel,
+        deepAIReviewFeature: DeepAIReviewFeature,
+    ) {
+        self.similarityModel = similarityModel
+        self.deepAIReviewFeature = deepAIReviewFeature
+    }
+
+    convenience init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
         semanticSearchCapability: RawCullSemanticSearchCapabilityStatus = .unavailable(
             reason: "Semantic search requires a valid CLIP model.",
@@ -266,13 +274,15 @@ final class RawCullViewModel {
         similarityArtifactStore: PerFileAnalysisArtifactStore = .shared,
         deepAIReviewFeature: DeepAIReviewFeature = DeepAIReviewFeature(),
     ) {
-        self.similarityModel = SimilarityScoringModel(
-            similarityService: similarityService,
-            semanticSearchCapability: semanticSearchCapability,
-            semanticSearchService: semanticSearchService,
-            artifactStore: similarityArtifactStore,
+        self.init(
+            similarityModel: SimilarityScoringModel(
+                similarityService: similarityService,
+                semanticSearchCapability: semanticSearchCapability,
+                semanticSearchService: semanticSearchService,
+                artifactStore: similarityArtifactStore,
+            ),
+            deepAIReviewFeature: deepAIReviewFeature,
         )
-        self.deepAIReviewFeature = deepAIReviewFeature
     }
 
     func setSimilarityService(_ service: any RawCullSimilarityServicing) {

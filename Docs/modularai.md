@@ -1,8 +1,9 @@
 # Modular AI Refactoring Plan
 
-Status: active on the `version-3.2.0` development branch. Phases 0 and 1 were
-completed on 2026-08-28 against the `version-3.1.1` baseline; Phases 2 through 12
-have not started.
+Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
+implemented on 2026-08-28 against the `version-3.1.1` baseline; Phases 3 through
+12 have not started. Phase 2's automated gates pass; its manual acceptance
+checklist remains for an interactive app session.
 
 ## Purpose
 
@@ -375,45 +376,236 @@ Remove the boundary check and documentation commit.
 
 ## Phase 2: introduce a stable intelligence runtime without moving behavior
 
-### Changes
+Status: implemented on 2026-08-28. This phase is an ownership and composition
+change only. Phase 3, not Phase 2, will move configuration coordination into the
+runtime. Automated validation passed; the manual acceptance checklist below has
+not been claimed as automated coverage.
 
-1. Introduce `RawCullIntelligenceRuntime` as the stable owner of the existing
-   `SimilarityScoringModel`, `DeepAIReviewFeature`, `RawCullAISettingsModel`, and
-   `RawCullAIIntegration` references.
-2. Construct the runtime once in `RawCullApp` and retain it with correct SwiftUI
-   state ownership.
-3. Keep `RawCullViewModel`'s existing properties and methods as compatibility
-   forwarders to the same model instances. Do not create duplicate models or copy
-   observable state.
-4. Preserve the existing callback sequence used when settings select a new
-   similarity or semantic-search service.
-5. Add identity tests proving that the app, settings, and central view model use the
-   same similarity and Deep Review instances.
+Implementation note: the caller audit found that
+`RawCullViewModel.similarityModel` must remain a `var` because existing SwiftUI
+controls form writable bindings through it. The instance-based initializer and
+runtime identity tests still guarantee that app composition stores the exact shared
+model; the observable model contents and all view call sites remain unchanged.
 
-This phase changes ownership only. It must not alter task creation, cache access,
-backend selection, or view call sites.
+### Starting point
+
+`RawCullApp.init` currently creates `RawCullAIIntegration`, asks it for the initial
+Vision similarity service and semantic-search capability, creates
+`RawCullViewModel`, and then creates `RawCullAISettingsModel`. The settings model
+holds two weak-view-model callback closures. When a refresh or preference change is
+applied, those callbacks run in this order:
+
+1. call `RawCullViewModel.setSimilarityService`;
+2. call `RawCullViewModel.setSemanticSearchCapability`.
+
+The view model creates its own `SimilarityScoringModel`, while the integration
+creates the `DeepAIReviewFeature` injected into the view model. The app stores the
+view model and settings model in separate `@State` properties. Phase 2 must preserve
+that behavior and callback order while making object identity explicit.
+
+### Runtime shape and ownership
+
+Add an `@MainActor` `RawCullIntelligenceRuntime` with immutable references to:
+
+- `RawCullAIIntegration`;
+- `SimilarityScoringModel`;
+- `DeepAIReviewFeature`;
+- `RawCullAISettingsModel`.
+
+The runtime is a lifetime container in this phase. It has no mirrored observable
+properties, backend-selection methods, worker tasks, repository operations, or
+general application state. In particular, it must not forward every property of
+the similarity, settings, or Deep Review models.
+
+The resulting ownership graph is:
+
+```text
+RawCullApp private @State
+    -> RawCullIntelligenceRuntime
+        -> RawCullAIIntegration
+        -> SimilarityScoringModel <--- RawCullViewModel compatibility property
+        -> DeepAIReviewFeature  <--- RawCullViewModel compatibility property
+        -> RawCullAISettingsModel
+
+RawCullAISettingsModel callbacks --weak capture--> RawCullViewModel methods
+```
+
+Multiple strong references to one model are acceptable; multiple model instances
+are not. The weak callback captures must remain weak so this graph cannot become a
+retain cycle.
+
+### Implementation sequence
+
+#### Phase 2A: make shared model injection possible
+
+1. Add a `RawCullViewModel` initializer that accepts an already-created
+   `SimilarityScoringModel` and `DeepAIReviewFeature` and stores those exact
+   instances.
+2. Retain the current service-based initializer as a compatibility initializer for
+   tests and non-app callers. It may construct a similarity model and delegate to
+   the new initializer, but production app composition must use the instance-based
+   initializer.
+3. Make the stored similarity reference immutable if the caller audit confirms it
+   is assigned only during initialization. Do not make the model's observable
+   contents immutable.
+4. Do not change `setSimilarityService`, `setSemanticSearchCapability`, their task
+   handles, cancellation order, hydration calls, or generation behavior.
+
+Suggested commit boundary: the initializer seam plus focused identity tests. The
+app still uses its old construction path at the end of this commit.
+
+#### Phase 2B: add the lifetime container
+
+1. Add `RawCullIntelligenceRuntime.swift` beside the existing AI integration
+   application types. Its stored references are `let` properties.
+2. Give it an internal initializer suitable for isolated tests. Keep production
+   assembly in one explicit construction function or one contiguous block at the
+   app composition root; do not scatter partial runtime construction across views.
+3. Assemble production objects exactly once and in this order:
+   - create `RawCullAIIntegration`;
+   - create `SimilarityScoringModel` with the integration's current Vision service,
+     the current default-selection semantic capability, the same nil initial
+     semantic service, and the same artifact store default;
+   - use `integration.deepAIReviewFeature` rather than creating another feature;
+   - create `RawCullViewModel` with those two existing model instances;
+   - create `RawCullAISettingsModel` with the same integration and the existing two
+     weak-view-model callbacks;
+   - create the runtime from those four references.
+4. Add a debug precondition or construction-time assertion if it can compare the
+   shared similarity and Deep Review references without exposing backend objects to
+   presentation code. The unit tests remain the authoritative identity check.
+
+This order is deliberate. Creating the settings model before its callback target
+or creating the view model through its service-based compatibility initializer
+would permit a second similarity model.
+
+Suggested commit boundary: the runtime type and production assembly, with no scene
+or view initializer changes yet.
+
+#### Phase 2C: give SwiftUI one stable owner
+
+1. Replace `RawCullApp`'s settings-model state with
+   `@State private var intelligenceRuntime`; keep the existing view-model `@State`
+   because general application ownership is not moving in this phase.
+2. Initialize both state values from the single assembly result in `RawCullApp.init`.
+   Never reconstruct the runtime or a child model in `body`, a scene closure, a
+   computed property, or an environment default.
+3. Continue passing `intelligenceRuntime.settingsModel` to `SettingsView`. Continue
+   injecting the same `RawCullViewModel` into the environment and passing it to
+   `RawCullMainView`.
+4. Leave both existing `.task` modifiers separate and behaviorally unchanged:
+   `viewModel.applyStoredScoringSettings()` and
+   `intelligenceRuntime.settingsModel.refresh()` must still start from the same
+   scene locations they do now.
+5. Leave `AppDelegate.configure(viewModel:)`, termination flushing, security-scoped
+   access, all view initializers, and all `viewModel.similarityModel` and
+   `viewModel.deepAIReviewFeature` call sites unchanged.
+
+Suggested commit boundary: only the app-root ownership switch and its tests.
+
+### Explicitly deferred
+
+Phase 2 does not:
+
+- replace the two settings callbacks with a runtime command;
+- move similarity or semantic hydration tasks out of `RawCullViewModel`;
+- inject the runtime into the SwiftUI environment;
+- migrate a view to read a runtime child directly, except that `RawCullApp` obtains
+  the already-existing settings model from the runtime;
+- move burst analysis, caches, artifact stores, or Deep Review actions;
+- change defaults, preference keys, provider validation, capability calculation,
+  refresh timing, cache paths, persisted formats, logging, or error presentation;
+- rename existing AI types or move existing files.
 
 ### Tests
 
-- Runtime identity and lifetime tests.
-- `RawCullAIIntegrationTests`
-- `RawCullSemanticSearchTests`
-- `DeepAIReviewFeatureTests`
-- `make test-smoke`
-- `make test-full`, because observable ownership and task lifetimes changed.
+Add focused `RawCullIntelligenceRuntimeTests` covering:
+
+- runtime construction preserves reference identity with `===` for its integration,
+  similarity, settings, and Deep Review children;
+- the production assembly gives `RawCullViewModel` the runtime's exact similarity
+  and Deep Review instances;
+- settings similarity and semantic callbacks target that same view model and fire
+  in the existing similarity-then-semantic order;
+- a no-op service/capability application retains the current model instance and
+  does not start replacement hydration;
+- releasing a temporary app-composition harness releases the runtime and models,
+  proving that callback wiring introduced no retain cycle;
+- repeated access through a scene-content harness returns the same runtime and
+  child identities rather than recreating them.
+
+Keep existing constructor coverage for the compatibility initializer. Do not rewrite
+unrelated tests to use the runtime merely to increase adoption.
+
+Run:
+
+- the new `RawCullIntelligenceRuntimeTests`;
+- `RawCullAIIntegrationTests`;
+- `RawCullSemanticSearchTests`;
+- `DeepAIReviewFeatureTests`;
+- `make verify-ai-import-boundary`;
+- `make test-smoke`;
+- `make test-full`, because observable ownership and task lifetimes changed;
+- the exact-package Release build, because a production file and app composition
+  changed.
+
+Do not run `make test-performance`: no indexing, ranking, serialization, artifact
+mapping, or package boundary changes are authorized in this phase.
+
+If the new test identifiers are added to a checked-in manifest, update the manifest,
+enumeration count, integrity expectation, and `RawCullTests/TEST_ARCHITECTURE.md` in
+the same commit as required by the validation rules above.
+
+### Manual acceptance
+
+- Launch the app, open and close Settings several times, and confirm the selected
+  model, validation result, and download state do not reset.
+- Open the main, Settings, and About windows in different orders and confirm no
+  extra model validation, similarity reset, or Deep Review reset occurs.
+- Change the CLIP enablement and selected CLIP model and confirm the same visible
+  fallback, refresh, and hydration behavior as the Phase 0 baseline.
+- Quit during active culling persistence and confirm termination still waits for the
+  flush and releases security-scoped access.
 
 ### Exit criteria
 
-- There is exactly one runtime, similarity model, settings model, and Deep Review
-  feature per app session.
-- Closing/reopening SwiftUI content does not recreate feature state.
-- All old APIs still forward to the same instances.
-- No view has been migrated yet.
+- There is exactly one runtime, integration, similarity model, settings model, and
+  Deep Review feature per app session.
+- `RawCullApp` owns the runtime in private `@State`; no runtime or feature model is
+  created by `body` or a scene closure.
+- `RawCullViewModel.similarityModel` and
+  `RawCullViewModel.deepAIReviewFeature` are the runtime's exact instances.
+- Settings callbacks still weakly target the view model and preserve their original
+  ordering and behavior.
+- All old view-model APIs and all existing view call sites remain in place.
+- No task, cache, repository, provider-selection, persistence, or product behavior
+  moved.
+- The focused tests, import boundary, smoke suite, full suite, and exact-package
+  Release build pass.
+
+### Validation evidence (2026-08-28)
+
+- `RawCullIntelligenceRuntimeTests`: 5 tests passed, covering shared identity,
+  callback targeting and ordering, no-op task behavior, and weak-callback lifetime.
+- `make verify-ai-import-boundary`: passed with the same 5 non-blocking
+  `PhotoAIContracts` leakage warnings recorded by Phase 1.
+- `make test-smoke`: verified 184 unique manifest identifiers; all passed.
+- `make test-full`: passed with Thread Sanitizer enabled.
+- `xcodebuild -project RawCull.xcodeproj -scheme RawCull -destination
+  'platform=macOS,arch=arm64' -configuration Release
+  -onlyUsePackageVersionsFromResolvedFile build`: passed.
+- `make test-performance` was intentionally not run because Phase 2 did not change
+  indexing, ranking, serialization, artifact mapping, or package boundaries.
+- The manual acceptance checklist remains pending an interactive session with the
+  user's existing catalog and preferences; no automated result is presented as a
+  substitute for it.
 
 ### Rollback
 
-Restore direct construction in `RawCullApp`; forwarding means no caller changes need
-to be reverted.
+Revert Phase 2C to restore the separate settings-model `@State`, then revert the
+runtime container and instance-based initializer commits. The compatibility
+initializer keeps existing callers source-compatible throughout rollback. No cache,
+preference, model licence, or persisted user data requires migration or cleanup.
 
 ## Phase 3: replace settings callbacks with one typed configuration path
 
