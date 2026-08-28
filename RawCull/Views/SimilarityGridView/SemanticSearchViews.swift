@@ -13,9 +13,7 @@ struct SemanticSearchControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SemanticSearchTitleRow(
-                presentation: presentation,
-            )
+            SemanticSearchTitleRow()
 
             switch presentation.availability {
             case .ready:
@@ -212,32 +210,9 @@ private struct SemanticSearchQueryEntryView: View {
 }
 
 private struct SemanticSearchTitleRow: View {
-    let presentation: SemanticSearchUIPresentation
-
     var body: some View {
-        HStack(spacing: 10) {
-            Label("Semantic Search", systemImage: "text.magnifyingglass")
-                .font(.headline)
-
-            Spacer(minLength: 12)
-
-            if presentation.showsSearchField, !presentation.isIndexing {
-                Text(
-                    "\(presentation.coverage.indexedFileCount) of \(presentation.coverage.catalogFileCount) indexed",
-                    comment: "Semantic-search coverage: first value is indexed images and second is all catalog images.",
-                )
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(
-                    presentation.coverage.isComplete
-                        ? Color.green
-                        : Color.secondary,
-                )
-                .accessibilityLabel("Semantic search indexing coverage")
-                .accessibilityValue(
-                    "\(presentation.coverage.indexedFileCount) of \(presentation.coverage.catalogFileCount) images",
-                )
-            }
-        }
+        Label("Semantic Search", systemImage: "text.magnifyingglass")
+            .font(.headline)
     }
 }
 
