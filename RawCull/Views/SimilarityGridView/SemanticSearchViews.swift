@@ -22,9 +22,6 @@ struct SemanticSearchControlsView: View {
                 SemanticSearchQueryEntryView(
                     viewModel: viewModel,
                     presentation: presentation,
-                )
-                SemanticSearchReadinessView(
-                    presentation: presentation,
                     onIndex: indexSimilarity,
                 )
 
@@ -85,6 +82,7 @@ struct SemanticSearchControlsView: View {
 private struct SemanticSearchQueryEntryView: View {
     @Bindable var viewModel: RawCullViewModel
     let presentation: SemanticSearchUIPresentation
+    let onIndex: () -> Void
 
     @State private var queryText = ""
     @State private var searchTask: Task<Void, Never>?
@@ -99,6 +97,7 @@ private struct SemanticSearchQueryEntryView: View {
                     text: $queryText,
                 )
                 .textFieldStyle(.roundedBorder)
+                .frame(width: 320)
                 .focused($searchFieldFocused)
                 .onSubmit(submitSearch)
                 .accessibilityLabel("Semantic search query")
@@ -129,21 +128,27 @@ private struct SemanticSearchQueryEntryView: View {
                     .buttonStyle(.bordered)
                     .accessibilityHint("Clears the query and restores catalog order.")
                 }
+
+                SemanticSearchReadinessView(
+                    presentation: presentation,
+                    onIndex: onIndex,
+                )
             }
 
-            if queryText.isEmpty, presentation.activity == .idle {
-                HStack(spacing: 6) {
-                    Text("Try")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text("Try")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                    exampleQueryButton("red fox at dusk")
-                    exampleQueryButton("backlit portrait")
-                    exampleQueryButton("misty mountain")
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Example semantic search queries")
+                exampleQueryButton("red fox at dusk")
+                exampleQueryButton("backlit portrait")
+                exampleQueryButton("misty mountain")
             }
+            .opacity(showsExampleQueries ? 1 : 0)
+            .allowsHitTesting(showsExampleQueries)
+            .accessibilityHidden(!showsExampleQueries)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Example semantic search queries")
         }
         .onChange(of: queryText) {
             guard !isClearingSearch,
@@ -152,6 +157,10 @@ private struct SemanticSearchQueryEntryView: View {
             else { return }
             clearSearch()
         }
+    }
+
+    private var showsExampleQueries: Bool {
+        queryText.isEmpty && presentation.activity == .idle
     }
 
     private func exampleQueryButton(
@@ -238,15 +247,11 @@ private struct SemanticSearchReadinessView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
-            ZStack(alignment: .leading) {
-                Text(verbatim: " \n ")
-                    .font(.caption)
-                    .hidden()
-                    .accessibilityHidden(true)
-
-                activityStatus
-                    .lineLimit(2)
-            }
+            SemanticSearchActivityStatusView(
+                activity: presentation.activity,
+                coverage: presentation.coverage,
+            )
+            .lineLimit(1)
 
             Spacer(minLength: 12)
 
@@ -269,10 +274,15 @@ private struct SemanticSearchReadinessView: View {
             }
         }
     }
+}
+
+private struct SemanticSearchActivityStatusView: View {
+    let activity: SemanticSearchUIActivity
+    let coverage: SemanticSearchUICoverage
 
     @ViewBuilder
-    private var activityStatus: some View {
-        switch presentation.activity {
+    var body: some View {
+        switch activity {
         case .idle:
             coverageStatus
 
@@ -312,22 +322,22 @@ private struct SemanticSearchReadinessView: View {
     private var coverageStatus: some View {
         HStack(spacing: 6) {
             Image(
-                systemName: presentation.coverage.isComplete
+                systemName: coverage.isComplete
                     ? "checkmark.circle.fill"
                     : "exclamationmark.circle",
             )
             .foregroundStyle(
-                presentation.coverage.isComplete ? .green : .orange,
+                coverage.isComplete ? .green : .orange,
             )
             .accessibilityHidden(true)
 
-            if presentation.coverage.catalogFileCount == 0 {
+            if coverage.catalogFileCount == 0 {
                 Text("Open a catalog to index images for semantic search.")
-            } else if presentation.coverage.excludedFileCount == 0 {
+            } else if coverage.excludedFileCount == 0 {
                 Text("All catalog images have compatible CLIP artifacts.")
             } else {
                 Text(
-                    "\(presentation.coverage.excludedFileCount) catalog images are not yet searchable.",
+                    "\(coverage.excludedFileCount) catalog images are not yet searchable.",
                     comment: "Count of catalog images excluded from semantic search because they are not indexed.",
                 )
             }
