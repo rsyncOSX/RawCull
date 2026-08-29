@@ -70,9 +70,9 @@ final class BurstAnalysisCoordinator {
             )
         }
 
-        diagnostics.append(await prepareSharpness(files: files, callbacks: callbacks))
+        await diagnostics.append(prepareSharpness(files: files, callbacks: callbacks))
         guard callbacks.isCurrent() else { return nil }
-        diagnostics.append(await prepareSimilarity(files: files, callbacks: callbacks))
+        await diagnostics.append(prepareSimilarity(files: files, callbacks: callbacks))
 
         guard callbacks.isCurrent() else { return nil }
         callbacks.updateProgress(BurstAnalysisProgress(step: .grouping))
@@ -82,16 +82,15 @@ final class BurstAnalysisCoordinator {
         )
 
         guard callbacks.isCurrent() else { return nil }
-        let restoredReviewStates: [Int: BurstReviewState]
-        if let migrationCandidate = preparation.migrationCandidate {
-            restoredReviewStates = Self.restoredReviewStates(
+        let restoredReviewStates: [Int: BurstReviewState] = if let migrationCandidate = preparation.migrationCandidate {
+            Self.restoredReviewStates(
                 snapshots: migrationCandidate.reviewStateSnapshots,
                 groups: similarityModel.burstGroups,
                 files: files,
                 catalog: request.catalogIdentity,
             )
         } else {
-            restoredReviewStates = initialReviewStates
+            initialReviewStates
         }
 
         callbacks.updateProgress(BurstAnalysisProgress(step: .ranking))

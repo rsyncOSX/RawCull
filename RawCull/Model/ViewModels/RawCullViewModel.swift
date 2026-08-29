@@ -169,9 +169,11 @@ final class RawCullViewModel {
     var burstAnalysisProgress: BurstAnalysisProgress {
         burstAnalysisCoordinator.progress
     }
+
     var burstAnalysisGeneration: Int {
         burstAnalysisCoordinator.generation
     }
+
     var burstReviewStates: [Int: BurstReviewState] = [:]
     var burstReviewQueueFilter: BurstReviewQueueFilter = .all
     var activeBurstComparisonGroupID: Int?
