@@ -53,7 +53,7 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.runBurstAnalysis(): hydrating per-file similarity artifacts",
         )
-        await similarityModel.hydrateArtifacts(sorted)
+        await similarityFeature.hydrateBurstArtifacts(sorted)
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
 
         let migrationCandidate = await burstAnalysisMigrationLoad(catalog).map {
@@ -129,7 +129,7 @@ extension RawCullViewModel {
                 step: .indexingSimilarity,
                 total: sorted.count,
             )
-            await similarityModel.indexFiles(sorted)
+            await similarityFeature.indexBurstFiles(sorted)
         } else {
             Logger.process.debugMessageOnly(
                 "RawCullViewModel.runBurstAnalysis(): reusing existing similarity artifacts",
@@ -210,9 +210,9 @@ extension RawCullViewModel {
         await prepareForFullCatalogReindex()
         guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
         await burstAnalysisCache.delete(catalog: catalog)
-        await similarityModel.hydrateArtifacts(files)
+        await similarityFeature.hydrateBurstArtifacts(files)
         guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
-        await similarityModel.indexFiles(files, forceRefresh: true)
+        await similarityFeature.indexBurstFiles(files, forceRefresh: true)
         guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
         await startBurstAnalysis(
             catalog: catalog,
@@ -248,7 +248,7 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
         defer { finishBurstAnalysis(generation: generation) }
 
-        await similarityModel.hydrateArtifacts(sorted)
+        await similarityFeature.hydrateBurstArtifacts(sorted)
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else {
             return false
         }

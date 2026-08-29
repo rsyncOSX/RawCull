@@ -19,6 +19,7 @@ RawCullTests/RawCullAIModelDownloadsTests
 RawCullTests/RawCullIntelligenceRuntimeTests
 RawCullTests/RawCullSemanticSearchTests
 RawCullTests/RawCullSemanticSearchUITests
+RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests

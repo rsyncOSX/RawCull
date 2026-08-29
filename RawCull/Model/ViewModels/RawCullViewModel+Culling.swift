@@ -114,14 +114,14 @@ extension RawCullViewModel {
         guard let selectedSource else { return }
         cullingModel.resetSavedFiles(in: selectedSource.url)
         sharpnessModel.reset()
-        similarityModel.reset()
+        similarityFeature.resetCatalogState()
         refreshCullingDerivedState()
     }
 
     func clearAllCullingState() {
         cullingModel.resetAllSavedFiles()
         sharpnessModel.reset()
-        similarityModel.reset()
+        similarityFeature.resetCatalogState()
         refreshCullingDerivedState()
     }
 

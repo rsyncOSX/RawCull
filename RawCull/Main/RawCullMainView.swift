@@ -9,6 +9,7 @@ struct RawCullMainView: View {
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
     @State private var memoryWarningOpacity: Double = 0.3
@@ -338,6 +339,7 @@ struct RawCullMainView: View {
     private var gridSplit: some View {
         GridThumbnailView(
             viewModel: viewModel,
+            similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             nsImage: $nsImage,
             cgImage: $cgImage,
@@ -352,6 +354,7 @@ struct RawCullMainView: View {
     private var similarityGridSplit: some View {
         SimilarityGridView(
             viewModel: viewModel,
+            similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             nsImage: $nsImage,
             cgImage: $cgImage,

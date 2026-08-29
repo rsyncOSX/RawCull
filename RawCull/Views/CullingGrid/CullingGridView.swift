@@ -214,6 +214,7 @@ private struct BatchBadgeSelectionControlsView: View {
 
 struct CullingGridView<Header: View>: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @ViewBuilder let header: () -> Header
     var batchBadgeSelectionEnabled: () -> Bool = { false }
@@ -345,13 +346,16 @@ struct CullingGridView<Header: View>: View {
                     }
                 }
 
-                CullingGridProgressOverlay(viewModel: viewModel)
+                CullingGridProgressOverlay(
+                    viewModel: viewModel,
+                    similarityFeature: similarityFeature,
+                )
             }
         }
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isIndexing)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isGrouping)
+        .animation(.easeInOut(duration: 0.2), value: similarityFeature.indexing.isIndexing)
+        .animation(.easeInOut(duration: 0.2), value: similarityFeature.isGrouping)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .sheet(item: $deepReviewPresentation) { presentation in

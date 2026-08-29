@@ -162,8 +162,8 @@ struct SharedMainToolbarContent: ToolbarContent {
     private var semanticSelectionIsBusy: Bool {
         viewModel.burstAnalysisProgress.isRunning
             || viewModel.sharpnessModel.isScoring
-            || viewModel.similarityModel.isIndexing
-            || viewModel.similarityModel.isGrouping
+            || viewModel.similarityFeature.indexing.isIndexing
+            || viewModel.similarityFeature.isGrouping
     }
 
     private var semanticSelectionCount: Int? {

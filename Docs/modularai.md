@@ -2,8 +2,9 @@
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
-were implemented on 2026-08-29. Phase 5 was implemented on 2026-08-29, and Phases
-6 through 12 have not started. Phase 5's automated gates pass. Phase 4's model-
+were implemented on 2026-08-29. Phases 5 and 6 were implemented on 2026-08-29,
+and Phases 7 through 12 have not started. Phase 6's automated gates pass; its
+manual acceptance matrix remains pending. Phase 4's model-
 download path was manually verified on 2026-08-29 by successfully downloading both
 the DataComp and OpenAI CLIP models. The broader manual regression matrix remains
 available for later phases.
@@ -1669,9 +1670,10 @@ required.
 
 ## Phase 6: place similarity indexing and ranking behind one feature API
 
-Status: not started. Begin only after Phase 5's semantic feature and caller audit
-are complete. This phase moves similarity-owned work and presentation behind a
-coherent API; it does not extract burst orchestration or redesign persistence.
+Status: implemented on 2026-08-29 after Phase 5 verification. Automated gates
+pass; the manual acceptance matrix remains pending. Similarity-owned work and
+presentation now sit behind a coherent API without extracting burst orchestration
+or redesigning persistence.
 
 ### Starting point and ownership audit
 
@@ -2104,6 +2106,32 @@ Run:
   cancellation, stale-result rejection, and cache bytes/paths match the baseline.
 - Focused tests, import boundary, smoke, full TSan, performance, and exact-package
   Release gates pass, followed by the Phase 6 manual acceptance matrix.
+
+### Validation evidence (2026-08-29)
+
+- Added the stable `@MainActor` `RawCullSimilarityFeature`, typed catalog/index/
+  ranking requests, completion identity, backend/indexing/evidence projections,
+  and feature-owned top-level hydration and configuration generations.
+- Production assembly now shares one exact `SimilarityScoringModel` and similarity
+  feature across the runtime, view model, and semantic feature. The Phase 3
+  view-model setter bridge and its two hydration task handles are removed.
+- Catalog hydration, normal indexing, image-to-image ranking, configuration
+  replacement, cancellation, and non-burst SwiftUI presentation use the feature
+  boundary. Burst persistence/grouping retains only the explicitly deferred
+  compatibility access for Phases 7 and 9.
+- `RawCullSimilarityFeatureTests` covers shared identity, focused presentation,
+  backend-reset ordering, and stale catalog rejection. The smoke manifest baseline
+  is 193 tests.
+- `make verify-ai-import-boundary` passed with the same five documented,
+  non-blocking `PhotoAIContracts` leakage warnings.
+- `make test-smoke`, `make test-full` with Thread Sanitizer, and
+  `make test-performance` passed. The performance run indexed 12 benchmark images
+  in 0.068 seconds and computed 500 distances in 0.019 seconds; it also emitted
+  non-failing LMDB map-size warnings.
+- The exact-package Debug and Release builds passed with
+  `-onlyUsePackageVersionsFromResolvedFile`; `git diff --check` also passed.
+- The manual acceptance matrix above has not yet been run and remains the final
+  Phase 6 acceptance item.
 
 ### Rollback
 

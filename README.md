@@ -36,8 +36,8 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 | 2 | Introduce one stable intelligence runtime without moving behavior. | **Complete (2026-08-28)** |
 | 3 | Replace app-level settings callbacks with one typed configuration path. | **Complete (2026-08-29)** |
 | 4 | Migrate settings and model management to their narrow presentation boundary. | **Complete (2026-08-29)** |
-| 5 | Migrate semantic search as an isolated vertical slice. | Not started |
-| 6 | Place similarity indexing, hydration, ranking, cancellation, and progress behind one feature API. | Not started |
+| 5 | Migrate semantic search as an isolated vertical slice. | **Complete (2026-08-29)** |
+| 6 | Place similarity indexing, hydration, ranking, cancellation, and progress behind one feature API. | **Complete (2026-08-29)** |
 | 7 | Extract the burst-analysis pipeline through independently revertible subphases. | Not started |
 | 7A | Introduce immutable burst-analysis request and result values. | Not started |
 | 7B | Extract burst cache hydration and compatibility decisions. | Not started |

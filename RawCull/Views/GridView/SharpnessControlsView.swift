@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SharpnessControlsView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     @State private var isShowingCLIPIndexConfirmation = false
     @State private var preservesSimilarityOrderOnDisable = false
 
@@ -56,8 +57,8 @@ struct SharpnessControlsView: View {
             )
             .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, isEnabled in
                 if isEnabled {
-                    viewModel.similarityModel.sortBySimilarity = false
-                } else if viewModel.similarityModel.sortBySimilarity {
+                    similarityFeature.setSimilaritySortingActive(false)
+                } else if similarityFeature.isSimilaritySortingActive {
                     return
                 }
                 Task(priority: .background) {
@@ -67,7 +68,7 @@ struct SharpnessControlsView: View {
         }
 
         Toggle(isOn: similaritySortingBinding) {
-            if viewModel.similarityModel.isIndexing {
+            if similarityFeature.indexing.isIndexing {
                 Label("Indexing \(similarityBackendName)…", systemImage: "photo.stack")
             } else if needsSimilarityIndex {
                 Label("Index & Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
@@ -79,8 +80,8 @@ struct SharpnessControlsView: View {
         .font(.caption)
         .disabled(
             (viewModel.selectedFile == nil
-                && !viewModel.similarityModel.sortBySimilarity)
-                || viewModel.similarityModel.isIndexing,
+                && !similarityFeature.isSimilaritySortingActive)
+                || similarityFeature.indexing.isIndexing,
         )
         .help(similarityHelp)
         .confirmationDialog(
@@ -88,13 +89,13 @@ struct SharpnessControlsView: View {
             isPresented: $isShowingCLIPIndexConfirmation,
         ) {
             Button("Index & Find Similar") {
-                viewModel.similarityModel.sortBySimilarity = true
+                similarityFeature.setSimilaritySortingActive(true)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("RawCull will build missing CLIP index entries before finding images similar to the selected image. This may take some time.")
         }
-        .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, isEnabled in
+        .onChange(of: similarityFeature.isSimilaritySortingActive) { _, isEnabled in
             if isEnabled {
                 viewModel.sharpnessModel.sortBySharpness = false
                 Task { await viewModel.findSimilarToSelected() }
@@ -108,14 +109,14 @@ struct SharpnessControlsView: View {
         }
         .onChange(of: viewModel.selectedFileID) { oldID, newID in
             guard oldID != newID,
-                  viewModel.similarityModel.sortBySimilarity
+                  similarityFeature.isSimilaritySortingActive
             else { return }
 
             // A new selection prepares Find Similar for a new anchor while
             // preserving the currently displayed similarity ranking.
             preservesSimilarityOrderOnDisable = true
-            viewModel.similarityModel.cancelSimilarityRanking()
-            viewModel.similarityModel.sortBySimilarity = false
+            similarityFeature.cancelRanking()
+            similarityFeature.setSimilaritySortingActive(false)
         }
 
         // Spinner shown while calibrating is in progress
@@ -128,33 +129,31 @@ struct SharpnessControlsView: View {
     }
 
     private var similarityBackendName: String {
-        viewModel.similarityModel.backendDescriptor.backend == "clip"
-            ? "CLIP"
-            : "Vision"
+        similarityFeature.backend.displayName
     }
 
     private var similaritySortingBinding: Binding<Bool> {
         Binding(
-            get: { viewModel.similarityModel.sortBySimilarity },
+            get: { similarityFeature.isSimilaritySortingActive },
             set: { isEnabled in
                 if isEnabled, needsSimilarityIndex, similarityBackendName == "CLIP" {
                     isShowingCLIPIndexConfirmation = true
                 } else {
-                    viewModel.similarityModel.sortBySimilarity = isEnabled
+                    similarityFeature.setSimilaritySortingActive(isEnabled)
                 }
             },
         )
     }
 
     private var needsSimilarityIndex: Bool {
-        !viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files)
+        !similarityFeature.hasCompleteIndex(for: viewModel.files)
     }
 
     private var similarityHelp: String {
-        if viewModel.similarityModel.isIndexing {
+        if similarityFeature.indexing.isIndexing {
             return "Building the \(similarityBackendName) similarity index"
         }
-        if viewModel.similarityModel.sortBySimilarity {
+        if similarityFeature.isSimilaritySortingActive {
             return "Stop sorting by similarity"
         }
         if needsSimilarityIndex {

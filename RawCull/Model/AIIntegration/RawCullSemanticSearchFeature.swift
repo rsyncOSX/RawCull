@@ -31,19 +31,29 @@ final class RawCullSemanticSearchFeature {
         SimilarityScoringModel.semanticSearchDefaultResultLimit
 
     private let similarityModel: SimilarityScoringModel
+    private let similarityFeature: RawCullSimilarityFeature
 
     private weak var applicationTarget:
         (any RawCullSemanticSearchApplicationTarget)?
     private var actionGeneration = 0
 
-    init(similarityModel: SimilarityScoringModel) {
+    init(
+        similarityModel: SimilarityScoringModel,
+        similarityFeature: RawCullSimilarityFeature? = nil,
+    ) {
         self.similarityModel = similarityModel
+        self.similarityFeature = similarityFeature
+            ?? RawCullSimilarityFeature(similarityModel: similarityModel)
     }
 
     func sharesSimilarityModelIdentity(
         with similarityModel: SimilarityScoringModel,
     ) -> Bool {
         self.similarityModel === similarityModel
+    }
+
+    func sharesSimilarityFeatureIdentity(with feature: RawCullSimilarityFeature) -> Bool {
+        similarityFeature === feature
     }
 
     func bindApplicationTarget(
@@ -60,16 +70,17 @@ final class RawCullSemanticSearchFeature {
     }
 
     var presentation: SemanticSearchUIPresentation {
-        SemanticSearchUIPresentation(
+        let indexing = similarityFeature.indexing
+        return SemanticSearchUIPresentation(
             capability: similarityModel.semanticSearchCapability,
             searchState: similarityModel.semanticSearchState,
             indexedFileCount: similarityModel.semanticIndexedFileCount,
             catalogFileCount: similarityModel.semanticCatalogFileCount,
-            isIndexing: similarityModel.isIndexing
+            isIndexing: indexing.isIndexing
                 && similarityModel.canIndexSemanticSearchArtifacts,
-            indexingProgress: similarityModel.indexingProgress,
-            indexingTotal: similarityModel.indexingTotal,
-            indexingPhase: similarityModel.indexingPhase,
+            indexingProgress: indexing.completed,
+            indexingTotal: indexing.total,
+            indexingPhase: indexing.phase,
             activeBackendCanIndex: similarityModel.canIndexSemanticSearchArtifacts,
         )
     }
@@ -126,7 +137,7 @@ final class RawCullSemanticSearchFeature {
     }
 
     var isIndexingCompatibleArtifacts: Bool {
-        similarityModel.isIndexing && canIndexArtifacts
+        similarityFeature.indexing.isIndexing && canIndexArtifacts
     }
 
     func resultEvidence(

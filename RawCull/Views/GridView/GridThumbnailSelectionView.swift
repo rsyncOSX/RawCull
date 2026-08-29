@@ -13,6 +13,7 @@ import SwiftUI
 
 struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
     @Binding var nsImage: NSImage?
@@ -21,10 +22,14 @@ struct GridThumbnailSelectionView: View {
     var body: some View {
         CullingGridView(
             viewModel: viewModel,
+            similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
         ) {
             if !viewModel.showsBurstGroups {
-                SharpnessControlsView(viewModel: viewModel)
+                SharpnessControlsView(
+                    viewModel: viewModel,
+                    similarityFeature: similarityFeature,
+                )
             }
         }
     }

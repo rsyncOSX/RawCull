@@ -50,27 +50,12 @@ protocol RawCullIntelligenceConfigurationApplying: AnyObject {
     ) -> RawCullAICapabilities
 }
 
-/// Temporary Phase 3 bridge to application-owned catalog and burst state.
-/// Phase 6 moves the hydration workers behind the intelligence feature boundary.
-@MainActor
-protocol RawCullIntelligenceApplicationTarget: AnyObject {
-    func setSimilarityService(_ service: any RawCullSimilarityServicing)
-
-    func setSemanticSearchCapability(
-        _ capability: RawCullSemanticSearchCapabilityStatus,
-        service: (any RawCullSemanticSearchServicing)?,
-    )
-}
-
-extension RawCullViewModel: RawCullIntelligenceApplicationTarget {}
-
 /// Stable application-owned lifetime for RawCull's intelligence models.
-///
-/// Phase 3 owns the single settings-configuration ingress while deliberately
-/// leaving hydration worker-task ownership in `RawCullViewModel` until Phase 6.
 @MainActor
 final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying {
     let integration: RawCullAIIntegration
+    let similarityFeature: RawCullSimilarityFeature
+    /// Temporary burst/persistence compatibility reference for Phases 7/9.
     let similarityModel: SimilarityScoringModel
     let semanticSearchFeature: RawCullSemanticSearchFeature
     let deepAIReviewFeature: DeepAIReviewFeature
@@ -80,25 +65,25 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         RawCullIntelligenceConfigurationIdentity?
     private(set) var lastAcceptedConfigurationRevision: UInt64?
 
-    private weak var applicationTarget:
-        (any RawCullIntelligenceApplicationTarget)?
-
     init(
         integration: RawCullAIIntegration,
+        similarityFeature: RawCullSimilarityFeature,
         similarityModel: SimilarityScoringModel,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewFeature: DeepAIReviewFeature,
         settingsModel: RawCullAISettingsModel,
-        applicationTarget: any RawCullIntelligenceApplicationTarget,
+        applicationContext: any RawCullSimilarityApplicationContext,
     ) {
         self.integration = integration
+        self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewFeature = deepAIReviewFeature
         self.settingsModel = settingsModel
         self.modelManagementModel = settingsModel.modelManagementModel
-        self.applicationTarget = applicationTarget
+        similarityFeature.bindApplicationContext(applicationContext)
 
+        assert(similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
         assert(
             self.semanticSearchFeature.sharesSimilarityModelIdentity(
                 with: similarityModel,
@@ -137,7 +122,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
             || previousIdentity?.similarityArtifactBackends
             != incomingIdentity.similarityArtifactBackends
         {
-            applicationTarget?.setSimilarityService(configuration.similarity.service)
+            similarityFeature.replaceSimilarityService(configuration.similarity.service)
         }
 
         if previousIdentity?.semanticSearchCapability
@@ -145,8 +130,8 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
             || previousIdentity?.semanticSearchBackend
             != incomingIdentity.semanticSearchBackend
         {
-            applicationTarget?.setSemanticSearchCapability(
-                configuration.semanticSearch.capability,
+            similarityFeature.replaceSemanticSearchConfiguration(
+                capability: configuration.semanticSearch.capability,
                 service: configuration.semanticSearch.service,
             )
         }
@@ -198,27 +183,35 @@ struct RawCullApplicationState {
             semanticSearchService: initialConfiguration.semanticSearch.service,
             artifactStore: similarityArtifactStore,
         )
+        let similarityFeature = RawCullSimilarityFeature(
+            similarityModel: similarityModel,
+        )
         let semanticSearchFeature = RawCullSemanticSearchFeature(
             similarityModel: similarityModel,
+            similarityFeature: similarityFeature,
         )
         let deepAIReviewFeature = integration.deepAIReviewFeature
         let viewModel = RawCullViewModel(
             similarityModel: similarityModel,
+            similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             deepAIReviewFeature: deepAIReviewFeature,
         )
         let intelligenceRuntime = RawCullIntelligenceRuntime(
             integration: integration,
+            similarityFeature: similarityFeature,
             similarityModel: similarityModel,
             semanticSearchFeature: semanticSearchFeature,
             deepAIReviewFeature: deepAIReviewFeature,
             settingsModel: settingsModel,
-            applicationTarget: viewModel,
+            applicationContext: viewModel,
         )
         semanticSearchFeature.bindApplicationTarget(viewModel)
         settingsModel.bindConfigurationConsumer(intelligenceRuntime)
 
         assert(viewModel.similarityModel === intelligenceRuntime.similarityModel)
+        assert(viewModel.similarityFeature === intelligenceRuntime.similarityFeature)
+        assert(semanticSearchFeature.sharesSimilarityFeatureIdentity(with: similarityFeature))
         assert(viewModel.semanticSearchFeature === intelligenceRuntime.semanticSearchFeature)
         assert(viewModel.deepAIReviewFeature === intelligenceRuntime.deepAIReviewFeature)
         assert(

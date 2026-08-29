@@ -6,18 +6,6 @@
 import Foundation
 
 extension RawCullViewModel {
-    // MARK: - Indexing
-
-    /// Restore reusable artifacts, generate misses, and durably commit each
-    /// successful artifact for the current catalog.
-    func indexSimilarity() async {
-        await similarityModel.hydrateArtifacts(files)
-        guard !Task.isCancelled else { return }
-        await similarityModel.hydrateSemanticArtifacts(files)
-        guard !Task.isCancelled else { return }
-        await similarityModel.indexFiles(files)
-    }
-
     // MARK: - Ranking
 
     /// Rank all indexed images by similarity to the currently selected file.
@@ -26,25 +14,20 @@ extension RawCullViewModel {
     func findSimilarToSelected() async {
         guard let anchor = selectedFile else { return }
         let catalogFiles = files
-        let catalogFileIDs = Set(catalogFiles.map(\.id))
-
-        if !similarityModel.hasCompleteSimilarityIndex(for: catalogFiles) {
-            await similarityModel.indexFiles(catalogFiles)
-        }
-        guard !Task.isCancelled,
-              selectedFile?.id == anchor.id,
-              Set(files.map(\.id)) == catalogFileIDs
-        else { return }
-
-        await similarityModel.rankSimilar(
-            to: anchor.id,
-            using: catalogFiles,
-            saliencyInfo: sharpnessModel.saliencyInfo,
+        let catalogIdentity = currentSimilarityCatalogSnapshot.identity
+        let completion = await similarityFeature.rank(
+            RawCullSimilarityRankingRequest(
+                anchorFileID: anchor.id,
+                files: catalogFiles,
+                saliencyInfo: sharpnessModel.saliencyInfo,
+                catalogIdentity: catalogIdentity,
+            ),
         )
-        guard !Task.isCancelled,
+        guard let completion,
+              !Task.isCancelled,
               selectedFile?.id == anchor.id,
-              similarityModel.sortBySimilarity,
-              Set(files.map(\.id)) == catalogFileIDs
+              similarityFeature.isSimilaritySortingActive,
+              currentSimilarityCatalogSnapshot.identity == completion.catalogIdentity
         else { return }
         await handleSortOrderChange()
     }
@@ -109,5 +92,21 @@ extension RawCullViewModel: RawCullSemanticSearchApplicationTarget {
 
     func restoreOrdinaryCatalogAfterSemanticSearch() async {
         await handleSortOrderChange()
+    }
+}
+
+extension RawCullViewModel: RawCullSimilarityApplicationContext {
+    var currentSimilarityCatalogSnapshot: RawCullSimilarityCatalogSnapshot {
+        RawCullSimilarityCatalogSnapshot(
+            files: files,
+            identity: RawCullSimilarityCatalogIdentity(
+                catalogURL: activeCatalogLoadURL ?? selectedSource?.url,
+                generation: similarityCatalogGeneration,
+            ),
+        )
+    }
+
+    func cancelAndResetBurstAnalysisForSimilarityBackendChange() {
+        cancelAndResetBurstAnalysis()
     }
 }

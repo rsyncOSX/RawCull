@@ -33,6 +33,7 @@ extension RawCullViewModel {
         selectedFileIDs = []
 
         cancelCatalogLoad()
+        similarityCatalogGeneration &+= 1
         currentselectedSource = source
         resetCatalogWorkingSet()
         scanning = source != nil
@@ -56,10 +57,8 @@ extension RawCullViewModel {
     func cancelCatalogLoad() {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
-        similarityHydrationTask?.cancel()
-        similarityHydrationTask = nil
-        semanticSimilarityHydrationTask?.cancel()
-        semanticSimilarityHydrationTask = nil
+        similarityFeature.cancelHydration()
+        similarityCatalogGeneration &+= 1
         activeCatalogLoadURL = nil
         currentselectedSource = nil
         cancelAndResetBurstAnalysis()
@@ -92,7 +91,7 @@ extension RawCullViewModel {
 
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
-        similarityModel.reset()
+        similarityFeature.resetCatalogState()
         ratingFilter = .all
         burstReviewQueueFilter = .all
 
@@ -126,10 +125,13 @@ extension RawCullViewModel {
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
         files = scannedFiles
-        await similarityModel.hydrateArtifacts(scannedFiles)
-        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-        await similarityModel.hydrateSemanticArtifacts(scannedFiles)
-        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        let hydrationRequest = RawCullSimilarityCatalogHydrationRequest(
+            files: scannedFiles,
+            catalogIdentity: currentSimilarityCatalogSnapshot.identity,
+        )
+        guard await similarityFeature.hydrateCatalog(hydrationRequest),
+              isActiveCatalogLoad(url), !Task.isCancelled
+        else { return }
         catalogDisplayCandidates = sortedFiles
         filteredFiles = applyFilters(to: catalogDisplayCandidates)
         preselectFirstVisibleFileByName()

@@ -1,0 +1,378 @@
+import Foundation
+import Observation
+import PhotoAIContracts
+import RawCullCore
+
+nonisolated struct RawCullSimilarityCatalogIdentity: Equatable, Hashable, Sendable {
+    let catalogURL: URL?
+    let generation: UInt64
+}
+
+nonisolated struct RawCullSimilarityCatalogSnapshot: Equatable, Sendable {
+    let files: [FileItem]
+    let identity: RawCullSimilarityCatalogIdentity
+}
+
+nonisolated struct RawCullSimilarityCatalogHydrationRequest: Equatable, Sendable {
+    let files: [FileItem]
+    let catalogIdentity: RawCullSimilarityCatalogIdentity
+}
+
+nonisolated struct RawCullSimilarityIndexRequest: Equatable, Sendable {
+    let files: [FileItem]
+    let catalogIdentity: RawCullSimilarityCatalogIdentity
+    let thumbnailMaxPixelSize: Int
+    let forceRefresh: Bool
+
+    init(
+        files: [FileItem],
+        catalogIdentity: RawCullSimilarityCatalogIdentity,
+        thumbnailMaxPixelSize: Int = SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
+        forceRefresh: Bool = false,
+    ) {
+        self.files = files
+        self.catalogIdentity = catalogIdentity
+        self.thumbnailMaxPixelSize = thumbnailMaxPixelSize
+        self.forceRefresh = forceRefresh
+    }
+}
+
+nonisolated struct RawCullSimilarityRankingRequest: Equatable, Sendable {
+    let anchorFileID: UUID
+    let files: [FileItem]
+    let saliencyInfo: [UUID: SaliencyInfo]
+    let catalogIdentity: RawCullSimilarityCatalogIdentity
+}
+
+nonisolated struct RawCullSimilarityRankingCompletion: Equatable, Sendable {
+    let anchorFileID: UUID
+    let catalogIdentity: RawCullSimilarityCatalogIdentity
+    let backendIdentity: SimilarityBackendDescriptor
+}
+
+nonisolated enum RawCullSimilarityBackendKind: Equatable, Sendable {
+    case clip
+    case vision
+    case other
+}
+
+nonisolated struct RawCullSimilarityBackendPresentation: Equatable, Sendable {
+    let kind: RawCullSimilarityBackendKind
+    let displayName: String
+}
+
+nonisolated struct RawCullSimilarityIndexingPresentation: Equatable, Sendable {
+    let isIndexing: Bool
+    let phase: SimilarityIndexingPhase
+    let completed: Int
+    let total: Int
+    let estimatedSeconds: Int
+    let generationFailureCount: Int
+    let persistenceFailureCount: Int
+    let operationFailure: String?
+}
+
+nonisolated enum RawCullSimilarityEvidence: Equatable, Sendable {
+    case anchor
+    case distance(Float)
+}
+
+@MainActor
+protocol RawCullSimilarityApplicationContext: AnyObject {
+    var currentSimilarityCatalogSnapshot: RawCullSimilarityCatalogSnapshot { get }
+    func cancelAndResetBurstAnalysisForSimilarityBackendChange()
+}
+
+/// Application feature boundary for image-similarity hydration, indexing,
+/// ranking, and presentation. `SimilarityScoringModel` remains the single
+/// observable state owner and the burst pipeline keeps temporary compatibility
+/// access until Phases 7 and 9.
+@Observable @MainActor
+final class RawCullSimilarityFeature {
+    @ObservationIgnored private let model: SimilarityScoringModel
+    @ObservationIgnored private weak var applicationContext:
+        (any RawCullSimilarityApplicationContext)?
+
+    @ObservationIgnored private(set) var imageHydrationTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var semanticHydrationTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var catalogHydrationTask: Task<Void, Never>?
+    @ObservationIgnored private var imageHydrationGeneration: UInt64 = 0
+    @ObservationIgnored private var semanticHydrationGeneration: UInt64 = 0
+    @ObservationIgnored private var catalogHydrationGeneration: UInt64 = 0
+    @ObservationIgnored private var rankingGeneration: UInt64 = 0
+
+    init(similarityModel: SimilarityScoringModel) {
+        model = similarityModel
+    }
+
+    func bindApplicationContext(_ context: any RawCullSimilarityApplicationContext) {
+        if let applicationContext {
+            precondition(
+                applicationContext === context,
+                "Similarity application context may only be bound once.",
+            )
+            return
+        }
+        applicationContext = context
+    }
+
+    func sharesSimilarityModelIdentity(with other: SimilarityScoringModel) -> Bool {
+        model === other
+    }
+
+    /// Temporary application-only compatibility surface for burst persistence,
+    /// migration, and grouping. SwiftUI callers must use feature projections.
+    var compatibilityModel: SimilarityScoringModel {
+        model
+    }
+
+    var backend: RawCullSimilarityBackendPresentation {
+        switch model.backendDescriptor.backend {
+        case "clip":
+            RawCullSimilarityBackendPresentation(kind: .clip, displayName: "CLIP")
+        case "vision":
+            RawCullSimilarityBackendPresentation(kind: .vision, displayName: "Vision")
+        default:
+            RawCullSimilarityBackendPresentation(
+                kind: .other,
+                displayName: model.backendDescriptor.backend,
+            )
+        }
+    }
+
+    var indexing: RawCullSimilarityIndexingPresentation {
+        RawCullSimilarityIndexingPresentation(
+            isIndexing: model.isIndexing,
+            phase: model.indexingPhase,
+            completed: model.indexingProgress,
+            total: model.indexingTotal,
+            estimatedSeconds: model.indexingEstimatedSeconds,
+            generationFailureCount: model.indexingFailures.count,
+            persistenceFailureCount: model.indexingPersistenceFailures.count,
+            operationFailure: model.indexingOperationFailure,
+        )
+    }
+
+    var isSimilaritySortingActive: Bool { model.sortBySimilarity }
+    var activeAnchorFileID: UUID? { model.anchorFileID }
+    var isGrouping: Bool { model.isGrouping }
+    var isBusy: Bool { model.isIndexing || model.isGrouping }
+    var canCancelHydration: Bool {
+        imageHydrationTask != nil || semanticHydrationTask != nil
+            || catalogHydrationTask != nil
+    }
+    var canCancelIndexing: Bool { model.isIndexing }
+    var canCancelRanking: Bool { model.sortBySimilarity || model.anchorFileID != nil }
+
+    func hasCompleteIndex(for files: [FileItem]) -> Bool {
+        model.hasCompleteSimilarityIndex(for: files)
+    }
+
+    func evidence(for fileID: UUID) -> RawCullSimilarityEvidence? {
+        guard model.sortBySimilarity,
+              model.backendDescriptor.backend == "clip",
+              model.embeddings[fileID]?.descriptor.backend == "clip",
+              let anchorID = model.anchorFileID,
+              model.embeddings[anchorID]?.descriptor.backend == "clip"
+        else { return nil }
+
+        if fileID == anchorID {
+            return .anchor
+        }
+        return model.distances[fileID].map(RawCullSimilarityEvidence.distance)
+    }
+
+    func setSimilaritySortingActive(_ isActive: Bool) {
+        model.sortBySimilarity = isActive
+    }
+
+    func replaceSimilarityService(_ service: any RawCullSimilarityServicing) {
+        guard model.backendDescriptor != service.backendDescriptor
+            || model.artifactBackendDescriptors != service.artifactBackendDescriptors
+        else { return }
+
+        applicationContext?.cancelAndResetBurstAnalysisForSimilarityBackendChange()
+        model.setSimilarityService(service)
+        imageHydrationTask?.cancel()
+        imageHydrationGeneration &+= 1
+        let generation = imageHydrationGeneration
+        let files = applicationContext?.currentSimilarityCatalogSnapshot.files ?? []
+        guard !files.isEmpty else {
+            imageHydrationTask = nil
+            return
+        }
+        imageHydrationTask = Task { [weak self] in
+            guard let self else { return }
+            await self.model.hydrateArtifacts(files)
+            guard !Task.isCancelled, self.imageHydrationGeneration == generation else { return }
+            self.imageHydrationTask = nil
+        }
+    }
+
+    func replaceSemanticSearchConfiguration(
+        capability: RawCullSemanticSearchCapabilityStatus,
+        service: (any RawCullSemanticSearchServicing)?,
+    ) {
+        guard model.semanticSearchCapability != capability
+            || model.semanticSearchBackendDescriptor != service?.backendDescriptor
+        else { return }
+
+        model.setSemanticSearchCapability(capability, service: service)
+        semanticHydrationTask?.cancel()
+        semanticHydrationGeneration &+= 1
+        let generation = semanticHydrationGeneration
+        let files = applicationContext?.currentSimilarityCatalogSnapshot.files ?? []
+        guard !files.isEmpty else {
+            semanticHydrationTask = nil
+            return
+        }
+        semanticHydrationTask = Task { [weak self] in
+            guard let self else { return }
+            await self.model.hydrateSemanticArtifacts(files)
+            guard !Task.isCancelled,
+                  self.semanticHydrationGeneration == generation
+            else { return }
+            self.semanticHydrationTask = nil
+        }
+    }
+
+    @discardableResult
+    func hydrateCatalog(_ request: RawCullSimilarityCatalogHydrationRequest) async -> Bool {
+        catalogHydrationTask?.cancel()
+        catalogHydrationGeneration &+= 1
+        let generation = catalogHydrationGeneration
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.model.hydrateArtifacts(request.files)
+            guard !Task.isCancelled else { return }
+            await self.model.hydrateSemanticArtifacts(request.files)
+        }
+        catalogHydrationTask = task
+        await task.value
+        guard generation == catalogHydrationGeneration else { return false }
+        catalogHydrationTask = nil
+        return !task.isCancelled
+            && !Task.isCancelled
+            && applicationContext?.currentSimilarityCatalogSnapshot.identity
+                == request.catalogIdentity
+    }
+
+    func cancelHydration() {
+        imageHydrationTask?.cancel()
+        imageHydrationTask = nil
+        semanticHydrationTask?.cancel()
+        semanticHydrationTask = nil
+        catalogHydrationTask?.cancel()
+        catalogHydrationTask = nil
+        imageHydrationGeneration &+= 1
+        semanticHydrationGeneration &+= 1
+        catalogHydrationGeneration &+= 1
+    }
+
+    func resetCatalogState() {
+        cancelHydration()
+        cancelRanking()
+        model.reset()
+    }
+
+    func index(_ request: RawCullSimilarityIndexRequest) async {
+        await model.hydrateArtifacts(request.files)
+        guard requestIsCurrent(request.catalogIdentity) else { return }
+        await model.hydrateSemanticArtifacts(request.files)
+        guard requestIsCurrent(request.catalogIdentity) else { return }
+        await model.indexFiles(
+            request.files,
+            thumbnailMaxPixelSize: request.thumbnailMaxPixelSize,
+            forceRefresh: request.forceRefresh,
+        )
+    }
+
+    func indexCurrentCatalog(forceRefresh: Bool = false) async {
+        guard let snapshot = applicationContext?.currentSimilarityCatalogSnapshot else {
+            return
+        }
+        await index(
+            RawCullSimilarityIndexRequest(
+                files: snapshot.files,
+                catalogIdentity: snapshot.identity,
+                forceRefresh: forceRefresh,
+            ),
+        )
+    }
+
+    // MARK: - Burst compatibility (Phases 7/9)
+
+    @discardableResult
+    func hydrateBurstArtifacts(_ files: [FileItem]) async -> Int {
+        await model.hydrateArtifacts(files)
+    }
+
+    func indexBurstFiles(_ files: [FileItem], forceRefresh: Bool = false) async {
+        await model.indexFiles(files, forceRefresh: forceRefresh)
+    }
+
+    func cancelIndexing() {
+        model.cancelIndexing()
+    }
+
+    func rank(
+        _ request: RawCullSimilarityRankingRequest,
+    ) async -> RawCullSimilarityRankingCompletion? {
+        rankingGeneration &+= 1
+        let generation = rankingGeneration
+        let backendIdentity = model.backendDescriptor
+
+        if !model.hasCompleteSimilarityIndex(for: request.files) {
+            await index(
+                RawCullSimilarityIndexRequest(
+                    files: request.files,
+                    catalogIdentity: request.catalogIdentity,
+                ),
+            )
+        }
+        guard rankingRequestIsCurrent(
+            request,
+            generation: generation,
+            backendIdentity: backendIdentity,
+        ) else { return nil }
+
+        await model.rankSimilar(
+            to: request.anchorFileID,
+            using: request.files,
+            saliencyInfo: request.saliencyInfo,
+        )
+        guard rankingRequestIsCurrent(
+            request,
+            generation: generation,
+            backendIdentity: backendIdentity,
+        ), model.anchorFileID == request.anchorFileID
+        else { return nil }
+
+        return RawCullSimilarityRankingCompletion(
+            anchorFileID: request.anchorFileID,
+            catalogIdentity: request.catalogIdentity,
+            backendIdentity: backendIdentity,
+        )
+    }
+
+    func cancelRanking() {
+        rankingGeneration &+= 1
+        model.cancelSimilarityRanking()
+    }
+
+    private func requestIsCurrent(_ identity: RawCullSimilarityCatalogIdentity) -> Bool {
+        !Task.isCancelled
+            && applicationContext?.currentSimilarityCatalogSnapshot.identity == identity
+    }
+
+    private func rankingRequestIsCurrent(
+        _ request: RawCullSimilarityRankingRequest,
+        generation: UInt64,
+        backendIdentity: SimilarityBackendDescriptor,
+    ) -> Bool {
+        !Task.isCancelled
+            && rankingGeneration == generation
+            && model.backendDescriptor == backendIdentity
+            && requestIsCurrent(request.catalogIdentity)
+    }
+}

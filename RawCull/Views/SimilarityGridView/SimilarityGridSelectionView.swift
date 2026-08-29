@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
     // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
@@ -24,7 +25,7 @@ struct SimilarityGridSelectionView: View {
         VStack(spacing: 0) {
             SemanticSearchControlsView(
                 semanticSearchFeature: semanticSearchFeature,
-                onIndexSimilarity: indexSimilarity,
+                similarityFeature: similarityFeature,
             )
 
             Divider()
@@ -33,6 +34,7 @@ struct SimilarityGridSelectionView: View {
             case .idle:
                 OrdinarySimilarityWorkflowView(
                     viewModel: viewModel,
+                    similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                     analyzeBurstsRequested: $analyzeBurstsRequested,
                     similarityThresholdChanged: scheduleBurstRegroup,
@@ -50,6 +52,7 @@ struct SimilarityGridSelectionView: View {
             case let .results(summary):
                 CullingGridView(
                     viewModel: viewModel,
+                    similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
                 ) {
                     SemanticSearchResultsHeaderView(
@@ -83,7 +86,7 @@ struct SimilarityGridSelectionView: View {
     private func indexSimilarity() {
         guard semanticSearchFeature.presentation.canStartIndexing else { return }
         Task {
-            await viewModel.indexSimilarity()
+            await similarityFeature.indexCurrentCatalog()
         }
     }
 
@@ -101,6 +104,7 @@ struct SimilarityGridSelectionView: View {
 
 private struct OrdinarySimilarityWorkflowView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
     let similarityThresholdChanged: () -> Void
@@ -109,6 +113,7 @@ private struct OrdinarySimilarityWorkflowView: View {
         if viewModel.similarityModel.burstModeActive {
             CullingGridView(
                 viewModel: viewModel,
+                similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
             ) {
                 BurstGroupHeaderControlsView(
@@ -119,6 +124,7 @@ private struct OrdinarySimilarityWorkflowView: View {
         } else {
             BurstGroupsHomeView(
                 viewModel: viewModel,
+                similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
                 analyzeBurstsRequested: $analyzeBurstsRequested,
                 similarityThresholdChanged: similarityThresholdChanged,

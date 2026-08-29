@@ -147,7 +147,10 @@ final class RawCullViewModel {
     /// overlay and the sharpness scoring pipeline.
     var sharpnessModel = SharpnessScoringModel()
 
-    /// Similarity scoring model — PhotoAIKit artifacts with RawCull-owned ranking policy.
+    /// Stable feature boundary for image-similarity work and presentation.
+    let similarityFeature: RawCullSimilarityFeature
+
+    /// Temporary burst/persistence compatibility path retained for Phases 7/9.
     var similarityModel: SimilarityScoringModel
 
     /// Semantic-only presentation and actions backed by `similarityModel`.
@@ -212,9 +215,8 @@ final class RawCullViewModel {
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
     @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
-    @ObservationIgnored var similarityHydrationTask: Task<Void, Never>?
-    @ObservationIgnored var semanticSimilarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
+    @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
     /// Full name-sorted/search-filtered catalog projection before rating,
     /// sharpness, and similarity filters are applied.
     @ObservationIgnored var catalogDisplayCandidates: [FileItem] = []
@@ -261,29 +263,40 @@ final class RawCullViewModel {
 
     init(
         similarityModel: SimilarityScoringModel,
+        similarityFeature: RawCullSimilarityFeature? = nil,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewFeature: DeepAIReviewFeature,
     ) {
+        let similarityFeature = similarityFeature
+            ?? RawCullSimilarityFeature(similarityModel: similarityModel)
+        self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewFeature = deepAIReviewFeature
 
+        assert(similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
         assert(
             semanticSearchFeature.sharesSimilarityModelIdentity(
                 with: similarityModel,
             ),
         )
+        similarityFeature.bindApplicationContext(self)
     }
 
     convenience init(
         similarityModel: SimilarityScoringModel,
         deepAIReviewFeature: DeepAIReviewFeature,
     ) {
+        let similarityFeature = RawCullSimilarityFeature(
+            similarityModel: similarityModel,
+        )
         let semanticSearchFeature = RawCullSemanticSearchFeature(
             similarityModel: similarityModel,
+            similarityFeature: similarityFeature,
         )
         self.init(
             similarityModel: similarityModel,
+            similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             deepAIReviewFeature: deepAIReviewFeature,
         )
@@ -309,47 +322,6 @@ final class RawCullViewModel {
             ),
             deepAIReviewFeature: deepAIReviewFeature,
         )
-    }
-
-    func setSimilarityService(_ service: any RawCullSimilarityServicing) {
-        guard similarityModel.backendDescriptor != service.backendDescriptor
-            || similarityModel.artifactBackendDescriptors != service.artifactBackendDescriptors
-        else { return }
-
-        cancelAndResetBurstAnalysis()
-        similarityModel.setSimilarityService(service)
-        similarityHydrationTask?.cancel()
-        let currentFiles = files
-        similarityHydrationTask = Task { [weak self] in
-            guard let self else { return }
-            await self.similarityModel.hydrateArtifacts(currentFiles)
-            guard !Task.isCancelled else { return }
-            self.similarityHydrationTask = nil
-        }
-    }
-
-    func setSemanticSearchCapability(
-        _ capability: RawCullSemanticSearchCapabilityStatus,
-        service: (any RawCullSemanticSearchServicing)?,
-    ) {
-        let currentCapability = similarityModel.semanticSearchCapability
-        let currentBackend = similarityModel.semanticSearchBackendDescriptor
-        guard currentCapability != capability
-            || currentBackend != service?.backendDescriptor
-        else { return }
-
-        similarityModel.setSemanticSearchCapability(
-            capability,
-            service: service,
-        )
-        semanticSimilarityHydrationTask?.cancel()
-        let currentFiles = files
-        semanticSimilarityHydrationTask = Task { [weak self] in
-            guard let self else { return }
-            await self.similarityModel.hydrateSemanticArtifacts(currentFiles)
-            guard !Task.isCancelled else { return }
-            self.semanticSimilarityHydrationTask = nil
-        }
     }
 
     // MARK: - Computed

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CullingGridProgressOverlay: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
 
     var body: some View {
         if viewModel.sharpnessModel.isScoring {
@@ -15,7 +16,7 @@ struct CullingGridProgressOverlay: View {
             .progressOverlayStyle()
         }
 
-        if viewModel.similarityModel.isGrouping || indeterminateBurstAnalysisRunning {
+        if similarityFeature.isGrouping || indeterminateBurstAnalysisRunning {
             HStack(spacing: 10) {
                 ProgressView()
                     .fixedSize()
@@ -26,11 +27,11 @@ struct CullingGridProgressOverlay: View {
             .progressOverlayStyle()
         }
 
-        if viewModel.similarityModel.isIndexing {
+        if similarityFeature.indexing.isIndexing {
             ProgressCount(
-                completed: viewModel.similarityModel.indexingProgress,
-                total: viewModel.similarityModel.indexingTotal,
-                estimatedSeconds: viewModel.similarityModel.indexingEstimatedSeconds,
+                completed: similarityFeature.indexing.completed,
+                total: similarityFeature.indexing.total,
+                estimatedSeconds: similarityFeature.indexing.estimatedSeconds,
                 statusText: "Indexing similarity...",
             )
             .frame(maxWidth: 480)

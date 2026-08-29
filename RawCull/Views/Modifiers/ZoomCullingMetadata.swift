@@ -40,7 +40,6 @@ struct ZoomCullingMetadata: Equatable {
         burstAnalysis: BurstAnalysisResult? = nil,
     ) -> Self {
         let sharpnessModel = viewModel.sharpnessModel
-        let similarityModel = viewModel.similarityModel
         let sharpnessScore = sharpnessModel.scores[file.id]
         let breakdown = sharpnessModel.breakdowns[file.id]
         let candidateIndex = burstAnalysis?.candidates.firstIndex { $0.fileID == file.id }
@@ -66,26 +65,26 @@ struct ZoomCullingMetadata: Equatable {
                 .map {
                     CLIPSemanticMatch(rank: $0.rank, score: $0.score)
                 },
-            clipSimilarity: clipSimilarity(for: file, similarityModel: similarityModel),
+            clipSimilarity: clipSimilarity(
+                for: file,
+                similarityFeature: viewModel.similarityFeature,
+            ),
         )
     }
 
     @MainActor
     private static func clipSimilarity(
         for file: FileItem,
-        similarityModel: SimilarityScoringModel,
+        similarityFeature: RawCullSimilarityFeature,
     ) -> CLIPSimilarity? {
-        guard similarityModel.sortBySimilarity,
-              similarityModel.backendDescriptor.backend == "clip",
-              similarityModel.embeddings[file.id]?.descriptor.backend == "clip",
-              let anchorID = similarityModel.anchorFileID,
-              similarityModel.embeddings[anchorID]?.descriptor.backend == "clip"
-        else { return nil }
-
-        if file.id == anchorID {
+        switch similarityFeature.evidence(for: file.id) {
+        case .anchor:
             return .anchor
+        case let .distance(distance):
+            return .distance(distance)
+        case nil:
+            return nil
         }
-        return similarityModel.distances[file.id].map(CLIPSimilarity.distance)
     }
 }
 

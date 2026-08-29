@@ -10,7 +10,7 @@ import SwiftUI
 
 struct SemanticSearchControlsView: View {
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let onIndexSimilarity: () -> Void
+    let similarityFeature: RawCullSimilarityFeature
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -21,7 +21,7 @@ struct SemanticSearchControlsView: View {
                 SemanticSearchQueryEntryView(
                     semanticSearchFeature: semanticSearchFeature,
                     presentation: presentation,
-                    onIndex: onIndexSimilarity,
+                    onIndex: indexSimilarity,
                 )
 
             case let .checking(expectedLocations):
@@ -56,6 +56,11 @@ struct SemanticSearchControlsView: View {
 
     private var presentation: SemanticSearchUIPresentation {
         semanticSearchFeature.presentation
+    }
+
+    private func indexSimilarity() {
+        guard presentation.canStartIndexing else { return }
+        Task { await similarityFeature.indexCurrentCatalog() }
     }
 }
 

@@ -59,6 +59,7 @@ struct RawCullApp: App {
         Window("Photo Culling", id: "main-window") {
             RawCullMainView(
                 viewModel: viewModel,
+                similarityFeature: intelligenceRuntime.similarityFeature,
                 semanticSearchFeature: intelligenceRuntime.semanticSearchFeature,
             )
                 .background(.windowBackground)
