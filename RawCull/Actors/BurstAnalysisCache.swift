@@ -23,7 +23,7 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var similarityArtifactSetDigest: String?
 }
 
-nonisolated struct BurstSimilaritySignature: Codable, Equatable {
+nonisolated struct BurstSimilaritySignature: Codable, Equatable, Sendable {
     var groupingConfig: BurstGroupingConfig
     var backendDescriptor: SimilarityBackendDescriptor
     var artifactBackendDescriptors: [SimilarityBackendDescriptor]
@@ -57,7 +57,7 @@ nonisolated struct BurstSimilaritySignature: Codable, Equatable {
     }
 }
 
-nonisolated struct SharpnessScoringSignature: Codable, Equatable {
+nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
     /// Nil only when decoding the legacy RawCull-owned signature. Legacy values
     /// remain readable but compare stale against every current package descriptor.
     var analysisDescriptor: SharpnessAnalysisDescriptor?

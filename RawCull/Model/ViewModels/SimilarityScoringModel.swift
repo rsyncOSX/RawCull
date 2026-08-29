@@ -1038,7 +1038,10 @@ final class SimilarityScoringModel {
     // Cluster `files` into burst groups using a sequential O(n) distance pass.
     // `files` must be sorted by effective capture time before calling.
 
-    func groupBursts(files: [FileItem]) async {
+    func groupBursts(
+        files: [FileItem],
+        configuration: BurstGroupingConfig? = nil,
+    ) async {
         Logger.process.debugMessageOnly(
             "SimilarityScoringModel.groupBursts(): grouping \(files.count) files",
         )
@@ -1061,10 +1064,11 @@ final class SimilarityScoringModel {
         _groupingGeneration &+= 1
         let generation = _groupingGeneration
 
-        let threshold = burstSensitivity
         let snapshot = embeddings
         let service = similarityService
-        let config = BurstGroupingConfig(visualDistanceThreshold: threshold)
+        let config = configuration ?? BurstGroupingConfig(
+            visualDistanceThreshold: burstSensitivity,
+        )
         let signature = Self.cacheSignature(files: files, artifacts: snapshot)
         let cachedAdjacentDistances = _adjacentDistanceCacheSignature == signature
             ? _adjacentDistanceCache
@@ -1138,7 +1142,7 @@ final class SimilarityScoringModel {
         Logger.process.debugMessageOnly(
             "SimilarityScoringModel.groupBursts(): \(burstGroups.count) burst groups from "
                 + "\(eligibleCount) similarity-indexed files; excluded \(excludedCount) files "
-                + "without artifacts (threshold \(threshold))",
+                + "without artifacts (threshold \(config.visualDistanceThreshold))",
         )
     }
 

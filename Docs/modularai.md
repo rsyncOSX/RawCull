@@ -2158,6 +2158,10 @@ This is the highest-risk part and must not be done in one commit.
 
 ### Phase 7A: introduce pure request and result values
 
+Status: implemented on 2026-08-29. The existing view-model orchestration now
+accepts one immutable, `Sendable` request snapshot and publishes one immutable,
+`Sendable` pipeline result; no worker, cache, or persistence ownership moved.
+
 - Capture catalog identity, ordered files, sharpness signature, similarity
   signature, generation, and relevant configuration in an immutable request.
 - Return a typed result containing groups, rankings, review-state restoration,
@@ -2168,6 +2172,16 @@ This is the highest-risk part and must not be done in one commit.
 
 Gate: focused burst tests, smoke tests, and equality tests proving old and new input
 snapshots match.
+
+Validation evidence (2026-08-29): `BurstAnalysisPipelineValuesTests` verifies exact
+equality with the prior catalog/files/signature/generation/configuration reads,
+snapshot immutability, result equality, and compile-time sendability. The focused
+`RawCullViewModelCullingTests` suite and Debug build pass. The smoke manifest now
+enumerates 196 unique tests and includes the three Phase 7A tests. Smoke execution
+reaches an unrelated existing `ReleaseMetadataTests` failure because the checked-in
+README package-pin table and its expected 21-pin count do not match the checked-in
+18-pin `Package.resolved`; the failing metadata test passes in isolation, while the
+Phase 7A and burst tests pass consistently.
 
 ### Phase 7B: extract cache hydration and compatibility decisions
 
