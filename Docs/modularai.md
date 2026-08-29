@@ -2,10 +2,11 @@
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
-were implemented on 2026-08-29. Phases 5 through 12 have not started. Phase 4's
-automated gates pass, and its model-download path was manually verified on
-2026-08-29 by successfully downloading both the DataComp and OpenAI CLIP models.
-The broader manual regression matrix remains available for later phases.
+were implemented on 2026-08-29. Phase 5 was implemented on 2026-08-29, and Phases
+6 through 12 have not started. Phase 5's automated gates pass. Phase 4's model-
+download path was manually verified on 2026-08-29 by successfully downloading both
+the DataComp and OpenAI CLIP models. The broader manual regression matrix remains
+available for later phases.
 
 ## Purpose
 
@@ -1308,9 +1309,10 @@ user data requires migration or cleanup.
 
 ## Phase 5: migrate semantic search as an isolated vertical slice
 
-Status: not started. Phase 4 is complete and both supported CLIP model downloads
-have been verified. Phase 5 must remain a semantic-search ownership and caller-
-migration change; similarity indexing task ownership moves in Phase 6.
+Status: implemented on 2026-08-29. The semantic-search ownership and caller
+migration is complete, while similarity indexing task ownership remains unchanged
+for Phase 6. Automated gates pass; the manual acceptance matrix remains available
+for an interactive regression pass.
 
 ### Starting point and caller audit
 
@@ -1628,6 +1630,34 @@ indexing, serialization, artifact mapping, and package boundaries are unchanged.
   baseline.
 - Focused tests, import boundary, smoke, full TSan suite, and exact-package Release
   build pass.
+
+### Validation evidence (2026-08-29)
+
+- The focused semantic, runtime, accessibility, zoom-metadata, culling-grid,
+  comparison-navigation, and keyboard-navigation test selection passed.
+- Runtime tests verify that the runtime, view model, and semantic feature share the
+  exact `SimilarityScoringModel`, and that the weak application edge does not keep
+  the application graph alive.
+- Semantic tests cover computed feature projections, whitespace-only clearing,
+  show-all without rescoring, cached-only ranking, filtering and ordering,
+  cancellation, and superseded-query rejection.
+- The production caller audit found no semantic-search view traversal through
+  `RawCullViewModel.similarityModel`. The five view-model semantic methods remain
+  only as thin compatibility forwarders, and the feature has no indexing or source-
+  decoding entry point.
+- `make verify-ai-import-boundary` passed with the same 5 non-blocking
+  `PhotoAIContracts` leakage warnings recorded by earlier phases.
+- `make test-smoke` verified exactly 189 unique manifest identifiers; all passed.
+- `make test-full` passed with Thread Sanitizer enabled and no reported sanitizer
+  failures.
+- `xcodebuild -project RawCull.xcodeproj -scheme RawCull -destination
+  'platform=macOS,arch=arm64' -configuration Release
+  -onlyUsePackageVersionsFromResolvedFile build` passed.
+- `git diff --check` passed.
+- `make test-performance` was intentionally not run because Phase 5 did not change
+  cached scoring, indexing, serialization, artifact mapping, or a package boundary.
+- The manual acceptance matrix was not run and is not inferred from the automated
+  results.
 
 ### Rollback
 

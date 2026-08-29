@@ -57,7 +57,10 @@ struct RawCullApp: App {
 
     var body: some Scene {
         Window("Photo Culling", id: "main-window") {
-            RawCullMainView(viewModel: viewModel)
+            RawCullMainView(
+                viewModel: viewModel,
+                semanticSearchFeature: intelligenceRuntime.semanticSearchFeature,
+            )
                 .background(.windowBackground)
                 .environment(gridthumbnailviewmodel)
                 .environment(viewModel)

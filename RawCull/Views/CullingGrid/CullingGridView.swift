@@ -214,6 +214,7 @@ private struct BatchBadgeSelectionControlsView: View {
 
 struct CullingGridView<Header: View>: View {
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     @ViewBuilder let header: () -> Header
     var batchBadgeSelectionEnabled: () -> Bool = { false }
 
@@ -749,24 +750,20 @@ struct CullingGridView<Header: View>: View {
 
     private var semanticResultCount: Int? {
         guard !viewModel.showsBurstGroups,
-              case let .results(summary) =
-              viewModel.similarityModel.semanticSearchState,
+              let summary = semanticSearchFeature.resultSummary,
               summary.resultCount > 0
         else { return nil }
         return summary.resultCount
     }
 
     private func semanticResultRank(for file: FileItem) -> Int? {
-        guard semanticResultCount != nil,
-              let zeroBasedRank =
-              viewModel.similarityModel.semanticResultOrder[file.id]
-        else { return nil }
-        return zeroBasedRank + 1
+        guard semanticResultCount != nil else { return nil }
+        return semanticSearchFeature.resultEvidence(for: file.id)?.rank
     }
 
     private func semanticResultScore(for file: FileItem) -> Float? {
         guard semanticResultCount != nil else { return nil }
-        return viewModel.similarityModel.semanticScores[file.id]
+        return semanticSearchFeature.resultEvidence(for: file.id)?.score
     }
 
     private func ratingValue(for file: FileItem) -> Int {

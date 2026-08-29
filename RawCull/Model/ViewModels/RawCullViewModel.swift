@@ -150,6 +150,9 @@ final class RawCullViewModel {
     /// Similarity scoring model — PhotoAIKit artifacts with RawCull-owned ranking policy.
     var similarityModel: SimilarityScoringModel
 
+    /// Semantic-only presentation and actions backed by `similarityModel`.
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+
     /// Dedicated AI segmentation burst-review feature. It owns the in-process workflow
     /// and typed operation state; the central view model only adapts inputs and
     /// applies a user-confirmed recommendation.
@@ -258,10 +261,33 @@ final class RawCullViewModel {
 
     init(
         similarityModel: SimilarityScoringModel,
+        semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewFeature: DeepAIReviewFeature,
     ) {
         self.similarityModel = similarityModel
+        self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewFeature = deepAIReviewFeature
+
+        assert(
+            semanticSearchFeature.sharesSimilarityModelIdentity(
+                with: similarityModel,
+            ),
+        )
+    }
+
+    convenience init(
+        similarityModel: SimilarityScoringModel,
+        deepAIReviewFeature: DeepAIReviewFeature,
+    ) {
+        let semanticSearchFeature = RawCullSemanticSearchFeature(
+            similarityModel: similarityModel,
+        )
+        self.init(
+            similarityModel: similarityModel,
+            semanticSearchFeature: semanticSearchFeature,
+            deepAIReviewFeature: deepAIReviewFeature,
+        )
+        semanticSearchFeature.bindApplicationTarget(self)
     }
 
     convenience init(

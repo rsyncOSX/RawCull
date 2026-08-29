@@ -36,6 +36,7 @@ struct ZoomCullingMetadata: Equatable {
     static func make(
         for file: FileItem,
         viewModel: RawCullViewModel,
+        semanticSearchFeature: RawCullSemanticSearchFeature,
         burstAnalysis: BurstAnalysisResult? = nil,
     ) -> Self {
         let sharpnessModel = viewModel.sharpnessModel
@@ -60,22 +61,13 @@ struct ZoomCullingMetadata: Equatable {
                     isRecommendation: burstAnalysis?.recommendedFileID == file.id,
                 )
             },
-            clipSemanticMatch: clipSemanticMatch(for: file, similarityModel: similarityModel),
+            clipSemanticMatch: semanticSearchFeature
+                .resultEvidence(for: file.id)
+                .map {
+                    CLIPSemanticMatch(rank: $0.rank, score: $0.score)
+                },
             clipSimilarity: clipSimilarity(for: file, similarityModel: similarityModel),
         )
-    }
-
-    @MainActor
-    private static func clipSemanticMatch(
-        for file: FileItem,
-        similarityModel: SimilarityScoringModel,
-    ) -> CLIPSemanticMatch? {
-        guard similarityModel.semanticSearchBackendDescriptor?.backend == "clip",
-              case .results = similarityModel.semanticSearchState,
-              let zeroBasedRank = similarityModel.semanticResultOrder[file.id],
-              let score = similarityModel.semanticScores[file.id]
-        else { return nil }
-        return CLIPSemanticMatch(rank: zeroBasedRank + 1, score: score)
     }
 
     @MainActor

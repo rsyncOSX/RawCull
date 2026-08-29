@@ -25,6 +25,12 @@ struct RawCullIntelligenceRuntimeTests {
 
         #expect(runtime.integration === fixture.integration)
         #expect(runtime.similarityModel === viewModel.similarityModel)
+        #expect(runtime.semanticSearchFeature === viewModel.semanticSearchFeature)
+        #expect(
+            runtime.semanticSearchFeature.sharesSimilarityModelIdentity(
+                with: runtime.similarityModel,
+            ),
+        )
         #expect(runtime.deepAIReviewFeature === fixture.integration.deepAIReviewFeature)
         #expect(runtime.deepAIReviewFeature === viewModel.deepAIReviewFeature)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
@@ -94,6 +100,9 @@ struct RawCullIntelligenceRuntimeTests {
         let runtime = RawCullIntelligenceRuntime(
             integration: fixture.integration,
             similarityModel: similarityModel,
+            semanticSearchFeature: RawCullSemanticSearchFeature(
+                similarityModel: similarityModel,
+            ),
             deepAIReviewFeature: fixture.integration.deepAIReviewFeature,
             settingsModel: settingsModel,
             applicationTarget: target,
@@ -288,6 +297,7 @@ struct RawCullIntelligenceRuntimeTests {
         weak var releasedRuntime: RawCullIntelligenceRuntime?
         weak var releasedViewModel: RawCullViewModel?
         weak var releasedSimilarityModel: SimilarityScoringModel?
+        weak var releasedSemanticSearchFeature: RawCullSemanticSearchFeature?
         weak var releasedSettingsModel: RawCullAISettingsModel?
         weak var releasedModelManagementModel: RawCullAIModelManagementModel?
 
@@ -303,6 +313,8 @@ struct RawCullIntelligenceRuntimeTests {
             releasedRuntime = applicationState.intelligenceRuntime
             releasedViewModel = applicationState.viewModel
             releasedSimilarityModel = applicationState.intelligenceRuntime.similarityModel
+            releasedSemanticSearchFeature = applicationState.intelligenceRuntime
+                .semanticSearchFeature
             releasedSettingsModel = applicationState.intelligenceRuntime.settingsModel
             releasedModelManagementModel = applicationState.intelligenceRuntime
                 .modelManagementModel
@@ -311,6 +323,7 @@ struct RawCullIntelligenceRuntimeTests {
         #expect(releasedRuntime == nil)
         #expect(releasedViewModel == nil)
         #expect(releasedSimilarityModel == nil)
+        #expect(releasedSemanticSearchFeature == nil)
         #expect(releasedSettingsModel == nil)
         #expect(releasedModelManagementModel == nil)
     }

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct BurstGroupsHomeView: View {
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
     let similarityThresholdChanged: () -> Void
 
@@ -142,8 +143,8 @@ struct BurstGroupsHomeView: View {
         return BurstCatalogPreparationPresentation(
             isPreparingCatalog: viewModel.isPreparingBurstCatalog,
             fileCount: viewModel.activeCatalogFiles.count,
-            semanticIndexedCount: similarityModel.semanticIndexedFileCount,
-            semanticCatalogCount: similarityModel.semanticCatalogFileCount,
+            semanticIndexedCount: semanticSearchFeature.indexedFileCount,
+            semanticCatalogCount: semanticSearchFeature.catalogFileCount,
             isIndexing: similarityModel.isIndexing,
             indexingProgress: similarityModel.indexingProgress,
             indexingTotal: similarityModel.indexingTotal,

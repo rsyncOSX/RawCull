@@ -232,13 +232,13 @@ extension RawCullViewModel {
     /// highest-ranked results into a durable scope shared by every catalog
     /// workflow until the search is cleared or the catalog is reindexed.
     var activeCatalogFiles: [FileItem] {
-        guard similarityModel.hasSemanticSearchResults else { return files }
-        let selectedIDs = similarityModel.semanticSearchSelectedFileIDs
+        guard semanticSearchFeature.hasResults else { return files }
+        let selectedIDs = semanticSearchFeature.selectedFileIDs
         return files.filter { selectedIDs.contains($0.id) }
     }
 
     var hasActiveSemanticSearchSelection: Bool {
-        similarityModel.hasSemanticSearchResults
+        semanticSearchFeature.hasResults
     }
 
     // MARK: - Helpers
@@ -275,8 +275,12 @@ extension RawCullViewModel {
     /// over sharpness sort, with the anchor image always ranked first.
     func applyFilters(to files: [FileItem]) -> [FileItem] {
         var result = applyNonSemanticFilters(to: files)
-        if similarityModel.hasSemanticSearchResults {
-            let resultOrder = similarityModel.semanticResultOrder
+        if semanticSearchFeature.hasResults {
+            let resultOrder = Dictionary(
+                uniqueKeysWithValues: semanticSearchFeature.orderedResultIDs
+                    .enumerated()
+                    .map { ($0.element, $0.offset) },
+            )
             result = result.filter { resultOrder[$0.id] != nil }
             result.sort { lhs, rhs in
                 let leftOrder = resultOrder[lhs.id] ?? .max
@@ -288,7 +292,7 @@ extension RawCullViewModel {
             }
             return result
         }
-        if similarityModel.semanticSearchHasEmptyIndex {
+        if semanticSearchFeature.hasEmptyIndex {
             return []
         }
 

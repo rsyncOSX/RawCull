@@ -72,6 +72,7 @@ extension RawCullViewModel: RawCullIntelligenceApplicationTarget {}
 final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying {
     let integration: RawCullAIIntegration
     let similarityModel: SimilarityScoringModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     let deepAIReviewFeature: DeepAIReviewFeature
     let settingsModel: RawCullAISettingsModel
     let modelManagementModel: RawCullAIModelManagementModel
@@ -85,16 +86,24 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     init(
         integration: RawCullAIIntegration,
         similarityModel: SimilarityScoringModel,
+        semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewFeature: DeepAIReviewFeature,
         settingsModel: RawCullAISettingsModel,
         applicationTarget: any RawCullIntelligenceApplicationTarget,
     ) {
         self.integration = integration
         self.similarityModel = similarityModel
+        self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewFeature = deepAIReviewFeature
         self.settingsModel = settingsModel
         self.modelManagementModel = settingsModel.modelManagementModel
         self.applicationTarget = applicationTarget
+
+        assert(
+            self.semanticSearchFeature.sharesSimilarityModelIdentity(
+                with: similarityModel,
+            ),
+        )
     }
 
     @discardableResult
@@ -189,21 +198,28 @@ struct RawCullApplicationState {
             semanticSearchService: initialConfiguration.semanticSearch.service,
             artifactStore: similarityArtifactStore,
         )
+        let semanticSearchFeature = RawCullSemanticSearchFeature(
+            similarityModel: similarityModel,
+        )
         let deepAIReviewFeature = integration.deepAIReviewFeature
         let viewModel = RawCullViewModel(
             similarityModel: similarityModel,
+            semanticSearchFeature: semanticSearchFeature,
             deepAIReviewFeature: deepAIReviewFeature,
         )
         let intelligenceRuntime = RawCullIntelligenceRuntime(
             integration: integration,
             similarityModel: similarityModel,
+            semanticSearchFeature: semanticSearchFeature,
             deepAIReviewFeature: deepAIReviewFeature,
             settingsModel: settingsModel,
             applicationTarget: viewModel,
         )
+        semanticSearchFeature.bindApplicationTarget(viewModel)
         settingsModel.bindConfigurationConsumer(intelligenceRuntime)
 
         assert(viewModel.similarityModel === intelligenceRuntime.similarityModel)
+        assert(viewModel.semanticSearchFeature === intelligenceRuntime.semanticSearchFeature)
         assert(viewModel.deepAIReviewFeature === intelligenceRuntime.deepAIReviewFeature)
         assert(
             settingsModel.modelManagementModel

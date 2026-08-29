@@ -9,7 +9,8 @@ import Foundation
 import SwiftUI
 
 struct SemanticSearchControlsView: View {
-    @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+    let onIndexSimilarity: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -18,9 +19,9 @@ struct SemanticSearchControlsView: View {
             switch presentation.availability {
             case .ready:
                 SemanticSearchQueryEntryView(
-                    viewModel: viewModel,
+                    semanticSearchFeature: semanticSearchFeature,
                     presentation: presentation,
-                    onIndex: indexSimilarity,
+                    onIndex: onIndexSimilarity,
                 )
 
             case let .checking(expectedLocations):
@@ -54,31 +55,12 @@ struct SemanticSearchControlsView: View {
     }
 
     private var presentation: SemanticSearchUIPresentation {
-        let model = viewModel.similarityModel
-        return SemanticSearchUIPresentation(
-            capability: model.semanticSearchCapability,
-            searchState: model.semanticSearchState,
-            indexedFileCount: model.semanticIndexedFileCount,
-            catalogFileCount: model.semanticCatalogFileCount,
-            isIndexing: model.isIndexing
-                && model.canIndexSemanticSearchArtifacts,
-            indexingProgress: model.indexingProgress,
-            indexingTotal: model.indexingTotal,
-            indexingPhase: model.indexingPhase,
-            activeBackendCanIndex: model.canIndexSemanticSearchArtifacts,
-        )
-    }
-
-    private func indexSimilarity() {
-        guard presentation.canStartIndexing else { return }
-        Task {
-            await viewModel.indexSimilarity()
-        }
+        semanticSearchFeature.presentation
     }
 }
 
 private struct SemanticSearchQueryEntryView: View {
-    @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     let presentation: SemanticSearchUIPresentation
     let onIndex: () -> Void
 
@@ -119,7 +101,7 @@ private struct SemanticSearchQueryEntryView: View {
                 }
 
                 if !queryText.isEmpty
-                    || viewModel.similarityModel.semanticSearchState != .idle {
+                    || semanticSearchFeature.state != .idle {
                     Button(action: clearSearch) {
                         Label("Clear", systemImage: "xmark.circle")
                     }
@@ -151,7 +133,7 @@ private struct SemanticSearchQueryEntryView: View {
         .onChange(of: queryText) {
             guard !isClearingSearch,
                   queryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  viewModel.similarityModel.semanticSearchState != .idle
+                  semanticSearchFeature.state != .idle
             else { return }
             clearSearch()
         }
@@ -182,16 +164,15 @@ private struct SemanticSearchQueryEntryView: View {
         queryText = query
         searchTask?.cancel()
         searchTask = Task {
-            await viewModel.searchSemantically(for: query)
+            await semanticSearchFeature.search(for: query)
         }
     }
 
     private func cancelSearch() {
         searchTask?.cancel()
         searchTask = nil
-        viewModel.similarityModel.cancelSemanticSearch()
         Task {
-            await viewModel.cancelSemanticSearch()
+            await semanticSearchFeature.cancel()
         }
     }
 
@@ -202,7 +183,7 @@ private struct SemanticSearchQueryEntryView: View {
         queryText = ""
         searchTask = Task {
             defer { isClearingSearch = false }
-            await viewModel.clearSemanticSearch()
+            await semanticSearchFeature.clear()
             guard !Task.isCancelled else { return }
             searchFieldFocused = true
         }

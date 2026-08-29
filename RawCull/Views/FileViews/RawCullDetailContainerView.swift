@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RawCullDetailContainerView: View {
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
     @Binding var selectedFileID: FileItem.ID?
@@ -11,6 +12,7 @@ struct RawCullDetailContainerView: View {
     var body: some View {
         FileDetailView(
             viewModel: viewModel,
+            semanticSearchFeature: semanticSearchFeature,
             cgImage: $cgImage,
             nsImage: $nsImage,
             selectedFileID: $selectedFileID,

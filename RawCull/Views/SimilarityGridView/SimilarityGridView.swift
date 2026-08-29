@@ -11,6 +11,7 @@ import SwiftUI
 
 struct SimilarityGridView: View {
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Binding var nsImage: NSImage?
@@ -21,6 +22,7 @@ struct SimilarityGridView: View {
             if gridthumbnailviewmodel.cullingModel != nil {
                 SimilarityGridSelectionView(
                     viewModel: viewModel,
+                    semanticSearchFeature: semanticSearchFeature,
                     nsImage: $nsImage,
                     cgImage: $cgImage,
                 )

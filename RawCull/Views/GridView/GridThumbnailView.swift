@@ -9,6 +9,7 @@ import SwiftUI
 
 struct GridThumbnailView: View {
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Binding var nsImage: NSImage?
@@ -20,6 +21,7 @@ struct GridThumbnailView: View {
             if gridthumbnailviewmodel.cullingModel != nil {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
+                    semanticSearchFeature: semanticSearchFeature,
                     nsImage: $nsImage,
                     cgImage: $cgImage,
                 )
