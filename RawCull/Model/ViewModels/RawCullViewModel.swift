@@ -237,13 +237,16 @@ final class RawCullViewModel {
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
     ) {
+        let sharpnessModel = SharpnessScoringModel()
         let similarityFeature = similarityFeature
             ?? RawCullSimilarityFeature(similarityModel: similarityModel)
+        self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewFeature = deepAIReviewFeature
         burstAnalysisCoordinator = BurstAnalysisCoordinator(
+            sharpnessModel: sharpnessModel,
             similarityFeature: similarityFeature,
             similarityModel: similarityModel,
             cacheRepository: burstAnalysisCacheRepository,

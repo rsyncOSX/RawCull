@@ -13,10 +13,13 @@ struct BurstAnalysisCoordinatorTests {
         let files = [makeCoordinatorFile("A.raw"), makeCoordinatorFile("B.raw")]
         let group = BurstGroup(id: 7, fileIDs: files.map(\.id))
         let signature = try #require(BurstGroupSignature(files: files, catalog: catalog))
-        let (coordinator, repository, request) = makeCoordinatorHarness(
+        let harness = makeCoordinatorHarness(
             catalog: catalog,
             files: files,
         )
+        let coordinator = harness.coordinator
+        let repository = harness.repository
+        let request = harness.request
         repository.snapshot = makeCoordinatorSnapshot(
             request: request,
             groups: [group],
@@ -40,10 +43,13 @@ struct BurstAnalysisCoordinatorTests {
     func `artifact digest mismatch rejects derived cache`() async {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let files = [makeCoordinatorFile("A.raw")]
-        let (coordinator, repository, request) = makeCoordinatorHarness(
+        let harness = makeCoordinatorHarness(
             catalog: catalog,
             files: files,
         )
+        let coordinator = harness.coordinator
+        let repository = harness.repository
+        let request = harness.request
         var snapshot = makeCoordinatorSnapshot(request: request)
         snapshot.similarityArtifactSetDigest = "different-artifact-set"
         repository.snapshot = snapshot
@@ -74,10 +80,13 @@ struct BurstAnalysisCoordinatorTests {
             )
         }
         let oldGroup = BurstGroup(id: 3, fileIDs: oldFiles.map(\.id))
-        let (coordinator, repository, request) = makeCoordinatorHarness(
+        let harness = makeCoordinatorHarness(
             catalog: catalog,
             files: currentFiles,
         )
+        let coordinator = harness.coordinator
+        let repository = harness.repository
+        let request = harness.request
         repository.migrationCandidate = makeCoordinatorSnapshot(
             request: request,
             files: oldFiles,
@@ -101,10 +110,13 @@ struct BurstAnalysisCoordinatorTests {
     func `superseded cache preparation returns no result`() async {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let files = [makeCoordinatorFile("A.raw")]
-        let (coordinator, repository, request) = makeCoordinatorHarness(
+        let harness = makeCoordinatorHarness(
             catalog: catalog,
             files: files,
         )
+        let coordinator = harness.coordinator
+        let repository = harness.repository
+        let request = harness.request
         repository.snapshot = makeCoordinatorSnapshot(request: request)
         repository.invalidateOnLoad = true
 
@@ -132,7 +144,7 @@ struct BurstAnalysisCoordinatorTests {
             snapshots: [BurstReviewStateSnapshot(signature: signature, state: .deferred)],
             groups: [
                 BurstGroup(id: 1, fileIDs: [first.id, third.id]),
-                BurstGroup(id: 9, fileIDs: [first.id, second.id]),
+                BurstGroup(id: 9, fileIDs: [first.id, second.id])
             ],
             files: [first, second, third],
             catalog: catalog,
@@ -140,125 +152,95 @@ struct BurstAnalysisCoordinatorTests {
 
         #expect(restored == [9: .deferred])
     }
-}
 
-@MainActor
-private final class CoordinatorCacheRepository: BurstAnalysisCacheRepository {
-    var snapshot: BurstAnalysisCacheSnapshot?
-    var migrationCandidate: BurstAnalysisCacheSnapshot?
-    var invalidateOnLoad = false
-    var isValid = true
-    private(set) var loadCount = 0
-    private(set) var migrationLoadCount = 0
-
-    func load(
-        catalog _: URL,
-        files _: [FileItem],
-        thumbnailMaxPixelSize _: Int,
-        sharpnessSignature _: BurstSharpnessSignature,
-        similaritySignature _: BurstSimilaritySignature,
-    ) async -> BurstAnalysisCacheSnapshot? {
-        loadCount += 1
-        if invalidateOnLoad {
-            isValid = false
-        }
-        return snapshot
-    }
-
-    func loadMigrationCandidate(catalog _: URL) async -> BurstAnalysisCacheSnapshot? {
-        migrationLoadCount += 1
-        return migrationCandidate
-    }
-
-    func save(_: BurstAnalysisCacheSnapshot, catalog _: URL) async {}
-    func delete(catalog _: URL) async {}
-}
-
-@MainActor
-private func makeCoordinatorHarness(
-    catalog: URL,
-    files: [FileItem],
-) -> (BurstAnalysisCoordinator, CoordinatorCacheRepository, BurstAnalysisPipelineRequest) {
-    let model = SimilarityScoringModel(
-        artifactStore: makeIsolatedSimilarityArtifactStore(),
-    )
-    let feature = RawCullSimilarityFeature(similarityModel: model)
-    let repository = CoordinatorCacheRepository()
-    let coordinator = BurstAnalysisCoordinator(
-        similarityFeature: feature,
-        similarityModel: model,
-        cacheRepository: repository,
-    )
-    let similaritySignature = BurstSimilaritySignature(
-        groupingConfig: BurstGroupingConfig(),
-        backendDescriptor: model.backendDescriptor,
-        artifactBackendDescriptors: model.artifactBackendDescriptors,
-        artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
-        embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
-        embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
-    )
-    let sharpnessModel = SharpnessScoringModel()
-    let request = BurstAnalysisPipelineRequest(
-        catalogIdentity: catalog,
-        orderedFiles: files,
-        sharpnessSignature: sharpnessModel.scoringSignature,
-        similaritySignature: similaritySignature,
-        generation: 1,
-        configuration: BurstAnalysisPipelineConfiguration(
-            thumbnailMaxPixelSize: sharpnessModel.effectiveThumbnailMaxPixelSize,
-            grouping: similaritySignature.groupingConfig,
-            cacheSchemaVersion: BurstAnalysisCache.schemaVersion,
-            groupingAlgorithmVersion: BurstGroupingConfig.algorithmVersion,
-        ),
-    )
-    return (coordinator, repository, request)
-}
-
-private nonisolated func makeCoordinatorFile(_ name: String) -> FileItem {
-    FileItem(
-        url: URL(fileURLWithPath: "/tmp/\(name)"),
-        name: name,
-        size: 1,
-        dateModified: Date(timeIntervalSince1970: 1),
-        captureDate: Date(timeIntervalSince1970: 1),
-        exifData: nil,
-        afFocusNormalized: nil,
-    )
-}
-
-@MainActor
-private func makeCoordinatorSnapshot(
-    request: BurstAnalysisPipelineRequest,
-    files: [FileItem]? = nil,
-    groups: [BurstGroup] = [],
-    reviewStates: [BurstReviewStateSnapshot] = [],
-) -> BurstAnalysisCacheSnapshot {
-    let files = files ?? request.orderedFiles
-    return BurstAnalysisCacheSnapshot(
-        schemaVersion: request.configuration.cacheSchemaVersion,
-        algorithmVersion: request.configuration.groupingAlgorithmVersion,
-        catalogPath: request.catalogIdentity.path,
-        thumbnailMaxPixelSize: request.configuration.thumbnailMaxPixelSize,
-        sharpnessSignature: request.sharpnessSignature,
-        similaritySignature: request.similaritySignature,
-        files: files.map {
-            BurstAnalysisCacheFile(
-                id: $0.id,
-                path: $0.url.path,
-                size: $0.size,
-                modificationDate: $0.dateModified,
+    @Test
+    func `fresh orchestration preserves progress ranks and saves an immutable snapshot`() async {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let file = makeCoordinatorFile("A.raw")
+        let harness = makeCoordinatorComputeHarness(catalog: catalog, files: [file])
+        harness.sharpnessModel.applyPreloadedScores(
+            [file],
+            preloadedScores: [file.id: 42],
+            preloadedSaliency: [:],
+        )
+        var migration = makeCoordinatorSnapshot(request: harness.request)
+        migration.embeddings = [
+            file.id: makeCoordinatorArtifact(
+                file: file,
+                backend: harness.request.similaritySignature.backendDescriptor,
             )
-        },
-        embeddings: [:],
-        sharpnessScores: [:],
-        saliencyInfo: [:],
-        groups: groups,
-        boundaryEvidence: [],
-        results: [],
-        reviewStateSnapshots: reviewStates,
-        similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
-            files: request.orderedFiles,
-            artifacts: [:],
-        ),
-    )
+        ]
+        harness.repository.migrationCandidate = migration
+        var progressSteps: [BurstAnalysisStep] = []
+        var appliedResults: [BurstAnalysisPipelineResult] = []
+
+        let result = await harness.coordinator.run(
+            request: harness.request,
+            initialReviewStates: [:],
+            fullCatalogFileIDs: Set([file.id]),
+            callbacks: BurstAnalysisRunCallbacks(
+                isCurrent: { true },
+                updateProgress: { progressSteps.append($0.step) },
+                didScoreSharpness: { _ in
+                    Issue.record("preloaded sharpness should be reused")
+                },
+                applyResult: { result in
+                    appliedResults.append(result)
+                    return result
+                },
+            ),
+        )
+
+        #expect(
+            progressSteps == [
+                .loadingCache,
+                .indexingSimilarity,
+                .grouping,
+                .ranking,
+                .savingCache
+            ],
+        )
+        #expect(result?.diagnostics == [
+            .legacyMigrationCandidateFound,
+            .reusedSharpnessScores,
+            .indexedMissingSimilarityArtifacts,
+            .cacheSaveRequested
+        ])
+        #expect(appliedResults.count == 1)
+        #expect(harness.repository.savedSnapshots.count == 1)
+        #expect(harness.repository.savedSnapshots.first?.files.map(\.id) == [file.id])
+        #expect(harness.repository.savedSnapshots.first?.sharpnessScores == [file.id: 42])
+        #expect(harness.repository.savedSnapshots.first?.results == result?.rankings)
+    }
+
+    @Test
+    func `stale generation cannot apply or save a computed result`() async {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let harness = makeCoordinatorComputeHarness(catalog: catalog, files: [])
+        var isValid = true
+        var applied = false
+
+        let result = await harness.coordinator.run(
+            request: harness.request,
+            initialReviewStates: [:],
+            fullCatalogFileIDs: Set<UUID>(),
+            callbacks: BurstAnalysisRunCallbacks(
+                isCurrent: { isValid },
+                updateProgress: { progress in
+                    if progress.step == .grouping {
+                        isValid = false
+                    }
+                },
+                didScoreSharpness: { _ in },
+                applyResult: { result in
+                    applied = true
+                    return result
+                },
+            ),
+        )
+
+        #expect(result == nil)
+        #expect(!applied)
+        #expect(harness.repository.savedSnapshots.isEmpty)
+    }
 }

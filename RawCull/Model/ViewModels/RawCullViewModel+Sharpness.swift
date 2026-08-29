@@ -67,6 +67,16 @@ extension RawCullViewModel {
         await calibrateAndScoreFiles(files)
     }
 
+    /// Application-side effects requested after coordinator-owned burst
+    /// sharpness work completes. Culling persistence and display sorting remain
+    /// view-model responsibilities.
+    func applyBurstSharpnessScoringSideEffects(_ files: [FileItem]) async {
+        if !sharpnessModel.scores.isEmpty {
+            persistScoringResultsInMemory(files: files)
+        }
+        await handleSortOrderChange()
+    }
+
     private func calibrateAndScoreFiles(_ files: [FileItem]) async {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
@@ -85,9 +95,9 @@ extension RawCullViewModel {
         )
     }
 
+    // periphery:ignore
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
-    // periphery:ignore
     func persistScoringResultsInMemory() {
         persistScoringResultsInMemory(files: files)
     }

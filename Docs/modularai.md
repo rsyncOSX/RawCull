@@ -2,8 +2,9 @@
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
-were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A and 7B were implemented
-on 2026-08-29; Phase 7 is in progress, and Phases 8 through 12 have not started.
+were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A through 7C were
+implemented on 2026-08-29; Phase 7 is in progress, and Phases 8 through 12 have
+not started.
 Phase 6's automated gates pass; its
 manual acceptance matrix remains pending. Phase 4's model-
 download path was manually verified on 2026-08-29 by successfully downloading both
@@ -2212,6 +2213,12 @@ the 18 pins in `Package.resolved`; all Phase 7B tests pass in that run.
 
 ### Phase 7C: extract compute orchestration
 
+Status: implemented and verified on 2026-08-29. `BurstAnalysisCoordinator` now
+owns cache preparation, missing sharpness and similarity work, grouping, ranking,
+progress sequencing, stale-result checks, and the primary derived-cache save. The
+view model supplies immutable application snapshots and retains result publication,
+culling persistence, sorting, and manual winner overrides.
+
 - Move missing sharpness scoring, missing similarity indexing, grouping, ranking,
   and cache-save sequencing into `BurstAnalysisCoordinator`.
 - Preserve progress steps and cancellation checkpoints exactly.
@@ -2222,6 +2229,18 @@ the 18 pins in `Package.resolved`; all Phase 7B tests pass in that run.
 
 Gate: burst preparation, coordinator, grouping, cancellation, cache, full TSan, and
 performance suites.
+
+Validation evidence (2026-08-29): seven focused coordinator tests cover cache reuse,
+fresh orchestration progress, saved-snapshot contents, compatibility rejection,
+legacy remapping, stale-generation rejection, and membership-based state restore.
+The complete coordinator and `RawCullViewModelCullingTests` suites pass after the
+extraction, as do the cache, migration, typed-persistence, cancellation, and
+performance suites. The smoke manifest enumerates 203 unique tests and passes 202;
+the full Thread Sanitizer plan passes 370 of 371 with no runtime warnings. Both
+runs fail only on the pre-existing README expectation of 21 package pins versus the
+18 pins in `Package.resolved`. Exact-package Debug and Release builds, the AI
+import-boundary check, and `git diff --check` pass. The changed-file SwiftLint audit
+reports only the two pre-existing view-model extension size/name findings.
 
 ### Phase 7D: reduce the central view model
 
