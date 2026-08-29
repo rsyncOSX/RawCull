@@ -62,18 +62,18 @@ struct RawCullApp: App {
                 similarityFeature: intelligenceRuntime.similarityFeature,
                 semanticSearchFeature: intelligenceRuntime.semanticSearchFeature,
             )
-                .background(.windowBackground)
-                .environment(gridthumbnailviewmodel)
-                .environment(viewModel)
-                .task {
-                    await viewModel.applyStoredScoringSettings()
-                }
-                .task {
-                    await intelligenceRuntime.settingsModel.refresh()
-                }
-                .onAppear {
-                    appDelegate.configure(viewModel: viewModel)
-                }
+            .background(.windowBackground)
+            .environment(gridthumbnailviewmodel)
+            .environment(viewModel)
+            .task {
+                await viewModel.applyStoredScoringSettings()
+            }
+            .task {
+                await intelligenceRuntime.settingsModel.refresh()
+            }
+            .onAppear {
+                appDelegate.configure(viewModel: viewModel)
+            }
         }
         .windowToolbarStyle(.unified)
         .commands {

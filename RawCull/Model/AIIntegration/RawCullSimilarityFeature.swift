@@ -130,8 +130,10 @@ final class RawCullSimilarityFeature {
         switch model.backendDescriptor.backend {
         case "clip":
             RawCullSimilarityBackendPresentation(kind: .clip, displayName: "CLIP")
+
         case "vision":
             RawCullSimilarityBackendPresentation(kind: .vision, displayName: "Vision")
+
         default:
             RawCullSimilarityBackendPresentation(
                 kind: .other,
@@ -153,16 +155,34 @@ final class RawCullSimilarityFeature {
         )
     }
 
-    var isSimilaritySortingActive: Bool { model.sortBySimilarity }
-    var activeAnchorFileID: UUID? { model.anchorFileID }
-    var isGrouping: Bool { model.isGrouping }
-    var isBusy: Bool { model.isIndexing || model.isGrouping }
+    var isSimilaritySortingActive: Bool {
+        model.sortBySimilarity
+    }
+
+    var activeAnchorFileID: UUID? {
+        model.anchorFileID
+    }
+
+    var isGrouping: Bool {
+        model.isGrouping
+    }
+
+    var isBusy: Bool {
+        model.isIndexing || model.isGrouping
+    }
+
     var canCancelHydration: Bool {
         imageHydrationTask != nil || semanticHydrationTask != nil
             || catalogHydrationTask != nil
     }
-    var canCancelIndexing: Bool { model.isIndexing }
-    var canCancelRanking: Bool { model.sortBySimilarity || model.anchorFileID != nil }
+
+    var canCancelIndexing: Bool {
+        model.isIndexing
+    }
+
+    var canCancelRanking: Bool {
+        model.sortBySimilarity || model.anchorFileID != nil
+    }
 
     func hasCompleteIndex(for files: [FileItem]) -> Bool {
         model.hasCompleteSimilarityIndex(for: files)
@@ -254,7 +274,7 @@ final class RawCullSimilarityFeature {
         return !task.isCancelled
             && !Task.isCancelled
             && applicationContext?.currentSimilarityCatalogSnapshot.identity
-                == request.catalogIdentity
+            == request.catalogIdentity
     }
 
     func cancelHydration() {

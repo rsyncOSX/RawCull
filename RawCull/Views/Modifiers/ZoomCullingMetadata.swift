@@ -79,11 +79,13 @@ struct ZoomCullingMetadata: Equatable {
     ) -> CLIPSimilarity? {
         switch similarityFeature.evidence(for: file.id) {
         case .anchor:
-            return .anchor
+            .anchor
+
         case let .distance(distance):
-            return .distance(distance)
+            .distance(distance)
+
         case nil:
-            return nil
+            nil
         }
     }
 }

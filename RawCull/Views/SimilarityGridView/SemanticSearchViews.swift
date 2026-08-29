@@ -241,7 +241,6 @@ private struct SemanticSearchActivityStatusView: View {
     let activity: SemanticSearchUIActivity
     let coverage: SemanticSearchUICoverage
 
-    @ViewBuilder
     var body: some View {
         switch activity {
         case .idle:

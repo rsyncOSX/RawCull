@@ -98,7 +98,7 @@ actor FullSizeJPGDiskCache {
 
         let options: [CFString: Any] = [
             kCGImageDestinationLossyCompressionQuality: 0.85,
-            kCGImagePropertyOrientation: 1,
+            kCGImagePropertyOrientation: 1
         ]
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }

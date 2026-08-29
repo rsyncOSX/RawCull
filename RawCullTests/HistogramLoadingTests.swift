@@ -42,7 +42,7 @@ struct HistogramLoadingTests {
 
     @Test(.tags(.smoke))
     func `bounds histogram sample while preserving aspect ratio`() throws {
-        let image = try makeSplitCGImage(width: 1_024, height: 512)
+        let image = try makeSplitCGImage(width: 1024, height: 512)
 
         let sampledImage = HistogramLoader.sampledImage(from: image)
 
@@ -52,7 +52,7 @@ struct HistogramLoadingTests {
 
     @Test(.tags(.smoke))
     func `sampled histogram preserves dominant luminance values`() async throws {
-        let image = try makeSplitCGImage(width: 1_024, height: 512)
+        let image = try makeSplitCGImage(width: 1024, height: 512)
 
         let histogram = try await HistogramLoader.calculate(from: image)
 

@@ -227,7 +227,7 @@ struct RawCullAIModelDownloadsTests {
 
     @MainActor
     @Test
-    func `Model management presents progress installation and removal`() async throws {
+    func `Model management presents progress installation and removal`() async {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -273,7 +273,7 @@ struct RawCullAIModelDownloadsTests {
             hasState: .installed(location: downloadedURL),
         )
         #expect(locationsConsumer.snapshots.contains([
-            descriptor.id: downloadedURL,
+            descriptor.id: downloadedURL
         ]))
 
         await model.removeManagedModel(descriptor.id)
@@ -284,7 +284,7 @@ struct RawCullAIModelDownloadsTests {
 
     @MainActor
     @Test
-    func `Cancelling model management download restores coordinator state`() async throws {
+    func `Cancelling model management download restores coordinator state`() async {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -455,7 +455,7 @@ struct RawCullAIModelDownloadsTests {
         _ model: RawCullAIModelManagementModel,
         hasState expectedState: RawCullAIModelDownloadState,
     ) async {
-        for _ in 0 ..< 1_000 {
+        for _ in 0 ..< 1000 {
             if model.presentations.first?.state == expectedState {
                 return
             }
