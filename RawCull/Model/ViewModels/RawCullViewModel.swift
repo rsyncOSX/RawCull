@@ -166,7 +166,12 @@ final class RawCullViewModel {
 
     /// Intelligent burst culling analysis state.
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
-    var burstAnalysisProgress = BurstAnalysisProgress()
+    var burstAnalysisProgress: BurstAnalysisProgress {
+        burstAnalysisCoordinator.progress
+    }
+    var burstAnalysisGeneration: Int {
+        burstAnalysisCoordinator.generation
+    }
     var burstReviewStates: [Int: BurstReviewState] = [:]
     var burstReviewQueueFilter: BurstReviewQueueFilter = .all
     var activeBurstComparisonGroupID: Int?
@@ -226,8 +231,6 @@ final class RawCullViewModel {
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
-    @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
-    @ObservationIgnored var burstAnalysisGeneration: Int = 0
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
     init(
         similarityModel: SimilarityScoringModel,

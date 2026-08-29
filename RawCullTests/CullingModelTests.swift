@@ -1699,7 +1699,7 @@ struct RawCullViewModelCullingTests {
         await gate.resume(returning: snapshot)
         _ = await analysis.value
 
-        #expect(viewModel.burstAnalysisTask == nil)
+        #expect(!viewModel.burstAnalysisCoordinator.hasActiveTask)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
         #expect(viewModel.burstAnalysisResults.isEmpty)
@@ -1710,7 +1710,9 @@ struct RawCullViewModelCullingTests {
     func `catalog cancellation resets all burst analysis state`() {
         let viewModel = RawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
-        viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
+        viewModel.burstAnalysisCoordinator.updateProgress(
+            BurstAnalysisProgress(step: .ranking),
+        )
         viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, files: [file])]
         viewModel.burstReviewStates = [1: .deferred]
         viewModel.burstReviewQueueFilter = .deferred

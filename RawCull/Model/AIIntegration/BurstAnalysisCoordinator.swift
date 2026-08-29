@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import OSLog
 import PhotoAIContracts
 import RawCullCore
@@ -14,11 +15,19 @@ struct BurstAnalysisRunCallbacks {
 }
 
 @MainActor
+@Observable
 final class BurstAnalysisCoordinator {
     private let sharpnessModel: SharpnessScoringModel
     private let similarityFeature: RawCullSimilarityFeature
     private let similarityModel: SimilarityScoringModel
     private let cacheRepository: any BurstAnalysisCacheRepository
+    var progress = BurstAnalysisProgress()
+    var generation = 0
+    @ObservationIgnored var task: Task<Void, Never>?
+
+    var hasActiveTask: Bool {
+        task != nil
+    }
 
     init(
         sharpnessModel: SharpnessScoringModel,

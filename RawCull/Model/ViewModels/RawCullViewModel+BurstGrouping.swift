@@ -15,9 +15,7 @@ extension RawCullViewModel {
         catalog: URL,
         files sorted: [FileItem],
     ) async {
-        burstAnalysisTask?.cancel()
-        burstAnalysisGeneration &+= 1
-        let generation = burstAnalysisGeneration
+        let generation = burstAnalysisCoordinator.beginGeneration()
         let request = makeBurstAnalysisPipelineRequest(
             catalog: catalog,
             files: sorted,
@@ -27,7 +25,7 @@ extension RawCullViewModel {
             guard let self else { return }
             _ = await self.runBurstAnalysis(request)
         }
-        burstAnalysisTask = task
+        burstAnalysisCoordinator.register(task, generation: generation)
 
         await withTaskCancellationHandler {
             await task.value
@@ -62,7 +60,7 @@ extension RawCullViewModel {
                     ) ?? false
                 },
                 updateProgress: { [weak self] progress in
-                    self?.burstAnalysisProgress = progress
+                    self?.burstAnalysisCoordinator.updateProgress(progress)
                 },
                 didScoreSharpness: { [weak self] scoredFiles in
                     await self?.applyBurstSharpnessScoringSideEffects(scoredFiles)
@@ -81,8 +79,7 @@ extension RawCullViewModel {
     }
 
     private func isCurrentBurstAnalysis(generation: Int, catalog: URL) -> Bool {
-        !Task.isCancelled
-            && burstAnalysisGeneration == generation
+        burstAnalysisCoordinator.isCurrent(generation: generation)
             && selectedSource?.url == catalog
     }
 
@@ -90,9 +87,7 @@ extension RawCullViewModel {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.finishBurstAnalysis(): finishing generation \(generation)",
         )
-        guard burstAnalysisGeneration == generation else { return }
-        burstAnalysisTask = nil
-        burstAnalysisProgress = BurstAnalysisProgress()
+        burstAnalysisCoordinator.finish(generation: generation)
     }
 
     /// Refresh similarity artifacts, delete the saved derived burst cache, and
@@ -144,11 +139,11 @@ extension RawCullViewModel {
             return true
         }
 
-        burstAnalysisTask?.cancel()
-        burstAnalysisGeneration &+= 1
-        let generation = burstAnalysisGeneration
+        let generation = burstAnalysisCoordinator.beginGeneration()
         let sorted = fullCatalogBurstAnalysisFiles
-        burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
+        burstAnalysisCoordinator.updateProgress(
+            BurstAnalysisProgress(step: .loadingCache),
+        )
         defer { finishBurstAnalysis(generation: generation) }
 
         let request = makeBurstAnalysisPipelineRequest(
@@ -774,11 +769,8 @@ extension RawCullViewModel {
         else { return }
 
         deepAIReviewFeature.reset()
-        burstAnalysisTask?.cancel()
-        burstAnalysisTask = nil
-        burstAnalysisGeneration &+= 1
+        burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
-        burstAnalysisProgress = BurstAnalysisProgress()
         burstAnalysisResults = [:]
         burstReviewStates = [:]
         burstReviewQueueFilter = .all
@@ -790,11 +782,8 @@ extension RawCullViewModel {
 
     func cancelAndResetBurstAnalysis() {
         deepAIReviewFeature.reset()
-        burstAnalysisTask?.cancel()
-        burstAnalysisTask = nil
-        burstAnalysisGeneration &+= 1
+        burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
-        burstAnalysisProgress = BurstAnalysisProgress()
         burstAnalysisResults = [:]
         burstReviewStates = [:]
         burstReviewQueueFilter = .all

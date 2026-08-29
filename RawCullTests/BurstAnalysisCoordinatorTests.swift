@@ -243,4 +243,29 @@ struct BurstAnalysisCoordinatorTests {
         #expect(!applied)
         #expect(harness.repository.savedSnapshots.isEmpty)
     }
+
+    @Test
+    func `coordinator owns generation task and progress lifecycle`() async {
+        let harness = makeCoordinatorHarness(
+            catalog: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+            files: [],
+        )
+        let generation = harness.coordinator.beginGeneration()
+        let task = Task<Void, Never> {}
+        harness.coordinator.register(task, generation: generation)
+        harness.coordinator.updateProgress(BurstAnalysisProgress(step: .ranking))
+
+        #expect(generation == 1)
+        #expect(harness.coordinator.hasActiveTask)
+        #expect(harness.coordinator.progress.step == .ranking)
+        #expect(harness.coordinator.isCurrent(generation: generation))
+
+        harness.coordinator.cancel()
+        await task.value
+
+        #expect(harness.coordinator.generation == 2)
+        #expect(!harness.coordinator.hasActiveTask)
+        #expect(!harness.coordinator.progress.isRunning)
+        #expect(!harness.coordinator.isCurrent(generation: generation))
+    }
 }

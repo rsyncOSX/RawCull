@@ -2,9 +2,9 @@
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
-were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A through 7C were
-implemented on 2026-08-29; Phase 7 is in progress, and Phases 8 through 12 have
-not started.
+were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A through 7D were
+implemented on 2026-08-29; Phase 7's automated gates are complete and its manual
+end-to-end qualification remains pending. Phases 8 through 12 have not started.
 Phase 6's automated gates pass; its
 manual acceptance matrix remains pending. Phase 4's model-
 download path was manually verified on 2026-08-29 by successfully downloading both
@@ -2244,6 +2244,12 @@ reports only the two pre-existing view-model extension size/name findings.
 
 ### Phase 7D: reduce the central view model
 
+Status: implemented and automatically verified on 2026-08-29. The observable,
+stable `BurstAnalysisCoordinator` now owns the task handle, generation, progress,
+cache compatibility, computation, and primary save lifecycle. `RawCullViewModel`
+retains read-only progress/generation projections plus application results, review
+state, ratings, selection, navigation, undo, and manual winner commands.
+
 - Replace extracted worker state in `RawCullViewModel` with one stable coordinator
   reference and minimal application-facing progress/result projections.
 - Keep rating, navigation, selection, manual winner overrides, and culling commands
@@ -2251,6 +2257,18 @@ reports only the two pre-existing view-model extension size/name findings.
 - Remove old private helpers only after caller and test audits.
 
 Gate: full smoke and TSan suites plus manual end-to-end burst qualification.
+
+Validation evidence (2026-08-29): focused coordinator lifecycle and complete
+`RawCullViewModelCullingTests` suites pass, including task cancellation, catalog
+reset, late-cache rejection, review persistence, and cached full-catalog restore.
+The smoke manifest enumerates 204 unique tests and passes 203. The full Thread
+Sanitizer plan passes 371 of 372 tests with no runtime warnings. Both plans fail
+only on the pre-existing README expectation of 21 package pins versus the 18 pins
+in `Package.resolved`. The two performance tests pass (12 images indexed in about
+0.070 seconds and 500 distances in about 0.018 seconds), as do exact-package Debug
+and Release builds, the AI import-boundary check, coordinator SwiftLint checks,
+and `git diff --check`. The interactive end-to-end burst qualification was not run
+in this headless work session and remains the final manual Phase 7 acceptance item.
 
 ### Exit criteria for Phase 7
 

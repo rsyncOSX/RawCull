@@ -58,15 +58,6 @@ extension RawCullViewModel {
         await calibrateAndScoreFiles(sharpnessScoringTargetFiles)
     }
 
-    /// Auto-calibrates and scores only the files participating in burst analysis.
-    /// Used by rating- or selection-scoped burst reanalysis to avoid scoring the full catalog.
-    func calibrateAndScoreBurstFiles(_ files: [FileItem]) async {
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.calibrateAndScoreBurstFiles(): starting sharpness scoring for \(files.count) burst files",
-        )
-        await calibrateAndScoreFiles(files)
-    }
-
     /// Application-side effects requested after coordinator-owned burst
     /// sharpness work completes. Culling persistence and display sorting remain
     /// view-model responsibilities.
