@@ -39,7 +39,7 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 | 5 | Migrate semantic search as an isolated vertical slice. | **Complete (2026-08-29)** |
 | 6 | Place similarity indexing, hydration, ranking, cancellation, and progress behind one feature API. | **Complete (2026-08-29)** |
 | 7 | Extract the burst-analysis pipeline through independently revertible subphases. | Not started |
-| 7A | Introduce immutable burst-analysis request and result values. | Not started |
+| 7A | Introduce immutable burst-analysis request and result values. | **Complete (2026-08-29)** |
 | 7B | Extract burst cache hydration and compatibility decisions. | Not started |
 | 7C | Extract burst compute orchestration. | Not started |
 | 7D | Reduce the central view model after burst work has moved. | Not started |
