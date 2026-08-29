@@ -29,8 +29,11 @@ nonisolated struct FullSizePreviewLoader: FullSizePreviewLoading {
     @concurrent
     func loadEmbeddedPreview(for rawURL: URL) async -> CGImage? {
         let sidecarJPGURL = Self.sidecarJPEGURL(for: rawURL)
-        let sidecarImage = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
+        let sidecarImage: CGImage? = await Task.detached(priority: .userInitiated) {
+            guard FileManager.default.fileExists(atPath: sidecarJPGURL.path) else {
+                return nil
+            }
+            return OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
         }.value
 
         guard !Task.isCancelled else { return nil }

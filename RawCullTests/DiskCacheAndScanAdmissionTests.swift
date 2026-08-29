@@ -433,6 +433,21 @@ struct DiskCacheManagerTests {
 
 struct FullSizeJPGDiskCacheTests {
     @Test
+    func `missing full size JPEG entries are clean cache misses`() async throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = FullSizeJPGDiskCache(cacheDirectory: root)
+        let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+
+        #expect(await cache.load(for: source) == nil)
+        #expect(await cache.load(for: source, variant: .developedRAW) == nil)
+        #expect(try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil,
+        ).isEmpty)
+    }
+
+    @Test
     func `save contains and load full size JPEG from isolated disk cache`() async throws {
         let root = try makeCacheTestRoot()
         defer { try? FileManager.default.removeItem(at: root) }
