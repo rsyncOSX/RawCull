@@ -133,8 +133,7 @@ struct BurstGroupsHomeView: View {
         viewModel.isPreparingBurstCatalog
             || viewModel.sharpnessModel.isCalibratingSharpnessScoring
             || viewModel.sharpnessModel.isScoring
-            || similarityFeature.indexing.isIndexing
-            || similarityFeature.isGrouping
+            || similarityFeature.isBusy
             || burstAnalysisIsBusy
     }
 

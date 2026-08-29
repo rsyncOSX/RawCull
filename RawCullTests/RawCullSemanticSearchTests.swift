@@ -407,15 +407,15 @@ struct RawCullSemanticSearchTests {
             ) == 25,
         )
 
-        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.filteredFiles.count == 20)
         #expect(await provider.queries() == ["wildlife"])
 
-        await viewModel.setSemanticSearchShowsAllResults(true)
+        await viewModel.semanticSearchFeature.setShowsAllResults(true)
         #expect(viewModel.filteredFiles.count == 25)
         #expect(await provider.queries() == ["wildlife"])
 
-        await viewModel.setSemanticSearchShowsAllResults(false)
+        await viewModel.semanticSearchFeature.setShowsAllResults(false)
         #expect(viewModel.filteredFiles.count == 20)
         #expect(await provider.queries() == ["wildlife"])
     }
@@ -448,11 +448,11 @@ struct RawCullSemanticSearchTests {
             ) == 25,
         )
 
-        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.filteredFiles.count == 20)
         #expect(viewModel.activeCatalogFiles.count == 20)
 
-        await viewModel.adjustSemanticSearchSelection(by: -13)
+        await viewModel.semanticSearchFeature.adjustSelection(by: -13)
 
         let selectedIDs = Set(viewModel.filteredFiles.map(\.id))
         #expect(viewModel.filteredFiles.count == 7)
@@ -470,7 +470,7 @@ struct RawCullSemanticSearchTests {
         viewModel.comparisonFileIDs = [selectedFile.id, outsideFile.id]
         viewModel.mainViewMode = .comparisonGrid
 
-        await viewModel.adjustSemanticSearchSelection(by: -1)
+        await viewModel.semanticSearchFeature.adjustSelection(by: -1)
 
         #expect(viewModel.filteredFiles.count == 6)
         #expect(viewModel.selectedFileIDs == [selectedFile.id])
@@ -479,7 +479,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.mainViewMode == .similarityGrid)
         #expect(await provider.queries() == ["wildlife"])
 
-        await viewModel.adjustSemanticSearchSelection(by: 1)
+        await viewModel.semanticSearchFeature.adjustSelection(by: 1)
 
         #expect(viewModel.filteredFiles.count == 7)
         #expect(viewModel.activeCatalogFiles.count == 7)
@@ -497,7 +497,7 @@ struct RawCullSemanticSearchTests {
             BurstGroup(id: 0, fileIDs: scopedFiles.map(\.id))
         ]
 
-        await viewModel.clearSemanticSearch()
+        await viewModel.semanticSearchFeature.clear()
 
         #expect(viewModel.activeCatalogFiles.count == fixture.files.count)
         #expect(
@@ -546,8 +546,8 @@ struct RawCullSemanticSearchTests {
                 fixture.files,
             ) == 4,
         )
-        await viewModel.searchSemantically(for: "wildlife")
-        await viewModel.adjustSemanticSearchSelection(by: -2)
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
+        await viewModel.semanticSearchFeature.adjustSelection(by: -2)
 
         let selected = viewModel.filteredFiles
         let outside = try #require(
@@ -607,7 +607,7 @@ struct RawCullSemanticSearchTests {
                 fixture.files,
             ) == 25,
         )
-        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.activeCatalogFiles.count == 20)
 
         viewModel.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
@@ -738,7 +738,7 @@ struct RawCullSemanticSearchTests {
             ) == 3,
         )
 
-        await viewModel.searchSemantically(for: "night wildlife")
+        await viewModel.semanticSearchFeature.search(for: "night wildlife")
 
         #expect(viewModel.filteredFiles.map(\.name) == ["c.raw", "b.raw"])
         let semanticFocusedID = viewModel.filteredFiles.first?.id
@@ -746,7 +746,7 @@ struct RawCullSemanticSearchTests {
         #expect(await provider.queries() == ["night wildlife"])
 
         viewModel.ratingFilter = .all
-        await viewModel.clearSemanticSearch()
+        await viewModel.semanticSearchFeature.clear()
 
         #expect(viewModel.filteredFiles.map(\.name) == ["a.raw", "b.raw", "c.raw"])
         #expect(viewModel.selectedFileID == semanticFocusedID)

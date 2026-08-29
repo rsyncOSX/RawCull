@@ -1643,9 +1643,9 @@ indexing, serialization, artifact mapping, and package boundaries are unchanged.
   show-all without rescoring, cached-only ranking, filtering and ordering,
   cancellation, and superseded-query rejection.
 - The production caller audit found no semantic-search view traversal through
-  `RawCullViewModel.similarityModel`. The five view-model semantic methods remain
-  only as thin compatibility forwarders, and the feature has no indexing or source-
-  decoding entry point.
+  `RawCullViewModel.similarityModel`. The five temporary view-model semantic
+  forwarders were removed after their tests migrated to the feature boundary, and
+  the feature has no indexing or source-decoding entry point.
 - `make verify-ai-import-boundary` passed with the same 5 non-blocking
   `PhotoAIContracts` leakage warnings recorded by earlier phases.
 - `make test-smoke` verified exactly 189 unique manifest identifiers; all passed.
@@ -1764,7 +1764,9 @@ Expose small presentation projections for:
 - whether image similarity sorting is active and which anchor is active;
 - per-file similarity evidence expressed as RawCull-owned anchor/distance metadata,
   with CLIP/Vision presentation decided inside the feature;
-- cancellation availability for hydration, indexing, and ranking.
+- cancellation commands for hydration and ranking; indexing cancellation continues
+  to propagate through the caller task and model reset paths. Do not retain separate
+  availability projections unless a presentation caller needs them.
 
 `SemanticSearchUIPresentation` should consume the same indexing projection rather
 than reintroducing direct model reads. Do not create copied progress properties on
@@ -2119,6 +2121,15 @@ Run:
   replacement, cancellation, and non-burst SwiftUI presentation use the feature
   boundary. Burst persistence/grouping retains only the explicitly deferred
   compatibility access for Phases 7 and 9.
+- The Phase 5 semantic view-model forwarders and unused Phase 6 presentation/
+  cancellation projections were removed after the final caller audit. Shared busy
+  presentation is consumed through `RawCullSimilarityFeature.isBusy`.
+- Post-cleanup validation on 2026-08-29 passed Periphery with no unused code,
+  import-boundary verification, the 193-test smoke manifest, the full Thread
+  Sanitizer suite, the two-test performance manifest, and the exact-package arm64
+  Release build. The performance rerun indexed 12 benchmark images in 0.099
+  seconds and computed 500 distances in 0.022 seconds; the existing non-failing
+  LMDB map-size warnings remained.
 - `RawCullSimilarityFeatureTests` covers shared identity, focused presentation,
   backend-reset ordering, and stale catalog rejection. The smoke manifest baseline
   is 193 tests.

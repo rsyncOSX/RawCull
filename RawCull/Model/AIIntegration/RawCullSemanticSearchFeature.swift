@@ -108,14 +108,6 @@ final class RawCullSemanticSearchFeature {
             .map(\.key)
     }
 
-    var selectedResultCount: Int {
-        similarityModel.semanticSearchSelectionCount
-    }
-
-    var rankedResultCount: Int {
-        resultSummary?.rankedImageCount ?? 0
-    }
-
     var indexedFileCount: Int {
         similarityModel.semanticIndexedFileCount
     }

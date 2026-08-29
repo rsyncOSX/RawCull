@@ -120,12 +120,6 @@ final class RawCullSimilarityFeature {
         model === other
     }
 
-    /// Temporary application-only compatibility surface for burst persistence,
-    /// migration, and grouping. SwiftUI callers must use feature projections.
-    var compatibilityModel: SimilarityScoringModel {
-        model
-    }
-
     var backend: RawCullSimilarityBackendPresentation {
         switch model.backendDescriptor.backend {
         case "clip":
@@ -159,29 +153,12 @@ final class RawCullSimilarityFeature {
         model.sortBySimilarity
     }
 
-    var activeAnchorFileID: UUID? {
-        model.anchorFileID
-    }
-
     var isGrouping: Bool {
         model.isGrouping
     }
 
     var isBusy: Bool {
         model.isIndexing || model.isGrouping
-    }
-
-    var canCancelHydration: Bool {
-        imageHydrationTask != nil || semanticHydrationTask != nil
-            || catalogHydrationTask != nil
-    }
-
-    var canCancelIndexing: Bool {
-        model.isIndexing
-    }
-
-    var canCancelRanking: Bool {
-        model.sortBySimilarity || model.anchorFileID != nil
     }
 
     func hasCompleteIndex(for files: [FileItem]) -> Bool {
@@ -329,10 +306,6 @@ final class RawCullSimilarityFeature {
 
     func indexBurstFiles(_ files: [FileItem], forceRefresh: Bool = false) async {
         await model.indexFiles(files, forceRefresh: forceRefresh)
-    }
-
-    func cancelIndexing() {
-        model.cancelIndexing()
     }
 
     func rank(
