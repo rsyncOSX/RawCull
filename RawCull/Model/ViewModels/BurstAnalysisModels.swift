@@ -89,6 +89,16 @@ nonisolated struct BurstAnalysisPipelineResult: Equatable, Sendable {
     let diagnostics: [BurstAnalysisDiagnostic]
 }
 
+/// Cache preparation returned by `BurstAnalysisCoordinator` before any missing
+/// sharpness or similarity work begins.
+nonisolated struct BurstAnalysisCachePreparation: Equatable {
+    let compatibleSnapshot: BurstAnalysisCacheSnapshot?
+    let migrationCandidate: BurstAnalysisCacheSnapshot?
+    let restoredReviewStates: [Int: BurstReviewState]
+    let cacheOutcome: BurstAnalysisCacheOutcome
+    let diagnostics: [BurstAnalysisDiagnostic]
+}
+
 struct CompletedBurstAnalysisContext: Equatable {
     let catalog: URL
     let orderedFileIDs: [UUID]

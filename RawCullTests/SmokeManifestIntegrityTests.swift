@@ -27,6 +27,7 @@ private let expectedSmokeSelectors = """
 RawCullTests/AICacheBoundaryTests
 RawCullTests/AccessibilityPresentationTests
 RawCullTests/ApertureHintTests
+RawCullTests/BurstAnalysisCoordinatorTests
 RawCullTests/BurstAnalysisPipelineValuesTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests
@@ -78,6 +79,7 @@ private let expectedTaggedSuites: Set<String> = [
     "AICacheBoundaryTests",
     "AccessibilityPresentationTests",
     "ApertureHintTests",
+    "BurstAnalysisCoordinatorTests",
     "BurstFrameCachePolicyTests",
     "BurstAnalysisPipelineValuesTests",
     "BurstReviewKeyActionTests",

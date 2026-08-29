@@ -45,8 +45,6 @@ extension RawCullViewModel {
         let catalog = request.catalogIdentity
         let sorted = request.orderedFiles
         let generation = request.generation
-        var diagnostics: [BurstAnalysisDiagnostic] = []
-        var cacheOutcome = BurstAnalysisCacheOutcome.miss
         Logger.process.debugMessageOnly(
             "RawCullViewModel.runBurstAnalysis(): running generation \(generation) for \(sorted.count) files",
         )
@@ -54,66 +52,41 @@ extension RawCullViewModel {
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return nil }
 
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.runBurstAnalysis(): hydrating per-file similarity artifacts",
-        )
-        await similarityFeature.hydrateBurstArtifacts(sorted)
-        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return nil }
+        guard let cachePreparation = await burstAnalysisCoordinator.prepareCache(
+            for: request,
+            importLegacyCandidate: true,
+            isCurrent: { [weak self] in
+                self?.isCurrentBurstAnalysis(
+                    generation: generation,
+                    catalog: catalog,
+                ) ?? false
+            },
+        ) else { return nil }
+        var diagnostics = cachePreparation.diagnostics
+        let cacheOutcome = cachePreparation.cacheOutcome
+        let migrationCandidate = cachePreparation.migrationCandidate
 
-        let migrationCandidate = await burstAnalysisMigrationLoad(catalog).map {
-            remapCachedSnapshot($0, to: sorted)
-        }
-        if let migrationCandidate {
-            diagnostics.append(.legacyMigrationCandidateFound)
-            _ = await similarityModel.importLegacyArtifacts(
-                migrationCandidate.embeddings,
-                files: sorted,
-                signature: migrationCandidate.similaritySignature,
+        if let snapshot = cachePreparation.compatibleSnapshot {
+            Logger.process.debugMessageOnly(
+                "RawCullViewModel.runBurstAnalysis(): cache hit; applying cached analysis",
             )
-        }
-        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return nil }
-
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.runBurstAnalysis(): loading burst analysis cache",
-        )
-        if let snapshot = await burstAnalysisCacheLoad(
-            catalog,
-            sorted,
-            request.configuration.thumbnailMaxPixelSize,
-            request.sharpnessSignature,
-            request.similaritySignature,
-        ) {
-            let remappedSnapshot = remapCachedSnapshot(snapshot, to: sorted)
-            let currentArtifactDigest = BurstAnalysisCache.artifactSetDigest(
-                files: sorted,
-                artifacts: similarityModel.embeddings,
-            )
-            if remappedSnapshot.similarityArtifactSetDigest == currentArtifactDigest {
-                Logger.process.debugMessageOnly(
-                    "RawCullViewModel.runBurstAnalysis(): cache hit; applying cached analysis",
-                )
-                guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return nil }
-                hydrateCachedBurstAnalysis(
-                    remappedSnapshot,
-                    files: sorted,
-                )
-                let reviewStates = cachedReviewStates(from: remappedSnapshot, files: sorted)
-                let rankings = remappedSnapshot.results.map { result in
-                    var updated = result
-                    updated.reviewState = reviewStates[result.groupID] ?? .none
-                    return updated
-                }
-                cacheOutcome = .hit
-                let result = BurstAnalysisPipelineResult(
-                    groups: remappedSnapshot.groups,
-                    rankings: rankings.sorted { $0.groupID < $1.groupID },
-                    restoredReviewStates: reviewStates,
-                    cacheOutcome: cacheOutcome,
-                    diagnostics: diagnostics,
-                )
-                return applyBurstAnalysisPipelineResult(result, request: request)
+            hydrateCachedBurstAnalysis(snapshot, files: sorted)
+            let reviewStates = cachePreparation.restoredReviewStates
+            let rankings = snapshot.results.map { result in
+                var updated = result
+                updated.reviewState = reviewStates[result.groupID] ?? .none
+                return updated
             }
-            cacheOutcome = .rejectedArtifactSet
+            let result = BurstAnalysisPipelineResult(
+                groups: snapshot.groups,
+                rankings: rankings.sorted { $0.groupID < $1.groupID },
+                restoredReviewStates: reviewStates,
+                cacheOutcome: cacheOutcome,
+                diagnostics: diagnostics,
+            )
+            return applyBurstAnalysisPipelineResult(result, request: request)
+        }
+        if cacheOutcome == .rejectedArtifactSet {
             Logger.process.debugMessageOnly(
                 "RawCullViewModel.runBurstAnalysis(): derived cache artifact set changed",
             )
@@ -255,7 +228,7 @@ extension RawCullViewModel {
 
         await prepareForFullCatalogReindex()
         guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
-        await burstAnalysisCache.delete(catalog: catalog)
+        await burstAnalysisCoordinator.deleteCache(catalog: catalog)
         await similarityFeature.hydrateBurstArtifacts(files)
         guard isCurrentBurstCatalogPreparation(preparationGeneration) else { return }
         await similarityFeature.indexBurstFiles(files, forceRefresh: true)
@@ -294,45 +267,32 @@ extension RawCullViewModel {
         burstAnalysisProgress = BurstAnalysisProgress(step: .loadingCache)
         defer { finishBurstAnalysis(generation: generation) }
 
-        await similarityFeature.hydrateBurstArtifacts(sorted)
-        guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else {
-            return false
-        }
-
-        guard let snapshot = await burstAnalysisCacheLoad(
-            catalog,
-            sorted,
-            sharpnessModel.effectiveThumbnailMaxPixelSize,
-            currentBurstSharpnessSignature,
-            currentBurstSimilaritySignature,
-        ) else {
-            return false
-        }
-
-        let remappedSnapshot = remapCachedSnapshot(snapshot, to: sorted)
-        let currentArtifactDigest = BurstAnalysisCache.artifactSetDigest(
-            files: sorted,
-            artifacts: similarityModel.embeddings,
-        )
-        guard remappedSnapshot.similarityArtifactSetDigest == currentArtifactDigest,
-              isCurrentBurstAnalysis(generation: generation, catalog: catalog)
-        else {
-            return false
-        }
-
-        hydrateCachedBurstAnalysis(
-            remappedSnapshot,
-            files: sorted,
-        )
         let request = makeBurstAnalysisPipelineRequest(
             catalog: catalog,
             files: sorted,
             generation: generation,
         )
-        let reviewStates = cachedReviewStates(from: remappedSnapshot, files: sorted)
+        guard let cachePreparation = await burstAnalysisCoordinator.prepareCache(
+            for: request,
+            importLegacyCandidate: false,
+            isCurrent: { [weak self] in
+                self?.isCurrentBurstAnalysis(
+                    generation: generation,
+                    catalog: catalog,
+                ) ?? false
+            },
+        ),
+            let snapshot = cachePreparation.compatibleSnapshot
+        else { return false }
+
+        hydrateCachedBurstAnalysis(
+            snapshot,
+            files: sorted,
+        )
+        let reviewStates = cachePreparation.restoredReviewStates
         let result = BurstAnalysisPipelineResult(
-            groups: remappedSnapshot.groups,
-            rankings: remappedSnapshot.results.map { result in
+            groups: snapshot.groups,
+            rankings: snapshot.results.map { result in
                 var updated = result
                 updated.reviewState = reviewStates[result.groupID] ?? .none
                 return updated
@@ -1028,7 +988,7 @@ extension RawCullViewModel {
             ),
         )
         guard isCurrentBurstAnalysis(generation: generation, catalog: catalog) else { return }
-        await burstAnalysisCacheSave(snapshot, catalog)
+        await burstAnalysisCoordinator.save(snapshot, catalog: catalog)
         Logger.process.debugMessageOnly(
             "RawCullViewModel.saveBurstAnalysisCache(): cache save returned",
         )
@@ -1090,100 +1050,6 @@ extension RawCullViewModel {
     ) -> BurstGroupSignature? {
         let groupFiles = group.fileIDs.compactMap { filesByID[$0] }
         return BurstGroupSignature(files: groupFiles, catalog: catalog)
-    }
-
-    private func remapCachedSnapshot(
-        _ snapshot: BurstAnalysisCacheSnapshot,
-        to currentFiles: [FileItem],
-    ) -> BurstAnalysisCacheSnapshot {
-        let cachedFilesByID = Dictionary(uniqueKeysWithValues: snapshot.files.map { ($0.id, $0) })
-        let currentByPath = Dictionary(uniqueKeysWithValues: currentFiles.map { ($0.url.path, $0.id) })
-        var idMap: [UUID: UUID] = [:]
-        for (oldID, cachedFile) in cachedFilesByID {
-            if let currentID = currentByPath[cachedFile.path] {
-                idMap[oldID] = currentID
-            }
-        }
-
-        func remap(_ id: UUID) -> UUID {
-            idMap[id] ?? id
-        }
-
-        let groups = snapshot.groups.map { group in
-            BurstGroup(id: group.id, fileIDs: group.fileIDs.map(remap))
-        }
-        let evidence = snapshot.boundaryEvidence.map { item in
-            BurstBoundaryEvidence(
-                previousID: remap(item.previousID),
-                currentID: remap(item.currentID),
-                visualDistance: item.visualDistance,
-                timeGapSeconds: item.timeGapSeconds,
-                captureTimeUsedFallback: item.captureTimeUsedFallback,
-                focalLengthDelta: item.focalLengthDelta,
-                exposureAdjustmentEV: item.exposureAdjustmentEV,
-                exposureChanged: item.exposureChanged,
-                cameraChanged: item.cameraChanged,
-                lensChanged: item.lensChanged,
-                startsNewGroup: item.startsNewGroup,
-                reasons: item.reasons,
-            )
-        }
-        let results = snapshot.results.map { result in
-            BurstAnalysisResult(
-                groupID: result.groupID,
-                fileIDs: result.fileIDs.map(remap),
-                candidates: result.candidates.map { candidate in
-                    BurstCandidateScore(
-                        fileID: remap(candidate.fileID),
-                        overallScore: candidate.overallScore,
-                        sharpnessComponent: candidate.sharpnessComponent,
-                        burstRelativeSharpnessComponent: candidate.burstRelativeSharpnessComponent,
-                        focusPointComponent: candidate.focusPointComponent,
-                        saliencyComponent: candidate.saliencyComponent,
-                        metadataComponent: candidate.metadataComponent,
-                        confidence: candidate.confidence,
-                        reasons: candidate.reasons,
-                        cautions: candidate.cautions,
-                    )
-                },
-                recommendedFileID: result.recommendedFileID.map(remap),
-                secondBestFileID: result.secondBestFileID.map(remap),
-                confidence: result.confidence,
-                reviewState: result.reviewState,
-                isSafeForOneClickCulling: result.isSafeForOneClickCulling,
-                reasons: result.reasons,
-                cautions: result.cautions,
-            )
-        }
-
-        return BurstAnalysisCacheSnapshot(
-            schemaVersion: snapshot.schemaVersion,
-            algorithmVersion: snapshot.algorithmVersion,
-            catalogPath: snapshot.catalogPath,
-            thumbnailMaxPixelSize: snapshot.thumbnailMaxPixelSize,
-            sharpnessSignature: snapshot.sharpnessSignature,
-            similaritySignature: snapshot.similaritySignature,
-            files: currentFiles.map {
-                BurstAnalysisCacheFile(id: $0.id, path: $0.url.path, size: $0.size, modificationDate: $0.dateModified)
-            },
-            embeddings: Dictionary(uniqueKeysWithValues: snapshot.embeddings.compactMap { oldID, data in
-                guard let currentID = idMap[oldID] else { return nil }
-                return (currentID, data)
-            }),
-            sharpnessScores: Dictionary(uniqueKeysWithValues: snapshot.sharpnessScores.compactMap { oldID, score in
-                guard let currentID = idMap[oldID] else { return nil }
-                return (currentID, score)
-            }),
-            saliencyInfo: Dictionary(uniqueKeysWithValues: snapshot.saliencyInfo.compactMap { oldID, info in
-                guard let currentID = idMap[oldID] else { return nil }
-                return (currentID, info)
-            }),
-            groups: groups,
-            boundaryEvidence: evidence,
-            results: results,
-            reviewStateSnapshots: snapshot.reviewStateSnapshots,
-            similarityArtifactSetDigest: snapshot.similarityArtifactSetDigest,
-        )
     }
 
     private var currentBurstSharpnessSignature: BurstSharpnessSignature {

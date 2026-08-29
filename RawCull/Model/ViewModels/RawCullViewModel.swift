@@ -161,6 +161,9 @@ final class RawCullViewModel {
     /// applies a user-confirmed recommendation.
     let deepAIReviewFeature: DeepAIReviewFeature
 
+    /// Stable worker boundary for burst cache and compute orchestration.
+    @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
+
     /// Intelligent burst culling analysis state.
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
     var burstAnalysisProgress = BurstAnalysisProgress()
@@ -226,46 +229,13 @@ final class RawCullViewModel {
     @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
     @ObservationIgnored var burstAnalysisGeneration: Int = 0
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
-    @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
-    @ObservationIgnored var burstAnalysisCacheLoad: @MainActor (
-        URL,
-        [FileItem],
-        Int,
-        BurstSharpnessSignature,
-        BurstSimilaritySignature,
-    ) async -> BurstAnalysisCacheSnapshot? = {
-        catalog,
-        files,
-        thumbnailMaxPixelSize,
-        sharpnessSignature,
-        similaritySignature in
-        await BurstAnalysisCache.shared.load(
-            catalog: catalog,
-            files: files,
-            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-            sharpnessSignature: sharpnessSignature,
-            similaritySignature: similaritySignature,
-        )
-    }
-
-    @ObservationIgnored var burstAnalysisMigrationLoad: @MainActor (
-        URL,
-    ) async -> BurstAnalysisCacheSnapshot? = { catalog in
-        await BurstAnalysisCache.shared.loadMigrationCandidate(catalog: catalog)
-    }
-
-    @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
-        BurstAnalysisCacheSnapshot,
-        URL,
-    ) async -> Void = { snapshot, catalog in
-        await BurstAnalysisCache.shared.save(snapshot, catalog: catalog)
-    }
-
     init(
         similarityModel: SimilarityScoringModel,
         similarityFeature: RawCullSimilarityFeature? = nil,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewFeature: DeepAIReviewFeature,
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
     ) {
         let similarityFeature = similarityFeature
             ?? RawCullSimilarityFeature(similarityModel: similarityModel)
@@ -273,6 +243,11 @@ final class RawCullViewModel {
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewFeature = deepAIReviewFeature
+        burstAnalysisCoordinator = BurstAnalysisCoordinator(
+            similarityFeature: similarityFeature,
+            similarityModel: similarityModel,
+            cacheRepository: burstAnalysisCacheRepository,
+        )
 
         assert(similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
         assert(
@@ -286,6 +261,8 @@ final class RawCullViewModel {
     convenience init(
         similarityModel: SimilarityScoringModel,
         deepAIReviewFeature: DeepAIReviewFeature,
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
     ) {
         let similarityFeature = RawCullSimilarityFeature(
             similarityModel: similarityModel,
@@ -299,6 +276,7 @@ final class RawCullViewModel {
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             deepAIReviewFeature: deepAIReviewFeature,
+            burstAnalysisCacheRepository: burstAnalysisCacheRepository,
         )
         semanticSearchFeature.bindApplicationTarget(self)
     }
@@ -312,6 +290,8 @@ final class RawCullViewModel {
         semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
         similarityArtifactStore: PerFileAnalysisArtifactStore = .shared,
         deepAIReviewFeature: DeepAIReviewFeature = DeepAIReviewFeature(),
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
     ) {
         self.init(
             similarityModel: SimilarityScoringModel(
@@ -321,6 +301,7 @@ final class RawCullViewModel {
                 artifactStore: similarityArtifactStore,
             ),
             deepAIReviewFeature: deepAIReviewFeature,
+            burstAnalysisCacheRepository: burstAnalysisCacheRepository,
         )
     }
 

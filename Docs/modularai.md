@@ -2,8 +2,9 @@
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
-were implemented on 2026-08-29. Phases 5 and 6 were implemented on 2026-08-29,
-and Phases 7 through 12 have not started. Phase 6's automated gates pass; its
+were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A and 7B were implemented
+on 2026-08-29; Phase 7 is in progress, and Phases 8 through 12 have not started.
+Phase 6's automated gates pass; its
 manual acceptance matrix remains pending. Phase 4's model-
 download path was manually verified on 2026-08-29 by successfully downloading both
 the DataComp and OpenAI CLIP models. The broader manual regression matrix remains
@@ -2185,6 +2186,10 @@ Phase 7A and burst tests pass consistently.
 
 ### Phase 7B: extract cache hydration and compatibility decisions
 
+Status: implemented and verified on 2026-08-29. Cache hydration and compatibility
+decisions now live behind the stable `BurstAnalysisCoordinator` and its narrow
+cache-repository boundary; the view model applies the immutable preparation result.
+
 - Move per-file artifact hydration, legacy import, derived-cache loading, artifact
   digest comparison, and cache-hit decisions behind a burst repository/coordinator.
 - Preserve schema versions, descriptors, remapping, and migration-once semantics.
@@ -2193,6 +2198,17 @@ Phase 7A and burst tests pass consistently.
 
 Gate: `PerFileAnalysisArtifactStoreTests`, migration tests, typed persistence matrix,
 cache boundary tests, smoke, full, and performance tests.
+
+Validation evidence (2026-08-29): the five focused
+`BurstAnalysisCoordinatorTests` cover compatible reuse, artifact-digest rejection,
+legacy remapping, stale-generation rejection, and membership-based review-state
+restoration. The artifact-store, migration, typed-persistence, cache-boundary, and
+culling suites pass. The smoke manifest enumerates 201 unique tests; performance
+tests pass, as do exact-package Debug and Release builds, the AI import-boundary
+check, and `git diff --check`. The full Thread Sanitizer run reports no runtime
+warnings and passes 368 of 369 tests. Its sole failure is the pre-existing
+`ReleaseMetadataTests` mismatch between the README's expected 21 package pins and
+the 18 pins in `Package.resolved`; all Phase 7B tests pass in that run.
 
 ### Phase 7C: extract compute orchestration
 
