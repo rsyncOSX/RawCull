@@ -74,6 +74,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     let similarityModel: SimilarityScoringModel
     let deepAIReviewFeature: DeepAIReviewFeature
     let settingsModel: RawCullAISettingsModel
+    let modelManagementModel: RawCullAIModelManagementModel
     private(set) var lastAppliedConfigurationIdentity:
         RawCullIntelligenceConfigurationIdentity?
     private(set) var lastAcceptedConfigurationRevision: UInt64?
@@ -92,6 +93,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.similarityModel = similarityModel
         self.deepAIReviewFeature = deepAIReviewFeature
         self.settingsModel = settingsModel
+        self.modelManagementModel = settingsModel.modelManagementModel
         self.applicationTarget = applicationTarget
     }
 
@@ -168,13 +170,17 @@ struct RawCullApplicationState {
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
     ) -> RawCullApplicationState {
+        let modelManagementModel = RawCullAIModelManagementModel(
+            paths: integration.paths,
+            catalog: modelDownloadCatalog,
+            coordinator: modelDownloadCoordinator,
+            rawCullVersion: rawCullVersion,
+        )
         let settingsModel = RawCullAISettingsModel(
             integration: integration,
             evidenceScan: evidenceScan,
             userDefaults: userDefaults,
-            modelDownloadCatalog: modelDownloadCatalog,
-            modelDownloadCoordinator: modelDownloadCoordinator,
-            rawCullVersion: rawCullVersion,
+            modelManagementModel: modelManagementModel,
         )
         let initialConfiguration = settingsModel.configurationSnapshot()
         let similarityModel = SimilarityScoringModel(
@@ -199,6 +205,10 @@ struct RawCullApplicationState {
 
         assert(viewModel.similarityModel === intelligenceRuntime.similarityModel)
         assert(viewModel.deepAIReviewFeature === intelligenceRuntime.deepAIReviewFeature)
+        assert(
+            settingsModel.modelManagementModel
+                === intelligenceRuntime.modelManagementModel,
+        )
 
         return RawCullApplicationState(
             intelligenceRuntime: intelligenceRuntime,

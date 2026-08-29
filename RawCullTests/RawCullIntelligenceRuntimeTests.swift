@@ -28,6 +28,10 @@ struct RawCullIntelligenceRuntimeTests {
         #expect(runtime.deepAIReviewFeature === fixture.integration.deepAIReviewFeature)
         #expect(runtime.deepAIReviewFeature === viewModel.deepAIReviewFeature)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
+        #expect(
+            runtime.modelManagementModel
+                === runtime.settingsModel.modelManagementModel,
+        )
         #expect(runtime.similarityModel === applicationState.intelligenceRuntime.similarityModel)
     }
 
@@ -285,6 +289,7 @@ struct RawCullIntelligenceRuntimeTests {
         weak var releasedViewModel: RawCullViewModel?
         weak var releasedSimilarityModel: SimilarityScoringModel?
         weak var releasedSettingsModel: RawCullAISettingsModel?
+        weak var releasedModelManagementModel: RawCullAIModelManagementModel?
 
         do {
             let applicationState = RawCullApplicationState.make(
@@ -299,12 +304,15 @@ struct RawCullIntelligenceRuntimeTests {
             releasedViewModel = applicationState.viewModel
             releasedSimilarityModel = applicationState.intelligenceRuntime.similarityModel
             releasedSettingsModel = applicationState.intelligenceRuntime.settingsModel
+            releasedModelManagementModel = applicationState.intelligenceRuntime
+                .modelManagementModel
         }
 
         #expect(releasedRuntime == nil)
         #expect(releasedViewModel == nil)
         #expect(releasedSimilarityModel == nil)
         #expect(releasedSettingsModel == nil)
+        #expect(releasedModelManagementModel == nil)
     }
 
     @MainActor

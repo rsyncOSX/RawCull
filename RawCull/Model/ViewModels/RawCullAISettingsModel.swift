@@ -1,21 +1,11 @@
 import Foundation
 
-nonisolated struct RawCullAIModelDownloadPresentation: Equatable, Identifiable, Sendable {
-    let descriptor: RawCullAIModelDownloadDescriptor
-    let state: RawCullAIModelDownloadState
-    let licenceAccepted: Bool
-
-    var id: RawCullAIModelDownloadID {
-        descriptor.id
-    }
-}
-
 /// Settings-facing state for AI integration readiness.
 ///
 /// This model is the narrow boundary consumed by SwiftUI. It intentionally does
 /// not expose PhotoAIKit providers, repositories, or the composition root.
 @Observable @MainActor
-final class RawCullAISettingsModel {
+final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
     static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
     static let selectedSegmentationModelPreferenceKey =
@@ -25,22 +15,7 @@ final class RawCullAISettingsModel {
     private(set) var savedBurstEvidence: RawCullSavedBurstEvidence?
     private(set) var savedBurstScanFailure: String?
     private(set) var isScanningSavedBurstData = false
-    private(set) var isDeletingSavedBurstData = false
-    private(set) var modelDownloadStates: [
-        RawCullAIModelDownloadID: RawCullAIModelDownloadState
-    ]
-    private(set) var acceptedLicenceModelIDs:
-        Set<RawCullAIModelDownloadID> = []
-
-    var modelDownloadPresentations: [RawCullAIModelDownloadPresentation] {
-        modelDownloadCatalog.models.map { descriptor in
-            RawCullAIModelDownloadPresentation(
-                descriptor: descriptor,
-                state: modelDownloadStates[descriptor.id] ?? .checking,
-                licenceAccepted: acceptedLicenceModelIDs.contains(descriptor.id),
-            )
-        }
-    }
+    let modelManagementModel: RawCullAIModelManagementModel
 
     var useCLIPForSimilarity: Bool {
         get { prefersCLIPForSimilarity }
@@ -79,15 +54,6 @@ final class RawCullAISettingsModel {
     @ObservationIgnored private var configurationRevision: UInt64 = 0
     @ObservationIgnored private let evidenceScan: @Sendable () async throws
         -> RawCullSavedBurstEvidenceScanResult
-    @ObservationIgnored private let modelDownloadCatalog:
-        RawCullAIModelDownloadCatalog
-    @ObservationIgnored private let modelDownloadCoordinator:
-        RawCullAIModelDownloadCoordinator
-    @ObservationIgnored private let rawCullVersion: String
-    @ObservationIgnored private var managedModelLocations:
-        [RawCullAIModelDownloadID: URL] = [:]
-    @ObservationIgnored private var modelDownloadTasks:
-        [RawCullAIModelDownloadID: Task<Void, Never>] = [:]
     @ObservationIgnored private var refreshGeneration = 0
 
     init(
@@ -95,6 +61,7 @@ final class RawCullAISettingsModel {
         evidenceScanner: RawCullSavedBurstEvidenceScanner? = nil,
         evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
         userDefaults: UserDefaults = .standard,
+        modelManagementModel: RawCullAIModelManagementModel? = nil,
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
@@ -128,20 +95,58 @@ final class RawCullAISettingsModel {
         self.evidenceScan = evidenceScan ?? {
             try await scanner.scan()
         }
-        self.modelDownloadCatalog = modelDownloadCatalog
-        self.modelDownloadCoordinator = modelDownloadCoordinator
-            ?? .live(paths: integration.paths)
-        self.rawCullVersion = rawCullVersion
-            ?? Bundle.main.object(
-                forInfoDictionaryKey: "CFBundleShortVersionString",
-            ) as? String
-            ?? "unknown"
-        self.modelDownloadStates = Dictionary(
-            uniqueKeysWithValues: modelDownloadCatalog.models.map {
-                ($0.id, .checking)
-            },
-        )
+        self.modelManagementModel = modelManagementModel
+            ?? RawCullAIModelManagementModel(
+                paths: integration.paths,
+                catalog: modelDownloadCatalog,
+                coordinator: modelDownloadCoordinator,
+                rawCullVersion: rawCullVersion,
+            )
         self.capabilities = integration.capabilities()
+        self.modelManagementModel.bindLocationsConsumer(self)
+    }
+
+    func applyManagedModelLocations(
+        _ locations: [RawCullAIModelDownloadID: URL],
+    ) async {
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+        isScanningSavedBurstData = true
+        defer {
+            if refreshGeneration == generation {
+                isScanningSavedBurstData = false
+            }
+        }
+
+        do {
+            await integration.setManagedModelLocations(locations)
+            async let refreshedCapabilities = integration.refreshCapabilities()
+            async let savedEvidence = evidenceScan()
+            let (capabilities, result) = try await (
+                refreshedCapabilities,
+                savedEvidence,
+            )
+            try Task.checkCancellation()
+            guard refreshGeneration == generation else { return }
+
+            self.capabilities = capabilities
+            publishConfiguration()
+            switch result {
+            case let .success(evidence):
+                savedBurstEvidence = evidence
+                savedBurstScanFailure = nil
+
+            case let .failure(reason):
+                savedBurstEvidence = nil
+                savedBurstScanFailure = reason
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            guard refreshGeneration == generation else { return }
+            savedBurstEvidence = nil
+            savedBurstScanFailure = String(describing: error)
+        }
     }
 
     func configurationSnapshot(
@@ -175,109 +180,7 @@ final class RawCullAISettingsModel {
     }
 
     func refresh() async {
-        refreshGeneration &+= 1
-        let generation = refreshGeneration
-        isScanningSavedBurstData = true
-        defer {
-            if refreshGeneration == generation {
-                isScanningSavedBurstData = false
-            }
-        }
-
-        do {
-            let downloadSnapshot = await modelDownloadCoordinator.snapshot()
-            try Task.checkCancellation()
-            await integration.setManagedModelLocations(
-                downloadSnapshot.managedModelLocations,
-            )
-            async let refreshedCapabilities = integration.refreshCapabilities()
-            async let savedEvidence = evidenceScan()
-            let (capabilities, result) = try await (
-                refreshedCapabilities,
-                savedEvidence,
-            )
-            try Task.checkCancellation()
-            guard refreshGeneration == generation else { return }
-
-            self.capabilities = capabilities
-            modelDownloadStates = downloadSnapshot.states
-            managedModelLocations = downloadSnapshot.managedModelLocations
-            acceptedLicenceModelIDs =
-                downloadSnapshot.acceptedLicenceModelIDs
-            publishConfiguration()
-            switch result {
-            case let .success(evidence):
-                savedBurstEvidence = evidence
-                savedBurstScanFailure = nil
-
-            case let .failure(reason):
-                savedBurstEvidence = nil
-                savedBurstScanFailure = reason
-            }
-        } catch is CancellationError {
-            return
-        } catch {
-            guard refreshGeneration == generation else { return }
-            savedBurstEvidence = nil
-            savedBurstScanFailure = String(describing: error)
-        }
-    }
-
-    func acceptModelLicence(
-        for id: RawCullAIModelDownloadID,
-    ) async {
-        do {
-            try await modelDownloadCoordinator.acceptLicence(
-                for: id,
-                rawCullVersion: rawCullVersion,
-            )
-            await refresh()
-        } catch is CancellationError {
-            return
-        } catch {
-            modelDownloadStates[id] = .failed(
-                message: String(describing: error),
-            )
-        }
-    }
-
-    func startModelDownload(
-        _ id: RawCullAIModelDownloadID,
-    ) {
-        guard modelDownloadTasks[id] == nil else { return }
-        guard let state = modelDownloadStates[id] else { return }
-        guard state.canStartDownload else { return }
-
-        modelDownloadStates[id] = .downloading(progress: 0)
-        modelDownloadTasks[id] = Task { [weak self] in
-            guard let self else { return }
-            await performModelDownload(id)
-        }
-    }
-
-    func cancelModelDownload(
-        _ id: RawCullAIModelDownloadID,
-    ) {
-        modelDownloadTasks[id]?.cancel()
-    }
-
-    func removeManagedModel(
-        _ id: RawCullAIModelDownloadID,
-    ) async {
-        guard modelDownloadTasks[id] == nil else { return }
-        modelDownloadStates[id] = .removing
-        do {
-            try await modelDownloadCoordinator.remove(id)
-            managedModelLocations[id] = nil
-            await integration.setManagedModelLocations(managedModelLocations)
-            await refresh()
-        } catch is CancellationError {
-            return
-        } catch {
-            modelDownloadStates[id] = .failed(
-                message: String(describing: error),
-            )
-        }
+        await modelManagementModel.refresh()
     }
 
     func setUseCLIPForSimilarity(_ enabled: Bool) {
@@ -308,36 +211,6 @@ final class RawCullAISettingsModel {
         publishConfiguration()
     }
 
-    private func performModelDownload(
-        _ id: RawCullAIModelDownloadID,
-    ) async {
-        defer { modelDownloadTasks[id] = nil }
-
-        do {
-            let location = try await modelDownloadCoordinator.download(
-                id,
-                progress: { [weak self] progress in
-                    guard let self, !Task.isCancelled else { return }
-                    modelDownloadStates[id] = .downloading(
-                        progress: min(max(progress, 0), 1),
-                    )
-                },
-            )
-            try Task.checkCancellation()
-            modelDownloadStates[id] = .validating
-            managedModelLocations[id] = location
-            await integration.setManagedModelLocations(managedModelLocations)
-            await refresh()
-        } catch is CancellationError {
-            let snapshot = await modelDownloadCoordinator.snapshot()
-            modelDownloadStates[id] = snapshot.states[id] ?? .ready
-        } catch {
-            modelDownloadStates[id] = .failed(
-                message: String(describing: error),
-            )
-        }
-    }
-
     private func publishConfiguration() {
         guard let configurationConsumer else { return }
         configurationRevision &+= 1
@@ -346,18 +219,5 @@ final class RawCullAISettingsModel {
                 revision: configurationRevision,
             ),
         )
-    }
-}
-
-private nonisolated extension RawCullAIModelDownloadState {
-    var canStartDownload: Bool {
-        switch self {
-        case .ready, .failed:
-            true
-
-        case .checking, .unavailable, .licenceRequired, .notConfigured,
-             .downloading, .validating, .installed, .removing:
-            false
-        }
     }
 }

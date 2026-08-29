@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AIModelDownloadsView: View {
-    let model: RawCullAISettingsModel
+    let model: RawCullAIModelManagementModel
 
     @Environment(\.dismiss) private var dismiss
     // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
@@ -14,7 +14,7 @@ struct AIModelDownloadsView: View {
 
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(model.modelDownloadPresentations) { presentation in
+                    ForEach(model.presentations) { presentation in
                         AIModelDownloadRow(
                             presentation: presentation,
                             model: model,
@@ -41,7 +41,7 @@ struct AIModelDownloadsView: View {
         .padding(20)
         .frame(width: 660, height: 650)
         .sheet(item: $selectedLicenceID) { id in
-            if let presentation = model.modelDownloadPresentations.first(
+            if let presentation = model.presentations.first(
                 where: { $0.id == id },
             ) {
                 AIModelLicenceReviewView(
@@ -72,7 +72,7 @@ private struct AIModelDownloadsHeader: View {
 
 private struct AIModelDownloadRow: View {
     let presentation: RawCullAIModelDownloadPresentation
-    let model: RawCullAISettingsModel
+    let model: RawCullAIModelManagementModel
     @Binding var selectedLicenceID: RawCullAIModelDownloadID?
 
     @State private var showRemoveConfirmation = false
@@ -306,7 +306,7 @@ private struct AIModelDownloadProgressView: View {
 
 private struct AIModelLicenceReviewView: View {
     let presentation: RawCullAIModelDownloadPresentation
-    let model: RawCullAISettingsModel
+    let model: RawCullAIModelManagementModel
 
     @Environment(\.dismiss) private var dismiss
     @State private var isAccepting = false

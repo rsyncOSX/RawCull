@@ -1,8 +1,8 @@
 # Modular AI Refactoring Plan
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
-implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phase 3 was
-implemented on 2026-08-29. Phases 4 through 12 have not started. Phase 3's
+implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
+were implemented on 2026-08-29. Phases 5 through 12 have not started. Phase 4's
 automated gates pass; its manual acceptance checklist remains for an interactive
 app session.
 
@@ -1049,47 +1049,253 @@ remain valid; no user-data migration or cleanup is required.
 
 ## Phase 4: migrate settings and model management first
 
+Status: implemented on 2026-08-29. The focused model-management boundary, weak
+managed-location synchronization, runtime identity, and SwiftUI migration are in
+place. Automated validation passes; manual acceptance remains pending.
+
 Settings is the safest first UI slice because `RawCullAISettingsModel` is already a
-narrow presentation boundary.
+narrow presentation boundary. Phase 4 completes that boundary instead of moving
+provider discovery or download infrastructure into SwiftUI.
 
-### Changes
+### Starting point and caller audit
 
-1. Pass the stable settings model directly from the runtime to `SettingsView`.
-2. Keep `AISettingsTab` and `AIModelDownloadsView` dependent on
-   `RawCullAISettingsModel`, not the runtime or `RawCullViewModel`.
-3. Move cache-usage and saved-burst-evidence presentation behind settings-facing
-   summaries when a view currently reaches into a store directly.
-4. Do not change tab layout, labels, preference defaults, download UI, or model
-   inclusion policy.
-5. Remove only the settings-related compatibility paths that have no callers.
+Phases 2 and 3 already completed two mechanical steps that the earlier Phase 4
+outline expected:
 
-### Tests
+- `RawCullApp` retains one `RawCullIntelligenceRuntime` in private `@State` and
+  passes `intelligenceRuntime.settingsModel` directly to `SettingsView`;
+- `SettingsView` and `AISettingsTab` receive that stable model rather than resolving
+  it from `RawCullViewModel` or constructing it in a view body.
 
-- `RawCullAIIntegrationTests`
-- `RawCullAIModelDownloadsTests`
-- `AICacheBoundaryTests`
-- `ReleaseMetadataTests`
-- `make test-smoke`
-- exact-package Release build if extension or target wiring changed
+The remaining ownership problem is inside `RawCullAISettingsModel`. It currently
+combines two independently changing responsibilities:
+
+1. preference, capability, configuration-publication, and saved-burst-evidence
+   state used by `AISettingsTab`;
+2. model catalog, licence acceptance, download/removal state, task cancellation,
+   and managed-model locations used by `AIModelDownloadsView`.
+
+The production caller audit must confirm that `AIModelDownloadsView` is the only
+SwiftUI consumer of model-download actions and that the AI settings and model-
+download subtree does not import or hold `RawCullAIModelDownloadCoordinator`, a
+model provider, a storage repository, or `RawCullAIIntegration`. The current
+saved-burst presentation already satisfies that subtree's storage boundary:
+`AISettingsTab` reads RawCull-owned evidence values from the settings model, while
+the injected `RawCullSavedBurstEvidenceScanner` alone reads the AI cache directory.
+The separate general `CacheSettingsTab` and its existing cache-maintenance access
+are outside this phase. Phase 4 must not add a duplicate cache summary merely to
+make this phase larger.
+
+### Focused presentation ownership
+
+Introduce one `@MainActor @Observable` `RawCullAIModelManagementModel`. It is a
+focused settings-facing model, not a service and not another application facade.
+It owns:
+
+- the prepared, stable-identity `RawCullAIModelDownloadPresentation` collection;
+- the model download catalog and coordinator;
+- accepted-licence and managed-location snapshots needed to prepare that
+  collection;
+- one task per model download and their existing cancellation behavior;
+- licence acceptance, start, cancel, retry, and managed-model removal actions.
+
+Keep the coordinator, service, acceptance store, raw model locations, and task
+dictionary observation-ignored and private. SwiftUI receives only the prepared
+presentation collection and action methods. Store the presentation collection as
+an observable value and rebuild it only when a snapshot or explicit transition
+changes, rather than making every row repeatedly derive it from several observed
+collections.
+
+`RawCullAISettingsModel` continues to own:
+
+- the three existing preference keys and their exact defaulting behavior;
+- selected CLIP and segmentation choices;
+- capability/readiness state and the complete typed configuration publication;
+- saved-burst-evidence scan state and cancellation generation.
+
+The settings model retains the exact model-management child supplied at assembly
+and exposes it as a stable `let` reference. This is lifetime composition, not
+forwarding: download and licence methods must be removed from the settings model
+after callers migrate.
+
+### Managed-location synchronization contract
+
+Model installation and removal change provider readiness, so the two focused
+models need one narrow, typed edge. Add a main-actor, class-bound consumer protocol
+whose only command applies a complete managed-model-location snapshot.
+
+`RawCullAIModelManagementModel` holds that consumer weakly and binds it exactly
+once. `RawCullAISettingsModel` implements the command in this order:
+
+1. apply the complete location dictionary to `RawCullAIIntegration`;
+2. refresh integration capabilities and saved-burst evidence using the existing
+   refresh generation;
+3. publish the complete typed intelligence configuration through the Phase 3 path.
+
+The weak edge prevents `settings model -> model-management model -> settings model`
+from becoming a retain cycle. A cancelled or superseded refresh must still be
+unable to publish stale readiness or evidence.
+
+### Runtime and SwiftUI wiring
+
+`RawCullApplicationState.make` must assemble Phase 4 in one order:
+
+1. create `RawCullAIModelManagementModel` with the existing catalog, coordinator,
+   paths, and RawCull version inputs;
+2. create `RawCullAISettingsModel` with that exact child;
+3. construct the existing similarity model, view model, and runtime;
+4. bind the settings configuration consumer as in Phase 3;
+5. retain the exact model-management child on the runtime and assert its identity.
+
+`AISettingsTab` continues to depend only on `RawCullAISettingsModel`. When it opens
+the download sheet, it passes the stable child to `AIModelDownloadsView`.
+`AIModelDownloadsView`, its rows, and its licence sheet then depend only on
+`RawCullAIModelManagementModel`; they must not receive the runtime, application
+view model, integration, coordinator, or provider objects. Continue to use stable
+download IDs for `ForEach` and sheet identity.
+
+### Implementation sequence and commit boundaries
+
+#### Phase 4A: characterize ownership and lifecycle
+
+1. Confirm all production download/licence callers and the absence of direct store
+   access from settings views with `rg`.
+2. Add focused presentation-model tests for initial checking state, snapshot
+   refresh, managed-location delivery, licence transitions, download progress,
+   cancellation, removal, and error presentation where existing coordinator tests
+   do not already establish the behavior.
+3. Extend runtime tests to assert the exact model-management identity and weak-edge
+   lifetime.
+
+Suggested commit boundary: tests and this expanded plan only.
+
+#### Phase 4B: extract the model-management presentation model
+
+1. Move the download presentation value and all catalog/coordinator/task state and
+   actions out of `RawCullAISettingsModel` without renaming persisted keys or
+   backend types.
+2. Add the weak managed-location consumer and preserve the existing operation
+   order for refresh, successful installation, cancellation, failure, and removal.
+3. Leave `RawCullAISettingsModel.refresh()` as the settings-facing refresh entry
+   point; it delegates the model snapshot refresh and accepts the resulting
+   complete location snapshot through the typed consumer.
+
+Suggested commit boundary: focused model extraction with compatibility forwarding
+still available if required by compiling callers.
+
+#### Phase 4C: switch runtime and views atomically
+
+1. Update application assembly and runtime identity to retain the extracted model.
+2. Pass the child from `AISettingsTab` into `AIModelDownloadsView` and update all
+   download/licence row actions to target it.
+3. Remove obsolete download forwarding, observed collections, and the unused
+   settings deletion flag only after `rg` reports no callers.
+
+Suggested commit boundary: runtime and SwiftUI migration plus obsolete-surface
+removal.
+
+#### Phase 4D: validate without widening scope
+
+1. Run the focused suites, import-boundary verification, smoke and full tests, and
+   the exact-package Release build.
+2. Do not run the performance suite: Phase 4 does not alter indexing, ranking,
+   artifact mapping, cache serialization, or a package boundary.
+3. Record automated results here and leave interactive checks explicitly pending
+   when no app session was performed.
+
+### Explicitly unchanged
+
+Phase 4 does not change:
+
+- Settings tab layout, labels, help, accessibility copy, sheets, or confirmation
+  dialogs;
+- preference keys, defaults, model selection, fallback policy, model inclusion,
+  download source, catalogue metadata, licence checksums, or release readiness;
+- Background Assets service behavior, extension target membership, entitlements,
+  asset-pack identifiers, or packaging;
+- provider discovery, bundle validation, cache paths/formats, saved evidence scan
+  rules, or configuration ordering;
+- similarity/semantic hydration ownership, burst analysis, or Deep Review actions.
+
+### Automated tests
+
+Run:
+
+- `RawCullAIIntegrationTests`, including Settings refresh cancellation and
+  persisted model-selection behavior;
+- `RawCullAIModelDownloadsTests`, including coordinator policy and the extracted
+  presentation-model lifecycle;
+- `RawCullIntelligenceRuntimeTests`, including exact shared identity and weak-edge
+  release;
+- `AICacheBoundaryTests`;
+- `ReleaseMetadataTests`;
+- `make verify-ai-import-boundary`;
+- `make test-smoke`;
+- `make test-full`, because observable ownership and task lifetime changed;
+- the exact-package Release build, because a new production source and app
+  composition changed.
+
+If test identifiers change, update the smoke count and test-architecture record in
+the same change. The model downloader extension does not need a separate wiring
+build unless its target membership or packaging changes.
 
 ### Manual acceptance
 
-- Open Settings repeatedly and confirm the model is not recreated.
+- Open Settings repeatedly and confirm neither focused model is recreated.
 - Validate missing, corrupt, restored, and installed model presentation.
 - Change CLIP and segmentation selections and relaunch.
 - Start and cancel a model download using the configured production/staging source
   or an explicitly injected debug service, and record which source was used.
-- Verify licence acceptance and model removal state.
+- Verify licence acceptance, retry, model removal, and post-removal fallback state.
+- Close the download and Settings sheets during active refresh/download work and
+  confirm no stale presentation or crash appears when they reopen.
 
 ### Exit criteria
 
-- Settings views know only their presentation model.
-- Model provider and storage objects remain invisible to SwiftUI.
-- Model downloader extension packaging is unchanged.
+- `AISettingsTab` knows only `RawCullAISettingsModel`, and download/licence views
+  know only `RawCullAIModelManagementModel` plus presentation values.
+- The runtime and settings model retain the same exact model-management instance;
+  no view constructs an observable model.
+- Provider, coordinator, acceptance-store, AI cache-store, and concrete backend
+  objects remain invisible to the AI settings and model-download SwiftUI subtree.
+- Managed-location changes travel through one weak typed edge and then through the
+  Phase 3 configuration path.
+- Download cancellation, retry, removal, licence, and refresh behavior are
+  unchanged, and stale refreshes cannot publish.
+- No persisted key, format, path, catalogue inclusion decision, extension wiring,
+  or product behavior changed.
+- Focused tests, import boundary, smoke, full TSan suite, and exact-package Release
+  build pass.
+
+### Validation evidence (2026-08-29)
+
+- `RawCullAIModelDownloadsTests`, `RawCullIntelligenceRuntimeTests`, and
+  `RawCullAIIntegrationTests` passed together, including extracted-model progress,
+  installation, cancellation, removal, exact shared identity, weak-edge release,
+  refresh cancellation, and persisted-selection coverage.
+- `make verify-ai-import-boundary` passed with the same 5 non-blocking
+  `PhotoAIContracts` leakage warnings recorded by earlier phases.
+- `make test-smoke` verified exactly 189 unique manifest identifiers; all passed.
+- `make test-full` passed with Thread Sanitizer enabled: 356 tests passed with no
+  failures, skips, or runtime warnings.
+- `xcodebuild -project RawCull.xcodeproj -scheme RawCull -destination
+  'platform=macOS,arch=arm64' -configuration Release
+  -onlyUsePackageVersionsFromResolvedFile build` passed.
+- `git diff --check` passed, and the AI settings/model-download caller audit found
+  no direct coordinator, integration, provider, or AI cache-store dependency.
+- `make test-performance` was intentionally not run because Phase 4 did not change
+  indexing, ranking, serialization, artifact mapping, or a package boundary.
+- The manual acceptance checklist remains pending an interactive session with the
+  configured model source and the user's existing catalog and preferences; no
+  automated result is presented as a substitute for it.
 
 ### Rollback
 
-Restore the old settings initializer. Runtime ownership remains valid and can stay.
+Restore `AIModelDownloadsView` to the settings model, move the extracted download
+state/actions back into `RawCullAISettingsModel`, then remove the child and weak
+consumer from runtime assembly. The Phase 2 runtime and Phase 3 configuration path
+remain valid. No preference, cache, model licence, downloaded asset pack, or other
+user data requires migration or cleanup.
 
 ## Phase 5: migrate semantic search as an isolated vertical slice
 

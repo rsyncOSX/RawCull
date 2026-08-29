@@ -291,8 +291,10 @@ actor RawCullAIModelDownloadCoordinator {
 
     static func live(
         paths: RawCullAIPaths,
+        catalog: RawCullAIModelDownloadCatalog = .production,
     ) -> RawCullAIModelDownloadCoordinator {
         RawCullAIModelDownloadCoordinator(
+            catalog: catalog,
             service: RawCullManagedBackgroundAssetsModelDownloadService(
                 source: .selfHosted(
                     manifestURL: RawCullAIModelDownloadSource
