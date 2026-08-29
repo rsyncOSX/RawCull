@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattt/EventSource.git",
       "state" : {
-        "revision" : "a3a85a85214caf642abaa96ae664e4c772a59f6e",
-        "version" : "1.4.1"
+        "revision" : "86b5096ac59ab46e66bd1f6377c604bc1dab0bc2",
+        "version" : "1.5.1"
       }
     },
     {
@@ -67,8 +67,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawParserKit",
       "state" : {
-        "revision" : "0576a7cfbbdb48a5e0cd34569f2fce53e6d72a54",
-        "version" : "1.2.8"
+        "revision" : "26327d983a3f0216c460684ad91944b9543af420",
+        "version" : "1.2.9"
       }
     },
     {
@@ -96,15 +96,6 @@
       "state" : {
         "revision" : "a9a5efd40eaf558a2bcd48d64b1d1646be686008",
         "version" : "1.7.1"
-      }
-    },
-    {
-      "identity" : "swift-atomics",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-atomics.git",
-      "state" : {
-        "revision" : "0442cb5a3f98ab802acb777929fdb446bda11a34",
-        "version" : "1.3.1"
       }
     },
     {
@@ -144,24 +135,6 @@
       }
     },
     {
-      "identity" : "swift-nio",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-nio.git",
-      "state" : {
-        "revision" : "0b18836bd8b0162e7e17a995a3fbee20ed8f3b2b",
-        "version" : "2.101.3"
-      }
-    },
-    {
-      "identity" : "swift-system",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-system.git",
-      "state" : {
-        "revision" : "704705c5c51156ede21172a38654d522ce487074",
-        "version" : "1.8.0"
-      }
-    },
-    {
       "identity" : "swift-transformers",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-transformers",
@@ -176,7 +149,7 @@
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
         "branch" : "main",
-        "revision" : "3210db25b1d144a26904dce5935102f38e014902"
+        "revision" : "3842647890df7c8133fba6bc0e3d11fc9730e0bd"
       }
     },
     {
