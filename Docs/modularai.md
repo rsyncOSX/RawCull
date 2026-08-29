@@ -609,45 +609,389 @@ preference, model licence, or persisted user data requires migration or cleanup.
 
 ## Phase 3: replace settings callbacks with one typed configuration path
 
-### Changes
+Status: planned; not started. Phase 3 is a configuration-ingress change, not a
+similarity-pipeline extraction. The existing hydration workers remain in
+`RawCullViewModel` until Phase 6, and provider discovery remains in
+`RawCullAIIntegration`.
 
-1. Define a RawCull-owned configuration-change value that describes the selected
-   similarity service, semantic-search capability/service, and segmentation model
-   without exposing concrete providers.
-2. Give the intelligence runtime one method for applying a complete configuration
-   snapshot.
-3. Move backend-selection coordination out of callback closures in `RawCullApp` and
-   into the runtime.
-4. Keep the current `RawCullViewModel.setSimilarityService` and
-   `setSemanticSearchCapability` methods as forwarders while behavior migrates.
-5. Preserve cancellation order: cancel stale burst work, replace the service,
-   cancel old hydration, hydrate current files, and publish only if the generation is
-   still current.
-6. Preserve the settings preference keys and refresh order.
+### Starting point and caller audit
 
-Avoid a general event bus. There is one source of configuration changes and one
-runtime owner, so a typed command or snapshot is easier to reason about and test.
+`RawCullApplicationState.make` currently constructs `RawCullAISettingsModel` with
+two independent weak-view-model closures. `RawCullAISettingsModel` resolves the
+selected similarity and semantic services in `applySimilarityPreference()`, then
+invokes the closures in this observable order:
 
-### Tests
+1. `RawCullViewModel.setSimilarityService`;
+2. `RawCullViewModel.setSemanticSearchCapability`.
 
-- Existing settings persistence and refresh-cancellation tests.
-- Existing model validation reuse and restoration tests.
-- Existing superseded hydration and backend separation tests.
-- Add a test for repeated application of the same configuration being a no-op.
-- Add a test for changing the CLIP model while hydration is in flight.
-- `make test-smoke`
-- `make test-full`
+Segmentation does not use either callback. Its settings setter calls
+`RawCullAIIntegration.setSelectedSegmentationModel` directly and then copies the
+integration's capability snapshot back into the settings model. Configuration is
+therefore split across three paths even though all three choices originate in one
+settings model.
+
+The downstream behavior that Phase 3 must preserve is also split deliberately:
+
+- `RawCullAISettingsModel.refresh()` owns refresh cancellation through
+  `refreshGeneration` and publishes only the newest accepted refresh;
+- `RawCullViewModel.setSimilarityService` cancels and resets burst analysis before
+  replacing the image-similarity service, cancels its old hydration task, snapshots
+  the current files, and starts replacement hydration;
+- `RawCullViewModel.setSemanticSearchCapability` replaces semantic capability and
+  service state, cancels semantic hydration, snapshots the current files, and
+  starts replacement hydration;
+- `SimilarityScoringModel` independently checks its artifact- and semantic-
+  hydration generations, backend descriptors, and task cancellation before it can
+  publish loaded artifacts.
+
+The production caller audit at the start of implementation must use `rg` to confirm
+that `RawCullIntelligenceRuntime.swift` is still the only production site that
+calls the two view-model setters for settings changes. Direct test calls to a
+standalone `RawCullViewModel` or `SimilarityScoringModel` are not evidence of a
+second production configuration path.
+
+### Typed configuration contract
+
+Add one RawCull-owned, main-actor configuration snapshot. The exact spelling may be
+adjusted to fit the source, but its shape should be equivalent to:
+
+```text
+RawCullIntelligenceConfiguration
+    revision
+    similarity
+        service: any RawCullSimilarityServicing
+    semanticSearch
+        capability: RawCullSemanticSearchCapabilityStatus
+        service: (any RawCullSemanticSearchServicing)?
+    segmentationModel: RawCullSegmentationModel
+```
+
+The snapshot may carry values conforming to RawCull-owned service protocols, but it
+must not expose `CoreAICLIPBackend`, `CoreAISAM3Backend`,
+`CoreAIEfficientSAMBackend`, `VisionFeaturePrintBackend`, or concrete provider
+instances in its API. It is confined to `@MainActor`; do not add unchecked
+`Sendable` conformance merely to move service existentials between tasks.
+
+Give the snapshot a separate immutable identity value used for equality and no-op
+decisions. That identity should be `Equatable` and `Sendable` and contain only:
+
+- the similarity service's primary backend descriptor;
+- its complete ordered `artifactBackendDescriptors`, because the current no-op
+  guard compares both values;
+- the complete semantic capability status;
+- the semantic service backend descriptor, or `nil`;
+- the selected `RawCullSegmentationModel`.
+
+Do not compare existential object identity or concrete provider types. The existing
+backend descriptors are the compatibility identity already used by hydration,
+persistence, and backend-separation tests.
+
+`revision` is ordering metadata, not part of configuration identity.
+`RawCullAISettingsModel` increments it each time it publishes an accepted complete
+snapshot. The runtime records the newest accepted revision so an older injected or
+delayed snapshot cannot restore prior state. A newer revision with the same identity
+must advance the accepted revision without restarting work.
+
+### One weak, typed delivery path
+
+Replace the two stored callback closures with one class-bound, `@MainActor` typed
+consumer, for example `RawCullIntelligenceConfigurationApplying`. It exposes one
+operation that accepts the complete snapshot and returns the integration's resulting
+`RawCullAICapabilities`. `RawCullAISettingsModel` retains that consumer weakly and
+supports a one-time internal binding performed by application assembly. The settings
+model assigns the returned capabilities without emitting another command.
+
+Mark both the weak consumer storage and the monotonically increasing configuration
+revision storage with `@ObservationIgnored`. They are orchestration bookkeeping, not
+settings presentation state, and changing them must not invalidate SwiftUI views.
+
+This is intentionally not a closure, notification, `AsyncStream`, Combine
+publisher, environment action, service locator, or general event bus. There is one
+producer and one consumer, both main-actor isolated, and delivery is synchronous.
+The weak edge is required because the runtime strongly owns the settings model.
+
+The resulting Phase 3 ownership and command graph is:
+
+```text
+RawCullApplicationState
+    -> RawCullIntelligenceRuntime
+        -> RawCullAIIntegration
+        -> SimilarityScoringModel
+        -> DeepAIReviewFeature
+        -> RawCullAISettingsModel
+        --weak application target--> RawCullViewModel
+    -> RawCullViewModel
+
+RawCullAISettingsModel --weak typed configuration--> runtime.apply(configuration:)
+runtime --ordered compatibility calls--> RawCullViewModel configuration methods
+```
+
+The runtime's application target should remain weak so the intelligence lifetime
+container does not take ownership of general application state. Do not inject the
+runtime into SwiftUI's environment in this phase.
+
+### Runtime application rules
+
+Add exactly one runtime entry point for a complete configuration snapshot. Its
+application algorithm must be explicit and synchronous on `@MainActor`:
+
+1. Reject a revision older than the last accepted revision. Treat an equal revision
+   with a different identity as an invalid producer state in debug builds.
+2. Derive similarity, semantic, and segmentation changes by comparing the incoming
+   identity with the last applied identity.
+3. If no identity component changed, record the newer revision and return without
+   cancelling burst work, replacing a service, or starting hydration.
+4. Apply a changed segmentation selection through
+   `RawCullAIIntegration.setSelectedSegmentationModel` and return
+   `integration.capabilities()` to the settings model. The no-op and stale-revision
+   paths return the same current capability snapshot.
+5. Apply a changed similarity configuration through the existing
+   `RawCullViewModel.setSimilarityService` compatibility seam.
+6. Apply changed semantic capability/service through
+   `RawCullViewModel.setSemanticSearchCapability` only after the similarity call.
+7. Record the accepted identity and revision in the runtime.
+
+Steps 5 and 6 preserve the existing similarity-then-semantic observable order. The
+view-model methods remain the downstream compatibility seam in this phase; they are
+not an alternative app-level settings ingress. Add comments marking the runtime as
+their only production settings caller. Moving their task handles or their
+application-specific burst reset into the runtime is deferred to Phase 6.
+
+This scope preserves the current similarity replacement sequence exactly:
+
+1. compare primary and artifact backend descriptors;
+2. cancel and reset stale burst analysis;
+3. replace the service and reset incompatible similarity state;
+4. cancel the previous similarity hydration task;
+5. snapshot `RawCullViewModel.files`;
+6. hydrate that snapshot;
+7. allow publication only when the model generation, service descriptors, and task
+   cancellation checks are still current.
+
+Semantic replacement likewise retains its current capability/backend comparison,
+semantic search cancellation, semantic hydration generation increment, state reset,
+old-task cancellation, file snapshot, and stale-result guards. Do not combine the
+two hydration tasks, make either task detached, or add a second copy of their
+generation state.
+
+### Settings publication and refresh order
+
+`RawCullAISettingsModel` remains the only owner of preference persistence and
+settings-facing capability state. Replace `applySimilarityPreference()` with one
+helper that resolves and publishes a complete configuration snapshot from the
+current settings and integration state.
+
+Preserve each setter's existing validation and persistence order:
+
+- reject an excluded CLIP or segmentation model;
+- return immediately when the selected value is unchanged;
+- update the observable selection;
+- write the existing `UserDefaults` key and raw value;
+- resolve and publish exactly one complete configuration snapshot.
+
+For segmentation, remove the direct settings-to-integration mutation. The runtime
+applies the selection and the settings model then receives the resulting capability
+snapshot so `inProcessMaskGeneration` still changes immediately. This capability
+copy must not recursively emit another configuration.
+
+Preserve the accepted `refresh()` sequence:
+
+1. increment and capture `refreshGeneration` and begin the saved-evidence scan
+   presentation;
+2. read the model-download snapshot;
+3. check cancellation and install the managed model locations;
+4. refresh provider capabilities and scan saved evidence concurrently;
+5. check cancellation and reject a superseded refresh generation;
+6. publish capabilities, download states, managed locations, and accepted licence
+   IDs;
+7. resolve and publish one complete configuration snapshot;
+8. publish the saved-evidence success or failure;
+9. clear the scanning presentation only for the still-current refresh generation.
+
+No snapshot may be assembled before an `await` and delivered after it. Assemble it
+only after the post-await cancellation and refresh-generation guards, using the
+then-current selections. If the user changes a preference while refresh is in
+flight, that setter publishes immediately; the accepted refresh may later publish a
+newer revision using the same latest preference and newly validated capabilities.
+An older overlapping refresh publishes nothing.
+
+Retain these exact preference keys and defaults:
+
+- `RawCullAI.useCLIPForSimilarity`;
+- `RawCullAI.selectedCLIPModel`;
+- `RawCullAI.selectedSegmentationModel`;
+- CLIP enabled by default when its key is absent;
+- the existing inclusion-filtered default CLIP and segmentation selections.
+
+### Assembly sequence
+
+Revise `RawCullApplicationState.make` without creating a second model or changing
+SwiftUI scene ownership:
+
+1. create `RawCullAIIntegration` as today;
+2. create `RawCullAISettingsModel` without callbacks or an applied configuration
+   side effect; it may read preferences and resolve an initial snapshot;
+3. create the one `SimilarityScoringModel` from that initial snapshot's similarity
+   service and semantic capability/service, using the same artifact store;
+4. reuse `integration.deepAIReviewFeature`;
+5. create `RawCullViewModel` with those exact model instances;
+6. create `RawCullIntelligenceRuntime` with the integration, child models, settings
+   model, and weak application target;
+7. bind the settings model's weak typed consumer to that runtime exactly once;
+8. synchronously publish the initial complete snapshot. Similarity and semantic
+   application should be no-ops because the model was built from that snapshot;
+   segmentation applies the saved selection and refreshes settings readiness;
+9. retain the runtime and view model in the existing private `@State` properties.
+
+This construction must not validate model bundles, start settings refresh, or
+hydrate an empty catalog. Leave the main-window `.task` that calls
+`settingsModel.refresh()` in its current scene location, and leave
+`applyStoredScoringSettings()` as a separate task.
+
+### Implementation sequence and commit boundaries
+
+#### Phase 3A: characterize the complete current contract
+
+1. Extend focused tests to record similarity-before-semantic ordering, segmentation
+   readiness update, no-op setter behavior, preference writes, and the accepted
+   refresh publication point.
+2. Add a controlled in-flight hydration fixture if the existing persistence matrix
+   cannot drive the view-model-level service switch deterministically.
+3. Make no production changes in this commit.
+
+#### Phase 3B: introduce the value and runtime command
+
+1. Add the configuration snapshot, equatable identity, revision handling, and weak
+   typed consumer protocol inside the RawCull application boundary.
+2. Add `RawCullIntelligenceRuntime.apply(configuration:)` and a weak application
+   target while leaving settings callbacks temporarily connected.
+3. Prove the runtime command's ordering, no-op, stale-revision, and lifetime behavior
+   with direct tests before switching the producer.
+
+#### Phase 3C: switch settings and composition atomically
+
+1. Replace both callbacks and the direct segmentation mutation with the single
+   typed publication helper.
+2. Change assembly to the sequence above and bind the settings model once.
+3. Update settings tests to use a typed consumer spy rather than closure counters.
+4. Run `rg` to prove no production callback initializer arguments or alternative
+   settings configuration calls remain.
+
+#### Phase 3D: remove only obsolete callback surface
+
+1. Remove `similarityServiceDidChange` and
+   `semanticSearchCapabilityDidChange` storage and initializer parameters after all
+   callers have moved.
+2. Keep the two view-model compatibility methods and their current worker behavior
+   for Phase 6.
+3. Update `RawCullTests/TEST_ARCHITECTURE.md` and checked-in manifests/counts only if
+   test identifiers were added, removed, or renamed.
+
+### Explicitly deferred
+
+Phase 3 does not:
+
+- move similarity or semantic hydration task ownership out of `RawCullViewModel`;
+- merge similarity and semantic hydration or change task priority/isolation;
+- move provider validation or resource managers out of `RawCullAIIntegration`;
+- move preference storage, download state, licence handling, or saved-evidence scans
+  out of `RawCullAISettingsModel`;
+- change backend descriptors, artifact compatibility, cache paths, schemas, or
+  persisted payloads;
+- inject the runtime into the environment or migrate any view call site;
+- change CLIP fallback, default selection, semantic cached-only behavior,
+  segmentation availability, or error wording;
+- rename or physically move AI files.
+
+### Automated tests
+
+Add or update focused coverage for:
+
+- application assembly still shares one integration, similarity model, settings
+  model, and Deep Review feature by reference identity;
+- the settings model emits one complete snapshot for a preference change, and the
+  runtime applies similarity before semantic;
+- a segmentation-only change does not reset similarity, semantic search, or burst
+  analysis, but does immediately update the selected Deep Review capability;
+- a newer revision with identical identity is a no-op for burst cancellation,
+  service replacement, hydration task creation, and child-model identity;
+- an older revision arriving after a newer configuration is ignored;
+- changing the CLIP model while similarity and semantic hydration are suspended
+  cancels or supersedes the old work, and releasing that work cannot publish the old
+  backend;
+- overlapping settings refreshes allow only the newest accepted generation to emit
+  configuration;
+- a preference change during refresh is not replaced by a snapshot assembled from
+  pre-await selections;
+- initial assembly performs no validation or hydration and the scene refresh still
+  performs the first resource validation;
+- releasing an application-state harness releases the runtime, settings model,
+  similarity model, and view model, proving both weak edges prevent cycles;
+- the three existing preference keys, absent-key defaults, inclusion filtering, and
+  relaunch restoration are unchanged.
+
+Run:
+
+- `RawCullIntelligenceRuntimeTests`;
+- the settings and model-validation tests in `RawCullAIIntegrationTests`;
+- `RawCullSemanticSearchTests`;
+- the superseded-hydration and backend-separation cases in
+  `TypedAIPersistenceMatrixTests`;
+- relevant `PhotoAIKitSimilarityMigrationTests` backend-switch cases;
+- `make verify-ai-import-boundary`;
+- `make test-smoke`;
+- `make test-full`, because configuration ordering and cancellation paths changed;
+- the exact-package Release build, because app composition changed.
+
+Do not run `make test-performance` if the implementation stays within this scope:
+indexing, ranking, serialization, artifact mapping, and task ownership are
+unchanged. Run it if the implementation exceeds that boundary.
+
+### Manual acceptance
+
+- Launch with each saved CLIP selection and with CLIP similarity both enabled and
+  disabled; confirm the same active backend and Vision fallback presentation after
+  refresh.
+- Change CLIP selection repeatedly while a catalog is open and confirm stale burst
+  results disappear, the current catalog hydrates, and an old backend never
+  reappears.
+- Start semantic search, change CLIP selection, and confirm stale semantic results
+  clear and only the selected model's compatible cached index is reported.
+- Change between SAM 3 and EfficientSAM and confirm readiness and Deep Review
+  availability update without disturbing similarity or semantic selection.
+- Open main, Settings, and About windows in different orders and confirm no extra
+  runtime, child model, validation, or hydration is created.
+- Relaunch and confirm all three preferences restore with their existing keys and
+  defaults.
 
 ### Exit criteria
 
-- `RawCullApp` no longer contains backend-change callback wiring.
-- Only the runtime applies intelligence configuration.
-- A stale settings refresh or hydration cannot replace newer runtime state.
-- No preference or capability behavior changed.
+- `RawCullAISettingsModel` has no similarity or semantic callback properties and no
+  direct segmentation-selection mutation of the integration.
+- `RawCullApplicationState.make` contains no backend-change callback wiring and
+  binds exactly one weak typed configuration consumer.
+- Every production settings change enters
+  `RawCullIntelligenceRuntime.apply(configuration:)` as one complete snapshot.
+- The runtime is the only production configuration ingress; the two view-model
+  methods remain documented downstream compatibility seams for Phase 6.
+- Repeated identical configuration is a no-op, and an older revision cannot replace
+  newer runtime state.
+- Similarity-before-semantic ordering, burst cancellation, hydration cancellation,
+  generation checks, and stale-result rejection match the Phase 0/2 behavior.
+- Segmentation selection and settings readiness remain synchronous from the user's
+  perspective.
+- Preference keys/defaults, provider validation, fallback policy, cache formats,
+  and all visible settings behavior are unchanged.
+- Focused tests, import boundary, smoke, full TSan suite, and exact-package Release
+  build pass.
 
 ### Rollback
 
-Restore the app-level callbacks; compatibility methods remain available.
+Revert Phase 3C/3D first to restore the two weak settings callbacks and direct
+segmentation application, then remove the unused runtime command and configuration
+types from Phase 3B. The Phase 2 runtime, shared object identities, compatibility
+view-model methods, preference files, caches, model licences, and downloaded models
+remain valid; no user-data migration or cleanup is required.
 
 ## Phase 4: migrate settings and model management first
 
