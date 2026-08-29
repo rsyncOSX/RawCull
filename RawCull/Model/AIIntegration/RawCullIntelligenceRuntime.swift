@@ -1,27 +1,148 @@
 import Foundation
+import PhotoAIContracts
+
+nonisolated struct RawCullIntelligenceConfigurationIdentity: Equatable, Sendable {
+    let similarityBackend: SimilarityBackendDescriptor
+    let similarityArtifactBackends: [SimilarityBackendDescriptor]
+    let semanticSearchCapability: RawCullSemanticSearchCapabilityStatus
+    let semanticSearchBackend: SimilarityBackendDescriptor?
+    let segmentationModel: RawCullSegmentationModel
+}
+
+@MainActor
+struct RawCullSimilarityConfiguration {
+    let service: any RawCullSimilarityServicing
+}
+
+@MainActor
+struct RawCullSemanticSearchConfiguration {
+    let capability: RawCullSemanticSearchCapabilityStatus
+    let service: (any RawCullSemanticSearchServicing)?
+}
+
+/// One complete, ordered settings decision for RawCull's intelligence runtime.
+///
+/// Service values stay on the main actor. Only the descriptor-based identity is
+/// `Sendable`, which prevents concrete providers from crossing isolation domains.
+@MainActor
+struct RawCullIntelligenceConfiguration {
+    let revision: UInt64
+    let similarity: RawCullSimilarityConfiguration
+    let semanticSearch: RawCullSemanticSearchConfiguration
+    let segmentationModel: RawCullSegmentationModel
+
+    var identity: RawCullIntelligenceConfigurationIdentity {
+        RawCullIntelligenceConfigurationIdentity(
+            similarityBackend: similarity.service.backendDescriptor,
+            similarityArtifactBackends: similarity.service.artifactBackendDescriptors,
+            semanticSearchCapability: semanticSearch.capability,
+            semanticSearchBackend: semanticSearch.service?.backendDescriptor,
+            segmentationModel: segmentationModel,
+        )
+    }
+}
+
+@MainActor
+protocol RawCullIntelligenceConfigurationApplying: AnyObject {
+    @discardableResult
+    func apply(
+        configuration: RawCullIntelligenceConfiguration,
+    ) -> RawCullAICapabilities
+}
+
+/// Temporary Phase 3 bridge to application-owned catalog and burst state.
+/// Phase 6 moves the hydration workers behind the intelligence feature boundary.
+@MainActor
+protocol RawCullIntelligenceApplicationTarget: AnyObject {
+    func setSimilarityService(_ service: any RawCullSimilarityServicing)
+
+    func setSemanticSearchCapability(
+        _ capability: RawCullSemanticSearchCapabilityStatus,
+        service: (any RawCullSemanticSearchServicing)?,
+    )
+}
+
+extension RawCullViewModel: RawCullIntelligenceApplicationTarget {}
 
 /// Stable application-owned lifetime for RawCull's intelligence models.
 ///
-/// Phase 2 deliberately keeps configuration callbacks and worker-task ownership
-/// in their existing types. The runtime only guarantees that every caller shares
-/// the same model instances.
+/// Phase 3 owns the single settings-configuration ingress while deliberately
+/// leaving hydration worker-task ownership in `RawCullViewModel` until Phase 6.
 @MainActor
-final class RawCullIntelligenceRuntime {
+final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying {
     let integration: RawCullAIIntegration
     let similarityModel: SimilarityScoringModel
     let deepAIReviewFeature: DeepAIReviewFeature
     let settingsModel: RawCullAISettingsModel
+    private(set) var lastAppliedConfigurationIdentity:
+        RawCullIntelligenceConfigurationIdentity?
+    private(set) var lastAcceptedConfigurationRevision: UInt64?
+
+    private weak var applicationTarget:
+        (any RawCullIntelligenceApplicationTarget)?
 
     init(
         integration: RawCullAIIntegration,
         similarityModel: SimilarityScoringModel,
         deepAIReviewFeature: DeepAIReviewFeature,
         settingsModel: RawCullAISettingsModel,
+        applicationTarget: any RawCullIntelligenceApplicationTarget,
     ) {
         self.integration = integration
         self.similarityModel = similarityModel
         self.deepAIReviewFeature = deepAIReviewFeature
         self.settingsModel = settingsModel
+        self.applicationTarget = applicationTarget
+    }
+
+    @discardableResult
+    func apply(
+        configuration: RawCullIntelligenceConfiguration,
+    ) -> RawCullAICapabilities {
+        let incomingIdentity = configuration.identity
+
+        if let lastAcceptedConfigurationRevision {
+            guard configuration.revision > lastAcceptedConfigurationRevision else {
+                assert(
+                    configuration.revision < lastAcceptedConfigurationRevision
+                        || incomingIdentity == lastAppliedConfigurationIdentity,
+                    "One configuration revision described multiple identities.",
+                )
+                return integration.capabilities()
+            }
+        }
+
+        let previousIdentity = lastAppliedConfigurationIdentity
+        guard previousIdentity != incomingIdentity else {
+            lastAcceptedConfigurationRevision = configuration.revision
+            return integration.capabilities()
+        }
+
+        if previousIdentity?.segmentationModel != incomingIdentity.segmentationModel {
+            integration.setSelectedSegmentationModel(configuration.segmentationModel)
+        }
+
+        if previousIdentity?.similarityBackend != incomingIdentity.similarityBackend
+            || previousIdentity?.similarityArtifactBackends
+            != incomingIdentity.similarityArtifactBackends
+        {
+            applicationTarget?.setSimilarityService(configuration.similarity.service)
+        }
+
+        if previousIdentity?.semanticSearchCapability
+            != incomingIdentity.semanticSearchCapability
+            || previousIdentity?.semanticSearchBackend
+            != incomingIdentity.semanticSearchBackend
+        {
+            applicationTarget?.setSemanticSearchCapability(
+                configuration.semanticSearch.capability,
+                service: configuration.semanticSearch.service,
+            )
+        }
+
+        lastAppliedConfigurationIdentity = incomingIdentity
+        lastAcceptedConfigurationRevision = configuration.revision
+        return integration.capabilities()
     }
 }
 
@@ -47,10 +168,19 @@ struct RawCullApplicationState {
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
     ) -> RawCullApplicationState {
+        let settingsModel = RawCullAISettingsModel(
+            integration: integration,
+            evidenceScan: evidenceScan,
+            userDefaults: userDefaults,
+            modelDownloadCatalog: modelDownloadCatalog,
+            modelDownloadCoordinator: modelDownloadCoordinator,
+            rawCullVersion: rawCullVersion,
+        )
+        let initialConfiguration = settingsModel.configurationSnapshot()
         let similarityModel = SimilarityScoringModel(
-            similarityService: integration.visionSimilarityService,
-            semanticSearchCapability: integration.capabilities()
-                .semanticSearchStatus(for: .defaultSelection),
+            similarityService: initialConfiguration.similarity.service,
+            semanticSearchCapability: initialConfiguration.semanticSearch.capability,
+            semanticSearchService: initialConfiguration.semanticSearch.service,
             artifactStore: similarityArtifactStore,
         )
         let deepAIReviewFeature = integration.deepAIReviewFeature
@@ -58,30 +188,14 @@ struct RawCullApplicationState {
             similarityModel: similarityModel,
             deepAIReviewFeature: deepAIReviewFeature,
         )
-        let settingsModel = RawCullAISettingsModel(
-            integration: integration,
-            evidenceScan: evidenceScan,
-            userDefaults: userDefaults,
-            similarityServiceDidChange: { [weak viewModel] service in
-                viewModel?.setSimilarityService(service)
-            },
-            semanticSearchCapabilityDidChange: {
-                [weak viewModel] capability, service in
-                viewModel?.setSemanticSearchCapability(
-                    capability,
-                    service: service,
-                )
-            },
-            modelDownloadCatalog: modelDownloadCatalog,
-            modelDownloadCoordinator: modelDownloadCoordinator,
-            rawCullVersion: rawCullVersion,
-        )
         let intelligenceRuntime = RawCullIntelligenceRuntime(
             integration: integration,
             similarityModel: similarityModel,
             deepAIReviewFeature: deepAIReviewFeature,
             settingsModel: settingsModel,
+            applicationTarget: viewModel,
         )
+        settingsModel.bindConfigurationConsumer(intelligenceRuntime)
 
         assert(viewModel.similarityModel === intelligenceRuntime.similarityModel)
         assert(viewModel.deepAIReviewFeature === intelligenceRuntime.deepAIReviewFeature)

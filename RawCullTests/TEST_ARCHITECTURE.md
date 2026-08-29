@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 184 unique smoke identifiers and 2 unique performance
+current baselines are 187 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -32,8 +32,9 @@ non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows
   `PhotoAnalysisKitIntegrationTests` and the exact Vision migration tests.
 - DataComp/OpenAI CLIP selection, model validation, downloads, and licence:
   `RawCullAIIntegrationTests` and `RawCullAIModelDownloadsTests`.
-- Stable intelligence ownership, shared model identity, callback targeting, and
-  retain-cycle safety: `RawCullIntelligenceRuntimeTests`.
+- Stable intelligence ownership, shared model identity, typed configuration
+  ordering, stale-revision rejection, and retain-cycle safety:
+  `RawCullIntelligenceRuntimeTests`.
 - Semantic hydration/search and UI state: `RawCullSemanticSearchTests` and
   `RawCullSemanticSearchUITests`.
 - Deep Review and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
@@ -130,8 +131,9 @@ the suite name, tag, or test body.
   saved burst evidence scanning, model validation reuse, Settings cancellation,
   and persisted CLIP preference behavior.
 - `RawCullIntelligenceRuntimeTests.swift`: stable application assembly, shared
-  similarity and Deep Review identity, Settings callback targeting, no-op service
-  application, and weak-callback lifetime behavior.
+  similarity and Deep Review identity, typed Settings configuration ordering,
+  no-op and stale-revision behavior, in-flight hydration supersession,
+  segmentation isolation, and weak-edge lifetime behavior.
 - `RawCullVerifyViewModelSecurityScopeTests.swift`: security-scoped catalog access
   lifecycle behavior on the `@MainActor` `RawCullViewModel`.
 - `ScanAndExtractJPGsTests.swift`: scan/extraction coordination behavior.

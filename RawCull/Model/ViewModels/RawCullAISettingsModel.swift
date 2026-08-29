@@ -74,13 +74,9 @@ final class RawCullAISettingsModel {
     private var selectedSegmenter: RawCullSegmentationModel
     @ObservationIgnored private let integration: RawCullAIIntegration
     @ObservationIgnored private let userDefaults: UserDefaults
-    @ObservationIgnored private let similarityServiceDidChange: @MainActor (
-        any RawCullSimilarityServicing,
-    ) -> Void
-    @ObservationIgnored private let semanticSearchCapabilityDidChange: @MainActor (
-        RawCullSemanticSearchCapabilityStatus,
-        (any RawCullSemanticSearchServicing)?,
-    ) -> Void
+    @ObservationIgnored private weak var configurationConsumer:
+        (any RawCullIntelligenceConfigurationApplying)?
+    @ObservationIgnored private var configurationRevision: UInt64 = 0
     @ObservationIgnored private let evidenceScan: @Sendable () async throws
         -> RawCullSavedBurstEvidenceScanResult
     @ObservationIgnored private let modelDownloadCatalog:
@@ -99,21 +95,12 @@ final class RawCullAISettingsModel {
         evidenceScanner: RawCullSavedBurstEvidenceScanner? = nil,
         evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
         userDefaults: UserDefaults = .standard,
-        similarityServiceDidChange: @escaping @MainActor (
-            any RawCullSimilarityServicing,
-        ) -> Void = { _ in },
-        semanticSearchCapabilityDidChange: @escaping @MainActor (
-            RawCullSemanticSearchCapabilityStatus,
-            (any RawCullSemanticSearchServicing)?,
-        ) -> Void = { _, _ in },
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
     ) {
         self.integration = integration
         self.userDefaults = userDefaults
-        self.similarityServiceDidChange = similarityServiceDidChange
-        self.semanticSearchCapabilityDidChange = semanticSearchCapabilityDidChange
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
@@ -155,8 +142,36 @@ final class RawCullAISettingsModel {
             },
         )
         self.capabilities = integration.capabilities()
-        integration.setSelectedSegmentationModel(selectedSegmenter)
-        self.capabilities = integration.capabilities()
+    }
+
+    func configurationSnapshot(
+        revision: UInt64 = 0,
+    ) -> RawCullIntelligenceConfiguration {
+        RawCullIntelligenceConfiguration(
+            revision: revision,
+            similarity: RawCullSimilarityConfiguration(
+                service: integration.similarityService(
+                    prefersCLIP: prefersCLIPForSimilarity,
+                    clipModel: selectedModel,
+                ),
+            ),
+            semanticSearch: RawCullSemanticSearchConfiguration(
+                capability: selectedSemanticSearchStatus,
+                service: integration.semanticSearchService(clipModel: selectedModel),
+            ),
+            segmentationModel: selectedSegmenter,
+        )
+    }
+
+    func bindConfigurationConsumer(
+        _ consumer: any RawCullIntelligenceConfigurationApplying,
+    ) {
+        precondition(
+            configurationConsumer == nil,
+            "RawCullAISettingsModel configuration consumer may only be bound once.",
+        )
+        configurationConsumer = consumer
+        publishConfiguration()
     }
 
     func refresh() async {
@@ -189,7 +204,7 @@ final class RawCullAISettingsModel {
             managedModelLocations = downloadSnapshot.managedModelLocations
             acceptedLicenceModelIDs =
                 downloadSnapshot.acceptedLicenceModelIDs
-            applySimilarityPreference()
+            publishConfiguration()
             switch result {
             case let .success(evidence):
                 savedBurstEvidence = evidence
@@ -269,7 +284,7 @@ final class RawCullAISettingsModel {
         guard prefersCLIPForSimilarity != enabled else { return }
         prefersCLIPForSimilarity = enabled
         userDefaults.set(enabled, forKey: Self.useCLIPPreferenceKey)
-        applySimilarityPreference()
+        publishConfiguration()
     }
 
     func setSelectedCLIPModel(_ model: RawCullCLIPModel) {
@@ -277,7 +292,7 @@ final class RawCullAISettingsModel {
         guard selectedModel != model else { return }
         selectedModel = model
         userDefaults.set(model.rawValue, forKey: Self.selectedCLIPModelPreferenceKey)
-        applySimilarityPreference()
+        publishConfiguration()
     }
 
     func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
@@ -290,8 +305,7 @@ final class RawCullAISettingsModel {
             model.rawValue,
             forKey: Self.selectedSegmentationModelPreferenceKey,
         )
-        integration.setSelectedSegmentationModel(model)
-        capabilities = integration.capabilities()
+        publishConfiguration()
     }
 
     private func performModelDownload(
@@ -324,16 +338,13 @@ final class RawCullAISettingsModel {
         }
     }
 
-    private func applySimilarityPreference() {
-        similarityServiceDidChange(
-            integration.similarityService(
-                prefersCLIP: prefersCLIPForSimilarity,
-                clipModel: selectedModel,
+    private func publishConfiguration() {
+        guard let configurationConsumer else { return }
+        configurationRevision &+= 1
+        capabilities = configurationConsumer.apply(
+            configuration: configurationSnapshot(
+                revision: configurationRevision,
             ),
-        )
-        semanticSearchCapabilityDidChange(
-            selectedSemanticSearchStatus,
-            integration.semanticSearchService(clipModel: selectedModel),
         )
     }
 }

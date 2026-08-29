@@ -34,7 +34,7 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 | 0 | Establish a trustworthy baseline from `version-3.1.1` before production refactoring begins. | **Complete (2026-08-28)** |
 | 1 | Define, document, inventory, and mechanically enforce the AI dependency boundary. | **Complete (2026-08-28)** |
 | 2 | Introduce one stable intelligence runtime without moving behavior. | **Complete (2026-08-28)** |
-| 3 | Replace app-level settings callbacks with one typed configuration path. | Not started |
+| 3 | Replace app-level settings callbacks with one typed configuration path. | **Complete (2026-08-29)** |
 | 4 | Migrate settings and model management to their narrow presentation boundary. | Not started |
 | 5 | Migrate semantic search as an isolated vertical slice. | Not started |
 | 6 | Place similarity indexing, hydration, ranking, cancellation, and progress behind one feature API. | Not started |

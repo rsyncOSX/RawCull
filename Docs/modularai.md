@@ -1,9 +1,10 @@
 # Modular AI Refactoring Plan
 
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
-implemented on 2026-08-28 against the `version-3.1.1` baseline; Phases 3 through
-12 have not started. Phase 2's automated gates pass; its manual acceptance
-checklist remains for an interactive app session.
+implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phase 3 was
+implemented on 2026-08-29. Phases 4 through 12 have not started. Phase 3's
+automated gates pass; its manual acceptance checklist remains for an interactive
+app session.
 
 ## Purpose
 
@@ -609,8 +610,8 @@ preference, model licence, or persisted user data requires migration or cleanup.
 
 ## Phase 3: replace settings callbacks with one typed configuration path
 
-Status: planned; not started. Phase 3 is a configuration-ingress change, not a
-similarity-pipeline extraction. The existing hydration workers remain in
+Status: implemented on 2026-08-29. Phase 3 is a configuration-ingress change, not
+a similarity-pipeline extraction. The existing hydration workers remain in
 `RawCullViewModel` until Phase 6, and provider discovery remains in
 `RawCullAIIntegration`.
 
@@ -963,6 +964,59 @@ unchanged. Run it if the implementation exceeds that boundary.
   runtime, child model, validation, or hydration is created.
 - Relaunch and confirm all three preferences restore with their existing keys and
   defaults.
+
+Status: pending an interactive app session. The automated coverage below exercises
+the same configuration identities, persistence keys, replacement ordering, and
+stale-work guards, but it does not replace this user-visible acceptance pass.
+
+### Implementation and validation evidence (2026-08-29)
+
+The completed implementation follows the planned ownership boundary:
+
+- `RawCullAISettingsModel` now publishes one revisioned
+  `RawCullIntelligenceConfiguration` through one weak, main-actor typed consumer;
+  the two callback properties and direct segmentation mutation are gone;
+- `RawCullIntelligenceRuntime.apply(configuration:)` is the only production
+  settings ingress and compares immutable descriptor-based configuration identity
+  before applying segmentation, similarity, and semantic changes;
+- stale revisions are ignored, newer identical revisions advance without restarting
+  work, and changed similarity is still applied before changed semantic capability;
+- application assembly creates the settings snapshot first, constructs one shared
+  similarity model from it, binds the runtime once, and retains weak edges to both
+  the configuration consumer and application target;
+- similarity and semantic hydration workers, cancellation, generations, burst
+  reset behavior, provider discovery, persistence schemas, and cache locations stay
+  in their pre-Phase-3 owners as planned.
+
+Production searches found no remaining `similarityServiceDidChange` or
+`semanticSearchCapabilityDidChange` symbols. The only production invocations of
+the two `RawCullViewModel` compatibility setters are the ordered calls from
+`RawCullIntelligenceRuntime`; their underlying model methods remain for Phase 6.
+
+Automated results:
+
+- `RawCullIntelligenceRuntimeTests`: 8 tests passed, covering shared assembly
+  identity, the typed settings path, similarity-before-semantic ordering, identical
+  and stale revisions, segmentation-only changes, in-flight hydration
+  supersession, and weak-edge release;
+- `RawCullAIIntegrationTests`: 7 tests passed, including model validation,
+  refresh cancellation, capability assembly, preference defaults/persistence, and
+  relaunch restoration through the assembled runtime;
+- `make verify-ai-import-boundary`: passed with the same five non-blocking
+  `PhotoAIContracts` leakage warnings tracked outside the intelligence/persistence
+  boundary;
+- `make test-smoke`: enumeration verified exactly 187 unique identifiers and all
+  smoke tests passed;
+- `make test-full`: the complete RawCull test plan passed with Thread Sanitizer
+  enabled, including semantic search, typed persistence, backend separation, and
+  PhotoAIKit migration coverage;
+- the exact resolved-package arm64 Release build passed with
+  `-configuration Release -destination 'platform=macOS,arch=arm64'`;
+- `git diff --check` and SwiftFormat lint for the touched Phase 3 production and
+  runtime-test sources passed.
+
+`make test-performance` was not run because Phase 3 did not change indexing,
+ranking, serialization, artifact mapping, or hydration task ownership.
 
 ### Exit criteria
 

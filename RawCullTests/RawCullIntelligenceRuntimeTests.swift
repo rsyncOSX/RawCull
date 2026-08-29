@@ -1,6 +1,7 @@
 import Foundation
 import PhotoAIContracts
 @testable import RawCull
+import RawCullCore
 import Testing
 
 @Suite("RawCull intelligence runtime", .tags(.smoke))
@@ -32,12 +33,12 @@ struct RawCullIntelligenceRuntimeTests {
 
     @MainActor
     @Test
-    func `Settings callbacks update the view model that shares the runtime models`() throws {
+    func `Settings configuration updates the view model that shares runtime models`() throws {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
         fixture.userDefaults.set(
-            true,
-            forKey: RawCullAISettingsModel.useCLIPPreferenceKey,
+            RawCullCLIPModel.dataComp.rawValue,
+            forKey: RawCullAISettingsModel.selectedCLIPModelPreferenceKey,
         )
 
         let applicationState = RawCullApplicationState.make(
@@ -50,17 +51,9 @@ struct RawCullIntelligenceRuntimeTests {
         )
         let runtime = applicationState.intelligenceRuntime
         let viewModel = applicationState.viewModel
-        let displacedCapability = RawCullSemanticSearchCapabilityStatus.failed(
-            location: nil,
-            reason: "runtime test",
-        )
+        let originalCapability = viewModel.similarityModel.semanticSearchCapability
 
-        viewModel.setSimilarityService(RuntimeTestSimilarityService())
-        viewModel.setSemanticSearchCapability(displacedCapability, service: nil)
-        #expect(viewModel.similarityModel.backendDescriptor == runtimeTestBackend)
-        #expect(viewModel.similarityModel.semanticSearchCapability == displacedCapability)
-
-        runtime.settingsModel.useCLIPForSimilarity = false
+        runtime.settingsModel.selectedCLIPModel = .openAI
 
         #expect(
             viewModel.similarityModel.backendDescriptor
@@ -70,32 +63,41 @@ struct RawCullIntelligenceRuntimeTests {
             viewModel.similarityModel.semanticSearchCapability
                 == runtime.settingsModel.selectedSemanticSearchStatus,
         )
+        #expect(viewModel.similarityModel.semanticSearchCapability != originalCapability)
         #expect(viewModel.similarityModel === runtime.similarityModel)
     }
 
     @MainActor
     @Test
-    func `Settings preserve similarity then semantic callback order`() throws {
+    func `Runtime applies complete configuration in similarity then semantic order`() throws {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
-        var callbackOrder: [String] = []
+        let target = RuntimeApplicationTargetSpy()
         let settingsModel = RawCullAISettingsModel(
             integration: fixture.integration,
             evidenceScan: { .success(.empty) },
             userDefaults: fixture.userDefaults,
-            similarityServiceDidChange: { _ in
-                callbackOrder.append("similarity")
-            },
-            semanticSearchCapabilityDidChange: { _, _ in
-                callbackOrder.append("semantic")
-            },
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
             rawCullVersion: "test",
         )
+        let configuration = settingsModel.configurationSnapshot(revision: 1)
+        let similarityModel = SimilarityScoringModel(
+            similarityService: configuration.similarity.service,
+            semanticSearchCapability: configuration.semanticSearch.capability,
+            semanticSearchService: configuration.semanticSearch.service,
+            artifactStore: fixture.similarityArtifactStore,
+        )
+        let runtime = RawCullIntelligenceRuntime(
+            integration: fixture.integration,
+            similarityModel: similarityModel,
+            deepAIReviewFeature: fixture.integration.deepAIReviewFeature,
+            settingsModel: settingsModel,
+            applicationTarget: target,
+        )
 
-        settingsModel.useCLIPForSimilarity.toggle()
+        runtime.apply(configuration: configuration)
 
-        #expect(callbackOrder == ["similarity", "semantic"])
+        #expect(target.applicationOrder == ["similarity", "semantic"])
     }
 
     @MainActor
@@ -116,20 +118,166 @@ struct RawCullIntelligenceRuntimeTests {
         let viewModel = applicationState.viewModel
         let similarityModel = runtime.similarityModel
 
-        viewModel.setSimilarityService(runtime.integration.visionSimilarityService)
-        viewModel.setSemanticSearchCapability(
-            similarityModel.semanticSearchCapability,
-            service: nil,
+        let nextRevision = try #require(runtime.lastAcceptedConfigurationRevision) + 1
+        runtime.apply(
+            configuration: runtime.settingsModel.configurationSnapshot(
+                revision: nextRevision,
+            ),
         )
 
         #expect(viewModel.similarityModel === similarityModel)
         #expect(viewModel.similarityHydrationTask == nil)
         #expect(viewModel.semanticSimilarityHydrationTask == nil)
+        #expect(runtime.lastAcceptedConfigurationRevision == nextRevision)
     }
 
     @MainActor
     @Test
-    func `Weak settings callbacks do not retain application state`() throws {
+    func `Older configuration cannot replace a newer runtime identity`() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+
+        let applicationState = RawCullApplicationState.make(
+            integration: fixture.integration,
+            similarityArtifactStore: fixture.similarityArtifactStore,
+            userDefaults: fixture.userDefaults,
+            evidenceScan: { .success(.empty) },
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            rawCullVersion: "test",
+        )
+        let runtime = applicationState.intelligenceRuntime
+        let staleConfiguration = runtime.settingsModel.configurationSnapshot(
+            revision: 2,
+        )
+        let newerCapability = RawCullSemanticSearchCapabilityStatus.failed(
+            location: nil,
+            reason: "newer runtime configuration",
+        )
+        let newerConfiguration = RawCullIntelligenceConfiguration(
+            revision: 3,
+            similarity: RawCullSimilarityConfiguration(
+                service: RuntimeTestSimilarityService(),
+            ),
+            semanticSearch: RawCullSemanticSearchConfiguration(
+                capability: newerCapability,
+                service: nil,
+            ),
+            segmentationModel: staleConfiguration.segmentationModel,
+        )
+
+        runtime.apply(configuration: newerConfiguration)
+        runtime.apply(configuration: staleConfiguration)
+
+        #expect(runtime.similarityModel.backendDescriptor == runtimeTestBackend)
+        #expect(runtime.similarityModel.semanticSearchCapability == newerCapability)
+        #expect(runtime.lastAcceptedConfigurationRevision == 3)
+        #expect(runtime.lastAppliedConfigurationIdentity == newerConfiguration.identity)
+    }
+
+    @MainActor
+    @Test
+    func `Segmentation-only configuration preserves similarity work`() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+
+        let applicationState = RawCullApplicationState.make(
+            integration: fixture.integration,
+            similarityArtifactStore: fixture.similarityArtifactStore,
+            userDefaults: fixture.userDefaults,
+            evidenceScan: { .success(.empty) },
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            rawCullVersion: "test",
+        )
+        let runtime = applicationState.intelligenceRuntime
+        let viewModel = applicationState.viewModel
+        let current = runtime.settingsModel.configurationSnapshot(revision: 2)
+        let segmentationOnly = RawCullIntelligenceConfiguration(
+            revision: current.revision,
+            similarity: current.similarity,
+            semanticSearch: current.semanticSearch,
+            segmentationModel: .efficientSAM,
+        )
+
+        let capabilities = runtime.apply(configuration: segmentationOnly)
+
+        #expect(runtime.lastAppliedConfigurationIdentity?.segmentationModel == .efficientSAM)
+        #expect(
+            capabilities.inProcessMaskGeneration
+                == capabilities.segmentationModelStatus(for: .efficientSAM),
+        )
+        #expect(viewModel.similarityHydrationTask == nil)
+        #expect(viewModel.semanticSimilarityHydrationTask == nil)
+        #expect(runtime.similarityModel.backendDescriptor == current.identity.similarityBackend)
+        #expect(
+            runtime.similarityModel.semanticSearchCapability
+                == current.semanticSearch.capability,
+        )
+    }
+
+    @MainActor
+    @Test
+    func `Configuration switch supersedes in-flight similarity hydration`() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let hydrationStore = RuntimeHydrationStore(
+            suspendedBackend: runtimeTestBackend,
+        )
+        let applicationState = RawCullApplicationState.make(
+            integration: fixture.integration,
+            similarityArtifactStore: hydrationStore,
+            userDefaults: fixture.userDefaults,
+            evidenceScan: { .success(.empty) },
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            rawCullVersion: "test",
+        )
+        let runtime = applicationState.intelligenceRuntime
+        let viewModel = applicationState.viewModel
+        viewModel.files = [
+            FileItem(
+                id: UUID(),
+                url: fixture.root.appendingPathComponent("hydration.raw"),
+                name: "hydration.raw",
+                size: 1,
+                dateModified: .now,
+                exifData: nil,
+                afFocusNormalized: nil,
+            ),
+        ]
+        let current = runtime.settingsModel.configurationSnapshot(revision: 2)
+        let first = RawCullIntelligenceConfiguration(
+            revision: 2,
+            similarity: RawCullSimilarityConfiguration(
+                service: RuntimeTestSimilarityService(),
+            ),
+            semanticSearch: current.semanticSearch,
+            segmentationModel: current.segmentationModel,
+        )
+        runtime.apply(configuration: first)
+        let oldHydration = try #require(viewModel.similarityHydrationTask)
+        await hydrationStore.waitUntilSuspended()
+
+        let replacement = RawCullIntelligenceConfiguration(
+            revision: 3,
+            similarity: RawCullSimilarityConfiguration(
+                service: RuntimeReplacementSimilarityService(),
+            ),
+            semanticSearch: current.semanticSearch,
+            segmentationModel: current.segmentationModel,
+        )
+        runtime.apply(configuration: replacement)
+        let replacementHydration = try #require(viewModel.similarityHydrationTask)
+        await replacementHydration.value
+        await hydrationStore.release()
+        await oldHydration.value
+
+        #expect(runtime.similarityModel.backendDescriptor == runtimeReplacementBackend)
+        #expect(runtime.lastAppliedConfigurationIdentity == replacement.identity)
+        #expect(viewModel.similarityHydrationTask == nil)
+    }
+
+    @MainActor
+    @Test
+    func `Weak typed configuration edges do not retain application state`() throws {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
 
@@ -219,6 +367,15 @@ private nonisolated let runtimeTestBackend = SimilarityBackendDescriptor(
     configurationVersion: "runtime-test-configuration-v1",
 )
 
+private nonisolated let runtimeReplacementBackend = SimilarityBackendDescriptor(
+    backend: "runtime-replacement",
+    modelFingerprint: "runtime-replacement-model-v1",
+    representation: "runtime-replacement-representation",
+    preprocessingVersion: "runtime-replacement-preprocessing-v1",
+    normalizationVersion: "runtime-replacement-normalization-v1",
+    configurationVersion: "runtime-replacement-configuration-v1",
+)
+
 private nonisolated struct RuntimeTestSimilarityService: RawCullSimilarityServicing {
     let backendDescriptor = runtimeTestBackend
 
@@ -235,5 +392,95 @@ private nonisolated struct RuntimeTestSimilarityService: RawCullSimilarityServic
         to _: SimilarityArtifact,
     ) throws -> Float? {
         nil
+    }
+}
+
+private nonisolated struct RuntimeReplacementSimilarityService:
+    RawCullSimilarityServicing
+{
+    let backendDescriptor = runtimeReplacementBackend
+
+    func index(
+        sources _: [AIImageSource],
+        maxPixelSize _: Int,
+        progress _: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        RawCullSimilarityIndexingOutput(artifacts: [:], failures: [])
+    }
+
+    func distance(
+        from _: SimilarityArtifact,
+        to _: SimilarityArtifact,
+    ) throws -> Float? {
+        nil
+    }
+}
+
+private actor RuntimeHydrationStore: SimilarityArtifactStoring {
+    private let suspendedBackend: SimilarityBackendDescriptor
+    private var isSuspended = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(suspendedBackend: SimilarityBackendDescriptor) {
+        self.suspendedBackend = suspendedBackend
+    }
+
+    func load(
+        sources _: [AIImageSource],
+        allowedBackends: [SimilarityBackendDescriptor],
+        pipeline _: SimilarityArtifactPipelineSignature,
+    ) async -> PerFileAnalysisArtifactLoadResult {
+        if allowedBackends.first == suspendedBackend {
+            isSuspended = true
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+        }
+        return PerFileAnalysisArtifactLoadResult(artifacts: [:], misses: [])
+    }
+
+    func upsert(
+        artifacts _: [UUID: SimilarityArtifact],
+        sources _: [UUID: AIImageSource],
+        pipeline _: SimilarityArtifactPipelineSignature,
+    ) async -> PerFileAnalysisArtifactCommitResult {
+        PerFileAnalysisArtifactCommitResult(
+            committedSourceIDs: [],
+            failures: [],
+            wasCancelled: false,
+        )
+    }
+
+    func remove(
+        source _: AIImageSource,
+        backend _: SimilarityBackendDescriptor,
+        pipeline _: SimilarityArtifactPipelineSignature,
+    ) async {}
+
+    func waitUntilSuspended() async {
+        while !isSuspended {
+            await Task.yield()
+        }
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class RuntimeApplicationTargetSpy: RawCullIntelligenceApplicationTarget {
+    private(set) var applicationOrder: [String] = []
+
+    func setSimilarityService(_: any RawCullSimilarityServicing) {
+        applicationOrder.append("similarity")
+    }
+
+    func setSemanticSearchCapability(
+        _: RawCullSemanticSearchCapabilityStatus,
+        service _: (any RawCullSemanticSearchServicing)?,
+    ) {
+        applicationOrder.append("semantic")
     }
 }
