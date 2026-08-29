@@ -3,8 +3,9 @@
 Status: active on the `version-3.2.0` development branch. Phases 0 through 2 were
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
 were implemented on 2026-08-29. Phases 5 through 12 have not started. Phase 4's
-automated gates pass; its manual acceptance checklist remains for an interactive
-app session.
+automated gates pass, and its model-download path was manually verified on
+2026-08-29 by successfully downloading both the DataComp and OpenAI CLIP models.
+The broader manual regression matrix remains available for later phases.
 
 ## Purpose
 
@@ -1049,9 +1050,10 @@ remain valid; no user-data migration or cleanup is required.
 
 ## Phase 4: migrate settings and model management first
 
-Status: implemented on 2026-08-29. The focused model-management boundary, weak
-managed-location synchronization, runtime identity, and SwiftUI migration are in
-place. Automated validation passes; manual acceptance remains pending.
+Status: implemented and verified on 2026-08-29. The focused model-management
+boundary, weak managed-location synchronization, runtime identity, and SwiftUI
+migration are in place. Automated validation passes, and the model-download path
+was manually verified with both supported CLIP models.
 
 Settings is the safest first UI slice because `RawCullAISettingsModel` is already a
 narrow presentation boundary. Phase 4 completes that boundary instead of moving
@@ -1250,6 +1252,12 @@ build unless its target membership or packaging changes.
 - Close the download and Settings sheets during active refresh/download work and
   confirm no stale presentation or crash appears when they reopen.
 
+Verification record (2026-08-29): both supported CLIP model bundles, DataComp and
+OpenAI, were downloaded successfully through the Phase 4 model-management UI. This
+satisfies the Phase 4 model-download qualification. Cancellation, removal, corrupt-
+bundle recovery, and repeated-window checks remain in the shared regression matrix
+and must be repeated when a later phase changes those paths.
+
 ### Exit criteria
 
 - `AISettingsTab` knows only `RawCullAISettingsModel`, and download/licence views
@@ -1285,9 +1293,10 @@ build unless its target membership or packaging changes.
   no direct coordinator, integration, provider, or AI cache-store dependency.
 - `make test-performance` was intentionally not run because Phase 4 did not change
   indexing, ranking, serialization, artifact mapping, or a package boundary.
-- The manual acceptance checklist remains pending an interactive session with the
-  configured model source and the user's existing catalog and preferences; no
-  automated result is presented as a substitute for it.
+- The model-download acceptance path was manually verified on 2026-08-29 with both
+  DataComp and OpenAI CLIP. The remaining broader manual scenarios are retained as
+  regression coverage for later phases and were not inferred from the two
+  successful downloads.
 
 ### Rollback
 
@@ -1299,91 +1308,780 @@ user data requires migration or cleanup.
 
 ## Phase 5: migrate semantic search as an isolated vertical slice
 
-### Changes
+Status: not started. Phase 4 is complete and both supported CLIP model downloads
+have been verified. Phase 5 must remain a semantic-search ownership and caller-
+migration change; similarity indexing task ownership moves in Phase 6.
 
-1. Define a narrow semantic-search presentation/action surface owned by the
-   intelligence runtime or the existing similarity model.
-2. Migrate semantic-search state views, query controls, toolbar controls, and result
-   count presentation one caller at a time.
-3. Keep catalog admission, rating filters, comparison-mode transitions, and
-   thumbnail selection in the application layer. Pass explicit inputs or invoke
-   explicit application actions rather than giving the semantic model the entire
-   `RawCullViewModel`.
-4. Keep forwarding methods such as `searchSemantically`,
-   `setSemanticSearchShowsAllResults`, `adjustSemanticSearchSelection`,
-   `clearSemanticSearch`, and `cancelSemanticSearch` until every caller has moved.
-5. Remove forwarding only after an `rg` caller audit and green tests.
+### Starting point and caller audit
 
-Do not combine this phase with similarity indexing or burst extraction. Semantic
-search already has a cached-only contract, which makes it a clean first workflow.
+The semantic workflow currently crosses three ownership layers:
 
-### Tests
+- `SimilarityScoringModel` owns capability, cached semantic artifacts, ranking
+  task/generation state, progress, matches, scores, selected-result order, and the
+  default top-20 policy;
+- `RawCullViewModel+Similarity.swift` owns application coordination around a query:
+  rating/filename admission, scoped-burst invalidation, selection clearing,
+  comparison-mode exit, catalog re-sorting, and thumbnail-selection reconciliation;
+- SwiftUI views read semantic properties by traversing
+  `RawCullViewModel.similarityModel` and invoke a mixture of view-model forwarding
+  methods and direct model cancellation.
 
-- `RawCullSemanticSearchTests`
-- `RawCullSemanticSearchUITests`
-- relevant thumbnail/navigation tests
-- `make test-smoke`
-- `make test-full` if task ownership or generation tokens move
+The initial production audit must enumerate, at minimum:
+
+- `SemanticSearchControlsView`, `SemanticSearchQueryEntryView`, and
+  `SimilarityGridSelectionView` for query entry and workflow-state switching;
+- `SharedMainToolbarContent` for result-count adjustment and review admission;
+- `CullingGridView` for per-thumbnail semantic rank and score;
+- `ZoomCullingMetadata` and accessibility presentation for semantic result evidence;
+- `RawCullViewModel+Catalog.swift` for admission, result ordering, rating-filter
+  composition, active-catalog scope, and thumbnail reconciliation;
+- sharpness, burst, thumbnail, and comparison call sites that consume
+  `activeCatalogFiles` after a semantic selection is established.
+
+Before production changes, use `rg` to record every direct read of
+`semanticSearchState`, `semanticSearchProgress`, `semanticResultOrder`,
+`semanticScores`, `semanticIndexedFileCount`, `semanticCatalogFileCount`, and every
+call to the five view-model semantic forwarding methods. Tests that deliberately
+exercise `SimilarityScoringModel` in isolation are not UI leakage and should remain
+direct model tests.
+
+### Focused semantic-search feature surface
+
+Introduce one stable, `@MainActor` `RawCullSemanticSearchFeature` owned by the
+intelligence runtime. The exact name may be adjusted during implementation, but it
+must have these properties:
+
+- it retains the runtime's exact `SimilarityScoringModel` instance and never copies
+  semantic state into a second observable store;
+- its presentation properties are computed projections of that model, so a state,
+  progress, score, or selection value has one source of truth;
+- it exposes semantic-only actions and result metadata rather than the complete
+  similarity/burst model;
+- it has no model provider, artifact codec, repository, `UserDefaults`, navigation,
+  rating, or culling dependency;
+- it does not store query text, focus state, sheet state, or a SwiftUI submission
+  task. Those remain local UI concerns.
+
+The minimum presentation surface should include:
+
+- the existing `SemanticSearchUIPresentation`, constructed in the feature rather
+  than independently by each view;
+- the current search state and progress needed to select the content state;
+- the current result summary and selected/ranked counts;
+- a read-only selected-file-ID set or ordered result IDs for application filtering;
+- a semantic result-evidence operation returning RawCull-owned rank and score for a
+  file ID, so thumbnail and zoom views do not read score dictionaries directly;
+- capability/backend presentation sufficient for accessibility and readiness copy,
+  without exposing the concrete semantic provider.
+
+Keep `RawCullSemanticSearchState`, `RawCullSemanticSearchResultSummary`,
+`RawCullSemanticSearchProgress`, and `SemanticSearchUIPresentation` as the existing
+value contracts unless a focused characterization test demonstrates that a change
+is necessary. Do not rename them as part of caller migration.
+
+### Narrow application coordination contract
+
+The semantic feature cannot own catalog, rating, navigation, or selection policy.
+Give it one weak, class-bound, main-actor application target whose protocol contains
+only the operations required by the current workflow. Its responsibilities should
+be equivalent to:
+
+1. return the current semantic admission snapshot after filename, rating, and
+   sharpness policy has been applied;
+2. prepare the application for a new semantic result by discarding an incompatible
+   scoped burst result, clearing multi-selection, leaving burst mode, and clearing
+   an active burst comparison;
+3. apply a changed semantic selection by restoring the similarity-grid context,
+   recomputing the catalog projection, and reconciling thumbnail selection;
+4. restore ordinary catalog order after clear or cancel.
+
+`RawCullViewModel` may implement this protocol, but the feature must retain only the
+protocol existential weakly. No feature method takes a `RawCullViewModel` parameter,
+and the protocol must not grow generic access to files, navigation, ratings, or
+other application state.
+
+Bind the target exactly once during `RawCullApplicationState.make`. The runtime and
+view model may both retain the same feature reference for compatibility during the
+migration; a second feature or second similarity model is prohibited. Add identity
+and release tests for this graph.
+
+### Action ordering and cancellation contract
+
+Move the existing orchestration into semantic feature actions without changing its
+observable order.
+
+For a non-empty query:
+
+1. trim whitespace and route an empty result to `clear`;
+2. await the application target's admitted-file snapshot;
+3. stop if the caller task was cancelled;
+4. ask the application target to prepare for semantic results;
+5. call the existing cached-only `SimilarityScoringModel.rankSemantically` with the
+   literal query and admitted snapshot;
+6. stop if the caller task was cancelled or the model rejected the generation;
+7. ask the application target to apply the current semantic selection.
+
+For show-all and selection-count adjustment:
+
+1. invalidate only scoped burst presentation that is incompatible with the changed
+   semantic scope;
+2. update the existing model selection count without rerunning text encoding or
+   cosine scoring;
+3. recompute the application projection and reconcile thumbnail selection.
+
+For clear and cancel:
+
+1. cancel the model's semantic task exactly once;
+2. clear semantic result/order/score presentation using the existing generation
+   guard;
+3. restore ordinary catalog filtering and ordering;
+4. preserve compatible burst-analysis data exactly as today.
+
+The current query view cancels its local `searchTask`, directly cancels the model,
+and then calls the view-model cancellation method. Characterize that path first,
+then replace it atomically with one feature cancellation command so generation
+advancement is owned in one place. A cancelled older query must never replace a
+newer query, even if its provider or progress callback resumes late.
+
+The semantic feature must not call `indexFiles`, decode an image, or silently make
+missing files searchable. The "Index Similarity" button remains an explicit bridge
+to the existing application indexing action throughout Phase 5; Phase 6 moves that
+action behind the similarity feature API.
+
+### Runtime and SwiftUI wiring
+
+Revise application assembly in this order:
+
+1. create the existing single `SimilarityScoringModel` from the initial Phase 3
+   configuration;
+2. create one semantic feature with that exact model and no application target;
+3. create `RawCullViewModel`, retaining the semantic feature only if compatibility
+   forwarding requires it;
+4. create the runtime and retain the exact semantic feature on it;
+5. bind the feature's weak application target to the view model once;
+6. pass the runtime-owned semantic feature from `RawCullApp` to `RawCullMainView`
+   and then only to views that present or act on semantic search.
+
+Do not inject the entire runtime into the SwiftUI environment merely to avoid
+initializer changes. Explicit initializer dependencies make the migrated boundary
+reviewable and prevent unrelated views from discovering model-management or Deep
+Review state.
+
+Migrate callers in this order:
+
+1. `SemanticSearchControlsView` and its query-entry child receive the semantic
+   feature plus an explicit temporary `onIndexSimilarity` action;
+2. `SimilarityGridSelectionView` switches workflow states, progress, readiness, and
+   result expansion through the feature;
+3. `SharedMainToolbarContent` reads result summary and sends adjustment commands
+   through the feature while continuing to use the application view model for
+   catalog count, review navigation, ratings, and busy state outside semantic
+   search;
+4. `CullingGridView` and `ZoomCullingMetadata` consume the RawCull-owned semantic
+   result-evidence projection rather than dictionaries on the similarity model;
+5. accessibility presentation receives the same deterministic presentation value;
+6. remove all semantic-search view traversal through
+   `viewModel.similarityModel` after `rg` confirms the migration is complete.
+
+Application filtering may continue to inspect the semantic feature/model through
+its private boundary during this phase. Moving general catalog ownership into the
+intelligence runtime is explicitly not a goal.
+
+### Implementation sequence and commit boundaries
+
+#### Phase 5A: characterize the vertical slice
+
+1. Add focused tests for the exact application transitions around submit, result,
+   show-all, incremental selection, clear, cancel, rating changes, comparison exit,
+   and thumbnail reconciliation.
+2. Add a suspended-query test proving that a direct cancel followed by a new query
+   cannot publish stale progress, results, selected IDs, or catalog order.
+3. Record the production caller inventory and make no production changes.
+
+Suggested commit boundary: characterization tests and this plan only.
+
+#### Phase 5B: add the feature and weak application edge
+
+1. Add the stable semantic feature, computed presentation projections, result-
+   evidence value, and narrow application-target protocol.
+2. Implement the ordered actions above using the existing model methods.
+3. Add assembly identity, no-mirrored-state, and weak-edge release tests.
+4. Leave all production SwiftUI callers on their current entry points.
+
+Suggested commit boundary: feature boundary and direct unit tests, with no view
+migration.
+
+#### Phase 5C: migrate the semantic UI one caller at a time
+
+1. Switch query controls and state views first.
+2. Switch result headers, toolbar adjustment, result badges, zoom metadata, and
+   accessibility presentation next.
+3. Keep indexing as the explicit temporary callback to `indexSimilarity`.
+4. After each caller group, run focused tests and use `rg` to prove no new direct
+   model traversal was introduced.
+
+Suggested commit boundaries: query/state UI, then toolbar/result metadata.
+
+#### Phase 5D: collapse compatibility forwarding
+
+1. Change `searchSemantically`, `setSemanticSearchShowsAllResults`,
+   `adjustSemanticSearchSelection`, `clearSemanticSearch`, and
+   `cancelSemanticSearch` into thin feature forwarders while any tests or callers
+   still require them.
+2. Migrate remaining production callers and tests that are intended to exercise the
+   application boundary.
+3. Remove each forwarding method only after `rg` reports no caller. Retain direct
+   model tests for cached ranking policy.
+4. Update smoke manifests, counts, and `RawCullTests/TEST_ARCHITECTURE.md` together
+   if test identifiers change.
+
+### Explicitly unchanged
+
+Phase 5 does not change:
+
+- image indexing, artifact hydration, repository ownership, cache schemas, paths,
+  or payload validation;
+- CLIP model selection, capability validation, Vision fallback, or configuration
+  revision handling;
+- literal-query handling, default result limit, ranking order, score semantics,
+  failure wording, or partial-result policy;
+- filename, rating, or sharpness admission policy;
+- burst grouping/indexing, Deep Review, culling actions, or persisted review state;
+- SwiftUI layout, example queries, labels, accessibility copy, focus restoration,
+  or keyboard shortcuts except where initializer wiring is required.
+
+### Automated tests
+
+Add or update focused coverage for:
+
+- semantic feature and runtime share the exact similarity model by identity;
+- computed feature presentation changes when the underlying model changes and no
+  mirrored observable semantic state exists;
+- an empty query clears without calling the semantic provider;
+- submit preserves the admitted snapshot and literal query;
+- unavailable, empty-index, partial-success, empty-result, provider-failure, and
+  successful-result states map to the existing UI presentation;
+- show-all and incremental selection never rerun text encoding or scoring;
+- rating and filename filters compose with semantic ordering;
+- adjustment exits comparison mode, prunes multi-selection, and selects a visible
+  thumbnail exactly as before;
+- clear and cancel restore catalog order without deleting compatible scoped burst
+  analysis;
+- cancelled and superseded queries cannot publish late progress or results;
+- thumbnail and zoom semantic badges use the same rank and score projection;
+- releasing an application harness releases the feature and view model.
+
+Run:
+
+- `RawCullSemanticSearchTests`;
+- `RawCullSemanticSearchUITests`;
+- `AccessibilityPresentationTests`;
+- `ZoomCullingMetadataTests`;
+- relevant `CullingGridCoordinatorTests`, comparison, thumbnail-selection, and
+  keyboard-navigation tests;
+- `RawCullIntelligenceRuntimeTests`;
+- `make verify-ai-import-boundary`;
+- `make test-smoke`;
+- `make test-full`, because orchestration and cancellation entry points move even
+  though the underlying ranking task remains in the same model;
+- the exact-package Release build, because app and view initializer composition
+  changes.
+
+Do not run `make test-performance` if Phase 5 remains within scope. Cached scoring,
+indexing, serialization, artifact mapping, and package boundaries are unchanged.
 
 ### Manual acceptance
 
-- Search with empty, successful, partial, and failed indexes.
-- Expand/collapse results and adjust the ranked selection.
-- Combine results with rating filters.
-- Clear/cancel and confirm ordinary catalog order and selection return.
-- Enter comparison and burst views from a semantic result set.
+- Launch with DataComp selected, then OpenAI selected, and confirm capability and
+  readiness presentation for both downloaded models.
+- Search with an empty index, a complete index, a partial index, no results, a
+  scoring failure, and a successful result set.
+- Submit and immediately cancel, then submit a different query and confirm the old
+  query and progress never reappear.
+- Expand to all results, collapse to the top 20, and adjust the selected result count
+  one image at a time without visible re-indexing or rescoring.
+- Change rating and filename filters while results are active and confirm semantic
+  order remains primary among admitted files.
+- Enter and leave comparison and burst review from a semantic result set; confirm
+  selection and review scope match the current result IDs.
+- Clear search and confirm ordinary catalog order, thumbnail selection, rating
+  filter, compatible burst cache, and review state return unchanged.
+- Relaunch and confirm semantic search does not persist transient query/results or
+  trigger implicit indexing.
 
 ### Exit criteria
 
-- Semantic-search views do not traverse `RawCullViewModel.similarityModel`.
-- No search action receives the entire central view model.
-- Cached-only behavior and all selection interactions remain unchanged.
+- The runtime owns one semantic feature backed by the runtime's exact similarity
+  model, and its application edge is weak and narrow.
+- Semantic-search SwiftUI views do not traverse
+  `RawCullViewModel.similarityModel` and receive neither the full runtime nor a
+  provider/repository object.
+- No semantic action accepts the entire central view model; application policy is
+  invoked only through the narrow target contract.
+- Semantic result rank and score presentation has one RawCull-owned projection.
+- Query text and UI task lifetime remain local to the query view, while model task
+  cancellation and generation advancement occur exactly once through the feature.
+- The cached-only contract is mechanically evident: semantic actions cannot reach
+  image indexing or source decoding.
+- Rating/filter composition, comparison transitions, selection reconciliation,
+  burst scope, default result limit, failures, and accessibility output match the
+  baseline.
+- Focused tests, import boundary, smoke, full TSan suite, and exact-package Release
+  build pass.
 
 ### Rollback
 
-Switch migrated views back to the compatibility forwarding methods. No persistence
-changes are involved.
+Revert Phase 5D forwarding cleanup, switch the migrated views back to their prior
+view-model entry points, then remove the semantic feature and weak binding from
+runtime assembly. The same `SimilarityScoringModel`, cached artifacts, preferences,
+and persisted burst state remain valid; no user-data migration or cleanup is
+required.
 
 ## Phase 6: place similarity indexing and ranking behind one feature API
 
-### Changes
+Status: not started. Begin only after Phase 5's semantic feature and caller audit
+are complete. This phase moves similarity-owned work and presentation behind a
+coherent API; it does not extract burst orchestration or redesign persistence.
 
-1. Consolidate indexing, hydration, ranking, cancellation, backend replacement, and
-   indexing progress into a focused similarity feature surface.
-2. Preserve `SimilarityScoringModel` as the observable state owner unless a concrete
-   problem requires splitting it. Do not introduce a second mirrored state model.
-3. Make the artifact repository an injected dependency of the feature rather than a
-   dependency reached through `RawCullViewModel`.
-4. Convert view callers such as sharpness controls, similarity-grid controls,
-   metadata overlays, and progress overlays incrementally.
-5. Keep catalog selection and general filter application in the application layer.
-6. Preserve backend descriptor, artifact compatibility, partial indexing,
-   force-refresh, and cache commit behavior.
+### Starting point and ownership audit
 
-### Tests
+`SimilarityScoringModel` already owns most of the correct low-level state:
 
-- `PhotoAIKitSimilarityMigrationTests`
-- `PerFileAnalysisArtifactStoreTests`
-- `TypedAIPersistenceMatrixTests`
-- similarity cancellation tests in `CullingModelTests`
-- `AICacheBoundaryTests`
-- `make test-smoke`
-- `make test-full`
-- `make test-performance`
+- the active RawCull-owned similarity and semantic service protocols;
+- the injected `SimilarityArtifactStoring` repository;
+- image and semantic artifact hydration generations;
+- indexing, image-ranking, semantic-ranking, and burst-grouping worker tasks;
+- indexing progress/failures, embeddings, distances, anchor identity, backend
+  descriptors, and similarity sort state.
+
+The remaining ownership leak is above it:
+
+- `RawCullViewModel` owns `similarityHydrationTask` and
+  `semanticSimilarityHydrationTask` for backend changes;
+- Phase 3 runtime configuration still calls
+  `RawCullViewModel.setSimilarityService` and
+  `setSemanticSearchCapability` through the temporary application-target bridge;
+- catalog load directly hydrates image and semantic artifacts;
+- `indexSimilarity` sequences two hydrations and indexing;
+- `findSimilarToSelected` combines feature work with selected-anchor, catalog-
+  identity, saliency, and application-sort policy;
+- burst preparation and re-indexing call model hydration/indexing directly;
+- several views mutate similarity sort state or read backend descriptors,
+  embeddings, distances, indexing progress, and ranking cancellation directly.
+
+Start Phase 6 with separate `rg` inventories for production calls to
+`hydrateArtifacts`, `hydrateSemanticArtifacts`, `indexFiles`, `rankSimilar`,
+`cancelIndexing`, `cancelSimilarityRanking`, `setSimilarityService`, and
+`setSemanticSearchCapability`, and for direct view reads of `embeddings`,
+`distances`, `anchorFileID`, backend descriptors, indexing progress, and
+`sortBySimilarity`.
+
+Classify each caller as configuration, catalog lifecycle, user-initiated indexing,
+image-to-image ranking, burst preparation, persistence/migration, or presentation.
+Do not treat burst artifact access as Phase 6 UI work: it remains a compatibility
+consumer until Phases 7 and 9.
+
+### Similarity feature shape
+
+Introduce one stable, `@MainActor` `RawCullSimilarityFeature`. It is a focused
+orchestrator around the existing model, not a replacement observable model.
+
+The feature must:
+
+- own the runtime's exact `SimilarityScoringModel` and expose it only where a
+  temporary application compatibility path still requires it;
+- receive the artifact repository through production/test assembly and construct,
+  or be constructed with, the one model that uses that repository;
+- own the top-level hydration tasks and configuration/catalog generations that
+  currently live in `RawCullViewModel`;
+- delegate indexing and ranking computation to `SimilarityScoringModel`, which
+  retains its existing worker tasks and state publication;
+- expose focused presentation values and commands so views never need artifacts,
+  codecs, providers, or backend descriptor comparison logic;
+- share the same model with the Phase 5 semantic feature. Neither feature may copy
+  embeddings, progress, capability, or result state.
+
+All similarity-owned task handles must end the phase inside
+`RawCullSimilarityFeature` or `SimilarityScoringModel`. The central view model may
+await a feature operation as part of application coordination, but it must not own
+the worker task, generation token, repository, or provider replacement.
+
+### Typed requests and presentation values
+
+Use immutable RawCull-owned request values at the feature boundary. Exact names may
+be refined, but the contracts should cover:
+
+1. **Catalog hydration request** — ordered file snapshot and a catalog identity or
+   generation supplied by the application.
+2. **Index request** — ordered file snapshot, thumbnail maximum size, and explicit
+   `forceRefresh`; the default remains false.
+3. **Ranking request** — anchor file ID, ordered catalog snapshot, saliency labels,
+   and application catalog identity/generation needed to reject a stale completion.
+4. **Configuration replacement** — similarity service plus semantic capability and
+   service from the already-revisioned Phase 3 snapshot.
+
+Do not put a provider, artifact codec, store record, view model, binding, or SwiftUI
+type in these values. They should be `Equatable`/`Sendable` where their contents
+allow it; service existentials remain main-actor confined as in Phase 3.
+
+Expose small presentation projections for:
+
+- backend display kind/name without requiring views to compare descriptor strings;
+- index completeness for an explicit file snapshot;
+- indexing phase, completed/total counts, estimate, failures, and operation failure;
+- whether image similarity sorting is active and which anchor is active;
+- per-file similarity evidence expressed as RawCull-owned anchor/distance metadata,
+  with CLIP/Vision presentation decided inside the feature;
+- cancellation availability for hydration, indexing, and ranking.
+
+`SemanticSearchUIPresentation` should consume the same indexing projection rather
+than reintroducing direct model reads. Do not create copied progress properties on
+the runtime or semantic feature.
+
+### Configuration replacement and hydration ownership
+
+Remove the temporary Phase 3 setter bridge from `RawCullViewModel`. Replace it with
+one narrow weak application context used only for application policy that the
+similarity feature cannot own. It should provide:
+
+- a synchronous current catalog snapshot and catalog identity while on the main
+  actor;
+- one command to cancel/reset burst analysis before an image-similarity backend
+  identity changes.
+
+The runtime remains the only configuration ingress and keeps its revision/identity
+checks. For an accepted changed configuration, preserve this exact order:
+
+1. compare primary and complete ordered artifact backend descriptors;
+2. if image similarity changed, ask the application context to cancel/reset stale
+   burst analysis;
+3. tell the similarity feature to replace the image service, which resets
+   incompatible image similarity state through the existing model method;
+4. cancel the feature-owned prior image hydration task;
+5. snapshot the current catalog and start replacement image hydration;
+6. only after the image change has been applied, compare semantic capability and
+   backend identity;
+7. replace semantic capability/service through the feature, cancel its prior
+   semantic hydration task, snapshot the current catalog, and start replacement
+   semantic hydration;
+8. retain existing model generation, descriptor, and task-cancellation checks
+   before either hydration publishes.
+
+An identical newer configuration revision remains a complete no-op. A segmentation-
+only change cannot touch similarity tasks. An older revision cannot cancel current
+work. Do not merge image and semantic hydration into one task: the configurations
+can change independently and currently have separate cancellation/generation
+semantics.
+
+After migration, remove `similarityHydrationTask`,
+`semanticSimilarityHydrationTask`, `setSimilarityService`, and
+`setSemanticSearchCapability` from `RawCullViewModel`, along with the old setter-
+shaped application-target protocol. The runtime should call the similarity feature
+directly for feature changes and the weak application context only for the two
+application-owned inputs above.
+
+### Catalog lifecycle contract
+
+Replace direct model hydration during catalog load with one feature operation while
+preserving the current catalog-load sequence:
+
+1. scan and sort files;
+2. publish the accepted `files` snapshot for the still-current security-scoped
+   catalog;
+3. hydrate compatible image artifacts;
+4. hydrate compatible semantic artifacts;
+5. reject cancellation or a changed catalog identity after each await;
+6. publish catalog display candidates, filters, selection, and later thumbnail/
+   persisted-culling state exactly as today.
+
+`cancelCatalogLoad` must cancel feature-owned hydration for that catalog without
+allowing a late store load to publish. A new catalog, a backend switch during load,
+and a catalog close must each invalidate the relevant generations. `reset()` must
+retain the existing distinction between image similarity, semantic state, burst
+grouping, and user-visible progress; do not broaden a catalog cancellation into
+model-download, settings, sharpness, or culling cancellation.
+
+### Indexing contract
+
+The feature's normal index action must preserve the existing sequence:
+
+1. hydrate compatible image artifacts for the requested files;
+2. stop if cancelled or superseded;
+3. hydrate compatible semantic artifacts for the same accepted snapshot;
+4. stop if cancelled or superseded;
+5. generate only missing or invalid image artifacts unless `forceRefresh` is true;
+6. retain homogeneous-batch behavior for services that require it;
+7. validate every returned artifact against source, descriptor, payload, and
+   pipeline identity;
+8. enter the existing saving phase and commit valid artifacts through the injected
+   actor repository;
+9. retain successfully committed records when cancellation interrupts later
+   writes;
+10. merge only accepted artifacts, update semantic coverage when the active CLIP
+    backend matches, publish partial failures, and return to idle.
+
+Keep the embedding thumbnail size, pipeline version, source fingerprint behavior,
+retry/fallback policy, progress wording, and failure aggregation unchanged. A force
+refresh must not delete the last compatible durable record before its replacement
+is committed.
+
+Burst preparation and legacy migration may call the feature through temporary
+application-only methods that expose current artifacts or import results. Do not
+redesign their requests or persistence records here; Phase 7 extracts burst
+orchestration and Phase 9 hides remaining artifact implementation types.
+
+### Image-to-image ranking contract
+
+Keep selection and catalog policy in `RawCullViewModel`, but move the feature work
+behind one request:
+
+1. the application snapshots the selected anchor, ordered catalog files, saliency
+   labels, and catalog identity;
+2. the feature ensures the requested snapshot has a complete compatible index,
+   indexing missing files when necessary;
+3. after indexing, reject cancellation, anchor changes, catalog changes, or backend
+   changes before ranking;
+4. compute distances with the existing PhotoAIKit service and subject-label
+   mismatch penalty;
+5. publish anchor/distances/sort state only for the current ranking generation;
+6. return a completion identity that lets the application decide whether to call
+   `handleSortOrderChange`;
+7. cancellation retains the last completed displayed order exactly as today, while
+   selecting a different anchor prepares a new ranking without a late old result.
+
+The feature does not select files, mutate rating filters, or reorder
+`RawCullViewModel.filteredFiles` directly. The application action that applies a
+successful ranking may remain on `RawCullViewModel` because it owns those policies;
+the indexing/ranking tasks and their cancellation do not.
+
+### SwiftUI migration
+
+Pass the runtime-owned similarity feature explicitly through `RawCullMainView` to
+the views that need it. Do not inject the whole runtime into the environment.
+
+Migrate in this order:
+
+1. `SharpnessControlsView` reads backend name, completeness, indexing, sort, and
+   ranking cancellation through the feature. It may keep explicit application
+   closures for selected-anchor ranking and catalog re-sort.
+2. The Phase 5 semantic views replace their temporary `onIndexSimilarity` bridge
+   with the feature's index command and shared indexing presentation.
+3. `CullingGridProgressOverlay`, `BurstGroupsHomeView`, and toolbar busy-state checks
+   consume focused progress/busy projections.
+4. `ZoomCullingMetadata`, thumbnails, sidebar rows, and navigation modifiers consume
+   RawCull-owned similarity evidence/sort projections instead of embeddings,
+   distances, or backend descriptor strings.
+5. Migrate any remaining non-burst view access. Burst-group sensitivity, group
+   lookup, group lists, and burst-mode application commands may remain behind
+   temporary application projections until Phase 7, but views must not gain new
+   artifact access.
+
+When a toggle needs a binding, use a deliberate `Binding` whose setter invokes a
+feature/application action. Do not expose broad writable model state simply to make
+`$viewModel.similarityModel` compile.
+
+### Runtime assembly
+
+Revise `RawCullApplicationState.make` in one atomic composition change:
+
+1. create integration, model-management, settings, and the initial configuration as
+   in Phase 4;
+2. create one similarity feature with the initial similarity/semantic configuration
+   and the injected artifact repository;
+3. obtain its exact `SimilarityScoringModel` state owner;
+4. create or rebind the Phase 5 semantic feature to that same exact model;
+5. create `RawCullViewModel` and the runtime with those stable references;
+6. bind the weak semantic application target and similarity application context;
+7. bind settings configuration once and synchronously publish the initial snapshot;
+8. assert identity among runtime, similarity feature, semantic feature, and any
+   temporary view-model compatibility references.
+
+Initial assembly must still perform no validation, hydration, indexing, or ranking.
+The scene refresh and catalog lifecycle remain the first triggers for those
+operations.
+
+### Implementation sequence and commit boundaries
+
+#### Phase 6A: characterize task and persistence behavior
+
+1. Add deterministic suspension points for image hydration, semantic hydration,
+   indexing generation, persistence commit, and ranking.
+2. Characterize backend switch during each operation, catalog replacement, force
+   refresh, partial failure, whole-batch fallback, and cancellation after partial
+   commit.
+3. Add view-level characterization for similarity toggle, anchor change, progress,
+   and metadata evidence.
+4. Make no production changes.
+
+Suggested commit boundary: characterization tests and the final caller inventory.
+
+#### Phase 6B: introduce the feature API without moving callers
+
+1. Add request/completion/presentation values and the stable similarity feature.
+2. Route its operations to the existing model and repository behavior.
+3. Add identity and direct feature tests, including shared identity with the
+   semantic feature.
+4. Keep current view-model methods and runtime setter bridge in place.
+
+Suggested commit boundary: new feature boundary plus tests only.
+
+#### Phase 6C: move configuration and hydration task ownership
+
+1. Move the two hydration task handles and their cancellation into the feature.
+2. Switch runtime configuration application from view-model setters to direct
+   feature replacement in the required similarity-then-semantic order.
+3. Replace the old application-target protocol with the narrow catalog/burst
+   context.
+4. Switch catalog load and cancellation to the feature hydration API.
+5. Remove obsolete view-model task handles and setters only after focused runtime,
+   catalog, and stale-hydration tests pass.
+
+Suggested commit boundary: task-ownership transfer and Phase 3 bridge removal.
+
+#### Phase 6D: migrate indexing, ranking, and views
+
+1. Convert `indexSimilarity` to a temporary feature forwarder, then move each UI and
+   application caller to the typed feature action.
+2. Keep the application-owned selected-anchor validation and filter refresh around
+   the typed ranking request; remove only the worker implementation from the view
+   model.
+3. Migrate progress, backend, completeness, sort, cancellation, and metadata reads
+   in the order listed above.
+4. Convert burst-preparation direct calls to temporary feature entry points without
+   changing burst sequencing or data structures.
+
+Suggested commit boundaries: indexing callers, ranking controls, then presentation
+and metadata.
+
+#### Phase 6E: audit, remove shims, and validate
+
+1. Use `rg` to prove there are no production calls to the removed view-model
+   hydration/service setters and no non-approved view access to artifact/provider
+   state.
+2. Remove thin compatibility forwarding only when no caller remains. Retain any
+   explicitly documented burst compatibility surface for Phases 7/9.
+3. Update the import-boundary policy if a new feature/composition file needs an
+   approved backend-contract import; do not widen concrete backend allowances.
+4. Update test manifests/counts and architecture documentation with any identifier
+   changes.
+5. Run all correctness, TSan, performance, and Release gates and record results in
+   this phase.
+
+### Explicitly unchanged
+
+Phase 6 does not change:
+
+- selected model defaults, preference keys, model resources, licence state, or
+  provider validation;
+- Vision fallback, CLIP retry/reload/partial-success policy, descriptor identity,
+  artifact schema, pipeline signature, source fingerprints, cache paths, or atomic
+  commit behavior;
+- similarity distance semantics, subject-mismatch penalty, tie-breaking, default
+  semantic limit, or UI copy;
+- catalog rating/filename/sharpness filters, selection, navigation, comparison,
+  culling, or security-scoped access policy;
+- burst grouping/ranking/cache orchestration, Deep Review, or persisted review
+  state;
+- physical file layout or Swift package boundaries.
+
+### Automated tests
+
+Add or update focused coverage for:
+
+- runtime, similarity feature, semantic feature, and view model share the expected
+  exact model/feature identities and release without cycles;
+- initial assembly starts no validation, hydration, indexing, or ranking;
+- identical or stale configuration does not cancel or restart feature work;
+- a similarity backend change resets burst state before replacement and hydrates
+  only the accepted catalog/backend;
+- a semantic-only change leaves image similarity/index/ranking state intact and
+  cannot publish an older semantic backend;
+- catalog close/switch and backend switch during suspended hydration reject late
+  publication;
+- compatible artifacts hydrate, corrupt/incompatible artifacts are removed or
+  excluded exactly as before, and DataComp/OpenAI/Vision never cross-load;
+- normal indexing reuses current artifacts, indexes only misses, preserves partial
+  success, and updates semantic coverage for a matching CLIP backend;
+- homogeneous-batch fallback and `forceRefresh` keep their existing request scope;
+- cancellation during generation or saving retains only valid completed commits and
+  leaves progress/task state idle;
+- ranking rejects a changed anchor, catalog, generation, or backend; cancellation
+  retains the last completed display order;
+- similarity presentation and metadata never require direct artifact/provider
+  access from a view;
+- burst cache signatures and payload bytes remain unchanged;
+- benchmark results remain within the checked-in expectations.
+
+Run:
+
+- new focused `RawCullSimilarityFeatureTests`;
+- `RawCullIntelligenceRuntimeTests`;
+- `PhotoAIKitSimilarityMigrationTests`;
+- `PerFileAnalysisArtifactStoreTests`;
+- `TypedAIPersistenceMatrixTests`;
+- `RawCullSemanticSearchTests` and `RawCullSemanticSearchUITests`;
+- relevant similarity, cancellation, catalog, zoom-metadata, thumbnail-navigation,
+  and burst cases in `CullingModelTests`, `CullingGridCoordinatorTests`, and the
+  existing culling suites;
+- `AICacheBoundaryTests`;
+- `make verify-ai-import-boundary`;
+- `make test-smoke`;
+- `make test-full`, because task ownership, configuration application, and
+  observable caller wiring change;
+- `make test-performance`, because indexing/ranking orchestration and repository
+  access move behind a new boundary;
+- the exact-package Release build, because app composition and production source
+  membership change.
+
+### Manual acceptance
+
+- With DataComp selected, open an unindexed and partially indexed catalog, index,
+  cancel during generation and saving, resume, and verify durable partial reuse.
+- Repeat the same qualification with OpenAI CLIP, then switch between the two before,
+  during, and after hydration/indexing; an old backend must never reappear.
+- Disable CLIP similarity and verify Vision fallback indexing/ranking, then re-enable
+  the selected CLIP model without cross-loading artifacts.
+- Force re-index and confirm the existing index remains usable until accepted
+  replacements are committed.
+- Select an anchor, rank by similarity, change the anchor during work, cancel, and
+  verify only the current completed order is displayed.
+- Confirm similarity progress, backend labels, failure presentation, thumbnail and
+  zoom metadata, keyboard navigation, and toolbar busy state match the baseline.
+- Run semantic search after partial and complete indexing and confirm only compatible
+  cached CLIP artifacts are searched; no semantic action starts image indexing.
+- Run, cancel, restore, and regroup burst analysis to confirm the Phase 6 forwarding
+  boundary did not change burst cache hits, progress, rankings, or review state.
+- Clear each AI cache independently, relaunch, and verify preferences, licences,
+  ratings, and unrelated caches remain intact.
 
 ### Exit criteria
 
-- A caller can request index, hydrate, rank, or cancel without knowing an artifact
-  codec or provider.
-- `RawCullViewModel` no longer owns similarity worker tasks that belong to the
-  feature.
-- Performance remains within the existing benchmark expectations.
-- Cache payloads and paths are unchanged.
+- A caller can hydrate, index, rank, or cancel through one focused similarity API
+  without knowing a provider, artifact codec, repository record, or store path.
+- The runtime applies configuration directly to the similarity feature; the Phase 3
+  view-model setter bridge is gone.
+- `RawCullViewModel` has no similarity or semantic hydration task handles and owns
+  no indexing/ranking worker task or generation token.
+- `SimilarityScoringModel` remains the single observable state owner shared with the
+  semantic feature; no runtime or view model mirrors its state.
+- Catalog admission, selected-anchor validation, general filtering, selection, and
+  navigation remain application responsibilities.
+- Non-burst views consume focused presentation/actions and do not read embeddings,
+  distances, providers, repositories, or backend descriptor strings directly.
+- Any remaining burst artifact compatibility access is documented for Phases 7/9
+  and has not leaked into SwiftUI.
+- Backend compatibility, partial indexing, force refresh, atomic cache commit,
+  cancellation, stale-result rejection, and cache bytes/paths match the baseline.
+- Focused tests, import boundary, smoke, full TSan, performance, and exact-package
+  Release gates pass, followed by the Phase 6 manual acceptance matrix.
 
 ### Rollback
 
-Restore feature forwarding to the old methods. Because the cache schema is
-unchanged, no user-data rollback is necessary.
+Revert Phase 6E shim removal, switch views and callers back to the compatibility
+entry points, restore the two view-model hydration handles and Phase 3 setter bridge,
+then remove the feature wrapper and typed requests. Because service descriptors,
+artifact schemas, pipeline signatures, cache paths, and encoded payloads never
+change, existing artifacts and burst caches require no migration or deletion.
 
 ## Phase 7: extract the burst-analysis pipeline in small subphases
 
