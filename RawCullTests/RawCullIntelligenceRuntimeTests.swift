@@ -272,7 +272,7 @@ struct RawCullIntelligenceRuntimeTests {
                 dateModified: .now,
                 exifData: nil,
                 afFocusNormalized: nil,
-            ),
+            )
         ]
         let current = runtime.settingsModel.configurationSnapshot(revision: 2)
         let first = RawCullIntelligenceConfiguration(
@@ -438,8 +438,7 @@ private nonisolated struct RuntimeTestSimilarityService: RawCullSimilarityServic
 }
 
 private nonisolated struct RuntimeReplacementSimilarityService:
-    RawCullSimilarityServicing
-{
+    RawCullSimilarityServicing {
     let backendDescriptor = runtimeReplacementBackend
 
     func index(

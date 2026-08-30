@@ -94,8 +94,10 @@ enum RawCullAccessibilityPresentation {
         case .licenceRequired: "Licence acceptance required"
         case .notConfigured: "Download service not configured"
         case .ready: "Ready to download"
+
         case let .downloading(progress):
             "Downloading \(Int((min(max(progress, 0), 1) * 100).rounded())) percent"
+
         case .validating: "Validating downloaded model"
         case .installed: "Installed and managed by macOS"
         case .removing: "Removing downloaded model"

@@ -120,16 +120,14 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
 
         if previousIdentity?.similarityBackend != incomingIdentity.similarityBackend
             || previousIdentity?.similarityArtifactBackends
-            != incomingIdentity.similarityArtifactBackends
-        {
+            != incomingIdentity.similarityArtifactBackends {
             similarityFeature.replaceSimilarityService(configuration.similarity.service)
         }
 
         if previousIdentity?.semanticSearchCapability
             != incomingIdentity.semanticSearchCapability
             || previousIdentity?.semanticSearchBackend
-            != incomingIdentity.semanticSearchBackend
-        {
+            != incomingIdentity.semanticSearchBackend {
             similarityFeature.replaceSemanticSearchConfiguration(
                 capability: configuration.semanticSearch.capability,
                 service: configuration.semanticSearch.service,

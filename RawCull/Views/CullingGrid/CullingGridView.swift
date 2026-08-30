@@ -152,7 +152,7 @@ private struct BatchBadgeSelectionControlsView: View {
         (2, "2"),
         (3, "3"),
         (4, "4"),
-        (5, "5"),
+        (5, "5")
     ]
 
     var body: some View {

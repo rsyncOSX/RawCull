@@ -63,8 +63,7 @@ struct GridThumbnailView: View {
 
     private var sortedFiles: [FileItem] {
         if viewModel.showsBurstGroups,
-           !viewModel.similarityModel.burstGroups.isEmpty
-        {
+           !viewModel.similarityModel.burstGroups.isEmpty {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
             if !viewModel.cullingGridRenderedFileIDs.isEmpty {
                 return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }

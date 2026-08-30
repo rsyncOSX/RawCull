@@ -267,7 +267,7 @@ private final class DeepReviewApplicationContextStub: DeepAIReviewApplicationCon
                 normalSharpnessScore: 0.8,
                 subjectLabel: "bird",
                 normalizedAFPoint: CGPoint(x: 0.5, y: 0.5),
-            ),
+            )
         ],
         scoringSource: .embeddedPreview,
     )

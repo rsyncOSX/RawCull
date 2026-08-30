@@ -413,7 +413,7 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
             try Task.checkCancellation()
             let context = CIContext(options: [
                 .cacheIntermediates: false,
-                .workingColorSpace: NSNull(),
+                .workingColorSpace: NSNull()
             ])
             guard let result = context.createCGImage(image, from: image.extent) else {
                 throw DeepAIReviewCandidateIssue.imageDecodeFailed

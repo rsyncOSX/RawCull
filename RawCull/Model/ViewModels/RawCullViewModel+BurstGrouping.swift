@@ -301,8 +301,7 @@ extension RawCullViewModel {
             updateRating(for: first, rating: 3)
         }
         if rankedIDs.count > 1,
-           let second = groupFiles.first(where: { $0.id == rankedIDs[1] })
-        {
+           let second = groupFiles.first(where: { $0.id == rankedIDs[1] }) {
             updateRating(for: second, rating: 2)
         }
         let others = groupFiles.filter { !top.contains($0.id) }

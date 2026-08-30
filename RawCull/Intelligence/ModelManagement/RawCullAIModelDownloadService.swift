@@ -43,7 +43,7 @@ nonisolated enum RawCullBackgroundAssetsRuntime {
     /// seeds even when the signed app and profile contain the configured group.
     static let affectedMacOS27Builds: Set<String> = [
         "26A5406e",
-        "26A5421a",
+        "26A5421a"
     ]
 
     static var isUsable: Bool {
