@@ -335,7 +335,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var files: [FileItem] {
-        guard let group = viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID }) else { return [] }
+        guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
         let filesByID = Dictionary(
             uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
         )
@@ -380,7 +380,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var burstNumber: Int {
-        (viewModel.similarityModel.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
+        (viewModel.similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
     }
 
     private func selectFirstFileIfNeeded() {

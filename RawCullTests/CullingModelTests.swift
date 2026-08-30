@@ -587,7 +587,7 @@ struct CullingModelTests {
 
     @Test
     func `find similar indexes a fresh catalog before ranking`() async {
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             similarityService: ImmediateSimilarityService(),
             similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
         )
@@ -1074,7 +1074,7 @@ struct SavedFilesJSONTests {
 struct RawCullViewModelCullingTests {
     @Test
     func `rebuildRatingCache populates ratings and tagged filenames for selected catalog`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         viewModel.selectedSource = catalog
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
@@ -1092,7 +1092,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `passesRatingFilter distinguishes rejected keepers and star ratings`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let rejected = makeCullingTestFile("rejected.ARW")
         let keeper = makeCullingTestFile("keeper.ARW")
         let unrated = makeCullingTestFile("unrated.ARW")
@@ -1119,7 +1119,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `preselectFirstVisibleFileByName selects alphabetically first visible file`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let c = makeCullingTestFile("C.ARW")
         let a = makeCullingTestFile("A.ARW")
         let b = makeCullingTestFile("B.ARW")
@@ -1133,7 +1133,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `preselectFirstVisibleFileByName replaces previous selection`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let previous = makeCullingTestFile("previous.ARW")
         let c = makeCullingTestFile("C.ARW")
         let a = makeCullingTestFile("A.ARW")
@@ -1149,7 +1149,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `preselectFirstVisibleFileByName clears selection when no files are visible`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let previous = makeCullingTestFile("previous.ARW")
         viewModel.files = [previous]
         viewModel.filteredFiles = []
@@ -1162,7 +1162,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis targets selected thumbnails before rating filter`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let selectedLater = makeCullingTestFile("C-selected.ARW")
         let selectedEarlier = makeCullingTestFile("A-selected.ARW")
@@ -1176,7 +1176,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis targets exact active star rating`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let fourStar = makeCullingTestFile("A-four-star.ARW")
         let unrated = makeCullingTestFile("C-unrated.ARW")
@@ -1192,7 +1192,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis keeps full catalog for unscoped filters`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let rejected = makeCullingTestFile("C-rejected.ARW")
         let keeper = makeCullingTestFile("A-keeper.ARW")
         let rated = makeCullingTestFile("B-rated.ARW")
@@ -1216,7 +1216,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis orders shots by capture date with file-date fallback`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let latest = makeCullingTestFile("A-latest.ARW", captureSeconds: 30)
         let earliest = makeCullingTestFile("Z-earliest.ARW", captureSeconds: 10)
         let fallback = makeCullingTestFile("M-fallback.ARW", modificationSeconds: 20)
@@ -1231,7 +1231,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring targets selected thumbnails before rating filter`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let selectedLater = makeCullingTestFile("C-selected.ARW")
         let selectedEarlier = makeCullingTestFile("A-selected.ARW")
@@ -1246,7 +1246,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring targets active star rating in visible order`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let firstVisible = makeCullingTestFile("D-two-star.ARW")
         let secondVisible = makeCullingTestFile("B-two-star.ARW")
         let fourStar = makeCullingTestFile("A-four-star.ARW")
@@ -1264,7 +1264,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring falls back to filename sorted catalog for non-star filters`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let rejected = makeCullingTestFile("C-rejected.ARW")
         let keeper = makeCullingTestFile("A-keeper.ARW")
         let rated = makeCullingTestFile("B-rated.ARW")
@@ -1289,7 +1289,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring appends hidden selected files after visible selected files`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let visibleSelected = makeCullingTestFile("C-visible-selected.ARW")
         let visibleUnselected = makeCullingTestFile("B-visible-unselected.ARW")
         let hiddenSelected = makeCullingTestFile("A-hidden-selected.ARW")
@@ -1305,7 +1305,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `calibrateAndScoreCurrentCatalog scores and persists only target files`() async throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let selectedVisible = makeCullingTestFile("B-selected-visible.ARW")
         let selectedHidden = makeCullingTestFile("A-selected-hidden.ARW")
@@ -1346,7 +1346,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `extractRatedfilenames returns files at or above requested rating`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let files = [
             makeCullingTestFile("two.ARW"),
             makeCullingTestFile("four.ARW"),
@@ -1363,7 +1363,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `bulk updateRating updates culling model and cache`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.selectedSource = catalog
@@ -1376,7 +1376,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `rating mutations refresh the active rating-filter count`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1403,7 +1403,7 @@ struct RawCullViewModelCullingTests {
     @Test
     func `clear all culling state synchronizes caches filters and persisted data`() async {
         let recorder = SavedFilesRecorder()
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1434,7 +1434,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `applying Deep Review winner rates it three stars and marks group reviewed`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1474,7 +1474,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance rates current file and selects next visible file`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.selectedSource = catalog
@@ -1492,7 +1492,7 @@ struct RawCullViewModelCullingTests {
 
     @Test(arguments: [-1, 0, 2, 3, 4, 5])
     func `updateRatingAndAdvance marks active burst reviewed`(_ rating: Int) {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         let groupID = 7
@@ -1512,7 +1512,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance leaves last visible file selected`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.selectedSource = catalog
@@ -1528,7 +1528,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance without catalog leaves rating and selection unchanged`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.files = files
         viewModel.selectedFileID = files[0].id
@@ -1543,7 +1543,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance with file outside visible order does not change selection`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let visible = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         let hidden = makeCullingTestFile("hidden.ARW")
@@ -1560,7 +1560,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `clearCurrentCatalogCullingState allows rating same catalog again`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let first = makeCullingTestFile("one.ARW")
         let second = makeCullingTestFile("two.ARW")
@@ -1608,7 +1608,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cached review state restores by signature after file id remap`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let oldA = makeCullingTestFile("A.ARW")
         let oldB = makeCullingTestFile("B.ARW")
@@ -1635,7 +1635,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cached review state ignores matching group id with changed membership`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let oldA = makeCullingTestFile("A.ARW")
         let oldB = makeCullingTestFile("B.ARW")
@@ -1666,7 +1666,7 @@ struct RawCullViewModelCullingTests {
         let cacheRepository = TestBurstAnalysisCacheRepository(
             load: { _, _, _, _, _ in await gate.load() },
         )
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             similarityService: CancellationDistanceSimilarityService(
                 probe: SimilarityDistanceCancellationProbe(),
             ),
@@ -1699,7 +1699,7 @@ struct RawCullViewModelCullingTests {
         await gate.resume(returning: snapshot)
         _ = await analysis.value
 
-        #expect(!viewModel.burstAnalysisCoordinator.hasActiveTask)
+        #expect(viewModel.burstAnalysisCoordinator.task == nil)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
         #expect(viewModel.burstAnalysisResults.isEmpty)
@@ -1708,7 +1708,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `catalog cancellation resets all burst analysis state`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
         viewModel.burstAnalysisCoordinator.updateProgress(
             BurstAnalysisProgress(step: .ranking),
@@ -1792,7 +1792,7 @@ struct RawCullViewModelCullingTests {
             files: [first, second],
             artifacts: [:],
         )
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
             burstAnalysisCacheRepository: TestBurstAnalysisCacheRepository(
                 load: { _, _, _, _, _ in snapshot },
@@ -1956,7 +1956,7 @@ struct RawCullViewModelCullingTests {
             artifacts: [:],
         )
         let recorder = BurstCacheSaveRecorder()
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             similarityService: SuspendingSimilarityService(
                 probe: SimilarityEmbeddingSuspensionProbe(),
             ),
@@ -1986,7 +1986,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `live regroup review state follows membership instead of group id`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
@@ -2013,7 +2013,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `live regroup drops state when reused group id has changed membership`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")

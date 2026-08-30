@@ -209,6 +209,33 @@ The imported packages own reusable parsing, sharpness analysis, AI inference,
 model validation, similarity artifacts, segmentation, mask storage, domain
 models, serialization, and process execution.
 
+The application-local intelligence boundary is assembled once by
+`RawCullApplicationState`. Views receive focused settings, model-management,
+similarity, semantic-search, or Deep Review models; the runtime is a lifetime and
+configuration owner, not a forwarding facade.
+
+```mermaid
+flowchart LR
+    Views["SwiftUI views"] --> Features["Focused RawCull feature models"]
+    App["RawCull application state"] --> Features
+    Settings["AI settings"] --> Runtime["RawCullIntelligenceRuntime"]
+    Runtime --> Features
+    Features --> Services["RawCull service and repository protocols"]
+    Services --> Contracts["PhotoAIKit contracts / workflows / storage"]
+    Composition["RawCullAIIntegration composition root"] --> Runtime
+    Composition --> Backends["CLIP / Vision / SAM backend implementations"]
+    Backends --> Contracts
+```
+
+`Scripts/VerifyAIImportBoundary.sh` enforces exact production import locations and
+rejects the removed compatibility constructors and forwarding API. Concrete backend
+products are visible only to `RawCullAIIntegration` and the focused Vision adapter;
+views and general application models import none of the restricted AI products.
+The boundary remains in the application target: it still uses app-owned `FileItem`
+values, application callbacks, model resources, and application-support paths, so a
+new Swift package would add adapters without establishing a cleaner dependency
+graph.
+
 ### Swift package dependencies
 
 Requirements are pinned to exact versions or revisions in the Xcode project
@@ -220,7 +247,7 @@ display value.
 |---|---:|---|---|
 | [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `1e2eaccd00947fbadda300e4a617842479cae7b9` | AI contracts, validated Core AI resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
 | [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | `1.2.2` | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
-| [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.2.8` | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
+| [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.2.9` | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) (`rsyncarguments`) | `1.0.0` | Type-safe construction of rsync and synchronization arguments | `Parameters`, `BasicRsyncParameters`, `OptionalRsyncParameters`, `SSHParameters`, `PathConfiguration`, `RsyncParametersSynchronize.argumentsForSynchronize`, `computedArguments` |
 | [RsyncProcessStreaming](https://github.com/rsyncOSX/RsyncProcessStreaming) (`rsyncprocessstreaming`) | `1.0.0` | Starts and cancels rsync processes and streams file and progress output | `ProcessHandlers`, `RsyncProcess`, `executeProcess`, `cancel` |
@@ -233,17 +260,14 @@ though RawCull does not import their products directly:
 | Resolved identity | Resolved pin | Role in the package graph |
 |---|---:|---|
 | `coreai-models` | revision `bffc38fe48f50e4e962ac9772b64a5b55a605286` | Apple Core AI model and conversion support reached through PhotoAIKit |
-| `eventsource` | `1.4.1` | Server-sent-event transport support used transitively by model tooling |
+| `eventsource` | `1.5.1` | Server-sent-event transport support used transitively by model tooling |
 | `swift-asn1` | `1.7.1` | ASN.1 support reached through the cryptography stack |
-| `swift-atomics` | `1.3.1` | Low-level concurrency primitives used by transitive packages |
 | `swift-collections` | `1.6.0` | Collection data structures used by transitive packages |
 | `swift-crypto` | `4.5.1` | Cryptographic primitives used by transitive packages |
 | `swift-huggingface` | `0.9.0` | Hugging Face model download and metadata support used by model tooling |
 | `swift-jinja` | `2.4.2` | Prompt-template rendering used by model tooling |
-| `swift-nio` | `2.101.3` | Networking and event-loop support used transitively |
-| `swift-system` | `1.8.0` | System-call wrappers used transitively |
 | `swift-transformers` | `1.3.3` | Tokenizer and transformer model support used by the AI package graph |
-| `xgrammar` | revision `3210db25b1d144a26904dce5935102f38e014902` | Grammar-constrained model tooling; the lockfile records this reviewed commit while the upstream transitive requirement remains `main` |
+| `xgrammar` | revision `3842647890df7c8133fba6bc0e3d11fc9730e0bd` | Grammar-constrained model tooling; the lockfile records this reviewed commit while the upstream transitive requirement remains `main` |
 | `yyjson` | `0.12.0` | C JSON engine used by transitive model tooling |
 
 ## Workflows and package boundaries

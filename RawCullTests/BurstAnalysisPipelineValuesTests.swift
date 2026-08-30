@@ -8,7 +8,7 @@ import Testing
 struct BurstAnalysisPipelineValuesTests {
     @Test
     func `pipeline request equals the legacy input snapshot`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let first = makePipelineFile("A.ARW", captureSeconds: 1)
         let second = makePipelineFile("B.ARW", captureSeconds: 2)
@@ -46,7 +46,7 @@ struct BurstAnalysisPipelineValuesTests {
 
     @Test
     func `pipeline request remains an immutable configuration snapshot`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let files = [makePipelineFile("A.ARW", captureSeconds: 1)]
         let original = viewModel.makeBurstAnalysisPipelineRequest(

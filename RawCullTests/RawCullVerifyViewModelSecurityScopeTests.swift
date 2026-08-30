@@ -7,7 +7,7 @@ import Testing
 struct RawCullViewModelSecurityScopeTests {
     @Test
     func `starting same active catalog does not duplicate security scoped access`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var started: [URL] = []
         var stopped: [URL] = []
@@ -29,7 +29,7 @@ struct RawCullViewModelSecurityScopeTests {
 
     @Test
     func `starting another catalog stops previous security scoped access`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let firstURL = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         let secondURL = URL(fileURLWithPath: "/tmp/rawcull-catalog-b", isDirectory: true)
         var started: [URL] = []
@@ -53,7 +53,7 @@ struct RawCullViewModelSecurityScopeTests {
 
     @Test
     func `stopping active catalog is idempotent`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var stopped: [URL] = []
 
@@ -72,7 +72,7 @@ struct RawCullViewModelSecurityScopeTests {
 
     @Test
     func `failed start leaves no active security scoped access`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var stopped: [URL] = []
 
@@ -90,7 +90,7 @@ struct RawCullViewModelSecurityScopeTests {
 
     @Test
     func `catalog cancellation stops active security scoped access`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)
         var stopped: [URL] = []
 
@@ -108,7 +108,7 @@ struct RawCullViewModelSecurityScopeTests {
 
     @Test
     func `empty catalog scan clears active load state and security scope`() async throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("rawcull-empty-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

@@ -114,7 +114,7 @@ private struct OrdinarySimilarityWorkflowView: View {
     let similarityThresholdChanged: () -> Void
 
     var body: some View {
-        if viewModel.similarityModel.burstModeActive {
+        if similarityFeature.burstModeActive {
             CullingGridView(
                 viewModel: viewModel,
                 similarityFeature: similarityFeature,
@@ -123,6 +123,7 @@ private struct OrdinarySimilarityWorkflowView: View {
             ) {
                 BurstGroupHeaderControlsView(
                     viewModel: viewModel,
+                    similarityFeature: similarityFeature,
                     similarityThresholdChanged: similarityThresholdChanged,
                 )
             }
@@ -140,10 +141,11 @@ private struct OrdinarySimilarityWorkflowView: View {
 
 private struct BurstGroupHeaderControlsView: View {
     @Bindable var viewModel: RawCullViewModel
+    @Bindable var similarityFeature: RawCullSimilarityFeature
     let similarityThresholdChanged: () -> Void
 
     var body: some View {
-        let sensitivity = viewModel.similarityModel.burstSensitivity.formatted(
+        let sensitivity = similarityFeature.burstSensitivity.formatted(
             .number.precision(.fractionLength(2)),
         )
         let groupCount = viewModel.burstReviewSummary.totalGroups
@@ -155,12 +157,12 @@ private struct BurstGroupHeaderControlsView: View {
                     .foregroundStyle(.secondary)
 
                 Slider(
-                    value: $viewModel.similarityModel.burstSensitivity,
+                    value: $similarityFeature.burstSensitivity,
                     in: 0.05 ... 0.60,
                 )
                 .frame(width: 120)
                 .help("Burst sensitivity — lower = tighter groups, higher = similar scenes grouped together")
-                .onChange(of: viewModel.similarityModel.burstSensitivity) {
+                .onChange(of: similarityFeature.burstSensitivity) {
                     similarityThresholdChanged()
                 }
 

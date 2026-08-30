@@ -388,7 +388,7 @@ struct RawCullSemanticSearchTests {
             textProvider: provider,
             comparator: SemanticPayloadComparator(),
         )
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
@@ -432,7 +432,7 @@ struct RawCullSemanticSearchTests {
             textProvider: provider,
             comparator: SemanticPayloadComparator(),
         )
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
@@ -524,7 +524,7 @@ struct RawCullSemanticSearchTests {
         )
         defer { fixture.remove() }
         await fixture.persistCLIPArtifacts(values: [10, 20, 30, 40])
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
@@ -588,7 +588,7 @@ struct RawCullSemanticSearchTests {
         let fixture = try SemanticCatalogFixture(names: names)
         defer { fixture.remove() }
         await fixture.persistCLIPArtifacts(values: Array(1 ... 25))
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
@@ -628,7 +628,7 @@ struct RawCullSemanticSearchTests {
         await fixture.persistCLIPArtifacts(values: [50])
         let gate = SemanticSearchGate()
         let service = GatedSemanticSearchService(gate: gate)
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
@@ -671,7 +671,7 @@ struct RawCullSemanticSearchTests {
         await fixture.persistCLIPArtifacts(values: [50])
         let gate = SemanticSearchGate()
         let service = GatedSemanticSearchService(gate: gate)
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
@@ -715,7 +715,7 @@ struct RawCullSemanticSearchTests {
             textProvider: provider,
             comparator: SemanticPayloadComparator(),
         )
-        let viewModel = RawCullViewModel(
+        let viewModel = makeRawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,

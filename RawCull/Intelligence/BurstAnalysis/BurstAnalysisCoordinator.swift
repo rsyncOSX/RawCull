@@ -25,10 +25,6 @@ final class BurstAnalysisCoordinator {
     var generation = 0
     @ObservationIgnored var task: Task<Void, Never>?
 
-    var hasActiveTask: Bool {
-        task != nil
-    }
-
     init(
         sharpnessModel: SharpnessScoringModel,
         similarityFeature: RawCullSimilarityFeature,

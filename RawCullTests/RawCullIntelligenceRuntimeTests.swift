@@ -25,11 +25,10 @@ struct RawCullIntelligenceRuntimeTests {
 
         #expect(runtime.integration === fixture.integration)
         #expect(runtime.similarityFeature === viewModel.similarityFeature)
-        #expect(runtime.similarityModel === viewModel.similarityModel)
         #expect(runtime.semanticSearchFeature === viewModel.semanticSearchFeature)
         #expect(
             runtime.semanticSearchFeature.sharesSimilarityModelIdentity(
-                with: runtime.similarityModel,
+                with: viewModel.similarityModel,
             ),
         )
         #expect(
@@ -48,7 +47,6 @@ struct RawCullIntelligenceRuntimeTests {
             runtime.modelManagementModel
                 === runtime.settingsModel.modelManagementModel,
         )
-        #expect(runtime.similarityModel === applicationState.intelligenceRuntime.similarityModel)
     }
 
     @MainActor
@@ -84,7 +82,6 @@ struct RawCullIntelligenceRuntimeTests {
                 == runtime.settingsModel.selectedSemanticSearchStatus,
         )
         #expect(viewModel.similarityModel.semanticSearchCapability != originalCapability)
-        #expect(viewModel.similarityModel === runtime.similarityModel)
     }
 
     @MainActor
@@ -113,7 +110,6 @@ struct RawCullIntelligenceRuntimeTests {
         let runtime = RawCullIntelligenceRuntime(
             integration: fixture.integration,
             similarityFeature: similarityFeature,
-            similarityModel: similarityModel,
             semanticSearchFeature: RawCullSemanticSearchFeature(
                 similarityModel: similarityModel,
                 similarityFeature: similarityFeature,
@@ -128,7 +124,7 @@ struct RawCullIntelligenceRuntimeTests {
         runtime.apply(configuration: configuration)
 
         #expect(runtime.similarityFeature === similarityFeature)
-        #expect(runtime.similarityModel === similarityModel)
+        #expect(runtime.similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
         #expect(target.burstResetCount == 0)
     }
 
@@ -148,7 +144,7 @@ struct RawCullIntelligenceRuntimeTests {
         )
         let runtime = applicationState.intelligenceRuntime
         let viewModel = applicationState.viewModel
-        let similarityModel = runtime.similarityModel
+        let similarityModel = viewModel.similarityModel
 
         let nextRevision = try #require(runtime.lastAcceptedConfigurationRevision) + 1
         runtime.apply(
@@ -178,6 +174,7 @@ struct RawCullIntelligenceRuntimeTests {
             rawCullVersion: "test",
         )
         let runtime = applicationState.intelligenceRuntime
+        let similarityModel = applicationState.viewModel.similarityModel
         let staleConfiguration = runtime.settingsModel.configurationSnapshot(
             revision: 2,
         )
@@ -200,8 +197,8 @@ struct RawCullIntelligenceRuntimeTests {
         runtime.apply(configuration: newerConfiguration)
         runtime.apply(configuration: staleConfiguration)
 
-        #expect(runtime.similarityModel.backendDescriptor == runtimeTestBackend)
-        #expect(runtime.similarityModel.semanticSearchCapability == newerCapability)
+        #expect(similarityModel.backendDescriptor == runtimeTestBackend)
+        #expect(similarityModel.semanticSearchCapability == newerCapability)
         #expect(runtime.lastAcceptedConfigurationRevision == 3)
         #expect(runtime.lastAppliedConfigurationIdentity == newerConfiguration.identity)
     }
@@ -221,6 +218,7 @@ struct RawCullIntelligenceRuntimeTests {
             rawCullVersion: "test",
         )
         let runtime = applicationState.intelligenceRuntime
+        let similarityModel = applicationState.viewModel.similarityModel
         let current = runtime.settingsModel.configurationSnapshot(revision: 2)
         let segmentationOnly = RawCullIntelligenceConfiguration(
             revision: current.revision,
@@ -238,9 +236,9 @@ struct RawCullIntelligenceRuntimeTests {
         )
         #expect(runtime.similarityFeature.imageHydrationTask == nil)
         #expect(runtime.similarityFeature.semanticHydrationTask == nil)
-        #expect(runtime.similarityModel.backendDescriptor == current.identity.similarityBackend)
+        #expect(similarityModel.backendDescriptor == current.identity.similarityBackend)
         #expect(
-            runtime.similarityModel.semanticSearchCapability
+            similarityModel.semanticSearchCapability
                 == current.semanticSearch.capability,
         )
     }
@@ -263,6 +261,7 @@ struct RawCullIntelligenceRuntimeTests {
         )
         let runtime = applicationState.intelligenceRuntime
         let viewModel = applicationState.viewModel
+        let similarityModel = viewModel.similarityModel
         viewModel.files = [
             FileItem(
                 id: UUID(),
@@ -301,7 +300,7 @@ struct RawCullIntelligenceRuntimeTests {
         await hydrationStore.release()
         await oldHydration.value
 
-        #expect(runtime.similarityModel.backendDescriptor == runtimeReplacementBackend)
+        #expect(similarityModel.backendDescriptor == runtimeReplacementBackend)
         #expect(runtime.lastAppliedConfigurationIdentity == replacement.identity)
         #expect(runtime.similarityFeature.imageHydrationTask == nil)
     }
@@ -331,7 +330,7 @@ struct RawCullIntelligenceRuntimeTests {
             )
             releasedRuntime = applicationState.intelligenceRuntime
             releasedViewModel = applicationState.viewModel
-            releasedSimilarityModel = applicationState.intelligenceRuntime.similarityModel
+            releasedSimilarityModel = applicationState.viewModel.similarityModel
             releasedSimilarityFeature = applicationState.intelligenceRuntime.similarityFeature
             releasedSemanticSearchFeature = applicationState.intelligenceRuntime
                 .semanticSearchFeature

@@ -263,7 +263,7 @@ struct CullingGridView<Header: View>: View {
             if viewModel.showsBurstGroups {
                 HStack(spacing: 14) {
                     Button {
-                        viewModel.similarityModel.burstModeActive = false
+                        viewModel.similarityFeature.burstModeActive = false
                     } label: {
                         Label("Burst Groups", systemImage: "chevron.left")
                     }
@@ -382,7 +382,7 @@ struct CullingGridView<Header: View>: View {
         }
         .onKeyPress(.escape) {
             if viewModel.showsBurstGroups {
-                viewModel.similarityModel.burstModeActive = false
+                viewModel.similarityFeature.burstModeActive = false
                 return .handled
             }
             return .ignored
@@ -425,7 +425,7 @@ struct CullingGridView<Header: View>: View {
         let matchingIDs = CullingGridSelectionCoordinator.matchingIDs(
             forBadge: badge,
             visibleFiles: visibleSelectionFiles,
-            burstGroupLookup: viewModel.similarityModel.burstGroupLookup,
+            burstGroupLookup: viewModel.similarityFeature.burstGroupLookup,
             burstAnalysisResults: viewModel.burstAnalysisResults,
             saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
         )
@@ -485,7 +485,7 @@ struct CullingGridView<Header: View>: View {
     private var badgeSelectionItems: [BatchBadgeSelectionItem] {
         CullingGridSelectionCoordinator.badgeSelectionItems(
             visibleFiles: visibleSelectionFiles,
-            burstGroupLookup: viewModel.similarityModel.burstGroupLookup,
+            burstGroupLookup: viewModel.similarityFeature.burstGroupLookup,
             burstAnalysisResults: viewModel.burstAnalysisResults,
             saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
         )
@@ -554,7 +554,7 @@ struct CullingGridView<Header: View>: View {
     }
 
     private func burstNumber(for groupID: Int) -> Int {
-        guard let index = viewModel.similarityModel.burstGroups.firstIndex(where: { $0.id == groupID }) else {
+        guard let index = viewModel.similarityFeature.burstGroups.firstIndex(where: { $0.id == groupID }) else {
             return groupID + 1
         }
         return index + 1
@@ -710,13 +710,13 @@ struct CullingGridView<Header: View>: View {
 
     private var currentBurstGroupFiles: [FileItem]? {
         guard let selectedID = viewModel.selectedFileID,
-              let groupID = viewModel.similarityModel.burstGroupLookup[selectedID]
+              let groupID = viewModel.similarityFeature.burstGroupLookup[selectedID]
         else { return nil }
         return renderedBurstGroups.first { $0.id == groupID }?.files
     }
 
     private func canApplyOneClickCulling(to groupFiles: [FileItem]) -> Bool {
-        guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityModel.burstGroupLookup[$0.id] }).first,
+        guard let groupID = groupFiles.lazy.compactMap({ viewModel.similarityFeature.burstGroupLookup[$0.id] }).first,
               let result = viewModel.burstAnalysisResult(for: groupID)
         else { return false }
         return result.canApplyOneClickCulling(hasSharpnessScores: hasSharpnessScoresSnapshot)

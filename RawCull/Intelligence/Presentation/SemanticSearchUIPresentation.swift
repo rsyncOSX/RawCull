@@ -8,9 +8,27 @@
 import Foundation
 import PhotoAIContracts
 
+nonisolated struct RawCullSemanticSearchBackendPresentation: Equatable, Sendable {
+    let displayName: String
+    let modelFingerprint: String?
+
+    init(_ descriptor: SimilarityBackendDescriptor) {
+        if descriptor.backend == "clip" {
+            displayName = "CLIP"
+            modelFingerprint = descriptor.modelFingerprint
+        } else if descriptor.backend == "vision-feature-print" {
+            displayName = "Vision feature prints"
+            modelFingerprint = nil
+        } else {
+            displayName = descriptor.backend
+            modelFingerprint = nil
+        }
+    }
+}
+
 nonisolated enum SemanticSearchUIAvailability: Equatable, Sendable {
     case checking(expectedLocations: [URL])
-    case ready(location: URL?, backend: SimilarityBackendDescriptor)
+    case ready(location: URL?, backend: RawCullSemanticSearchBackendPresentation)
     case unavailable(reason: String, expectedLocations: [URL])
     case failed(location: URL?, reason: String)
 }
@@ -82,7 +100,10 @@ nonisolated struct SemanticSearchUIPresentation: Equatable, Sendable {
             .checking(expectedLocations: expectedLocations)
 
         case let .ready(location, backend):
-            .ready(location: location, backend: backend)
+            .ready(
+                location: location,
+                backend: RawCullSemanticSearchBackendPresentation(backend),
+            )
 
         case let .unavailable(reason, expectedLocations):
             .unavailable(

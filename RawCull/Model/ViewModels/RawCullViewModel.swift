@@ -150,8 +150,8 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Stable feature boundary for image-similarity work and presentation.
     let similarityFeature: RawCullSimilarityFeature
 
-    /// Temporary burst/persistence compatibility path retained for Phases 7/9.
-    var similarityModel: SimilarityScoringModel
+    /// Shared state used by culling commands and burst-analysis coordination.
+    let similarityModel: SimilarityScoringModel
 
     /// Semantic-only presentation and actions backed by `similarityModel`.
     let semanticSearchFeature: RawCullSemanticSearchFeature
@@ -236,15 +236,13 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
     init(
         similarityModel: SimilarityScoringModel,
-        similarityFeature: RawCullSimilarityFeature? = nil,
+        similarityFeature: RawCullSimilarityFeature,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewController: DeepAIReviewController,
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
     ) {
         let sharpnessModel = SharpnessScoringModel()
-        let similarityFeature = similarityFeature
-            ?? RawCullSimilarityFeature(similarityModel: similarityModel)
         self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
@@ -265,53 +263,6 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         )
         similarityFeature.bindApplicationContext(self)
         deepAIReviewController.bindApplicationContext(self)
-    }
-
-    convenience init(
-        similarityModel: SimilarityScoringModel,
-        deepAIReviewController: DeepAIReviewController,
-        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
-            = LiveBurstAnalysisCacheRepository(),
-    ) {
-        let similarityFeature = RawCullSimilarityFeature(
-            similarityModel: similarityModel,
-        )
-        let semanticSearchFeature = RawCullSemanticSearchFeature(
-            similarityModel: similarityModel,
-            similarityFeature: similarityFeature,
-        )
-        self.init(
-            similarityModel: similarityModel,
-            similarityFeature: similarityFeature,
-            semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewController: deepAIReviewController,
-            burstAnalysisCacheRepository: burstAnalysisCacheRepository,
-        )
-        semanticSearchFeature.bindApplicationTarget(self)
-    }
-
-    convenience init(
-        similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
-        semanticSearchCapability: RawCullSemanticSearchCapabilityStatus = .unavailable(
-            reason: "Semantic search requires a valid CLIP model.",
-            expectedLocations: [],
-        ),
-        semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
-        similarityArtifactStore: PerFileAnalysisArtifactStore = .shared,
-        deepAIReviewController: DeepAIReviewController = DeepAIReviewController(),
-        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
-            = LiveBurstAnalysisCacheRepository(),
-    ) {
-        self.init(
-            similarityModel: SimilarityScoringModel(
-                similarityService: similarityService,
-                semanticSearchCapability: semanticSearchCapability,
-                semanticSearchService: semanticSearchService,
-                artifactStore: similarityArtifactStore,
-            ),
-            deepAIReviewController: deepAIReviewController,
-            burstAnalysisCacheRepository: burstAnalysisCacheRepository,
-        )
     }
 
     // MARK: - Computed
