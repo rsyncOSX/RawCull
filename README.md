@@ -27,28 +27,6 @@ protection, preference keys, and the existing user experience.
 The complete scope, invariants, validation gates, exit criteria, and rollback
 guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 
-## Modular AI refactoring status
-
-| Phase | Purpose | Status |
-|---|---|---|
-| 0 | Establish a trustworthy baseline from `version-3.1.1` before production refactoring begins. | **Complete (2026-08-28)** |
-| 1 | Define, document, inventory, and mechanically enforce the AI dependency boundary. | **Complete (2026-08-28)** |
-| 2 | Introduce one stable intelligence runtime without moving behavior. | **Complete (2026-08-28)** |
-| 3 | Replace app-level settings callbacks with one typed configuration path. | **Complete (2026-08-29)** |
-| 4 | Migrate settings and model management to their narrow presentation boundary. | **Complete (2026-08-29)** |
-| 5 | Migrate semantic search as an isolated vertical slice. | **Complete (2026-08-29)** |
-| 6 | Place similarity indexing, hydration, ranking, cancellation, and progress behind one feature API. | **Complete (2026-08-29)** |
-| 7 | Extract the burst-analysis pipeline through independently revertible subphases. | Not started |
-| 7A | Introduce immutable burst-analysis request and result values. | **Complete (2026-08-29)** |
-| 7B | Extract burst cache hydration and compatibility decisions. | Not started |
-| 7C | Extract burst compute orchestration. | Not started |
-| 7D | Reduce the central view model after burst work has moved. | Not started |
-| 8 | Isolate Deep Review behind an optional capability surface. | Not started |
-| 9 | Hide persistence implementation types behind repository operations and summaries. | Not started |
-| 10 | Reorganize intelligence files only after the logical boundary is stable. | Not started |
-| 11 | Decide from the proven boundary whether a separate `RawCullIntelligence` package is justified. | Not started |
-| 12 | Remove compatibility forwarding, finalize dependency enforcement, and run all final gates. | Not started |
-
 ## Supported versions and requirements
 
 | Branch | Minimum macOS | Development toolchain | Main characteristics |

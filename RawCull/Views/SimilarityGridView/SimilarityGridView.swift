@@ -13,6 +13,7 @@ struct SimilarityGridView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Binding var nsImage: NSImage?
@@ -25,6 +26,7 @@ struct SimilarityGridView: View {
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
+                    deepAIReviewController: deepAIReviewController,
                     nsImage: $nsImage,
                     cgImage: $cgImage,
                 )
@@ -62,7 +64,8 @@ struct SimilarityGridView: View {
 
     private var sortedFiles: [FileItem] {
         if viewModel.showsBurstGroups,
-           !viewModel.similarityModel.burstGroups.isEmpty {
+           !viewModel.similarityModel.burstGroups.isEmpty
+        {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
             return viewModel.filteredBurstGroupsForReviewQueue.flatMap { group in
                 group.fileIDs.compactMap { visible[$0] }

@@ -4,8 +4,9 @@ Status: active on the `version-3.2.0` development branch. Phases 0 through 2 wer
 implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and 4
 were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A through 7D were
 implemented on 2026-08-29; Phase 7's automated gates are complete and its manual
-end-to-end qualification remains pending. Phases 8 through 12 have not started.
-Phase 6's automated gates pass; its
+end-to-end qualification remains pending. Phase 8 was implemented and automatically
+verified on 2026-08-30; its manual acceptance matrix remains pending. Phases 9
+through 12 have not started. Phase 6's automated gates pass; its
 manual acceptance matrix remains pending. Phase 4's model-
 download path was manually verified on 2026-08-29 by successfully downloading both
 the DataComp and OpenAI CLIP models. The broader manual regression matrix remains
@@ -2285,6 +2286,11 @@ unchanged and the old application entry point is retained until 7D.
 
 ## Phase 8: isolate Deep Review as the optional capability
 
+Status: implemented and automatically verified on 2026-08-30. The intelligence
+runtime now owns a stable `DeepAIReviewController`, the sheet consumes that narrow
+model/actions surface, and recommendation application remains in the culling layer.
+The interactive manual acceptance matrix remains pending.
+
 ### Changes
 
 1. Keep `DeepAIReviewFeature` as its focused observable operation model.
@@ -2313,6 +2319,32 @@ unchanged and the old application entry point is retained until 7D.
 - SAM 3 and EfficientSAM selection.
 - Start, cancel, retry, failure, and successful recommendation.
 - Apply recommendation only to the matching burst and confirm rating/override state.
+
+### Implementation and validation evidence (2026-08-30)
+
+- `RawCullIntelligenceRuntime` owns one stable `DeepAIReviewController`. The
+  controller privately adapts application burst evidence into
+  `DeepAIReviewRequest`, projects capability availability, and delegates operation
+  ownership to the existing focused `DeepAIReviewFeature`.
+- `RawCullViewModel` supplies only immutable burst evidence plus the existing
+  application blocker state. Group-signature validation, rating changes, winner
+  overrides, review-state updates, and persistence remain explicit application
+  actions.
+- `DeepAIReviewSheetView` receives the controller rather than the view model, raw
+  feature, request-building closure, or provider availability checks. Its typed
+  presentation state covers checking, unavailable, ready, preparing, running,
+  completing, cancelled, failed, and completed outcomes.
+- Cancellation now publishes an explicit cancelled state. Focused controller,
+  feature, runtime-identity, AI integration, culling/application, and accessibility
+  tests pass. Exact-package Debug and Release builds, the AI import-boundary check,
+  changed-file formatting, and `git diff --check` also pass.
+- The smoke manifest enumerates exactly 206 unique tests and passes 205; the full
+  Thread Sanitizer plan passes 373 of 374 tests with no runtime warnings. Both fail
+  only on the pre-existing `ReleaseMetadataTests` expectation of 21 package pins
+  versus the 18 pins in `Package.resolved`; every Phase 8 test passes in both runs.
+- Targeted performance qualification was not run because image decoding,
+  candidate limits, prompt policy, subject-mask scoring, provider selection, cache
+  behavior, and the underlying review pipeline did not move.
 
 ### Exit criteria
 

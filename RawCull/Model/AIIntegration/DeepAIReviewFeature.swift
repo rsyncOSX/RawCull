@@ -124,6 +124,7 @@ nonisolated enum DeepAIReviewState: Equatable, Sendable {
     case preparing(groupID: Int, totalCount: Int)
     case running(DeepAIReviewProgress)
     case completing(groupID: Int)
+    case cancelled(groupID: Int)
     case failed(groupID: Int?, failure: DeepAIReviewFailure)
     case completed(DeepAIReviewResult)
 
@@ -133,6 +134,9 @@ nonisolated enum DeepAIReviewState: Equatable, Sendable {
             nil
 
         case let .preparing(groupID, _), let .completing(groupID):
+            groupID
+
+        case let .cancelled(groupID):
             groupID
 
         case let .running(progress):
@@ -151,7 +155,7 @@ nonisolated enum DeepAIReviewState: Equatable, Sendable {
         case .preparing, .running, .completing:
             true
 
-        case .idle, .failed, .completed:
+        case .idle, .cancelled, .failed, .completed:
             false
         }
     }
@@ -266,7 +270,7 @@ final class DeepAIReviewFeature {
                     "DeepAIReviewFeature.start(): review was cancelled",
                 )
                 guard feature.generation == runGeneration else { return }
-                feature.state = .idle
+                feature.state = .cancelled(groupID: request.groupID)
             } catch let failure as DeepAIReviewFailure {
                 Logger.process.debugMessageOnly(
                     "DeepAIReviewFeature.start(): review failed: \(failure)",
@@ -300,10 +304,13 @@ final class DeepAIReviewFeature {
         Logger.process.debugMessageOnly(
             "DeepAIReviewFeature.cancel(): cancelling the active review",
         )
+        let activeGroupID = state.activeGroupID
         generation &+= 1
         task?.cancel()
         task = nil
-        state = .idle
+        if state.isRunning, let activeGroupID {
+            state = .cancelled(groupID: activeGroupID)
+        }
     }
 
     func reset() {
@@ -311,6 +318,7 @@ final class DeepAIReviewFeature {
             "DeepAIReviewFeature.reset(): resetting Deep Review state",
         )
         cancel()
+        state = .idle
         results = [:]
     }
 
@@ -405,7 +413,7 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
             try Task.checkCancellation()
             let context = CIContext(options: [
                 .cacheIntermediates: false,
-                .workingColorSpace: NSNull()
+                .workingColorSpace: NSNull(),
             ])
             guard let result = context.createCGImage(image, from: image.extent) else {
                 throw DeepAIReviewCandidateIssue.imageDecodeFailed

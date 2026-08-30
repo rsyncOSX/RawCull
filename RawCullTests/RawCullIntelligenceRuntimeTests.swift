@@ -37,8 +37,12 @@ struct RawCullIntelligenceRuntimeTests {
                 with: runtime.similarityFeature,
             ),
         )
-        #expect(runtime.deepAIReviewFeature === fixture.integration.deepAIReviewFeature)
-        #expect(runtime.deepAIReviewFeature === viewModel.deepAIReviewFeature)
+        #expect(
+            runtime.deepAIReviewController.sharesFeatureIdentity(
+                with: fixture.integration.deepAIReviewFeature,
+            ),
+        )
+        #expect(runtime.deepAIReviewController === viewModel.deepAIReviewController)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
         #expect(
             runtime.modelManagementModel
@@ -114,7 +118,9 @@ struct RawCullIntelligenceRuntimeTests {
                 similarityModel: similarityModel,
                 similarityFeature: similarityFeature,
             ),
-            deepAIReviewFeature: fixture.integration.deepAIReviewFeature,
+            deepAIReviewController: DeepAIReviewController(
+                feature: fixture.integration.deepAIReviewFeature,
+            ),
             settingsModel: settingsModel,
             applicationContext: target,
         )
@@ -266,7 +272,7 @@ struct RawCullIntelligenceRuntimeTests {
                 dateModified: .now,
                 exifData: nil,
                 afFocusNormalized: nil,
-            )
+            ),
         ]
         let current = runtime.settingsModel.configurationSnapshot(revision: 2)
         let first = RawCullIntelligenceConfiguration(
@@ -432,7 +438,8 @@ private nonisolated struct RuntimeTestSimilarityService: RawCullSimilarityServic
 }
 
 private nonisolated struct RuntimeReplacementSimilarityService:
-    RawCullSimilarityServicing {
+    RawCullSimilarityServicing
+{
     let backendDescriptor = runtimeReplacementBackend
 
     func index(

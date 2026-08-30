@@ -67,7 +67,7 @@ struct OperationFailurePresentation: Identifiable {
 }
 
 @Observable @MainActor
-final class RawCullViewModel {
+final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Remember previous selected source to avoid a new rescan of
     /// already scanned catalog
     @ObservationIgnored var currentselectedSource: ARWSourceCatalog?
@@ -156,10 +156,10 @@ final class RawCullViewModel {
     /// Semantic-only presentation and actions backed by `similarityModel`.
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
-    /// Dedicated AI segmentation burst-review feature. It owns the in-process workflow
-    /// and typed operation state; the central view model only adapts inputs and
-    /// applies a user-confirmed recommendation.
-    let deepAIReviewFeature: DeepAIReviewFeature
+    /// Runtime-owned optional Deep Review capability. The central view model only
+    /// supplies application burst evidence, resets catalog-scoped state, and applies
+    /// a user-confirmed recommendation.
+    let deepAIReviewController: DeepAIReviewController
 
     /// Stable worker boundary for burst cache and compute orchestration.
     @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
@@ -238,7 +238,7 @@ final class RawCullViewModel {
         similarityModel: SimilarityScoringModel,
         similarityFeature: RawCullSimilarityFeature? = nil,
         semanticSearchFeature: RawCullSemanticSearchFeature,
-        deepAIReviewFeature: DeepAIReviewFeature,
+        deepAIReviewController: DeepAIReviewController,
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
     ) {
@@ -249,7 +249,7 @@ final class RawCullViewModel {
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
-        self.deepAIReviewFeature = deepAIReviewFeature
+        self.deepAIReviewController = deepAIReviewController
         burstAnalysisCoordinator = BurstAnalysisCoordinator(
             sharpnessModel: sharpnessModel,
             similarityFeature: similarityFeature,
@@ -264,11 +264,12 @@ final class RawCullViewModel {
             ),
         )
         similarityFeature.bindApplicationContext(self)
+        deepAIReviewController.bindApplicationContext(self)
     }
 
     convenience init(
         similarityModel: SimilarityScoringModel,
-        deepAIReviewFeature: DeepAIReviewFeature,
+        deepAIReviewController: DeepAIReviewController,
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
     ) {
@@ -283,7 +284,7 @@ final class RawCullViewModel {
             similarityModel: similarityModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewFeature: deepAIReviewFeature,
+            deepAIReviewController: deepAIReviewController,
             burstAnalysisCacheRepository: burstAnalysisCacheRepository,
         )
         semanticSearchFeature.bindApplicationTarget(self)
@@ -297,7 +298,7 @@ final class RawCullViewModel {
         ),
         semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
         similarityArtifactStore: PerFileAnalysisArtifactStore = .shared,
-        deepAIReviewFeature: DeepAIReviewFeature = DeepAIReviewFeature(),
+        deepAIReviewController: DeepAIReviewController = DeepAIReviewController(),
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
     ) {
@@ -308,7 +309,7 @@ final class RawCullViewModel {
                 semanticSearchService: semanticSearchService,
                 artifactStore: similarityArtifactStore,
             ),
-            deepAIReviewFeature: deepAIReviewFeature,
+            deepAIReviewController: deepAIReviewController,
             burstAnalysisCacheRepository: burstAnalysisCacheRepository,
         )
     }

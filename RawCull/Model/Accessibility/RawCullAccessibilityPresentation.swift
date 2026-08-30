@@ -94,10 +94,8 @@ enum RawCullAccessibilityPresentation {
         case .licenceRequired: "Licence acceptance required"
         case .notConfigured: "Download service not configured"
         case .ready: "Ready to download"
-
         case let .downloading(progress):
             "Downloading \(Int((min(max(progress, 0), 1) * 100).rounded())) percent"
-
         case .validating: "Validating downloaded model"
         case .installed: "Installed and managed by macOS"
         case .removing: "Removing downloaded model"
@@ -150,9 +148,8 @@ enum RawCullAccessibilityPresentation {
     }
 
     static func deepReviewValue(
-        state: DeepAIReviewState,
+        state: DeepAIReviewPresentationState,
         cachedResult: DeepAIReviewResult?,
-        groupID: Int,
     ) -> String {
         if let cachedResult {
             let recommendation = if let fileName = cachedResult.recommendedCandidate?.fileName {
@@ -163,23 +160,29 @@ enum RawCullAccessibilityPresentation {
             return "Completed. \(recommendation). \(confidence(cachedResult.confidence)) confidence."
         }
         return switch state {
-        case .idle, .completed:
+        case .ready, .completed:
             "Idle. AI subject-detail review has not run for this group."
 
-        case let .preparing(activeGroupID, totalCount) where activeGroupID == groupID:
+        case .checking:
+            "Checking the selected Deep Review model."
+
+        case let .unavailable(reason):
+            "Deep Review unavailable. \(reason)"
+
+        case let .preparing(_, totalCount):
             "Preparing Deep Review for \(count(totalCount, singular: "candidate"))."
 
-        case let .running(progress) where progress.groupID == groupID:
+        case let .running(progress):
             "Running SAM 3 Deep Review, \(progress.completedCount) of \(progress.totalCount) candidates complete."
 
-        case let .completing(activeGroupID) where activeGroupID == groupID:
+        case .completing:
             "Completing Deep Review."
 
-        case let .failed(activeGroupID, failure) where activeGroupID == nil || activeGroupID == groupID:
-            "Deep Review failed. \(deepReviewFailure(failure))"
+        case .cancelled:
+            "Deep Review cancelled."
 
-        case .preparing, .running, .completing, .failed:
-            "Idle. Another burst group owns the active Deep Review."
+        case let .failed(_, failure):
+            "Deep Review failed. \(deepReviewFailure(failure))"
         }
     }
 

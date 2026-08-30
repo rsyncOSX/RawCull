@@ -58,7 +58,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     /// Temporary burst/persistence compatibility reference for Phases 7/9.
     let similarityModel: SimilarityScoringModel
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewFeature: DeepAIReviewFeature
+    let deepAIReviewController: DeepAIReviewController
     let settingsModel: RawCullAISettingsModel
     let modelManagementModel: RawCullAIModelManagementModel
     private(set) var lastAppliedConfigurationIdentity:
@@ -70,7 +70,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         similarityFeature: RawCullSimilarityFeature,
         similarityModel: SimilarityScoringModel,
         semanticSearchFeature: RawCullSemanticSearchFeature,
-        deepAIReviewFeature: DeepAIReviewFeature,
+        deepAIReviewController: DeepAIReviewController,
         settingsModel: RawCullAISettingsModel,
         applicationContext: any RawCullSimilarityApplicationContext,
     ) {
@@ -78,7 +78,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
         self.semanticSearchFeature = semanticSearchFeature
-        self.deepAIReviewFeature = deepAIReviewFeature
+        self.deepAIReviewController = deepAIReviewController
         self.settingsModel = settingsModel
         self.modelManagementModel = settingsModel.modelManagementModel
         similarityFeature.bindApplicationContext(applicationContext)
@@ -120,14 +120,16 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
 
         if previousIdentity?.similarityBackend != incomingIdentity.similarityBackend
             || previousIdentity?.similarityArtifactBackends
-            != incomingIdentity.similarityArtifactBackends {
+            != incomingIdentity.similarityArtifactBackends
+        {
             similarityFeature.replaceSimilarityService(configuration.similarity.service)
         }
 
         if previousIdentity?.semanticSearchCapability
             != incomingIdentity.semanticSearchCapability
             || previousIdentity?.semanticSearchBackend
-            != incomingIdentity.semanticSearchBackend {
+            != incomingIdentity.semanticSearchBackend
+        {
             similarityFeature.replaceSemanticSearchConfiguration(
                 capability: configuration.semanticSearch.capability,
                 service: configuration.semanticSearch.service,
@@ -188,19 +190,21 @@ struct RawCullApplicationState {
             similarityModel: similarityModel,
             similarityFeature: similarityFeature,
         )
-        let deepAIReviewFeature = integration.deepAIReviewFeature
+        let deepAIReviewController = DeepAIReviewController(
+            feature: integration.deepAIReviewFeature,
+        )
         let viewModel = RawCullViewModel(
             similarityModel: similarityModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewFeature: deepAIReviewFeature,
+            deepAIReviewController: deepAIReviewController,
         )
         let intelligenceRuntime = RawCullIntelligenceRuntime(
             integration: integration,
             similarityFeature: similarityFeature,
             similarityModel: similarityModel,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewFeature: deepAIReviewFeature,
+            deepAIReviewController: deepAIReviewController,
             settingsModel: settingsModel,
             applicationContext: viewModel,
         )
@@ -211,7 +215,12 @@ struct RawCullApplicationState {
         assert(viewModel.similarityFeature === intelligenceRuntime.similarityFeature)
         assert(semanticSearchFeature.sharesSimilarityFeatureIdentity(with: similarityFeature))
         assert(viewModel.semanticSearchFeature === intelligenceRuntime.semanticSearchFeature)
-        assert(viewModel.deepAIReviewFeature === intelligenceRuntime.deepAIReviewFeature)
+        assert(viewModel.deepAIReviewController === intelligenceRuntime.deepAIReviewController)
+        assert(
+            intelligenceRuntime.deepAIReviewController.sharesFeatureIdentity(
+                with: integration.deepAIReviewFeature,
+            ),
+        )
         assert(
             settingsModel.modelManagementModel
                 === intelligenceRuntime.modelManagementModel,

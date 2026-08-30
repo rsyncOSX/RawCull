@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import PhotoAIContracts
 @testable import RawCull
+import RawCullCore
 import Testing
 
 @Suite("Deep AI Review", .tags(.smoke))
@@ -42,8 +43,84 @@ struct DeepAIReviewFeatureTests {
         feature.cancel()
         await run.value
 
-        #expect(feature.state == .idle)
+        #expect(feature.state == .cancelled(groupID: request.groupID))
         #expect(await service.observedCancellation())
+    }
+
+    @MainActor
+    @Test
+    func `Controller owns availability and request construction`() async throws {
+        let feature = DeepAIReviewFeature(
+            availability: .available(location: nil),
+            service: ImmediateDeepReviewService(),
+        )
+        let controller = DeepAIReviewController(feature: feature)
+        let applicationContext = DeepReviewApplicationContextStub()
+        controller.bindApplicationContext(applicationContext)
+        controller.preset = .headFace
+        let file = FileItem(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/controller.ARW"),
+            name: "controller.ARW",
+            size: 1,
+            dateModified: Date(timeIntervalSince1970: 0),
+            exifData: nil,
+            afFocusNormalized: nil,
+        )
+
+        await controller.start(for: [file])
+
+        let context = applicationContext.context
+        let result = try #require(controller.result(for: context.groupSignature))
+        #expect(result.preset == .headFace)
+        #expect(result.recommendedFileID == file.id)
+        #expect(controller.presentationState(
+            groupID: context.groupID,
+            groupSignature: context.groupSignature,
+        ) == .completed(result))
+    }
+
+    @MainActor
+    @Test
+    func `Controller represents checking unavailable and cancelled states`() async {
+        let expectedLocation = URL(fileURLWithPath: "/tmp/SAM3")
+        let feature = DeepAIReviewFeature(
+            availability: .checking(expectedLocations: [expectedLocation]),
+        )
+        let controller = DeepAIReviewController(feature: feature)
+        let signature = BurstGroupSignature(memberKeys: ["frame.ARW"])
+
+        #expect(controller.presentationState(
+            groupID: 7,
+            groupSignature: signature,
+        ) == .checking(expectedLocations: [expectedLocation]))
+
+        feature.install(
+            service: nil,
+            availability: .missing(expectedLocations: [expectedLocation]),
+        )
+        #expect(controller.presentationState(
+            groupID: 7,
+            groupSignature: signature,
+        ) == .unavailable(
+            reason: "Install the selected segmentation model at /tmp/SAM3.",
+        ))
+
+        feature.install(
+            service: CancellableDeepReviewService(),
+            availability: .available(location: expectedLocation),
+        )
+        let request = makeRequest(candidateCount: 1)
+        let run = Task { await feature.start(request) }
+        while !feature.isRunning {
+            await Task.yield()
+        }
+        controller.cancel()
+        await run.value
+        #expect(controller.presentationState(
+            groupID: request.groupID,
+            groupSignature: request.groupSignature,
+        ) == .cancelled(groupID: request.groupID))
     }
 
     @Test
@@ -172,6 +249,47 @@ struct DeepAIReviewFeatureTests {
             height: height / 2,
         ))
         return context.makeImage()
+    }
+}
+
+@MainActor
+private final class DeepReviewApplicationContextStub: DeepAIReviewApplicationContext {
+    var isDeepAIReviewBlockedByOtherWork = false
+    let context = DeepAIReviewGroupContext(
+        groupID: 7,
+        groupSignature: BurstGroupSignature(memberKeys: ["controller.ARW"]),
+        candidates: [
+            DeepAIReviewSourceCandidate(
+                fileID: UUID(),
+                fileName: "controller.ARW",
+                url: URL(fileURLWithPath: "/tmp/controller.ARW"),
+                burstRank: 1,
+                normalSharpnessScore: 0.8,
+                subjectLabel: "bird",
+                normalizedAFPoint: CGPoint(x: 0.5, y: 0.5),
+            ),
+        ],
+        scoringSource: .embeddedPreview,
+    )
+
+    func deepAIReviewContext(for groupFiles: [FileItem]) -> DeepAIReviewGroupContext? {
+        guard let file = groupFiles.first else { return nil }
+        return DeepAIReviewGroupContext(
+            groupID: context.groupID,
+            groupSignature: context.groupSignature,
+            candidates: context.candidates.map { candidate in
+                DeepAIReviewSourceCandidate(
+                    fileID: file.id,
+                    fileName: file.name,
+                    url: file.url,
+                    burstRank: candidate.burstRank,
+                    normalSharpnessScore: candidate.normalSharpnessScore,
+                    subjectLabel: candidate.subjectLabel,
+                    normalizedAFPoint: candidate.normalizedAFPoint,
+                )
+            },
+            scoringSource: context.scoringSource,
+        )
     }
 }
 

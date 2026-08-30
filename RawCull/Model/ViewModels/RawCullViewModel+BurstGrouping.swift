@@ -231,42 +231,11 @@ extension RawCullViewModel {
 
     // MARK: - User actions
 
-    var isDeepAIReviewUnavailable: Bool {
-        !deepAIReviewFeature.availability.isAvailable
-            || sharpnessModel.isScoring
+    var isDeepAIReviewBlockedByOtherWork: Bool {
+        sharpnessModel.isScoring
             || similarityModel.isIndexing
             || similarityModel.isGrouping
             || burstAnalysisProgress.isRunning
-            || deepAIReviewFeature.isRunning
-    }
-
-    func startDeepAIReview(for groupFiles: [FileItem]) async {
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.startDeepAIReview(): requested Deep Review for \(groupFiles.count) files",
-        )
-        guard !isDeepAIReviewUnavailable else {
-            Logger.process.debugMessageOnly(
-                "RawCullViewModel.startDeepAIReview(): skipped because Deep Review is unavailable or another analysis is running",
-            )
-            return
-        }
-        guard let request = deepAIReviewRequest(for: groupFiles) else {
-            Logger.process.debugMessageOnly(
-                "RawCullViewModel.startDeepAIReview(): skipped because the review request could not be created",
-            )
-            return
-        }
-        await deepAIReviewFeature.start(request)
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.startDeepAIReview(): Deep Review task returned",
-        )
-    }
-
-    func cancelDeepAIReview() {
-        Logger.process.debugMessageOnly(
-            "RawCullViewModel.cancelDeepAIReview(): cancelling Deep Review",
-        )
-        deepAIReviewFeature.cancel()
     }
 
     func applyDeepAIReviewRecommendation(
@@ -332,7 +301,8 @@ extension RawCullViewModel {
             updateRating(for: first, rating: 3)
         }
         if rankedIDs.count > 1,
-           let second = groupFiles.first(where: { $0.id == rankedIDs[1] }) {
+           let second = groupFiles.first(where: { $0.id == rankedIDs[1] })
+        {
             updateRating(for: second, rating: 2)
         }
         let others = groupFiles.filter { !top.contains($0.id) }
@@ -596,11 +566,11 @@ extension RawCullViewModel {
         groupFiles.lazy.compactMap { self.similarityModel.burstGroupLookup[$0.id] }.first ?? -1
     }
 
-    private func deepAIReviewRequest(
+    func deepAIReviewContext(
         for groupFiles: [FileItem],
-    ) -> DeepAIReviewRequest? {
+    ) -> DeepAIReviewGroupContext? {
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.deepAIReviewRequest(): building a request from \(groupFiles.count) files",
+            "RawCullViewModel.deepAIReviewContext(): collecting burst evidence from \(groupFiles.count) files",
         )
         guard let catalog = selectedSource?.url,
               let signature = BurstGroupSignature(files: groupFiles, catalog: catalog)
@@ -620,7 +590,7 @@ extension RawCullViewModel {
             },
         )
         let candidates = groupFiles.map { file in
-            DeepAIReviewInputCandidate(
+            DeepAIReviewSourceCandidate(
                 fileID: file.id,
                 fileName: file.name,
                 url: file.url,
@@ -630,17 +600,16 @@ extension RawCullViewModel {
                 normalizedAFPoint: file.afFocusNormalized,
             )
         }
-        let request = DeepAIReviewRequest(
+        let context = DeepAIReviewGroupContext(
             groupID: groupID,
             groupSignature: signature,
             candidates: candidates,
-            preset: deepAIReviewFeature.preset,
             scoringSource: sharpnessModel.scoringSource,
         )
         Logger.process.debugMessageOnly(
-            "RawCullViewModel.deepAIReviewRequest(): created request for group \(groupID) with \(candidates.count) candidates",
+            "RawCullViewModel.deepAIReviewContext(): collected group \(groupID) with \(candidates.count) candidates",
         )
-        return request
+        return context
     }
 
     private func canApplyOneClickCulling(groupID: Int) -> Bool {
@@ -768,7 +737,7 @@ extension RawCullViewModel {
         guard burstAnalysisProgress.isRunning || completedAnalysisIsScoped
         else { return }
 
-        deepAIReviewFeature.reset()
+        deepAIReviewController.reset()
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstAnalysisResults = [:]
@@ -781,7 +750,7 @@ extension RawCullViewModel {
     }
 
     func cancelAndResetBurstAnalysis() {
-        deepAIReviewFeature.reset()
+        deepAIReviewController.reset()
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstAnalysisResults = [:]

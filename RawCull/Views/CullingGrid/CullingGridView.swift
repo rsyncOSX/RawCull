@@ -37,6 +37,7 @@ private struct BurstGroupHeaderView: View {
     let onReviewed: (Int) -> Void
     let onDeferred: (Int) -> Void
     @Bindable var viewModel: RawCullViewModel
+    let deepAIReviewController: DeepAIReviewController
 
     private var isReviewed: Bool {
         analysis?.reviewState == .reviewed
@@ -84,8 +85,7 @@ private struct BurstGroupHeaderView: View {
             .help("Open this burst for review")
 
             Button(action: onDeepReview) {
-                if viewModel.deepAIReviewFeature.isRunning,
-                   viewModel.deepAIReviewFeature.state.activeGroupID == analysis?.groupID {
+                if deepAIReviewController.isRunning(groupID: analysis?.groupID) {
                     HStack(spacing: 5) {
                         ProgressView()
                             .controlSize(.small)
@@ -97,7 +97,7 @@ private struct BurstGroupHeaderView: View {
             }
             .controlSize(.regular)
             .buttonStyle(.bordered)
-            .disabled(viewModel.isDeepAIReviewUnavailable || analysis == nil)
+            .disabled(deepAIReviewController.isActionUnavailable || analysis == nil)
             .help("Open an in-process AI subject-detail review")
 
             if let groupID = analysis?.groupID {
@@ -152,7 +152,7 @@ private struct BatchBadgeSelectionControlsView: View {
         (2, "2"),
         (3, "3"),
         (4, "4"),
-        (5, "5")
+        (5, "5"),
     ]
 
     var body: some View {
@@ -216,6 +216,7 @@ struct CullingGridView<Header: View>: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
     @ViewBuilder let header: () -> Header
     var batchBadgeSelectionEnabled: () -> Bool = { false }
 
@@ -360,14 +361,10 @@ struct CullingGridView<Header: View>: View {
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .sheet(item: $deepReviewPresentation) { presentation in
             DeepAIReviewSheetView(
-                feature: viewModel.deepAIReviewFeature,
+                controller: deepAIReviewController,
                 groupID: presentation.groupID,
                 groupSignature: presentation.groupSignature,
                 files: presentation.files,
-                onRun: {
-                    runDeepReview(for: presentation.files)
-                },
-                onCancel: viewModel.cancelDeepAIReview,
                 onApply: { result in
                     viewModel.applyDeepAIReviewRecommendation(
                         result,
@@ -599,6 +596,7 @@ struct CullingGridView<Header: View>: View {
                     onReviewed: markBurstGroupReviewed,
                     onDeferred: deferBurstGroup,
                     viewModel: viewModel,
+                    deepAIReviewController: deepAIReviewController,
                 )
             }
 
@@ -679,15 +677,6 @@ struct CullingGridView<Header: View>: View {
             groupSignature: signature,
             files: group.files,
         )
-    }
-
-    private func runDeepReview(for groupFiles: [FileItem]) {
-        Logger.process.debugMessageOnly(
-            "CullingGridView.runDeepReview(): Run Deep Review button pressed for \(groupFiles.count) files",
-        )
-        Task {
-            await viewModel.startDeepAIReview(for: groupFiles)
-        }
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {

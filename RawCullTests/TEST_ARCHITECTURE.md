@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 204 unique smoke identifiers and 2 unique performance
+current baselines are 206 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -37,7 +37,8 @@ non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows
   `RawCullIntelligenceRuntimeTests`.
 - Semantic hydration/search and UI state: `RawCullSemanticSearchTests` and
   `RawCullSemanticSearchUITests`.
-- Deep Review and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
+- Deep Review controller availability/request construction, operation lifecycle,
+  and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
 - Typed persistence, backend separation, partial results, and legacy migration:
   `BurstAnalysisCoordinatorTests`, `PerFileAnalysisArtifactStoreTests`, plus the exact non-benchmark
   `PhotoAIKitSimilarityMigrationTests` identifiers.

@@ -61,6 +61,7 @@ struct RawCullApp: App {
                 viewModel: viewModel,
                 similarityFeature: intelligenceRuntime.similarityFeature,
                 semanticSearchFeature: intelligenceRuntime.semanticSearchFeature,
+                deepAIReviewController: intelligenceRuntime.deepAIReviewController,
             )
             .background(.windowBackground)
             .environment(gridthumbnailviewmodel)

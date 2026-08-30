@@ -11,6 +11,7 @@ struct RawCullMainView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
@@ -341,6 +342,7 @@ struct RawCullMainView: View {
             viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
+            deepAIReviewController: deepAIReviewController,
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
@@ -356,6 +358,7 @@ struct RawCullMainView: View {
             viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
+            deepAIReviewController: deepAIReviewController,
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
@@ -383,7 +386,8 @@ struct RawCullMainView: View {
     @ViewBuilder
     private var comparisonGridSplit: some View {
         if let groupID = viewModel.activeBurstComparisonGroupID,
-           !showsDetailedBurstComparison {
+           !showsDetailedBurstComparison
+        {
             BurstCullingWorkspaceView(
                 viewModel: viewModel,
                 groupID: groupID,
