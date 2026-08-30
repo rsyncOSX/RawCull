@@ -1,5 +1,6 @@
 import BackgroundAssets
 import Foundation
+import Security
 import System
 
 nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
@@ -49,20 +50,33 @@ nonisolated enum RawCullBackgroundAssetsRuntime {
         isUsable(
             operatingSystemVersionString: ProcessInfo.processInfo
                 .operatingSystemVersionString,
+            isDevelopmentSigned: isDevelopmentSigned,
         )
     }
 
     static func isUsable(
         operatingSystemVersionString: String,
+        isDevelopmentSigned: Bool = true,
     ) -> Bool {
-        affectedMacOS27Builds.allSatisfy {
-            !operatingSystemVersionString.contains($0)
+        let isAffectedBuild = affectedMacOS27Builds.contains {
+            operatingSystemVersionString.contains($0)
         }
+        return !isAffectedBuild || !isDevelopmentSigned
+    }
+
+    private static var isDevelopmentSigned: Bool {
+        guard let task = SecTaskCreateFromSelf(nil) else { return true }
+        return SecTaskCopyValueForEntitlement(
+            task,
+            "com.apple.security.get-task-allow" as CFString,
+            nil,
+        ) as? Bool == true
     }
 
     static let unavailableMessage =
-        "AI model downloads are temporarily unavailable on this macOS 27 beta "
-            + "because of a Background Assets validation regression."
+        "AI model downloads are temporarily unavailable in development builds "
+            + "on this macOS 27 beta because of a Background Assets validation "
+            + "regression. A packaged distribution build is unaffected."
 }
 
 nonisolated enum RawCullAIModelDownloadState: Equatable, Sendable {
@@ -176,7 +190,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             do {
                 return try .installed(location: modelURL(for: descriptor))
             } catch {
-                return .failed(message: String(describing: error))
+                return .failed(message: error.localizedDescription)
             }
         }
 
@@ -191,7 +205,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             }
             return .ready
         } catch {
-            return .failed(message: String(describing: error))
+            return .failed(message: error.localizedDescription)
         }
     }
 
@@ -336,7 +350,7 @@ actor RawCullAIModelDownloadCoordinator {
                     }
                 } catch {
                     states[descriptor.id] = .failed(
-                        message: String(describing: error),
+                        message: error.localizedDescription,
                     )
                 }
             } else {

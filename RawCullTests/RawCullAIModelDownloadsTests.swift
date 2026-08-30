@@ -140,6 +140,13 @@ struct RawCullAIModelDownloadsTests {
                 "Version 27.0 (Build 26A5421b)",
             ),
         )
+        #expect(
+            RawCullBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                "Version 27.0 (Build 26A5421a)",
+                isDevelopmentSigned: false,
+            ),
+        )
     }
 
     @Test
@@ -187,6 +194,44 @@ struct RawCullAIModelDownloadsTests {
 
         #expect(snapshot.states[.clipDataComp] == failure)
         #expect(snapshot.states[.clipOpenAI] == failure)
+    }
+
+    @MainActor
+    @Test
+    func `Model management presents localized download failures`() async throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let descriptor = testDescriptor(readiness: .ready)
+        let service = ModelDownloadServiceSpy(
+            state: .ready,
+            downloadURL: root.appendingPathComponent("Models/Test"),
+            downloadFailureMessage: "Readable failure.",
+        )
+        let coordinator = RawCullAIModelDownloadCoordinator(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            service: service,
+            acceptanceStore: RawCullAIModelLicenceAcceptanceFileStore(
+                fileURL: root.appendingPathComponent("acceptances.json"),
+                licenceBundle: licenceBundle(),
+            ),
+        )
+        try await coordinator.acceptLicence(
+            for: descriptor.id,
+            rawCullVersion: "test",
+        )
+        let model = RawCullAIModelManagementModel(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            coordinator: coordinator,
+            rawCullVersion: "test",
+        )
+
+        await model.refresh()
+        model.startModelDownload(descriptor.id)
+        await waitUntilPresentation(
+            model,
+            hasState: .failed(message: "Readable failure."),
+        )
     }
 
     @MainActor
@@ -500,15 +545,18 @@ private actor ModelDownloadServiceSpy:
     RawCullAIModelDownloadServicing {
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
+    private let downloadFailureMessage: String?
     private var downloads = 0
     private var removals = 0
 
     init(
         state: RawCullAIModelDownloadState,
         downloadURL: URL,
+        downloadFailureMessage: String? = nil,
     ) {
         currentState = state
         self.downloadURL = downloadURL
+        self.downloadFailureMessage = downloadFailureMessage
     }
 
     func state(
@@ -522,6 +570,11 @@ private actor ModelDownloadServiceSpy:
         progress: @escaping @MainActor @Sendable (Double) -> Void,
     ) async throws -> URL {
         downloads += 1
+        if let downloadFailureMessage {
+            throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
+                downloadFailureMessage,
+            )
+        }
         await progress(0.25)
         try Task.checkCancellation()
         await progress(1)

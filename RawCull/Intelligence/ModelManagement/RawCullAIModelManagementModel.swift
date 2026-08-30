@@ -112,7 +112,7 @@ final class RawCullAIModelManagementModel {
         } catch is CancellationError {
             return
         } catch {
-            setState(.failed(message: String(describing: error)), for: id)
+            setState(.failed(message: error.localizedDescription), for: id)
         }
     }
 
@@ -146,7 +146,7 @@ final class RawCullAIModelManagementModel {
         } catch is CancellationError {
             return
         } catch {
-            setState(.failed(message: String(describing: error)), for: id)
+            setState(.failed(message: error.localizedDescription), for: id)
         }
     }
 
@@ -177,7 +177,7 @@ final class RawCullAIModelManagementModel {
                 setState(.ready, for: id)
             }
         } catch {
-            setState(.failed(message: String(describing: error)), for: id)
+            setState(.failed(message: error.localizedDescription), for: id)
         }
     }
 
