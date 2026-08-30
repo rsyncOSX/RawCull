@@ -231,6 +231,9 @@ flowchart LR
 rejects the removed compatibility constructors and forwarding API. Concrete backend
 products are visible only to `RawCullAIIntegration` and the focused Vision adapter;
 views and general application models import none of the restricted AI products.
+The contributor workflow for macOS beta/RC testing, application build numbering,
+Background Assets signing, and when to run this verifier is documented in
+[macOS Background Assets and RawCull release builds](Docs/macos-background-assets-release.md).
 The boundary remains in the application target: it still uses app-owned `FileItem`
 values, application callbacks, model resources, and application-support paths, so a
 new Swift package would add adapters without establishing a cleaner dependency

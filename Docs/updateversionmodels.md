@@ -248,6 +248,10 @@ xcodebuild test \
 
 Then test the model-download sheet on a supported macOS build:
 
+For the distinction between Apple's macOS build number, RawCull's marketing/build
+versions, development versus distribution signing, and the required beta/RC test
+procedure, see [macOS Background Assets and RawCull release builds](macos-background-assets-release.md).
+
 - every released model is shown as ready or installed;
 - every blocked model is shown as distribution blocked and cannot download;
 - downloads resolve the expected asset-pack ID and destination;
