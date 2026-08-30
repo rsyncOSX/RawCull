@@ -36,33 +36,34 @@ an adapter therefore requires a deliberate allowlist change alongside the adapte
 The check scans production sources under `RawCull/`; tests may import implementation
 modules when they directly characterize those boundaries.
 
-`PhotoAIContracts` is not a failing rule in Phase 1. Its imports outside
-`RawCull/Model/AIIntegration` and `RawCull/Actors` are reported as warnings so later
-phases can replace them incrementally with RawCull-owned domain and presentation
-types. Do not broaden the temporary leakage while making unrelated changes.
+`PhotoAIContracts` is not a failing rule yet. Its imports outside
+`RawCull/Intelligence` are reported as warnings so later phases can replace them
+incrementally with RawCull-owned domain and presentation types. Do not broaden the
+temporary leakage while making unrelated changes.
 
-## Phase 1 import inventory
+## Current import inventory
 
-Inventory recorded on 2026-08-28. Line numbers are intentionally omitted so this
-list remains useful as files evolve; the repository check reports live locations.
+Inventory recorded on 2026-08-28 and refreshed after the Phase 10 physical move on
+2026-08-30. Line numbers are intentionally omitted so this list remains useful as
+files evolve; the repository check reports live locations.
 
 ### Production
 
-| Importer | Product(s) | Classification | Phase 1 disposition |
+| Importer | Product(s) | Classification | Disposition |
 |---|---|---|---|
-| `RawCull/Model/AIIntegration/RawCullAIIntegration.swift` | `CoreAICLIPBackend`, `CoreAIEfficientSAMBackend`, `CoreAISAM3Backend`, `PhotoAIContracts`, `PhotoAIStorage`, `PhotoAIWorkflows`, `VisionFeaturePrintBackend` | Composition | Allowed |
-| `RawCull/Model/AIIntegration/RawCullVisionSimilarityService.swift` | `PhotoAIContracts`, `PhotoAIWorkflows`, `VisionFeaturePrintBackend` | Backend adapter and orchestration | Allowed |
-| `RawCull/Model/AIIntegration/DeepAIReviewFeature.swift` | `PhotoAIContracts`, `PhotoAIWorkflows` | Orchestration | Allowed |
-| `RawCull/Model/AIIntegration/RawCullSemanticSearchService.swift` | `PhotoAIContracts` | Orchestration | Allowed |
-| `RawCull/Model/AIIntegration/RawCullAIModelResourceManager.swift` | `PhotoAIContracts` | Orchestration/infrastructure | Allowed |
-| `RawCull/Model/AIIntegration/RawCullAIModels.swift` | `PhotoAIContracts` | Intelligence domain bridge | Allowed for now |
-| `RawCull/Model/ViewModels/SimilarityScoringModel.swift` | `PhotoAIContracts` | Intelligence orchestration in a general view-model directory | Reported leakage; move behind the intelligence boundary later |
-| `RawCull/Actors/BurstAnalysisCache.swift` | `PhotoAIContracts` | Persistence | Allowed for now |
-| `RawCull/Actors/PerFileAnalysisArtifactStore.swift` | `PhotoAIContracts`, `PhotoAIStorage` | Persistence | Allowed |
+| `RawCull/Intelligence/Composition/RawCullAIIntegration.swift` | `CoreAICLIPBackend`, `CoreAIEfficientSAMBackend`, `CoreAISAM3Backend`, `PhotoAIContracts`, `PhotoAIStorage`, `PhotoAIWorkflows`, `VisionFeaturePrintBackend` | Composition | Allowed |
+| `RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift` | `PhotoAIContracts`, `PhotoAIWorkflows`, `VisionFeaturePrintBackend` | Backend adapter and orchestration | Allowed |
+| `RawCull/Intelligence/DeepReview/DeepAIReviewFeature.swift` | `PhotoAIContracts`, `PhotoAIWorkflows` | Orchestration | Allowed |
+| `RawCull/Intelligence/SemanticSearch/RawCullSemanticSearchService.swift` | `PhotoAIContracts` | Orchestration | Allowed |
+| `RawCull/Intelligence/ModelManagement/RawCullAIModelResourceManager.swift` | `PhotoAIContracts` | Orchestration/infrastructure | Allowed |
+| `RawCull/Intelligence/Contracts/RawCullAIModels.swift` | `PhotoAIContracts` | Intelligence domain bridge | Allowed for now |
+| `RawCull/Intelligence/Similarity/SimilarityScoringModel.swift` | `PhotoAIContracts` | Intelligence orchestration | Allowed |
+| `RawCull/Intelligence/Persistence/BurstAnalysisCache.swift` | `PhotoAIContracts` | Persistence | Allowed for now |
+| `RawCull/Intelligence/Persistence/PerFileAnalysisArtifactStore.swift` | `PhotoAIContracts`, `PhotoAIStorage` | Persistence | Allowed |
 | `RawCull/Model/ViewModels/RawCullViewModel+BurstGrouping.swift` | `PhotoAIContracts` | Accidental leakage into the general view model | Warning only |
 | `RawCull/Model/Accessibility/RawCullAccessibilityPresentation.swift` | `PhotoAIContracts` | Presentation leakage | Warning only |
 | `RawCull/Views/CullingGrid/DeepAIReviewSheetView.swift` | `PhotoAIContracts` | Presentation leakage | Warning only |
-| `RawCull/Views/SimilarityGridView/SemanticSearchUIPresentation.swift` | `PhotoAIContracts` | Presentation leakage | Warning only |
+| `RawCull/Intelligence/Presentation/SemanticSearchUIPresentation.swift` | `PhotoAIContracts` | Intelligence presentation state | Allowed |
 
 ### Tests
 

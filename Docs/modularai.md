@@ -5,8 +5,9 @@ implemented on 2026-08-28 against the `version-3.1.1` baseline, and Phases 3 and
 were implemented on 2026-08-29. Phases 5 and 6 and Phases 7A through 7D were
 implemented on 2026-08-29; Phase 7's automated gates are complete and its manual
 end-to-end qualification remains pending. Phase 8 was implemented and automatically
-verified on 2026-08-30; its manual acceptance matrix remains pending. Phases 9
-through 12 have not started. Phase 6's automated gates pass; its
+verified on 2026-08-30; its manual acceptance matrix remains pending. Phase 9 is
+intentionally deferred. Phase 10 was implemented and automatically verified on
+2026-08-30; Phases 11 and 12 have not started. Phase 6's automated gates pass; its
 manual acceptance matrix remains pending. Phase 4's model-
 download path was manually verified on 2026-08-29 by successfully downloading both
 the DataComp and OpenAI CLIP models. The broader manual regression matrix remains
@@ -2358,6 +2359,28 @@ The interactive manual acceptance matrix remains pending.
 Restore request construction to the existing view-model extension. No persisted
 format changes are required.
 
+### Phase 7 and Phase 8 completion audit (2026-08-30)
+
+- Phase 7 ownership is intact: `BurstAnalysisCoordinator` owns task generation,
+  cache preparation and compatibility, computation and progress, cancellation, and
+  its primary save lifecycle. `RawCullViewModel` retains immutable input snapshots,
+  typed result application, review/rating state, and user actions.
+- Every coordinator operation has a production caller and focused test coverage.
+  Cache-hit and fresh-compute paths, progress, application, persistence,
+  cancellation, and stale-generation rejection remain exercised.
+- Phase 8 ownership is intact: the runtime owns one stable
+  `DeepAIReviewController`, which owns request preparation, capability availability,
+  and the `DeepAIReviewFeature` operation. The sheet receives the controller, while
+  recommendation validation and application remain in the culling layer.
+- A caller scan found no production references to the removed Deep Review forwarding
+  surface (`startDeepAIReview`, `cancelDeepAIReview`, `deepAIReviewRequest`, or
+  `isDeepAIReviewUnavailable`) and no view or application-view-model access to the
+  raw `deepAIReviewFeature`.
+- Compiler-indexed Periphery scans before and after the Phase 10 move reported no
+  unused code or imports in the Phase 7/8 implementation. The combined coordinator,
+  culling, Deep Review, runtime, integration, and accessibility suites pass after
+  the move.
+
 ## Phase 9: hide persistence implementation types
 
 This phase should begin only after feature ownership is stable.
@@ -2401,6 +2424,10 @@ Restore direct repository forwarding. On-disk data is still compatible.
 
 ## Phase 10: perform physical organization separately
 
+Status: implemented and automatically verified on 2026-08-30. Phase 9 remains
+intentionally deferred; this phase changes only physical ownership and path-based
+references, not persistence APIs, symbols, or runtime behavior.
+
 Only after the logical boundary is green should files be moved into a clearer
 layout, for example:
 
@@ -2423,6 +2450,40 @@ RawCull/Intelligence/
 2. Commit file moves separately from import cleanup.
 3. Update documentation and any path-based checks.
 4. Run an unused-code/import audit only after the move commit is green.
+
+### Implementation and validation evidence (2026-08-30)
+
+- Twenty-six existing source files moved, byte-for-byte, into the nine
+  `RawCull/Intelligence` ownership directories shown above. SwiftUI screens remain
+  under `RawCull/Views`; only the intelligence-owned semantic-search presentation
+  value moved. The persistence actors moved physically without the Phase 9 API
+  changes that were deliberately deferred.
+- The Xcode project uses a synchronized `RawCull` root group, so the new hierarchy
+  was discovered automatically. Exact-package Debug and Release builds pass, which
+  verifies target membership and compilation from the new locations without a
+  project-file membership edit.
+- The import-boundary verifier, dependency inventory, release metadata test, model
+  update guide, and repository map now use the new paths. A stale-path scan outside
+  this historical plan is clean. The boundary check passes and its temporary
+  `PhotoAIContracts` warnings decrease from five to three because
+  `SimilarityScoringModel` and `SemanticSearchUIPresentation` now sit inside the
+  intelligence boundary.
+- Compiler-indexed Periphery scans over the Phase 7/8 files before the move and over
+  all `RawCull/Intelligence` files after it both report no unused code or imports.
+  All 26 destination blobs match their pre-move Git hashes and `git diff --check`
+  passes. A full SwiftFormat lint still reports 13 pre-existing source files; they
+  were deliberately left byte-identical so formatting churn is not mixed into this
+  physical-only phase.
+- The combined Phase 7/8 regression suites pass after the move. The smoke manifest
+  still enumerates exactly 206 tests and passes 205; its sole failure is the
+  pre-existing README expectation of 21 package pins versus the 18 pins in
+  `Package.resolved`.
+- The full Thread Sanitizer plan reported no runtime warnings and passed 372 of 374
+  tests. In addition to the same package-pin mismatch, one cancellation-observation
+  assertion missed its timing window in that run. The complete `CullingModelTests`
+  suite, including that assertion, passed immediately under Thread Sanitizer on an
+  isolated rerun; no production cancellation or concurrency change was made in this
+  physical-only phase.
 
 ### Tests
 

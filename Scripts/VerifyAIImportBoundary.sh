@@ -30,11 +30,11 @@ is_allowed_concrete_import() {
     file=$2
 
     case "$module:$file" in
-        CoreAICLIPBackend:RawCull/Model/AIIntegration/RawCullAIIntegration.swift) return 0 ;;
-        CoreAISAM3Backend:RawCull/Model/AIIntegration/RawCullAIIntegration.swift) return 0 ;;
-        CoreAIEfficientSAMBackend:RawCull/Model/AIIntegration/RawCullAIIntegration.swift) return 0 ;;
-        VisionFeaturePrintBackend:RawCull/Model/AIIntegration/RawCullAIIntegration.swift) return 0 ;;
-        VisionFeaturePrintBackend:RawCull/Model/AIIntegration/RawCullVisionSimilarityService.swift) return 0 ;;
+        CoreAICLIPBackend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        CoreAISAM3Backend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        CoreAIEfficientSAMBackend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        VisionFeaturePrintBackend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        VisionFeaturePrintBackend:RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -53,7 +53,7 @@ done
 contract_warning_count=0
 for file in $(importing_files PhotoAIContracts); do
     case "$file" in
-        RawCull/Model/AIIntegration/*|RawCull/Actors/*) ;;
+        RawCull/Intelligence/*) ;;
         *)
             echo "warning: PhotoAIContracts remains outside the intelligence/persistence boundary: $file" >&2
             contract_warning_count=$((contract_warning_count + 1))

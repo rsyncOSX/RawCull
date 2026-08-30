@@ -432,10 +432,19 @@ Important actors include:
 
 ```text
 RawCull/
-├── Actors/                 Background scanning, caching, extraction, and persistence
+├── Actors/                 Background scanning, thumbnail caching, and extraction
+├── Intelligence/           RawCull intelligence boundary
+│   ├── Composition/        Concrete provider assembly and stable runtime ownership
+│   ├── Contracts/          RawCull-owned capability and configuration values
+│   ├── Similarity/         Similarity state, indexing, ranking, and Vision adapter
+│   ├── SemanticSearch/     Semantic-search feature and service boundary
+│   ├── BurstAnalysis/      Burst requests, coordinator, cache decisions, and review values
+│   ├── DeepReview/         Optional Deep Review controller, operation, and mask scoring
+│   ├── ModelManagement/    Model validation, downloads, licences, and settings state
+│   ├── Persistence/        Intelligence artifact and burst-cache actors
+│   └── Presentation/       Intelligence-owned presentation values
 ├── Main/                   App entry point and shared type aliases
 ├── Model/
-│   ├── AIIntegration/      Model validation, inference, downloads, and Deep Review
 │   ├── Cache/              Cache configuration and diagnostics
 │   ├── Diagnostics/        RAW, ImageIO, and similarity diagnostics
 │   ├── Handlers/           App and streaming callbacks

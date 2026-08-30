@@ -99,7 +99,7 @@ struct ReleaseMetadataTests {
 
         #expect(actualDestinations == expectedDestinations)
         let catalog = try repositoryText(
-            "RawCull/Model/AIIntegration/RawCullAIModelDownloadCatalog.swift",
+            "RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift",
         )
         for (assetPackID, destination) in expectedDestinations {
             #expect(catalog.contains("assetPackID: \"\(assetPackID)\""))

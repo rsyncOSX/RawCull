@@ -109,7 +109,7 @@ Update both copies of the production manifest URL:
 1. `RawCull-Info.plist`
    - Change `BAManifestURL` from the old release to
      `https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/manifest.json`.
-2. `RawCull/Model/AIIntegration/RawCullAIModelDownloadService.swift`
+2. `RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadService.swift`
    - Change `RawCullAIModelDownloadSource.productionManifestURL` to the same
      v3 URL.
 
@@ -117,7 +117,7 @@ These values must remain identical.
 
 ### Production model catalog
 
-Update `RawCull/Model/AIIntegration/RawCullAIModelDownloadCatalog.swift` for
+Update `RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift` for
 each released model:
 
 - `modelVersion` when the model or export version changed;
@@ -234,7 +234,7 @@ Before shipping RawCull, run formatting and the focused release tests:
 
 ```sh
 swiftformat --config .swiftformat \
-  RawCull/Model/AIIntegration/RawCullAIModelDownloadCatalog.swift \
+  RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift \
   RawCullTests/RawCullAIModelDownloadsTests.swift \
   RawCullTests/ReleaseMetadataTests.swift
 
