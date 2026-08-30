@@ -336,6 +336,7 @@ struct RawCullSemanticSearchTests {
             semanticSearchService: service,
             artifactStore: fixture.store,
         )
+        let feature = RawCullSemanticSearchFeature(similarityModel: model)
         #expect(await model.hydrateSemanticArtifacts(fixture.files) == 25)
 
         await model.rankSemantically(
@@ -353,6 +354,14 @@ struct RawCullSemanticSearchTests {
             completedCount: 25,
             candidateCount: 25,
         ))
+        #expect(feature.resultSummary == summary)
+        #expect(feature.orderedResultIDs.count == 20)
+        #expect(feature.presentation.activity == .results(summary))
+        let strongestEvidence = try #require(
+            feature.resultEvidence(for: feature.orderedResultIDs[0]),
+        )
+        #expect(strongestEvidence.rank == 1)
+        #expect(strongestEvidence.score == 0.25)
 
         model.setSemanticSearchShowsAllResults(true)
         summary = try #require(model.semanticSearchState.resultSummary)
@@ -389,21 +398,24 @@ struct RawCullSemanticSearchTests {
         )
         viewModel.files = fixture.files
         viewModel.filteredFiles = fixture.files
+        await viewModel.semanticSearchFeature.search(for: " \n ")
+        #expect(await provider.queries().isEmpty)
+        #expect(viewModel.semanticSearchFeature.state == .idle)
         #expect(
             await viewModel.similarityModel.hydrateSemanticArtifacts(
                 fixture.files,
             ) == 25,
         )
 
-        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.filteredFiles.count == 20)
         #expect(await provider.queries() == ["wildlife"])
 
-        await viewModel.setSemanticSearchShowsAllResults(true)
+        await viewModel.semanticSearchFeature.setShowsAllResults(true)
         #expect(viewModel.filteredFiles.count == 25)
         #expect(await provider.queries() == ["wildlife"])
 
-        await viewModel.setSemanticSearchShowsAllResults(false)
+        await viewModel.semanticSearchFeature.setShowsAllResults(false)
         #expect(viewModel.filteredFiles.count == 20)
         #expect(await provider.queries() == ["wildlife"])
     }
@@ -436,11 +448,11 @@ struct RawCullSemanticSearchTests {
             ) == 25,
         )
 
-        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.filteredFiles.count == 20)
         #expect(viewModel.activeCatalogFiles.count == 20)
 
-        await viewModel.adjustSemanticSearchSelection(by: -13)
+        await viewModel.semanticSearchFeature.adjustSelection(by: -13)
 
         let selectedIDs = Set(viewModel.filteredFiles.map(\.id))
         #expect(viewModel.filteredFiles.count == 7)
@@ -458,7 +470,7 @@ struct RawCullSemanticSearchTests {
         viewModel.comparisonFileIDs = [selectedFile.id, outsideFile.id]
         viewModel.mainViewMode = .comparisonGrid
 
-        await viewModel.adjustSemanticSearchSelection(by: -1)
+        await viewModel.semanticSearchFeature.adjustSelection(by: -1)
 
         #expect(viewModel.filteredFiles.count == 6)
         #expect(viewModel.selectedFileIDs == [selectedFile.id])
@@ -467,7 +479,7 @@ struct RawCullSemanticSearchTests {
         #expect(viewModel.mainViewMode == .similarityGrid)
         #expect(await provider.queries() == ["wildlife"])
 
-        await viewModel.adjustSemanticSearchSelection(by: 1)
+        await viewModel.semanticSearchFeature.adjustSelection(by: 1)
 
         #expect(viewModel.filteredFiles.count == 7)
         #expect(viewModel.activeCatalogFiles.count == 7)
@@ -485,7 +497,7 @@ struct RawCullSemanticSearchTests {
             BurstGroup(id: 0, fileIDs: scopedFiles.map(\.id))
         ]
 
-        await viewModel.clearSemanticSearch()
+        await viewModel.semanticSearchFeature.clear()
 
         #expect(viewModel.activeCatalogFiles.count == fixture.files.count)
         #expect(
@@ -534,8 +546,8 @@ struct RawCullSemanticSearchTests {
                 fixture.files,
             ) == 4,
         )
-        await viewModel.searchSemantically(for: "wildlife")
-        await viewModel.adjustSemanticSearchSelection(by: -2)
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
+        await viewModel.semanticSearchFeature.adjustSelection(by: -2)
 
         let selected = viewModel.filteredFiles
         let outside = try #require(
@@ -595,7 +607,7 @@ struct RawCullSemanticSearchTests {
                 fixture.files,
             ) == 25,
         )
-        await viewModel.searchSemantically(for: "wildlife")
+        await viewModel.semanticSearchFeature.search(for: "wildlife")
         #expect(viewModel.activeCatalogFiles.count == 20)
 
         viewModel.selectedFileIDs = Set(fixture.files.prefix(2).map(\.id))
@@ -616,22 +628,24 @@ struct RawCullSemanticSearchTests {
         await fixture.persistCLIPArtifacts(values: [50])
         let gate = SemanticSearchGate()
         let service = GatedSemanticSearchService(gate: gate)
-        let model = SimilarityScoringModel(
+        let viewModel = RawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
             ),
             semanticSearchService: service,
-            artifactStore: fixture.store,
+            similarityArtifactStore: fixture.store,
         )
-        #expect(await model.hydrateSemanticArtifacts(fixture.files) == 1)
+        viewModel.files = fixture.files
+        viewModel.filteredFiles = fixture.files
+        #expect(await viewModel.similarityModel.hydrateSemanticArtifacts(fixture.files) == 1)
 
         let oldTask = Task {
-            await model.rankSemantically(query: "old", files: fixture.files)
+            await viewModel.semanticSearchFeature.search(for: "old")
         }
         await gate.waitUntilStarted("old")
         let newTask = Task {
-            await model.rankSemantically(query: "new", files: fixture.files)
+            await viewModel.semanticSearchFeature.search(for: "new")
         }
         await gate.waitUntilStarted("new")
 
@@ -640,9 +654,13 @@ struct RawCullSemanticSearchTests {
         await gate.release("old", score: 0.1)
         await oldTask.value
 
-        let summary = try #require(model.semanticSearchState.resultSummary)
+        let summary = try #require(viewModel.semanticSearchFeature.resultSummary)
         #expect(summary.query == "new")
-        #expect(model.semanticScores[fixture.files[0].id] == 0.9)
+        #expect(
+            viewModel.semanticSearchFeature
+                .resultEvidence(for: fixture.files[0].id)?.score == 0.9,
+        )
+        #expect(viewModel.filteredFiles.map(\.id) == fixture.files.map(\.id))
     }
 
     @MainActor
@@ -653,35 +671,35 @@ struct RawCullSemanticSearchTests {
         await fixture.persistCLIPArtifacts(values: [50])
         let gate = SemanticSearchGate()
         let service = GatedSemanticSearchService(gate: gate)
-        let model = SimilarityScoringModel(
+        let viewModel = RawCullViewModel(
             semanticSearchCapability: .ready(
                 location: nil,
                 backend: semanticTestBackend,
             ),
             semanticSearchService: service,
-            artifactStore: fixture.store,
+            similarityArtifactStore: fixture.store,
         )
-        #expect(await model.hydrateSemanticArtifacts(fixture.files) == 1)
+        viewModel.files = fixture.files
+        viewModel.filteredFiles = fixture.files
+        #expect(await viewModel.similarityModel.hydrateSemanticArtifacts(fixture.files) == 1)
 
         let searchTask = Task {
-            await model.rankSemantically(
-                query: "cancel me",
-                files: fixture.files,
-            )
+            await viewModel.semanticSearchFeature.search(for: "cancel me")
         }
         await gate.waitUntilStarted("cancel me")
         #expect(
-            model.semanticSearchState == .searching(query: "cancel me"),
+            viewModel.semanticSearchFeature.state == .searching(query: "cancel me"),
         )
 
-        model.cancelSemanticSearch()
-        #expect(model.semanticSearchState == .idle)
-        #expect(model.semanticMatches.isEmpty)
+        await viewModel.semanticSearchFeature.cancel()
+        #expect(viewModel.semanticSearchFeature.state == .idle)
+        #expect(viewModel.filteredFiles == fixture.files)
 
         await gate.release("cancel me", score: 0.9)
         await searchTask.value
-        #expect(model.semanticSearchState == .idle)
-        #expect(model.semanticMatches.isEmpty)
+        #expect(viewModel.semanticSearchFeature.state == .idle)
+        #expect(viewModel.semanticSearchFeature.selectedFileIDs.isEmpty)
+        #expect(viewModel.filteredFiles == fixture.files)
     }
 
     @MainActor
@@ -720,7 +738,7 @@ struct RawCullSemanticSearchTests {
             ) == 3,
         )
 
-        await viewModel.searchSemantically(for: "night wildlife")
+        await viewModel.semanticSearchFeature.search(for: "night wildlife")
 
         #expect(viewModel.filteredFiles.map(\.name) == ["c.raw", "b.raw"])
         let semanticFocusedID = viewModel.filteredFiles.first?.id
@@ -728,7 +746,7 @@ struct RawCullSemanticSearchTests {
         #expect(await provider.queries() == ["night wildlife"])
 
         viewModel.ratingFilter = .all
-        await viewModel.clearSemanticSearch()
+        await viewModel.semanticSearchFeature.clear()
 
         #expect(viewModel.filteredFiles.map(\.name) == ["a.raw", "b.raw", "c.raw"])
         #expect(viewModel.selectedFileID == semanticFocusedID)

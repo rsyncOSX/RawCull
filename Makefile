@@ -17,7 +17,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 179
+SMOKE_EXPECTED_TESTS = 208
 PERFORMANCE_EXPECTED_TESTS = 2
 ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 
@@ -60,6 +60,9 @@ verify-performance-manifest: build-test-enumeration-verifier
 test-performance: verify-performance-manifest
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \
 		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
+
+verify-ai-import-boundary:
+	./Scripts/VerifyAIImportBoundary.sh
 
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
@@ -217,4 +220,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

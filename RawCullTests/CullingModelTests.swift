@@ -1662,11 +1662,16 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cancelled burst analysis cannot apply a late cache result`() async {
+        let gate = BurstCacheLoadGate()
+        let cacheRepository = TestBurstAnalysisCacheRepository(
+            load: { _, _, _, _, _ in await gate.load() },
+        )
         let viewModel = RawCullViewModel(
             similarityService: CancellationDistanceSimilarityService(
                 probe: SimilarityDistanceCancellationProbe(),
             ),
             similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+            burstAnalysisCacheRepository: cacheRepository,
         )
         let catalog = ARWSourceCatalog(
             name: "Catalog",
@@ -1674,7 +1679,6 @@ struct RawCullViewModelCullingTests {
         )
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
-        let gate = BurstCacheLoadGate()
         let snapshot = makeBurstSnapshot(
             catalog: catalog.url,
             files: [first, second],
@@ -1686,10 +1690,6 @@ struct RawCullViewModelCullingTests {
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
-        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in
-            await gate.load()
-        }
-
         let analysis = Task {
             await viewModel.restoreExistingFullCatalogBurstAnalysis()
         }
@@ -1699,7 +1699,7 @@ struct RawCullViewModelCullingTests {
         await gate.resume(returning: snapshot)
         _ = await analysis.value
 
-        #expect(viewModel.burstAnalysisTask == nil)
+        #expect(!viewModel.burstAnalysisCoordinator.hasActiveTask)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
         #expect(viewModel.burstAnalysisResults.isEmpty)
@@ -1710,7 +1710,9 @@ struct RawCullViewModelCullingTests {
     func `catalog cancellation resets all burst analysis state`() {
         let viewModel = RawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
-        viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
+        viewModel.burstAnalysisCoordinator.updateProgress(
+            BurstAnalysisProgress(step: .ranking),
+        )
         viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, files: [file])]
         viewModel.burstReviewStates = [1: .deferred]
         viewModel.burstReviewQueueFilter = .deferred
@@ -1771,9 +1773,6 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `restoring an existing full burst index never starts scoring or indexing`() async {
-        let viewModel = RawCullViewModel(
-            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
-        )
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1793,11 +1792,16 @@ struct RawCullViewModelCullingTests {
             files: [first, second],
             artifacts: [:],
         )
+        let viewModel = RawCullViewModel(
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+            burstAnalysisCacheRepository: TestBurstAnalysisCacheRepository(
+                load: { _, _, _, _, _ in snapshot },
+            ),
+        )
 
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
-        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in snapshot }
 
         let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
 
@@ -1931,12 +1935,6 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `review state persistence keeps completed analysis scope`() async throws {
-        let viewModel = RawCullViewModel(
-            similarityService: SuspendingSimilarityService(
-                probe: SimilarityEmbeddingSuspensionProbe(),
-            ),
-            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
-        )
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1945,23 +1943,35 @@ struct RawCullViewModelCullingTests {
         let second = makeCullingTestFile("B.ARW")
         let group = BurstGroup(id: 0, fileIDs: [first.id, second.id])
         let result = makeCullingBurstResult(groupID: 0, files: [first, second])
-        let snapshot = makeBurstSnapshot(
+        var snapshot = makeBurstSnapshot(
             catalog: catalog.url,
             files: [first, second],
             groups: [group],
             results: [result],
             reviewStateSnapshots: [],
         )
+        snapshot.embeddings = [:]
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: [first, second],
+            artifacts: [:],
+        )
         let recorder = BurstCacheSaveRecorder()
+        let viewModel = RawCullViewModel(
+            similarityService: SuspendingSimilarityService(
+                probe: SimilarityEmbeddingSuspensionProbe(),
+            ),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+            burstAnalysisCacheRepository: TestBurstAnalysisCacheRepository(
+                load: { _, _, _, _, _ in snapshot },
+                save: { savedSnapshot, _ in
+                    await recorder.record(savedSnapshot)
+                },
+            ),
+        )
 
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
-        viewModel.burstAnalysisMigrationLoad = { _ in snapshot }
-        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in snapshot }
-        viewModel.burstAnalysisCacheSave = { savedSnapshot, _ in
-            await recorder.record(savedSnapshot)
-        }
 
         #expect(await viewModel.restoreExistingFullCatalogBurstAnalysis())
         viewModel.selectedFileIDs = [first.id]
@@ -2020,6 +2030,65 @@ struct RawCullViewModelCullingTests {
         )
 
         #expect(restored.isEmpty)
+    }
+}
+
+@MainActor
+private final class TestBurstAnalysisCacheRepository: BurstAnalysisCacheRepository {
+    typealias Load = @MainActor (
+        URL,
+        [FileItem],
+        Int,
+        BurstSharpnessSignature,
+        BurstSimilaritySignature,
+    ) async -> BurstAnalysisCacheSnapshot?
+    typealias MigrationLoad = @MainActor (URL) async -> BurstAnalysisCacheSnapshot?
+    typealias Save = @MainActor (BurstAnalysisCacheSnapshot, URL) async -> Void
+    typealias Delete = @MainActor (URL) async -> Void
+
+    private let loadHandler: Load
+    private let migrationLoadHandler: MigrationLoad
+    private let saveHandler: Save
+    private let deleteHandler: Delete
+
+    init(
+        load: @escaping Load = { _, _, _, _, _ in nil },
+        migrationLoad: @escaping MigrationLoad = { _ in nil },
+        save: @escaping Save = { _, _ in },
+        delete: @escaping Delete = { _ in },
+    ) {
+        loadHandler = load
+        migrationLoadHandler = migrationLoad
+        saveHandler = save
+        deleteHandler = delete
+    }
+
+    func load(
+        catalog: URL,
+        files: [FileItem],
+        thumbnailMaxPixelSize: Int,
+        sharpnessSignature: BurstSharpnessSignature,
+        similaritySignature: BurstSimilaritySignature,
+    ) async -> BurstAnalysisCacheSnapshot? {
+        await loadHandler(
+            catalog,
+            files,
+            thumbnailMaxPixelSize,
+            sharpnessSignature,
+            similaritySignature,
+        )
+    }
+
+    func loadMigrationCandidate(catalog: URL) async -> BurstAnalysisCacheSnapshot? {
+        await migrationLoadHandler(catalog)
+    }
+
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+        await saveHandler(snapshot, catalog)
+    }
+
+    func delete(catalog: URL) async {
+        await deleteHandler(catalog)
     }
 }
 

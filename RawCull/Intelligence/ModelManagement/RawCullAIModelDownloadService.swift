@@ -1,5 +1,6 @@
 import BackgroundAssets
 import Foundation
+import Security
 import System
 
 nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
@@ -38,25 +39,44 @@ nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
 }
 
 nonisolated enum RawCullBackgroundAssetsRuntime {
-    static let macOS27Beta5Build = "26A5406e"
+    /// `AssetPackManager.shared` traps during validation on these macOS 27
+    /// seeds even when the signed app and profile contain the configured group.
+    static let affectedMacOS27Builds: Set<String> = [
+        "26A5406e",
+        "26A5421a"
+    ]
 
     static var isUsable: Bool {
         isUsable(
             operatingSystemVersionString: ProcessInfo.processInfo
                 .operatingSystemVersionString,
+            isDevelopmentSigned: isDevelopmentSigned,
         )
     }
 
     static func isUsable(
         operatingSystemVersionString: String,
+        isDevelopmentSigned: Bool = true,
     ) -> Bool {
-        !operatingSystemVersionString.contains(macOS27Beta5Build)
+        let isAffectedBuild = affectedMacOS27Builds.contains {
+            operatingSystemVersionString.contains($0)
+        }
+        return !isAffectedBuild || !isDevelopmentSigned
+    }
+
+    private static var isDevelopmentSigned: Bool {
+        guard let task = SecTaskCreateFromSelf(nil) else { return true }
+        return SecTaskCopyValueForEntitlement(
+            task,
+            "com.apple.security.get-task-allow" as CFString,
+            nil,
+        ) as? Bool == true
     }
 
     static let unavailableMessage =
-        "AI model downloads are temporarily unavailable on macOS 27 beta 5 "
-            + "(build \(macOS27Beta5Build)) because of a Background Assets "
-            + "validation regression."
+        "AI model downloads are temporarily unavailable in development builds "
+            + "on this macOS 27 beta because of a Background Assets validation "
+            + "regression. A packaged distribution build is unaffected."
 }
 
 nonisolated enum RawCullAIModelDownloadState: Equatable, Sendable {
@@ -140,9 +160,6 @@ nonisolated protocol RawCullAIModelDownloadServicing: Sendable {
 /// select the host without changing this service.
 actor RawCullManagedBackgroundAssetsModelDownloadService:
     RawCullAIModelDownloadServicing {
-    /// Compile-time switch for testing Background Assets on affected OS builds.
-    /// Set to `false` and rebuild to bypass the macOS 27 beta 5 guard.
-    private let isBackgroundAssetsRuntimeGuardEnabled = false
     private let source: RawCullAIModelDownloadSource
     private let backgroundAssetsRuntimeIsUsable: Bool
 
@@ -161,9 +178,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         guard source.isConfigured else {
             return .notConfigured
         }
-        guard !isBackgroundAssetsRuntimeGuardEnabled
-            || backgroundAssetsRuntimeIsUsable
-        else {
+        guard backgroundAssetsRuntimeIsUsable else {
             return .failed(
                 message: RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -175,7 +190,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             do {
                 return try .installed(location: modelURL(for: descriptor))
             } catch {
-                return .failed(message: String(describing: error))
+                return .failed(message: error.localizedDescription)
             }
         }
 
@@ -190,7 +205,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
             }
             return .ready
         } catch {
-            return .failed(message: String(describing: error))
+            return .failed(message: error.localizedDescription)
         }
     }
 
@@ -201,9 +216,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         guard source.isConfigured else {
             throw RawCullAIModelDownloadError.serviceNotConfigured
         }
-        guard !isBackgroundAssetsRuntimeGuardEnabled
-            || backgroundAssetsRuntimeIsUsable
-        else {
+        guard backgroundAssetsRuntimeIsUsable else {
             throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
                 RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -242,9 +255,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     func remove(
         _ descriptor: RawCullAIModelDownloadDescriptor,
     ) async throws {
-        guard !isBackgroundAssetsRuntimeGuardEnabled
-            || backgroundAssetsRuntimeIsUsable
-        else {
+        guard backgroundAssetsRuntimeIsUsable else {
             throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
                 RawCullBackgroundAssetsRuntime.unavailableMessage,
             )
@@ -291,8 +302,10 @@ actor RawCullAIModelDownloadCoordinator {
 
     static func live(
         paths: RawCullAIPaths,
+        catalog: RawCullAIModelDownloadCatalog = .production,
     ) -> RawCullAIModelDownloadCoordinator {
         RawCullAIModelDownloadCoordinator(
+            catalog: catalog,
             service: RawCullManagedBackgroundAssetsModelDownloadService(
                 source: .selfHosted(
                     manifestURL: RawCullAIModelDownloadSource
@@ -337,7 +350,7 @@ actor RawCullAIModelDownloadCoordinator {
                     }
                 } catch {
                     states[descriptor.id] = .failed(
-                        message: String(describing: error),
+                        message: error.localizedDescription,
                     )
                 }
             } else {

@@ -27,6 +27,8 @@ private let expectedSmokeSelectors = """
 RawCullTests/AICacheBoundaryTests
 RawCullTests/AccessibilityPresentationTests
 RawCullTests/ApertureHintTests
+RawCullTests/BurstAnalysisCoordinatorTests
+RawCullTests/BurstAnalysisPipelineValuesTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests
 RawCullTests/ComparisonGridDisplayStateTests
@@ -42,8 +44,10 @@ RawCullTests/PerFileAnalysisArtifactStoreTests
 RawCullTests/PhotoAnalysisKitIntegrationTests
 RawCullTests/RawCullAIIntegrationTests
 RawCullTests/RawCullAIModelDownloadsTests
+RawCullTests/RawCullIntelligenceRuntimeTests
 RawCullTests/RawCullSemanticSearchTests
 RawCullTests/RawCullSemanticSearchUITests
+RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests
@@ -75,7 +79,9 @@ private let expectedTaggedSuites: Set<String> = [
     "AICacheBoundaryTests",
     "AccessibilityPresentationTests",
     "ApertureHintTests",
+    "BurstAnalysisCoordinatorTests",
     "BurstFrameCachePolicyTests",
+    "BurstAnalysisPipelineValuesTests",
     "BurstReviewKeyActionTests",
     "ComparisonGridDisplayStateTests",
     "ComparisonGridNavigationTests",
@@ -89,8 +95,10 @@ private let expectedTaggedSuites: Set<String> = [
     "PhotoAnalysisKitIntegrationTests",
     "RawCullAIIntegrationTests",
     "RawCullAIModelDownloadsTests",
+    "RawCullIntelligenceRuntimeTests",
     "RawCullSemanticSearchTests",
     "RawCullSemanticSearchUITests",
+    "RawCullSimilarityFeatureTests",
     "ReleaseMetadataTests",
     "SharpnessScoringTests",
     "ThumbnailKeyActionTests",

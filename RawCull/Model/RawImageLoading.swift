@@ -108,6 +108,7 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
                     return data
                 }
             }
+
         case SupportedFileType.nef.rawValue:
             guard let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) else {
                 return nil
@@ -119,6 +120,7 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
                     return data
                 }
             }
+
         default:
             return nil
         }

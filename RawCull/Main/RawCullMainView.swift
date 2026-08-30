@@ -9,6 +9,9 @@ struct RawCullMainView: View {
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
@@ -279,6 +282,7 @@ struct RawCullMainView: View {
         } detail: {
             RawCullDetailContainerView(
                 viewModel: viewModel,
+                semanticSearchFeature: semanticSearchFeature,
                 cgImage: $cgImage,
                 nsImage: $nsImage,
                 selectedFileID: $viewModel.selectedFileID,
@@ -336,6 +340,9 @@ struct RawCullMainView: View {
     private var gridSplit: some View {
         GridThumbnailView(
             viewModel: viewModel,
+            similarityFeature: similarityFeature,
+            semanticSearchFeature: semanticSearchFeature,
+            deepAIReviewController: deepAIReviewController,
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
@@ -349,6 +356,9 @@ struct RawCullMainView: View {
     private var similarityGridSplit: some View {
         SimilarityGridView(
             viewModel: viewModel,
+            similarityFeature: similarityFeature,
+            semanticSearchFeature: semanticSearchFeature,
+            deepAIReviewController: deepAIReviewController,
             nsImage: $nsImage,
             cgImage: $cgImage,
         )

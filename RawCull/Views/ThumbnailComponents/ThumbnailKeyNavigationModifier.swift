@@ -59,7 +59,7 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                             }
                         }
                         let usesAnalysisSortOrder = viewModel.sharpnessModel.sortBySharpness
-                            || viewModel.similarityModel.sortBySimilarity
+                            || viewModel.similarityFeature.isSimilaritySortingActive
                         return usesAnalysisSortOrder
                             ? filtered
                             : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

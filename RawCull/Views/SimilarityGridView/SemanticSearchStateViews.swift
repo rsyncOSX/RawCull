@@ -128,12 +128,12 @@ private struct SemanticSearchResultActionsView: View {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityHint("Shows lower-ranked images without running CLIP again.")
-            } else if summary.rankedImageCount > SimilarityScoringModel.semanticSearchDefaultResultLimit {
+            } else if summary.rankedImageCount > RawCullSemanticSearchFeature.defaultResultLimit {
                 Button {
                     onSetShowsAllResults(false)
                 } label: {
                     Text(
-                        "Show Top \(SimilarityScoringModel.semanticSearchDefaultResultLimit)",
+                        "Show Top \(RawCullSemanticSearchFeature.defaultResultLimit)",
                         comment: "Button that limits semantic search to the highest-ranked images.",
                     )
                 }

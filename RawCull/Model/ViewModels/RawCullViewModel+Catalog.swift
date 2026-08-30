@@ -33,6 +33,7 @@ extension RawCullViewModel {
         selectedFileIDs = []
 
         cancelCatalogLoad()
+        similarityCatalogGeneration &+= 1
         currentselectedSource = source
         resetCatalogWorkingSet()
         scanning = source != nil
@@ -56,10 +57,8 @@ extension RawCullViewModel {
     func cancelCatalogLoad() {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
-        similarityHydrationTask?.cancel()
-        similarityHydrationTask = nil
-        semanticSimilarityHydrationTask?.cancel()
-        semanticSimilarityHydrationTask = nil
+        similarityFeature.cancelHydration()
+        similarityCatalogGeneration &+= 1
         activeCatalogLoadURL = nil
         currentselectedSource = nil
         cancelAndResetBurstAnalysis()
@@ -92,7 +91,7 @@ extension RawCullViewModel {
 
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
-        similarityModel.reset()
+        similarityFeature.resetCatalogState()
         ratingFilter = .all
         burstReviewQueueFilter = .all
 
@@ -126,10 +125,13 @@ extension RawCullViewModel {
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
         files = scannedFiles
-        await similarityModel.hydrateArtifacts(scannedFiles)
-        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-        await similarityModel.hydrateSemanticArtifacts(scannedFiles)
-        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
+        let hydrationRequest = RawCullSimilarityCatalogHydrationRequest(
+            files: scannedFiles,
+            catalogIdentity: currentSimilarityCatalogSnapshot.identity,
+        )
+        guard await similarityFeature.hydrateCatalog(hydrationRequest),
+              isActiveCatalogLoad(url), !Task.isCancelled
+        else { return }
         catalogDisplayCandidates = sortedFiles
         filteredFiles = applyFilters(to: catalogDisplayCandidates)
         preselectFirstVisibleFileByName()
@@ -232,13 +234,13 @@ extension RawCullViewModel {
     /// highest-ranked results into a durable scope shared by every catalog
     /// workflow until the search is cleared or the catalog is reindexed.
     var activeCatalogFiles: [FileItem] {
-        guard similarityModel.hasSemanticSearchResults else { return files }
-        let selectedIDs = similarityModel.semanticSearchSelectedFileIDs
+        guard semanticSearchFeature.hasResults else { return files }
+        let selectedIDs = semanticSearchFeature.selectedFileIDs
         return files.filter { selectedIDs.contains($0.id) }
     }
 
     var hasActiveSemanticSearchSelection: Bool {
-        similarityModel.hasSemanticSearchResults
+        semanticSearchFeature.hasResults
     }
 
     // MARK: - Helpers
@@ -275,8 +277,12 @@ extension RawCullViewModel {
     /// over sharpness sort, with the anchor image always ranked first.
     func applyFilters(to files: [FileItem]) -> [FileItem] {
         var result = applyNonSemanticFilters(to: files)
-        if similarityModel.hasSemanticSearchResults {
-            let resultOrder = similarityModel.semanticResultOrder
+        if semanticSearchFeature.hasResults {
+            let resultOrder = Dictionary(
+                uniqueKeysWithValues: semanticSearchFeature.orderedResultIDs
+                    .enumerated()
+                    .map { ($0.element, $0.offset) },
+            )
             result = result.filter { resultOrder[$0.id] != nil }
             result.sort { lhs, rhs in
                 let leftOrder = resultOrder[lhs.id] ?? .max
@@ -288,7 +294,7 @@ extension RawCullViewModel {
             }
             return result
         }
-        if similarityModel.semanticSearchHasEmptyIndex {
+        if semanticSearchFeature.hasEmptyIndex {
             return []
         }
 

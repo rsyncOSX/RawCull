@@ -36,10 +36,10 @@ struct ZoomCullingMetadata: Equatable {
     static func make(
         for file: FileItem,
         viewModel: RawCullViewModel,
+        semanticSearchFeature: RawCullSemanticSearchFeature,
         burstAnalysis: BurstAnalysisResult? = nil,
     ) -> Self {
         let sharpnessModel = viewModel.sharpnessModel
-        let similarityModel = viewModel.similarityModel
         let sharpnessScore = sharpnessModel.scores[file.id]
         let breakdown = sharpnessModel.breakdowns[file.id]
         let candidateIndex = burstAnalysis?.candidates.firstIndex { $0.fileID == file.id }
@@ -60,40 +60,33 @@ struct ZoomCullingMetadata: Equatable {
                     isRecommendation: burstAnalysis?.recommendedFileID == file.id,
                 )
             },
-            clipSemanticMatch: clipSemanticMatch(for: file, similarityModel: similarityModel),
-            clipSimilarity: clipSimilarity(for: file, similarityModel: similarityModel),
+            clipSemanticMatch: semanticSearchFeature
+                .resultEvidence(for: file.id)
+                .map {
+                    CLIPSemanticMatch(rank: $0.rank, score: $0.score)
+                },
+            clipSimilarity: clipSimilarity(
+                for: file,
+                similarityFeature: viewModel.similarityFeature,
+            ),
         )
-    }
-
-    @MainActor
-    private static func clipSemanticMatch(
-        for file: FileItem,
-        similarityModel: SimilarityScoringModel,
-    ) -> CLIPSemanticMatch? {
-        guard similarityModel.semanticSearchBackendDescriptor?.backend == "clip",
-              case .results = similarityModel.semanticSearchState,
-              let zeroBasedRank = similarityModel.semanticResultOrder[file.id],
-              let score = similarityModel.semanticScores[file.id]
-        else { return nil }
-        return CLIPSemanticMatch(rank: zeroBasedRank + 1, score: score)
     }
 
     @MainActor
     private static func clipSimilarity(
         for file: FileItem,
-        similarityModel: SimilarityScoringModel,
+        similarityFeature: RawCullSimilarityFeature,
     ) -> CLIPSimilarity? {
-        guard similarityModel.sortBySimilarity,
-              similarityModel.backendDescriptor.backend == "clip",
-              similarityModel.embeddings[file.id]?.descriptor.backend == "clip",
-              let anchorID = similarityModel.anchorFileID,
-              similarityModel.embeddings[anchorID]?.descriptor.backend == "clip"
-        else { return nil }
+        switch similarityFeature.evidence(for: file.id) {
+        case .anchor:
+            .anchor
 
-        if file.id == anchorID {
-            return .anchor
+        case let .distance(distance):
+            .distance(distance)
+
+        case nil:
+            nil
         }
-        return similarityModel.distances[file.id].map(CLIPSimilarity.distance)
     }
 }
 

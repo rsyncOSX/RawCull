@@ -122,7 +122,7 @@ struct ImageTableVerticalView: View {
 
     private var usesAnalysisSortOrder: Bool {
         viewModel.sharpnessModel.sortBySharpness
-            || viewModel.similarityModel.sortBySimilarity
+            || viewModel.similarityFeature.isSimilaritySortingActive
     }
 
     private func ratingValue(for file: FileItem) -> Int {

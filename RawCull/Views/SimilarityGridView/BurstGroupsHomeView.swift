@@ -3,6 +3,8 @@ import SwiftUI
 
 struct BurstGroupsHomeView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     @Binding var analyzeBurstsRequested: Bool
     let similarityThresholdChanged: () -> Void
 
@@ -131,31 +133,30 @@ struct BurstGroupsHomeView: View {
         viewModel.isPreparingBurstCatalog
             || viewModel.sharpnessModel.isCalibratingSharpnessScoring
             || viewModel.sharpnessModel.isScoring
-            || viewModel.similarityModel.isIndexing
-            || viewModel.similarityModel.isGrouping
+            || similarityFeature.isBusy
             || burstAnalysisIsBusy
     }
 
     private var catalogPreparationPresentation: BurstCatalogPreparationPresentation {
-        let similarityModel = viewModel.similarityModel
+        let indexing = similarityFeature.indexing
         let sharpnessModel = viewModel.sharpnessModel
         return BurstCatalogPreparationPresentation(
             isPreparingCatalog: viewModel.isPreparingBurstCatalog,
             fileCount: viewModel.activeCatalogFiles.count,
-            semanticIndexedCount: similarityModel.semanticIndexedFileCount,
-            semanticCatalogCount: similarityModel.semanticCatalogFileCount,
-            isIndexing: similarityModel.isIndexing,
-            indexingProgress: similarityModel.indexingProgress,
-            indexingTotal: similarityModel.indexingTotal,
-            indexingEstimatedSeconds: similarityModel.indexingEstimatedSeconds,
-            isSavingIndex: similarityModel.indexingPhase == .saving,
+            semanticIndexedCount: semanticSearchFeature.indexedFileCount,
+            semanticCatalogCount: semanticSearchFeature.catalogFileCount,
+            isIndexing: indexing.isIndexing,
+            indexingProgress: indexing.completed,
+            indexingTotal: indexing.total,
+            indexingEstimatedSeconds: indexing.estimatedSeconds,
+            isSavingIndex: indexing.phase == .saving,
             isCalibratingSharpness: sharpnessModel.isCalibratingSharpnessScoring,
             isScoringSharpness: sharpnessModel.isScoring,
             sharpnessScoreCount: sharpnessModel.scores.count,
             sharpnessProgress: sharpnessModel.scoringProgress,
             sharpnessTotal: sharpnessModel.scoringTotal,
             sharpnessEstimatedSeconds: sharpnessModel.scoringEstimatedSeconds,
-            isFindingBurstGroups: similarityModel.isGrouping
+            isFindingBurstGroups: similarityFeature.isGrouping
                 || (viewModel.isPreparingBurstCatalog
                     && viewModel.burstAnalysisProgress.isRunning),
             burstAnalysisStep: viewModel.burstAnalysisProgress.step,
@@ -211,7 +212,7 @@ struct BurstGroupsHomeView: View {
     }
 
     private func indexSimilarity() {
-        Task { await viewModel.indexSimilarity() }
+        Task { await similarityFeature.indexCurrentCatalog() }
     }
 }
 

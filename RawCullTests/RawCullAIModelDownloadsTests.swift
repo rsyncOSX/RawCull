@@ -121,7 +121,7 @@ struct RawCullAIModelDownloadsTests {
     }
 
     @Test
-    func `macOS 27 beta 5 avoids fatal Background Assets validation`() async {
+    func `affected macOS 27 Background Assets regressions are detected`() {
         #expect(
             !RawCullBackgroundAssetsRuntime.isUsable(
                 operatingSystemVersionString:
@@ -129,19 +129,35 @@ struct RawCullAIModelDownloadsTests {
             ),
         )
         #expect(
-            RawCullBackgroundAssetsRuntime.isUsable(
+            !RawCullBackgroundAssetsRuntime.isUsable(
                 operatingSystemVersionString:
-                "Version 27.0 (Build 26A5406f)",
+                "Version 27.0 (Build 26A5421a)",
             ),
         )
+        #expect(
+            RawCullBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                "Version 27.0 (Build 26A5421b)",
+            ),
+        )
+        #expect(
+            RawCullBackgroundAssetsRuntime.isUsable(
+                operatingSystemVersionString:
+                "Version 27.0 (Build 26A5421a)",
+                isDevelopmentSigned: false,
+            ),
+        )
+    }
 
+    @Test
+    func `Affected runtime avoids Background Assets access`() async {
         let service = RawCullManagedBackgroundAssetsModelDownloadService(
             source: .selfHosted(
-                manifestURL: RawCullAIModelDownloadSource
-                    .productionManifestURL,
+                manifestURL: RawCullAIModelDownloadSource.productionManifestURL,
             ),
             backgroundAssetsRuntimeIsUsable: false,
         )
+
         let state = await service.state(
             for: testDescriptor(readiness: .ready),
         )
@@ -178,6 +194,44 @@ struct RawCullAIModelDownloadsTests {
 
         #expect(snapshot.states[.clipDataComp] == failure)
         #expect(snapshot.states[.clipOpenAI] == failure)
+    }
+
+    @MainActor
+    @Test
+    func `Model management presents localized download failures`() async throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let descriptor = testDescriptor(readiness: .ready)
+        let service = ModelDownloadServiceSpy(
+            state: .ready,
+            downloadURL: root.appendingPathComponent("Models/Test"),
+            downloadFailureMessage: "Readable failure.",
+        )
+        let coordinator = RawCullAIModelDownloadCoordinator(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            service: service,
+            acceptanceStore: RawCullAIModelLicenceAcceptanceFileStore(
+                fileURL: root.appendingPathComponent("acceptances.json"),
+                licenceBundle: licenceBundle(),
+            ),
+        )
+        try await coordinator.acceptLicence(
+            for: descriptor.id,
+            rawCullVersion: "test",
+        )
+        let model = RawCullAIModelManagementModel(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            coordinator: coordinator,
+            rawCullVersion: "test",
+        )
+
+        await model.refresh()
+        model.startModelDownload(descriptor.id)
+        await waitUntilPresentation(
+            model,
+            hasState: .failed(message: "Readable failure."),
+        )
     }
 
     @MainActor
@@ -240,6 +294,104 @@ struct RawCullAIModelDownloadsTests {
 
         try await coordinator.remove(descriptor.id)
         #expect(await service.removalCount() == 1)
+    }
+
+    @MainActor
+    @Test
+    func `Model management presents progress installation and removal`() async {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let descriptor = testDescriptor(readiness: .ready)
+        let downloadedURL = root.appendingPathComponent(
+            "Models/Test",
+            isDirectory: true,
+        )
+        let service = ModelManagementDownloadService(
+            downloadURL: downloadedURL,
+        )
+        let coordinator = RawCullAIModelDownloadCoordinator(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            service: service,
+            acceptanceStore: RawCullAIModelLicenceAcceptanceFileStore(
+                fileURL: root.appendingPathComponent("acceptances.json"),
+                licenceBundle: licenceBundle(),
+            ),
+        )
+        let model = RawCullAIModelManagementModel(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            coordinator: coordinator,
+            rawCullVersion: "test",
+        )
+        let locationsConsumer = ManagedModelLocationsConsumerSpy()
+        model.bindLocationsConsumer(locationsConsumer)
+
+        #expect(model.presentations.map(\.state) == [.checking])
+        await model.refresh()
+        #expect(model.presentations.map(\.state) == [.licenceRequired])
+
+        await model.acceptModelLicence(for: descriptor.id)
+        #expect(model.presentations.map(\.state) == [.ready])
+        #expect(model.presentations.first?.licenceAccepted == true)
+
+        model.startModelDownload(descriptor.id)
+        await service.waitUntilProgressIsSuspended()
+        #expect(model.presentations.map(\.state) == [.downloading(progress: 0.4)])
+
+        await service.resumeDownload()
+        await waitUntilPresentation(
+            model,
+            hasState: .installed(location: downloadedURL),
+        )
+        #expect(locationsConsumer.snapshots.contains([
+            descriptor.id: downloadedURL
+        ]))
+
+        await model.removeManagedModel(descriptor.id)
+        #expect(model.presentations.map(\.state) == [.ready])
+        #expect(locationsConsumer.snapshots.last == [:])
+        #expect(await service.removalCount() == 1)
+    }
+
+    @MainActor
+    @Test
+    func `Cancelling model management download restores coordinator state`() async {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let descriptor = testDescriptor(readiness: .ready)
+        let service = CancellableModelManagementDownloadService(
+            downloadURL: root.appendingPathComponent("Models/Test"),
+        )
+        let coordinator = RawCullAIModelDownloadCoordinator(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            service: service,
+            acceptanceStore: RawCullAIModelLicenceAcceptanceFileStore(
+                fileURL: root.appendingPathComponent("acceptances.json"),
+                licenceBundle: licenceBundle(),
+            ),
+        )
+        let model = RawCullAIModelManagementModel(
+            catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
+            coordinator: coordinator,
+            rawCullVersion: "test",
+        )
+        let locationsConsumer = ManagedModelLocationsConsumerSpy()
+        model.bindLocationsConsumer(locationsConsumer)
+
+        await model.refresh()
+        await model.acceptModelLicence(for: descriptor.id)
+        model.startModelDownload(descriptor.id)
+        await service.waitUntilStarted()
+
+        model.cancelModelDownload(descriptor.id)
+        await waitUntilPresentation(model, hasState: .ready)
+
+        let publishedOnlyEmptyLocations = locationsConsumer.snapshots.allSatisfy {
+            $0.isEmpty
+        }
+        #expect(publishedOnlyEmptyLocations)
+        #expect(await service.didObserveCancellation())
     }
 
     @Test
@@ -368,6 +520,23 @@ struct RawCullAIModelDownloadsTests {
             .deletingLastPathComponent()
         return Bundle(url: hostedAppURL) ?? .main
     }
+
+    @MainActor
+    private func waitUntilPresentation(
+        _ model: RawCullAIModelManagementModel,
+        hasState expectedState: RawCullAIModelDownloadState,
+    ) async {
+        for _ in 0 ..< 1000 {
+            if model.presentations.first?.state == expectedState {
+                return
+            }
+            await Task.yield()
+        }
+        let actualState = String(describing: model.presentations.first?.state)
+        Issue.record(
+            "Expected model-management state \(expectedState), got \(actualState).",
+        )
+    }
 }
 
 private final class ModelDownloadTestBundleToken {}
@@ -376,15 +545,18 @@ private actor ModelDownloadServiceSpy:
     RawCullAIModelDownloadServicing {
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
+    private let downloadFailureMessage: String?
     private var downloads = 0
     private var removals = 0
 
     init(
         state: RawCullAIModelDownloadState,
         downloadURL: URL,
+        downloadFailureMessage: String? = nil,
     ) {
         currentState = state
         self.downloadURL = downloadURL
+        self.downloadFailureMessage = downloadFailureMessage
     }
 
     func state(
@@ -398,6 +570,11 @@ private actor ModelDownloadServiceSpy:
         progress: @escaping @MainActor @Sendable (Double) -> Void,
     ) async throws -> URL {
         downloads += 1
+        if let downloadFailureMessage {
+            throw RawCullAIModelDownloadError.backgroundAssetsUnavailable(
+                downloadFailureMessage,
+            )
+        }
         await progress(0.25)
         try Task.checkCancellation()
         await progress(1)
@@ -416,6 +593,120 @@ private actor ModelDownloadServiceSpy:
 
     func removalCount() -> Int {
         removals
+    }
+}
+
+private actor ModelManagementDownloadService:
+    RawCullAIModelDownloadServicing {
+    private let downloadURL: URL
+    private var currentState: RawCullAIModelDownloadState = .ready
+    private var progressIsSuspended = false
+    private var downloadMayResume = false
+    private var removals = 0
+
+    init(downloadURL: URL) {
+        self.downloadURL = downloadURL
+    }
+
+    func state(
+        for _: RawCullAIModelDownloadDescriptor,
+    ) -> RawCullAIModelDownloadState {
+        currentState
+    }
+
+    func download(
+        _: RawCullAIModelDownloadDescriptor,
+        progress: @escaping @MainActor @Sendable (Double) -> Void,
+    ) async throws -> URL {
+        await progress(-0.5)
+        await progress(0.4)
+        progressIsSuspended = true
+        while !downloadMayResume {
+            try Task.checkCancellation()
+            await Task.yield()
+        }
+        await progress(1.5)
+        currentState = .installed(location: downloadURL)
+        return downloadURL
+    }
+
+    func remove(
+        _: RawCullAIModelDownloadDescriptor,
+    ) {
+        removals += 1
+        currentState = .ready
+    }
+
+    func waitUntilProgressIsSuspended() async {
+        while !progressIsSuspended {
+            await Task.yield()
+        }
+    }
+
+    func resumeDownload() {
+        downloadMayResume = true
+    }
+
+    func removalCount() -> Int {
+        removals
+    }
+}
+
+private actor CancellableModelManagementDownloadService:
+    RawCullAIModelDownloadServicing {
+    private let downloadURL: URL
+    private var started = false
+    private var observedCancellation = false
+
+    init(downloadURL: URL) {
+        self.downloadURL = downloadURL
+    }
+
+    func state(
+        for _: RawCullAIModelDownloadDescriptor,
+    ) -> RawCullAIModelDownloadState {
+        .ready
+    }
+
+    func download(
+        _: RawCullAIModelDownloadDescriptor,
+        progress: @escaping @MainActor @Sendable (Double) -> Void,
+    ) async throws -> URL {
+        started = true
+        await progress(0.25)
+        do {
+            try await Task.sleep(for: .seconds(30))
+            return downloadURL
+        } catch is CancellationError {
+            observedCancellation = true
+            throw CancellationError()
+        }
+    }
+
+    func remove(
+        _: RawCullAIModelDownloadDescriptor,
+    ) {}
+
+    func waitUntilStarted() async {
+        while !started {
+            await Task.yield()
+        }
+    }
+
+    func didObserveCancellation() -> Bool {
+        observedCancellation
+    }
+}
+
+@MainActor
+private final class ManagedModelLocationsConsumerSpy:
+    RawCullAIManagedModelLocationsApplying {
+    private(set) var snapshots: [[RawCullAIModelDownloadID: URL]] = []
+
+    func applyManagedModelLocations(
+        _ locations: [RawCullAIModelDownloadID: URL],
+    ) {
+        snapshots.append(locations)
     }
 }
 

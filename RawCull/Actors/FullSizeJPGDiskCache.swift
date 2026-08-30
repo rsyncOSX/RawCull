@@ -60,15 +60,23 @@ actor FullSizeJPGDiskCache {
         let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         return await Task.detached(priority: .userInitiated) {
-            guard variant == .embeddedJPG,
-                  let data = try? Data(contentsOf: fileURL)
-            else {
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                return nil
+            }
+
+            switch variant {
+            case .embeddedJPG:
+                guard let data = try? Data(contentsOf: fileURL) else {
+                    return nil
+                }
+                return OrientationNormalizedImageLoader.loadEmbeddedPreview(
+                    from: data,
+                    sourceURL: sourceURL,
+                )
+
+            case .developedRAW:
                 return OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
             }
-            return OrientationNormalizedImageLoader.loadEmbeddedPreview(
-                from: data,
-                sourceURL: sourceURL,
-            )
         }.value
     }
 
@@ -98,7 +106,7 @@ actor FullSizeJPGDiskCache {
 
         let options: [CFString: Any] = [
             kCGImageDestinationLossyCompressionQuality: 0.85,
-            kCGImagePropertyOrientation: 1,
+            kCGImagePropertyOrientation: 1
         ]
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }

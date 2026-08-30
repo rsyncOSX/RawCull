@@ -29,7 +29,7 @@ struct AISettingsTab: View {
                         Label("Check Again", systemImage: "arrow.clockwise")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .disabled(model.isScanningSavedBurstData || model.isDeletingSavedBurstData)
+                    .disabled(model.isScanningSavedBurstData)
                     .buttonStyle(RefinedGlassButtonStyle())
 
                     Spacer()
@@ -40,7 +40,7 @@ struct AISettingsTab: View {
             await model.refresh()
         }
         .sheet(isPresented: $showModelDownloads) {
-            AIModelDownloadsView(model: model)
+            AIModelDownloadsView(model: model.modelManagementModel)
         }
     }
 }

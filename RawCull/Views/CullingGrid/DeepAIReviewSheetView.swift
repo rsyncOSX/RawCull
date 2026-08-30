@@ -2,27 +2,29 @@ import PhotoAIContracts
 import SwiftUI
 
 struct DeepAIReviewSheetView: View {
-    @Bindable var feature: DeepAIReviewFeature
+    @Bindable var controller: DeepAIReviewController
     let groupID: Int
     let groupSignature: BurstGroupSignature
     let files: [FileItem]
-    let onRun: () -> Void
-    let onCancel: () -> Void
     let onApply: (DeepAIReviewResult) -> Void
     let onClose: () -> Void
 
     private var result: DeepAIReviewResult? {
-        feature.result(for: groupSignature)
+        controller.result(for: groupSignature)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             DeepAIReviewSheetControls(
-                feature: feature,
-                canRun: !files.isEmpty && feature.availability.isAvailable,
+                controller: controller,
+                canRun: !files.isEmpty && !controller.isActionUnavailable,
                 canApply: result?.recommendedFileID != nil,
-                onRun: onRun,
-                onCancel: onCancel,
+                onRun: {
+                    Task {
+                        await controller.start(for: files)
+                    }
+                },
+                onCancel: controller.cancel,
                 onApply: {
                     if let result {
                         onApply(result)
@@ -34,26 +36,29 @@ struct DeepAIReviewSheetView: View {
             Divider()
 
             DeepAIReviewSheetContent(
-                state: feature.state,
-                result: result,
-                groupID: groupID,
+                state: controller.presentationState(
+                    groupID: groupID,
+                    groupSignature: groupSignature,
+                ),
             )
         }
         .padding(16)
         .frame(minWidth: 1080, idealWidth: 1220, minHeight: 520, idealHeight: 640)
-        .interactiveDismissDisabled(feature.isRunning)
+        .interactiveDismissDisabled(controller.isRunning)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Deep Review")
         .accessibilityValue(RawCullAccessibilityPresentation.deepReviewValue(
-            state: feature.state,
+            state: controller.presentationState(
+                groupID: groupID,
+                groupSignature: groupSignature,
+            ),
             cachedResult: result,
-            groupID: groupID,
         ))
     }
 }
 
 private struct DeepAIReviewSheetControls: View {
-    @Bindable var feature: DeepAIReviewFeature
+    @Bindable var controller: DeepAIReviewController
     let canRun: Bool
     let canApply: Bool
     let onRun: () -> Void
@@ -63,17 +68,17 @@ private struct DeepAIReviewSheetControls: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Picker("Review target", selection: $feature.preset) {
+            Picker("Review target", selection: $controller.preset) {
                 Text("Auto").tag(DeepAIReviewPreset.auto)
                 Text("Full Subject").tag(DeepAIReviewPreset.fullSubject)
                 Text("Head / Face").tag(DeepAIReviewPreset.headFace)
             }
             .pickerStyle(.segmented)
             .frame(maxWidth: 420)
-            .disabled(feature.isRunning)
+            .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
 
-            if feature.isRunning {
+            if controller.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .buttonStyle(.bordered)
                     .accessibilityHint("Cancels the active Deep Review.")
@@ -88,69 +93,96 @@ private struct DeepAIReviewSheetControls: View {
 
             Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
                 .buttonStyle(.borderedProminent)
-                .disabled(!canApply || feature.isRunning)
+                .disabled(!canApply || controller.isRunning)
                 .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
 
             Button("Close", systemImage: "xmark", action: onClose)
                 .buttonStyle(.bordered)
-                .disabled(feature.isRunning)
+                .disabled(controller.isRunning)
                 .accessibilityHint("Closes Deep Review without changing the burst winner.")
         }
     }
 }
 
 private struct DeepAIReviewSheetContent: View {
-    let state: DeepAIReviewState
-    let result: DeepAIReviewResult?
-    let groupID: Int
+    let state: DeepAIReviewPresentationState
 
     var body: some View {
-        if let result {
+        switch state {
+        case let .completed(result):
             DeepAIReviewSummaryView(result: result)
             DeepAIReviewCandidateTable(candidates: result.candidates, winnerID: result.recommendedFileID)
-        } else {
-            switch state {
-            case let .preparing(activeGroupID, totalCount) where activeGroupID == groupID:
-                DeepAIReviewProgressHeader(
-                    completedCount: 0,
-                    totalCount: totalCount,
-                    currentFileName: nil,
-                )
-                Spacer()
 
-            case let .running(progress) where progress.groupID == groupID:
-                DeepAIReviewProgressHeader(
-                    completedCount: progress.completedCount,
-                    totalCount: progress.totalCount,
-                    currentFileName: progress.currentFileName,
-                )
-                DeepAIReviewCandidateTable(candidates: progress.candidates, winnerID: nil)
+        case let .preparing(_, totalCount):
+            DeepAIReviewProgressHeader(
+                completedCount: 0,
+                totalCount: totalCount,
+                currentFileName: nil,
+            )
+            Spacer()
 
-            case let .completing(activeGroupID) where activeGroupID == groupID:
-                HStack(spacing: 10) {
-                    ProgressView()
-                    Text("Completing Deep Review…")
-                        .font(.headline)
-                }
-                Spacer()
+        case let .running(progress):
+            DeepAIReviewProgressHeader(
+                completedCount: progress.completedCount,
+                totalCount: progress.totalCount,
+                currentFileName: progress.currentFileName,
+            )
+            DeepAIReviewCandidateTable(candidates: progress.candidates, winnerID: nil)
 
-            case let .failed(activeGroupID, failure) where activeGroupID == nil || activeGroupID == groupID:
-                ContentUnavailableView(
-                    "Deep Review Failed",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(failureMessage(failure)),
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            case .idle, .preparing, .running, .completing, .failed, .completed:
-                ContentUnavailableView(
-                    "No Deep Review Yet",
-                    systemImage: "sparkle.magnifyingglass",
-                    description: Text("Run local AI subject-detail analysis for this burst group."),
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .completing:
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Completing Deep Review…")
+                    .font(.headline)
             }
+            Spacer()
+
+        case let .checking(expectedLocations):
+            ContentUnavailableView(
+                "Checking Deep Review",
+                systemImage: "hourglass",
+                description: Text(checkingMessage(expectedLocations)),
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+        case let .unavailable(reason):
+            ContentUnavailableView(
+                "Deep Review Unavailable",
+                systemImage: "sparkle.magnifyingglass",
+                description: Text(reason),
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+        case .cancelled:
+            ContentUnavailableView(
+                "Deep Review Cancelled",
+                systemImage: "xmark.circle",
+                description: Text("Run Deep Review again when you are ready."),
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+        case let .failed(_, failure):
+            ContentUnavailableView(
+                "Deep Review Failed",
+                systemImage: "exclamationmark.triangle",
+                description: Text(failureMessage(failure)),
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+        case .ready:
+            ContentUnavailableView(
+                "No Deep Review Yet",
+                systemImage: "sparkle.magnifyingglass",
+                description: Text("Run local AI subject-detail analysis for this burst group."),
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private func checkingMessage(_ expectedLocations: [URL]) -> String {
+        expectedLocations.first.map {
+            "RawCull is checking the selected segmentation model at \($0.path)."
+        } ?? "RawCull is checking the selected segmentation model."
     }
 
     private func failureMessage(_ failure: DeepAIReviewFailure) -> String {

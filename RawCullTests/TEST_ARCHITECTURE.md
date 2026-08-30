@@ -17,8 +17,8 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 173 unique smoke identifiers (186 concrete invocations)
-and 2 unique performance identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
+current baselines are 206 unique smoke identifiers and 2 unique performance
+identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
 update to the source test, response file, expected selector inventory, and Make
@@ -32,11 +32,15 @@ non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows
   `PhotoAnalysisKitIntegrationTests` and the exact Vision migration tests.
 - DataComp/OpenAI CLIP selection, model validation, downloads, and licence:
   `RawCullAIIntegrationTests` and `RawCullAIModelDownloadsTests`.
+- Stable intelligence ownership, shared model identity, typed configuration
+  ordering, stale-revision rejection, and retain-cycle safety:
+  `RawCullIntelligenceRuntimeTests`.
 - Semantic hydration/search and UI state: `RawCullSemanticSearchTests` and
   `RawCullSemanticSearchUITests`.
-- Deep Review and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
+- Deep Review controller availability/request construction, operation lifecycle,
+  and SAM 3 subject-mask behavior: `DeepAIReviewFeatureTests`.
 - Typed persistence, backend separation, partial results, and legacy migration:
-  `PerFileAnalysisArtifactStoreTests` plus the exact non-benchmark
+  `BurstAnalysisCoordinatorTests`, `PerFileAnalysisArtifactStoreTests`, plus the exact non-benchmark
   `PhotoAIKitSimilarityMigrationTests` identifiers.
 - Core culling, zoom, histogram, and comparison behavior: the corresponding
   suite selectors and three exact `CullingModelTests` cancellation identifiers.
@@ -127,6 +131,13 @@ the suite name, tag, or test body.
 - `RawCullAIIntegrationTests.swift`: canonical AI paths, Phase 1 capability state,
   saved burst evidence scanning, model validation reuse, Settings cancellation,
   and persisted CLIP preference behavior.
+- `RawCullIntelligenceRuntimeTests.swift`: stable application assembly, shared
+  similarity, model-management, and Deep Review identity, typed Settings
+  configuration ordering, no-op and stale-revision behavior, in-flight hydration
+  supersession, segmentation isolation, and weak-edge lifetime behavior.
+- `RawCullSimilarityFeatureTests.swift`: shared feature/model identity, RawCull-owned
+  backend and progress projections, backend replacement ordering, and stale catalog
+  hydration rejection.
 - `RawCullVerifyViewModelSecurityScopeTests.swift`: security-scoped catalog access
   lifecycle behavior on the `@MainActor` `RawCullViewModel`.
 - `ScanAndExtractJPGsTests.swift`: scan/extraction coordination behavior.

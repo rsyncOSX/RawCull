@@ -37,9 +37,66 @@ nonisolated struct BurstGroupSignature: Codable, Hashable {
     }
 }
 
-nonisolated struct BurstReviewStateSnapshot: Codable, Equatable {
+nonisolated struct BurstReviewStateSnapshot: Codable, Equatable, Sendable {
     let signature: BurstGroupSignature
     let state: BurstReviewState
+}
+
+/// Immutable configuration captured when a burst-analysis pass starts.
+///
+/// The version fields are deliberately values rather than reads of global
+/// constants so a future coordinator can make every compatibility decision from
+/// one request snapshot.
+nonisolated struct BurstAnalysisPipelineConfiguration: Equatable, Sendable {
+    let thumbnailMaxPixelSize: Int
+    let grouping: BurstGroupingConfig
+    let cacheSchemaVersion: Int
+    let groupingAlgorithmVersion: Int
+}
+
+/// Pure input boundary for the existing burst-analysis pipeline.
+nonisolated struct BurstAnalysisPipelineRequest: Equatable, Sendable {
+    let catalogIdentity: URL
+    let orderedFiles: [FileItem]
+    let sharpnessSignature: BurstSharpnessSignature
+    let similaritySignature: BurstSimilaritySignature
+    let generation: Int
+    let configuration: BurstAnalysisPipelineConfiguration
+}
+
+nonisolated enum BurstAnalysisCacheOutcome: Equatable, Sendable {
+    case hit
+    case miss
+    case rejectedArtifactSet
+}
+
+nonisolated enum BurstAnalysisDiagnostic: Equatable, Sendable {
+    case legacyMigrationCandidateFound
+    case reusedSharpnessScores
+    case scoredMissingSharpness
+    case reusedSimilarityArtifacts
+    case indexedMissingSimilarityArtifacts
+    case cacheSaveRequested
+}
+
+/// Pure output boundary produced by the existing view-model implementation.
+/// Worker ownership remains in `RawCullViewModel` until later Phase 7 subphases.
+nonisolated struct BurstAnalysisPipelineResult: Equatable, Sendable {
+    let groups: [BurstGroup]
+    let rankings: [BurstAnalysisResult]
+    let restoredReviewStates: [Int: BurstReviewState]
+    let cacheOutcome: BurstAnalysisCacheOutcome
+    let diagnostics: [BurstAnalysisDiagnostic]
+}
+
+/// Cache preparation returned by `BurstAnalysisCoordinator` before any missing
+/// sharpness or similarity work begins.
+nonisolated struct BurstAnalysisCachePreparation: Equatable {
+    let compatibleSnapshot: BurstAnalysisCacheSnapshot?
+    let migrationCandidate: BurstAnalysisCacheSnapshot?
+    let restoredReviewStates: [Int: BurstReviewState]
+    let cacheOutcome: BurstAnalysisCacheOutcome
+    let diagnostics: [BurstAnalysisDiagnostic]
 }
 
 struct CompletedBurstAnalysisContext: Equatable {

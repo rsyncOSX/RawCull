@@ -339,21 +339,35 @@ struct RawCullAIIntegrationTests {
             bundle: .main,
             allowsBundledModelFallback: false,
         )
-        var selectedBackends: [String] = []
-        let model = RawCullAISettingsModel(
+        let applicationState = RawCullApplicationState.make(
             integration: integration,
+            similarityArtifactStore: PerFileAnalysisArtifactStore(
+                storageDirectory: root.appendingPathComponent(
+                    "SimilarityArtifacts",
+                    isDirectory: true,
+                ),
+            ),
             userDefaults: userDefaults,
-            similarityServiceDidChange: { service in
-                selectedBackends.append(service.backendDescriptor.backend)
-            },
+            evidenceScan: { .success(.empty) },
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            rawCullVersion: "test",
         )
+        let model = applicationState.intelligenceRuntime.settingsModel
 
         #expect(model.useCLIPForSimilarity)
         #expect(model.selectedCLIPModel == .dataComp)
         await model.refresh()
+        #expect(
+            applicationState.intelligenceRuntime.similarityModel.backendDescriptor.backend
+                == "vision-feature-print",
+        )
         model.useCLIPForSimilarity = false
         #expect(!model.useCLIPForSimilarity)
         #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey) == false)
+        #expect(
+            applicationState.intelligenceRuntime.similarityModel.backendDescriptor.backend
+                == "vision-feature-print",
+        )
 
         model.useCLIPForSimilarity = true
         model.selectedCLIPModel = .dataComp
@@ -365,11 +379,10 @@ struct RawCullAIIntegrationTests {
                 forKey: RawCullAISettingsModel.selectedCLIPModelPreferenceKey,
             ) == RawCullCLIPModel.dataComp.rawValue,
         )
-        #expect(selectedBackends == [
-            "vision-feature-print",
-            "vision-feature-print",
-            "vision-feature-print"
-        ])
+        #expect(
+            applicationState.intelligenceRuntime.similarityModel.backendDescriptor.backend
+                == "vision-feature-print",
+        )
         let relaunchedModel = RawCullAISettingsModel(
             integration: integration,
             userDefaults: userDefaults,

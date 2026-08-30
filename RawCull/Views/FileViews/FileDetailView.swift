@@ -3,6 +3,7 @@ import SwiftUI
 struct FileDetailView: View {
     @Environment(\.openWindow) var openWindow
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
 
     @Binding var cgImage: CGImage?
     @Binding var nsImage: NSImage?
@@ -25,6 +26,7 @@ struct FileDetailView: View {
                 MainThumbnailImageView(
                     url: file.url,
                     file: file,
+                    semanticSearchFeature: semanticSearchFeature,
                 )
             }
             .padding()

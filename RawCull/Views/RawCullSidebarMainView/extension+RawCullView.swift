@@ -11,6 +11,7 @@ extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
             viewModel: viewModel,
+            semanticSearchFeature: semanticSearchFeature,
             toggleMetadataPanel: toggleLoupeMetadataPanel,
         )
     }

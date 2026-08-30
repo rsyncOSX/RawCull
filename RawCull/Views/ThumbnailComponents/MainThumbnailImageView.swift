@@ -51,6 +51,7 @@ struct MainThumbnailImageView: View {
 
     let url: URL
     let file: FileItem?
+    let semanticSearchFeature: RawCullSemanticSearchFeature
 
     @State private var image: NSImage?
     @State private var thumbnailSizePreview: Int?
@@ -182,6 +183,7 @@ struct MainThumbnailImageView: View {
                                             cullingMetadata: ZoomCullingMetadata.make(
                                                 for: file,
                                                 viewModel: viewModel,
+                                                semanticSearchFeature: semanticSearchFeature,
                                             ),
                                             onHide: {
                                                 withAnimation(.snappy) {

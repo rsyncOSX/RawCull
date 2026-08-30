@@ -102,7 +102,6 @@ struct AccessibilityPresentationTests {
         #expect(RawCullAccessibilityPresentation.deepReviewValue(
             state: .running(progress),
             cachedResult: nil,
-            groupID: 7,
         ) == "Running SAM 3 Deep Review, 2 of 5 candidates complete.")
 
         let winnerID = UUID()
@@ -138,7 +137,6 @@ struct AccessibilityPresentationTests {
         #expect(RawCullAccessibilityPresentation.deepReviewValue(
             state: .completed(result),
             cachedResult: result,
-            groupID: 7,
         ) == "Completed. Recommends winner.ARW. High confidence.")
     }
 }

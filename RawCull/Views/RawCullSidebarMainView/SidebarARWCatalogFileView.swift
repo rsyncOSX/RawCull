@@ -141,7 +141,7 @@ struct SidebarARWCatalogFileView: View {
     }
 
     private var sortStatus: LoupeSortStatus {
-        if viewModel.similarityModel.sortBySimilarity {
+        if viewModel.similarityFeature.isSimilaritySortingActive {
             return .similarity
         }
         if viewModel.sharpnessModel.sortBySharpness {

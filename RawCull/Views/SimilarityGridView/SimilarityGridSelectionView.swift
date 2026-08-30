@@ -10,6 +10,9 @@ import SwiftUI
 
 struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
 
     // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
     // periphery:ignore
@@ -21,14 +24,20 @@ struct SimilarityGridSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SemanticSearchControlsView(viewModel: viewModel)
+            SemanticSearchControlsView(
+                semanticSearchFeature: semanticSearchFeature,
+                similarityFeature: similarityFeature,
+            )
 
             Divider()
 
-            switch viewModel.similarityModel.semanticSearchState {
+            switch semanticSearchFeature.state {
             case .idle:
                 OrdinarySimilarityWorkflowView(
                     viewModel: viewModel,
+                    similarityFeature: similarityFeature,
+                    semanticSearchFeature: semanticSearchFeature,
+                    deepAIReviewController: deepAIReviewController,
                     analyzeBurstsRequested: $analyzeBurstsRequested,
                     similarityThresholdChanged: scheduleBurstRegroup,
                 )
@@ -36,21 +45,24 @@ struct SimilarityGridSelectionView: View {
             case let .searching(query):
                 SemanticSearchSearchingView(
                     query: query,
-                    progress: viewModel.similarityModel.semanticSearchProgress,
+                    progress: semanticSearchFeature.progress,
                 )
 
             case let .results(summary) where summary.resultCount == 0:
                 SemanticSearchEmptyResultsView(summary: summary)
 
             case let .results(summary):
-                CullingGridView(viewModel: viewModel) {
+                CullingGridView(
+                    viewModel: viewModel,
+                    similarityFeature: similarityFeature,
+                    semanticSearchFeature: semanticSearchFeature,
+                    deepAIReviewController: deepAIReviewController,
+                ) {
                     SemanticSearchResultsHeaderView(
                         summary: summary,
                         onSetShowsAllResults: { showsAll in
                             Task {
-                                await viewModel.setSemanticSearchShowsAllResults(
-                                    showsAll,
-                                )
+                                await semanticSearchFeature.setShowsAllResults(showsAll)
                             }
                         },
                     )
@@ -59,14 +71,9 @@ struct SimilarityGridSelectionView: View {
             case let .emptyIndex(_, excludedFileCount):
                 SemanticSearchEmptyIndexView(
                     excludedFileCount: excludedFileCount,
-                    canIndex: viewModel.similarityModel.canIndexSemanticSearchArtifacts,
-                    isIndexing: viewModel.similarityModel.isIndexing
-                        && viewModel.similarityModel.canIndexSemanticSearchArtifacts,
-                    onIndex: {
-                        Task {
-                            await viewModel.indexSimilarity()
-                        }
-                    },
+                    canIndex: semanticSearchFeature.canIndexArtifacts,
+                    isIndexing: semanticSearchFeature.isIndexingCompatibleArtifacts,
+                    onIndex: indexSimilarity,
                 )
 
             case let .failed(_, message):
@@ -76,6 +83,13 @@ struct SimilarityGridSelectionView: View {
         .onDisappear {
             pendingRegroupTask?.cancel()
             pendingRegroupTask = nil
+        }
+    }
+
+    private func indexSimilarity() {
+        guard semanticSearchFeature.presentation.canStartIndexing else { return }
+        Task {
+            await similarityFeature.indexCurrentCatalog()
         }
     }
 
@@ -93,12 +107,20 @@ struct SimilarityGridSelectionView: View {
 
 private struct OrdinarySimilarityWorkflowView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
     @Binding var analyzeBurstsRequested: Bool
     let similarityThresholdChanged: () -> Void
 
     var body: some View {
         if viewModel.similarityModel.burstModeActive {
-            CullingGridView(viewModel: viewModel) {
+            CullingGridView(
+                viewModel: viewModel,
+                similarityFeature: similarityFeature,
+                semanticSearchFeature: semanticSearchFeature,
+                deepAIReviewController: deepAIReviewController,
+            ) {
                 BurstGroupHeaderControlsView(
                     viewModel: viewModel,
                     similarityThresholdChanged: similarityThresholdChanged,
@@ -107,6 +129,8 @@ private struct OrdinarySimilarityWorkflowView: View {
         } else {
             BurstGroupsHomeView(
                 viewModel: viewModel,
+                similarityFeature: similarityFeature,
+                semanticSearchFeature: semanticSearchFeature,
                 analyzeBurstsRequested: $analyzeBurstsRequested,
                 similarityThresholdChanged: similarityThresholdChanged,
             )

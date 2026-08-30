@@ -67,7 +67,7 @@ struct OperationFailurePresentation: Identifiable {
 }
 
 @Observable @MainActor
-final class RawCullViewModel {
+final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Remember previous selected source to avoid a new rescan of
     /// already scanned catalog
     @ObservationIgnored var currentselectedSource: ARWSourceCatalog?
@@ -147,17 +147,33 @@ final class RawCullViewModel {
     /// overlay and the sharpness scoring pipeline.
     var sharpnessModel = SharpnessScoringModel()
 
-    /// Similarity scoring model — PhotoAIKit artifacts with RawCull-owned ranking policy.
+    /// Stable feature boundary for image-similarity work and presentation.
+    let similarityFeature: RawCullSimilarityFeature
+
+    /// Temporary burst/persistence compatibility path retained for Phases 7/9.
     var similarityModel: SimilarityScoringModel
 
-    /// Dedicated AI segmentation burst-review feature. It owns the in-process workflow
-    /// and typed operation state; the central view model only adapts inputs and
-    /// applies a user-confirmed recommendation.
-    let deepAIReviewFeature: DeepAIReviewFeature
+    /// Semantic-only presentation and actions backed by `similarityModel`.
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+
+    /// Runtime-owned optional Deep Review capability. The central view model only
+    /// supplies application burst evidence, resets catalog-scoped state, and applies
+    /// a user-confirmed recommendation.
+    let deepAIReviewController: DeepAIReviewController
+
+    /// Stable worker boundary for burst cache and compute orchestration.
+    @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
 
     /// Intelligent burst culling analysis state.
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
-    var burstAnalysisProgress = BurstAnalysisProgress()
+    var burstAnalysisProgress: BurstAnalysisProgress {
+        burstAnalysisCoordinator.progress
+    }
+
+    var burstAnalysisGeneration: Int {
+        burstAnalysisCoordinator.generation
+    }
+
     var burstReviewStates: [Int: BurstReviewState] = [:]
     var burstReviewQueueFilter: BurstReviewQueueFilter = .all
     var activeBurstComparisonGroupID: Int?
@@ -209,54 +225,72 @@ final class RawCullViewModel {
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
     @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
-    @ObservationIgnored var similarityHydrationTask: Task<Void, Never>?
-    @ObservationIgnored var semanticSimilarityHydrationTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
+    @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
     /// Full name-sorted/search-filtered catalog projection before rating,
     /// sharpness, and similarity filters are applied.
     @ObservationIgnored var catalogDisplayCandidates: [FileItem] = []
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
-    @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
-    @ObservationIgnored var burstAnalysisGeneration: Int = 0
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
-    @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
-    @ObservationIgnored var burstAnalysisCacheLoad: @MainActor (
-        URL,
-        [FileItem],
-        Int,
-        BurstSharpnessSignature,
-        BurstSimilaritySignature,
-    ) async -> BurstAnalysisCacheSnapshot? = {
-        catalog,
-        files,
-        thumbnailMaxPixelSize,
-        sharpnessSignature,
-        similaritySignature in
-        await BurstAnalysisCache.shared.load(
-            catalog: catalog,
-            files: files,
-            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-            sharpnessSignature: sharpnessSignature,
-            similaritySignature: similaritySignature,
-        )
-    }
-
-    @ObservationIgnored var burstAnalysisMigrationLoad: @MainActor (
-        URL,
-    ) async -> BurstAnalysisCacheSnapshot? = { catalog in
-        await BurstAnalysisCache.shared.loadMigrationCandidate(catalog: catalog)
-    }
-
-    @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
-        BurstAnalysisCacheSnapshot,
-        URL,
-    ) async -> Void = { snapshot, catalog in
-        await BurstAnalysisCache.shared.save(snapshot, catalog: catalog)
-    }
-
     init(
+        similarityModel: SimilarityScoringModel,
+        similarityFeature: RawCullSimilarityFeature? = nil,
+        semanticSearchFeature: RawCullSemanticSearchFeature,
+        deepAIReviewController: DeepAIReviewController,
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
+    ) {
+        let sharpnessModel = SharpnessScoringModel()
+        let similarityFeature = similarityFeature
+            ?? RawCullSimilarityFeature(similarityModel: similarityModel)
+        self.sharpnessModel = sharpnessModel
+        self.similarityFeature = similarityFeature
+        self.similarityModel = similarityModel
+        self.semanticSearchFeature = semanticSearchFeature
+        self.deepAIReviewController = deepAIReviewController
+        burstAnalysisCoordinator = BurstAnalysisCoordinator(
+            sharpnessModel: sharpnessModel,
+            similarityFeature: similarityFeature,
+            similarityModel: similarityModel,
+            cacheRepository: burstAnalysisCacheRepository,
+        )
+
+        assert(similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
+        assert(
+            semanticSearchFeature.sharesSimilarityModelIdentity(
+                with: similarityModel,
+            ),
+        )
+        similarityFeature.bindApplicationContext(self)
+        deepAIReviewController.bindApplicationContext(self)
+    }
+
+    convenience init(
+        similarityModel: SimilarityScoringModel,
+        deepAIReviewController: DeepAIReviewController,
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
+    ) {
+        let similarityFeature = RawCullSimilarityFeature(
+            similarityModel: similarityModel,
+        )
+        let semanticSearchFeature = RawCullSemanticSearchFeature(
+            similarityModel: similarityModel,
+            similarityFeature: similarityFeature,
+        )
+        self.init(
+            similarityModel: similarityModel,
+            similarityFeature: similarityFeature,
+            semanticSearchFeature: semanticSearchFeature,
+            deepAIReviewController: deepAIReviewController,
+            burstAnalysisCacheRepository: burstAnalysisCacheRepository,
+        )
+        semanticSearchFeature.bindApplicationTarget(self)
+    }
+
+    convenience init(
         similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
         semanticSearchCapability: RawCullSemanticSearchCapabilityStatus = .unavailable(
             reason: "Semantic search requires a valid CLIP model.",
@@ -264,56 +298,20 @@ final class RawCullViewModel {
         ),
         semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
         similarityArtifactStore: PerFileAnalysisArtifactStore = .shared,
-        deepAIReviewFeature: DeepAIReviewFeature = DeepAIReviewFeature(),
+        deepAIReviewController: DeepAIReviewController = DeepAIReviewController(),
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
     ) {
-        self.similarityModel = SimilarityScoringModel(
-            similarityService: similarityService,
-            semanticSearchCapability: semanticSearchCapability,
-            semanticSearchService: semanticSearchService,
-            artifactStore: similarityArtifactStore,
+        self.init(
+            similarityModel: SimilarityScoringModel(
+                similarityService: similarityService,
+                semanticSearchCapability: semanticSearchCapability,
+                semanticSearchService: semanticSearchService,
+                artifactStore: similarityArtifactStore,
+            ),
+            deepAIReviewController: deepAIReviewController,
+            burstAnalysisCacheRepository: burstAnalysisCacheRepository,
         )
-        self.deepAIReviewFeature = deepAIReviewFeature
-    }
-
-    func setSimilarityService(_ service: any RawCullSimilarityServicing) {
-        guard similarityModel.backendDescriptor != service.backendDescriptor
-            || similarityModel.artifactBackendDescriptors != service.artifactBackendDescriptors
-        else { return }
-
-        cancelAndResetBurstAnalysis()
-        similarityModel.setSimilarityService(service)
-        similarityHydrationTask?.cancel()
-        let currentFiles = files
-        similarityHydrationTask = Task { [weak self] in
-            guard let self else { return }
-            await self.similarityModel.hydrateArtifacts(currentFiles)
-            guard !Task.isCancelled else { return }
-            self.similarityHydrationTask = nil
-        }
-    }
-
-    func setSemanticSearchCapability(
-        _ capability: RawCullSemanticSearchCapabilityStatus,
-        service: (any RawCullSemanticSearchServicing)?,
-    ) {
-        let currentCapability = similarityModel.semanticSearchCapability
-        let currentBackend = similarityModel.semanticSearchBackendDescriptor
-        guard currentCapability != capability
-            || currentBackend != service?.backendDescriptor
-        else { return }
-
-        similarityModel.setSemanticSearchCapability(
-            capability,
-            service: service,
-        )
-        semanticSimilarityHydrationTask?.cancel()
-        let currentFiles = files
-        semanticSimilarityHydrationTask = Task { [weak self] in
-            guard let self else { return }
-            await self.similarityModel.hydrateSemanticArtifacts(currentFiles)
-            guard !Task.isCancelled else { return }
-            self.semanticSimilarityHydrationTask = nil
-        }
     }
 
     // MARK: - Computed

@@ -3,16 +3,35 @@
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
 > [!IMPORTANT]
-> **This is the AI-based version of RawCull.** The `main` and `version-3.1.1` branches require macOS 27, an Apple Silicon Mac, and Xcode 27  to build. For macOS 26, use `version-2.3.4`.
+> **This is the AI-based version of RawCull.** The `main`, `version-3.1.1`, and `version-3.2.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-2.3.4`.
 
 RawCull is a native macOS photo review and culling application for Sony ARW RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
 The application is written in Swift 6 and SwiftUI. Focused Swift packages own image parsing, analysis, AI inference, shared culling models, JSON encoding, and rsync execution. RawCull owns application state, workflow, caching, persistence, and presentation.
 
+## Purpose of the version-3.2.0 branch
+
+The `version-3.2.0` branch is the development branch for modularizing RawCull's
+AI architecture. It starts from the `version-3.1.1` baseline and will
+incrementally establish one clear application-level owner for intelligence
+features, narrow the interfaces used by views and general application code, and
+separate similarity, semantic search, burst analysis, Deep Review, model
+management, and persistence responsibilities.
+
+This is a structural refactor, not a reduced AI edition or a feature rewrite.
+CLIP remains a core capability, Vision remains its runtime fallback, and SAM 3
+and EfficientSAM Deep Review remain optional. Each phase must preserve current
+behavior, persisted formats, cache compatibility, cancellation and stale-result
+protection, preference keys, and the existing user experience.
+
+The complete scope, invariants, validation gates, exit criteria, and rollback
+guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
+
 ## Supported versions and requirements
 
 | Branch | Minimum macOS | Development toolchain | Main characteristics |
 |---|---:|---|---|
+| `version-3.2.0` | macOS 27 | Xcode 27, Swift 6 | Modular AI architecture refactor based on RawCull 3.1.1 behavior and data formats |
 | `main`, `version-3.1.1` | macOS 27 | Xcode 27, Swift 6 | AI-based RawCull 3 with local CLIP semantic search and similarity, SAM 3 Deep Review, model validation, and Managed Background Assets support |
 | `version-2.3.4` | macOS 26.2 | Xcode 26, Swift 6 | macOS 26 release line using built-in Vision feature prints for visual similarity and burst grouping |
 
@@ -200,7 +219,7 @@ display value.
 | Package (resolved identity) | Resolved pin | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
 | [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `1e2eaccd00947fbadda300e4a617842479cae7b9` | AI contracts, validated Core AI resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
-| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | `1.2.0` | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
+| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | `1.2.2` | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.2.8` | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) (`rsyncarguments`) | `1.0.0` | Type-safe construction of rsync and synchronization arguments | `Parameters`, `BasicRsyncParameters`, `OptionalRsyncParameters`, `SSHParameters`, `PathConfiguration`, `RsyncParametersSynchronize.argumentsForSynchronize`, `computedArguments` |
@@ -413,10 +432,19 @@ Important actors include:
 
 ```text
 RawCull/
-├── Actors/                 Background scanning, caching, extraction, and persistence
+├── Actors/                 Background scanning, thumbnail caching, and extraction
+├── Intelligence/           RawCull intelligence boundary
+│   ├── Composition/        Concrete provider assembly and stable runtime ownership
+│   ├── Contracts/          RawCull-owned capability and configuration values
+│   ├── Similarity/         Similarity state, indexing, ranking, and Vision adapter
+│   ├── SemanticSearch/     Semantic-search feature and service boundary
+│   ├── BurstAnalysis/      Burst requests, coordinator, cache decisions, and review values
+│   ├── DeepReview/         Optional Deep Review controller, operation, and mask scoring
+│   ├── ModelManagement/    Model validation, downloads, licences, and settings state
+│   ├── Persistence/        Intelligence artifact and burst-cache actors
+│   └── Presentation/       Intelligence-owned presentation values
 ├── Main/                   App entry point and shared type aliases
 ├── Model/
-│   ├── AIIntegration/      Model validation, inference, downloads, and Deep Review
 │   ├── Cache/              Cache configuration and diagnostics
 │   ├── Diagnostics/        RAW, ImageIO, and similarity diagnostics
 │   ├── Handlers/           App and streaming callbacks

@@ -19,8 +19,8 @@ struct ReleaseMetadataTests {
         #expect(appBlocks.count == 2)
         #expect(extensionBlocks.count == 2)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.0.0")
-            #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == "304")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.0")
+            #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == "350")
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
             #expect(buildSetting("ENABLE_HARDENED_RUNTIME", in: block) == "YES")
@@ -99,7 +99,7 @@ struct ReleaseMetadataTests {
 
         #expect(actualDestinations == expectedDestinations)
         let catalog = try repositoryText(
-            "RawCull/Model/AIIntegration/RawCullAIModelDownloadCatalog.swift",
+            "RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift",
         )
         for (assetPackID, destination) in expectedDestinations {
             #expect(catalog.contains("assetPackID: \"\(assetPackID)\""))

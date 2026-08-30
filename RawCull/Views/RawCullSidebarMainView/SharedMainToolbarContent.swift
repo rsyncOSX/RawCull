@@ -9,15 +9,16 @@ import SwiftUI
 
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
+    let semanticSearchFeature: RawCullSemanticSearchFeature
     let toggleMetadataPanel: () -> Void
 
     var body: some ToolbarContent {
-        if case let .results(summary) = viewModel.similarityModel.semanticSearchState,
+        if let summary = semanticSearchFeature.resultSummary,
            summary.resultCount > 0 {
             ToolbarItemGroup(placement: .status) {
                 Button {
                     Task {
-                        await viewModel.adjustSemanticSearchSelection(by: -1)
+                        await semanticSearchFeature.adjustSelection(by: -1)
                     }
                 } label: {
                     Label("Select Fewer Results", systemImage: "minus")
@@ -41,7 +42,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
                 Button {
                     Task {
-                        await viewModel.adjustSemanticSearchSelection(by: 1)
+                        await semanticSearchFeature.adjustSelection(by: 1)
                     }
                 } label: {
                     Label("Select More Results", systemImage: "plus")
@@ -161,15 +162,11 @@ struct SharedMainToolbarContent: ToolbarContent {
     private var semanticSelectionIsBusy: Bool {
         viewModel.burstAnalysisProgress.isRunning
             || viewModel.sharpnessModel.isScoring
-            || viewModel.similarityModel.isIndexing
-            || viewModel.similarityModel.isGrouping
+            || viewModel.similarityFeature.isBusy
     }
 
     private var semanticSelectionCount: Int? {
-        guard case let .results(summary) =
-            viewModel.similarityModel.semanticSearchState
-        else { return nil }
-        return summary.resultCount
+        semanticSearchFeature.resultSummary?.resultCount
     }
 
     private var reviewButtonHelp: LocalizedStringResource {

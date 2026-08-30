@@ -37,6 +37,7 @@ private struct BurstGroupHeaderView: View {
     let onReviewed: (Int) -> Void
     let onDeferred: (Int) -> Void
     @Bindable var viewModel: RawCullViewModel
+    let deepAIReviewController: DeepAIReviewController
 
     private var isReviewed: Bool {
         analysis?.reviewState == .reviewed
@@ -84,8 +85,7 @@ private struct BurstGroupHeaderView: View {
             .help("Open this burst for review")
 
             Button(action: onDeepReview) {
-                if viewModel.deepAIReviewFeature.isRunning,
-                   viewModel.deepAIReviewFeature.state.activeGroupID == analysis?.groupID {
+                if deepAIReviewController.isRunning(groupID: analysis?.groupID) {
                     HStack(spacing: 5) {
                         ProgressView()
                             .controlSize(.small)
@@ -97,7 +97,7 @@ private struct BurstGroupHeaderView: View {
             }
             .controlSize(.regular)
             .buttonStyle(.bordered)
-            .disabled(viewModel.isDeepAIReviewUnavailable || analysis == nil)
+            .disabled(deepAIReviewController.isActionUnavailable || analysis == nil)
             .help("Open an in-process AI subject-detail review")
 
             if let groupID = analysis?.groupID {
@@ -214,6 +214,9 @@ private struct BatchBadgeSelectionControlsView: View {
 
 struct CullingGridView<Header: View>: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
+    let semanticSearchFeature: RawCullSemanticSearchFeature
+    let deepAIReviewController: DeepAIReviewController
     @ViewBuilder let header: () -> Header
     var batchBadgeSelectionEnabled: () -> Bool = { false }
 
@@ -344,25 +347,24 @@ struct CullingGridView<Header: View>: View {
                     }
                 }
 
-                CullingGridProgressOverlay(viewModel: viewModel)
+                CullingGridProgressOverlay(
+                    viewModel: viewModel,
+                    similarityFeature: similarityFeature,
+                )
             }
         }
         .frame(minWidth: 400, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isIndexing)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.similarityModel.isGrouping)
+        .animation(.easeInOut(duration: 0.2), value: similarityFeature.indexing.isIndexing)
+        .animation(.easeInOut(duration: 0.2), value: similarityFeature.isGrouping)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .sheet(item: $deepReviewPresentation) { presentation in
             DeepAIReviewSheetView(
-                feature: viewModel.deepAIReviewFeature,
+                controller: deepAIReviewController,
                 groupID: presentation.groupID,
                 groupSignature: presentation.groupSignature,
                 files: presentation.files,
-                onRun: {
-                    runDeepReview(for: presentation.files)
-                },
-                onCancel: viewModel.cancelDeepAIReview,
                 onApply: { result in
                     viewModel.applyDeepAIReviewRecommendation(
                         result,
@@ -594,6 +596,7 @@ struct CullingGridView<Header: View>: View {
                     onReviewed: markBurstGroupReviewed,
                     onDeferred: deferBurstGroup,
                     viewModel: viewModel,
+                    deepAIReviewController: deepAIReviewController,
                 )
             }
 
@@ -676,15 +679,6 @@ struct CullingGridView<Header: View>: View {
         )
     }
 
-    private func runDeepReview(for groupFiles: [FileItem]) {
-        Logger.process.debugMessageOnly(
-            "CullingGridView.runDeepReview(): Run Deep Review button pressed for \(groupFiles.count) files",
-        )
-        Task {
-            await viewModel.startDeepAIReview(for: groupFiles)
-        }
-    }
-
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
         guard viewModel.showsBurstGroups,
               let groupFiles = currentBurstGroupFiles
@@ -749,24 +743,20 @@ struct CullingGridView<Header: View>: View {
 
     private var semanticResultCount: Int? {
         guard !viewModel.showsBurstGroups,
-              case let .results(summary) =
-              viewModel.similarityModel.semanticSearchState,
+              let summary = semanticSearchFeature.resultSummary,
               summary.resultCount > 0
         else { return nil }
         return summary.resultCount
     }
 
     private func semanticResultRank(for file: FileItem) -> Int? {
-        guard semanticResultCount != nil,
-              let zeroBasedRank =
-              viewModel.similarityModel.semanticResultOrder[file.id]
-        else { return nil }
-        return zeroBasedRank + 1
+        guard semanticResultCount != nil else { return nil }
+        return semanticSearchFeature.resultEvidence(for: file.id)?.rank
     }
 
     private func semanticResultScore(for file: FileItem) -> Float? {
         guard semanticResultCount != nil else { return nil }
-        return viewModel.similarityModel.semanticScores[file.id]
+        return semanticSearchFeature.resultEvidence(for: file.id)?.score
     }
 
     private func ratingValue(for file: FileItem) -> Int {
