@@ -31,7 +31,7 @@ private final class JPGExportProgressRecorder {
 struct ExtractJPGsSelectionTests {
     @Test
     func `multi-selected thumbnails win over single selected image`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let first = makeExtractJPGTestFile("A.ARW")
         let second = makeExtractJPGTestFile("B.ARW")
         let third = makeExtractJPGTestFile("C.ARW")
@@ -46,7 +46,7 @@ struct ExtractJPGsSelectionTests {
 
     @Test
     func `single selected image is used when there is no thumbnail multi-selection`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let first = makeExtractJPGTestFile("A.ARW")
         let second = makeExtractJPGTestFile("B.ARW")
 
@@ -60,7 +60,7 @@ struct ExtractJPGsSelectionTests {
 
     @Test
     func `no selected image blocks extraction`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let destination = ARWSourceCatalog(
             name: "Destination",
             url: URL(fileURLWithPath: "/tmp/destination", isDirectory: true),
@@ -77,7 +77,7 @@ struct ExtractJPGsSelectionTests {
 
     @Test
     func `denied destination access blocks extraction and presents error`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let file = makeExtractJPGTestFile("A.ARW")
         let destination = ARWSourceCatalog(
             name: "Destination",
@@ -97,7 +97,7 @@ struct ExtractJPGsSelectionTests {
 
     @Test
     func `present extract jpgs defaults destination to selected source only when empty`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let source = ARWSourceCatalog(
             name: "Source",
             url: URL(fileURLWithPath: "/tmp/source", isDirectory: true),
@@ -114,7 +114,7 @@ struct ExtractJPGsSelectionTests {
 
     @Test
     func `present extract jpgs preserves destination outside source catalogs`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let source = ARWSourceCatalog(
             name: "Source",
             url: URL(fileURLWithPath: "/tmp/source", isDirectory: true),

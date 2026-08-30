@@ -322,7 +322,7 @@ struct CullingGridCoordinatorTests {
         #expect(summary.needsReview + summary.deferred + summary.completed == summary.burstGroups)
 
         let missingResults = Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) })
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.similarityModel.burstGroups = [missingResultGroup]
         viewModel.burstAnalysisResults = missingResults
         viewModel.burstReviewQueueFilter = .needsReview
@@ -337,7 +337,7 @@ struct CullingGridCoordinatorTests {
         let deferredPeer = makeGridTestFile("deferred-peer.ARW")
         let reviewedFile = makeGridTestFile("reviewed.ARW")
         let reviewedPeer = makeGridTestFile("reviewed-peer.ARW")
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: [reviewFile.id, reviewPeer.id]),
@@ -376,7 +376,7 @@ struct CullingGridCoordinatorTests {
         let single = makeGridTestFile("single.ARW")
         let reviewed = [makeGridTestFile("reviewed-a.ARW"), makeGridTestFile("reviewed-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.files = first + [single] + reviewed + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: first.map(\.id)),
@@ -412,7 +412,7 @@ struct CullingGridCoordinatorTests {
     func `next burst navigation defers an unrated current group before advancing`() {
         let current = [makeGridTestFile("current-a.ARW"), makeGridTestFile("current-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.files = current + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
@@ -433,7 +433,7 @@ struct CullingGridCoordinatorTests {
     func `next burst navigation does not defer a group with any rating`(_ rating: Int) {
         let current = [makeGridTestFile("rated-a.ARW"), makeGridTestFile("rated-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -461,7 +461,7 @@ struct CullingGridCoordinatorTests {
     func `sharpness-only records do not prevent deferring an unrated group`() {
         let current = [makeGridTestFile("scored-a.ARW"), makeGridTestFile("scored-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -496,7 +496,7 @@ struct CullingGridCoordinatorTests {
         let reviewedFiles = [makeGridTestFile("reviewed-one.ARW"), makeGridTestFile("reviewed-two.ARW")]
         let appliedFiles = [makeGridTestFile("applied-one.ARW"), makeGridTestFile("applied-two.ARW")]
         let safeFiles = [makeGridTestFile("safe-one.ARW"), makeGridTestFile("safe-two.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 0, fileIDs: [firstSingle.id]),
@@ -571,7 +571,7 @@ struct CullingGridCoordinatorTests {
         let firstSingle = makeGridTestFile("single-first.ARW")
         let secondSingle = makeGridTestFile("single-second.ARW")
         let burstFiles = [makeGridTestFile("burst-first.ARW"), makeGridTestFile("burst-second.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 0, fileIDs: [firstSingle.id]),
             BurstGroup(id: 1, fileIDs: burstFiles.map(\.id)),
@@ -585,7 +585,7 @@ struct CullingGridCoordinatorTests {
 
     @Test(.tags(.smoke))
     func `review and defer actions toggle back to persisted neutral state`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let first = makeGridTestFile("toggle-first.ARW")
         let second = makeGridTestFile("toggle-second.ARW")
         let catalog = URL(fileURLWithPath: "/tmp/toggle-catalog")
@@ -617,7 +617,7 @@ struct CullingGridCoordinatorTests {
 
     @Test
     func `singleton groups have a separate queue from all bursts`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let singleton = makeGridTestFile("single.ARW")
         let first = makeGridTestFile("burst-a.ARW")
         let second = makeGridTestFile("burst-b.ARW")

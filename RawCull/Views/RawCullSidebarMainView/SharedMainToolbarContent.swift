@@ -234,7 +234,7 @@ struct SharedMainToolbarContent: ToolbarContent {
             }
         } else {
             viewModel.burstReviewQueueFilter = .needsReview
-            viewModel.similarityModel.burstModeActive = true
+            viewModel.similarityFeature.burstModeActive = true
             Task(priority: .background) {
                 await viewModel.handleSortOrderChange()
             }

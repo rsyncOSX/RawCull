@@ -237,7 +237,7 @@ struct ImageSourceSelectionStateTests {
 struct ZoomOverlayLaunchContextTests {
     @Test
     func `default zoom overlay launch context preserves existing behavior`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.openZoomOverlay()
 
@@ -249,7 +249,7 @@ struct ZoomOverlayLaunchContextTests {
 
     @Test
     func `actual-pixels launch context requests embedded JPG and focus points`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.openZoomOverlay(
             initialSource: .embeddedJPG,

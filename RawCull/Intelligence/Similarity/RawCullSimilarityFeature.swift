@@ -85,8 +85,8 @@ protocol RawCullSimilarityApplicationContext: AnyObject {
 
 /// Application feature boundary for image-similarity hydration, indexing,
 /// ranking, and presentation. `SimilarityScoringModel` remains the single
-/// observable state owner and the burst pipeline keeps temporary compatibility
-/// access until Phases 7 and 9.
+/// observable state owner. The remaining burst-state projection is explicitly
+/// tracked as part of the separately scoped persistence boundary.
 @Observable @MainActor
 final class RawCullSimilarityFeature {
     @ObservationIgnored private let model: SimilarityScoringModel
@@ -155,6 +155,24 @@ final class RawCullSimilarityFeature {
 
     var isGrouping: Bool {
         model.isGrouping
+    }
+
+    var burstGroups: [BurstGroup] {
+        model.burstGroups
+    }
+
+    var burstGroupLookup: [UUID: Int] {
+        model.burstGroupLookup
+    }
+
+    var burstSensitivity: Float {
+        get { model.burstSensitivity }
+        set { model.burstSensitivity = newValue }
+    }
+
+    var burstModeActive: Bool {
+        get { model.burstModeActive }
+        set { model.burstModeActive = newValue }
     }
 
     var isBusy: Bool {
@@ -297,7 +315,7 @@ final class RawCullSimilarityFeature {
         )
     }
 
-    // MARK: - Burst compatibility (Phases 7/9)
+    // MARK: - Burst pipeline operations
 
     @discardableResult
     func hydrateBurstArtifacts(_ files: [FileItem]) async -> Int {

@@ -2503,6 +2503,8 @@ Revert the move commit.
 
 ## Phase 11: decide whether a new Swift package is justified
 
+Status: completed on 2026-08-30. The intelligence boundary remains app-local.
+
 A new `RawCullIntelligence` Swift package is optional and should be the final
 architectural decision, not the first implementation step.
 
@@ -2532,6 +2534,21 @@ Record one explicit architecture decision before this phase is considered comple
 
 Choosing to keep the boundary app-local is a valid completion of this phase. Do not
 leave the phase indefinitely pending merely because package extraction was rejected.
+
+### Decision record: keep the boundary app-local
+
+The current boundary deliberately uses application-owned `FileItem` catalog
+snapshots, weak callbacks into catalog/culling policy, application-support and cache
+paths, model licence resources, and Background Assets wiring. Extracting it now
+would move those dependencies into adapter targets without making the dependency
+direction clearer. Exact source-level import enforcement provides the intended
+protection without another build target or duplicate public contract layer.
+
+Revisit package extraction only when the reusable inputs and outputs no longer
+mention application models, every path/resource concern is injected, and a package
+can omit SwiftUI, the complete application model, Background Assets wiring, and
+app-bundle resources. A demonstrated need to reuse the RawCull orchestration from a
+second executable would also justify reconsideration.
 
 ### Package extraction sequence, if chosen
 
@@ -2569,6 +2586,10 @@ must remain compatible throughout, so no user-data rollback is required.
 
 ## Phase 12: remove compatibility forwarding and finalize enforcement
 
+Status: completed on 2026-08-30. Automated validation is green; the manual
+acceptance matrix remains explicitly unavailable without its versioned catalog
+and licensed model resources.
+
 ### Changes
 
 1. Use `rg` to prove old forwarding methods, compatibility initializers, and leaked
@@ -2579,6 +2600,45 @@ must remain compatible throughout, so no user-data rollback is required.
 5. Record the final dependency rules and ownership model in contributor
    documentation.
 6. Run unused-code analysis only after all shims are gone.
+
+### Implementation
+
+- Removed both `RawCullViewModel` convenience initializer layers. Production now
+  accepts one explicitly assembled similarity model and the exact similarity,
+  semantic-search, and Deep Review feature objects. Tests use the isolated
+  `makeRawCullViewModel()` factory instead of retaining provider construction in
+  the application view model.
+- Removed the redundant low-level `SimilarityScoringModel` reference from
+  `RawCullIntelligenceRuntime`. Runtime identity is expressed through the focused
+  similarity and semantic-search feature relationship.
+- Moved all SwiftUI burst presentation reads and bindings from
+  `RawCullViewModel.similarityModel` to the focused `RawCullSimilarityFeature`
+  surface. The culling layer still shares the underlying model with the burst
+  coordinator; this is feature state, not a compatibility forwarding API.
+- Replaced presentation and accessibility dependencies on PhotoAIKit backend types
+  with `RawCullSemanticSearchBackendPresentation`. Removed every restricted AI
+  product import from `RawCull/Views` and `RawCull/Model`.
+- Changed the import verifier from a concrete-provider check plus warning-only
+  contract scan into an exact allowlist for concrete backends, `PhotoAIContracts`,
+  `PhotoAIStorage`, and `PhotoAIWorkflows`. It also rejects the removed
+  constructors, runtime model exposure, view-model forwarders, and direct
+  similarity-model traversal from views.
+- Recorded the Phase 11 app-local decision and final ownership/import rules in
+  `README.md`, `Docs/ai-dependency-boundary.md`, and the test architecture guide.
+
+### Automated validation record (2026-08-30)
+
+| Gate | Status | Evidence |
+|---|---|---|
+| Compatibility and caller scans | Pass | No production `RawCullViewModel` convenience initializer, runtime `similarityModel`, obsolete semantic/similarity/Deep Review view-model forwarder, or view `.similarityModel` traversal remains. |
+| Restricted import boundary | Pass | Exact allowlist passes; `RawCull/Views` and `RawCull/Model` contain no restricted AI imports. |
+| Debug build | Pass | Exact resolved-package arm64 build completed successfully. |
+| `make test-smoke` | Pass | Checked-in enumeration found 208 unique tests and the smoke plan passed. |
+| `make test-full` | Pass | Full plan passed with Thread Sanitizer enabled and no sanitizer diagnostics. An initial timing-sensitive cancellation observation passed both an isolated rerun and the final full rerun. |
+| `make test-performance` | Pass | Both checked-in performance tests passed. |
+| Exact-package Release build | Pass | Required composition/build gate completed successfully. |
+| Unused-code analysis | Pass | Compiler-indexed Periphery scan reports no findings under `RawCull/Intelligence`; two test-only aliases found by the first scan were removed. Unrelated pre-existing findings remain outside the Phase 12 boundary. |
+| Manual acceptance matrix | Unavailable | Not run: the versioned photo catalog and installed licensed model resources described below were not available in this workspace. |
 
 ### Final gates
 

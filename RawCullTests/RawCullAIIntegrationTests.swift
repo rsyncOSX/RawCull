@@ -52,7 +52,7 @@ struct RawCullAIIntegrationTests {
         )
         let initialCapabilities = integration.capabilities()
 
-        #expect(initialCapabilities.sam3Model == .checking(
+        #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
             expectedLocations: [paths.sam3ModelDirectory],
         ))
         #expect(initialCapabilities.clipModelStatus(for: .dataComp) == .checking(
@@ -73,7 +73,7 @@ struct RawCullAIIntegrationTests {
 
         let capabilities = try await integration.refreshCapabilities()
 
-        #expect(capabilities.sam3Model == .missing(
+        #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
             expectedLocations: [paths.sam3ModelDirectory],
         ))
         #expect(capabilities.clipModelStatus(for: .dataComp) == .missing(
@@ -358,14 +358,14 @@ struct RawCullAIIntegrationTests {
         #expect(model.selectedCLIPModel == .dataComp)
         await model.refresh()
         #expect(
-            applicationState.intelligenceRuntime.similarityModel.backendDescriptor.backend
+            applicationState.viewModel.similarityModel.backendDescriptor.backend
                 == "vision-feature-print",
         )
         model.useCLIPForSimilarity = false
         #expect(!model.useCLIPForSimilarity)
         #expect(userDefaults.bool(forKey: RawCullAISettingsModel.useCLIPPreferenceKey) == false)
         #expect(
-            applicationState.intelligenceRuntime.similarityModel.backendDescriptor.backend
+            applicationState.viewModel.similarityModel.backendDescriptor.backend
                 == "vision-feature-print",
         )
 
@@ -380,7 +380,7 @@ struct RawCullAIIntegrationTests {
             ) == RawCullCLIPModel.dataComp.rawValue,
         )
         #expect(
-            applicationState.intelligenceRuntime.similarityModel.backendDescriptor.backend
+            applicationState.viewModel.similarityModel.backendDescriptor.backend
                 == "vision-feature-print",
         )
         let relaunchedModel = RawCullAISettingsModel(

@@ -103,7 +103,7 @@ struct BurstGroupsHomeView: View {
         } else {
             BurstRecentGroupsCard(picks: suggestedPicks) { pick in
                 viewModel.burstReviewQueueFilter = .all
-                viewModel.similarityModel.burstModeActive = true
+                viewModel.similarityFeature.burstModeActive = true
                 viewModel.selectedFileID = pick.file.id
             }
         }
@@ -185,7 +185,7 @@ struct BurstGroupsHomeView: View {
 
     private func showResults(_ filter: BurstReviewQueueFilter) {
         viewModel.burstReviewQueueFilter = filter
-        viewModel.similarityModel.burstModeActive = true
+        viewModel.similarityFeature.burstModeActive = true
     }
 
     private func analyzeBursts() {

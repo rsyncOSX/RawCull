@@ -80,6 +80,10 @@ production singletons or user-visible directories. The shared helpers live in
   isolated cache for request/cache tests.
 - `makeIsolatedSettingsViewModel()` returns a `SettingsViewModel` backed by a
   unique temporary `settings.json` path and skips production settings loading.
+- `makeRawCullViewModel()` assembles an isolated similarity model, similarity and
+  semantic-search features, Deep Review controller, and burst coordinator. Tests
+  use it instead of a production convenience initializer that constructs AI
+  providers or silently creates feature instances.
 
 Use these helpers whenever a test touches shared cache, disk cache, thumbnail,
 or settings state. Tests that need lower-level fixtures may define private

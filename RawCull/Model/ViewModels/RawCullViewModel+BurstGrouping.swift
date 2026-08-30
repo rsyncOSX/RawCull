@@ -5,7 +5,6 @@
 
 import Foundation
 import OSLog
-import PhotoAIContracts
 import RawCullCore
 
 extension RawCullViewModel {
@@ -890,7 +889,7 @@ extension RawCullViewModel {
             ),
             backendDescriptor: similarityModel.backendDescriptor,
             artifactBackendDescriptors: similarityModel.artifactBackendDescriptors,
-            artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
+            artifactSchemaVersion: SimilarityScoringModel.artifactSchemaVersion,
             embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
             embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
         )

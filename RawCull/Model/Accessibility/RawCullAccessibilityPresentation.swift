@@ -1,5 +1,4 @@
 import Foundation
-import PhotoAIContracts
 
 enum RawCullAccessibilityPresentation {
     static func savedCatalogValue(
@@ -188,14 +187,13 @@ enum RawCullAccessibilityPresentation {
         }
     }
 
-    static func backendDescription(_ backend: SimilarityBackendDescriptor) -> String {
-        if backend.backend == "clip" {
-            return "CLIP model \(backend.modelFingerprint)"
+    static func backendDescription(
+        _ backend: RawCullSemanticSearchBackendPresentation,
+    ) -> String {
+        if let modelFingerprint = backend.modelFingerprint {
+            return "\(backend.displayName) model \(modelFingerprint)"
         }
-        if backend.backend == "vision-feature-print" {
-            return "Vision feature prints"
-        }
-        return backend.backend
+        return backend.displayName
     }
 
     private static func ratingDescription(_ rating: Int?) -> String {

@@ -6,7 +6,10 @@ direction and all of the planned phases, but leaves out most implementation-leve
 checklists and test names.
 
 **Current status:** the plan is active on the `version-3.2.0` development branch.
-Phases 0–4 were completed on August 28–29, 2026. Phases 5–12 have not started.
+Phases 0–8 and 10 were implemented on August 28–30, 2026. Phase 11 records the
+decision to keep the boundary application-local. Phase 12 compatibility removal
+and exact import enforcement are implemented; its final automated and manual gate
+evidence is tracked in `Docs/modularai.md`.
 
 ## The short version
 
@@ -276,12 +279,25 @@ The project must record either decision and its reasons. If a package is chosen,
 contracts, pure policy, repositories, and burst computation move in small steps,
 with builds and tests after every target change.
 
+RawCull chose to keep this boundary in the application target. It still uses
+application-owned catalog values and callbacks, app paths and resources, and
+Background Assets wiring. An additional package would therefore add adapters
+without creating a cleaner compile-time graph. Exact source-level enforcement is
+used instead.
+
 ### Phase 12: remove temporary compatibility code
 
 Search the repository for old forwarding methods, compatibility initializers, and
 backend imports. Remove unused shims feature by feature, tighten the dependency
 checker, update architecture documentation, and run the complete automated and
 manual validation suite.
+
+The provider-constructing view-model initializers and runtime similarity-model
+exposure are removed. Tests assemble isolated feature graphs through a test-only
+factory, views use focused feature surfaces, and the checker now uses exact
+file/module allowlists with no warning-only production imports. It also prevents
+the removed constructors, forwarding methods, and direct view traversal from being
+reintroduced.
 
 ## How the work is kept safe
 

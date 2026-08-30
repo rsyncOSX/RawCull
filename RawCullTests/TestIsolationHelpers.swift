@@ -85,6 +85,49 @@ func makeIsolatedSimilarityArtifactStore(
     return PerFileAnalysisArtifactStore(storageDirectory: directory)
 }
 
+/// Builds the complete application-facing intelligence graph used by view-model
+/// tests. Production code is assembled only by `RawCullApplicationState`; tests
+/// use this helper instead of keeping a provider-constructing compatibility
+/// initializer on `RawCullViewModel`.
+@MainActor
+func makeRawCullViewModel(
+    name: String = #function,
+    similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+    semanticSearchCapability: RawCullSemanticSearchCapabilityStatus = .unavailable(
+        reason: "Semantic search requires a valid CLIP model.",
+        expectedLocations: [],
+    ),
+    semanticSearchService: (any RawCullSemanticSearchServicing)? = nil,
+    similarityArtifactStore: (any SimilarityArtifactStoring)? = nil,
+    deepAIReviewController: DeepAIReviewController = DeepAIReviewController(),
+    burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+        = LiveBurstAnalysisCacheRepository(),
+) -> RawCullViewModel {
+    let similarityModel = SimilarityScoringModel(
+        similarityService: similarityService,
+        semanticSearchCapability: semanticSearchCapability,
+        semanticSearchService: semanticSearchService,
+        artifactStore: similarityArtifactStore
+            ?? makeIsolatedSimilarityArtifactStore(name: name),
+    )
+    let similarityFeature = RawCullSimilarityFeature(
+        similarityModel: similarityModel,
+    )
+    let semanticSearchFeature = RawCullSemanticSearchFeature(
+        similarityModel: similarityModel,
+        similarityFeature: similarityFeature,
+    )
+    let viewModel = RawCullViewModel(
+        similarityModel: similarityModel,
+        similarityFeature: similarityFeature,
+        semanticSearchFeature: semanticSearchFeature,
+        deepAIReviewController: deepAIReviewController,
+        burstAnalysisCacheRepository: burstAnalysisCacheRepository,
+    )
+    semanticSearchFeature.bindApplicationTarget(viewModel)
+    return viewModel
+}
+
 func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
     let safeName = name
         .replacingOccurrences(of: "`", with: "")

@@ -90,6 +90,7 @@ private nonisolated enum SemanticSearchTaskResult: Sendable {
 
 @Observable @MainActor
 final class SimilarityScoringModel {
+    nonisolated static let artifactSchemaVersion = SimilarityArtifactDescriptor.currentSchemaVersion
     nonisolated static let embeddingThumbnailMaxPixelSize = 512
     nonisolated static let embeddingPipelineVersion = 3
     nonisolated static let semanticSearchDefaultResultLimit = 20

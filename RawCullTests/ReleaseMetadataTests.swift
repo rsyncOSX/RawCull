@@ -70,7 +70,7 @@ struct ReleaseMetadataTests {
             .map(String.init)
             .filter { $0.hasPrefix("|") }
 
-        #expect(resolved.pins.count == 21)
+        #expect(resolved.pins.count == 18)
         for pin in resolved.pins {
             let expectedPin = pin.state.version ?? pin.state.revision
             let matchingRows = tableRows.filter { row in

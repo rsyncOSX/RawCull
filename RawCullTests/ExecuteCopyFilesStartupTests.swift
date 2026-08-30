@@ -6,7 +6,7 @@ import Testing
 struct ExecuteCopyFilesStartupTests {
     @Test
     func `empty tagged list fails before copy starts`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let manager = makeManager(viewModel: viewModel, copytaggedfiles: true)
 
         let result = manager.startcopyfiles(
@@ -23,7 +23,7 @@ struct ExecuteCopyFilesStartupTests {
 
     @Test
     func `empty rated list fails before copy starts`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let manager = makeManager(viewModel: viewModel, copytaggedfiles: false)
 
         let result = manager.startcopyfiles(
@@ -42,7 +42,7 @@ struct ExecuteCopyFilesStartupTests {
     func `missing view model fails before copy starts`() {
         let manager: ExecuteCopyFiles
         do {
-            let viewModel = RawCullViewModel()
+            let viewModel = makeRawCullViewModel()
             manager = makeManager(viewModel: viewModel)
         }
 
@@ -62,7 +62,7 @@ struct ExecuteCopyFilesStartupTests {
     func `include list paths are unique and outside Documents`() throws {
         let firstDirectory = try temporaryDirectory()
         let secondDirectory = try temporaryDirectory()
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let firstManager = makeManager(viewModel: viewModel, includeListDirectory: firstDirectory)
         let secondManager = makeManager(viewModel: viewModel, includeListDirectory: secondDirectory)
 
@@ -86,7 +86,7 @@ struct ExecuteCopyFilesStartupTests {
     @Test
     func `cleanup removes generated include list`() throws {
         let directory = try temporaryDirectory()
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let manager = makeManager(viewModel: viewModel, includeListDirectory: directory)
 
         let includeListURL = try manager.writeIncludeFileForCurrentOperation(["A.ARW"])
@@ -101,7 +101,7 @@ struct ExecuteCopyFilesStartupTests {
     @Test
     func `copy list is nul separated for literal rsync files-from matching`() throws {
         let directory = try temporaryDirectory()
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let manager = makeManager(viewModel: viewModel, includeListDirectory: directory)
         let fileNames = [
             "normal.ARW",

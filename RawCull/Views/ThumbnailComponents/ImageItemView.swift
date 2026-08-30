@@ -234,7 +234,7 @@ struct ImageItemView: View {
                             density: .compact,
                         )
 
-                        if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
+                        if let groupID = viewModel.similarityFeature.burstGroupLookup[file.id],
                            let analysis = viewModel.burstAnalysisResult(for: groupID),
                            let candidate = viewModel.burstCandidate(for: file) {
                             BurstCandidateBadgeView(
