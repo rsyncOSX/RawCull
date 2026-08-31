@@ -3,7 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
 > [!IMPORTANT]
-> **This is the AI-based version of RawCull.** The `main`, `version-3.1.1`, and `version-3.2.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-2.3.4`.
+> **This is the AI-based version of RawCull.** The `main`, `version-3.1.1`, and `version-3.2.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
 
 RawCull is a native macOS photo review and culling application for Sony ARW RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
@@ -33,7 +33,7 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 |---|---:|---|---|
 | `version-3.2.0` | macOS 27 | Xcode 27, Swift 6 | Modular AI architecture refactor based on RawCull 3.1.1 behavior and data formats |
 | `main`, `version-3.1.1` | macOS 27 | Xcode 27, Swift 6 | AI-based RawCull 3 with local CLIP semantic search and similarity, SAM 3 Deep Review, model validation, and Managed Background Assets support |
-| `version-2.3.4` | macOS 26.2 | Xcode 26, Swift 6 | macOS 26 release line using built-in Vision feature prints for visual similarity and burst grouping |
+| `version-3.0.0` | macOS 26.2 | Xcode 26, Swift 6 | macOS 26 release line using built-in Vision feature prints for visual similarity and burst grouping |
 
 All versions require an Apple Silicon Mac. The main difference between the macOS 26 and macOS 27 editions is the AI layer, not the basic photo-culling workflow: the macOS 26 branches use Apple's built-in Vision feature prints, whereas RawCull 3 adds local CLIP models for text-to-image search and optional similarity analysis, plus SAM 3 subject segmentation for Deep Review. RawCull 3 falls back to Vision similarity when its selected CLIP model is unavailable.
 
