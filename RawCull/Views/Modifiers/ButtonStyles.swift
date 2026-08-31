@@ -80,6 +80,7 @@ private struct PressureAnimatedButton: View {
     let isEnabled: Bool
 
     @State private var isAnimatingPressure = false
+    @State private var pressureResetTask: Task<Void, Never>?
 
     var body: some View {
         let pressed = configuration.isPressed
@@ -133,74 +134,57 @@ private struct PressureAnimatedButton: View {
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .onChange(of: pressed) { _, newValue in
                 if newValue, !isAnimatingPressure {
+                    pressureResetTask?.cancel()
                     // Button was just pressed
                     isAnimatingPressure = true
                 } else if !newValue, isAnimatingPressure {
                     // Button was released - hold the animation for specified duration
-                    Task {
+                    pressureResetTask?.cancel()
+                    pressureResetTask = Task {
                         try? await Task.sleep(for: .seconds(pressureHoldDuration))
+                        guard !Task.isCancelled else { return }
                         isAnimatingPressure = false
                     }
                 }
             }
+            .onDisappear {
+                pressureResetTask?.cancel()
+                pressureResetTask = nil
+            }
     }
 }
 
-enum ConditionalGlassButtonStyleOption {
-    case refinedGlass
-    case softCapsule
-}
-
 struct ConditionalGlassButton: View {
-    @Environment(\.colorScheme) var colorScheme
-
     let systemImage: String
-    let text: String?
-    let helpText: String
+    let text: LocalizedStringResource
+    let helpText: LocalizedStringResource
     let role: ButtonRole?
-    var textcolor: Bool = false
-    let style: ConditionalGlassButtonStyleOption
     let action: () -> Void
 
     init(
         systemImage: String,
-        text: String? = nil,
-        helpText: String,
+        text: LocalizedStringResource,
+        helpText: LocalizedStringResource,
         role: ButtonRole? = nil,
-        textcolor: Bool = false,
-        style: ConditionalGlassButtonStyleOption = .refinedGlass,
         action: @escaping () -> Void,
     ) {
         self.systemImage = systemImage
         self.text = text
         self.helpText = helpText
         self.role = role
-        self.textcolor = textcolor
-        self.style = style
         self.action = action
     }
 
     var body: some View {
-        if style == .softCapsule {
-            Button(role: role, action: action) {
-                Label {
-                    if let text {
-                        Text(text)
-                            .foregroundColor(textcolor ? .green : (colorScheme == .dark ? .white : .black))
-                    }
-                } icon: {
-                    if !systemImage.isEmpty {
-                        Image(systemName: systemImage)
-                    }
-                }
+        Button(role: role, action: action) {
+            Label {
+                Text(text)
+            } icon: {
+                Image(systemName: systemImage)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.thinMaterial, in: Capsule())
-            .overlay { Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5) }
-            .help(helpText)
-            .labelStyle(.iconOnly)
         }
+        .buttonStyle(.glass)
+        .labelStyle(.iconOnly)
+        .help(Text(helpText))
     }
 }

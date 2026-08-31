@@ -7,6 +7,7 @@ nonisolated enum LoupeImageKeyAction: Equatable {
     case toggleDevelopedRAW
     case toggleFocusMask
     case toggleFocusPoints
+    case toggleMetadata
     case inspectActualPixels
 
     nonisolated static func resolve(characters: String?) -> LoupeImageKeyAction? {
@@ -28,6 +29,9 @@ nonisolated enum LoupeImageKeyAction: Equatable {
 
         case "a", "A":
             .toggleFocusPoints
+
+        case "e", "E":
+            .toggleMetadata
 
         case "z", "Z":
             .inspectActualPixels
@@ -132,30 +136,6 @@ struct MainThumbnailImageView: View {
                             }
 
                             VStack {
-                                // File metadata at the top where it belongs
-                                if let file {
-                                    HStack(alignment: .top, spacing: 8) {
-                                        CurrentRatingBadgeView(
-                                            rating: ratingDisplay(for: file),
-                                            density: .compact,
-                                        )
-
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(file.name)
-                                                .font(.headline)
-                                            Text(file.url.deletingLastPathComponent().path())
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(.regularMaterial)
-                                    .clipShape(.rect(cornerRadius: 8))
-                                    .padding([.top, .horizontal], 8)
-                                }
-
                                 Spacer()
 
                                 ImageOverlayControlsView(
@@ -171,11 +151,53 @@ struct MainThumbnailImageView: View {
                                     canZoomOut: viewModel.scale > 0.5,
                                     canZoomIn: viewModel.scale < 4.0,
                                     canReset: viewModel.scale != 1.0 || viewModel.offset != .zero,
-                                    onZoomOut: { withAnimation(.spring()) { viewModel.scale = max(0.5, viewModel.scale - 0.2) } },
+                                    onZoomOut: {
+                                        withAnimation(.spring()) {
+                                            viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                            viewModel.lastScale = viewModel.scale
+                                        }
+                                    },
                                     onZoomReset: { withAnimation(.spring()) { viewModel.resetZoom() } },
-                                    onZoomIn: { withAnimation(.spring()) { viewModel.scale = min(4.0, viewModel.scale + 0.2) } },
+                                    onZoomIn: {
+                                        withAnimation(.spring()) {
+                                            viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                            viewModel.lastScale = viewModel.scale
+                                        }
+                                    },
                                 )
                                 .padding(.bottom, 12)
+                            }
+
+                            if let file {
+                                HStack(alignment: .top, spacing: 8) {
+                                    CurrentRatingBadgeView(
+                                        rating: ratingDisplay(for: file),
+                                        density: .compact,
+                                    )
+
+                                    if viewModel.showsLoupeMetadataPanel {
+                                        ZoomMetadataPanel(
+                                            file: file,
+                                            image: currentDisplayedImage,
+                                            cullingMetadata: ZoomCullingMetadata.make(
+                                                for: file,
+                                                viewModel: viewModel,
+                                            ),
+                                            onHide: {
+                                                withAnimation(.snappy) {
+                                                    viewModel.showsLoupeMetadataPanel = false
+                                                }
+                                            },
+                                        )
+                                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                                    }
+                                }
+                                .padding(8)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    maxHeight: .infinity,
+                                    alignment: .topTrailing,
+                                )
                             }
 
                             if showRAWNotSupported {
@@ -190,7 +212,7 @@ struct MainThumbnailImageView: View {
                         .focusable()
                         .focused($isImageFocused)
                         .focusEffectDisabled(true)
-                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAzZ")) { press in
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAeEzZ")) { press in
                             handleKeyAction(LoupeImageKeyAction.resolve(characters: press.characters))
                         }
                         .onAppear { isImageFocused = true }
@@ -361,6 +383,12 @@ struct MainThumbnailImageView: View {
 
         case .toggleFocusPoints:
             showFocusPoints.toggle()
+            return .handled
+
+        case .toggleMetadata:
+            withAnimation(.snappy) {
+                viewModel.showsLoupeMetadataPanel.toggle()
+            }
             return .handled
 
         case .inspectActualPixels:

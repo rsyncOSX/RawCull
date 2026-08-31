@@ -8,10 +8,10 @@
 import SwiftUI
 
 struct ProgressCount: View {
-    @Binding var progress: Double
-    @Binding var estimatedSeconds: Int // seconds to completion
+    let completed: Int
+    let total: Int
+    let estimatedSeconds: Int // seconds to completion
     @State private var displayedEstimatedSeconds = 0
-    let max: Double
     let statusText: String
 
     private var formattedTime: String {
@@ -32,9 +32,9 @@ struct ProgressCount: View {
                         lineWidth: 6,
                     )
 
-                if max > 0 {
+                if total > 0 {
                     Circle()
-                        .trim(from: 0, to: min(progress / max, 1.0))
+                        .trim(from: 0, to: min(Double(completed) / Double(total), 1.0))
                         .stroke(
                             LinearGradient(
                                 colors: [.blue, .cyan],
@@ -47,10 +47,10 @@ struct ProgressCount: View {
                             ),
                         )
                         .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: completed)
                 }
 
-                Text("\(Int(progress))")
+                Text("\(completed)")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .contentTransition(.numericText(countsDown: false))
             }
@@ -71,7 +71,7 @@ struct ProgressCount: View {
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
         .cornerRadius(6)
-        .animation(.default, value: progress)
+        .animation(.default, value: completed)
         .onAppear {
             updateDisplayedEstimatedSeconds(estimatedSeconds)
         }

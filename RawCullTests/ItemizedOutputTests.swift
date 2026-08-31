@@ -1,6 +1,6 @@
 //
 //  ItemizedOutputTests.swift
-//  RawCullSAM3Tests
+//  RawCullTests
 //
 
 @testable import RawCull

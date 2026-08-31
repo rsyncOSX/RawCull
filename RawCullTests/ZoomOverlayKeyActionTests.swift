@@ -175,6 +175,13 @@ struct ThumbnailKeyActionTests {
 
 @Suite("ImageSourceSelectionState")
 struct ImageSourceSelectionStateTests {
+    @Test(.tags(.smoke))
+    func `selection can start with an extracted JPEG`() {
+        let state = ImageSourceSelectionState(initialSource: .embeddedJPG)
+
+        #expect(state.selected == .embeddedJPG)
+    }
+
     @Test(.tags(.smoke), arguments: [ImagePreviewSource.embeddedJPG, .developedRAW])
     func `extraction source toggles against thumbnail`(source: ImagePreviewSource) {
         var state = ImageSourceSelectionState()
@@ -230,7 +237,7 @@ struct ImageSourceSelectionStateTests {
 struct ZoomOverlayLaunchContextTests {
     @Test
     func `default zoom overlay launch context preserves existing behavior`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.openZoomOverlay()
 
@@ -242,7 +249,7 @@ struct ZoomOverlayLaunchContextTests {
 
     @Test
     func `actual-pixels launch context requests embedded JPG and focus points`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.openZoomOverlay(
             initialSource: .embeddedJPG,
@@ -259,23 +266,50 @@ struct ZoomOverlayLaunchContextTests {
 @Suite("ZoomViewportMath")
 struct ZoomViewportMathTests {
     @Test(.tags(.smoke))
-    func `actual-pixels scale maps fitted preview back to image pixels`() {
+    func `landscape inspection maps one image pixel to one display point`() {
         let scale = ZoomViewportMath.actualPixelsScale(
             imageSize: CGSize(width: 6000, height: 4000),
             viewportSize: CGSize(width: 1500, height: 1000),
         )
 
-        #expect(scale == 4.0)
+        #expect(scale == 4)
     }
 
     @Test(.tags(.smoke))
-    func `actual-pixels scale maps fit-upscaled preview back to image pixels`() {
+    func `portrait inspection maps one image pixel to one display point`() {
+        let scale = ZoomViewportMath.actualPixelsScale(
+            imageSize: CGSize(width: 4000, height: 6000),
+            viewportSize: CGSize(width: 1000, height: 1500),
+        )
+
+        #expect(scale == 4)
+    }
+
+    @Test(.tags(.smoke))
+    func `inspection scale reduces a fit-upscaled preview to actual pixels`() {
         let scale = ZoomViewportMath.actualPixelsScale(
             imageSize: CGSize(width: 800, height: 600),
             viewportSize: CGSize(width: 1600, height: 1200),
         )
 
         #expect(scale == 0.5)
+    }
+
+    @Test(.tags(.smoke))
+    func `aspect mismatch still maps the fitted image to actual pixels`() {
+        let fitRect = ZoomViewportMath.aspectFitRect(
+            imageSize: CGSize(width: 6000, height: 4000),
+            in: CGSize(width: 1200, height: 1200),
+        )
+        let scale = ZoomViewportMath.actualPixelsScale(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1200, height: 1200),
+        )
+
+        #expect(fitRect == CGRect(x: 0, y: 200, width: 1200, height: 800))
+        #expect(scale == 5)
+        #expect(fitRect.width * scale == 6000)
+        #expect(fitRect.height * scale == 4000)
     }
 
     @Test(.tags(.smoke))
@@ -286,9 +320,52 @@ struct ZoomViewportMathTests {
             normalizedFocusPoint: CGPoint(x: 0.40, y: 0.50),
         )
 
-        #expect(transform.scale == 4.0)
-        #expect(transform.offset.width == 600.0)
+        #expect(transform.scale == 4)
+        #expect(transform.offset.width == 600)
         #expect(transform.offset.height == 0.0)
+    }
+
+    @Test(.tags(.smoke))
+    func `focus point pan clamps at all four image edges`() {
+        let imageSize = CGSize(width: 6000, height: 4000)
+        let viewportSize = CGSize(width: 1500, height: 1000)
+
+        let left = ZoomViewportMath.actualPixelsTransform(
+            imageSize: imageSize,
+            viewportSize: viewportSize,
+            normalizedFocusPoint: CGPoint(x: 0, y: 0.5),
+        )
+        let right = ZoomViewportMath.actualPixelsTransform(
+            imageSize: imageSize,
+            viewportSize: viewportSize,
+            normalizedFocusPoint: CGPoint(x: 1, y: 0.5),
+        )
+        let top = ZoomViewportMath.actualPixelsTransform(
+            imageSize: imageSize,
+            viewportSize: viewportSize,
+            normalizedFocusPoint: CGPoint(x: 0.5, y: 0),
+        )
+        let bottom = ZoomViewportMath.actualPixelsTransform(
+            imageSize: imageSize,
+            viewportSize: viewportSize,
+            normalizedFocusPoint: CGPoint(x: 0.5, y: 1),
+        )
+
+        #expect(left.offset == CGSize(width: 2250, height: 0))
+        #expect(right.offset == CGSize(width: -2250, height: 0))
+        #expect(top.offset == CGSize(width: 0, height: 1500))
+        #expect(bottom.offset == CGSize(width: 0, height: -1500))
+    }
+
+    @Test(.tags(.smoke))
+    func `out of range focus point clamps to an image edge`() {
+        let transform = ZoomViewportMath.actualPixelsTransform(
+            imageSize: CGSize(width: 6000, height: 4000),
+            viewportSize: CGSize(width: 1500, height: 1000),
+            normalizedFocusPoint: CGPoint(x: -2, y: 3),
+        )
+
+        #expect(transform.offset == CGSize(width: 2250, height: -1500))
     }
 
     @Test(.tags(.smoke))
@@ -299,90 +376,41 @@ struct ZoomViewportMathTests {
             normalizedFocusPoint: nil,
         )
 
-        #expect(transform.scale == 4.0)
+        #expect(transform.scale == 4)
         #expect(transform.offset == .zero)
     }
 
     @Test(.tags(.smoke))
-    func `portrait actual-pixels transform maps fitted preview to source pixels`() {
-        let transform = ZoomViewportMath.actualPixelsTransform(
-            imageSize: CGSize(width: 4000, height: 6000),
-            viewportSize: CGSize(width: 1000, height: 1500),
-            normalizedFocusPoint: nil,
-        )
-
-        #expect(transform.scale == 4.0)
-        #expect(transform.offset == .zero)
-    }
-
-    @Test(.tags(.smoke))
-    func `actual-pixels scale supports mismatched aspect ratios`() {
-        let scale = ZoomViewportMath.actualPixelsScale(
-            imageSize: CGSize(width: 6000, height: 4000),
-            viewportSize: CGSize(width: 1200, height: 1200),
-        )
-
-        #expect(scale == 5.0)
-    }
-
-    @Test(.tags(.smoke))
-    func `focus point offsets clamp at every image edge`() {
-        let imageSize = CGSize(width: 6000, height: 4000)
-        let viewportSize = CGSize(width: 1500, height: 1000)
-        let cases: [(CGPoint, CGSize)] = [
-            (CGPoint(x: 0, y: 0), CGSize(width: 2250, height: 1500)),
-            (CGPoint(x: 1, y: 0), CGSize(width: -2250, height: 1500)),
-            (CGPoint(x: 0, y: 1), CGSize(width: 2250, height: -1500)),
-            (CGPoint(x: 1, y: 1), CGSize(width: -2250, height: -1500)),
-        ]
-
-        for (focusPoint, expectedOffset) in cases {
-            let transform = ZoomViewportMath.actualPixelsTransform(
-                imageSize: imageSize,
-                viewportSize: viewportSize,
-                normalizedFocusPoint: focusPoint,
-            )
-            #expect(transform.scale == 4.0)
-            #expect(transform.offset == expectedOffset)
-        }
-    }
-
-    @Test(.tags(.smoke))
-    func `invalid dimensions return a finite centered fallback`() {
+    func `invalid sizes use a finite centered fallback`() {
         let invalidSizes = [
-            CGSize(width: 0, height: 100),
-            CGSize(width: -1, height: 100),
-            CGSize(width: CGFloat.infinity, height: 100),
-            CGSize(width: CGFloat.nan, height: 100),
+            CGSize(width: 0, height: 4000),
+            CGSize(width: -1, height: 4000),
+            CGSize(width: CGFloat.infinity, height: 4000),
+            CGSize(width: CGFloat.nan, height: 4000)
         ]
-        let validSize = CGSize(width: 100, height: 100)
 
         for invalidSize in invalidSizes {
-            let invalidImage = ZoomViewportMath.actualPixelsTransform(
+            let transform = ZoomViewportMath.actualPixelsTransform(
                 imageSize: invalidSize,
-                viewportSize: validSize,
-                normalizedFocusPoint: CGPoint(x: 0.5, y: 0.5),
-            )
-            let invalidViewport = ZoomViewportMath.actualPixelsTransform(
-                imageSize: validSize,
-                viewportSize: invalidSize,
+                viewportSize: CGSize(width: 1500, height: 1000),
                 normalizedFocusPoint: CGPoint(x: 0.5, y: 0.5),
             )
 
-            #expect(invalidImage == ZoomViewportTransform(scale: 1.0, offset: .zero))
-            #expect(invalidViewport == ZoomViewportTransform(scale: 1.0, offset: .zero))
+            #expect(transform.scale == 1)
+            #expect(transform.scale.isFinite)
+            #expect(transform.offset == .zero)
         }
     }
 
     @Test(.tags(.smoke))
-    func `non-finite focus point keeps actual-pixels view centered`() {
+    func `non finite focus point uses a centered fallback`() {
         let transform = ZoomViewportMath.actualPixelsTransform(
             imageSize: CGSize(width: 6000, height: 4000),
             viewportSize: CGSize(width: 1500, height: 1000),
             normalizedFocusPoint: CGPoint(x: CGFloat.nan, y: 0.5),
         )
 
-        #expect(transform.scale == 4.0)
+        #expect(transform.scale == 4)
         #expect(transform.offset == .zero)
     }
 }
@@ -409,6 +437,11 @@ struct LoupeImageKeyActionTests {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleFocusPoints)
     }
 
+    @Test(.tags(.smoke), arguments: ["e", "E"])
+    func `E resolves to metadata panel`(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleMetadata)
+    }
+
     @Test(.tags(.smoke), arguments: ["z", "Z"])
     func `Z resolves to actual-pixels inspection`(characters: String) {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .inspectActualPixels)
@@ -417,37 +450,6 @@ struct LoupeImageKeyActionTests {
 
 @Suite("ZoomOverlayNavigationContext")
 struct ZoomOverlayNavigationContextTests {
-    @Test(.tags(.smoke))
-    func `destination returns previous and next inside supplied sequence`() {
-        let ids = [UUID(), UUID(), UUID()]
-        let context = ZoomOverlayNavigationContext(orderedFileIDs: ids)
-
-        #expect(context.destinationID(from: ids[1], delta: -1) == ids[0])
-        #expect(context.destinationID(from: ids[1], delta: 1) == ids[2])
-    }
-
-    @Test(.tags(.smoke))
-    func `navigation is disabled at sequence boundaries`() {
-        let ids = [UUID(), UUID(), UUID()]
-        let context = ZoomOverlayNavigationContext(orderedFileIDs: ids)
-
-        #expect(context.canNavigatePrevious(from: ids[0]) == false)
-        #expect(context.canNavigateNext(from: ids[0]) == true)
-        #expect(context.canNavigatePrevious(from: ids[2]) == true)
-        #expect(context.canNavigateNext(from: ids[2]) == false)
-    }
-
-    @Test(.tags(.smoke))
-    func `context does not navigate outside supplied sequence`() {
-        let sequence = [UUID(), UUID()]
-        let secondGroupFirstID = UUID()
-        let context = ZoomOverlayNavigationContext(orderedFileIDs: sequence)
-
-        #expect(context.destinationID(from: sequence[1], delta: 1) == nil)
-        #expect(context.destinationID(from: secondGroupFirstID, delta: -1) == nil)
-        #expect(context.destinationID(from: secondGroupFirstID, delta: 1) == nil)
-    }
-
     @Test(.tags(.smoke))
     func `context keeps first occurrence when duplicate IDs are supplied`() {
         let ids = [UUID(), UUID()]

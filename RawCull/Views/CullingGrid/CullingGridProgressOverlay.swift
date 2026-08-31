@@ -2,26 +2,21 @@ import SwiftUI
 
 struct CullingGridProgressOverlay: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
 
     var body: some View {
         if viewModel.sharpnessModel.isScoring {
             ProgressCount(
-                progress: Binding(
-                    get: { Double(viewModel.sharpnessModel.scoringProgress) },
-                    set: { _ in },
-                ),
-                estimatedSeconds: Binding(
-                    get: { viewModel.sharpnessModel.scoringEstimatedSeconds },
-                    set: { _ in },
-                ),
-                max: Double(viewModel.sharpnessModel.scoringTotal),
+                completed: viewModel.sharpnessModel.scoringProgress,
+                total: viewModel.sharpnessModel.scoringTotal,
+                estimatedSeconds: viewModel.sharpnessModel.scoringEstimatedSeconds,
                 statusText: "Scoring sharpness...",
             )
             .frame(maxWidth: 480)
             .progressOverlayStyle()
         }
 
-        if viewModel.similarityModel.isGrouping || indeterminateBurstAnalysisRunning {
+        if similarityFeature.isGrouping || indeterminateBurstAnalysisRunning {
             HStack(spacing: 10) {
                 ProgressView()
                     .fixedSize()
@@ -32,20 +27,12 @@ struct CullingGridProgressOverlay: View {
             .progressOverlayStyle()
         }
 
-        if viewModel.similarityModel.isIndexing {
+        if similarityFeature.indexing.isIndexing {
             ProgressCount(
-                progress: Binding(
-                    get: { Double(viewModel.similarityModel.indexingProgress) },
-                    set: { _ in },
-                ),
-                estimatedSeconds: Binding(
-                    get: { viewModel.similarityModel.indexingEstimatedSeconds },
-                    set: { _ in },
-                ),
-                max: Double(viewModel.similarityModel.indexingTotal),
-                statusText: viewModel.similarityModel.indexingPhase == .saving
-                    ? "Saving similarity artifacts..."
-                    : "Indexing similarity...",
+                completed: similarityFeature.indexing.completed,
+                total: similarityFeature.indexing.total,
+                estimatedSeconds: similarityFeature.indexing.estimatedSeconds,
+                statusText: "Indexing similarity...",
             )
             .frame(maxWidth: 480)
             .progressOverlayStyle()

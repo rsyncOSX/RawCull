@@ -12,7 +12,14 @@ import OSLog
 actor RequestThumbnail {
     static let shared = RequestThumbnail()
 
+    private struct InFlightRequest {
+        let generation: UUID
+        let task: Task<Void, Never>
+        var waiters: [UUID: CheckedContinuation<CGImage?, Never>]
+    }
+
     private var setupTask: Task<Void, Never>?
+    private var inFlightRequests: [ThumbnailCacheKey: InFlightRequest] = [:]
     private let diskCache: DiskCacheManager
     private let memoryCache: SharedMemoryCache
     private let rawLoader: any RawImageLoading
@@ -41,44 +48,42 @@ actor RequestThumbnail {
     }
 
     func requestThumbnail(
-        for file: FileItem,
-        targetSize: Int,
-        purpose: ThumbnailPurpose = .preview,
-    ) async -> CGImage? {
-        let key = ThumbnailRequestKey(
-            source: ThumbnailSourceFingerprint(file: file),
-            purpose: purpose,
-            requestedMaxPixelSize: targetSize,
-        )
-        return await requestThumbnail(for: file.url, key: key)
-    }
-
-    /// URL-only boundary for callers without scanned `FileItem` metadata.
-    /// Metadata is read once. If unavailable, extraction proceeds without any
-    /// persistent or in-memory reuse so a path-only stale hit is impossible.
-    func requestThumbnail(
         for url: URL,
         targetSize: Int,
-        purpose: ThumbnailPurpose = .preview,
+        purpose: ThumbnailCacheKey.Purpose,
     ) async -> CGImage? {
-        guard let fingerprint = try? ThumbnailSourceFingerprint.readingMetadata(for: url) else {
-            guard !Task.isCancelled else { return nil }
-            let image = await rawLoader.thumbnailCGImage(for: url, maxPixelSize: targetSize)
-            guard !Task.isCancelled else { return nil }
-            return image
-        }
-        let key = ThumbnailRequestKey(
-            source: fingerprint,
+        await ensureReady()
+
+        guard let cacheKey = ThumbnailCacheKey.resolve(
+            for: url,
             purpose: purpose,
-            requestedMaxPixelSize: targetSize,
+            requestedPixelSize: targetSize,
+        ) else {
+            return await performRequest(
+                for: url,
+                targetSize: targetSize,
+                cacheKey: nil,
+            )
+        }
+
+        return await coalescedRequest(
+            for: url,
+            targetSize: targetSize,
+            cacheKey: cacheKey,
         )
-        return await requestThumbnail(for: url, key: key)
     }
 
-    private func requestThumbnail(for url: URL, key: ThumbnailRequestKey) async -> CGImage? {
-        await ensureReady()
+    private func performRequest(
+        for url: URL,
+        targetSize: Int,
+        cacheKey: ThumbnailCacheKey?,
+    ) async -> CGImage? {
         do {
-            return try await resolveImage(for: url, key: key)
+            return try await resolveImage(
+                for: url,
+                targetSize: targetSize,
+                cacheKey: cacheKey,
+            )
         } catch is CancellationError {
             return nil
         } catch {
@@ -87,71 +92,147 @@ actor RequestThumbnail {
         }
     }
 
-    private func resolveImage(for url: URL, key: ThumbnailRequestKey) async throws -> CGImage {
-        // Demand counter: total UI-driven thumbnail requests. Forms the
-        // denominator for `true_hit_rate_pct` in Memory Diagnostics — unlike
-        // the existing layer-relative `hit_rate_pct`, this includes branch C
-        // (cold extractions) so the metric reflects real user-perceived hits.
-        memoryCache.incrementDemandRequest()
+    private func coalescedRequest(
+        for url: URL,
+        targetSize: Int,
+        cacheKey: ThumbnailCacheKey,
+    ) async -> CGImage? {
+        let waiterID = UUID()
+        let result = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                enqueue(
+                    waiterID: waiterID,
+                    continuation: continuation,
+                    url: url,
+                    targetSize: targetSize,
+                    cacheKey: cacheKey,
+                )
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWaiter(waiterID, for: cacheKey)
+            }
+        }
+        return Task.isCancelled ? nil : result
+    }
 
+    private func enqueue(
+        waiterID: UUID,
+        continuation: CheckedContinuation<CGImage?, Never>,
+        url: URL,
+        targetSize: Int,
+        cacheKey: ThumbnailCacheKey,
+    ) {
+        guard !Task.isCancelled else {
+            continuation.resume(returning: nil)
+            return
+        }
+
+        if var request = inFlightRequests[cacheKey] {
+            request.waiters[waiterID] = continuation
+            inFlightRequests[cacheKey] = request
+            return
+        }
+
+        let generation = UUID()
+        let task = Task { [weak self] in
+            guard let self else { return }
+            let image = await self.performRequest(
+                for: url,
+                targetSize: targetSize,
+                cacheKey: cacheKey,
+            )
+            await self.finishRequest(
+                for: cacheKey,
+                generation: generation,
+                image: image,
+            )
+        }
+        inFlightRequests[cacheKey] = InFlightRequest(
+            generation: generation,
+            task: task,
+            waiters: [waiterID: continuation],
+        )
+    }
+
+    private func cancelWaiter(
+        _ waiterID: UUID,
+        for cacheKey: ThumbnailCacheKey,
+    ) {
+        guard var request = inFlightRequests[cacheKey],
+              let continuation = request.waiters.removeValue(forKey: waiterID)
+        else { return }
+
+        continuation.resume(returning: nil)
+        if request.waiters.isEmpty {
+            inFlightRequests.removeValue(forKey: cacheKey)
+            request.task.cancel()
+        } else {
+            inFlightRequests[cacheKey] = request
+        }
+    }
+
+    private func finishRequest(
+        for cacheKey: ThumbnailCacheKey,
+        generation: UUID,
+        image: CGImage?,
+    ) {
+        guard let request = inFlightRequests[cacheKey],
+              request.generation == generation
+        else { return }
+
+        inFlightRequests.removeValue(forKey: cacheKey)
+        for continuation in request.waiters.values {
+            continuation.resume(returning: image)
+        }
+    }
+
+    private func resolveImage(
+        for url: URL,
+        targetSize: Int,
+        cacheKey: ThumbnailCacheKey?,
+    ) async throws -> CGImage {
         // A. Check RAM
-        if let wrapper = memoryCache.object(forKey: key) {
+        if let cacheKey, let wrapper = memoryCache.object(forKey: cacheKey) {
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in RAM Cache)")
-            await memoryCache.updateCacheMemory()
             let nsImage = wrapper.image
             return try await nsImageToCGImage(nsImage)
         }
 
         // B. Check Disk
-        if let diskImage = await diskCache.load(for: key) {
-            // Boomerang detection: a disk hit on a key the main RAM cache
-            // recently evicted is the "scan polluted RAM, user paid disk cost
-            // to get it back" pattern we're trying to quantify.
-            if memoryCache.wasRecentlyEvicted(key: key) {
-                memoryCache.incrementBoomerangMiss()
-            }
-            storeInMemory(diskImage, for: key)
+        if let cacheKey, let diskImage = await diskCache.load(for: cacheKey) {
+            storeInMemory(diskImage, for: cacheKey)
             // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - found in Disk Cache)")
-            await memoryCache.updateCacheDisk()
             return try await nsImageToCGImage(diskImage)
         }
 
         // C. Extract
         // Logger.process.debugThreadOnly("RequestThumbnail: resolveImage() - no cache hit, CREATING thumbnail")
 
-        memoryCache.beginThumbnailExtraction(key: key)
-        defer {
-            memoryCache.endThumbnailExtraction(key: key, cancelled: Task.isCancelled)
-        }
-
+        try Task.checkCancellation()
         guard let cgImage = await rawLoader.thumbnailCGImage(
             for: url,
-            maxPixelSize: key.representation.requestedMaxPixelSize,
+            maxPixelSize: targetSize,
         ) else {
             throw RawImageLoadingError.invalidSource
         }
+        try Task.checkCancellation()
 
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        // Cold extraction: not in RAM, not on disk, decoded from ARW source.
-        // The third bucket of demand traffic — without it, the layer-relative
-        // hit rate (`hit_rate_pct`) is meaningless during a fresh scan because
-        // its denominator excludes this path entirely.
-        memoryCache.incrementColdExtract()
-
-        try Task.checkCancellation()
-        storeInMemory(image, for: key)
+        if let cacheKey {
+            storeInMemory(image, for: cacheKey)
+        }
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
-        if let jpegData = DiskCacheManager.jpegData(from: cgImage) {
+        if let cacheKey, let jpegData = DiskCacheManager.jpegData(from: cgImage) {
             // Capture only `diskCache` (actor-isolated let) and the two value types.
             // No implicit `self` capture, no non-Sendable types crossing the boundary.
             let dcache = diskCache
-            let requestKey = key
             Task.detached(priority: .background) {
-                await dcache.save(jpegData, for: requestKey)
+                await dcache.save(jpegData, for: cacheKey)
             }
-        } else {
+        } else if cacheKey != nil {
             Logger.process.warning("RequestThumbnail: failed to encode JPEG for \(url.lastPathComponent)")
         }
 
@@ -177,9 +258,9 @@ actor RequestThumbnail {
         }.value
     }
 
-    private func storeInMemory(_ image: NSImage, for key: ThumbnailRequestKey) {
+    private func storeInMemory(_ image: NSImage, for key: ThumbnailCacheKey) {
         guard memoryCache.object(forKey: key) == nil else { return }
-        let wrapper = CachedThumbnail(image: image, requestKey: key)
+        let wrapper = CachedThumbnail(image: image)
         memoryCache.setObject(wrapper, forKey: key, cost: wrapper.cost)
     }
 }

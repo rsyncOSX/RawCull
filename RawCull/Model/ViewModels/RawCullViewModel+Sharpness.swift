@@ -4,11 +4,12 @@
 //
 
 import Foundation
+import OSLog
 import RawCullCore
 
 extension RawCullViewModel {
     var sharpnessScoringTargetFiles: [FileItem] {
-        let ordered = files.sorted {
+        let ordered = activeCatalogFiles.sorted {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
 
@@ -23,7 +24,7 @@ extension RawCullViewModel {
 
         if case let .stars(rating) = ratingFilter {
             let visible = filteredFiles.isEmpty ? ordered : filteredFiles
-            return visible.filter { getRating(for: $0) == rating }
+            return visible.filter { self.rating(for: $0) == rating }
         }
 
         return ordered
@@ -47,17 +48,28 @@ extension RawCullViewModel {
     /// Auto-calibrates focus config from the current catalog, then scores and re-sorts.
     /// After a successful (non-cancelled) run, scores and saliency are persisted to SavedFiles.
     func calibrateAndScoreCurrentCatalog() async {
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreCurrentCatalog(): starting catalog sharpness scoring",
+        )
         await calibrateAndScoreFiles(sharpnessScoringTargetFiles)
     }
 
-    /// Auto-calibrates and scores only the files participating in burst analysis.
-    /// Used by rating- or selection-scoped burst reanalysis to avoid scoring the full catalog.
-    func calibrateAndScoreBurstFiles(_ files: [FileItem]) async {
-        await calibrateAndScoreFiles(files)
+    /// Application-side effects requested after coordinator-owned burst
+    /// sharpness work completes. Culling persistence and display sorting remain
+    /// view-model responsibilities.
+    func applyBurstSharpnessScoringSideEffects(_ files: [FileItem]) async {
+        if !sharpnessModel.scores.isEmpty {
+            persistScoringResultsInMemory(files: files)
+        }
+        await handleSortOrderChange()
     }
 
     private func calibrateAndScoreFiles(_ files: [FileItem]) async {
-        await sharpnessModel.calibrateFromBurst(files)
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreFiles(): starting calibration and scoring for \(files.count) files",
+        )
+        let shouldContinue = await sharpnessModel.calibrateFromBurst(files)
+        guard shouldContinue, !Task.isCancelled else { return }
         await sharpnessModel.scoreFiles(files)
         // scores is cleared at the start of scoreFiles and only written on clean completion —
         // an empty dict means the run was cancelled, so skip the write.
@@ -65,16 +77,22 @@ extension RawCullViewModel {
             persistScoringResultsInMemory(files: files)
         }
         await handleSortOrderChange()
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.calibrateAndScoreFiles(): finished with \(sharpnessModel.scores.count) scores",
+        )
     }
 
+    // periphery:ignore
     /// Merges current sharpness scores and saliency labels into cullingModel.savedFiles
     /// and lets the culling store coalesce persistence with other culling changes.
-    // periphery:ignore
     func persistScoringResultsInMemory() {
         persistScoringResultsInMemory(files: files)
     }
 
     private func persistScoringResultsInMemory(files: [FileItem]) {
+        Logger.process.debugMessageOnly(
+            "RawCullViewModel.persistScoringResultsInMemory(): persisting scores for \(files.count) files",
+        )
         guard let catalog = selectedSource?.url else { return }
         let scores = sharpnessModel.scores
         let saliency = sharpnessModel.saliencyInfo

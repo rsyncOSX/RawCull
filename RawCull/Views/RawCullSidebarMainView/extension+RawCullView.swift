@@ -11,12 +11,15 @@ extension RawCullMainView {
     var toolbarContent: some ToolbarContent {
         SharedMainToolbarContent(
             viewModel: viewModel,
-            toggleInspector: toggleShowInspector,
+            toggleMetadataPanel: toggleLoupeMetadataPanel,
         )
     }
 
-    func toggleShowInspector() {
-        viewModel.hideInspector.toggle()
+    func toggleLoupeMetadataPanel() {
+        guard viewModel.mainViewMode == .loupe else { return }
+        withAnimation(.snappy) {
+            viewModel.showsLoupeMetadataPanel.toggle()
+        }
     }
 
     func handlePickerResult(_ result: Result<URL, Error>) {

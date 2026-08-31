@@ -12,11 +12,10 @@ struct FileDetailView: View {
 
     var body: some View {
         content
-            .background(rawDiagnosticsShortcut)
     }
 
     var files: [FileItem] {
-        viewModel.files
+        viewModel.filteredFiles
     }
 
     @ViewBuilder
@@ -37,18 +36,6 @@ struct FileDetailView: View {
         } else {
             emptyState
         }
-    }
-
-    private var rawDiagnosticsShortcut: some View {
-        Button("RAW Diagnostics") {
-            guard let file else { return }
-            viewModel.presentRawDiagnostics(for: file)
-        }
-        .keyboardShortcut("i", modifiers: [.command])
-        .disabled(file == nil)
-        .opacity(0)
-        .frame(width: 0, height: 0)
-        .accessibilityHidden(true)
     }
 
     private var emptyState: some View {

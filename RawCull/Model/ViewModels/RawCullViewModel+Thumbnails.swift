@@ -7,15 +7,15 @@ import OSLog
 
 extension RawCullViewModel {
     func fileHandler(_ update: Int) {
-        progress = Double(update)
+        fileOperationCompleted = update
     }
 
     func maxfilesHandler(_ maxfiles: Int) {
-        max = Double(maxfiles)
+        fileOperationTotal = maxfiles
     }
 
     func estimatedTimeHandler(_ seconds: Int) {
-        estimatedSeconds = seconds
+        fileOperationEstimatedSeconds = seconds
     }
 
     func setMemoryPressureWarning(_ warning: Bool) {
@@ -35,7 +35,9 @@ extension RawCullViewModel {
         if let file = filteredFiles.first(where: { $0.id == selectedFileID }) {
             return [file]
         }
-        return files.first(where: { $0.id == selectedFileID }).map { [$0] } ?? []
+        return activeCatalogFiles
+            .first(where: { $0.id == selectedFileID })
+            .map { [$0] } ?? []
     }
 
     func presentExtractJPGsSheet() {
@@ -54,9 +56,9 @@ extension RawCullViewModel {
               !exportFiles.isEmpty
         else { return }
 
-        progress = 0
-        max = Double(exportFiles.count)
-        estimatedSeconds = 0
+        fileOperationCompleted = 0
+        fileOperationTotal = exportFiles.count
+        fileOperationEstimatedSeconds = 0
         creatingthumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
@@ -105,17 +107,18 @@ extension RawCullViewModel {
     }
 
     func startScanAndExtractJPGs() {
+        let extractionFiles = activeCatalogFiles
         guard currentScanAndExtractJPGsActor == nil,
               currentScanAndCreateThumbnailsActor == nil,
               currentExtractAndSaveJPGsActor == nil,
-              !files.isEmpty
+              !extractionFiles.isEmpty
         else { return }
 
         jpgCacheWarmTask?.cancel()
 
-        progress = 0
-        max = Double(files.count)
-        estimatedSeconds = 0
+        fileOperationCompleted = 0
+        fileOperationTotal = extractionFiles.count
+        fileOperationEstimatedSeconds = 0
         creatingthumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
@@ -126,7 +129,7 @@ extension RawCullViewModel {
             onExtractionNeeded: {},
         )
 
-        let actor = ScanAndExtractJPGs(urls: files.map(\.url))
+        let actor = ScanAndExtractJPGs(urls: extractionFiles.map(\.url))
         currentScanAndExtractJPGsActor = actor
 
         jpgCacheWarmTask = Task(priority: .background) {

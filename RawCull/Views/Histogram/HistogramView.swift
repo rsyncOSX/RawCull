@@ -10,44 +10,106 @@ import OSLog
 import RawCullCore
 import SwiftUI
 
+nonisolated enum HistogramLoader {
+    typealias Calculator = @Sendable (CGImage) async throws -> [CGFloat]
+    static let maximumSampleDimension = 512
+
+    @concurrent
+    static func calculate(from image: CGImage) async throws -> [CGFloat] {
+        try Task.checkCancellation()
+        let sampledImage = sampledImage(from: image)
+        try Task.checkCancellation()
+        let bins = HistogramCalculator.normalizedLuminanceHistogram(from: sampledImage)
+        try Task.checkCancellation()
+        return bins
+    }
+
+    /// Produces a representative image for the display-only histogram without
+    /// copying and scanning every pixel in a full-resolution preview.
+    static func sampledImage(
+        from image: CGImage,
+        maximumDimension: Int = maximumSampleDimension,
+    ) -> CGImage {
+        let boundedMaximumDimension = max(maximumDimension, 1)
+        let longestDimension = max(image.width, image.height)
+        guard longestDimension > boundedMaximumDimension else { return image }
+
+        let scale = CGFloat(boundedMaximumDimension) / CGFloat(longestDimension)
+        let sampleWidth = max(Int((CGFloat(image.width) * scale).rounded()), 1)
+        let sampleHeight = max(Int((CGFloat(image.height) * scale).rounded()), 1)
+        let colorSpace = if image.colorSpace?.model == .rgb {
+            image.colorSpace
+        } else {
+            CGColorSpace(name: CGColorSpace.sRGB)
+        }
+
+        guard let colorSpace,
+              let context = CGContext(
+                  data: nil,
+                  width: sampleWidth,
+                  height: sampleHeight,
+                  bitsPerComponent: 8,
+                  bytesPerRow: sampleWidth * 4,
+                  space: colorSpace,
+                  bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+                      | CGImageAlphaInfo.premultipliedLast.rawValue,
+              )
+        else { return image }
+
+        // Preserve representative source values instead of blending color
+        // boundaries into luminance values that were not present in the image.
+        context.interpolationQuality = .none
+        context.draw(
+            image,
+            in: CGRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight),
+        )
+        return context.makeImage() ?? image
+    }
+}
+
 @MainActor
 @Observable
-final class HistogramLoadingModel {
-    typealias ImageConverter = @MainActor (NSImage) -> CGImage?
-    typealias Calculator = @Sendable (CGImage) async -> [CGFloat]
-
+final class HistogramPresentationModel {
     private(set) var normalizedBins: [CGFloat] = []
-    private var generation: UInt64 = 0
 
     func load(
         image: NSImage?,
-        convert: ImageConverter,
-        calculate: Calculator,
-    ) async -> Bool {
-        generation &+= 1
-        let loadGeneration = generation
-        normalizedBins = []
+        calculate: HistogramLoader.Calculator = HistogramLoader.calculate,
+    ) async {
+        guard let image else {
+            normalizedBins = []
+            return
+        }
+        guard let cgImage = image.cgImage(
+            forProposedRect: nil,
+            context: nil,
+            hints: nil,
+        ) else {
+            normalizedBins = []
+            Logger.process.warning("Could not initialize CGImage from NSImage")
+            return
+        }
 
-        guard let image, let cgImage = convert(image) else { return false }
-        let bins = await calculate(cgImage)
-        guard !Task.isCancelled, generation == loadGeneration else { return true }
-        normalizedBins = bins
-        return true
-    }
-
-    @concurrent
-    nonisolated static func calculateHistogram(from image: CGImage) async -> [CGFloat] {
-        HistogramCalculator.normalizedLuminanceHistogram(from: image)
+        do {
+            let bins = try await calculate(cgImage)
+            try Task.checkCancellation()
+            normalizedBins = bins
+        } catch is CancellationError {
+            // A newer image owns publication after SwiftUI cancels this task.
+        } catch {
+            guard !Task.isCancelled else { return }
+            normalizedBins = []
+            Logger.process.warning(
+                "Could not calculate image histogram: \(String(describing: error), privacy: .public)",
+            )
+        }
     }
 }
 
 struct HistogramView: View {
-    @Binding private var nsImage: NSImage?
-    @State private var loader = HistogramLoadingModel()
-
-    init(nsImage: Binding<NSImage?>) {
-        _nsImage = nsImage
-    }
+    let nsImage: NSImage?
+    var height: CGFloat = 150
+    @State private var presentation = HistogramPresentationModel()
 
     private var imageIdentity: ObjectIdentifier? {
         nsImage.map(ObjectIdentifier.init)
@@ -62,7 +124,7 @@ struct HistogramView: View {
                 .clipShape(.rect(cornerRadius: 4))
 
             // The Histogram Path
-            HistogramPath(bins: loader.normalizedBins)
+            HistogramPath(bins: presentation.normalizedBins)
                 .fill(
                     LinearGradient(
                         gradient: Gradient(colors: [.blue, .purple]),
@@ -73,18 +135,9 @@ struct HistogramView: View {
                 // Inset slightly to prevent clipping
                 .padding(2)
         }
-        .frame(height: 150) // Default height
+        .frame(height: height)
         .task(id: imageIdentity) {
-            let converted = await loader.load(
-                image: nsImage,
-                convert: { image in
-                    image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-                },
-                calculate: HistogramLoadingModel.calculateHistogram,
-            )
-            if nsImage != nil, !converted {
-                Logger.process.warning("HistogramView: could not convert the selected image to CGImage")
-            }
+            await presentation.load(image: nsImage)
         }
     }
 }

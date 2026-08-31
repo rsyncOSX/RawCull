@@ -20,28 +20,24 @@ func createTestImage(width: Int = 100, height: Int = 100) -> NSImage {
 
 struct RequestThumbnailTests {
     @Test
-    func `new isolated cache starts with empty statistics`() async {
+    func `new isolated cache starts empty`() async {
         let cache = await makeIsolatedCache()
-        let stats = await cache.getCacheStatistics()
 
-        #expect(stats.hitRate == 0)
-        #expect(stats.hits == 0)
-        #expect(stats.misses == 0)
         #expect(cache.getMemoryCacheCount() == 0)
         #expect(cache.getGridCacheCount() == 0)
     }
 
     @Test
     func `thumbnail request for missing file returns nil`() async {
-        let (provider, cache) = await makeIsolatedThumbnailProvider()
+        let (provider, _) = await makeIsolatedThumbnailProvider()
         let missingURL = URL(fileURLWithPath: "/nonexistent/rawcull-\(UUID().uuidString).jpg")
 
-        let result = await provider.requestThumbnail(for: missingURL, targetSize: 256)
-        let stats = await cache.getCacheStatistics()
-
+        let result = await provider.requestThumbnail(
+            for: missingURL,
+            targetSize: 256,
+            purpose: .preview,
+        )
         #expect(result == nil)
-        #expect(stats.hits == 0)
-        #expect(stats.misses == 0)
     }
 
     @Test(.tags(.critical))
@@ -55,7 +51,11 @@ struct RequestThumbnailTests {
         let result: CGImage? = await withTaskGroup(of: CGImage?.self) { group in
             group.cancelAll()
             group.addTask {
-                await provider.requestThumbnail(for: missingRaw, targetSize: 256)
+                await provider.requestThumbnail(
+                    for: missingRaw,
+                    targetSize: 256,
+                    purpose: .preview,
+                )
             }
             guard let result = await group.next() else {
                 return nil
@@ -67,21 +67,17 @@ struct RequestThumbnailTests {
     }
 
     @Test
-    func `clear caches removes cached items and resets statistics`() async {
+    func `clear caches removes cached items`() async {
         let cache = await makeIsolatedCache()
-        let key = makeThumbnailRequestKey(url: URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg"))
+        let key = makeThumbnailCacheKey(
+            sourceURL: URL(fileURLWithPath: "/tmp/rawcull-clear-cache.jpg"),
+        )
         let thumbnail = CachedThumbnail(image: createTestImage())
 
         cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
         cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
-        await cache.updateCacheMemory()
-        await cache.updateCacheDisk()
-
         await cache.clearCaches()
-        let stats = await cache.getCacheStatistics()
 
-        #expect(stats.hits == 0)
-        #expect(stats.misses == 0)
         #expect(cache.getMemoryCacheCount() == 0)
         #expect(cache.getMemoryCacheCurrentCost() == 0)
         #expect(cache.getGridCacheCount() == 0)

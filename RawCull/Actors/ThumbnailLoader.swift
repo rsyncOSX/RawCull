@@ -80,16 +80,21 @@ actor ThumbnailLoader {
 
     func thumbnailLoader(file: FileItem, targetSize: Int) async -> NSImage? {
         // Fast path: return from dedicated 200px grid cache without acquiring a slot
-        // RawCullMainView does not construct thumbnail grids while the active
-        // catalog preload runs, so this fast path cannot compete with that scan.
         if targetSize <= 200 {
-            let gridKey = ThumbnailRequestKey(
-                source: ThumbnailSourceFingerprint(file: file),
-                purpose: .grid,
-                requestedMaxPixelSize: 200,
-            )
-            if let wrapper = SharedMemoryCache.shared.gridObject(forKey: gridKey) {
-                return wrapper.image
+            if let image = cachedGridImage(for: file.url) {
+                return image
+            }
+
+            // Only grid misses for the catalog currently being preloaded wait.
+            // Similarity analysis and requests for other catalogs never pass
+            // through this gate.
+            guard await ThumbnailPreloadGate.shared.waitUntilGridDecodeIsAvailable(
+                for: file.url,
+            ) else { return nil }
+            guard !Task.isCancelled else { return nil }
+
+            if let image = cachedGridImage(for: file.url) {
+                return image
             }
         }
 
@@ -100,9 +105,10 @@ actor ThumbnailLoader {
         guard !Task.isCancelled else { return nil }
 
         let settings = await getSettings()
+        let requestedSize = targetSize > 0 ? targetSize : settings.thumbnailSizePreview
         let cgThumb = await RequestThumbnail.shared.requestThumbnail(
-            for: file,
-            targetSize: settings.thumbnailSizePreview,
+            for: file.url,
+            targetSize: requestedSize,
             purpose: .preview,
         )
 
@@ -114,6 +120,16 @@ actor ThumbnailLoader {
         return nil
     }
 
+    private func cachedGridImage(for url: URL) -> NSImage? {
+        let gridKey = ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: .grid,
+            requestedPixelSize: 200,
+        )
+        guard let gridKey else { return nil }
+        return SharedMemoryCache.shared.gridObject(forKey: gridKey)?.image
+    }
+
     /// Unblocks all continuations that are waiting for a concurrency slot as cancelled.
     func cancelAll() {
         for entry in pendingContinuations {
@@ -123,7 +139,6 @@ actor ThumbnailLoader {
     }
 
     #if DEBUG
-        // periphery:ignore
         func slotSnapshotForTesting() -> (
             activeTasks: Int,
             pendingContinuations: Int,
@@ -138,12 +153,10 @@ actor ThumbnailLoader {
             )
         }
 
-        // periphery:ignore
         func acquireSlotForTesting() async -> Bool {
             await acquireSlot() == .granted
         }
 
-        // periphery:ignore
         func releaseSlotForTesting() {
             releaseSlot()
         }

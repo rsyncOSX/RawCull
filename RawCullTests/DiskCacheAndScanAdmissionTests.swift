@@ -354,7 +354,7 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
-        let key = makeThumbnailRequestKey(url: source)
+        let key = makeThumbnailCacheKey(sourceURL: source)
         let cgImage = try makeCacheTestCGImage(width: 40, height: 30)
         let data = try #require(DiskCacheManager.jpegData(from: cgImage))
 
@@ -374,7 +374,7 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
-        let key = makeThumbnailRequestKey(url: source)
+        let key = makeThumbnailCacheKey(sourceURL: source)
         let data = try makeOrientedJPEGData(width: 80, height: 40, orientation: 6)
 
         await cache.save(data, for: key)
@@ -390,14 +390,18 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
-        let key = makeThumbnailRequestKey(url: source)
+        let key = makeThumbnailCacheKey(sourceURL: source)
         let first = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage(width: 20, height: 20, color: .red)))
         let second = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage(width: 60, height: 40, color: .blue)))
 
         await cache.save(first, for: key)
         await cache.save(second, for: key)
         let loaded = await cache.load(for: key)
-        let entries = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        let cacheFile = await cache.cacheFileURL(for: key)
+        let entries = try FileManager.default.contentsOfDirectory(
+            at: cacheFile.deletingLastPathComponent(),
+            includingPropertiesForKeys: nil,
+        )
 
         #expect(entries.count == 1)
         #expect(Int(loaded?.size.width ?? 0) == 60)
@@ -410,22 +414,39 @@ struct DiskCacheManagerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = DiskCacheManager(cacheDirectory: root)
         let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
-        let key = makeThumbnailRequestKey(url: source)
+        let key = makeThumbnailCacheKey(sourceURL: source)
         let data = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage()))
 
         await cache.save(data, for: key)
-        let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
-        let cachedFile = try #require(files.first)
+        let cachedFile = await cache.cacheFileURL(for: key)
         let oldDate = Date(timeIntervalSinceNow: -3 * 24 * 60 * 60)
         try FileManager.default.setAttributes([.modificationDate: oldDate], ofItemAtPath: cachedFile.path)
 
         await cache.pruneCache(maxAgeInDays: 1)
 
-        #expect(try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(
+            at: cachedFile.deletingLastPathComponent(),
+            includingPropertiesForKeys: nil,
+        ).isEmpty)
     }
 }
 
 struct FullSizeJPGDiskCacheTests {
+    @Test
+    func `missing full size JPEG entries are clean cache misses`() async throws {
+        let root = try makeCacheTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = FullSizeJPGDiskCache(cacheDirectory: root)
+        let source = URL(fileURLWithPath: "/tmp/source-\(UUID().uuidString).arw")
+
+        #expect(await cache.load(for: source) == nil)
+        #expect(await cache.load(for: source, variant: .developedRAW) == nil)
+        #expect(try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil,
+        ).isEmpty)
+    }
+
     @Test
     func `save contains and load full size JPEG from isolated disk cache`() async throws {
         let root = try makeCacheTestRoot()
@@ -535,16 +556,12 @@ struct ScanAndCreateThumbnailsCacheAdmissionTests {
         try Data().write(to: rawURL)
 
         let diskCache = DiskCacheManager(cacheDirectory: diskDirectory)
-        let previewKey = ThumbnailRequestKey(
-            source: try ThumbnailSourceFingerprint.readingMetadata(for: rawURL),
+        let previewKey = try #require(ThumbnailCacheKey.resolve(
+            for: rawURL,
             purpose: .preview,
-            requestedMaxPixelSize: 256,
-        )
-        let gridKey = ThumbnailRequestKey(
-            source: previewKey.source,
-            purpose: .grid,
-            requestedMaxPixelSize: 200,
-        )
+            requestedPixelSize: 256,
+        ))
+        let gridKey = try #require(previewKey.representation(purpose: .grid, requestedPixelSize: 200))
         let jpegData = try #require(DiskCacheManager.jpegData(from: makeCacheTestCGImage(width: 90, height: 60)))
         await diskCache.save(jpegData, for: previewKey)
 

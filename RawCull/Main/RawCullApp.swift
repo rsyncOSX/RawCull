@@ -8,12 +8,33 @@
 import OSLog
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private weak var viewModel: RawCullViewModel?
+    private var terminationTask: Task<Void, Never>?
+
+    func configure(viewModel: RawCullViewModel) {
+        self.viewModel = viewModel
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         true
     }
 
-    func applicationWillTerminate(_: Notification) {}
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let viewModel else { return .terminateNow }
+        guard terminationTask == nil else { return .terminateLater }
+
+        terminationTask = Task {
+            let didSave = await viewModel.cullingModel.flushPersistence()
+            if didSave {
+                viewModel.stopActiveSecurityScopedAccess()
+            }
+            terminationTask = nil
+            sender.reply(toApplicationShouldTerminate: didSave)
+        }
+        return .terminateLater
+    }
 }
 
 @main
@@ -21,22 +42,34 @@ struct RawCullApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @State private var gridthumbnailviewmodel = GridThumbnailViewModel()
-    @State private var viewModel = RawCullViewModel()
+    @State private var viewModel: RawCullViewModel
+    @State private var intelligenceRuntime: RawCullIntelligenceRuntime
+
+    init() {
+        let applicationState = RawCullApplicationState.live()
+        _viewModel = State(
+            initialValue: applicationState.viewModel,
+        )
+        _intelligenceRuntime = State(
+            initialValue: applicationState.intelligenceRuntime,
+        )
+    }
 
     var body: some Scene {
         Window("Photo Culling", id: "main-window") {
-            RawCullMainView(viewModel: viewModel)
-                .background(.windowBackground)
-                .environment(gridthumbnailviewmodel)
-                .environment(viewModel)
-                .task {
-                    await viewModel.applyStoredScoringSettings()
-                }
-                .onDisappear {
-                    // Quit the app when the main window is closed
-                    performCleanupTask()
-                    NSApplication.shared.terminate(nil)
-                }
+            RawCullMainView(
+                viewModel: viewModel,
+                similarityFeature: intelligenceRuntime.similarityFeature,
+            )
+            .background(.windowBackground)
+            .environment(gridthumbnailviewmodel)
+            .environment(viewModel)
+            .task {
+                await viewModel.applyStoredScoringSettings()
+            }
+            .onAppear {
+                appDelegate.configure(viewModel: viewModel)
+            }
         }
         .windowToolbarStyle(.unified)
         .commands {
@@ -52,23 +85,12 @@ struct RawCullApp: App {
                 .environment(viewModel)
         }
 
-        Window("Memory Console", id: "memory-diagnostics") {
-            MemoryDiagnosticsView()
-                .environment(viewModel)
-        }
-        .defaultSize(width: 720, height: 480)
-
         Window("About RawCull", id: "about-window") {
             AboutRawCullView()
                 .background(.windowBackground)
                 .environment(viewModel)
         }
         .defaultSize(width: 840, height: 720)
-    }
-
-    private func performCleanupTask() {
-        Logger.process.debugMessageOnly("RawCullApp: performCleanupTask(), shutting down, doing clean up")
-        viewModel.stopActiveSecurityScopedAccess()
     }
 }
 

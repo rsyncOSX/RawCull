@@ -8,11 +8,13 @@ private actor FakeRawImageLoader: RawImageLoading {
     private(set) var thumbnailCGImageCalls = 0
     private(set) var thumbnailImageCalls = 0
     private(set) var previewCGImageCalls = 0
+    private(set) var embeddedPreviewJPEGDataCalls = 0
     private(set) var fileMetadataCalls = 0
     private let fileMetadataResult: RawImageFileMetadata?
     private let thumbnailCGImageResult: CGImage?
     private let thumbnailImageResult: NSImage?
     private let previewCGImageResult: CGImage?
+    private let embeddedPreviewJPEGDataResult: Data?
     private let suspendPreviewUntilCancelled: Bool
 
     init(
@@ -20,12 +22,14 @@ private actor FakeRawImageLoader: RawImageLoading {
         thumbnailCGImageResult: CGImage? = nil,
         thumbnailImageResult: NSImage? = nil,
         previewCGImageResult: CGImage? = nil,
+        embeddedPreviewJPEGDataResult: Data? = nil,
         suspendPreviewUntilCancelled: Bool = false,
     ) {
         self.fileMetadataResult = fileMetadataResult
         self.thumbnailCGImageResult = thumbnailCGImageResult
         self.thumbnailImageResult = thumbnailImageResult
         self.previewCGImageResult = previewCGImageResult
+        self.embeddedPreviewJPEGDataResult = embeddedPreviewJPEGDataResult
         self.suspendPreviewUntilCancelled = suspendPreviewUntilCancelled
     }
 
@@ -53,6 +57,15 @@ private actor FakeRawImageLoader: RawImageLoading {
             return nil
         }
         return previewCGImageResult
+    }
+
+    func embeddedPreviewJPEGData(
+        for _: URL,
+        matchingPixelWidth _: Int,
+        height _: Int,
+    ) async -> Data? {
+        embeddedPreviewJPEGDataCalls += 1
+        return embeddedPreviewJPEGDataResult
     }
 }
 
@@ -101,14 +114,48 @@ struct RawImageLoadingIntegrationTests {
             rawLoader: fakeLoader,
         )
         let rawURL = diskRoot.appendingPathComponent("source.arw")
-        try Data([0x52, 0x41, 0x57]).write(to: rawURL)
+        try Data("source bytes".utf8).write(to: rawURL)
 
-        let first = await provider.requestThumbnail(for: rawURL, targetSize: 256)
-        let second = await provider.requestThumbnail(for: rawURL, targetSize: 256)
+        let first = await provider.requestThumbnail(for: rawURL, targetSize: 256, purpose: .preview)
+        let second = await provider.requestThumbnail(for: rawURL, targetSize: 256, purpose: .preview)
 
         #expect(first != nil)
         #expect(second != nil)
         #expect(await fakeLoader.thumbnailCGImageCalls == 1)
+    }
+
+    @Test
+    func `thumbnail request decodes a replacement written at the same path`() async throws {
+        let image = try makeRawImageLoadingTestCGImage()
+        let fakeLoader = FakeRawImageLoader(thumbnailCGImageResult: image)
+        let cache = await makeIsolatedCache()
+        let diskRoot = try makeRawImageLoadingTestRoot()
+        defer { try? FileManager.default.removeItem(at: diskRoot) }
+        let provider = RequestThumbnail(
+            diskCache: DiskCacheManager(
+                cacheDirectory: diskRoot.appendingPathComponent("Thumbnails", isDirectory: true),
+            ),
+            memoryCache: cache,
+            rawLoader: fakeLoader,
+        )
+        let rawURL = diskRoot.appendingPathComponent("replace.arw")
+        try Data([1]).write(to: rawURL)
+
+        let first = await provider.requestThumbnail(
+            for: rawURL,
+            targetSize: 256,
+            purpose: .preview,
+        )
+        try Data(repeating: 2, count: 4096).write(to: rawURL, options: .atomic)
+        let replacement = await provider.requestThumbnail(
+            for: rawURL,
+            targetSize: 256,
+            purpose: .preview,
+        )
+
+        #expect(first != nil)
+        #expect(replacement != nil)
+        #expect(await fakeLoader.thumbnailCGImageCalls == 2)
     }
 
     @Test
@@ -128,6 +175,33 @@ struct RawImageLoadingIntegrationTests {
         #expect(first != nil)
         #expect(second != nil)
         #expect(await fakeLoader.previewCGImageCalls == 1)
+    }
+
+    @Test
+    func `full size preview loader caches original embedded JPEG without recoding`() async throws {
+        let preview = try makeRawImageLoadingTestCGImage(width: 40, height: 30)
+        let embeddedJPEG = try #require(FullSizeJPGDiskCache.jpegData(from: preview))
+        let fakeLoader = FakeRawImageLoader(
+            previewCGImageResult: preview,
+            embeddedPreviewJPEGDataResult: embeddedJPEG,
+        )
+        let root = try makeRawImageLoadingTestRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cacheDirectory = root.appendingPathComponent("FullSizeJPGs", isDirectory: true)
+        let rawURL = root.appendingPathComponent("original-preview.arw")
+        let cache = FullSizeJPGDiskCache(cacheDirectory: cacheDirectory)
+        let loader = FullSizePreviewLoader(rawLoader: fakeLoader, fullSizeCache: cache)
+
+        let image = await loader.loadEmbeddedPreview(for: rawURL)
+        let cachedFiles = try FileManager.default.contentsOfDirectory(
+            at: cacheDirectory,
+            includingPropertiesForKeys: nil,
+        )
+        let cachedFile = try #require(cachedFiles.first)
+
+        #expect(image != nil)
+        #expect(try Data(contentsOf: cachedFile) == embeddedJPEG)
+        #expect(await fakeLoader.embeddedPreviewJPEGDataCalls == 1)
     }
 
     @Test
@@ -202,7 +276,7 @@ struct RawImageLoadingIntegrationTests {
                 pixelHeight: 5760,
             ),
             captureDate: captureDate,
-            captureTimeZoneOffsetSeconds: 7_200,
+            captureTimeZoneOffsetSeconds: 7200,
             focusLocation: "8640 5760 4320 2880",
             focusPoint: CGPoint(x: 0.5, y: 0.5),
         )
@@ -224,7 +298,7 @@ struct RawImageLoadingIntegrationTests {
         #expect(file.exifData?.camera == "Sony A1")
         #expect(file.afFocusNormalized == CGPoint(x: 0.5, y: 0.5))
         #expect(file.captureDate == captureDate)
-        #expect(file.captureTimeZoneOffsetSeconds == 7_200)
+        #expect(file.captureTimeZoneOffsetSeconds == 7200)
         #expect(file.dateModified == modificationDate)
         #expect(file.exifData?.exposureTimeSeconds == 0.001)
         #expect(file.exifData?.focalLengthMM == 400)

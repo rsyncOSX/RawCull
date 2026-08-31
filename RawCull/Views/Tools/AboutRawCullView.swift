@@ -83,7 +83,7 @@ struct AboutRawCullView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                Text("Fast Sony RAW culling with embedded JPEG previews, ratings, focus masks, AF point overlays, sharpness scoring, and burst comparison.")
+                Text("Fast Sony RAW culling with built-in Vision similarity, burst grouping, focus analysis, comparison, rating, and export workflows.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -230,6 +230,7 @@ private struct ShortcutSection: Identifiable {
             tint: .teal,
             shortcuts: [
                 ShortcutRow(["+", "-"], "Zoom in or out"),
+                ShortcutRow(["E"], "Show or hide image metadata"),
                 ShortcutRow(["J"], "Show the embedded JPEG"),
                 ShortcutRow(["R"], "Show the developed RAW preview"),
                 ShortcutRow(["Z"], "Open actual-pixel inspection")

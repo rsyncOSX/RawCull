@@ -25,10 +25,15 @@ nonisolated struct FullSizePreviewLoader: FullSizePreviewLoading {
         self.fullSizeCache = fullSizeCache
     }
 
+    /// Keeps extraction and any fallback ImageIO JPEG recode off a UI caller's actor.
+    @concurrent
     func loadEmbeddedPreview(for rawURL: URL) async -> CGImage? {
         let sidecarJPGURL = Self.sidecarJPEGURL(for: rawURL)
-        let sidecarImage = await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
+        let sidecarImage: CGImage? = await Task.detached(priority: .userInitiated) {
+            guard FileManager.default.fileExists(atPath: sidecarJPGURL.path) else {
+                return nil
+            }
+            return OrientationNormalizedImageLoader.loadCGImage(from: sidecarJPGURL)
         }.value
 
         guard !Task.isCancelled else { return nil }
@@ -46,9 +51,17 @@ nonisolated struct FullSizePreviewLoader: FullSizePreviewLoading {
         let extracted = await rawLoader.previewCGImage(for: rawURL)
         guard !Task.isCancelled else { return nil }
 
-        if let extracted,
-           let jpegData = FullSizeJPGDiskCache.jpegData(from: extracted) {
-            await fullSizeCache.save(jpegData, for: rawURL)
+        if let extracted {
+            let sourceJPEGData = await rawLoader.embeddedPreviewJPEGData(
+                for: rawURL,
+                matchingPixelWidth: extracted.width,
+                height: extracted.height,
+            )
+            guard !Task.isCancelled else { return nil }
+
+            if let jpegData = sourceJPEGData ?? FullSizeJPGDiskCache.jpegData(from: extracted) {
+                await fullSizeCache.save(jpegData, for: rawURL)
+            }
         }
 
         return extracted

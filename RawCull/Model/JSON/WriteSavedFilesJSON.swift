@@ -49,6 +49,12 @@ actor WriteSavedFilesJSON {
             withIntermediateDirectories: true,
             attributes: nil,
         )
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            let backupURL = fileURL.deletingLastPathComponent()
+                .appendingPathComponent("savedfiles.backup.json")
+            let existingData = try Data(contentsOf: fileURL)
+            try existingData.write(to: backupURL, options: .atomic)
+        }
         try encodedData.write(to: fileURL, options: .atomic)
     }
 }

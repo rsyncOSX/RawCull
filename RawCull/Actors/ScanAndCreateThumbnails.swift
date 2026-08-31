@@ -14,6 +14,7 @@ actor ScanAndCreateThumbnails {
     // MARK: - Isolated State
 
     private var successCount = 0
+    private var completedCount = 0
     private let diskCache: DiskCacheManager
 
     // Timing tracking
@@ -84,23 +85,22 @@ actor ScanAndCreateThumbnails {
         await ensureReady()
         cancelPreload()
 
+        let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
+        let gateID = await ThumbnailPreloadGate.shared.begin(catalogURL: catalogURL)
+
         let task = Task<Int, Never> {
             successCount = 0
+            completedCount = 0
             processingTimes = []
             lastItemTime = nil
-
-            let urls = await DiscoverFiles().discoverFiles(at: catalogURL, recursive: false)
-            let sources = urls.map { url in
-                (url, try? ThumbnailSourceFingerprint.readingMetadata(for: url))
-            }
             totalFilesToProcess = urls.count
 
             await fileHandlers?.maxfilesHandler(urls.count)
 
             return await withTaskGroup(of: Void.self) { group in
-                let maxConcurrent = RawImageLoadingConcurrency.batchExtractionLimit
+                let maxConcurrent = RawImageLoadingConcurrency.thumbnailPreloadLimit
 
-                for (index, source) in sources.enumerated() {
+                for (index, url) in urls.enumerated() {
                     if Task.isCancelled {
                         group.cancelAll()
                         break
@@ -112,8 +112,7 @@ actor ScanAndCreateThumbnails {
 
                     group.addTask {
                         await self.processSingleFile(
-                            source.0,
-                            fingerprint: source.1,
+                            url,
                             targetSize: targetSize,
                             itemIndex: index,
                         )
@@ -126,14 +125,22 @@ actor ScanAndCreateThumbnails {
         }
 
         preloadTask = task
-        return await task.value
+        let result = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        await ThumbnailPreloadGate.shared.end(gateID)
+        if preloadTask == task {
+            preloadTask = nil
+        }
+        return result
     }
 
     // MARK: - Single File Processing
 
     private func processSingleFile(
         _ url: URL,
-        fingerprint: ThumbnailSourceFingerprint?,
         targetSize: Int,
         itemIndex _: Int,
     ) async {
@@ -141,26 +148,20 @@ actor ScanAndCreateThumbnails {
             return
         }
 
-        let previewKey = fingerprint.map {
-            ThumbnailRequestKey(
-                source: $0,
-                purpose: .preview,
-                requestedMaxPixelSize: targetSize,
-            )
-        }
+        let previewKey = ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: .preview,
+            requestedPixelSize: targetSize,
+        )
+        let gridKey = previewKey?.representation(purpose: .grid, requestedPixelSize: 200)
 
         // A. Check RAM
-        if let previewKey,
-           let wrapper = SharedMemoryCache.shared.object(forKey: previewKey)
-        {
-            storeInGridCache(wrapper.image, source: previewKey.source)
+        if let previewKey, let wrapper = SharedMemoryCache.shared.object(forKey: previewKey) {
+            _ = storeInGridCache(wrapper.image, for: gridKey)
             // Do not re-admit to memoryCache: object(forKey:) already touched
             // LRU, and scan-order admission would compete with UI-driven LRU
             // ordering (the scan/UI cache-pollution pattern).
-            await SharedMemoryCache.shared.updateCacheMemory()
-            let newCount = incrementAndGetCount()
-            notifyFileHandler(newCount)
-            updateEstimatedTime(itemsProcessed: newCount)
+            recordCompletion(succeeded: true)
             return
         }
 
@@ -169,18 +170,13 @@ actor ScanAndCreateThumbnails {
         }
 
         // B. Check Disk
-        if let previewKey,
-           let diskImage = await diskCache.load(for: previewKey)
-        {
+        if let previewKey, let diskImage = await diskCache.load(for: previewKey) {
             // Mirror to the grid cache only. Leaving memoryCache admission to
             // RequestThumbnail (its branch B promotes on user-driven hits)
             // keeps LRU ordering aligned with UI traffic and prevents
             // scan-driven evictions from boomeranging UI-active items.
-            storeInGridCache(diskImage, source: previewKey.source)
-            await SharedMemoryCache.shared.updateCacheDisk()
-            let newCount = incrementAndGetCount()
-            notifyFileHandler(newCount)
-            updateEstimatedTime(itemsProcessed: newCount)
+            _ = storeInGridCache(diskImage, for: gridKey)
+            recordCompletion(succeeded: true)
             return
         }
 
@@ -190,26 +186,18 @@ actor ScanAndCreateThumbnails {
         }
         notifyExtractionNeeded()
 
-        if let previewKey {
-            SharedMemoryCache.shared.beginThumbnailExtraction(key: previewKey)
-        }
-        defer {
-            if let previewKey {
-                SharedMemoryCache.shared.endThumbnailExtraction(
-                    key: previewKey,
-                    cancelled: Task.isCancelled,
-                )
-            }
-        }
-
-        guard let image = await rawLoader.thumbnailImage(
+        let decodedImage = await rawLoader.thumbnailImage(
             for: url,
             maxPixelSize: targetSize,
-        ),
-            let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { return }
-
+        )
         if Task.isCancelled {
+            return
+        }
+
+        guard let image = decodedImage,
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else {
+            recordCompletion(succeeded: false)
             return
         }
 
@@ -220,23 +208,28 @@ actor ScanAndCreateThumbnails {
         // ~180 items and the user would pay a near-100% boomerang rate
         // on first browse. The disk JPEG saved below lets RequestThumbnail
         // branch B serve subsequent UI requests without cold extraction.
-        if let fingerprint {
-            storeInGridCache(image, source: fingerprint)
+        let sourceStillMatches = previewKey == ThumbnailCacheKey.resolve(
+            for: url,
+            purpose: .preview,
+            requestedPixelSize: targetSize,
+        )
+        if sourceStillMatches {
+            _ = storeInGridCache(image, for: gridKey)
         }
-        let newCount = incrementAndGetCount()
-        notifyFileHandler(newCount)
-        updateEstimatedTime(itemsProcessed: newCount)
+        recordCompletion(succeeded: true)
 
         // Logger.process.debugThreadOnly("ThumbnailProvider: processSingleFile() - CREATING thumbnail")
 
         // Encode to Data here, inside the actor, before crossing the task boundary.
         // `Data` is Sendable; `CGImage` is not.
-        guard let jpegData = DiskCacheManager.jpegData(from: cgImage) else {
+        guard sourceStillMatches,
+              let previewKey,
+              let jpegData = DiskCacheManager.jpegData(from: cgImage)
+        else {
             // Logger.process.warning("ThumbnailProvider: failed to encode JPEG for \(url.lastPathComponent)")
             return
         }
 
-        guard let previewKey else { return }
         let dcache = diskCache
         Task.detached(priority: .background) {
             await dcache.save(jpegData, for: previewKey)
@@ -280,22 +273,23 @@ actor ScanAndCreateThumbnails {
 
     // MARK: - Cache Helpers
 
-    private func incrementAndGetCount() -> Int {
-        successCount += 1
-        return successCount
+    private func recordCompletion(succeeded: Bool) {
+        completedCount += 1
+        if succeeded {
+            successCount += 1
+        }
+        notifyFileHandler(completedCount)
+        updateEstimatedTime(itemsProcessed: completedCount)
     }
 
-    private func storeInGridCache(_ image: NSImage, source: ThumbnailSourceFingerprint) {
-        let key = ThumbnailRequestKey(
-            source: source,
-            purpose: .grid,
-            requestedMaxPixelSize: 200,
-        )
-        guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return }
+    private func storeInGridCache(_ image: NSImage, for key: ThumbnailCacheKey?) -> Bool {
+        guard let key else { return false }
+        guard SharedMemoryCache.shared.gridObject(forKey: key) == nil else { return true }
         let gridSize: CGFloat = 200
-        guard let scaled = downscale(image, to: gridSize) else { return }
-        let wrapper = CachedThumbnail(image: scaled, requestKey: key)
+        guard let scaled = downscale(image, to: gridSize) else { return false }
+        let wrapper = CachedThumbnail(image: scaled)
         SharedMemoryCache.shared.setGridObject(wrapper, forKey: key, cost: wrapper.cost)
+        return true
     }
 
     private func downscale(_ image: NSImage, to maxDimension: CGFloat) -> NSImage? {

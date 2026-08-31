@@ -69,7 +69,7 @@ struct SettingsResetSaveButtons<Middle: View>: View {
             "Save Settings",
             isPresented: $showSaveConfirmation,
             actions: {
-                Button("Save", role: .destructive, action: onSave)
+                Button("Save", action: onSave)
                 Button("Cancel", role: .cancel) {}
             },
             message: {

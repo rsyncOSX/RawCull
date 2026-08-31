@@ -9,7 +9,7 @@ import OSLog
 
 actor ScanAndExtractJPGs {
     private var extractTask: Task<Int, Never>?
-    private var successCount = 0
+    private var completedCount = 0
     private var fileHandlers: FileHandlers?
 
     private var processingTimes: [TimeInterval] = []
@@ -47,7 +47,7 @@ actor ScanAndExtractJPGs {
         cancelExtraction()
 
         let task = Task<Int, Never> {
-            successCount = 0
+            completedCount = 0
             processingTimes = []
             lastItemTime = nil
             totalFilesToProcess = urls.count
@@ -73,7 +73,7 @@ actor ScanAndExtractJPGs {
                 }
 
                 await group.waitForAll()
-                return successCount
+                return completedCount
             }
         }
 
@@ -146,7 +146,7 @@ actor ScanAndExtractJPGs {
     }
 
     private func incrementAndGetCount() -> Int {
-        successCount += 1
-        return successCount
+        completedCount += 1
+        return completedCount
     }
 }

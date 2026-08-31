@@ -63,6 +63,10 @@ final class SharpnessScoringModel {
     }
 
     private var _scoringTask: Task<Void, Never>?
+    private var _calibrationTask: Task<Bool, Never>?
+    @ObservationIgnored private var activeScoringRequest: ScoringRequest?
+    @ObservationIgnored private var activeScoringGeneration: UUID?
+    @ObservationIgnored private var activeCalibrationGeneration: UUID?
     @ObservationIgnored private nonisolated let analysisAdapter: RawCullPhotoAnalysisAdapter
     private var scoringCompletionTimes = [TimeInterval]()
     private var lastScoringCompletionTime: Date?
@@ -110,9 +114,15 @@ final class SharpnessScoringModel {
     }
 
     func cancelScoring() {
+        _calibrationTask?.cancel()
+        _calibrationTask = nil
+        activeCalibrationGeneration = nil
         _scoringTask?.cancel()
         _scoringTask = nil
+        activeScoringRequest = nil
+        activeScoringGeneration = nil
         isScoring = false
+        isCalibratingSharpnessScoring = false
         scores = [:]
         saliencyInfo = [:]
         breakdowns = [:]
@@ -124,7 +134,16 @@ final class SharpnessScoringModel {
         sortBySharpness = false
     }
 
-    func calibrateFromBurst(_ files: [FileItem]) async {
+    /// Returns `false` only when this calibration was cancelled. A catalog with
+    /// too few calibration samples still returns `true` so scoring can use the
+    /// current focus configuration, matching the previous fallback behavior.
+    func calibrateFromBurst(_ files: [FileItem]) async -> Bool {
+        Logger.process.debugMessageOnly(
+            "SharpnessScoringModel.calibrateFromBurst(): starting calibration with \(files.count) files",
+        )
+        _calibrationTask?.cancel()
+        let generation = UUID()
+        activeCalibrationGeneration = generation
         isCalibratingSharpnessScoring = true
         let fileEntries = files.map {
             (
@@ -135,31 +154,75 @@ final class SharpnessScoringModel {
         }
         let calibrationConfig = effectiveFocusConfig
 
-        guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
-            files: fileEntries,
-            baseConfigOverride: calibrationConfig,
-            thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
-            scoringSource: scoringSource,
-            minSamples: 5,
-            maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,
-        ) else {
-            Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
-            isCalibratingSharpnessScoring = false
-            return
-        }
+        let task = Task { [weak self] in
+            guard let self, !Task.isCancelled else { return false }
+            guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
+                files: fileEntries,
+                baseConfigOverride: calibrationConfig,
+                thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
+                scoringSource: scoringSource,
+                minSamples: 5,
+                maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,
+            ) else {
+                guard !Task.isCancelled else { return false }
+                Logger.process.warning("SharpnessScoringModel: calibration failed (too few scoreable images)")
+                Logger.process.debugMessageOnly(
+                    "SharpnessScoringModel.calibrateFromBurst(): calibration returned no result",
+                )
+                return true
+            }
+            guard !Task.isCancelled else { return false }
 
-        Logger.process.debugMessageOnly("SharpnessScoringModel: visual calibration applied — threshold: \(result.threshold), pixels=\(result.sampleCount)")
-        Logger.process.debugMessageOnly("  p50: \(result.p50)  p90: \(result.p90)  p95: \(result.p95)  p99: \(result.p99)")
-        isCalibratingSharpnessScoring = false
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.calibrateFromBurst(): visual calibration applied — "
+                    + "threshold: \(result.threshold), pixels=\(result.sampleCount)",
+            )
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.calibrateFromBurst(): p50: \(result.p50)  p90: \(result.p90)  "
+                    + "p95: \(result.p95)  p99: \(result.p99)",
+            )
+            return true
+        }
+        _calibrationTask = task
+        let shouldContinue = await task.value
+        if activeCalibrationGeneration == generation {
+            _calibrationTask = nil
+            activeCalibrationGeneration = nil
+            isCalibratingSharpnessScoring = false
+        }
+        return shouldContinue
     }
 
     func scoreFiles(_ files: [FileItem]) async {
-        guard !files.isEmpty else { return }
+        Logger.process.debugMessageOnly(
+            "SharpnessScoringModel.scoreFiles(): requested scoring for \(files.count) files",
+        )
+        guard !files.isEmpty else {
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.scoreFiles(): skipped because no files were supplied",
+            )
+            return
+        }
 
-        if let existingTask = _scoringTask {
+        let request = ScoringRequest(
+            fileIDs: files.map(\.id),
+            signature: scoringSignature,
+            maximumConcurrentTasks: effectiveMaxConcurrentScoringTasks,
+        )
+
+        if let existingTask = _scoringTask,
+           activeScoringRequest == request {
+            Logger.process.debugMessageOnly(
+                "SharpnessScoringModel.scoreFiles(): coalescing an identical scoring request",
+            )
             await existingTask.value
             return
         }
+
+        _scoringTask?.cancel()
+        let generation = UUID()
+        activeScoringRequest = request
+        activeScoringGeneration = generation
 
         isScoring = true
 
@@ -190,8 +253,15 @@ final class SharpnessScoringModel {
 
         let workTask = Task {
             defer {
-                self._scoringTask = nil
-                self.isScoring = false
+                if self.activeScoringGeneration == generation {
+                    Logger.process.debugMessageOnly(
+                        "SharpnessScoringModel.scoreFiles(): scoring task finished with \(self.scores.count) scores",
+                    )
+                    self._scoringTask = nil
+                    self.activeScoringRequest = nil
+                    self.activeScoringGeneration = nil
+                    self.isScoring = false
+                }
             }
 
             guard let results = await analysisAdapter.analyzeBatch(
@@ -202,13 +272,16 @@ final class SharpnessScoringModel {
                 maximumConcurrentTasks: maxConcurrent,
                 progress: { completedCount, totalCount in
                     await MainActor.run {
+                        guard self.activeScoringGeneration == generation else { return }
                         self.recordScoringProgress(
                             completedCount: completedCount,
                             totalCount: totalCount,
                         )
                     }
                 },
-            ), !Task.isCancelled else { return }
+            ), !Task.isCancelled,
+            self.activeScoringGeneration == generation
+            else { return }
 
             self.scores = Dictionary(
                 uniqueKeysWithValues: results.compactMap { result in
@@ -236,6 +309,12 @@ final class SharpnessScoringModel {
 
         _scoringTask = workTask
         await workTask.value
+    }
+
+    private struct ScoringRequest: Equatable {
+        let fileIDs: [FileItem.ID]
+        let signature: SharpnessScoringSignature
+        let maximumConcurrentTasks: Int
     }
 
     private func recordScoringProgress(completedCount: Int, totalCount: Int) {

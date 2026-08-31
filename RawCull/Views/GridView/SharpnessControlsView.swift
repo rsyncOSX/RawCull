@@ -7,130 +7,12 @@
 
 import SwiftUI
 
-enum SharpnessIntentControlsStyle {
-    case inline
-    case compactInfo
-}
-
-struct SharpnessIntentControlsView: View {
-    @Bindable var viewModel: RawCullViewModel
-    var isDisabled: Bool
-    var showsParametersButton: Bool = false
-    var style: SharpnessIntentControlsStyle = .inline
-
-    var body: some View {
-        if style == .compactInfo {
-            HStack(spacing: 6) {
-                Label("Scoring settings are in Scoring Parameters.", systemImage: "info.circle")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .help("Photo type, quality, and thumbnail size are configured in Scoring Parameters")
-            }
-            .font(.caption)
-            .disabled(isDisabled)
-        } else {
-            HStack(spacing: 6) {
-                Picker("Type", selection: $viewModel.sharpnessModel.photoType) {
-                    ForEach(SharpnessPhotoType.allCases) { type in
-                        Text(type.title).tag(type)
-                    }
-                }
-                .pickerStyle(.menu)
-                .font(.caption)
-                .frame(width: 130)
-                .help("Tune sharpness scoring for the kind of photos in this catalog")
-                .onChange(of: viewModel.sharpnessModel.photoType) { _, newValue in
-                    SettingsViewModel.shared.scoringPhotoType = newValue
-                    Task(priority: .background) {
-                        await SettingsViewModel.shared.saveSettings()
-                    }
-                }
-
-                Picker("Quality", selection: $viewModel.sharpnessModel.scoringQuality) {
-                    ForEach(SharpnessScoringQuality.allCases) { quality in
-                        Text(quality.title).tag(quality)
-                    }
-                }
-                .pickerStyle(.menu)
-                .font(.caption)
-                .frame(width: 122)
-                .help("Choose the sharpness scoring speed/precision trade-off")
-                .onChange(of: viewModel.sharpnessModel.scoringQuality) { _, newValue in
-                    if newValue == .highPrecision {
-                        viewModel.sharpnessModel.thumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
-                        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = SharpnessScoringSizeOption.highPrecisionDefaultPixelSize
-                    } else if viewModel.sharpnessModel.thumbnailMaxPixelSize <= 0 {
-                        viewModel.sharpnessModel.thumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
-                        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue.minimumThumbnailMaxPixelSize
-                    }
-                    SettingsViewModel.shared.scoringQuality = newValue
-                    Task(priority: .background) {
-                        await SettingsViewModel.shared.saveSettings()
-                    }
-                }
-
-                Picker("Source", selection: $viewModel.sharpnessModel.scoringSource) {
-                    ForEach(SharpnessScoringSource.allCases) { source in
-                        Text(source.title).tag(source)
-                    }
-                }
-                .pickerStyle(.menu)
-                .font(.caption)
-                .frame(width: 150)
-                .help(viewModel.sharpnessModel.scoringSource.help)
-                .onChange(of: viewModel.sharpnessModel.scoringSource) { _, newValue in
-                    SettingsViewModel.shared.scoringSource = newValue
-                    Task(priority: .background) {
-                        await SettingsViewModel.shared.saveSettings()
-                    }
-                }
-
-                if viewModel.sharpnessModel.scoringQuality == .highPrecision {
-                    Picker("Size", selection: $viewModel.sharpnessModel.thumbnailMaxPixelSize) {
-                        ForEach(SharpnessScoringSizeOption.allCases) { option in
-                            Text(option.title).tag(option.rawValue)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .font(.caption)
-                    .frame(width: 92)
-                    .help("High Precision scoring size")
-                    .onChange(of: viewModel.sharpnessModel.thumbnailMaxPixelSize) { _, newValue in
-                        SettingsViewModel.shared.scoringThumbnailMaxPixelSize = newValue
-                        Task(priority: .background) {
-                            await SettingsViewModel.shared.saveSettings()
-                        }
-                    }
-                }
-            }
-            .disabled(isDisabled)
-        }
-
-        if showsParametersButton {
-            Button {
-                viewModel.activeSheet = .scoringParams
-            } label: {
-                Label("Scoring Parameters", systemImage: "slider.horizontal.3")
-            }
-            .font(.caption)
-            .disabled(isDisabled)
-            .help("Configure sharpness scoring parameters")
-        }
-    }
-}
-
 struct SharpnessControlsView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
+    @State private var preservesSimilarityOrderOnDisable = false
 
     var body: some View {
-        SharpnessIntentControlsView(
-            viewModel: viewModel,
-            isDisabled: viewModel.sharpnessModel.isScoring,
-            // showsScoringBadgeToggle: true,
-            showsParametersButton: true,
-            style: .compactInfo,
-        )
-
         // Score button — calibrates from the burst then scores
         Button {
             Task { await viewModel.calibrateAndScoreCurrentCatalog() }
@@ -174,8 +56,8 @@ struct SharpnessControlsView: View {
             )
             .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, isEnabled in
                 if isEnabled {
-                    viewModel.similarityModel.sortBySimilarity = false
-                } else if viewModel.similarityModel.sortBySimilarity {
+                    similarityFeature.setSimilaritySortingActive(false)
+                } else if similarityFeature.isSimilaritySortingActive {
                     return
                 }
                 Task(priority: .background) {
@@ -184,31 +66,45 @@ struct SharpnessControlsView: View {
             }
         }
 
-        if viewModel.hasCompletedBurstAnalysis {
-            Toggle(isOn: $viewModel.similarityModel.sortBySimilarity) {
-                Label("Find Similar", systemImage: "photo.stack")
+        Toggle(isOn: similaritySortingBinding) {
+            if similarityFeature.indexing.isIndexing {
+                Label("Indexing \(similarityBackendName)…", systemImage: "photo.stack")
+            } else if needsSimilarityIndex {
+                Label("Index & Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
+            } else {
+                Label("Find Similar (\(similarityBackendName))", systemImage: "photo.stack")
             }
-            .toggleStyle(.button)
-            .font(.caption)
-            .disabled(
-                viewModel.selectedFile == nil
-                    && !viewModel.similarityModel.sortBySimilarity,
-            )
-            .help(
-                viewModel.similarityModel.sortBySimilarity
-                    ? "Stop sorting by similarity"
-                    : "Rank all images by visual similarity to the selected image",
-            )
-            .onChange(of: viewModel.similarityModel.sortBySimilarity) { _, isEnabled in
-                if isEnabled {
-                    viewModel.sharpnessModel.sortBySharpness = false
-                    Task { await viewModel.findSimilarToSelected() }
-                } else if !viewModel.sharpnessModel.sortBySharpness {
-                    Task(priority: .background) {
-                        await viewModel.handleSortOrderChange()
-                    }
+        }
+        .toggleStyle(.button)
+        .font(.caption)
+        .disabled(
+            (viewModel.selectedFile == nil
+                && !similarityFeature.isSimilaritySortingActive)
+                || similarityFeature.indexing.isIndexing,
+        )
+        .help(similarityHelp)
+        .onChange(of: similarityFeature.isSimilaritySortingActive) { _, isEnabled in
+            if isEnabled {
+                viewModel.sharpnessModel.sortBySharpness = false
+                Task { await viewModel.findSimilarToSelected() }
+            } else if preservesSimilarityOrderOnDisable {
+                preservesSimilarityOrderOnDisable = false
+            } else if !viewModel.sharpnessModel.sortBySharpness {
+                Task(priority: .background) {
+                    await viewModel.handleSortOrderChange()
                 }
             }
+        }
+        .onChange(of: viewModel.selectedFileID) { oldID, newID in
+            guard oldID != newID,
+                  similarityFeature.isSimilaritySortingActive
+            else { return }
+
+            // A new selection prepares Find Similar for a new anchor while
+            // preserving the currently displayed similarity ranking.
+            preservesSimilarityOrderOnDisable = true
+            similarityFeature.cancelRanking()
+            similarityFeature.setSimilaritySortingActive(false)
         }
 
         // Spinner shown while calibrating is in progress
@@ -218,5 +114,35 @@ struct SharpnessControlsView: View {
                 Text("Calibrating focus-mask threshold, please wait...")
             }
         }
+    }
+
+    private var similarityBackendName: String {
+        similarityFeature.backend.displayName
+    }
+
+    private var similaritySortingBinding: Binding<Bool> {
+        Binding(
+            get: { similarityFeature.isSimilaritySortingActive },
+            set: { isEnabled in
+                similarityFeature.setSimilaritySortingActive(isEnabled)
+            },
+        )
+    }
+
+    private var needsSimilarityIndex: Bool {
+        !similarityFeature.hasCompleteIndex(for: viewModel.files)
+    }
+
+    private var similarityHelp: String {
+        if similarityFeature.indexing.isIndexing {
+            return "Building the \(similarityBackendName) similarity index"
+        }
+        if similarityFeature.isSimilaritySortingActive {
+            return "Stop sorting by similarity"
+        }
+        if needsSimilarityIndex {
+            return "Build missing \(similarityBackendName) index entries, then rank images by similarity to the selected image"
+        }
+        return "Rank all images by \(similarityBackendName) similarity to the selected image"
     }
 }

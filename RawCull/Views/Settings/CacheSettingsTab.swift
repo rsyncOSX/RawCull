@@ -26,6 +26,8 @@ struct CacheSettingsTab: View {
     @State private var isLoadingDiskCaches = false
     @State private var cachePendingPurge: DiskCacheKind?
     @State private var purgingCache: DiskCacheKind?
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var showPurgeConfirmation = false
     @State private var memoryModel = MemoryViewModel()
 
@@ -109,14 +111,13 @@ struct CacheSettingsTab: View {
 
         async let thumbnailSize = SharedMemoryCache.shared.getDiskCacheSize()
         async let fullSizeJPGSize = SharedMemoryCache.shared.getFullSizeJPGCacheSize()
-        async let similarityArtifactUsage =
-            PerFileAnalysisArtifactStore.shared.usage()
+        async let similarityArtifactUsage = PerFileAnalysisArtifactStore.shared.usage()
         async let burstAnalysisUsage = BurstAnalysisCache.shared.getDiskCacheUsage()
         let (thumbnail, fullSizeJPG, similarityArtifacts, burstAnalysis) = await (
             thumbnailSize,
             fullSizeJPGSize,
             similarityArtifactUsage,
-            burstAnalysisUsage
+            burstAnalysisUsage,
         )
 
         guard !Task.isCancelled else { return }
@@ -137,10 +138,13 @@ struct CacheSettingsTab: View {
             switch cache {
             case .thumbnails:
                 await SharedMemoryCache.shared.pruneDiskCache(maxAgeInDays: 0)
+
             case .fullSizeJPGs:
                 await SharedMemoryCache.shared.pruneFullSizeJPGCache(maxAgeInDays: 0)
+
             case .similarityArtifacts:
                 await PerFileAnalysisArtifactStore.shared.clear()
+
             case .burstAnalysis:
                 await BurstAnalysisCache.shared.clear()
             }
@@ -177,7 +181,9 @@ private enum DiskCacheKind: Hashable, Identifiable {
     case similarityArtifacts
     case burstAnalysis
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var title: String {
         switch self {
@@ -192,10 +198,13 @@ private enum DiskCacheKind: Hashable, Identifiable {
         switch self {
         case .thumbnails:
             "Cached thumbnails will be deleted and generated again when needed."
+
         case .fullSizeJPGs:
             "Cached full-size previews will be deleted and generated again when needed."
+
         case .similarityArtifacts:
-            "Saved per-file similarity artifacts will be deleted and generated again when needed."
+            "Saved per-file similarity artifacts will be deleted and indexed again when needed."
+
         case .burstAnalysis:
             "Saved burst groups and analysis results for all catalogs will be deleted and analyzed again when needed."
         }
@@ -354,7 +363,7 @@ private struct DiskCachesSection: View {
                     kind: .similarityArtifacts,
                     icon: "point.3.connected.trianglepath.dotted",
                     size: similarityArtifactSize,
-                    detail: "\(similarityArtifactCount) per-file \(similarityArtifactCount == 1 ? "artifact" : "artifacts")",
+                    detail: "\(similarityArtifactCount) reusable per-file \(similarityArtifactCount == 1 ? "artifact" : "artifacts")",
                     path: similarityArtifactPath,
                     isLoading: isLoading,
                     isPurging: purgingCache == .similarityArtifacts,
@@ -442,5 +451,4 @@ private struct DiskCacheRow: View {
             .accessibilityLabel("Clear \(kind.title)")
         }
     }
-
 }

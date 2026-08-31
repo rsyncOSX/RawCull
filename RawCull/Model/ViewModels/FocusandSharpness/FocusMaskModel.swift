@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import PhotoAnalysisKit
 import RawCullCore
 
@@ -80,6 +81,9 @@ final class FocusMaskModel {
         minSamples: Int = 5,
         maxConcurrentTasks: Int = 8,
     ) async -> FocusCalibrationResult? {
+        Logger.process.debugMessageOnly(
+            "FocusMaskModel.calibrateAndApplyFromBurstParallel(): calibrating from \(files.count) files",
+        )
         let analysisFiles = files.map {
             RawCullPhotoAnalysisFile(
                 url: $0.url,
@@ -96,9 +100,17 @@ final class FocusMaskModel {
             thresholdPercentile: thresholdPercentile,
             minimumSuccessfulImages: minSamples,
             maximumConcurrentTasks: maxConcurrentTasks,
-        ) else { return nil }
+        ) else {
+            Logger.process.debugMessageOnly(
+                "FocusMaskModel.calibrateAndApplyFromBurstParallel(): calibration returned no result",
+            )
+            return nil
+        }
 
         applyCalibration(result)
+        Logger.process.debugMessageOnly(
+            "FocusMaskModel.calibrateAndApplyFromBurstParallel(): calibration applied",
+        )
         return result
     }
 }

@@ -1,24 +1,23 @@
 import Foundation
 @testable import RawCull
 
-func makeThumbnailRequestKey(
-    url: URL,
+func makeThumbnailCacheKey(
+    sourceURL: URL,
+    purpose: ThumbnailCacheKey.Purpose = .preview,
+    requestedPixelSize: Int = 256,
     fileSize: Int64 = 1,
-    modificationDate: Date = Date(timeIntervalSince1970: 1_000),
-    purpose: ThumbnailPurpose = .preview,
-    requestedMaxPixelSize: Int = 256,
-    schemaVersion: Int = ThumbnailSourceFingerprint.currentCacheSchemaVersion,
-) -> ThumbnailRequestKey {
-    ThumbnailRequestKey(
-        source: ThumbnailSourceFingerprint(
-            url: url,
-            fileSize: fileSize,
-            modificationDate: modificationDate,
-            cacheSchemaVersion: schemaVersion,
-        ),
+    modificationDate: Date = Date(timeIntervalSinceReferenceDate: 1),
+) -> ThumbnailCacheKey {
+    guard let key = ThumbnailCacheKey(
+        sourceURL: sourceURL,
+        fileSize: fileSize,
+        modificationDate: modificationDate,
         purpose: purpose,
-        requestedMaxPixelSize: requestedMaxPixelSize,
-    )
+        requestedPixelSize: requestedPixelSize,
+    ) else {
+        preconditionFailure("Test thumbnail key inputs must be valid")
+    }
+    return key
 }
 
 func makeIsolatedCache(
@@ -69,19 +68,6 @@ func makeIsolatedSettingsURL(name: String = #function) -> URL {
         .appendingPathComponent("settings.json")
 }
 
-func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
-    let safeName = name
-        .replacingOccurrences(of: "`", with: "")
-        .replacingOccurrences(of: " ", with: "-")
-        .replacingOccurrences(of: "()", with: "")
-    return FileManager.default.temporaryDirectory
-        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
-        .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
-        .appendingPathComponent("Application Support", isDirectory: true)
-        .appendingPathComponent("RawCullVerify", isDirectory: true)
-        .appendingPathComponent("savedfiles.json")
-}
-
 func makeIsolatedSimilarityArtifactStore(
     name: String = #function,
 ) -> PerFileAnalysisArtifactStore {
@@ -97,4 +83,42 @@ func makeIsolatedSimilarityArtifactStore(
         )
         .appendingPathComponent("SimilarityArtifacts", isDirectory: true)
     return PerFileAnalysisArtifactStore(storageDirectory: directory)
+}
+
+/// Builds the application-facing Vision similarity graph used by view-model tests.
+@MainActor
+func makeRawCullViewModel(
+    name: String = #function,
+    similarityService: any RawCullSimilarityServicing = RawCullVisionSimilarityService(),
+    similarityArtifactStore: (any SimilarityArtifactStoring)? = nil,
+    burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+        = LiveBurstAnalysisCacheRepository(),
+) -> RawCullViewModel {
+    let similarityModel = SimilarityScoringModel(
+        similarityService: similarityService,
+        artifactStore: similarityArtifactStore
+            ?? makeIsolatedSimilarityArtifactStore(name: name),
+    )
+    let similarityFeature = RawCullSimilarityFeature(
+        similarityModel: similarityModel,
+    )
+    let viewModel = RawCullViewModel(
+        similarityModel: similarityModel,
+        similarityFeature: similarityFeature,
+        burstAnalysisCacheRepository: burstAnalysisCacheRepository,
+    )
+    return viewModel
+}
+
+func makeIsolatedSavedFilesURL(name: String = #function) -> URL {
+    let safeName = name
+        .replacingOccurrences(of: "`", with: "")
+        .replacingOccurrences(of: " ", with: "-")
+        .replacingOccurrences(of: "()", with: "")
+    return FileManager.default.temporaryDirectory
+        .appendingPathComponent("RawCullVerifyTests", isDirectory: true)
+        .appendingPathComponent("\(safeName)-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("Application Support", isDirectory: true)
+        .appendingPathComponent("RawCullVerify", isDirectory: true)
+        .appendingPathComponent("savedfiles.json")
 }

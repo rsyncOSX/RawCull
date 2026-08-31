@@ -14,7 +14,7 @@ enum ComparisonImageLoader {
         let thumbnailSizePreview = 1616
         let settings = await SettingsViewModel.shared.asyncgetsettings()
         let cgThumb = await RequestThumbnail.shared.requestThumbnail(
-            for: file,
+            for: file.url,
             targetSize: thumbnailSizePreview,
             purpose: .preview,
         )
@@ -25,12 +25,15 @@ enum ComparisonImageLoader {
             let url = file.url
             let size = CGFloat(thumbnailSizePreview)
             let amount = settings.thumbnailSharpenAmount
-            let sharpened = await Task.detached(priority: .userInitiated) { () -> CGImage? in
+            let sharpened = await Task(priority: .userInitiated) { @concurrent () -> CGImage? in
+                guard !Task.isCancelled else { return nil }
                 guard let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount) else {
                     return nil
                 }
+                guard !Task.isCancelled else { return nil }
                 return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url)
             }.value
+            guard !Task.isCancelled else { return (nil, nil) }
             return (sharpened ?? cgThumb, nil)
         }
 

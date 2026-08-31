@@ -139,13 +139,12 @@ struct BurstCandidateBadgeView: View {
     }
 }
 
-// MARK: - ImageItemView
-
 struct ImageItemView: View {
     @Bindable var viewModel: RawCullViewModel
 
+    @State private var isHovered = false
+
     let file: FileItem
-    let isHovered: Bool
     let isSelected: Bool
     var isMultiSelected: Bool = false
     let thumbnailSize: Int
@@ -156,6 +155,16 @@ struct ImageItemView: View {
     var onDoubleSelect: () -> Void = {}
 
     var body: some View {
+        tileContent
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(file.name)
+            .accessibilityValue(accessibilitySummary)
+            .accessibilityAddTraits(isSelectionHighlighted ? .isSelected : [])
+            .accessibilityAction { onSelect() }
+            .accessibilityAction(named: "Open preview") { onDoubleSelect() }
+    }
+
+    private var tileContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Thumbnail area
             ZStack {
@@ -174,7 +183,6 @@ struct ImageItemView: View {
                             .font(.system(size: isSelected ? 17 : 15, weight: .bold))
                             .foregroundStyle(.white, selectionColor)
                             .padding(5)
-                            .accessibilityHidden(true)
                     }
                 }
                 // Rating and burst recommendation badges — top-left corner
@@ -185,7 +193,7 @@ struct ImageItemView: View {
                             density: .compact,
                         )
 
-                        if let groupID = viewModel.similarityModel.burstGroupLookup[file.id],
+                        if let groupID = viewModel.similarityFeature.burstGroupLookup[file.id],
                            let analysis = viewModel.burstAnalysisResult(for: groupID),
                            let candidate = viewModel.burstCandidate(for: file) {
                             BurstCandidateBadgeView(
@@ -205,6 +213,7 @@ struct ImageItemView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(selectionColor, lineWidth: isSelectionHighlighted ? imageSelectionLineWidth : 0),
             )
+            .compositingGroup()
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
             // Filename strip
@@ -220,7 +229,7 @@ struct ImageItemView: View {
 
             // Rating color strip — 1=red 2=yellow 3=green 4=blue 5=purple
             if let color = ratingColor {
-                color.frame(height: 4).accessibilityHidden(true)
+                color.frame(height: 4)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -236,14 +245,17 @@ struct ImageItemView: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
         .onTapGesture(count: 2) { onDoubleSelect() }
         .onTapGesture(count: 1) { onSelect() }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(file.name)
-        .accessibilityValue(ratingDisplay.help)
-        .accessibilityAddTraits(isSelectionHighlighted ? .isSelected : [])
-        .accessibilityAction { onSelect() }
-        .accessibilityAction(named: "Open image") { onDoubleSelect() }
+    }
+
+    private var accessibilitySummary: String {
+        RawCullAccessibilityPresentation.imageValue(
+            rating: ratingDisplay,
+            isSelected: isSelected,
+            isMultiSelected: isMultiSelected,
+        )
     }
 
     private var borderColor: Color {

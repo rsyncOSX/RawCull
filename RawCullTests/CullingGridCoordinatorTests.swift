@@ -106,6 +106,29 @@ struct CullingGridCoordinatorTests {
         #expect(shift.selectedFileIDs == Set(ids[0 ... 3]))
     }
 
+    @Test
+    func `hidden files are pruned from selection and action targets`() {
+        let visible = makeGridTestFile("visible.ARW")
+        let hidden = makeGridTestFile("hidden.ARW")
+        let state = CullingGridSelectionState(
+            selectedFileID: hidden.id,
+            selectedFileIDs: [visible.id, hidden.id],
+        )
+
+        let reconciled = CullingGridSelectionCoordinator.reconcileSelection(
+            state,
+            visibleIDs: [visible.id],
+        )
+        let targets = CullingGridSelectionCoordinator.actionFiles(
+            requestedIDs: state.selectedFileIDs,
+            renderedFiles: [visible],
+        )
+
+        #expect(reconciled.selectedFileID == visible.id)
+        #expect(reconciled.selectedFileIDs == [visible.id])
+        #expect(targets.map(\.id) == [visible.id])
+    }
+
     @Test(.tags(.smoke))
     func `badge selection counts and matching ids come from burst and saliency labels`() {
         let best = makeGridTestFile("best.ARW")
@@ -256,7 +279,7 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `review queue policy includes uncertain groups and excludes completed states`() {
+    func `review queue policy includes every pending group and excludes completed states`() {
         let low = makeReviewQueueResult(groupID: 1, confidence: .low)
         let caution = makeReviewQueueResult(
             groupID: 2,
@@ -267,17 +290,43 @@ struct CullingGridCoordinatorTests {
         let reviewed = makeReviewQueueResult(groupID: 3, confidence: .low, reviewState: .reviewed)
         let deferred = makeReviewQueueResult(groupID: 4, confidence: .low, reviewState: .deferred)
         let applied = makeReviewQueueResult(groupID: 5, confidence: .low, reviewState: .decisionApplied)
+        let safeRecommendation = makeReviewQueueResult(
+            groupID: 6,
+            confidence: .high,
+            isSafeForOneClickCulling: true,
+        )
 
         #expect(BurstReviewQueuePolicy.includes(low, filter: .needsReview))
         #expect(BurstReviewQueuePolicy.includes(caution, filter: .needsReview))
         #expect(!BurstReviewQueuePolicy.includes(reviewed, filter: .needsReview))
+        #expect(BurstReviewQueuePolicy.includes(reviewed, filter: .reviewed))
         #expect(BurstReviewQueuePolicy.includes(deferred, filter: .deferred))
         #expect(!BurstReviewQueuePolicy.includes(applied, filter: .needsReview))
+        #expect(BurstReviewQueuePolicy.includes(applied, filter: .reviewed))
+        #expect(BurstReviewQueuePolicy.includes(safeRecommendation, filter: .needsReview))
+        #expect(!BurstReviewQueuePolicy.includes(safeRecommendation, filter: .reviewed))
 
-        let counts = BurstReviewQueuePolicy.counts(for: [low, caution, reviewed, deferred, applied])
-        #expect(counts.needsReview == 2)
-        #expect(counts.deferred == 1)
-        #expect(counts.reviewed == 2)
+        let results = [low, caution, reviewed, deferred, applied, safeRecommendation]
+        let missingResultGroup = BurstGroup(id: 7, fileIDs: [UUID(), UUID()])
+        let summary = BurstReviewQueuePolicy.summary(
+            for: results.map { BurstGroup(id: $0.groupID, fileIDs: $0.fileIDs) }
+                + [missingResultGroup],
+            resultsByGroupID: Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) }),
+        )
+        #expect(summary.totalGroups == 7)
+        #expect(summary.burstGroups == 7)
+        #expect(summary.needsReview == 4)
+        #expect(summary.deferred == 1)
+        #expect(summary.markedReviewed == 1)
+        #expect(summary.completed == 2)
+        #expect(summary.needsReview + summary.deferred + summary.completed == summary.burstGroups)
+
+        let missingResults = Dictionary(uniqueKeysWithValues: results.map { ($0.groupID, $0) })
+        let viewModel = makeRawCullViewModel()
+        viewModel.similarityModel.burstGroups = [missingResultGroup]
+        viewModel.burstAnalysisResults = missingResults
+        viewModel.burstReviewQueueFilter = .needsReview
+        #expect(viewModel.filteredBurstGroupsForReviewQueue == [missingResultGroup])
     }
 
     @Test(.tags(.smoke))
@@ -288,7 +337,7 @@ struct CullingGridCoordinatorTests {
         let deferredPeer = makeGridTestFile("deferred-peer.ARW")
         let reviewedFile = makeGridTestFile("reviewed.ARW")
         let reviewedPeer = makeGridTestFile("reviewed-peer.ARW")
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
 
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: [reviewFile.id, reviewPeer.id]),
@@ -327,7 +376,7 @@ struct CullingGridCoordinatorTests {
         let single = makeGridTestFile("single.ARW")
         let reviewed = [makeGridTestFile("reviewed-a.ARW"), makeGridTestFile("reviewed-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.files = first + [single] + reviewed + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: first.map(\.id)),
@@ -363,7 +412,7 @@ struct CullingGridCoordinatorTests {
     func `next burst navigation defers an unrated current group before advancing`() {
         let current = [makeGridTestFile("current-a.ARW"), makeGridTestFile("current-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.files = current + next
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 1, fileIDs: current.map(\.id)),
@@ -384,7 +433,7 @@ struct CullingGridCoordinatorTests {
     func `next burst navigation does not defer a group with any rating`(_ rating: Int) {
         let current = [makeGridTestFile("rated-a.ARW"), makeGridTestFile("rated-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -412,7 +461,7 @@ struct CullingGridCoordinatorTests {
     func `sharpness-only records do not prevent deferring an unrated group`() {
         let current = [makeGridTestFile("scored-a.ARW"), makeGridTestFile("scored-b.ARW")]
         let next = [makeGridTestFile("next-a.ARW"), makeGridTestFile("next-b.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -439,14 +488,15 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `burst home counts singleton images and live review states`() {
+    func `burst review summary is the source of truth for groups and live review states`() {
         let firstSingle = makeGridTestFile("single-one.ARW")
         let secondSingle = makeGridTestFile("single-two.ARW")
         let needsReviewFiles = [makeGridTestFile("needs-one.ARW"), makeGridTestFile("needs-two.ARW")]
         let deferredFiles = [makeGridTestFile("deferred-one.ARW"), makeGridTestFile("deferred-two.ARW")]
         let reviewedFiles = [makeGridTestFile("reviewed-one.ARW"), makeGridTestFile("reviewed-two.ARW")]
         let appliedFiles = [makeGridTestFile("applied-one.ARW"), makeGridTestFile("applied-two.ARW")]
-        let viewModel = RawCullViewModel()
+        let safeFiles = [makeGridTestFile("safe-one.ARW"), makeGridTestFile("safe-two.ARW")]
+        let viewModel = makeRawCullViewModel()
 
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 0, fileIDs: [firstSingle.id]),
@@ -454,7 +504,8 @@ struct CullingGridCoordinatorTests {
             BurstGroup(id: 2, fileIDs: deferredFiles.map(\.id)),
             BurstGroup(id: 3, fileIDs: [secondSingle.id]),
             BurstGroup(id: 4, fileIDs: reviewedFiles.map(\.id)),
-            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id))
+            BurstGroup(id: 5, fileIDs: appliedFiles.map(\.id)),
+            BurstGroup(id: 6, fileIDs: safeFiles.map(\.id))
         ]
         viewModel.burstAnalysisResults = [
             1: makeReviewQueueResult(groupID: 1, fileIDs: needsReviewFiles.map(\.id), confidence: .low),
@@ -476,20 +527,43 @@ struct CullingGridCoordinatorTests {
                 confidence: .high,
                 reviewState: .decisionApplied,
                 isSafeForOneClickCulling: true,
+            ),
+            6: makeReviewQueueResult(
+                groupID: 6,
+                fileIDs: safeFiles.map(\.id),
+                confidence: .high,
+                isSafeForOneClickCulling: true,
             )
         ]
 
-        #expect(viewModel.burstGroupsHomeCounts == BurstGroupsHomeCounts(
+        #expect(viewModel.burstReviewSummary == BurstReviewSummary(
+            totalGroups: 7,
+            burstGroups: 5,
             singleImages: 2,
+            needsReview: 2,
             deferred: 1,
             markedReviewed: 1,
-            needsReview: 1,
+            completed: 2,
         ))
+
+        let expectedCounts: [(BurstReviewQueueFilter, Int)] = [
+            (.all, 5),
+            (.singleImages, 2),
+            (.needsReview, 2),
+            (.deferred, 1),
+            (.markedReviewed, 1),
+            (.reviewed, 2)
+        ]
+        for (filter, expectedCount) in expectedCounts {
+            viewModel.burstReviewQueueFilter = filter
+            #expect(viewModel.filteredBurstGroupsForReviewQueue.count == expectedCount)
+        }
 
         viewModel.markBurstGroupReviewed(groupID: 1)
 
-        #expect(viewModel.burstGroupsHomeCounts.markedReviewed == 2)
-        #expect(viewModel.burstGroupsHomeCounts.needsReview == 0)
+        #expect(viewModel.burstReviewSummary.markedReviewed == 2)
+        #expect(viewModel.burstReviewSummary.needsReview == 1)
+        #expect(viewModel.burstReviewSummary.completed == 3)
     }
 
     @Test(.tags(.smoke))
@@ -497,7 +571,7 @@ struct CullingGridCoordinatorTests {
         let firstSingle = makeGridTestFile("single-first.ARW")
         let secondSingle = makeGridTestFile("single-second.ARW")
         let burstFiles = [makeGridTestFile("burst-first.ARW"), makeGridTestFile("burst-second.ARW")]
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         viewModel.similarityModel.burstGroups = [
             BurstGroup(id: 0, fileIDs: [firstSingle.id]),
             BurstGroup(id: 1, fileIDs: burstFiles.map(\.id)),
@@ -511,7 +585,7 @@ struct CullingGridCoordinatorTests {
 
     @Test(.tags(.smoke))
     func `review and defer actions toggle back to persisted neutral state`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let first = makeGridTestFile("toggle-first.ARW")
         let second = makeGridTestFile("toggle-second.ARW")
         let catalog = URL(fileURLWithPath: "/tmp/toggle-catalog")
@@ -542,8 +616,8 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test
-    func `singleton groups remain visible in all but are excluded from review queues`() {
-        let viewModel = RawCullViewModel()
+    func `singleton groups have a separate queue from all bursts`() {
+        let viewModel = makeRawCullViewModel()
         let singleton = makeGridTestFile("single.ARW")
         let first = makeGridTestFile("burst-a.ARW")
         let second = makeGridTestFile("burst-b.ARW")
@@ -564,8 +638,11 @@ struct CullingGridCoordinatorTests {
             )
         ]
 
-        #expect(viewModel.burstReviewQueueCounts.needsReview == 1)
-        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [0, 1])
+        #expect(viewModel.burstReviewSummary.needsReview == 1)
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1])
+
+        viewModel.burstReviewQueueFilter = .singleImages
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [0])
 
         viewModel.burstReviewQueueFilter = .needsReview
         #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1])

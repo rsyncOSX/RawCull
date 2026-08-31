@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct CatalogRow: View {
+    @State private var isHovered = false
+
     let entry: SavedFiles
     let isSelected: Bool
-    let isHovered: Bool
 
     private var catalogName: String {
         entry.catalog?.lastPathComponent ?? "Unknown Catalog"
@@ -60,7 +61,6 @@ struct CatalogRow: View {
             },
         )
         .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(catalogName), \(fileCount) file\(fileCount == 1 ? "" : "s")")
+        .onHover { isHovered = $0 }
     }
 }

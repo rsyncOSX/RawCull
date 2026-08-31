@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct FileRecordRow: View {
+    @State private var isHovered = false
+
     let record: FileRecord
     let isSelected: Bool
-    let isHovered: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -51,18 +52,10 @@ struct FileRecordRow: View {
             },
         )
         .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityDescription)
+        .onHover { isHovered = $0 }
     }
 
     private var fileIcon: String {
         "photo"
-    }
-
-    private var accessibilityDescription: String {
-        let name = record.fileName ?? "Unnamed File"
-        guard let rating = record.rating else { return "\(name), unrated" }
-        let description = RatingDisplay(rating: rating).help
-        return "\(name), \(description)"
     }
 }

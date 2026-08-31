@@ -3,23 +3,32 @@ import Foundation
 import PhotoAnalysisKit
 @testable import RawCull
 import RawCullCore
+import Synchronization
 import Testing
 
 private actor SavedFilesRecorder {
     private var snapshots: [[SavedFiles]] = []
+    private var waiters: [(
+        count: Int,
+        continuation: CheckedContinuation<[[SavedFiles]], Never>,
+    )] = []
 
     func record(_ savedFiles: [SavedFiles]) {
         snapshots.append(savedFiles)
+        let ready = waiters.filter { snapshots.count >= $0.count }
+        waiters.removeAll { snapshots.count >= $0.count }
+        for waiter in ready {
+            waiter.continuation.resume(returning: snapshots)
+        }
     }
 
     func waitForSnapshotCount(_ count: Int) async -> [[SavedFiles]] {
-        for _ in 0 ..< 200 {
-            if snapshots.count >= count {
-                return snapshots
-            }
-            try? await Task.sleep(nanoseconds: 1_000_000)
+        if snapshots.count >= count {
+            return snapshots
         }
-        return snapshots
+        return await withCheckedContinuation { continuation in
+            waiters.append((count, continuation))
+        }
     }
 }
 
@@ -37,12 +46,6 @@ private actor FailingThenSuccessfulSave {
 
     func state() -> (attempts: Int, snapshots: [[SavedFiles]]) {
         (attempts, savedSnapshots)
-    }
-
-    func waitForAttemptCount(_ count: Int) async {
-        while attempts < count {
-            await Task.yield()
-        }
     }
 }
 
@@ -86,6 +89,113 @@ private actor SimilarityEmbeddingCancellationProbe {
     }
 }
 
+private nonisolated struct CancellationSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+    let probe: SimilarityEmbeddingCancellationProbe
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var iterator = sources.makeIterator()
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        var failures: [RawCullSimilarityIndexingFailure] = []
+        var completed = 0
+
+        await withTaskGroup(
+            of: (AIImageSource, Data?).self,
+        ) { group in
+            for _ in 0 ..< min(4, sources.count) {
+                guard let source = iterator.next() else { break }
+                group.addTask {
+                    await (source, probe.embedding())
+                }
+            }
+
+            while let (source, payload) = await group.next() {
+                completed += 1
+                if let payload {
+                    artifacts[source.id] = makeSimilarityTestArtifact(
+                        source: source,
+                        payload: payload,
+                    )
+                } else {
+                    failures.append(
+                        RawCullSimilarityIndexingFailure(
+                            source: source,
+                            message: "Cancelled",
+                        ),
+                    )
+                }
+                await progress?(
+                    RawCullSimilarityIndexingProgress(
+                        completed: completed,
+                        total: sources.count,
+                        currentSourceID: source.id,
+                    ),
+                )
+
+                guard !Task.isCancelled,
+                      let next = iterator.next()
+                else { continue }
+                group.addTask {
+                    await (next, probe.embedding())
+                }
+            }
+        }
+
+        try Task.checkCancellation()
+        return RawCullSimilarityIndexingOutput(
+            artifacts: artifacts,
+            failures: failures,
+        )
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        similarityTestDistance(from: left, to: right)
+    }
+}
+
+private nonisolated struct ImmediateSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        for (offset, source) in sources.enumerated() {
+            artifacts[source.id] = makeSimilarityTestArtifact(
+                source: source,
+                payload: Data([UInt8(offset + 1)]),
+            )
+            await progress?(
+                RawCullSimilarityIndexingProgress(
+                    completed: offset + 1,
+                    total: sources.count,
+                    currentSourceID: source.id,
+                ),
+            )
+        }
+        return RawCullSimilarityIndexingOutput(
+            artifacts: artifacts,
+            failures: [],
+        )
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        similarityTestDistance(from: left, to: right)
+    }
+}
+
 private actor SimilarityEmbeddingSuspensionProbe {
     private var startedCount = 0
     private var continuations: [CheckedContinuation<Void, Never>] = []
@@ -111,6 +221,133 @@ private actor SimilarityEmbeddingSuspensionProbe {
             continuation.resume()
         }
     }
+}
+
+private nonisolated struct SuspendingSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+    let probe: SimilarityEmbeddingSuspensionProbe
+
+    func index(
+        sources: [AIImageSource],
+        maxPixelSize _: Int,
+        progress: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        var artifacts: [UUID: SimilarityArtifact] = [:]
+        for (offset, source) in sources.enumerated() {
+            let payload: Data = if source.url.lastPathComponent.hasPrefix("slow") {
+                await probe.suspendIgnoringCancellation() ?? Data()
+            } else {
+                Data([2])
+            }
+            artifacts[source.id] = makeSimilarityTestArtifact(
+                source: source,
+                payload: payload,
+            )
+            await progress?(
+                RawCullSimilarityIndexingProgress(
+                    completed: offset + 1,
+                    total: sources.count,
+                    currentSourceID: source.id,
+                ),
+            )
+        }
+        return RawCullSimilarityIndexingOutput(artifacts: artifacts, failures: [])
+    }
+
+    func distance(
+        from left: SimilarityArtifact,
+        to right: SimilarityArtifact,
+    ) throws -> Float? {
+        similarityTestDistance(from: left, to: right)
+    }
+}
+
+private final class SimilarityDistanceCancellationProbe: Sendable {
+    private struct State: Sendable {
+        var started = false
+        var observedCancellation = false
+    }
+
+    private let state = Mutex(State())
+
+    func distance() -> Float {
+        state.withLock { $0.started = true }
+        // The full suite can heavily contend for cooperative executor threads.
+        // Keep the probe alive long enough for the main-actor test to issue its
+        // cancellation after observing that distance work started.
+        let deadline = Date().addingTimeInterval(15)
+        while !Task.isCancelled, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.001)
+        }
+        if Task.isCancelled {
+            state.withLock { $0.observedCancellation = true }
+        }
+        return 0
+    }
+
+    func waitUntilStarted() async {
+        while !state.withLock({ $0.started }) {
+            await Task.yield()
+        }
+    }
+
+    func didObserveCancellation() -> Bool {
+        state.withLock { $0.observedCancellation }
+    }
+}
+
+private nonisolated struct CancellationDistanceSimilarityService: RawCullSimilarityServicing {
+    let backendDescriptor = similarityTestBackendDescriptor
+    let probe: SimilarityDistanceCancellationProbe
+
+    func index(
+        sources _: [AIImageSource],
+        maxPixelSize _: Int,
+        progress _: (@Sendable (RawCullSimilarityIndexingProgress) async -> Void)?,
+    ) async throws -> RawCullSimilarityIndexingOutput {
+        RawCullSimilarityIndexingOutput(artifacts: [:], failures: [])
+    }
+
+    func distance(
+        from _: SimilarityArtifact,
+        to _: SimilarityArtifact,
+    ) throws -> Float? {
+        probe.distance()
+    }
+}
+
+private nonisolated let similarityTestBackendDescriptor = SimilarityBackendDescriptor(
+    backend: "test-similarity",
+    modelFingerprint: "test-model-v1",
+    representation: "test-byte",
+    preprocessingVersion: 1,
+    normalizationVersion: 0,
+    configurationVersion: 2,
+)
+
+private nonisolated func makeSimilarityTestArtifact(
+    source: AIImageSource,
+    payload: Data = Data([1]),
+) -> SimilarityArtifact {
+    SimilarityArtifact(
+        descriptor: SimilarityArtifactDescriptor(
+            source: source,
+            backend: similarityTestBackendDescriptor,
+        ),
+        featurePrint: VisionFeaturePrint(revision: 2, payload: payload),
+    )
+}
+
+private nonisolated func similarityTestDistance(
+    from left: SimilarityArtifact,
+    to right: SimilarityArtifact,
+) -> Float? {
+    guard left.descriptor.backendDescriptor == right.descriptor.backendDescriptor,
+          left.featurePrint.isCompatible(with: right.featurePrint),
+          let leftByte = left.featurePrint.payload.first,
+          let rightByte = right.featurePrint.payload.first
+    else { return nil }
+    return Float(abs(Int(leftByte) - Int(rightByte))) / 255
 }
 
 private func makeCullingTestFile(
@@ -190,77 +427,62 @@ private func makeCullingBurstResult(groupID: Int, files: [FileItem]) -> BurstAna
 @MainActor
 struct CullingModelTests {
     @Test
-    func `similarity indexing cancellation stops structured embedding workers`() async {
-        let probe = SimilarityEmbeddingCancellationProbe()
-        let model = SimilarityScoringModel { _, _ in
-            await probe.embedding()
-        }
-        let files = (0 ..< 8).map { makeCullingTestFile("cancel-\($0).ARW") }
-
-        let indexingTask = Task {
-            await model.indexFiles(files)
-        }
-        await probe.waitUntilStarted(4)
-        model.cancelIndexing()
-        await indexingTask.value
-        let counts = await probe.counts()
-
-        #expect(counts.started == 4)
-        #expect(counts.cancelled == 4)
-        #expect(model.embeddings.isEmpty)
-        #expect(model.isIndexing == false)
-        #expect(model.indexingProgress == 0)
-        #expect(model.indexingTotal == 0)
-    }
-
-    @Test
-    func `superseded similarity indexing cannot commit or clear newer run state`() async {
-        let probe = SimilarityEmbeddingSuspensionProbe()
-        let model = SimilarityScoringModel { url, _ in
-            if url.lastPathComponent.hasPrefix("slow") {
-                return await probe.suspendIgnoringCancellation()
-            }
-            return Data([2])
-        }
-        let slowFile = makeCullingTestFile("slow.ARW")
-        let fastFile = makeCullingTestFile("fast.ARW")
-
-        let oldRun = Task {
-            await model.indexFiles([slowFile])
-        }
-        await probe.waitUntilStarted(1)
-        await model.indexFiles([fastFile])
-
-        #expect(model.embeddings[fastFile.id] == Data([2]))
-        #expect(model.embeddings[slowFile.id] == nil)
-        #expect(model.isIndexing == false)
-
-        await probe.releaseAll()
-        await oldRun.value
-
-        #expect(model.embeddings[fastFile.id] == Data([2]))
-        #expect(model.embeddings[slowFile.id] == nil)
-        #expect(model.isIndexing == false)
-        #expect(model.indexingProgress == 0)
-        #expect(model.indexingTotal == 0)
-    }
-
-    @Test
-    func `updateRating creates catalog record and debounced save snapshot`() async {
-        let recorder = SavedFilesRecorder()
-        let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
-            await recorder.record(savedFiles)
-        }
+    func `scored photo stays unrated while explicit keeper is rated`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
 
-        model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
-        let snapshots = await recorder.waitForSnapshotCount(1)
+        model.mergeScoringResults(
+            [CullingScoringResult(fileName: "scored.ARW", score: 0.7, saliencySubject: nil)],
+            in: catalog,
+        )
+        model.updateRating(fileName: "keeper.ARW", rating: 0, in: catalog)
 
-        #expect(model.countSelectedFiles(in: catalog) == 1)
-        #expect(model.savedFiles.first?.catalog == catalog)
-        #expect(model.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
-        #expect(model.savedFiles.first?.filerecords?.first?.rating == 3)
-        #expect(snapshots.last?.first?.filerecords?.first?.rating == 3)
+        #expect(model.isUnrated(photo: "scored.ARW", in: catalog))
+        #expect(model.rating(for: "scored.ARW", in: catalog) == nil)
+        #expect(!model.isUnrated(photo: "keeper.ARW", in: catalog))
+        #expect(model.rating(for: "keeper.ARW", in: catalog) == 0)
+        #expect(model.isUnrated(photo: "missing.ARW", in: catalog))
+    }
+
+    @Test
+    func `restoring unrated state preserves scoring metadata`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        model.mergeScoringResults(
+            [CullingScoringResult(fileName: "one.ARW", score: 0.8, saliencySubject: "bird")],
+            in: catalog,
+        )
+        model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
+
+        model.applyRatingStates(
+            Dictionary(uniqueKeysWithValues: [("one.ARW", Int?.none)]),
+            in: catalog,
+        )
+
+        let record = model.savedFiles.first?.filerecords?.first
+        #expect(record?.rating == nil)
+        #expect(record?.dateTagged == nil)
+        #expect(record?.sharpnessScore == 0.8)
+        #expect(record?.saliencySubject == "bird")
+    }
+
+    @Test
+    func `corrupt load blocks mutations and preserves in-memory state`() {
+        let url = URL(fileURLWithPath: "/tmp/savedfiles-\(UUID().uuidString).json")
+        let failure = SavedFilesReadFailure(url: url, message: "Malformed JSON")
+        let model = CullingModel(
+            saveDelayNanoseconds: 0,
+            saveHandler: { _ in },
+            loadHandler: { .failed(failure) },
+        )
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        #expect(!model.loadSavedFiles())
+        model.updateRating(fileName: "one.ARW", rating: 5, in: catalog)
+
+        #expect(model.savedFiles.isEmpty)
+        #expect(model.persistenceLoadFailure == failure)
+        #expect(model.persistenceError != nil)
     }
 
     @Test
@@ -282,6 +504,186 @@ struct CullingModelTests {
     }
 
     @Test
+    func `explicit rating count excludes scoring-only records`() {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.mergeScoringResults(
+            [CullingScoringResult(fileName: "scored.ARW", score: 0.75, saliencySubject: nil)],
+            in: catalog,
+        )
+        model.updateRating(fileName: "rated.ARW", rating: -1, in: catalog)
+
+        #expect(model.explicitRatingCount(in: catalog) == 1)
+    }
+
+    @Test
+    func `cancelling similarity ranking stops its owned distance helper`() async {
+        let probe = SimilarityDistanceCancellationProbe()
+        let model = SimilarityScoringModel(
+            similarityService: CancellationDistanceSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let anchor = makeCullingTestFile("ranking-anchor.ARW")
+        let candidate = makeCullingTestFile("ranking-candidate.ARW")
+        let previousAnchorID = UUID()
+        let previousDistanceID = UUID()
+        model.embeddings = [
+            anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate))
+        ]
+        model.anchorFileID = previousAnchorID
+        model.distances = [previousDistanceID: 0.5]
+
+        let ranking = Task {
+            await model.rankSimilar(
+                to: anchor.id,
+                using: [anchor, candidate],
+            )
+        }
+        await probe.waitUntilStarted()
+        ranking.cancel()
+        await ranking.value
+
+        #expect(probe.didObserveCancellation())
+        #expect(model.anchorFileID == previousAnchorID)
+        #expect(model.distances == [previousDistanceID: 0.5])
+        #expect(model.sortBySimilarity == false)
+    }
+
+    @Test
+    func `disarming similarity ranking preserves the last completed order`() async {
+        let probe = SimilarityDistanceCancellationProbe()
+        let model = SimilarityScoringModel(
+            similarityService: CancellationDistanceSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let anchor = makeCullingTestFile("replacement-anchor.ARW")
+        let candidate = makeCullingTestFile("replacement-candidate.ARW")
+        let previousAnchorID = UUID()
+        let previousDistances: [UUID: Float] = [UUID(): 0.25]
+        model.embeddings = [
+            anchor.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: anchor)),
+            candidate.id: makeSimilarityTestArtifact(source: SimilarityScoringModel.source(for: candidate))
+        ]
+        model.anchorFileID = previousAnchorID
+        model.distances = previousDistances
+        model.sortBySimilarity = true
+
+        let ranking = Task {
+            await model.rankSimilar(
+                to: anchor.id,
+                using: [anchor, candidate],
+            )
+        }
+        await probe.waitUntilStarted()
+        model.cancelSimilarityRanking()
+        model.sortBySimilarity = false
+        await ranking.value
+
+        #expect(probe.didObserveCancellation())
+        #expect(model.anchorFileID == previousAnchorID)
+        #expect(model.distances == previousDistances)
+        #expect(model.sortBySimilarity == false)
+    }
+
+    @Test
+    func `find similar indexes a fresh catalog before ranking`() async {
+        let viewModel = makeRawCullViewModel(
+            similarityService: ImmediateSimilarityService(),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let anchor = makeCullingTestFile("fresh-anchor.ARW")
+        let candidate = makeCullingTestFile("fresh-candidate.ARW")
+        viewModel.files = [anchor, candidate]
+        viewModel.filteredFiles = [anchor, candidate]
+        viewModel.selectedFileID = anchor.id
+
+        #expect(!viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
+
+        await viewModel.findSimilarToSelected()
+
+        #expect(viewModel.similarityModel.hasCompleteSimilarityIndex(for: viewModel.files))
+        #expect(viewModel.similarityModel.anchorFileID == anchor.id)
+        #expect(viewModel.similarityModel.distances[candidate.id] != nil)
+        #expect(viewModel.similarityModel.sortBySimilarity)
+        #expect(viewModel.filteredFiles.first?.id == anchor.id)
+    }
+
+    @Test
+    func `similarity indexing cancellation stops structured embedding workers`() async {
+        let probe = SimilarityEmbeddingCancellationProbe()
+        let model = SimilarityScoringModel(
+            similarityService: CancellationSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let files = (0 ..< 8).map { makeCullingTestFile("cancel-\($0).ARW") }
+
+        let indexingTask = Task {
+            await model.indexFiles(files)
+        }
+        await probe.waitUntilStarted(4)
+        model.cancelIndexing()
+        await indexingTask.value
+        let counts = await probe.counts()
+
+        #expect(counts.started == 4)
+        #expect(counts.cancelled == 4)
+        #expect(model.embeddings.isEmpty)
+        #expect(model.isIndexing == false)
+        #expect(model.indexingProgress == 0)
+        #expect(model.indexingTotal == 0)
+    }
+
+    @Test
+    func `superseded similarity indexing cannot commit or clear newer run state`() async {
+        let probe = SimilarityEmbeddingSuspensionProbe()
+        let model = SimilarityScoringModel(
+            similarityService: SuspendingSimilarityService(probe: probe),
+            artifactStore: makeIsolatedSimilarityArtifactStore(),
+        )
+        let slowFile = makeCullingTestFile("slow.ARW")
+        let fastFile = makeCullingTestFile("fast.ARW")
+
+        let oldRun = Task {
+            await model.indexFiles([slowFile])
+        }
+        await probe.waitUntilStarted(1)
+        await model.indexFiles([fastFile])
+
+        #expect(model.embeddings[fastFile.id]?.featurePrint.payload == Data([2]))
+        #expect(model.embeddings[slowFile.id] == nil)
+        #expect(model.isIndexing == false)
+
+        await probe.releaseAll()
+        await oldRun.value
+
+        #expect(model.embeddings[fastFile.id]?.featurePrint.payload == Data([2]))
+        #expect(model.embeddings[slowFile.id] == nil)
+        #expect(model.isIndexing == false)
+        #expect(model.indexingProgress == 0)
+        #expect(model.indexingTotal == 0)
+    }
+
+    @Test
+    func `updateRating creates catalog record and debounced save snapshot`() async {
+        let recorder = SavedFilesRecorder()
+        let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
+            await recorder.record(savedFiles)
+        }
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+
+        model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
+        let snapshots = await recorder.waitForSnapshotCount(1)
+
+        #expect(model.explicitRatingCount(in: catalog) == 1)
+        #expect(model.savedFiles.first?.catalog == catalog)
+        #expect(model.savedFiles.first?.filerecords?.first?.fileName == "one.ARW")
+        #expect(model.savedFiles.first?.filerecords?.first?.rating == 3)
+        #expect(snapshots.last?.first?.filerecords?.first?.rating == 3)
+    }
+
+    @Test
     func `failed persistence remains dirty and retry saves newest snapshot`() async {
         let saver = FailingThenSuccessfulSave()
         let model = CullingModel(saveDelayNanoseconds: 0) { snapshot in
@@ -290,7 +692,9 @@ struct CullingModelTests {
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
 
         model.updateRating(fileName: "one.ARW", rating: 3, in: catalog)
-        await saver.waitForAttemptCount(1)
+        for _ in 0 ..< 200 where model.persistenceError == nil {
+            await Task.yield()
+        }
 
         #expect(model.hasUnsavedChanges)
         #expect(model.persistenceError != nil)
@@ -359,7 +763,7 @@ struct CullingModelTests {
         model.resetSavedFiles(in: catalog)
         _ = await recorder.waitForSnapshotCount(1)
 
-        #expect(model.countSelectedFiles(in: catalog) == 0)
+        #expect(model.explicitRatingCount(in: catalog) == 0)
         #expect(model.savedFiles.first?.filerecords == [])
     }
 
@@ -463,6 +867,23 @@ struct CullingModelTests {
     }
 
     @Test
+    func `SavedFiles equality includes records and burst overrides`() {
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        let lhs = SavedFiles(
+            catalog: catalog,
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 2),
+        )
+        let rhs = SavedFiles(
+            catalog: catalog,
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 5),
+        )
+
+        #expect(lhs != rhs)
+    }
+
+    @Test
     func `updateRating recreates records after reset leaves empty catalog`() async {
         let recorder = SavedFilesRecorder()
         let model = CullingModel(saveDelayNanoseconds: 0) { savedFiles in
@@ -484,6 +905,53 @@ struct CullingModelTests {
 
 @MainActor
 struct SavedFilesJSONTests {
+    @Test
+    func `reader distinguishes missing and corrupt stores`() throws {
+        let missingURL = makeIsolatedSavedFilesURL()
+        let root = savedFilesTestRoot(for: missingURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        guard case let .missing(readURL) = ReadSavedFilesJSON(savedFilesURL: missingURL).read() else {
+            Issue.record("Expected a missing-store result")
+            return
+        }
+        #expect(readURL == missingURL)
+
+        try FileManager.default.createDirectory(
+            at: missingURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+        )
+        try Data("{not-json".utf8).write(to: missingURL)
+
+        guard case let .failed(failure) = ReadSavedFilesJSON(savedFilesURL: missingURL).read() else {
+            Issue.record("Expected a corrupt-store failure")
+            return
+        }
+        #expect(failure.url == missingURL)
+        #expect(try Data(contentsOf: missingURL) == Data("{not-json".utf8))
+    }
+
+    @Test
+    func `second write preserves previous store as backup`() async throws {
+        let fileURL = makeIsolatedSavedFilesURL()
+        let root = savedFilesTestRoot(for: fileURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
+        var saved = SavedFiles(
+            catalog: catalog,
+            dateStart: "now",
+            filerecord: FileRecord(fileName: "one.ARW", dateTagged: nil, dateCopied: nil, rating: 2),
+        )
+        try await WriteSavedFilesJSON.write([saved], to: fileURL)
+        saved.filerecords?[0].rating = 5
+
+        try await WriteSavedFilesJSON.write([saved], to: fileURL)
+
+        let backupURL = fileURL.deletingLastPathComponent().appendingPathComponent("savedfiles.backup.json")
+        let backup = try JSONDecoder().decode([DecodeSavedFiles].self, from: Data(contentsOf: backupURL))
+        #expect(backup.first?.filerecords?.first?.rating == 2)
+    }
+
     @Test
     func `write creates Application Support directory and saved files JSON`() async throws {
         let fileURL = makeIsolatedSavedFilesURL()
@@ -608,11 +1076,15 @@ struct SavedFilesJSONTests {
 struct RawCullViewModelCullingTests {
     @Test
     func `rebuildRatingCache populates ratings and tagged filenames for selected catalog`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         viewModel.selectedSource = catalog
         viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
         viewModel.cullingModel.updateRatings(fileNames: ["one.ARW", "two.ARW"], rating: 2, in: catalog.url)
+        viewModel.cullingModel.mergeScoringResults(
+            [CullingScoringResult(fileName: "scored.ARW", score: 0.7, saliencySubject: nil)],
+            in: catalog.url,
+        )
 
         viewModel.rebuildRatingCache()
 
@@ -622,12 +1094,14 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `passesRatingFilter distinguishes rejected keepers and star ratings`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let rejected = makeCullingTestFile("rejected.ARW")
         let keeper = makeCullingTestFile("keeper.ARW")
+        let unrated = makeCullingTestFile("unrated.ARW")
         let star = makeCullingTestFile("star.ARW")
         viewModel.ratingCache = [
             rejected.name: -1,
+            keeper.name: 0,
             star.name: 4
         ]
 
@@ -637,6 +1111,7 @@ struct RawCullViewModelCullingTests {
 
         viewModel.ratingFilter = .keepers
         #expect(viewModel.passesRatingFilter(keeper))
+        #expect(!viewModel.passesRatingFilter(unrated))
         #expect(!viewModel.passesRatingFilter(star))
 
         viewModel.ratingFilter = .stars(4)
@@ -646,7 +1121,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `preselectFirstVisibleFileByName selects alphabetically first visible file`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let c = makeCullingTestFile("C.ARW")
         let a = makeCullingTestFile("A.ARW")
         let b = makeCullingTestFile("B.ARW")
@@ -660,7 +1135,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `preselectFirstVisibleFileByName replaces previous selection`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let previous = makeCullingTestFile("previous.ARW")
         let c = makeCullingTestFile("C.ARW")
         let a = makeCullingTestFile("A.ARW")
@@ -676,7 +1151,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `preselectFirstVisibleFileByName clears selection when no files are visible`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let previous = makeCullingTestFile("previous.ARW")
         viewModel.files = [previous]
         viewModel.filteredFiles = []
@@ -689,7 +1164,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis targets selected thumbnails before rating filter`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let selectedLater = makeCullingTestFile("C-selected.ARW")
         let selectedEarlier = makeCullingTestFile("A-selected.ARW")
@@ -703,7 +1178,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis targets exact active star rating`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let fourStar = makeCullingTestFile("A-four-star.ARW")
         let unrated = makeCullingTestFile("C-unrated.ARW")
@@ -719,7 +1194,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis keeps full catalog for unscoped filters`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let rejected = makeCullingTestFile("C-rejected.ARW")
         let keeper = makeCullingTestFile("A-keeper.ARW")
         let rated = makeCullingTestFile("B-rated.ARW")
@@ -743,7 +1218,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `burst analysis orders shots by capture date with file-date fallback`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let latest = makeCullingTestFile("A-latest.ARW", captureSeconds: 30)
         let earliest = makeCullingTestFile("Z-earliest.ARW", captureSeconds: 10)
         let fallback = makeCullingTestFile("M-fallback.ARW", modificationSeconds: 20)
@@ -752,13 +1227,13 @@ struct RawCullViewModelCullingTests {
         #expect(viewModel.burstAnalysisTargetFiles.map(\.name) == [
             "Z-earliest.ARW",
             "M-fallback.ARW",
-            "A-latest.ARW",
+            "A-latest.ARW"
         ])
     }
 
     @Test
     func `sharpness scoring targets selected thumbnails before rating filter`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
         let selectedLater = makeCullingTestFile("C-selected.ARW")
         let selectedEarlier = makeCullingTestFile("A-selected.ARW")
@@ -773,7 +1248,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring targets active star rating in visible order`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let firstVisible = makeCullingTestFile("D-two-star.ARW")
         let secondVisible = makeCullingTestFile("B-two-star.ARW")
         let fourStar = makeCullingTestFile("A-four-star.ARW")
@@ -791,7 +1266,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring falls back to filename sorted catalog for non-star filters`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let rejected = makeCullingTestFile("C-rejected.ARW")
         let keeper = makeCullingTestFile("A-keeper.ARW")
         let rated = makeCullingTestFile("B-rated.ARW")
@@ -816,7 +1291,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `sharpness scoring appends hidden selected files after visible selected files`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let visibleSelected = makeCullingTestFile("C-visible-selected.ARW")
         let visibleUnselected = makeCullingTestFile("B-visible-unselected.ARW")
         let hiddenSelected = makeCullingTestFile("A-hidden-selected.ARW")
@@ -832,7 +1307,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `calibrateAndScoreCurrentCatalog scores and persists only target files`() async throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let selectedVisible = makeCullingTestFile("B-selected-visible.ARW")
         let selectedHidden = makeCullingTestFile("A-selected-hidden.ARW")
@@ -873,7 +1348,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `extractRatedfilenames returns files at or above requested rating`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let files = [
             makeCullingTestFile("two.ARW"),
             makeCullingTestFile("four.ARW"),
@@ -890,7 +1365,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `bulk updateRating updates culling model and cache`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.selectedSource = catalog
@@ -902,8 +1377,66 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `rating mutations refresh the active rating-filter count`() {
+        let viewModel = makeRawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let first = makeCullingTestFile("one.ARW")
+        let second = makeCullingTestFile("two.ARW")
+        viewModel.selectedSource = catalog
+        viewModel.files = [first, second]
+        viewModel.catalogDisplayCandidates = [first, second]
+        viewModel.filteredFiles = [first, second]
+        viewModel.ratingFilter = .stars(3)
+        viewModel.cullingModel = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+
+        viewModel.updateRating(for: first, rating: 3)
+        #expect(viewModel.filteredFiles.map(\.name) == ["one.ARW"])
+
+        viewModel.updateRating(for: second, rating: 3)
+        #expect(viewModel.filteredFiles.map(\.name) == ["one.ARW", "two.ARW"])
+
+        viewModel.updateRating(for: first, rating: 2)
+        #expect(viewModel.filteredFiles.map(\.name) == ["two.ARW"])
+    }
+
+    @Test
+    func `clear all culling state synchronizes caches filters and persisted data`() async {
+        let recorder = SavedFilesRecorder()
+        let viewModel = makeRawCullViewModel()
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let file = makeCullingTestFile("one.ARW")
+        viewModel.selectedSource = catalog
+        viewModel.files = [file]
+        viewModel.catalogDisplayCandidates = [file]
+        viewModel.filteredFiles = [file]
+        viewModel.ratingFilter = .stars(3)
+        viewModel.cullingModel = CullingModel(
+            saveDelayNanoseconds: 30_000_000_000,
+            saveHandler: { snapshot in await recorder.record(snapshot) },
+        )
+        viewModel.updateRating(for: file, rating: 3)
+
+        viewModel.clearAllCullingState()
+        let didSave = await viewModel.cullingModel.flushPersistence()
+        let snapshots = await recorder.waitForSnapshotCount(1)
+
+        #expect(didSave)
+        #expect(viewModel.cullingModel.savedFiles.isEmpty)
+        #expect(viewModel.ratingCache.isEmpty)
+        #expect(viewModel.taggedNamesCache.isEmpty)
+        #expect(viewModel.filteredFiles.isEmpty)
+        #expect(snapshots.last?.isEmpty == true)
+    }
+
+    @Test
     func `updateRatingAndAdvance rates current file and selects next visible file`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.selectedSource = catalog
@@ -921,7 +1454,7 @@ struct RawCullViewModelCullingTests {
 
     @Test(arguments: [-1, 0, 2, 3, 4, 5])
     func `updateRatingAndAdvance marks active burst reviewed`(_ rating: Int) {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         let groupID = 7
@@ -941,7 +1474,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance leaves last visible file selected`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.selectedSource = catalog
@@ -957,7 +1490,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance without catalog leaves rating and selection unchanged`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let files = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         viewModel.files = files
         viewModel.selectedFileID = files[0].id
@@ -972,7 +1505,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `updateRatingAndAdvance with file outside visible order does not change selection`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let visible = [makeCullingTestFile("one.ARW"), makeCullingTestFile("two.ARW")]
         let hidden = makeCullingTestFile("hidden.ARW")
@@ -989,7 +1522,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `clearCurrentCatalogCullingState allows rating same catalog again`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let first = makeCullingTestFile("one.ARW")
         let second = makeCullingTestFile("two.ARW")
@@ -1037,7 +1570,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cached review state restores by signature after file id remap`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let oldA = makeCullingTestFile("A.ARW")
         let oldB = makeCullingTestFile("B.ARW")
@@ -1064,7 +1597,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cached review state ignores matching group id with changed membership`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
         let oldA = makeCullingTestFile("A.ARW")
         let oldB = makeCullingTestFile("B.ARW")
@@ -1091,14 +1624,23 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `cancelled burst analysis cannot apply a late cache result`() async {
-        let viewModel = RawCullViewModel()
+        let gate = BurstCacheLoadGate()
+        let cacheRepository = TestBurstAnalysisCacheRepository(
+            load: { _, _, _, _, _ in await gate.load() },
+        )
+        let viewModel = makeRawCullViewModel(
+            similarityService: CancellationDistanceSimilarityService(
+                probe: SimilarityDistanceCancellationProbe(),
+            ),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+            burstAnalysisCacheRepository: cacheRepository,
+        )
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
         )
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
-        let gate = BurstCacheLoadGate()
         let snapshot = makeBurstSnapshot(
             catalog: catalog.url,
             files: [first, second],
@@ -1110,18 +1652,16 @@ struct RawCullViewModelCullingTests {
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
-        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in
-            await gate.load()
+        let analysis = Task {
+            await viewModel.restoreExistingFullCatalogBurstAnalysis()
         }
-
-        let analysis = Task { await viewModel.analyzeBursts() }
         await gate.waitUntilStarted()
 
         viewModel.cancelAndResetBurstAnalysis()
         await gate.resume(returning: snapshot)
-        await analysis.value
+        _ = await analysis.value
 
-        #expect(viewModel.burstAnalysisTask == nil)
+        #expect(viewModel.burstAnalysisCoordinator.task == nil)
         #expect(!viewModel.burstAnalysisProgress.isRunning)
         #expect(viewModel.similarityModel.burstGroups.isEmpty)
         #expect(viewModel.burstAnalysisResults.isEmpty)
@@ -1130,9 +1670,11 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `catalog cancellation resets all burst analysis state`() {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let file = makeCullingTestFile("A.ARW")
-        viewModel.burstAnalysisProgress = BurstAnalysisProgress(step: .ranking)
+        viewModel.burstAnalysisCoordinator.updateProgress(
+            BurstAnalysisProgress(step: .ranking),
+        )
         viewModel.burstAnalysisResults = [1: makeCullingBurstResult(groupID: 1, files: [file])]
         viewModel.burstReviewStates = [1: .deferred]
         viewModel.burstReviewQueueFilter = .deferred
@@ -1189,6 +1731,48 @@ struct RawCullViewModelCullingTests {
 
         #expect(matching != nil)
         #expect(mismatching == nil)
+    }
+
+    @Test
+    func `restoring an existing full burst index never starts scoring or indexing`() async {
+        let catalog = ARWSourceCatalog(
+            name: "Catalog",
+            url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
+        )
+        let first = makeCullingTestFile("A.ARW")
+        let second = makeCullingTestFile("B.ARW")
+        let group = BurstGroup(id: 0, fileIDs: [first.id, second.id])
+        var snapshot = makeBurstSnapshot(
+            catalog: catalog.url,
+            files: [first, second],
+            groups: [group],
+            results: [makeCullingBurstResult(groupID: group.id, files: [first, second])],
+            reviewStateSnapshots: [],
+        )
+        snapshot.embeddings = [:]
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: [first, second],
+            artifacts: [:],
+        )
+        let viewModel = makeRawCullViewModel(
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+            burstAnalysisCacheRepository: TestBurstAnalysisCacheRepository(
+                load: { _, _, _, _, _ in snapshot },
+            ),
+        )
+
+        viewModel.selectedSource = catalog
+        viewModel.files = [first, second]
+        viewModel.filteredFiles = [first, second]
+
+        let restored = await viewModel.restoreExistingFullCatalogBurstAnalysis()
+
+        #expect(restored)
+        #expect(viewModel.hasExistingFullCatalogBurstGroupIndex)
+        #expect(viewModel.similarityModel.burstGroups == [group])
+        #expect(!viewModel.sharpnessModel.isScoring)
+        #expect(!viewModel.similarityModel.isIndexing)
+        #expect(!viewModel.burstAnalysisProgress.isRunning)
     }
 
     @Test
@@ -1280,13 +1864,21 @@ struct RawCullViewModelCullingTests {
             reviewStateSnapshots: [],
         )
         snapshot.embeddings = Dictionary(uniqueKeysWithValues: files.map { file in
-            (file.id, Data(repeating: UInt8(file.name.count % 255), count: 256))
-        })
-        snapshot.similarityArtifactSetDigest =
-            BurstAnalysisCache.artifactSetDigest(
-                files: files,
-                artifacts: snapshot.embeddings,
+            (
+                file.id,
+                makeSimilarityTestArtifact(
+                    source: SimilarityScoringModel.source(for: file),
+                    payload: Data(
+                        repeating: UInt8(file.name.count % 255),
+                        count: 256,
+                    ),
+                ),
             )
+        })
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: files,
+            artifacts: snapshot.embeddings,
+        )
         snapshot.sharpnessScores = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
             (file.id, Float(index) / Float(files.count))
         })
@@ -1305,7 +1897,6 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `review state persistence keeps completed analysis scope`() async throws {
-        let viewModel = RawCullViewModel()
         let catalog = ARWSourceCatalog(
             name: "Catalog",
             url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"),
@@ -1314,24 +1905,37 @@ struct RawCullViewModelCullingTests {
         let second = makeCullingTestFile("B.ARW")
         let group = BurstGroup(id: 0, fileIDs: [first.id, second.id])
         let result = makeCullingBurstResult(groupID: 0, files: [first, second])
-        let snapshot = makeBurstSnapshot(
+        var snapshot = makeBurstSnapshot(
             catalog: catalog.url,
             files: [first, second],
             groups: [group],
             results: [result],
             reviewStateSnapshots: [],
         )
+        snapshot.embeddings = [:]
+        snapshot.similarityArtifactSetDigest = BurstAnalysisCache.artifactSetDigest(
+            files: [first, second],
+            artifacts: [:],
+        )
         let recorder = BurstCacheSaveRecorder()
+        let viewModel = makeRawCullViewModel(
+            similarityService: SuspendingSimilarityService(
+                probe: SimilarityEmbeddingSuspensionProbe(),
+            ),
+            similarityArtifactStore: makeIsolatedSimilarityArtifactStore(),
+            burstAnalysisCacheRepository: TestBurstAnalysisCacheRepository(
+                load: { _, _, _, _, _ in snapshot },
+                save: { savedSnapshot, _ in
+                    await recorder.record(savedSnapshot)
+                },
+            ),
+        )
 
         viewModel.selectedSource = catalog
         viewModel.files = [first, second]
         viewModel.filteredFiles = [first, second]
-        viewModel.burstAnalysisCacheLoad = { _, _, _, _, _ in snapshot }
-        viewModel.burstAnalysisCacheSave = { savedSnapshot, _ in
-            await recorder.record(savedSnapshot)
-        }
 
-        await viewModel.analyzeBursts()
+        #expect(await viewModel.restoreExistingFullCatalogBurstAnalysis())
         viewModel.selectedFileIDs = [first.id]
         viewModel.filteredFiles = [first]
         viewModel.markBurstGroupReviewed(groupID: 0)
@@ -1344,7 +1948,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `live regroup review state follows membership instead of group id`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
@@ -1371,7 +1975,7 @@ struct RawCullViewModelCullingTests {
 
     @Test
     func `live regroup drops state when reused group id has changed membership`() throws {
-        let viewModel = RawCullViewModel()
+        let viewModel = makeRawCullViewModel()
         let catalog = URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)")
         let first = makeCullingTestFile("A.ARW")
         let second = makeCullingTestFile("B.ARW")
@@ -1388,6 +1992,65 @@ struct RawCullViewModelCullingTests {
         )
 
         #expect(restored.isEmpty)
+    }
+}
+
+@MainActor
+private final class TestBurstAnalysisCacheRepository: BurstAnalysisCacheRepository {
+    typealias Load = @MainActor (
+        URL,
+        [FileItem],
+        Int,
+        BurstSharpnessSignature,
+        BurstSimilaritySignature,
+    ) async -> BurstAnalysisCacheSnapshot?
+    typealias MigrationLoad = @MainActor (URL) async -> BurstAnalysisCacheSnapshot?
+    typealias Save = @MainActor (BurstAnalysisCacheSnapshot, URL) async -> Void
+    typealias Delete = @MainActor (URL) async -> Void
+
+    private let loadHandler: Load
+    private let migrationLoadHandler: MigrationLoad
+    private let saveHandler: Save
+    private let deleteHandler: Delete
+
+    init(
+        load: @escaping Load = { _, _, _, _, _ in nil },
+        migrationLoad: @escaping MigrationLoad = { _ in nil },
+        save: @escaping Save = { _, _ in },
+        delete: @escaping Delete = { _ in },
+    ) {
+        loadHandler = load
+        migrationLoadHandler = migrationLoad
+        saveHandler = save
+        deleteHandler = delete
+    }
+
+    func load(
+        catalog: URL,
+        files: [FileItem],
+        thumbnailMaxPixelSize: Int,
+        sharpnessSignature: BurstSharpnessSignature,
+        similaritySignature: BurstSimilaritySignature,
+    ) async -> BurstAnalysisCacheSnapshot? {
+        await loadHandler(
+            catalog,
+            files,
+            thumbnailMaxPixelSize,
+            sharpnessSignature,
+            similaritySignature,
+        )
+    }
+
+    func loadMigrationCandidate(catalog: URL) async -> BurstAnalysisCacheSnapshot? {
+        await migrationLoadHandler(catalog)
+    }
+
+    func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+        await saveHandler(snapshot, catalog)
+    }
+
+    func delete(catalog: URL) async {
+        await deleteHandler(catalog)
     }
 }
 
@@ -1448,8 +2111,9 @@ private func makeBurstSimilaritySignature(
 ) -> BurstSimilaritySignature {
     BurstSimilaritySignature(
         groupingConfig: BurstGroupingConfig(visualDistanceThreshold: sensitivity),
+        backendDescriptor: similarityTestBackendDescriptor,
+        artifactSchemaVersion: SimilarityArtifactDescriptor.currentSchemaVersion,
         embeddingThumbnailMaxPixelSize: SimilarityScoringModel.embeddingThumbnailMaxPixelSize,
-        visionFeaturePrintRevision: Int(SimilarityScoringModel.featurePrintRevision),
         embeddingPipelineVersion: SimilarityScoringModel.embeddingPipelineVersion,
     )
 }
@@ -1463,7 +2127,13 @@ private func makeBurstSnapshot(
     reviewStateSnapshots: [BurstReviewStateSnapshot],
     similaritySignature: BurstSimilaritySignature = makeBurstSimilaritySignature(),
 ) -> BurstAnalysisCacheSnapshot {
-    let embeddings: [UUID: Data] = [:]
+    let embeddings = Dictionary(uniqueKeysWithValues: files.map { file in
+        let source = SimilarityScoringModel.source(for: file)
+        return (
+            file.id,
+            makeSimilarityTestArtifact(source: source),
+        )
+    })
     return BurstAnalysisCacheSnapshot(
         schemaVersion: BurstAnalysisCache.schemaVersion,
         algorithmVersion: BurstGroupingConfig.algorithmVersion,
@@ -1474,10 +2144,6 @@ private func makeBurstSnapshot(
             config: FocusDetectorConfig(),
         ),
         similaritySignature: similaritySignature,
-        similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
-            files: files,
-            artifacts: embeddings,
-        ),
         files: files.map {
             BurstAnalysisCacheFile(
                 id: $0.id,
@@ -1493,5 +2159,9 @@ private func makeBurstSnapshot(
         boundaryEvidence: [],
         results: results,
         reviewStateSnapshots: reviewStateSnapshots,
+        similarityArtifactSetDigest: BurstAnalysisCache.artifactSetDigest(
+            files: files,
+            artifacts: embeddings,
+        ),
     )
 }

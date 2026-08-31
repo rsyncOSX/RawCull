@@ -84,15 +84,12 @@ struct SavedFiles: Identifiable, Codable {
     }
 }
 
-extension SavedFiles: Hashable, Equatable {
+extension SavedFiles: Equatable {
     static func == (lhs: SavedFiles, rhs: SavedFiles) -> Bool {
         lhs.dateStart == rhs.dateStart &&
-            lhs.catalog == rhs.catalog
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(dateStart)
-        hasher.combine(catalog)
+            lhs.catalog == rhs.catalog &&
+            lhs.filerecords == rhs.filerecords &&
+            lhs.burstWinnerOverrides == rhs.burstWinnerOverrides
     }
 }
 

@@ -49,13 +49,18 @@ struct ThumbnailKeyNavigationModifier: ViewModifier {
                         let filtered = viewModel.filteredFiles.filter { viewModel.passesRatingFilter($0) }
                         if axis == .grid,
                            viewModel.showsBurstGroups,
-                           !viewModel.similarityModel.burstGroups.isEmpty {
+                           !viewModel.similarityFeature.burstGroups.isEmpty {
                             let visible = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, $0) })
-                            return viewModel.similarityModel.burstGroups.flatMap { group in
+                            if !viewModel.cullingGridRenderedFileIDs.isEmpty {
+                                return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+                            }
+                            return viewModel.similarityFeature.burstGroups.flatMap { group in
                                 group.fileIDs.compactMap { visible[$0] }
                             }
                         }
-                        return viewModel.sharpnessModel.sortBySharpness
+                        let usesAnalysisSortOrder = viewModel.sharpnessModel.sortBySharpness
+                            || viewModel.similarityFeature.isSimilaritySortingActive
+                        return usesAnalysisSortOrder
                             ? filtered
                             : filtered.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
                     }()

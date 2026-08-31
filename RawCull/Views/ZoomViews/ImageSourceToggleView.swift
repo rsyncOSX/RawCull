@@ -7,9 +7,14 @@ nonisolated enum ImagePreviewSource: Hashable {
 }
 
 nonisolated struct ImageSourceSelectionState: Equatable {
-    var selected: ImagePreviewSource = .thumbnail
-    private(set) var previous: ImagePreviewSource = .thumbnail
+    var selected: ImagePreviewSource
+    private(set) var previous: ImagePreviewSource
     private(set) var rawUnavailable = false
+
+    init(initialSource: ImagePreviewSource = .thumbnail) {
+        selected = initialSource
+        previous = initialSource
+    }
 
     mutating func select(_ source: ImagePreviewSource) {
         guard source != selected else { return }
@@ -24,7 +29,8 @@ nonisolated struct ImageSourceSelectionState: Equatable {
     }
 
     mutating func markDevelopedRAWUnavailable() {
-        selected = previous
+        selected = previous == .developedRAW ? .thumbnail : previous
+        previous = .developedRAW
         rawUnavailable = true
     }
 
@@ -50,7 +56,8 @@ struct ImageSourceToggleView: View {
         .buttonStyle(.plain)
         .help(useThumbnailSource ? "Using thumbnail — switch to extracted JPG" : "Using extracted JPG — switch to thumbnail")
         .accessibilityLabel("Image source")
-        .accessibilityValue(useThumbnailSource ? "Thumbnail" : "Extracted JPG")
+        .accessibilityValue(useThumbnailSource ? "Thumbnail" : "Extracted JPEG")
+        .accessibilityHint(useThumbnailSource ? "Switches to the extracted JPEG." : "Switches to the thumbnail.")
         .padding(.horizontal, density == .compact ? 6 : 10)
         .padding(.vertical, density == .compact ? 5 : 9)
         .background(.regularMaterial, in: Capsule())
@@ -98,7 +105,7 @@ struct ImageSourceSelectorView: View {
         .buttonStyle(.plain)
         .foregroundStyle(selection.selected == source ? Color.accentColor : Color.primary)
         .help(helpText(for: source))
-        .accessibilityLabel(helpText(for: source))
+        .accessibilityLabel(accessibilityLabel(for: source))
         .accessibilityValue(selection.selected == source ? "Selected" : "Not selected")
         .accessibilityAddTraits(selection.selected == source ? .isSelected : [])
     }
@@ -108,6 +115,14 @@ struct ImageSourceSelectorView: View {
         case .thumbnail: "Show thumbnail"
         case .embeddedJPG: "Show embedded JPG"
         case .developedRAW: selection.rawUnavailable ? "RAW development is not supported for this image" : "Develop and show full-size RAW JPEG"
+        }
+    }
+
+    private func accessibilityLabel(for source: ImagePreviewSource) -> String {
+        switch source {
+        case .thumbnail: "Thumbnail image source"
+        case .embeddedJPG: "Embedded JPEG image source"
+        case .developedRAW: "Developed RAW image source"
         }
     }
 }

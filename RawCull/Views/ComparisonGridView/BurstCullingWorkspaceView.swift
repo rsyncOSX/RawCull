@@ -39,27 +39,18 @@ struct BurstCullingWorkspaceView: View {
 
     @State private var imageCache: [BurstFrameCacheKey: ComparisonImageState] = [:]
     @State private var viewportState = ComparisonViewportInteractionState()
-    @State private var sourceSelection = ImageSourceSelectionState()
+    @State private var sourceSelection = ImageSourceSelectionState(initialSource: .embeddedJPG)
     @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             workspaceHeader
             Divider()
-            shortcutBar
-            Divider()
 
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    imageStage
-                    Divider()
-                    filmstrip
-                }
-
+            VStack(spacing: 0) {
+                imageStage
                 Divider()
-
-                inspector
-                    .frame(width: 340)
+                filmstrip
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -136,43 +127,37 @@ struct BurstCullingWorkspaceView: View {
         .controlSize(.large)
         .help(isReviewed ? "Unmark this burst as reviewed" : "Mark this burst as reviewed")
         .accessibilityValue(isReviewed ? "Selected" : "Not selected")
-        .accessibilityAddTraits(isReviewed ? .isSelected : [])
     }
 
-    private var shortcutBar: some View {
-        HStack(spacing: 8) {
-            Text("Groups  /  Bursts  /")
-                .foregroundStyle(.secondary)
-            Text(selectedFile?.name ?? "No frame selected")
-                .fontWeight(.semibold)
-
-            Spacer()
-            
-            Text("Extraced thumbnail is default, toggle J to view JPG")
-            
-            Spacer()
-
-            keyCap("P/N")
-            Text("frame")
-            keyCap("G")
-            Text("next group")
-            keyCap("+/-")
-            Text("zoom")
-            keyCap("J/R")
-            Text("source")
-            keyCap("F/A")
-            Text("focus")
-            keyCap("2–5")
-            Text("rate")
-            keyCap("0")
-            Text("pick")
-            keyCap("X")
-            Text("reject")
+    private var shortcutGuide: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 7) {
+                shortcut("P/N", action: "frame")
+                separator
+                shortcut("G", action: "next group")
+                separator
+                shortcut("+/−", action: "zoom")
+                separator
+                shortcut("2–5", action: "rate")
+                separator
+                shortcut("0", action: "pick")
+                separator
+                shortcut("X", action: "reject")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(.regularMaterial, in: .rect(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(.white.opacity(0.12), lineWidth: 1)
+            }
         }
-        .font(.callout.monospaced())
+        .scrollIndicators(.hidden)
+        .font(.caption.monospaced())
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Keyboard shortcuts: P or N changes frame, G opens the next group, plus or minus zooms, 2 through 5 rates, 0 picks, and X rejects")
     }
 
     private var imageStage: some View {
@@ -203,13 +188,39 @@ struct BurstCullingWorkspaceView: View {
                     allowsDoubleClickZoom: false,
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(48)
-                .overlay(alignment: .topLeading) {
-                    tagStrip(for: selectedFile)
-                        .padding(64)
-                }
+                .padding(.horizontal, 82)
+                .padding(.top, 36)
+                .padding(.bottom, 2)
             } else {
                 ContentUnavailableView("No burst frame", systemImage: "photo")
+            }
+
+            if let selectedFile {
+                VStack(spacing: 0) {
+                    BurstEvidenceShelf(
+                        file: selectedFile,
+                        image: metadataImage,
+                        rating: ratingDisplay(for: selectedFile),
+                        rank: selectedIndex + 1,
+                        frameCount: files.count,
+                        sharpness: selectedCandidate?.sharpnessComponent,
+                        overallScore: selectedCandidate?.overallScore,
+                        exif: ExifSummary.make(from: selectedFile.exifData),
+                    )
+                    .padding(.top, 12)
+                    Spacer()
+                    shortcutGuide
+                        .padding(.bottom, 12)
+                }
+                .padding(.horizontal, 116)
+                .allowsHitTesting(true)
+            }
+
+            if let selectedFile {
+                tagStrip(for: selectedFile)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(18)
+                    .allowsHitTesting(false)
             }
 
             HStack {
@@ -234,7 +245,6 @@ struct BurstCullingWorkspaceView: View {
 
             ScrollViewReader { proxy in
                 GeometryReader { geo in
-                    
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 10) {
                             ForEach(files) { file in
@@ -281,82 +291,6 @@ struct BurstCullingWorkspaceView: View {
         .background(.quaternary.opacity(0.28))
     }
 
-    private var inspector: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                inspectorCard("Rating") {
-                    RatingActionBarView(
-                        currentRating: selectedFile.map(ratingDisplay(for:)) ?? .unrated,
-                        onSelect: applyRating,
-                    )
-                }
-
-                inspectorCard("Tags") {
-                    if let selectedFile {
-                        tagStrip(for: selectedFile)
-                    }
-                }
-               
-                CandidateInspectorView(context: candidateInspectorContext)
-                
-            }
-            .padding(16)
-        }
-        .background(Color.black.opacity(0.13))
-    }
-
-    private var candidateInspectorContext: CandidateInspectorContext? {
-        guard let groupID = viewModel.activeBurstComparisonGroupID else { return nil }
-        return CandidateInspectorContext.make(
-            selectedFile: viewModel.selectedFile,
-            result: viewModel.burstAnalysisResult(for: groupID),
-            files: viewModel.files,
-            saliencyInfo: viewModel.sharpnessModel.saliencyInfo,
-            sharpnessScores: viewModel.sharpnessModel.scores,
-            sharpnessBreakdowns: viewModel.sharpnessModel.breakdowns,
-            focusPoints: viewModel.focusPoints,
-            rating: viewModel.selectedFile.map { viewModel.getRating(for: $0) } ?? 0,
-        )
-    }
-    
-    private var fileDetails: some View {
-        VStack(spacing: 12) {
-            detailRow("Name", selectedFile?.name ?? "—")
-            detailRow("Burst", "\(burstNumber.formatted(.number.precision(.integerLength(2))))  ·  \(files.count) frames")
-            detailRow("Catalog", viewModel.selectedSource?.name ?? "—")
-            detailRow("Similarity", String(format: "%.2f group", viewModel.similarityModel.burstSensitivity))
-            detailRow("Status", statusTitle)
-        }
-    }
-
-    private func inspectorCard(
-        _ title: String,
-        @ViewBuilder content: () -> some View,
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(title).font(.headline)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.quaternary.opacity(0.48), in: .rect(cornerRadius: 14))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(.separator.opacity(0.65), lineWidth: 1)
-        }
-    }
-
-    private func detailRow(_ title: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title).foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.callout.monospaced())
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-        }
-    }
-
     private func tagStrip(for file: FileItem) -> some View {
         HStack(spacing: 8) {
             let rating = RatingDisplay(
@@ -375,11 +309,18 @@ struct BurstCullingWorkspaceView: View {
         }
     }
 
-    private func keyCap(_ title: String) -> some View {
-        Text(title)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(.quaternary, in: .rect(cornerRadius: 5))
+    private func shortcut(_ key: String, action: LocalizedStringKey) -> some View {
+        HStack(spacing: 4) {
+            Text(key)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+            Text(action)
+        }
+    }
+
+    private var separator: some View {
+        Text("·")
+            .accessibilityHidden(true)
     }
 
     private func navigationButton(systemImage: String, delta: Int) -> some View {
@@ -394,14 +335,21 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private var files: [FileItem] {
-        guard let group = viewModel.similarityModel.burstGroups.first(where: { $0.id == groupID }) else { return [] }
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        guard let group = viewModel.similarityFeature.burstGroups.first(where: { $0.id == groupID }) else { return [] }
+        let filesByID = Dictionary(
+            uniqueKeysWithValues: viewModel.activeCatalogFiles.map { ($0.id, $0) },
+        )
         let rankedIDs = analysis?.candidates.map(\.fileID) ?? group.fileIDs
         return rankedIDs.compactMap { filesByID[$0] }
     }
 
     private var analysis: BurstAnalysisResult? {
         viewModel.burstAnalysisResult(for: groupID)
+    }
+
+    private var selectedCandidate: BurstCandidateScore? {
+        guard let selectedFile else { return nil }
+        return analysis?.candidates.first { $0.fileID == selectedFile.id }
     }
 
     private var isReviewed: Bool {
@@ -418,23 +366,21 @@ struct BurstCullingWorkspaceView: View {
         return imageCache[cacheKey(for: selectedFile, source: sourceSelection.selected)]
     }
 
+    private var metadataImage: NSImage? {
+        if let nsImage = imageState?.nsImage {
+            return nsImage
+        }
+        guard let cgImage = imageState?.cgImage else { return nil }
+        return NSImage(cgImage: cgImage, size: .zero)
+    }
+
     private var selectedIndex: Int {
         guard let selectedFile else { return 0 }
         return files.firstIndex { $0.id == selectedFile.id } ?? 0
     }
 
     private var burstNumber: Int {
-        (viewModel.similarityModel.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
-    }
-
-    private var statusTitle: String {
-        switch analysis?.reviewState {
-        case .deferred: "Deferred"
-        case .reviewed: "Reviewed"
-        case .decisionApplied: "Decision applied"
-        case .manualWinnerOverride: "Manual pick"
-        default: "Needs review"
-        }
+        (viewModel.similarityFeature.burstGroups.firstIndex { $0.id == groupID } ?? groupID) + 1
     }
 
     private func selectFirstFileIfNeeded() {
@@ -680,6 +626,88 @@ struct BurstCullingWorkspaceView: View {
             keyCode: 0,
             navigationAxis: .horizontal,
         ))
+    }
+}
+
+private struct BurstEvidenceShelf: View {
+    let file: FileItem
+    let image: NSImage?
+    let rating: RatingDisplay
+    let rank: Int
+    let frameCount: Int
+    let sharpness: Float?
+    let overallScore: Float?
+    let exif: ExifSummary
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 16) {
+                HStack(spacing: 9) {
+                    Text(file.name)
+                        .font(.callout.weight(.semibold).monospaced())
+                        .lineLimit(1)
+
+                    evidenceBadge("#\(rank) / \(frameCount)", color: .secondary)
+                }
+
+                Divider().frame(height: 34)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    scoreRow("Sharpness", value: sharpness)
+                    scoreRow("Overall", value: overallScore)
+                }
+                .frame(minWidth: 108)
+
+                HistogramView(nsImage: image, height: 42)
+                    .frame(width: 110)
+                    .accessibilityLabel("Luminance histogram")
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(exif.exposureParts.joined(separator: "   "))
+                    Text(exif.gearParts.joined(separator: "   "))
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption.monospaced())
+                .lineLimit(1)
+                .frame(maxWidth: 560, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: .rect(cornerRadius: 9))
+        .overlay {
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(.white.opacity(0.15), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.28), radius: 12, y: 4)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func scoreRow(_ title: String, value: Float?) -> some View {
+        HStack(spacing: 6) {
+            Text(title).foregroundStyle(.secondary)
+            Text(value.map(percent) ?? "—")
+                .fontWeight(.semibold)
+                .monospacedDigit()
+        }
+        .font(.caption)
+    }
+
+    private func percent(_ value: Float) -> String {
+        value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    private func evidenceBadge(_ title: String, color: Color) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold).monospaced())
+            .foregroundStyle(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.13), in: .rect(cornerRadius: 5))
+            .overlay {
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(color.opacity(0.45), lineWidth: 1)
+            }
     }
 }
 

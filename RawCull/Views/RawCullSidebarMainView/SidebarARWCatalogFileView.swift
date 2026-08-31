@@ -7,8 +7,6 @@ struct SidebarARWCatalogFileView: View {
     }
 
     @Bindable var viewModel: RawCullViewModel
-    @Binding var isShowingPicker: Bool
-    @Binding var progress: Double
     @Binding var selectedSource: ARWSourceCatalog?
 
     @Binding var scanning: Bool
@@ -17,129 +15,108 @@ struct SidebarARWCatalogFileView: View {
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
-    @State var counterScannedFiles: Int = 0
-    @State var verticalimages: Bool = true
-
     let issorting: Bool
-    let max: Double
 
     var body: some View {
-        Group {
-            if selectedSource == nil {
-                // Empty State when no catalog is selected
-                ContentUnavailableView {
-                    Label("No Catalog Selected", systemImage: "folder.badge.plus")
-                } description: {
-                    Text("Add a Catalog to start culling your photos.")
-                } actions: {
-                    Button("+ Add Catalog") { isShowingPicker = true }
-                }
-            } else if scanning {
-                ProgressView("Scanning images: \(counterScannedFiles)")
-            } else if files.isEmpty,
-                        !scanning,
-                        viewModel.cullingModel.savedFiles.count ==  0 {
-                ContentUnavailableView {
-                    Label("No Files Found", systemImage: "folder.badge.plus")
-                } description: {
-                    Text("This folder has no RAW images. Try a different folder.")
-                } actions: {
+        if selectedSource == nil {
+            // Empty State when no catalog is selected
+            ContentUnavailableView {
+                Label {
+                    Text("No Catalog Selected")
+                } icon: {
                     Button {
-                        isShowingPicker = true
+                        viewModel.isShowingPicker = true
                     } label: {
-                        Label("Add Catalog", systemImage: "plus")
+                        Image(systemName: "folder.badge.plus")
                     }
+                    .buttonStyle(.plain)
+                    .help("Add Catalog…")
+                    .accessibilityLabel("Add Catalog")
+                    .accessibilityHint("Opens the folder picker to select a catalog.")
                 }
-            } else {
-                ZStack {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            ConditionalGlassButton(
-                                systemImage: verticalimages == true ? "text.justify" : "photo.stack",
-                                text: verticalimages ? "Table" : "Images",
-                                helpText: "View table or images",
-                                style: .softCapsule,
-                            ) {
-                                verticalimages.toggle()
-                            }
-
-                            if verticalimages {
-                                ConditionalGlassButton(
-                                    systemImage: "arrow.counterclockwise",
-                                    text: "Clear",
-                                    helpText: "Clear rated files",
-                                    style: .softCapsule,
-                                ) {
-                                    viewModel.alertType = .clearRatedFiles
-                                    viewModel.showingAlert = true
-                                }
-                                .disabled(viewModel.creatingthumbnails)
-                            }
-
-                            ConditionalGlassButton(
-                                systemImage: "photo.badge.arrow.down",
-                                text: "Cache JPGs",
-                                helpText: "Cache extracted JPG previews for this catalog",
-                                style: .softCapsule,
-                            ) {
-                                viewModel.alertType = .createJPGDiskCache
-                                viewModel.showingAlert = true
-                            }
-                            .disabled(
-                                selectedSource == nil ||
-                                    files.isEmpty ||
-                                    viewModel.creatingthumbnails,
-                            )
+            } description: {
+                Text("Choose File > Add Catalog… to start culling your photos.")
+            }
+        } else if scanning {
+            ProgressView("Scanning images: \(viewModel.scanDiscoveredCount)")
+        } else if viewModel.files.isEmpty, !scanning {
+            ContentUnavailableView {
+                Label("No Files Found", systemImage: "folder.badge.plus")
+            } description: {
+                Text("This folder has no RAW images. Choose File > Add Catalog… to try a different folder.")
+            }
+        } else if files.isEmpty {
+            ContentUnavailableView {
+                Label("No Matching Files", systemImage: "line.3.horizontal.decrease.circle")
+            } description: {
+                Text("The catalog contains RAW images, but none match the current filters.")
+            }
+        } else {
+            ZStack {
+                VStack(alignment: .leading) {
+                    HStack {
+                        ConditionalGlassButton(
+                            systemImage: "trash",
+                            text: "Clear",
+                            helpText: "Clear rated files",
+                        ) {
+                            viewModel.alertType = .clearRatedFiles
+                            viewModel.showingAlert = true
                         }
-                        .padding()
+                        .disabled(viewModel.creatingthumbnails)
 
-                        Group {
-                            // Default start show all thumbnails vertical on the
-                            // left side. If verticalimage == false then show ARW
-                            // files in a table view
-
-                            if verticalimages {
-                                ImageTableVerticalView(viewModel: viewModel)
-                            } else {
-                                // This is the plain table view
-                                FileTableRowView(viewModel: viewModel)
-                            }
+                        ConditionalGlassButton(
+                            systemImage: "photo.badge.arrow.down",
+                            text: "Cache JPGs",
+                            helpText: "Cache extracted JPG previews for this catalog",
+                        ) {
+                            viewModel.alertType = .createJPGDiskCache
+                            viewModel.showingAlert = true
                         }
-                        .frame(width: verticalimages ? (thumbnailSizeGrid + 20) : 510)
-                        .fixedSize(horizontal: true, vertical: false)
+                        .disabled(
+                            selectedSource == nil ||
+                                files.isEmpty ||
+                                viewModel.creatingthumbnails,
+                        )
 
-                        if creatingThumbnails {
-                            ProgressCount(progress: $progress,
-                                          estimatedSeconds: $viewModel.estimatedSeconds,
-                                          max: Double(max),
-                                          statusText: progressStatusText)
-                        }
+                        LoupeSortBadge(status: sortStatus)
                     }
+                    .padding()
 
-                    if issorting {
-                        HStack {
-                            ProgressView()
-                                .fixedSize()
+                    Group {
+                        // Default start show all thumbnails vertical on the
+                        // left side. If verticalimage == false then show ARW
+                        // files in a table view
 
-                            Text("Sorting files…")
-                                .font(.title)
-                                .foregroundColor(Color.green)
-                        }
-                        .padding()
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1),
+                        ImageTableVerticalView(viewModel: viewModel)
+                    }
+                    .frame(width: thumbnailSizeGrid + 20)
+                    .fixedSize(horizontal: true, vertical: false)
+
+                    if creatingThumbnails {
+                        ProgressCount(
+                            completed: viewModel.fileOperationCompleted,
+                            total: viewModel.fileOperationTotal,
+                            estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
+                            statusText: progressStatusText,
                         )
                     }
                 }
-            }
-        }
-        .task(id: scanning) {
-            viewModel.countingScannedFiles = { count in
-                // Ensure UI state changes happen on the main actor
-                Task { @MainActor in
-                    // It's safe to access self on the main actor
-                    self.counterScannedFiles = count
+
+                if issorting {
+                    HStack {
+                        ProgressView()
+                            .fixedSize()
+
+                        Text("Sorting files…")
+                            .font(.title)
+                            .foregroundColor(Color.green)
+                    }
+                    .padding()
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1),
+                    )
                 }
             }
         }
@@ -161,5 +138,71 @@ struct SidebarARWCatalogFileView: View {
             return "Caching JPGs"
         }
         return "Extracting JPGs"
+    }
+
+    private var sortStatus: LoupeSortStatus {
+        if viewModel.similarityFeature.isSimilaritySortingActive {
+            return .similarity
+        }
+        if viewModel.sharpnessModel.sortBySharpness {
+            return .sharpness
+        }
+        return .name
+    }
+}
+
+private enum LoupeSortStatus {
+    case name
+    case sharpness
+    case similarity
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .name: "Name"
+        case .sharpness: "Sharpness"
+        case .similarity: "Similarity"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .name: "textformat"
+        case .sharpness: "scope"
+        case .similarity: "photo.stack"
+        }
+    }
+
+    var helpText: LocalizedStringResource {
+        switch self {
+        case .name: "Images are sorted by name"
+        case .sharpness: "Images are sorted by sharpness"
+        case .similarity: "Images are sorted by similarity"
+        }
+    }
+}
+
+private struct LoupeSortBadge: View {
+    let status: LoupeSortStatus
+
+    var body: some View {
+        Label {
+            Text(status.title)
+        } icon: {
+            Image(systemName: status.systemImage)
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(.regularMaterial, in: Capsule())
+        .overlay {
+            Capsule()
+                .strokeBorder(.primary.opacity(0.12), lineWidth: 0.5)
+        }
+        .help(Text(status.helpText))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Image sorting")
+        .accessibilityValue(Text(status.helpText))
     }
 }

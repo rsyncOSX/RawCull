@@ -9,33 +9,11 @@ import SwiftUI
 
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
-    let toggleInspector: () -> Void
+    let toggleMetadataPanel: () -> Void
 
     var body: some ToolbarContent {
         if !usesBurstWorkspaceChrome {
             Group {
-                ToolbarItem(placement: .status) {
-                    Button(action: openCopyView) {
-                        Label("Copy", systemImage: "document.on.document")
-                    }
-                    .disabled(viewModel.creatingthumbnails || viewModel.selectedSource == nil)
-                    .help("Copy tagged images to destination...")
-                }
-
-                ToolbarItem(placement: .status) {
-                    Button(action: toggleshowsavedfiles) {
-                        Label("Saved Files", systemImage: "square.and.arrow.down")
-                    }
-                    .help("Show saved files")
-                }
-
-                ToolbarItem(placement: .status) {
-                    Button(action: toggleInspector) {
-                        Label("Inspector", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                    .help("Show inspector")
-                }
-
                 ToolbarItem(placement: .status) {
                     Button {
                         viewModel.activeSheet = .scoringParams
@@ -59,10 +37,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Button(action: selectReviewQueueMode) {
                         Label("Review", systemImage: "tray.full")
                     }
-                    .help("Show burst groups that need review")
-                    .disabled(viewModel.selectedSource == nil ||
-                        viewModel.burstReviewQueueCounts.needsReview == 0 ||
-                        viewModel.creatingthumbnails)
+                    .help(reviewButtonHelp)
+                    .disabled(reviewButtonIsDisabled)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -139,6 +115,24 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.activeBurstComparisonGroupID != nil
     }
 
+    private var analysisIsBusy: Bool {
+        viewModel.burstAnalysisProgress.isRunning
+            || viewModel.sharpnessModel.isScoring
+            || viewModel.similarityFeature.isBusy
+    }
+
+    private var reviewButtonHelp: LocalizedStringResource {
+        "Show burst groups that need review"
+    }
+
+    private var reviewButtonIsDisabled: Bool {
+        guard viewModel.selectedSource != nil,
+              !viewModel.creatingthumbnails,
+              !analysisIsBusy
+        else { return true }
+        return viewModel.burstReviewSummary.needsReview == 0
+    }
+
     private var activeRatingInt: Int? {
         switch viewModel.ratingFilter {
         case .all: nil
@@ -146,15 +140,6 @@ struct SharedMainToolbarContent: ToolbarContent {
         case .keepers: 0
         case let .stars(n): n
         }
-    }
-
-    private func openCopyView() {
-        viewModel.sheetType = .copytasksview
-        viewModel.showcopyARWFilesView = true
-    }
-
-    private func toggleshowsavedfiles() {
-        viewModel.showSavedFiles.toggle()
     }
 
     private func selectGridMode() {
@@ -172,10 +157,12 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private func selectReviewQueueMode() {
         viewModel.ratingFilter = .all
-        viewModel.burstReviewQueueFilter = .needsReview
-        viewModel.similarityModel.burstModeActive = true
-        Task(priority: .background) { await viewModel.handleSortOrderChange() }
         viewModel.selectMainViewMode(.similarityGrid)
+        viewModel.burstReviewQueueFilter = .needsReview
+        viewModel.similarityFeature.burstModeActive = true
+        Task(priority: .background) {
+            await viewModel.handleSortOrderChange()
+        }
     }
 
     private func selectComparisonGridMode() {
@@ -208,7 +195,7 @@ struct SharedMainToolbarContent: ToolbarContent {
         viewModel.ratingFilter = viewModel.ratingFilter == newFilter ? .all : newFilter
         Task(priority: .background) { await viewModel.handleSortOrderChange() }
     }
-    
+
     private var hasExplicitRatings: Bool {
         guard let catalog = viewModel.selectedSource?.url else { return false }
         return viewModel.cullingModel.hasExplicitRatings(in: catalog)

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct GridThumbnailView: View {
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Binding var nsImage: NSImage?
@@ -20,6 +21,7 @@ struct GridThumbnailView: View {
             if gridthumbnailviewmodel.cullingModel != nil {
                 GridThumbnailSelectionView(
                     viewModel: viewModel,
+                    similarityFeature: similarityFeature,
                     nsImage: $nsImage,
                     cgImage: $cgImage,
                 )
@@ -57,9 +59,12 @@ struct GridThumbnailView: View {
 
     private var sortedFiles: [FileItem] {
         if viewModel.showsBurstGroups,
-           !viewModel.similarityModel.burstGroups.isEmpty {
+           !viewModel.similarityFeature.burstGroups.isEmpty {
             let visible = Dictionary(uniqueKeysWithValues: filteredFiles.map { ($0.id, $0) })
-            return viewModel.similarityModel.burstGroups.flatMap { group in
+            if !viewModel.cullingGridRenderedFileIDs.isEmpty {
+                return viewModel.cullingGridRenderedFileIDs.compactMap { visible[$0] }
+            }
+            return viewModel.similarityFeature.burstGroups.flatMap { group in
                 group.fileIDs.compactMap { visible[$0] }
             }
         }

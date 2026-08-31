@@ -18,11 +18,6 @@
   "testTargets" : [
     {
       "parallelizable" : true,
-      "selectedTags" : {
-        "tags" : [
-          "smoke"
-        ]
-      },
       "target" : {
         "containerPath" : "container:RawCull.xcodeproj",
         "identifier" : "E95355DC2F33B70A006C2851",

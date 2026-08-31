@@ -20,8 +20,8 @@ extension RawCullViewModel {
         var cache: [String: Int] = [:]
         var tagged: Set<String> = []
         for record in records {
-            guard let name = record.fileName else { continue }
-            cache[name] = record.rating ?? 0
+            guard let name = record.fileName, let rating = record.rating else { continue }
+            cache[name] = rating
             tagged.insert(name)
         }
         ratingCache = cache
@@ -38,22 +38,30 @@ extension RawCullViewModel {
         guard let index = cullingModel.savedFiles.firstIndex(where: { $0.catalog == selectedSource?.url }),
               let taggedfilerecords = cullingModel.savedFiles[index].filerecords
         else { return [] }
+        let activeNames = Set(activeCatalogFiles.map(\.name))
         return taggedfilerecords
-            .filter { ($0.rating ?? 0) >= 2 }
+            .filter {
+                ($0.rating ?? 0) >= 2
+                    && $0.fileName.map(activeNames.contains) == true
+            }
             .compactMap(\.fileName)
     }
 
     func passesRatingFilter(_ file: FileItem) -> Bool {
         switch ratingFilter {
         case .all: true
-        case .rejected: getRating(for: file) == -1
-        case .keepers: getRating(for: file) == 0
-        case let .stars(n): getRating(for: file) == n
+        case .rejected: rating(for: file) == -1
+        case .keepers: rating(for: file) == 0
+        case let .stars(n): rating(for: file) == n
         }
     }
 
+    func rating(for file: FileItem) -> Int? {
+        ratingCache[file.name]
+    }
+
     func getRating(for file: FileItem) -> Int {
-        ratingCache[file.name] ?? 0
+        rating(for: file) ?? 0
     }
 
     func hasRating(in files: [FileItem]) -> Bool {
@@ -72,7 +80,7 @@ extension RawCullViewModel {
     func updateRating(for file: FileItem, rating: Int) {
         guard let selectedSource else { return }
         cullingModel.updateRating(fileName: file.name, rating: rating, in: selectedSource.url)
-        rebuildRatingCache()
+        refreshCullingDerivedState()
     }
 
     func updateRatingAndAdvance(for file: FileItem, rating: Int, in orderedFiles: [FileItem]) {
@@ -99,15 +107,35 @@ extension RawCullViewModel {
     func updateRating(for files: [FileItem], rating: Int) {
         guard let selectedSource else { return }
         cullingModel.updateRatings(fileNames: files.map(\.name), rating: rating, in: selectedSource.url)
-        rebuildRatingCache()
+        refreshCullingDerivedState()
     }
 
     func clearCurrentCatalogCullingState() {
         guard let selectedSource else { return }
         cullingModel.resetSavedFiles(in: selectedSource.url)
-        ratingCache = [:]
-        taggedNamesCache = []
         sharpnessModel.reset()
-        similarityModel.reset()
+        similarityFeature.resetCatalogState()
+        refreshCullingDerivedState()
+    }
+
+    func clearAllCullingState() {
+        cullingModel.resetAllSavedFiles()
+        sharpnessModel.reset()
+        similarityFeature.resetCatalogState()
+        refreshCullingDerivedState()
+    }
+
+    /// Synchronizes the cached rating lookup and the displayed catalog
+    /// projection after every persisted culling mutation.
+    func refreshCullingDerivedState() {
+        rebuildRatingCache()
+        guard ratingFilter != .all else { return }
+
+        let candidates = catalogDisplayCandidates.isEmpty
+            ? files.sorted(using: sortOrder).filter {
+                searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText)
+            }
+            : catalogDisplayCandidates
+        filteredFiles = applyFilters(to: candidates)
     }
 }

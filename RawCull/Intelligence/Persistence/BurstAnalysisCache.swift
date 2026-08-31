@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import OSLog
 import PhotoAnalysisKit
 import RawCullCore
 
@@ -10,32 +11,52 @@ nonisolated struct BurstAnalysisCacheSnapshot: Codable, Equatable {
     var thumbnailMaxPixelSize: Int
     var sharpnessSignature: BurstSharpnessSignature
     var similaritySignature: BurstSimilaritySignature
-    var similarityArtifactSetDigest: String?
     var files: [BurstAnalysisCacheFile]
-    var embeddings: [UUID: Data]
+    var embeddings: [UUID: SimilarityArtifact]
     var sharpnessScores: [UUID: Float]
     var saliencyInfo: [UUID: SaliencyInfo]
     var groups: [BurstGroup]
     var boundaryEvidence: [BurstBoundaryEvidence]
     var results: [BurstAnalysisResult]
     var reviewStateSnapshots: [BurstReviewStateSnapshot]
+    var similarityArtifactSetDigest: String?
 }
 
-nonisolated struct BurstSimilaritySignature: Codable, Equatable {
+nonisolated struct BurstSimilaritySignature: Codable, Equatable, Sendable {
     var groupingConfig: BurstGroupingConfig
+    var backendDescriptor: SimilarityBackendDescriptor
+    var artifactBackendDescriptors: [SimilarityBackendDescriptor]
+    var artifactSchemaVersion: Int
     var embeddingThumbnailMaxPixelSize: Int
-    var visionFeaturePrintRevision: Int
     var embeddingPipelineVersion: Int
+
+    init(
+        groupingConfig: BurstGroupingConfig,
+        backendDescriptor: SimilarityBackendDescriptor,
+        artifactBackendDescriptors: [SimilarityBackendDescriptor]? = nil,
+        artifactSchemaVersion: Int,
+        embeddingThumbnailMaxPixelSize: Int,
+        embeddingPipelineVersion: Int,
+    ) {
+        self.groupingConfig = groupingConfig
+        self.backendDescriptor = backendDescriptor
+        self.artifactBackendDescriptors = artifactBackendDescriptors ?? [backendDescriptor]
+        self.artifactSchemaVersion = artifactSchemaVersion
+        self.embeddingThumbnailMaxPixelSize = embeddingThumbnailMaxPixelSize
+        self.embeddingPipelineVersion = embeddingPipelineVersion
+    }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.groupingConfig == rhs.groupingConfig
+            && lhs.backendDescriptor == rhs.backendDescriptor
+            && lhs.artifactBackendDescriptors == rhs.artifactBackendDescriptors
+            && lhs.artifactSchemaVersion == rhs.artifactSchemaVersion
             && lhs.embeddingThumbnailMaxPixelSize == rhs.embeddingThumbnailMaxPixelSize
-            && lhs.visionFeaturePrintRevision == rhs.visionFeaturePrintRevision
             && lhs.embeddingPipelineVersion == rhs.embeddingPipelineVersion
     }
 }
 
-nonisolated struct SharpnessScoringSignature: Codable, Equatable {
+nonisolated struct SharpnessScoringSignature: Codable, Equatable, Sendable {
     /// Nil only when decoding the legacy RawCull-owned signature. Legacy values
     /// remain readable but compare stale against every current package descriptor.
     var analysisDescriptor: SharpnessAnalysisDescriptor?
@@ -100,8 +121,7 @@ nonisolated struct BurstAnalysisCacheFile: Codable, Equatable {
 
 actor BurstAnalysisCache {
     static let shared = BurstAnalysisCache()
-    nonisolated static let schemaVersion = 5
-    nonisolated static let legacyArtifactMigrationSchemaVersion = 4
+    nonisolated static let schemaVersion = 10
 
     private let cacheDirectory: URL
 
@@ -128,9 +148,22 @@ actor BurstAnalysisCache {
         sharpnessSignature: BurstSharpnessSignature,
         similaritySignature: BurstSimilaritySignature,
     ) async -> BurstAnalysisCacheSnapshot? {
-        guard !Task.isCancelled else { return nil }
+        Logger.process.debugMessageOnly(
+            "BurstAnalysisCache.load(): checking cache for \(files.count) files",
+        )
+        guard !Task.isCancelled else {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): cancelled before loading",
+            )
+            return nil
+        }
         let url = cacheURL(for: catalog)
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): no cache file exists",
+            )
+            return nil
+        }
         do {
             let data = try Data(contentsOf: url)
             guard !Task.isCancelled else { return nil }
@@ -144,76 +177,63 @@ actor BurstAnalysisCache {
                 sharpnessSignature: sharpnessSignature,
                 similaritySignature: similaritySignature,
             ) else {
+                Logger.process.debugMessageOnly(
+                    "BurstAnalysisCache.load(): cache snapshot is stale or invalid",
+                )
                 return nil
             }
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): valid cache snapshot loaded",
+            )
             return snapshot
         } catch {
-            return nil
-        }
-    }
-
-    /// Reads only enough of a previous catalog snapshot to migrate compatible
-    /// per-file artifacts and stable review-state signatures. Derived burst
-    /// results are still validated by `load` before they can be applied.
-    func loadMigrationCandidate(
-        catalog: URL,
-    ) async -> BurstAnalysisCacheSnapshot? {
-        guard !Task.isCancelled else { return nil }
-        let url = cacheURL(for: catalog)
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return nil
-        }
-
-        do {
-            let data = try Data(contentsOf: url)
-            guard !Task.isCancelled else { return nil }
-            let snapshot = try JSONDecoder().decode(
-                BurstAnalysisCacheSnapshot.self,
-                from: data,
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.load(): cache read failed: \(error)",
             )
-            guard snapshot.catalogPath == catalog.path,
-                  snapshot.schemaVersion == Self.schemaVersion
-                    || snapshot.schemaVersion
-                    == Self.legacyArtifactMigrationSchemaVersion
-            else { return nil }
-            return snapshot
-        } catch {
             return nil
         }
-    }
-
-    nonisolated static func artifactSetDigest(
-        files: [FileItem],
-        artifacts: [UUID: Data],
-    ) -> String {
-        let entries = files.compactMap { file -> ArtifactDigestEntry? in
-            guard let artifact = artifacts[file.id] else { return nil }
-            return ArtifactDigestEntry(
-                path: file.url.standardizedFileURL.path,
-                artifactDigest: SHA256.hash(data: artifact).map {
-                    String(format: "%02x", $0)
-                }.joined(),
-            )
-        }.sorted { $0.path < $1.path }
-
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let encoded = (try? encoder.encode(entries)) ?? Data()
-        return SHA256.hash(data: encoded).map {
-            String(format: "%02x", $0)
-        }.joined()
     }
 
     func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
-        guard !Task.isCancelled else { return }
+        Logger.process.debugMessageOnly(
+            "BurstAnalysisCache.save(): saving snapshot with \(snapshot.files.count) files",
+        )
+        guard !Task.isCancelled else {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.save(): cancelled before saving",
+            )
+            return
+        }
         do {
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(snapshot)
             guard !Task.isCancelled else { return }
             try data.write(to: cacheURL(for: catalog), options: [.atomic])
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.save(): snapshot saved",
+            )
         } catch {
+            Logger.process.debugMessageOnly(
+                "BurstAnalysisCache.save(): cache write failed: \(error)",
+            )
             return
         }
+    }
+
+    /// Decode a known burst-cache schema without applying catalog-wide
+    /// validity rules. Callers may import only individually validated artifacts
+    /// and stable review-state signatures from this migration candidate.
+    func loadMigrationCandidate(catalog: URL) -> BurstAnalysisCacheSnapshot? {
+        let url = cacheURL(for: catalog)
+        guard FileManager.default.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let snapshot = try? JSONDecoder().decode(
+                  BurstAnalysisCacheSnapshot.self,
+                  from: data,
+              ),
+              snapshot.schemaVersion == Self.schemaVersion
+        else { return nil }
+        return snapshot
     }
 
     func delete(catalog: URL) async {
@@ -233,7 +253,7 @@ actor BurstAnalysisCache {
             let fileManager = FileManager.default
             let resourceKeys: Set<URLResourceKey> = [
                 .isRegularFileKey,
-                .totalFileAllocatedSizeKey,
+                .totalFileAllocatedSizeKey
             ]
 
             guard let urls = try? fileManager.contentsOfDirectory(
@@ -281,12 +301,14 @@ actor BurstAnalysisCache {
         similaritySignature: BurstSimilaritySignature,
     ) -> Bool {
         guard snapshot.schemaVersion == Self.schemaVersion,
-              snapshot.similarityArtifactSetDigest != nil,
               snapshot.algorithmVersion == BurstGroupingConfig.algorithmVersion,
               snapshot.catalogPath == catalog.path,
               snapshot.thumbnailMaxPixelSize == thumbnailMaxPixelSize,
               snapshot.sharpnessSignature == sharpnessSignature,
               snapshot.similaritySignature == similaritySignature,
+              snapshot.similarityArtifactSetDigest != nil,
+              snapshot.similaritySignature.artifactSchemaVersion
+              == SimilarityArtifactDescriptor.currentSchemaVersion,
               snapshot.files.count == files.count
         else { return false }
 
@@ -296,7 +318,35 @@ actor BurstAnalysisCache {
                   item.size == file.size,
                   abs(item.modificationDate.timeIntervalSince(file.dateModified)) < 0.001
             else { return false }
+            if let artifact = snapshot.embeddings[item.id],
+               !RawCullSimilarityArtifactValidation.isCurrent(
+                   artifact,
+                   for: SimilarityScoringModel.source(for: file),
+                   backends: similaritySignature.artifactBackendDescriptors,
+               ) {
+                return false
+            }
         }
+
+        let cachedFileIDs = Set(snapshot.files.map(\.id))
+        let embeddedFileIDs = Set(snapshot.embeddings.keys)
+        guard embeddedFileIDs.isSubset(of: cachedFileIDs),
+              snapshot.groups.allSatisfy({ group in
+                  group.fileIDs.allSatisfy(embeddedFileIDs.contains)
+              }),
+              snapshot.boundaryEvidence.allSatisfy({ evidence in
+                  embeddedFileIDs.contains(evidence.previousID)
+                      && embeddedFileIDs.contains(evidence.currentID)
+              }),
+              snapshot.results.allSatisfy({ result in
+                  result.fileIDs.allSatisfy(embeddedFileIDs.contains)
+                      && result.candidates.allSatisfy {
+                          embeddedFileIDs.contains($0.fileID)
+                      }
+                      && (result.recommendedFileID.map(embeddedFileIDs.contains) ?? true)
+                      && (result.secondBestFileID.map(embeddedFileIDs.contains) ?? true)
+              })
+        else { return false }
         return true
     }
 
@@ -312,9 +362,32 @@ actor BurstAnalysisCache {
             .replacingOccurrences(of: "=", with: "")
         return "\(safe).json"
     }
+
+    nonisolated static func artifactSetDigest(
+        files: [FileItem],
+        artifacts: [UUID: SimilarityArtifact],
+    ) -> String {
+        let entries = files.compactMap { file -> ArtifactDigestEntry? in
+            guard let artifact = artifacts[file.id] else { return nil }
+            return ArtifactDigestEntry(
+                standardizedPath: file.url.standardizedFileURL.path,
+                descriptor: artifact.descriptor,
+                payloadDigest: SHA256.hash(data: artifact.featurePrint.payload).map {
+                    String(format: "%02x", $0)
+                }.joined(),
+            )
+        }.sorted { $0.standardizedPath < $1.standardizedPath }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = (try? encoder.encode(entries)) ?? Data()
+        return SHA256.hash(data: data).map {
+            String(format: "%02x", $0)
+        }.joined()
+    }
 }
 
 private nonisolated struct ArtifactDigestEntry: Codable, Sendable {
-    let path: String
-    let artifactDigest: String
+    let standardizedPath: String
+    let descriptor: SimilarityArtifactDescriptor
+    let payloadDigest: String
 }

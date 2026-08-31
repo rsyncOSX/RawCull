@@ -9,13 +9,18 @@ struct RawCullMainView: View {
     @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
 
     @Bindable var viewModel: RawCullViewModel
+    let similarityFeature: RawCullSimilarityFeature
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
     @State var columnVisibility = NavigationSplitViewVisibility.doubleColumn
 
+    // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
+    // periphery:ignore
     @State private var cgImage: CGImage?
+    // periphery:ignore
     @State private var nsImage: NSImage?
+    // periphery:ignore
     @State private var showCandidateInspector = false
     @State private var showsDetailedBurstComparison = false
 
@@ -55,9 +60,9 @@ struct RawCullMainView: View {
                     Spacer()
 
                     ProgressCount(
-                        progress: $viewModel.progress,
-                        estimatedSeconds: $viewModel.estimatedSeconds,
-                        max: viewModel.max,
+                        completed: viewModel.fileOperationCompleted,
+                        total: viewModel.fileOperationTotal,
+                        estimatedSeconds: viewModel.fileOperationEstimatedSeconds,
                         statusText: "Extracting JPGs",
                     )
                     .frame(maxWidth: 480)
@@ -94,11 +99,6 @@ struct RawCullMainView: View {
         .sheet(isPresented: $viewModel.showSavedFiles) {
             SavedFilesView()
         }
-        .sheet(item: $viewModel.rawDiagnosticsPresentation) { presentation in
-            RawFileDiagnosticsView(log: presentation.log) {
-                viewModel.rawDiagnosticsPresentation = nil
-            }
-        }
         .sheet(isPresented: $viewModel.showcopyARWFilesView) {
             CopyARWFilesView(
                 viewModel: viewModel,
@@ -115,14 +115,46 @@ struct RawCullMainView: View {
                 dismissButton: .default(Text("OK")),
             )
         }
-        .alert("Changes Not Saved", isPresented: persistenceErrorIsPresented) {
+        .alert(persistenceAlertTitle, isPresented: persistenceErrorIsPresented) {
             Button("Retry") {
                 Task {
                     await viewModel.cullingModel.retryPersistence()
                 }
             }
+            if viewModel.cullingModel.persistenceLoadFailure != nil {
+                Button("Archive Damaged File and Reset", role: .destructive) {
+                    Task {
+                        await viewModel.cullingModel.archiveCorruptStoreAndReset()
+                    }
+                }
+            }
         } message: {
-            Text("RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")")
+            Text(persistenceAlertMessage)
+        }
+        .alert("Full Burst Re-index?", isPresented: burstFullReindexIsPresented) {
+            if viewModel.hasExistingBurstGroupIndex {
+                Button("Use Existing Index") {
+                    viewModel.burstFullReindexRequest = nil
+                    viewModel.useExistingBurstGroupIndex()
+                }
+            }
+
+            Button("Full Re-index", role: .destructive) {
+                let request = viewModel.burstFullReindexRequest
+                viewModel.burstFullReindexRequest = nil
+                Task {
+                    await viewModel.reindexBurstAnalysis()
+                    _ = request
+                }
+            }
+
+            Button("Cancel", role: .cancel) {
+                viewModel.burstFullReindexRequest = nil
+            }
+        } message: {
+            Text(
+                "This will rescore sharpness and recompute similarity for all \(viewModel.files.count) catalog files. It may take several minutes. Clear Search never performs this operation.",
+            )
         }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
@@ -142,10 +174,28 @@ struct RawCullMainView: View {
         }
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
         .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
+        .focusedSceneValue(\.addCatalog, $viewModel.isShowingPicker)
+        .focusedSceneValue(\.copyTaggedFiles, $viewModel.focusCopyTaggedFiles)
+        .focusedSceneValue(\.showSavedFiles, $viewModel.focusShowSavedFiles)
+        .focusedSceneValue(
+            \.canCopyTaggedFiles,
+            viewModel.selectedSource != nil && !viewModel.creatingthumbnails,
+        )
         .onChange(of: viewModel.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
             viewModel.focusExtractJPGs = false
             viewModel.presentExtractJPGsSheet()
+        }
+        .onChange(of: viewModel.focusCopyTaggedFiles) { _, shouldPresent in
+            guard shouldPresent else { return }
+            viewModel.focusCopyTaggedFiles = false
+            viewModel.sheetType = .copytasksview
+            viewModel.showcopyARWFilesView = true
+        }
+        .onChange(of: viewModel.focusShowSavedFiles) { _, shouldPresent in
+            guard shouldPresent else { return }
+            viewModel.focusShowSavedFiles = false
+            viewModel.showSavedFiles = true
         }
     }
 
@@ -156,6 +206,30 @@ struct RawCullMainView: View {
         )
     }
 
+    private var persistenceAlertTitle: String {
+        viewModel.cullingModel.persistenceLoadFailure == nil
+            ? "Changes Not Saved"
+            : "Saved Culling Data Is Damaged"
+    }
+
+    private var persistenceAlertMessage: String {
+        if viewModel.cullingModel.persistenceLoadFailure != nil {
+            return "RawCull preserved the damaged file and blocked rating changes so it cannot be overwritten. Retry after repairing the file, or archive it and start with an empty saved-data store.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")"
+        }
+        return "RawCull could not save ratings and culling changes. Your changes remain in memory. Retry before quitting.\n\n\(viewModel.cullingModel.persistenceError ?? "Unknown error")"
+    }
+
+    private var burstFullReindexIsPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.burstFullReindexRequest != nil },
+            set: { isPresented in
+                if !isPresented {
+                    viewModel.burstFullReindexRequest = nil
+                }
+            },
+        )
+    }
+
     // MARK: - Loupe mode (3-column split)
 
     private var loupeSplit: some View {
@@ -163,21 +237,17 @@ struct RawCullMainView: View {
             RAWCatalogSidebarView(
                 sources: $viewModel.sources,
                 selectedSource: $viewModel.selectedSource,
-                isShowingPicker: $viewModel.isShowingPicker,
                 cullingModel: viewModel.cullingModel,
             )
         } content: {
             SidebarARWCatalogFileView(
                 viewModel: viewModel,
-                isShowingPicker: $viewModel.isShowingPicker,
-                progress: $viewModel.progress,
                 selectedSource: $viewModel.selectedSource,
                 scanning: $viewModel.scanning,
                 creatingThumbnails: $viewModel.creatingthumbnails,
                 nsImage: $nsImage,
                 cgImage: $cgImage,
                 issorting: viewModel.issorting,
-                max: viewModel.max,
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")
@@ -212,6 +282,7 @@ struct RawCullMainView: View {
                 abort: abort,
             )
         }
+        .toolbar(removing: .sidebarToggle)
         .task {
             columnVisibility = .doubleColumn
         }
@@ -224,11 +295,6 @@ struct RawCullMainView: View {
                 onExtractionNeeded: {},
             )
             await SharedMemoryCache.shared.setFileHandlers(handlers)
-        }
-        .inspector(isPresented: $viewModel.hideInspector) {
-            FileInspectorView(
-                file: viewModel.selectedFile,
-            )
         }
         .fileImporter(isPresented: $viewModel.isShowingPicker, allowedContentTypes: [.folder]) { result in
             handlePickerResult(result)
@@ -264,19 +330,13 @@ struct RawCullMainView: View {
 
     // MARK: - Grid mode
 
-    @ViewBuilder
     private var gridSplit: some View {
-        Group {
-            if viewModel.thumbnailPreloadBlocksGrid {
-                thumbnailPreloadPlaceholder
-            } else {
-                GridThumbnailView(
-                    viewModel: viewModel,
-                    nsImage: $nsImage,
-                    cgImage: $cgImage,
-                )
-            }
-        }
+        GridThumbnailView(
+            viewModel: viewModel,
+            similarityFeature: similarityFeature,
+            nsImage: $nsImage,
+            cgImage: $cgImage,
+        )
         .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
             " (\(viewModel.filteredFiles.count) files)")
         .toolbar { toolbarContent }
@@ -284,19 +344,13 @@ struct RawCullMainView: View {
 
     // MARK: - Similarity grid mode
 
-    @ViewBuilder
     private var similarityGridSplit: some View {
-        Group {
-            if viewModel.thumbnailPreloadBlocksGrid {
-                thumbnailPreloadPlaceholder
-            } else {
-                SimilarityGridView(
-                    viewModel: viewModel,
-                    nsImage: $nsImage,
-                    cgImage: $cgImage,
-                )
-            }
-        }
+        SimilarityGridView(
+            viewModel: viewModel,
+            similarityFeature: similarityFeature,
+            nsImage: $nsImage,
+            cgImage: $cgImage,
+        )
         .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
             " (\(viewModel.filteredFiles.count) files)")
         .toolbar { toolbarContent }
@@ -304,39 +358,16 @@ struct RawCullMainView: View {
 
     // MARK: - Rated grid mode
 
-    @ViewBuilder
     private var ratedGridSplit: some View {
-        Group {
-            if viewModel.thumbnailPreloadBlocksGrid {
-                thumbnailPreloadPlaceholder
-            } else {
-                RatedPhotoGridView(
-                    viewModel: viewModel,
-                    catalogURL: viewModel.selectedSource?.url,
-                    onPhotoSelected: { file in
-                        viewModel.selectedFileID = file.id
-                    },
-                )
-            }
-        }
+        RatedPhotoGridView(
+            viewModel: viewModel,
+            catalogURL: viewModel.selectedSource?.url,
+            onPhotoSelected: { file in
+                viewModel.selectedFileID = file.id
+            },
+        )
         .navigationTitle("Rated images")
         .toolbar { toolbarContent }
-    }
-
-    private var thumbnailPreloadPlaceholder: some View {
-        VStack(spacing: 12) {
-            ProgressView(value: viewModel.progress, total: max(viewModel.max, 1))
-                .frame(maxWidth: 360)
-            Text("Creating thumbnails…")
-                .font(.headline)
-            Text("The grid will open when this catalog's thumbnail preload finishes.")
-                .foregroundStyle(.secondary)
-            Button("Cancel") { viewModel.abort() }
-        }
-        .padding(32)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Creating thumbnails")
-        .accessibilityValue("\(Int(viewModel.progress)) of \(Int(viewModel.max))")
     }
 
     // MARK: - Comparison grid mode
@@ -351,12 +382,12 @@ struct RawCullMainView: View {
                 onCompare: { showsDetailedBurstComparison = true },
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Catalog") + " — Burst")
+            .toolbar { toolbarContent }
         } else {
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 RAWCatalogSidebarView(
                     sources: $viewModel.sources,
                     selectedSource: $viewModel.selectedSource,
-                    isShowingPicker: $viewModel.isShowingPicker,
                     cullingModel: viewModel.cullingModel,
                 )
             } detail: {
@@ -370,6 +401,7 @@ struct RawCullMainView: View {
                     CandidateInspectorView(context: candidateInspectorContext)
                 }
             }
+            .toolbar(removing: .sidebarToggle)
             .task {
                 columnVisibility = .detailOnly
             }

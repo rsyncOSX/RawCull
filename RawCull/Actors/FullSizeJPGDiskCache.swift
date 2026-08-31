@@ -11,7 +11,7 @@ actor FullSizeJPGDiskCache {
         case developedRAW
     }
 
-    private static let cacheKeyVersion = "v5-embedded-jpg-orientation"
+    private static let cacheKeyVersion = "v7-source-jpeg-orientation"
     let cacheDirectory: URL
 
     init(cacheDirectory: URL? = nil) {
@@ -32,8 +32,13 @@ actor FullSizeJPGDiskCache {
 
     private func cacheURL(for sourceURL: URL, variant: Variant) -> URL {
         let standardizedPath = sourceURL.standardized.path
+        let values = try? sourceURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let fileSize = values?.fileSize ?? -1
+        let modificationTime = values?.contentModificationDate?.timeIntervalSince1970 ?? -1
         let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue)"
-        let data = Data("\(Self.cacheKeyVersion):\(standardizedPath)\(variantKey)".utf8)
+        let data = Data(
+            "\(Self.cacheKeyVersion):\(standardizedPath):\(fileSize):\(modificationTime)\(variantKey)".utf8,
+        )
         let digest = Insecure.MD5.hash(data: data)
         let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent(hash).appendingPathExtension("jpg")
@@ -55,7 +60,23 @@ actor FullSizeJPGDiskCache {
         let fileURL = cacheURL(for: sourceURL, variant: variant)
 
         return await Task.detached(priority: .userInitiated) {
-            OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                return nil
+            }
+
+            switch variant {
+            case .embeddedJPG:
+                guard let data = try? Data(contentsOf: fileURL) else {
+                    return nil
+                }
+                return OrientationNormalizedImageLoader.loadEmbeddedPreview(
+                    from: data,
+                    sourceURL: sourceURL,
+                )
+
+            case .developedRAW:
+                return OrientationNormalizedImageLoader.loadCGImage(from: fileURL)
+            }
         }.value
     }
 
@@ -83,7 +104,10 @@ actor FullSizeJPGDiskCache {
             nil,
         ) else { return nil }
 
-        let options: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.85]
+        let options: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: 0.85,
+            kCGImagePropertyOrientation: 1
+        ]
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return mutableData as Data

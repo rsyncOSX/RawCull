@@ -6,14 +6,6 @@
 import OSLog
 
 extension RawCullViewModel {
-    var thumbnailPreloadBlocksGrid: Bool {
-        ThumbnailPreloadGridGate.shouldBlock(
-            activeCatalogURL: activeCatalogLoadURL,
-            selectedCatalogURL: selectedSource?.url,
-            hasActivePreloader: currentScanAndCreateThumbnailsActor != nil,
-        )
-    }
-
     func startCatalogLoad(for source: ARWSourceCatalog?) {
         if let url = source?.url,
            currentselectedSource == source,
@@ -21,11 +13,30 @@ extension RawCullViewModel {
             return
         }
 
+        let previousSource = currentselectedSource
+        catalogTransitionTask?.cancel()
+        catalogTransitionTask = Task {
+            guard await cullingModel.flushPersistence() else {
+                if selectedSource == source {
+                    selectedSource = previousSource
+                }
+                return
+            }
+            guard !Task.isCancelled, selectedSource == source else { return }
+            beginCatalogLoad(for: source)
+            catalogTransitionTask = nil
+        }
+    }
+
+    private func beginCatalogLoad(for source: ARWSourceCatalog?) {
         selectedFileID = nil
         selectedFileIDs = []
 
         cancelCatalogLoad()
+        similarityCatalogGeneration &+= 1
         currentselectedSource = source
+        resetCatalogWorkingSet()
+        scanning = source != nil
 
         guard let url = source?.url else {
             activeCatalogLoadURL = nil
@@ -46,6 +57,8 @@ extension RawCullViewModel {
     func cancelCatalogLoad() {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
+        similarityFeature.cancelHydration()
+        similarityCatalogGeneration &+= 1
         activeCatalogLoadURL = nil
         currentselectedSource = nil
         cancelAndResetBurstAnalysis()
@@ -74,21 +87,20 @@ extension RawCullViewModel {
     func handleSourceChange(url: URL) async {
         guard isActiveCatalogLoad(url) else { return }
         scanning = true
+        scanDiscoveredCount = 0
 
         // Discard sharpness data and filters from the previous catalog
         sharpnessModel.reset()
-        similarityModel.reset()
+        similarityFeature.resetCatalogState()
         ratingFilter = .all
         burstReviewQueueFilter = .all
 
         let scan = ScanFiles()
-        let onProgress = countingScannedFiles
-
         let scannedFiles = await scan.scanFiles(
             url: url,
             onProgress: { [weak self] count in
                 guard let self, self.isActiveCatalogLoad(url) else { return }
-                onProgress?(count)
+                self.scanDiscoveredCount = count
             },
         )
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
@@ -113,9 +125,15 @@ extension RawCullViewModel {
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
 
         files = scannedFiles
-        await similarityModel.hydrateArtifacts(scannedFiles)
-        guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
-        filteredFiles = applyFilters(to: sortedFiles)
+        let hydrationRequest = RawCullSimilarityCatalogHydrationRequest(
+            files: scannedFiles,
+            catalogIdentity: currentSimilarityCatalogSnapshot.identity,
+        )
+        guard await similarityFeature.hydrateCatalog(hydrationRequest),
+              isActiveCatalogLoad(url), !Task.isCancelled
+        else { return }
+        catalogDisplayCandidates = sortedFiles
+        filteredFiles = applyFilters(to: catalogDisplayCandidates)
         preselectFirstVisibleFileByName()
 
         guard !files.isEmpty else {
@@ -130,7 +148,7 @@ extension RawCullViewModel {
         }
 
         scanning = false
-        cullingModel.loadSavedFiles()
+        guard cullingModel.loadSavedFiles() else { return }
         guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
         rebuildRatingCache()
         loadPersistedScoringandSaliency()
@@ -194,18 +212,14 @@ extension RawCullViewModel {
 
     func handleSortOrderChange() async {
         issorting = true
-        var sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
-        sorted = applyFilters(to: sorted)
-        filteredFiles = sorted
+        let sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
+        catalogDisplayCandidates = sorted
+        filteredFiles = applyFilters(to: catalogDisplayCandidates)
         issorting = false
     }
 
-    func handleSearchTextChange() async {
-        issorting = true
-        var sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
-        sorted = applyFilters(to: sorted)
-        filteredFiles = sorted
-        issorting = false
+    var activeCatalogFiles: [FileItem] {
+        files
     }
 
     // MARK: - Helpers
@@ -225,16 +239,11 @@ extension RawCullViewModel {
     /// Applies the active rating filter and sharpness sort to a pre-sorted file list.
     /// When similarity mode is active, similarity sort runs last and takes precedence
     /// over sharpness sort, with the anchor image always ranked first.
-    private func applyFilters(to files: [FileItem]) -> [FileItem] {
-        var result = files
-        if ratingFilter != .all {
-            result = result.filter { passesRatingFilter($0) }
-        }
-        if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
-            let scores = sharpnessModel.scores
-            result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
-        }
-        // Similarity sort takes precedence over sharpness sort when active.
+    func applyFilters(to files: [FileItem]) -> [FileItem] {
+        var result = applyCatalogFilters(to: files)
+
+        // Image-to-image similarity sort takes precedence over sharpness when
+        // image similarity is active.
         if similarityModel.sortBySimilarity, !similarityModel.distances.isEmpty {
             let distances = similarityModel.distances
             let anchorID = similarityModel.anchorFileID
@@ -255,5 +264,29 @@ extension RawCullViewModel {
             }
         }
         return result
+    }
+
+    private func applyCatalogFilters(to files: [FileItem]) -> [FileItem] {
+        var result = files
+        if ratingFilter != .all {
+            result = result.filter { passesRatingFilter($0) }
+        }
+        if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
+            let scores = sharpnessModel.scores
+            result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        }
+        return result
+    }
+
+    /// Clears every catalog-scoped value together so counts never describe a
+    /// source other than `selectedSource` while a transition is in flight.
+    private func resetCatalogWorkingSet() {
+        files = []
+        catalogDisplayCandidates = []
+        filteredFiles = []
+        scanDiscoveredCount = 0
+        focusPoints = nil
+        ratingCache = [:]
+        taggedNamesCache = []
     }
 }

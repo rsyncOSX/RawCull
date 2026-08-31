@@ -6,13 +6,6 @@
 import Foundation
 
 extension RawCullViewModel {
-    // MARK: - Indexing
-
-    /// Compute Vision feature-print embeddings for all files in the current catalog.
-    func indexSimilarity() async {
-        await similarityModel.indexFiles(files)
-    }
-
     // MARK: - Ranking
 
     /// Rank all indexed images by similarity to the currently selected file.
@@ -20,11 +13,35 @@ extension RawCullViewModel {
     /// Updates filteredFiles ordering via handleSortOrderChange() after ranking.
     func findSimilarToSelected() async {
         guard let anchor = selectedFile else { return }
-        await similarityModel.rankSimilar(
-            to: anchor.id,
-            using: files,
-            saliencyInfo: sharpnessModel.saliencyInfo,
+        let catalogFiles = files
+        let catalogIdentity = currentSimilarityCatalogSnapshot.identity
+        let completion = await similarityFeature.rank(
+            RawCullSimilarityRankingRequest(
+                anchorFileID: anchor.id,
+                files: catalogFiles,
+                saliencyInfo: sharpnessModel.saliencyInfo,
+                catalogIdentity: catalogIdentity,
+            ),
         )
+        guard let completion,
+              !Task.isCancelled,
+              selectedFile?.id == anchor.id,
+              similarityFeature.isSimilaritySortingActive,
+              currentSimilarityCatalogSnapshot.identity == completion.catalogIdentity
+        else { return }
         await handleSortOrderChange()
+    }
+
+}
+
+extension RawCullViewModel: RawCullSimilarityApplicationContext {
+    var currentSimilarityCatalogSnapshot: RawCullSimilarityCatalogSnapshot {
+        RawCullSimilarityCatalogSnapshot(
+            files: files,
+            identity: RawCullSimilarityCatalogIdentity(
+                catalogURL: activeCatalogLoadURL ?? selectedSource?.url,
+                generation: similarityCatalogGeneration,
+            ),
+        )
     }
 }

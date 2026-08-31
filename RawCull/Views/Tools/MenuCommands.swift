@@ -9,23 +9,42 @@ import Foundation
 import SwiftUI
 
 struct MenuCommands: Commands {
+    @FocusedBinding(\.addCatalog) private var addCatalog
     @FocusedBinding(\.aborttask) private var aborttask
     @FocusedBinding(\.extractJPGs) private var extractJPGs
-    @Environment(\.openWindow) private var openWindow
+    @FocusedBinding(\.copyTaggedFiles) private var copyTaggedFiles
+    @FocusedBinding(\.showSavedFiles) private var showSavedFiles
+    @FocusedValue(\.canCopyTaggedFiles) private var canCopyTaggedFiles
 
     var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Add Catalog…") {
+                addCatalog = true
+            }
+            .keyboardShortcut("o", modifiers: .command)
+            .disabled(addCatalog == nil)
+        }
+
+        CommandGroup(after: .newItem) {
+            Button("Copy Tagged Files…") {
+                copyTaggedFiles = true
+            }
+            .disabled(copyTaggedFiles == nil || canCopyTaggedFiles != true)
+
+            Button("Show Saved Files") {
+                showSavedFiles = true
+            }
+            .disabled(showSavedFiles == nil)
+        }
+
         CommandMenu("Actions") {
             CommandButton("Extract JPGs", action: { extractJPGs = true }, shortcut: "j")
+                .disabled(extractJPGs == nil)
 
             Divider()
 
             CommandButton("Abort task", action: { aborttask = true }, shortcut: "k")
-        }
-
-        CommandMenu("Diagnostics") {
-            Button("Memory Console") {
-                openWindow(id: "memory-diagnostics")
-            }
+                .disabled(aborttask == nil)
         }
     }
 }
@@ -62,11 +81,32 @@ struct FocusedAborttask: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+struct FocusedAddCatalog: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
 struct FocusedExtractJPGs: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+struct FocusedCopyTaggedFiles: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
+struct FocusedShowSavedFiles: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
+struct FocusedCanCopyTaggedFiles: FocusedValueKey {
+    typealias Value = Bool
+}
+
 extension FocusedValues {
+    var addCatalog: FocusedAddCatalog.Value? {
+        get { self[FocusedAddCatalog.self] }
+        set { self[FocusedAddCatalog.self] = newValue }
+    }
+
     var aborttask: FocusedAborttask.Value? {
         get { self[FocusedAborttask.self] }
         set { self[FocusedAborttask.self] = newValue }
@@ -75,5 +115,20 @@ extension FocusedValues {
     var extractJPGs: FocusedExtractJPGs.Value? {
         get { self[FocusedExtractJPGs.self] }
         set { self[FocusedExtractJPGs.self] = newValue }
+    }
+
+    var copyTaggedFiles: FocusedCopyTaggedFiles.Value? {
+        get { self[FocusedCopyTaggedFiles.self] }
+        set { self[FocusedCopyTaggedFiles.self] = newValue }
+    }
+
+    var showSavedFiles: FocusedShowSavedFiles.Value? {
+        get { self[FocusedShowSavedFiles.self] }
+        set { self[FocusedShowSavedFiles.self] = newValue }
+    }
+
+    var canCopyTaggedFiles: FocusedCanCopyTaggedFiles.Value? {
+        get { self[FocusedCanCopyTaggedFiles.self] }
+        set { self[FocusedCanCopyTaggedFiles.self] = newValue }
     }
 }

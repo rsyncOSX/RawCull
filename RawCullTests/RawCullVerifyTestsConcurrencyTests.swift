@@ -16,7 +16,9 @@ enum ConcurrencyTests {
             cache.removeAllObjects()
             defer { cache.removeAllObjects() }
 
-            let key = makeThumbnailRequestKey(url: URL(fileURLWithPath: "/tmp/replacement-main-cache.jpg"))
+            let key = makeThumbnailCacheKey(
+                sourceURL: URL(fileURLWithPath: "/tmp/replacement-main-cache.jpg"),
+            )
             let first = try #require(createTestThumbnail(size: 10))
             let second = try #require(createTestThumbnail(size: 20))
 
@@ -33,10 +35,10 @@ enum ConcurrencyTests {
             cache.removeAllGridObjects()
             defer { cache.removeAllGridObjects() }
 
-            let key = makeThumbnailRequestKey(
-                url: URL(fileURLWithPath: "/tmp/replacement-grid-cache.jpg"),
+            let key = makeThumbnailCacheKey(
+                sourceURL: URL(fileURLWithPath: "/tmp/replacement-grid-cache.jpg"),
                 purpose: .grid,
-                requestedMaxPixelSize: 200,
+                requestedPixelSize: 200,
             )
             let first = try #require(createTestThumbnail(size: 10))
             let second = try #require(createTestThumbnail(size: 20))
@@ -49,47 +51,21 @@ enum ConcurrencyTests {
         }
 
         @Test
-        func `cache statistics reflect recorded memory and disk hits`() async {
+        func `clear caches resets live usage`() async throws {
             let cache = await makeIsolatedCache()
-
-            await cache.updateCacheMemory()
-            await cache.updateCacheMemory()
-            await cache.updateCacheDisk()
-
-            let stats = await cache.getCacheStatistics()
-            #expect(stats.hits == 2)
-            #expect(stats.misses == 1)
-            #expect(stats.hitRate == (2.0 / 3.0 * 100.0))
-        }
-
-        @Test
-        func `clear caches resets live counters and diagnostics`() async throws {
-            let cache = await makeIsolatedCache()
-            let key = makeThumbnailRequestKey(url: URL(fileURLWithPath: "/tmp/clear-counters.jpg"))
+            let key = makeThumbnailCacheKey(
+                sourceURL: URL(fileURLWithPath: "/tmp/clear-counters.jpg"),
+            )
             let thumbnail = try #require(createTestThumbnail(size: 12))
 
             cache.setObject(thumbnail, forKey: key, cost: thumbnail.cost)
             cache.setGridObject(thumbnail, forKey: key, cost: thumbnail.cost)
-            await cache.updateCacheMemory()
-            await cache.updateCacheDisk()
-            cache.incrementColdExtract()
-            cache.incrementDemandRequest()
-            cache.incrementBoomerangMiss()
-            cache.noteEviction(key: key)
-
             await cache.clearCaches()
-            let stats = await cache.getCacheStatistics()
 
             #expect(cache.getMemoryCacheCount() == 0)
             #expect(cache.getMemoryCacheCurrentCost() == 0)
             #expect(cache.getGridCacheCount() == 0)
             #expect(cache.getGridCacheCurrentCost() == 0)
-            #expect(stats.hits == 0)
-            #expect(stats.misses == 0)
-            #expect(cache.getColdExtractCount() == 0)
-            #expect(cache.getDemandRequestCount() == 0)
-            #expect(cache.getBoomerangMissCount() == 0)
-            #expect(!cache.wasRecentlyEvicted(key: key))
         }
     }
 

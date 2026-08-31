@@ -5,44 +5,90 @@ VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCull.xcodeproj/project.pbxpr
 BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
-SIGNING_IDENTITY = "93M47F4H9T"
+DMG_PATH = $(PWD)/$(APP).$(VERSION).dmg
+DMG_SHA256_PATH = $(DMG_PATH).sha256
+MODEL_DOWNLOADER_PATH = $(BUILD_PATH)/$(APP).app/Contents/Extensions/RawCullModelDownloader.appex
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
-PERFORMANCE_ONLY_TESTING = \
-	'-only-testing:RawCullTests/DataRaceDetectionTests/`Extreme concurrent load reveals no data races`()'
+XCODE_RELEASE_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination 'platform=macOS,arch=arm64' -configuration Release -onlyUsePackageVersionsFromResolvedFile
+SMOKE_TEST_MANIFEST = TestManifests/SmokeTests.txt
+PERFORMANCE_TEST_MANIFEST = TestManifests/PerformanceTests.txt
+SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
+PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
+TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
+TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
+SMOKE_EXPECTED_TESTS = 208
+PERFORMANCE_EXPECTED_TESTS = 2
+ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 
 # Default target is release build
-build: clean archive sign-app notarize staple prepare-dmg open
+build: clean archive sign-app notarize staple prepare-dmg hash-dmg open
 
 # Debug build - skips notarization and signing
 debug: clean archive-debug open-debug
 
 # Test targets
-test-smoke:
-	# Smoke.xctestplan selects every Swift Testing test tagged .smoke.
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO
+build-test-enumeration-verifier:
+	xcrun swiftc -module-cache-path $(TEST_ENUMERATION_MODULE_CACHE) \
+		Scripts/VerifyTestEnumeration.swift -o $(TEST_ENUMERATION_VERIFIER)
+
+verify-smoke-manifest: build-test-enumeration-verifier
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke \
+		-enumerate-tests \
+		-test-enumeration-style flat \
+		-test-enumeration-format json \
+		-test-enumeration-output-path $(SMOKE_ENUMERATION) \
+		-only-testing @$(SMOKE_TEST_MANIFEST)
+	$(TEST_ENUMERATION_VERIFIER) $(SMOKE_ENUMERATION) $(SMOKE_EXPECTED_TESTS)
+
+test-smoke: verify-smoke-manifest
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO \
+		-only-testing @$(SMOKE_TEST_MANIFEST)
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
 
-test-performance:
-	# Stress/data-race gate; this target contains no timing benchmark assertion.
-	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance $(PERFORMANCE_ONLY_TESTING)
+verify-performance-manifest: build-test-enumeration-verifier
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \
+		-enumerate-tests \
+		-test-enumeration-style flat \
+		-test-enumeration-format json \
+		-test-enumeration-output-path $(PERFORMANCE_ENUMERATION) \
+		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
+	$(TEST_ENUMERATION_VERIFIER) $(PERFORMANCE_ENUMERATION) $(PERFORMANCE_EXPECTED_TESTS)
+
+test-performance: verify-performance-manifest
+	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Performance \
+		-only-testing @$(PERFORMANCE_TEST_MANIFEST)
+
+verify-ai-import-boundary:
+	./Scripts/VerifyAIImportBoundary.sh
 
 # --- MAIN WORKFLOW FUNCTIONS --- #
+release-preflight:
+	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
+	@TAG_COMMIT=$$(git rev-parse --verify --quiet refs/tags/v3.0.0 || git rev-parse --verify --quiet refs/tags/3.0.0 || true); \
+		if test -n "$$TAG_COMMIT" && test "$$TAG_COMMIT" != "$$(git rev-parse HEAD)"; then \
+			echo "Release blocked: existing 3.0.0 tag does not point to this release candidate"; \
+			exit 1; \
+		fi
+	@if rg --quiet '"release_status": "blocked"' $(ENABLED_MODEL_PROVENANCE); then \
+		echo "Release blocked: enabled model provenance audit is incomplete"; \
+		exit 1; \
+	fi
+
 archive: clean
 	osascript -e 'display notification "Exporting application archive..." with title "Build the RawCull"'
 	echo "Exporting application archive (RELEASE)..."
 	xcodebuild \
-		-scheme $(APP) \
-		-destination 'platform=OS X,arch=arm64' \
-		-configuration Release archive \
+		$(XCODE_RELEASE_FLAGS) archive \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 	echo "Application built, starting the export archive..."
 	xcodebuild -exportArchive \
 		-exportOptionsPlist "exportOptions.plist" \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
-		-exportPath $(BUILD_PATH)
+		-exportPath $(BUILD_PATH) \
+		-allowProvisioningUpdates
 	echo "Project archived successfully (RELEASE)"
 
 archive-debug: clean
@@ -55,25 +101,32 @@ archive-debug: clean
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 	echo "Application built, starting the export archive..."
 	xcodebuild -exportArchive \
-		-exportOptionsPlist "exportOptions.plist" \
+		-exportOptionsPlist "exportOptionsDebug.plist" \
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
 		-exportPath $(BUILD_PATH)
 	echo "Debug build completed successfully"
 
 sign-app:
-	osascript -e 'display notification "Signing application..." with title "Build the RawCull"'
-	echo "Signing application with Developer ID..."
-	codesign --deep --force \
-		--options runtime \
-		--sign $(SIGNING_IDENTITY) \
-		--timestamp \
-		$(APP_PATH)
-	echo "Verifying signature..."
+	osascript -e 'display notification "Verifying Developer ID signatures..." with title "Build the RawCull"'
+	echo "Verifying exported Developer ID signatures..."
+	@test -d "$(MODEL_DOWNLOADER_PATH)" || (echo "Missing model downloader extension: $(MODEL_DOWNLOADER_PATH)"; exit 1)
+	@EXTENSION_SIGNATURE=$$(codesign -dv --verbose=4 "$(MODEL_DOWNLOADER_PATH)" 2>&1); \
+		echo "$$EXTENSION_SIGNATURE"; \
+		echo "$$EXTENSION_SIGNATURE" | grep -q "Authority=Developer ID Application:" || \
+			(echo "RawCullModelDownloader is not signed with Developer ID Application"; exit 1); \
+		echo "$$EXTENSION_SIGNATURE" | grep -q "Timestamp=" || \
+			(echo "RawCullModelDownloader signature has no secure timestamp"; exit 1)
+	codesign --verify --strict --verbose=4 "$(MODEL_DOWNLOADER_PATH)"
 	codesign --verify --deep --strict --verbose=2 $(APP_PATH)
-	codesign -dv --verbose=4 $(APP_PATH)
+	@APP_SIGNATURE=$$(codesign -dv --verbose=4 $(APP_PATH) 2>&1); \
+		echo "$$APP_SIGNATURE"; \
+		echo "$$APP_SIGNATURE" | grep -q "Authority=Developer ID Application:" || \
+			(echo "RawCull is not signed with Developer ID Application"; exit 1); \
+		echo "$$APP_SIGNATURE" | grep -q "Timestamp=" || \
+			(echo "RawCull signature has no secure timestamp"; exit 1)
 	echo "Creating zip for notarization..."
 	ditto -c -k --keepParent $(APP_PATH) $(ZIP_PATH)
-	echo "Application signed successfully"
+	echo "Developer ID signatures verified successfully"
 
 notarize:
 	osascript -e 'display notification "Submitting app for notarization..." with title "Build the RawCull"'
@@ -113,21 +166,38 @@ prepare-dmg:
 		--app-drop-link 375 175 \
 		--no-internet-enable \
 		--codesign 93M47F4H9T \
-		"$(APP).$(VERSION).dmg" \
+		"$(DMG_PATH)" \
 		$(APP_PATH)
 	echo "✅ DMG created successfully"
 	@echo "Submitting DMG for notarization..."
-	xcrun notarytool submit --keychain-profile "RsyncUI" --wait "$(APP).$(VERSION).dmg"
+	xcrun notarytool submit --keychain-profile "RsyncUI" --wait "$(DMG_PATH)"
 	
 	@echo "Stapling ticket to DMG..."
-	xcrun stapler staple "$(APP).$(VERSION).dmg"
+	xcrun stapler staple "$(DMG_PATH)"
+	xcrun stapler validate "$(DMG_PATH)"
+	hdiutil verify "$(DMG_PATH)"
 	
 	@echo "✅ DMG is now signed, notarized and stapled!"
+
+hash-dmg:
+	@echo "Writing final DMG SHA-256..."
+	shasum -a 256 "$(DMG_PATH)" > "$(DMG_SHA256_PATH)"
+	@cat "$(DMG_SHA256_PATH)"
+
+verify-downloaded-dmg:
+	@test -n "$(DOWNLOADED_DMG)" || (echo "Set DOWNLOADED_DMG to the downloaded DMG path"; exit 1)
+	@test -f "$(DMG_SHA256_PATH)" || (echo "Missing $(DMG_SHA256_PATH)"; exit 1)
+	@test -f "$(DOWNLOADED_DMG)" || (echo "Missing downloaded DMG: $(DOWNLOADED_DMG)"; exit 1)
+	@EXPECTED=$$(awk '{print $$1}' "$(DMG_SHA256_PATH)"); \
+	ACTUAL=$$(shasum -a 256 "$(DOWNLOADED_DMG)" | awk '{print $$1}'); \
+	test "$$EXPECTED" = "$$ACTUAL" || (echo "Downloaded DMG SHA-256 mismatch"; exit 1); \
+	echo "Downloaded DMG SHA-256 reproduced: $$ACTUAL"
 
 # --- HELPERS --- #
 clean:
 	rm -rf $(BUILD_PATH)
-	if [ -a $(PWD)/$(APP).$(VERSION).dmg ]; then rm $(PWD)/$(APP).$(VERSION).dmg; fi;
+	if [ -a "$(DMG_PATH)" ]; then rm "$(DMG_PATH)"; fi;
+	if [ -a "$(DMG_SHA256_PATH)" ]; then rm "$(DMG_SHA256_PATH)"; fi;
 
 check:
 	xcrun notarytool log f62c4146-0758-4942-baac-9575190858b8 --keychain-profile "RsyncUI"
@@ -150,4 +220,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug test-smoke test-full test-performance archive archive-debug sign-app notarize staple prepare-dmg clean check history check-cert open open-debug
+.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

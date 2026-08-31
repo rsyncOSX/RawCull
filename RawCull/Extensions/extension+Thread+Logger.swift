@@ -27,9 +27,7 @@ extension Logger {
     nonisolated static let process = Logger(subsystem: subsystem ?? "process", category: "process")
 
     func errorMessageOnly(_ message: String) {
-        #if DEBUG
-            error("\(message)")
-        #endif
+        error("\(message)")
     }
 
     nonisolated func debugMessageOnly(_ message: String) {
@@ -46,12 +44,5 @@ extension Logger {
                 debug("\(message) NOT on main thread, currently on \(Thread.current)")
             }
         #endif
-    }
-}
-
-extension Task where Success == Never, Failure == Never {
-    static func sleep(seconds: Double) async throws {
-        let duration = UInt64(seconds * 1_000_000_000)
-        try await Task.sleep(for: .nanoseconds(duration))
     }
 }

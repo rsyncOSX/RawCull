@@ -60,11 +60,6 @@ enum ActiveSheet: String, Identifiable {
     }
 }
 
-struct RawDiagnosticsPresentation: Identifiable {
-    let id = UUID()
-    let log: String
-}
-
 struct OperationFailurePresentation: Identifiable {
     let id = UUID()
     let title: String
@@ -86,22 +81,31 @@ final class RawCullViewModel {
     var previouslySelectedFileID: FileItem.ID?
     var sortOrder = [KeyPathComparator(\FileItem.name)]
     var isShowingPicker = false
-    var hideInspector = true
+    var showsLoupeMetadataPanel = true
     var selectedFile: FileItem? {
         files.first { $0.id == selectedFileID }
     }
 
     var selectedFileIDs: Set<FileItem.ID> = []
+    /// Ordered IDs currently rendered by the culling grid. Keyboard and loupe
+    /// navigation use this projection so hidden burst frames cannot become targets.
+    var cullingGridRenderedFileIDs: [FileItem.ID] = []
     var issorting: Bool = false
-    var progress: Double = 0
-    var max: Double = 0
-    var estimatedSeconds: Int = 0
+    /// Number of RAW files discovered by the active catalog scan. This is
+    /// reset with the catalog working set and is the source of truth for the
+    /// scanning progress label.
+    var scanDiscoveredCount: Int = 0
+    var fileOperationCompleted: Int = 0
+    var fileOperationTotal: Int = 0
+    var fileOperationEstimatedSeconds: Int = 0
     var creatingthumbnails: Bool = false
     var scanning: Bool = true
     var showingAlert: Bool = false
 
     var focusaborttask: Bool = false
     var focusExtractJPGs: Bool = false
+    var focusCopyTaggedFiles: Bool = false
+    var focusShowSavedFiles: Bool = false
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
     var extractJPGDestination: ARWSourceCatalog?
 
@@ -143,16 +147,32 @@ final class RawCullViewModel {
     /// overlay and the sharpness scoring pipeline.
     var sharpnessModel = SharpnessScoringModel()
 
-    /// Similarity scoring model — Vision feature-print embeddings and distance ranking.
-    var similarityModel = SimilarityScoringModel()
+    /// Stable feature boundary for image-similarity work and presentation.
+    let similarityFeature: RawCullSimilarityFeature
+
+    /// Shared state used by culling commands and burst-analysis coordination.
+    let similarityModel: SimilarityScoringModel
+
+    /// Stable worker boundary for burst cache and compute orchestration.
+    @ObservationIgnored let burstAnalysisCoordinator: BurstAnalysisCoordinator
 
     /// Intelligent burst culling analysis state.
     var burstAnalysisResults: [Int: BurstAnalysisResult] = [:]
-    var burstAnalysisProgress = BurstAnalysisProgress()
+    var burstAnalysisProgress: BurstAnalysisProgress {
+        burstAnalysisCoordinator.progress
+    }
+
+    var burstAnalysisGeneration: Int {
+        burstAnalysisCoordinator.generation
+    }
+
     var burstReviewStates: [Int: BurstReviewState] = [:]
     var burstReviewQueueFilter: BurstReviewQueueFilter = .all
     var activeBurstComparisonGroupID: Int?
     var lastBurstUndoEntry: BurstUndoEntry?
+    var burstFullReindexRequest: BurstFullReindexRequest?
+    var isPreparingBurstCatalog = false
+    @ObservationIgnored var burstCatalogPreparationGeneration = 0
 
     /// Currently selected catalog for which startAccessingSecurityScopedResource()
     /// has succeeded. Access is scoped to the active catalog, not every catalog
@@ -188,11 +208,7 @@ final class RawCullViewModel {
     /// (Scoring Parameters / Scan Statistics). Nil when no sheet is shown.
     var activeSheet: ActiveSheet?
 
-    var rawDiagnosticsPresentation: RawDiagnosticsPresentation?
     var operationFailurePresentation: OperationFailurePresentation?
-
-    /// Closure to count scanning files
-    var countingScannedFiles: (@Sendable (Int) -> Void)?
 
     var currentScanAndCreateThumbnailsActor: ScanAndCreateThumbnails?
     var currentExtractAndSaveJPGsActor: ExtractAndSaveJPGs?
@@ -200,48 +216,35 @@ final class RawCullViewModel {
     var preloadTask: Task<Void, Never>?
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
+    @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
     @ObservationIgnored var activeCatalogLoadURL: URL?
+    @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
+    /// Full name-sorted/search-filtered catalog projection before rating,
+    /// sharpness, and similarity filters are applied.
+    @ObservationIgnored var catalogDisplayCandidates: [FileItem] = []
     /// In-flight ARW→JPEG extraction or thumbnail load task for the zoom window.
     /// Cancelled when the zoom window closes or a new file is opened for zoom.
     var zoomExtractionTask: Task<Void, Never>?
-    @ObservationIgnored var burstAnalysisTask: Task<Void, Never>?
-    @ObservationIgnored var burstAnalysisGeneration: Int = 0
     @ObservationIgnored var completedBurstAnalysisContext: CompletedBurstAnalysisContext?
-    @ObservationIgnored var burstAnalysisCache = BurstAnalysisCache.shared
-    @ObservationIgnored var burstAnalysisCacheLoad: @MainActor (
-        URL,
-        [FileItem],
-        Int,
-        BurstSharpnessSignature,
-        BurstSimilaritySignature,
-    ) async -> BurstAnalysisCacheSnapshot? = {
-        catalog,
-        files,
-        thumbnailMaxPixelSize,
-        sharpnessSignature,
-        similaritySignature in
-        await BurstAnalysisCache.shared.load(
-            catalog: catalog,
-            files: files,
-            thumbnailMaxPixelSize: thumbnailMaxPixelSize,
-            sharpnessSignature: sharpnessSignature,
-            similaritySignature: similaritySignature,
+    init(
+        similarityModel: SimilarityScoringModel,
+        similarityFeature: RawCullSimilarityFeature,
+        burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
+            = LiveBurstAnalysisCacheRepository(),
+    ) {
+        let sharpnessModel = SharpnessScoringModel()
+        self.sharpnessModel = sharpnessModel
+        self.similarityFeature = similarityFeature
+        self.similarityModel = similarityModel
+        burstAnalysisCoordinator = BurstAnalysisCoordinator(
+            sharpnessModel: sharpnessModel,
+            similarityFeature: similarityFeature,
+            similarityModel: similarityModel,
+            cacheRepository: burstAnalysisCacheRepository,
         )
-    }
 
-    @ObservationIgnored var burstAnalysisMigrationLoad: @MainActor (
-        URL,
-    ) async -> BurstAnalysisCacheSnapshot? = { catalog in
-        await BurstAnalysisCache.shared.loadMigrationCandidate(
-            catalog: catalog,
-        )
-    }
-
-    @ObservationIgnored var burstAnalysisCacheSave: @MainActor (
-        BurstAnalysisCacheSnapshot,
-        URL,
-    ) async -> Void = { snapshot, catalog in
-        await BurstAnalysisCache.shared.save(snapshot, catalog: catalog)
+        assert(similarityFeature.sharesSimilarityModelIdentity(with: similarityModel))
+        similarityFeature.bindApplicationContext(self)
     }
 
     // MARK: - Computed
@@ -317,13 +320,11 @@ final class RawCullViewModel {
     // MARK: - Focus Points
 
     func getFocusPoints() -> [FocusPoint]? {
-        guard focusPoints != nil else { return nil }
-        if let imageName = selectedFile?.name,
-           let points = focusPoints?.filter({ $0.sourceFile == imageName }),
-           points.count == 1 {
-            return points[0].focusPoints
-        }
-        return nil
+        guard let imageName = selectedFile?.name else { return nil }
+        let points = focusPoints?
+            .filter { $0.sourceFile == imageName }
+            .flatMap(\.focusPoints) ?? []
+        return points.isEmpty ? nil : points
     }
 
     // MARK: - Security-scoped resource lifecycle

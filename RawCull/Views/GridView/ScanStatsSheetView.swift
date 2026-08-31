@@ -196,11 +196,12 @@ struct ScanStatsSheetView: View {
                 .foregroundStyle(.secondary)
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
-                let counts = viewModel.burstReviewQueueCounts
-                minorInfoRow("Total groups", "\(viewModel.similarityModel.burstGroups.count)")
-                minorInfoRow("Needs review", "\(counts.needsReview)")
-                minorInfoRow("Deferred", "\(counts.deferred)")
-                minorInfoRow("Reviewed", "\(counts.reviewed)")
+                let summary = viewModel.burstReviewSummary
+                minorInfoRow("Burst groups", "\(summary.burstGroups)")
+                minorInfoRow("Single images", "\(summary.singleImages)")
+                minorInfoRow("Needs review", "\(summary.needsReview)")
+                minorInfoRow("Deferred", "\(summary.deferred)")
+                minorInfoRow("Completed", "\(summary.completed)")
             }
             .font(.caption)
         }
@@ -274,15 +275,15 @@ struct ScanStatsSheetView: View {
 
     private var cullingStats: (rejected: Int, kept: Int, r2: Int, r3: Int, r4: Int, r5: Int, unrated: Int, total: Int) {
         guard let catalog = viewModel.selectedSource?.url else {
-            let n = viewModel.filteredFiles.count
+            let n = viewModel.files.count
             return (0, 0, 0, 0, 0, 0, n, n)
         }
         var rejected = 0, kept = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, unrated = 0
-        for file in viewModel.filteredFiles {
-            if !viewModel.cullingModel.isUnrated(photo: file.name, in: catalog) {
+        for file in viewModel.files {
+            if viewModel.cullingModel.isUnrated(photo: file.name, in: catalog) {
                 unrated += 1
             } else {
-                switch viewModel.getRating(for: file) {
+                switch viewModel.rating(for: file) {
                 case -1: rejected += 1
                 case 0: kept += 1
                 case 2: r2 += 1
@@ -293,7 +294,7 @@ struct ScanStatsSheetView: View {
                 }
             }
         }
-        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.filteredFiles.count)
+        return (rejected, kept, r2, r3, r4, r5, unrated, viewModel.files.count)
     }
 
     private var totalSize: String {

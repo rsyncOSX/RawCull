@@ -6,14 +6,20 @@ struct SavedFilesView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(RawCullViewModel.self) private var viewModel
 
-    @State private var selectedCatalog: SavedFiles?
-    @State private var selectedRecord: FileRecord?
-    @State private var hoveredCatalog: UUID?
-    @State private var hoveredRecord: UUID?
+    @State private var selectedCatalogID: SavedFiles.ID?
+    @State private var selectedRecordID: FileRecord.ID?
     @State private var showResetAlert = false
 
     private var records: [FileRecord] {
         selectedCatalog?.filerecords ?? []
+    }
+
+    private var selectedCatalog: SavedFiles? {
+        viewModel.cullingModel.savedFiles.first { $0.id == selectedCatalogID }
+    }
+
+    private var selectedRecord: FileRecord? {
+        records.first { $0.id == selectedRecordID }
     }
 
     var body: some View {
@@ -43,7 +49,6 @@ struct SavedFilesView: View {
                     systemImage: "trash",
                     text: "Reset",
                     helpText: "Clean up data from previous saves",
-                    style: .softCapsule,
                 ) {
                     showResetAlert = true
                 }
@@ -53,9 +58,9 @@ struct SavedFilesView: View {
         .frame(minWidth: 820, minHeight: 500)
         .alert("Reset Saved Files", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
-                viewModel.cullingModel.resetAllSavedFiles()
-                selectedCatalog = nil
-                selectedRecord = nil
+                viewModel.clearAllCullingState()
+                selectedCatalogID = nil
+                selectedRecordID = nil
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -72,25 +77,31 @@ struct SavedFilesView: View {
                     emptyCatalogs
                 } else {
                     ForEach(viewModel.cullingModel.savedFiles) { entry in
-                        let isSelected = selectedCatalog?.id == entry.id
                         Button {
-                            if selectedCatalog?.id != entry.id {
-                                selectedRecord = nil
+                            if selectedCatalogID != entry.id {
+                                selectedRecordID = nil
                             }
-                            selectedCatalog = entry
+                            selectedCatalogID = entry.id
                         } label: {
                             CatalogRow(
                                 entry: entry,
-                                isSelected: isSelected,
-                                isHovered: hoveredCatalog == entry.id,
+                                isSelected: selectedCatalogID == entry.id,
                             )
+                            .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        .onHover { hovering in
-                            hoveredCatalog = hovering ? entry.id : nil
-                        }
-                        Divider().padding(.leading, 52).accessibilityHidden(true)
+                        .accessibilityLabel(
+                            entry.catalog?.lastPathComponent ?? "Unknown Catalog",
+                        )
+                        .accessibilityValue(RawCullAccessibilityPresentation.savedCatalogValue(
+                            fileCount: entry.filerecords?.count ?? 0,
+                            date: entry.dateStart,
+                            isSelected: selectedCatalogID == entry.id,
+                        ))
+                        .accessibilityAddTraits(
+                            selectedCatalogID == entry.id ? .isSelected : [],
+                        )
+                        Divider().padding(.leading, 52)
                     }
                 }
             }
@@ -134,20 +145,26 @@ struct SavedFilesView: View {
                     emptyRecords
                 } else {
                     ForEach(records) { record in
-                        let isSelected = selectedRecord?.id == record.id
-                        Button { selectedRecord = record } label: {
+                        Button {
+                            selectedRecordID = record.id
+                        } label: {
                             FileRecordRow(
                                 record: record,
-                                isSelected: isSelected,
-                                isHovered: hoveredRecord == record.id,
+                                isSelected: selectedRecordID == record.id,
                             )
+                            .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        .onHover { hovering in
-                            hoveredRecord = hovering ? record.id : nil
-                        }
-                        Divider().padding(.leading, 16).accessibilityHidden(true)
+                        .accessibilityLabel(record.fileName ?? "Unnamed File")
+                        .accessibilityValue(RawCullAccessibilityPresentation.savedRecordValue(
+                            rating: record.rating,
+                            dateTagged: record.dateTagged,
+                            isSelected: selectedRecordID == record.id,
+                        ))
+                        .accessibilityAddTraits(
+                            selectedRecordID == record.id ? .isSelected : [],
+                        )
+                        Divider().padding(.leading, 16)
                     }
                 }
             }

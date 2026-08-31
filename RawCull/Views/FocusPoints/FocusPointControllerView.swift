@@ -17,8 +17,9 @@ struct FocusPointControllerView: View {
             }
             .buttonStyle(.plain)
             .help(showFocusPoints ? "Hide focus points" : "Show focus points")
-            .accessibilityLabel("Focus points")
+            .accessibilityLabel("Camera focus points")
             .accessibilityValue(showFocusPoints ? "Shown" : "Hidden")
+            .accessibilityHint("Shows or hides camera autofocus points.")
 
             if let shortcutLabel {
                 Text(shortcutLabel)
