@@ -5,7 +5,10 @@
 > [!IMPORTANT]
 > **This is the AI-based version of RawCull.** The `main`, `version-3.1.1`, and `version-3.2.0` branches require macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
 
-RawCull is a native macOS photo review and culling application for Sony ARW RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
+RawCull is a native macOS photo review and culling application for Sony ARW and
+Nikon NEF RAW files. It combines fast embedded-preview loading with focus-point
+extraction, sharpness analysis, visual similarity, burst grouping, ratings, and
+selective export.
 
 The application is written in Swift 6 and SwiftUI. Focused Swift packages own image parsing, analysis, AI inference, shared culling models, JSON encoding, and rsync execution. RawCull owns application state, workflow, caching, persistence, and presentation.
 
@@ -44,7 +47,7 @@ RawCull 3 is not yet published as a prebuilt download; build this branch from so
 - Discover and scan supported RAW files in a selected catalog.
 - Read EXIF metadata, dimensions, camera and lens information, ISO, and
   aperture.
-- Extract normalized camera AF points from Sony MakerNotes.
+- Extract normalized camera AF points from Sony and Nikon MakerNotes.
 - Display cached thumbnails, embedded full-size JPEG previews, or developed
   RAW previews.
 - Render AF-point overlays and GPU-generated focus masks.
@@ -86,16 +89,15 @@ uploaded to an external inference service.
 
 ### CLIP, SAM 3, and EfficientSAM
 
-Both are trained neural networks, but they produce different evidence:
+All three are trained neural networks, but they produce different evidence:
 
-| | CLIP: vision-language encoder | SAM 3: vision-language segmentation |
-|---|---|---|
-| Question answered | “How well does this text match this image?” | “Where are the pixels belonging to this concept?” |
-| Inputs | Image or text | Image plus text or visual prompt |
-| Output | One fixed-length vector per image or text | Masks, boxes, presence, and confidence scores |
-| Spatial information | Compresses most of the image into one vector | Preserves detailed spatial information |
-| Training objective | Match related image-caption vectors | Detect and segment prompted objects |
-| RawCull use | Search, similarity ranking, and burst grouping | Subject isolation and detailed review |
+| | CLIP | SAM 3 | EfficientSAM |
+|---|---|---|---|
+| Primary task | Vision-language encoding | Vision-language segmentation | Promptable segmentation |
+| Inputs | Image or text | Image plus text or visual prompt | Image plus point prompts |
+| Output | One fixed-length vector per image or text | Masks, boxes, presence, and confidence scores | Candidate subject masks and scores |
+| Spatial information | Compresses most of the image into one vector | Preserves detailed spatial information | Preserves detailed spatial information |
+| RawCull use | Search, similarity ranking, and burst grouping | Text-guided subject isolation for Deep Review | Point-grid subject discovery for Deep Review |
 
 ```text
 CLIP
@@ -109,16 +111,23 @@ SAM 3
 Image  ── image encoder ────────────┐
                                     ├─► detector + mask decoder ─► masks and boxes
 Prompt ── text/visual encoder ──────┘
+
+EfficientSAM
+
+Image      ── image encoder ────────┐
+                                    ├─► mask decoder ─► candidate masks
+Point grid ─────────────────────────┘
 ```
 
-> CLIP determines **what an image is related to**; SAM 3 determines **where
-> that thing is in the image**.
+> CLIP determines **what an image is related to**; SAM 3 and EfficientSAM
+> determine **where a subject is in the image**.
 
 CLIP image encoding runs once per photograph. Later searches reuse the cached
 image vectors and only run the text-query path; comparing cached vectors is
 ordinary mathematical computation, not another neural-network pass. SAM 3
 normally runs for each image and prompt, but RawCull can cache and reuse the
-resulting subject mask.
+resulting subject mask. EfficientSAM discovers subjects from a point grid rather
+than a text prompt and uses the same mask-based Deep Review pipeline.
 
 ### AI model requirements and setup
 
@@ -149,6 +158,7 @@ validate them. Standard non-sandboxed locations are:
 ~/Library/Application Support/RawCull/Models/CLIP-DataComp/
 ~/Library/Application Support/RawCull/Models/CLIP-OpenAI/
 ~/Library/Application Support/RawCull/Models/SAM3/
+~/Library/Application Support/RawCull/Models/EfficientSAM/
 ```
 
 Sandboxed builds use:
@@ -157,6 +167,7 @@ Sandboxed builds use:
 ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-DataComp/
 ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/CLIP-OpenAI/
 ~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/SAM3/
+~/Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models/EfficientSAM/
 ```
 
 **Settings > AI** displays the exact expected paths. To enable CLIP, select
@@ -177,10 +188,10 @@ flowchart LR
     Adapter --> Domain["RawCullCore models"]
     Adapter --> Analysis["PhotoAnalysisKit"]
     Adapter --> PhotoAI["PhotoAIKit"]
-    Models["CLIP / SAM 3 Core AI models"] --> PhotoAI
+    Models["CLIP / SAM 3 / EfficientSAM Core AI models"] --> PhotoAI
     Analysis --> Sharpness["Sharpness, focus mask, saliency"]
     PhotoAI --> Similarity["CLIP embeddings / Vision fallback"]
-    PhotoAI --> Masks["SAM 3 segmentation / mask storage"]
+    PhotoAI --> Masks["SAM 3 / EfficientSAM segmentation and mask storage"]
     Domain --> Bursts["RawCullCore burst grouping"]
     Similarity --> Bursts
     Sharpness --> Ranking["RawCull ranking and review policy"]
@@ -248,7 +259,7 @@ display value.
 
 | Package (resolved identity) | Resolved pin | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
-| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `1e2eaccd00947fbadda300e4a617842479cae7b9` | AI contracts, validated Core AI resources, DataComp and OpenAI CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
+| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `1e2eaccd00947fbadda300e4a617842479cae7b9` | AI contracts, validated Core AI resources, DataComp and OpenAI CLIP inference, SAM 3 and EfficientSAM inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `CoreAIEfficientSAMProvider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
 | [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | `1.2.2` | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.2.9` | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
@@ -339,9 +350,10 @@ URLs, application settings, cache directories, or ratings.
 
 ### Similarity, semantic search, and Deep Review
 
-RawCull imports six PhotoAIKit products: `PhotoAIContracts`,
+RawCull imports seven PhotoAIKit products: `PhotoAIContracts`,
 `PhotoAIWorkflows`, `PhotoAIStorage`, `CoreAICLIPBackend`,
-`CoreAISAM3Backend`, and `VisionFeaturePrintBackend`.
+`CoreAISAM3Backend`, `CoreAIEfficientSAMBackend`, and
+`VisionFeaturePrintBackend`.
 
 - `CoreAICLIPProvider` creates normalized CLIP image embeddings and cosine
   distances.
@@ -349,6 +361,8 @@ RawCull imports six PhotoAIKit products: `PhotoAIContracts`,
   prints.
 - `CoreAISAM3Provider` performs in-process subject segmentation with a
   validated SAM 3 Core AI model.
+- `CoreAIEfficientSAMProvider` performs point-prompted segmentation with a
+  validated EfficientSAM Core AI model.
 - `SegmentationService` and `SubjectMaskSelector` acquire and select masks;
   `PhotoAIStorage` supplies their memory and disk stores.
 - Persisted settings select one DataComp or OpenAI CLIP bundle and enable it
@@ -360,13 +374,14 @@ For burst analysis, RawParserKit supplies 512-pixel thumbnails, PhotoAIKit
 creates and validates CLIP artifacts or uses Vision, and RawCull passes adjacent
 distances to `BurstGroupingEngine.group`. RawCullCore groups the ordered images;
 RawCull ranks the candidates and caches the artifacts and decisions. Deep
-Review adds SAM 3 subject masks and subject-detail evidence to that workflow.
+Review adds subject masks from the selected segmentation backend and
+subject-detail evidence to that workflow.
 
 `RawCullAIIntegration` validates the model bundles, selects CLIP or the Vision
-fallback, constructs SAM 3 mask services, and injects narrow services into the
-application models. RawCull retains ownership of RAW decoding, model locations,
-settings, subject-detail scoring, recommendation policy, ratings, and review
-state.
+fallback, constructs SAM 3 or EfficientSAM mask services, and injects narrow
+services into the application models. RawCull retains ownership of RAW decoding,
+model locations, settings, subject-detail scoring, recommendation policy,
+ratings, and review state.
 
 ### Domain models, persistence, and copying
 
@@ -488,27 +503,45 @@ RawCullTests/               Swift Testing suites and test architecture notes
 
 ## Build
 
-Debug build without notarization:
+The commands below require Xcode 27 on an Apple Silicon Mac. Package resolution
+uses the checked-in `Package.resolved` file.
+
+Build and export a Debug archive without notarization, then reveal it in Finder:
 
 ```bash
 make debug
 ```
 
-Release archive, signing, notarization, stapling, and DMG generation:
+This target uses the signing team configured in the project and
+`exportOptionsDebug.plist`.
+
+Before a release build, run the static AI-boundary check and the separate
+release preflight:
+
+```bash
+make verify-ai-import-boundary
+make release-preflight
+```
+
+The preflight requires a clean worktree, checks the existing 3.0.0 release tag
+when present, and blocks release while the enabled model provenance audit is
+incomplete. It is not invoked automatically by `make build`.
+
+Maintainer release archive, Developer ID signing, notarization, stapling, and
+DMG generation:
 
 ```bash
 make build
 ```
 
-The release target refuses to start from a dirty worktree, without the
-historical 2.3.4 tag, or while checked-in model provenance/descriptors remain
-release-blocked.
+The release workflow also requires the configured signing identity and
+notarytool keychain profile, plus `create-dmg` at `../create-dmg/create-dmg`.
 
-The release build also writes `RawCull.3.1.1.dmg.sha256`. After publishing and
+The release build also writes `RawCull.3.2.0.dmg.sha256`. After publishing and
 downloading the DMG through its distribution path, reproduce that hash with:
 
 ```bash
-make verify-downloaded-dmg DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.1.1.dmg
+make verify-downloaded-dmg DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.0.dmg
 ```
 
 The archive target uses only the package versions in the checked-in
