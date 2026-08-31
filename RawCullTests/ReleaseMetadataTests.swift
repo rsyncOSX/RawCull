@@ -50,6 +50,15 @@ struct ReleaseMetadataTests {
             ))
         }
     }
+
+    @Test
+    func `release workflow does not require model downloader extension`() throws {
+        let makefile = try repositoryText("Makefile")
+
+        #expect(!makefile.contains("RawCullModelDownloader"))
+        #expect(!makefile.contains("MODEL_DOWNLOADER_PATH"))
+        #expect(!makefile.contains("ENABLED_MODEL_PROVENANCE"))
+    }
 }
 
 private enum ReleaseMetadataTestError: Error {

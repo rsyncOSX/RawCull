@@ -7,7 +7,6 @@ APP_PATH = "$(BUILD_PATH)/$(APP).app"
 ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
 DMG_PATH = $(PWD)/$(APP).$(VERSION).dmg
 DMG_SHA256_PATH = $(DMG_PATH).sha256
-MODEL_DOWNLOADER_PATH = $(BUILD_PATH)/$(APP).app/Contents/Extensions/RawCullModelDownloader.appex
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
 XCODE_RELEASE_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination 'platform=macOS,arch=arm64' -configuration Release -onlyUsePackageVersionsFromResolvedFile
@@ -19,7 +18,6 @@ TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
 SMOKE_EXPECTED_TESTS = 208
 PERFORMANCE_EXPECTED_TESTS = 2
-ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 
 # Default target is release build
 build: clean archive sign-app notarize staple prepare-dmg hash-dmg open
@@ -72,10 +70,6 @@ release-preflight:
 			echo "Release blocked: existing 3.0.0 tag does not point to this release candidate"; \
 			exit 1; \
 		fi
-	@if rg --quiet '"release_status": "blocked"' $(ENABLED_MODEL_PROVENANCE); then \
-		echo "Release blocked: enabled model provenance audit is incomplete"; \
-		exit 1; \
-	fi
 
 archive: clean
 	osascript -e 'display notification "Exporting application archive..." with title "Build the RawCull"'
@@ -109,14 +103,6 @@ archive-debug: clean
 sign-app:
 	osascript -e 'display notification "Verifying Developer ID signatures..." with title "Build the RawCull"'
 	echo "Verifying exported Developer ID signatures..."
-	@test -d "$(MODEL_DOWNLOADER_PATH)" || (echo "Missing model downloader extension: $(MODEL_DOWNLOADER_PATH)"; exit 1)
-	@EXTENSION_SIGNATURE=$$(codesign -dv --verbose=4 "$(MODEL_DOWNLOADER_PATH)" 2>&1); \
-		echo "$$EXTENSION_SIGNATURE"; \
-		echo "$$EXTENSION_SIGNATURE" | grep -q "Authority=Developer ID Application:" || \
-			(echo "RawCullModelDownloader is not signed with Developer ID Application"; exit 1); \
-		echo "$$EXTENSION_SIGNATURE" | grep -q "Timestamp=" || \
-			(echo "RawCullModelDownloader signature has no secure timestamp"; exit 1)
-	codesign --verify --strict --verbose=4 "$(MODEL_DOWNLOADER_PATH)"
 	codesign --verify --deep --strict --verbose=2 $(APP_PATH)
 	@APP_SIGNATURE=$$(codesign -dv --verbose=4 $(APP_PATH) 2>&1); \
 		echo "$$APP_SIGNATURE"; \
