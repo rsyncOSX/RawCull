@@ -67,9 +67,9 @@ verify-ai-import-boundary:
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
-	@TAG_COMMIT=$$(git rev-parse --verify --quiet refs/tags/v3.0.0 || git rev-parse --verify --quiet refs/tags/3.0.0 || true); \
+	@TAG_COMMIT=$$(git rev-parse --verify --quiet refs/tags/v3.2.0 || git rev-parse --verify --quiet refs/tags/3.2.0 || true); \
 		if test -n "$$TAG_COMMIT" && test "$$TAG_COMMIT" != "$$(git rev-parse HEAD)"; then \
-			echo "Release blocked: existing 3.0.0 tag does not point to this release candidate"; \
+			echo "Release blocked: existing 3.2.0 tag does not point to this release candidate"; \
 			exit 1; \
 		fi
 	@if rg --quiet '"release_status": "blocked"' $(ENABLED_MODEL_PROVENANCE); then \
