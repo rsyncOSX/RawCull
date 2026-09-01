@@ -1,11 +1,11 @@
 #  sudo ditto "build/RawCull.app" "/Applications/RawCull.app"
 APP = RawCull
 BUNDLE_ID = no.blogspot.$(APP)
-VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCull.xcodeproj/project.pbxproj | awk -F' = ' '{print $$2}' | tr -d ';')
+MARKETING_VERSION := $(shell grep -m 1 'MARKETING_VERSION' RawCull.xcodeproj/project.pbxproj | awk -F' = ' '{print $$2}' | tr -d ';')
 BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
-ZIP_PATH = "$(BUILD_PATH)/$(APP).$(VERSION).zip"
-DMG_PATH = $(PWD)/$(APP).$(VERSION).dmg
+ZIP_PATH = "$(BUILD_PATH)/$(APP).$(MARKETING_VERSION).zip"
+DMG_PATH = $(PWD)/$(APP).$(MARKETING_VERSION).dmg
 DMG_SHA256_PATH = $(DMG_PATH).sha256
 MODEL_DOWNLOADER_PATH = $(BUILD_PATH)/$(APP).app/Contents/Extensions/RawCullModelDownloader.appex
 TEST_DESTINATION = platform=macOS
@@ -67,9 +67,10 @@ verify-ai-import-boundary:
 # --- MAIN WORKFLOW FUNCTIONS --- #
 release-preflight:
 	@test -z "$$(git status --porcelain)" || (echo "Release blocked: worktree is not clean"; exit 1)
-	@TAG_COMMIT=$$(git rev-parse --verify --quiet refs/tags/v3.0.0 || git rev-parse --verify --quiet refs/tags/3.0.0 || true); \
+	@test -n "$(MARKETING_VERSION)" || (echo "Release blocked: MARKETING_VERSION is empty"; exit 1)
+	@TAG_COMMIT=$$(git rev-parse --verify --quiet "refs/tags/v$(MARKETING_VERSION)^{commit}" || git rev-parse --verify --quiet "refs/tags/$(MARKETING_VERSION)^{commit}" || true); \
 		if test -n "$$TAG_COMMIT" && test "$$TAG_COMMIT" != "$$(git rev-parse HEAD)"; then \
-			echo "Release blocked: existing 3.0.0 tag does not point to this release candidate"; \
+			echo "Release blocked: existing $(MARKETING_VERSION) tag does not point to this release candidate"; \
 			exit 1; \
 		fi
 	@if rg --quiet '"release_status": "blocked"' $(ENABLED_MODEL_PROVENANCE); then \
@@ -156,7 +157,7 @@ prepare-dmg:
 	osascript -e 'display notification "Creating DMG..." with title "Build the RawCull"'
 	echo "Creating DMG installer..."
 	../create-dmg/create-dmg \
-		--volname "RawCull ver $(VERSION)" \
+		--volname "RawCull ver $(MARKETING_VERSION)" \
 		--background "./images/background.png" \
 		--window-pos 200 120 \
 		--window-size 500 320 \
