@@ -816,7 +816,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/RawParserKit";
 			requirement = {
 				kind = exactVersion;
-				version = 1.2.9;
+				version = 1.3.0;
 			};
 		};
 		E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */ = {

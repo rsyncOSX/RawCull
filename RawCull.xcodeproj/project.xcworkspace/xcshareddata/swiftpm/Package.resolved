@@ -67,8 +67,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/RawParserKit",
       "state" : {
-        "revision" : "26327d983a3f0216c460684ad91944b9543af420",
-        "version" : "1.2.9"
+        "revision" : "d2175ed880d39021bdb5f5a2a842b460af0b316c",
+        "version" : "1.3.0"
       }
     },
     {
