@@ -30,6 +30,8 @@ The official Hugging Face checkpoint is gated and requires a user to share
 contact information with Meta before access. This catalog does not itself
 establish that an ungated RawCull download is compatible with that access
 flow. RawCull therefore keeps this pack blocked pending final legal review.
+After that review, the final Managed Background Assets archive still requires
+an exact byte-size and SHA-256 record before the descriptor can be enabled.
 
 The model can produce inaccurate or biased results and is provided without
 warranty under the accompanying licences.

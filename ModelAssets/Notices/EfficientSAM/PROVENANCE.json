@@ -1,0 +1,51 @@
+{
+  "catalog_version": 1,
+  "release_status": "blocked",
+  "release_blocker": "Validate the final EfficientSAM-Ti Q64/P1 float16 Core AI bundle, record its converted-model fingerprint, generate the Managed Background Assets archive, and record the exact archive byte size and SHA-256 before publication.",
+  "model": {
+    "bundle": "EfficientSAM",
+    "planned_asset": "Models/EfficientSAM/efficient_sam_vitt_float16_static_q64.aimodel",
+    "architecture": "EfficientSAM-Ti (ViT-Tiny)",
+    "precision": "float16",
+    "static_shapes": true,
+    "num_queries": 64,
+    "points_per_query": 1,
+    "runtime_main_mlirb_sha256": null,
+    "exporter_fingerprint_algorithm": "directory-tree-sha256-v1",
+    "exporter_fingerprint": null
+  },
+  "upstream": {
+    "project": "yformer/EfficientSAM",
+    "source_url": "https://github.com/yformer/EfficientSAM",
+    "source_revision": "d525f622e6f640acf5a0fc37c7ca1f243da5bde0",
+    "checkpoint_repository": "merve/EfficientSAM",
+    "checkpoint_url": "https://huggingface.co/merve/EfficientSAM/blob/38bb0b55425abf62274ba4a8c51249e3d7298b70/efficient_sam_vitt.pt",
+    "checkpoint_revision": "38bb0b55425abf62274ba4a8c51249e3d7298b70",
+    "source_weight_file": "efficient_sam_vitt.pt",
+    "source_weight_byte_count": 40982470,
+    "source_weight_sha256": "dff858b19600a46461cbb7de98f796b23a7a888d9f5e34c0b033f7d6eb9e4e6a",
+    "gated": false
+  },
+  "conversion": {
+    "planned_command": "uv run models/efficient-sam/export.py --dtype float16 --num-queries 64 --num-pts 1",
+    "producer": "coreai-core 1.0.0b1",
+    "coreai_torch": "0.4.0",
+    "apple_coreai_models_reference_revision": "bffc38fe48f50e4e962ac9772b64a5b55a605286",
+    "photoaikit_revision": "1e2eaccd00947fbadda300e4a617842479cae7b9",
+    "model_creation_date": null
+  },
+  "licences": [
+    {
+      "component": "EfficientSAM source and EfficientSAM-Ti checkpoint",
+      "spdx": "Apache-2.0",
+      "file": "EfficientSAM-Apache-2.0.txt",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "component": "Apple coreai-models conversion recipe",
+      "spdx": "BSD-3-Clause",
+      "file": "Apple-coreai-models-BSD-3-Clause.txt",
+      "sha256": "6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e"
+    }
+  ]
+}
