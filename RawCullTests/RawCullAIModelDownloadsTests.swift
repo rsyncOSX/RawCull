@@ -13,6 +13,7 @@ struct RawCullAIModelDownloadsTests {
             .clipDataComp,
             .clipOpenAI
         ])
+        #expect(RawCullAIModelInclusion.segmentationModels == [.efficientSAM])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
                 == true,

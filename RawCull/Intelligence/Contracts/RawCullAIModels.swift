@@ -35,7 +35,7 @@ nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Ident
     case sam3
     case efficientSAM = "efficient-sam"
 
-    static let defaultSelection = Self.sam3
+    static let defaultSelection = Self.efficientSAM
 
     var id: String {
         rawValue

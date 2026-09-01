@@ -26,6 +26,7 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
 nonisolated enum RawCullAIModelInclusion {
     static let includeOpenAICLIP = true
     static let includeDataCompCLIP = true
+    static let includeEfficientSAM = true
     static let includeSAM3 = false
 
     static var clipModels: [RawCullCLIPModel] {
@@ -38,7 +39,12 @@ nonisolated enum RawCullAIModelInclusion {
     }
 
     static var segmentationModels: [RawCullSegmentationModel] {
-        includeSAM3 ? [.sam3] : []
+        RawCullSegmentationModel.allCases.filter { model in
+            switch model {
+            case .sam3: includeSAM3
+            case .efficientSAM: includeEfficientSAM
+            }
+        }
     }
 
     fileprivate static var downloadIDs: Set<RawCullAIModelDownloadID> {

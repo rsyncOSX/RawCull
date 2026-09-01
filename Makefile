@@ -17,7 +17,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 208
+SMOKE_EXPECTED_TESTS = 209
 PERFORMANCE_EXPECTED_TESTS = 2
 ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 

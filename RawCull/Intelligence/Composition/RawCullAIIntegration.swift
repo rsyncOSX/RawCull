@@ -69,6 +69,10 @@ final class RawCullAIIntegration {
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         )
+        let defaultSegmentationCandidateURLs = switch RawCullSegmentationModel.defaultSelection {
+        case .sam3: sam3CandidateURLs
+        case .efficientSAM: efficientSAMCandidateURLs
+        }
         let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
             installedDirectory: paths.clipDataCompModelDirectory,
             resourceName: RawCullCLIPModel.dataComp.resourceName,
@@ -147,7 +151,9 @@ final class RawCullAIIntegration {
         )
 
         self.deepAIReviewFeature = DeepAIReviewFeature(
-            availability: .checking(expectedLocations: sam3CandidateURLs),
+            availability: .checking(
+                expectedLocations: defaultSegmentationCandidateURLs,
+            ),
         )
         self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
@@ -165,7 +171,9 @@ final class RawCullAIIntegration {
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
-            inProcessMaskGeneration: .checking(expectedLocations: sam3CandidateURLs),
+            inProcessMaskGeneration: .checking(
+                expectedLocations: defaultSegmentationCandidateURLs,
+            ),
         )
     }
 
