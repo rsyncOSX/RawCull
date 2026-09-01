@@ -8,11 +8,19 @@ struct RawCullAIModelDownloadsTests {
     @Test
     func `Production catalog includes only configured models`() throws {
         let catalog = RawCullAIModelDownloadCatalog.production
+        let preparedCatalog = RawCullAIModelDownloadCatalog.prepared
 
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
-            .clipOpenAI
+            .clipOpenAI,
         ])
+        #expect(preparedCatalog.models.map(\.id) == [
+            .clipDataComp,
+            .clipOpenAI,
+            .efficientSAM,
+            .sam3,
+        ])
+        #expect(RawCullAIModelInclusion.segmentationModels == [.efficientSAM])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
                 == true,
@@ -48,7 +56,25 @@ struct RawCullAIModelDownloadsTests {
             ).isConfigured,
         )
 
-        for descriptor in catalog.models {
+        let efficientSAM = try #require(
+            preparedCatalog.descriptor(for: .efficientSAM),
+        )
+        #expect(efficientSAM.upstreamRevision == "d525f622e6f640acf5a0fc37c7ca1f243da5bde0")
+        #expect(efficientSAM.assetPackModelPath == "Models/EfficientSAM")
+        #expect(efficientSAM.expectedArchiveSHA256 == nil)
+        #expect(efficientSAM.downloadByteCount == nil)
+        #expect(!efficientSAM.releaseReadiness.isReady)
+        #expect(
+            efficientSAM.licence.textSHA256
+                == "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        )
+
+        let sam3 = try #require(preparedCatalog.descriptor(for: .sam3))
+        #expect(sam3.upstreamRevision == "3c879f39826c281e95690f02c7821c4de09afae7")
+        #expect(sam3.assetPackModelPath == "Models/SAM3")
+        #expect(!sam3.releaseReadiness.isReady)
+
+        for descriptor in preparedCatalog.models {
             guard let resourceName =
                 descriptor.licence.bundledTextResourceName
             else {
@@ -344,7 +370,7 @@ struct RawCullAIModelDownloadsTests {
             hasState: .installed(location: downloadedURL),
         )
         #expect(locationsConsumer.snapshots.contains([
-            descriptor.id: downloadedURL
+            descriptor.id: downloadedURL,
         ]))
 
         await model.removeManagedModel(descriptor.id)
@@ -542,7 +568,8 @@ struct RawCullAIModelDownloadsTests {
 private final class ModelDownloadTestBundleToken {}
 
 private actor ModelDownloadServiceSpy:
-    RawCullAIModelDownloadServicing {
+    RawCullAIModelDownloadServicing
+{
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
     private let downloadFailureMessage: String?
@@ -597,7 +624,8 @@ private actor ModelDownloadServiceSpy:
 }
 
 private actor ModelManagementDownloadService:
-    RawCullAIModelDownloadServicing {
+    RawCullAIModelDownloadServicing
+{
     private let downloadURL: URL
     private var currentState: RawCullAIModelDownloadState = .ready
     private var progressIsSuspended = false
@@ -653,7 +681,8 @@ private actor ModelManagementDownloadService:
 }
 
 private actor CancellableModelManagementDownloadService:
-    RawCullAIModelDownloadServicing {
+    RawCullAIModelDownloadServicing
+{
     private let downloadURL: URL
     private var started = false
     private var observedCancellation = false
@@ -700,7 +729,8 @@ private actor CancellableModelManagementDownloadService:
 
 @MainActor
 private final class ManagedModelLocationsConsumerSpy:
-    RawCullAIManagedModelLocationsApplying {
+    RawCullAIManagedModelLocationsApplying
+{
     private(set) var snapshots: [[RawCullAIModelDownloadID: URL]] = []
 
     func applyManagedModelLocations(

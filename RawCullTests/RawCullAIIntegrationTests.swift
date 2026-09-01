@@ -17,6 +17,11 @@ struct RawCullAIIntegrationTests {
         #expect(paths.applicationSupportDirectory.lastPathComponent == "RawCull")
         #expect(paths.modelsDirectory.path.hasSuffix("RawCull/Models"))
         #expect(paths.sam3ModelDirectory.path.hasSuffix("RawCull/Models/SAM3"))
+        #expect(
+            paths.efficientSAMModelDirectory.path.hasSuffix(
+                "RawCull/Models/EfficientSAM",
+            ),
+        )
         #expect(paths.clipDataCompModelDirectory.path.hasSuffix(
             "RawCull/Models/CLIP-DataComp",
         ))
@@ -55,6 +60,9 @@ struct RawCullAIIntegrationTests {
         #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
             expectedLocations: [paths.sam3ModelDirectory],
         ))
+        #expect(initialCapabilities.segmentationModelStatus(for: .efficientSAM) == .checking(
+            expectedLocations: [paths.efficientSAMModelDirectory],
+        ))
         #expect(initialCapabilities.clipModelStatus(for: .dataComp) == .checking(
             expectedLocations: [paths.clipDataCompModelDirectory],
         ))
@@ -68,13 +76,16 @@ struct RawCullAIIntegrationTests {
             expectedLocations: [paths.clipOpenAIModelDirectory],
         ))
         #expect(integration.deepAIReviewFeature.availability == .checking(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [paths.efficientSAMModelDirectory],
         ))
 
         let capabilities = try await integration.refreshCapabilities()
 
         #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
             expectedLocations: [paths.sam3ModelDirectory],
+        ))
+        #expect(capabilities.segmentationModelStatus(for: .efficientSAM) == .missing(
+            expectedLocations: [paths.efficientSAMModelDirectory],
         ))
         #expect(capabilities.clipModelStatus(for: .dataComp) == .missing(
             expectedLocations: [paths.clipDataCompModelDirectory],
@@ -105,10 +116,10 @@ struct RawCullAIIntegrationTests {
             location: paths.subjectMaskDirectory,
         ))
         #expect(capabilities.inProcessMaskGeneration == .missing(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [paths.efficientSAMModelDirectory],
         ))
         #expect(integration.deepAIReviewFeature.availability == .missing(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [paths.efficientSAMModelDirectory],
         ))
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
     }
@@ -389,6 +400,46 @@ struct RawCullAIIntegrationTests {
         )
         #expect(relaunchedModel.useCLIPForSimilarity)
         #expect(relaunchedModel.selectedCLIPModel == .dataComp)
+    }
+
+    @MainActor
+    @Test
+    func `EfficientSAM is the enabled default and restores its preference`() throws {
+        let root = isolatedRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let defaultsSuite = "RawCullAIIntegrationTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: defaultsSuite))
+        defer { userDefaults.removePersistentDomain(forName: defaultsSuite) }
+
+        let integration = RawCullAIIntegration(
+            paths: isolatedPaths(root: root),
+            bundle: .main,
+            allowsBundledModelFallback: false,
+        )
+        userDefaults.set(
+            RawCullSegmentationModel.efficientSAM.rawValue,
+            forKey: RawCullAISettingsModel.selectedSegmentationModelPreferenceKey,
+        )
+        let model = RawCullAISettingsModel(
+            integration: integration,
+            userDefaults: userDefaults,
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+        )
+
+        #expect(RawCullAIModelInclusion.segmentationModels == [.efficientSAM])
+        #expect(model.selectedSegmentationModel == .efficientSAM)
+        #expect(
+            userDefaults.string(
+                forKey: RawCullAISettingsModel.selectedSegmentationModelPreferenceKey,
+            ) == RawCullSegmentationModel.efficientSAM.rawValue,
+        )
+        let relaunchedModel = RawCullAISettingsModel(
+            integration: integration,
+            userDefaults: userDefaults,
+            modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+        )
+        #expect(relaunchedModel.selectedSegmentationModel == .efficientSAM)
     }
 
     private func isolatedRoot() -> URL {

@@ -26,7 +26,10 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
 nonisolated enum RawCullAIModelInclusion {
     static let includeOpenAICLIP = true
     static let includeDataCompCLIP = true
+    static let includeEfficientSAM = true
     static let includeSAM3 = false
+    static let includeEfficientSAMDownload = false
+    static let includeSAM3Download = false
 
     static var clipModels: [RawCullCLIPModel] {
         RawCullCLIPModel.allCases.filter { model in
@@ -38,7 +41,12 @@ nonisolated enum RawCullAIModelInclusion {
     }
 
     static var segmentationModels: [RawCullSegmentationModel] {
-        includeSAM3 ? [.sam3] : []
+        RawCullSegmentationModel.allCases.filter { model in
+            switch model {
+            case .sam3: includeSAM3
+            case .efficientSAM: includeEfficientSAM
+            }
+        }
     }
 
     fileprivate static var downloadIDs: Set<RawCullAIModelDownloadID> {
@@ -49,7 +57,10 @@ nonisolated enum RawCullAIModelInclusion {
         if includeOpenAICLIP {
             ids.insert(.clipOpenAI)
         }
-        if includeSAM3 {
+        if includeEfficientSAMDownload {
+            ids.insert(.efficientSAM)
+        }
+        if includeSAM3Download {
             ids.insert(.sam3)
         }
         return ids
@@ -129,8 +140,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
         models.first { $0.id == id }
     }
 
-    static let production: Self = {
-        let models = [
+    static let prepared = Self(
+        models: [
             RawCullAIModelDownloadDescriptor(
                 id: .clipDataComp,
                 displayName: "DataComp CLIP",
@@ -198,22 +209,61 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 releaseReadiness: .ready,
             ),
             RawCullAIModelDownloadDescriptor(
+                id: .efficientSAM,
+                displayName: "EfficientSAM",
+                purpose: "Local subject segmentation for Deep Review.",
+                publisher: "Y. Xiong et al.",
+                modelVersion: "EfficientSAM-Ti, float16, 8×8 point grid",
+                upstreamRevision: "d525f622e6f640acf5a0fc37c7ca1f243da5bde0",
+                resourceName: "EfficientSAM",
+                assetPackID: "no.blogspot.RawCull.models.efficient-sam",
+                assetPackModelPath: "Models/EfficientSAM",
+                upstreamSourceURL: requiredURL(
+                    "https://github.com/yformer/EfficientSAM/tree/d525f622e6f640acf5a0fc37c7ca1f243da5bde0",
+                ),
+                modelCardURL: requiredURL(
+                    "https://huggingface.co/merve/EfficientSAM/tree/38bb0b55425abf62274ba4a8c51249e3d7298b70",
+                ),
+                conversionInformationURL: requiredURL(
+                    "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/efficient-sam",
+                ),
+                expectedArchiveSHA256: nil,
+                downloadByteCount: nil,
+                installedByteCount: nil,
+                licence: RawCullAIModelLicenceDescriptor(
+                    name: "Apache License 2.0",
+                    version: "2.0",
+                    summary: "EfficientSAM is distributed under Apache License 2.0; redistributed copies must include the licence and preserve applicable notices.",
+                    completeTextURL: requiredURL(
+                        "https://github.com/yformer/EfficientSAM/blob/d525f622e6f640acf5a0fc37c7ca1f243da5bde0/LICENSE",
+                    ),
+                    bundledTextResourceName: "EfficientSAM-Apache-2.0",
+                    textSHA256: "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+                    requiresExplicitAcceptance: false,
+                ),
+                releaseReadiness: .blocked(
+                    reason: "The source, checkpoint, conversion recipe, and licence are recorded, but the final converted bundle fingerprint and generated asset-pack archive size and SHA-256 have not been recorded or published.",
+                ),
+            ),
+            RawCullAIModelDownloadDescriptor(
                 id: .sam3,
                 displayName: "Meta SAM 3",
                 purpose: "Local subject segmentation for Deep Review.",
                 publisher: "Meta",
                 modelVersion: "SAM 3",
-                upstreamRevision: nil,
+                upstreamRevision: "3c879f39826c281e95690f02c7821c4de09afae7",
                 resourceName: "SAM3",
                 assetPackID: "no.blogspot.RawCull.models.sam3",
                 assetPackModelPath: "Models/SAM3",
                 upstreamSourceURL: requiredURL(
-                    "https://huggingface.co/facebook/sam3",
+                    "https://huggingface.co/facebook/sam3/tree/3c879f39826c281e95690f02c7821c4de09afae7",
                 ),
                 modelCardURL: requiredURL(
-                    "https://huggingface.co/facebook/sam3",
+                    "https://huggingface.co/facebook/sam3/tree/3c879f39826c281e95690f02c7821c4de09afae7",
                 ),
-                conversionInformationURL: nil,
+                conversionInformationURL: requiredURL(
+                    "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/sam3",
+                ),
                 expectedArchiveSHA256: nil,
                 downloadByteCount: nil,
                 installedByteCount: nil,
@@ -222,23 +272,24 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     version: "November 19, 2025",
                     summary: "The SAM License contains redistribution, prohibited-use, trade-control, termination, warranty, liability, and indemnification terms.",
                     completeTextURL: requiredURL(
-                        "https://huggingface.co/facebook/sam3/blob/main/LICENSE",
+                        "https://huggingface.co/facebook/sam3/blob/3c879f39826c281e95690f02c7821c4de09afae7/LICENSE",
                     ),
                     bundledTextResourceName: "SAM3-SAM-License-2025-11-19",
                     textSHA256: "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
                     requiresExplicitAcceptance: true,
                 ),
                 releaseReadiness: .blocked(
-                    reason: "The complete SAM License is packaged, but redistribution remains disabled until RawCull confirms that an ungated converted download is compatible with Meta's licence and the official gated access conditions.",
+                    reason: "The complete SAM License and conversion evidence are packaged, but redistribution review remains open and the final generated archive size and SHA-256 have not been recorded.",
                 ),
-            )
-        ]
-        return Self(
-            models: models.filter {
-                RawCullAIModelInclusion.downloadIDs.contains($0.id)
-            },
-        )
-    }()
+            ),
+        ],
+    )
+
+    static let production = Self(
+        models: prepared.models.filter {
+            RawCullAIModelInclusion.downloadIDs.contains($0.id)
+        },
+    )
 
     private static func requiredURL(_ string: String) -> URL {
         guard let url = URL(string: string) else {

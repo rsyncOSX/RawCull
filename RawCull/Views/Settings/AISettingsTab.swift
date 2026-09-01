@@ -55,15 +55,19 @@ private struct AIModelSettingsCard: View {
                     .font(.system(size: 14, weight: .semibold))
                 Divider()
 
-                if RawCullAIModelInclusion.includeSAM3 {
+                ForEach(RawCullAIModelInclusion.segmentationModels) { segmentationModel in
                     AICapabilityStatusView(
-                        title: "SAM 3 model",
-                        status: model.capabilities.segmentationModelStatus(for: .sam3),
-                        availableMessage: "SAM 3 model resources are installed.",
-                        missingMessage: "SAM 3 model resources are not installed.",
+                        title: "\(segmentationModel.displayName) model",
+                        status: model.capabilities.segmentationModelStatus(
+                            for: segmentationModel,
+                        ),
+                        availableMessage: "\(segmentationModel.displayName) model resources are installed.",
+                        missingMessage: "\(segmentationModel.displayName) model resources are not installed.",
                         showsLocationAction: true,
                     )
+                }
 
+                if !RawCullAIModelInclusion.segmentationModels.isEmpty {
                     Text(segmentationModelMessage)
                         .font(.system(size: 11))
                         .foregroundStyle(
@@ -72,6 +76,22 @@ private struct AIModelSettingsCard: View {
                                 : .secondary,
                         )
                         .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if RawCullAIModelInclusion.segmentationModels.count > 1 {
+                    Picker(
+                        "Selected Deep Review model",
+                        selection: $model.selectedSegmentationModel,
+                    ) {
+                        ForEach(RawCullAIModelInclusion.segmentationModels) {
+                            segmentationModel in
+                            Text(segmentationModel.displayName)
+                                .tag(segmentationModel)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .font(.system(size: 12, weight: .medium))
+                    .help("Choose the segmentation model RawCull uses for Deep Review.")
                 }
 
                 ForEach(RawCullAIModelInclusion.clipModels) { clipModel in
