@@ -8,7 +8,7 @@ nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
     case appleHosted
 
     static let productionManifestURL = URL(
-        string: "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/manifest.json",
+        string: "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/manifest.json",
     )!
     static let testManifestURL = URL(
         string: "https://example.invalid/rawcull/models/manifest.json",
