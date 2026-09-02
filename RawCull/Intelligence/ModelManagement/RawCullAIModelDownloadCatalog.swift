@@ -158,10 +158,12 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 modelCardURL: requiredURL(
                     "https://huggingface.co/laion/CLIP-ViT-B-32-256x256-DataComp-s34B-b86K",
                 ),
-                conversionInformationURL: nil,
+                conversionInformationURL: requiredURL(
+                    "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/clip",
+                ),
                 expectedArchiveSHA256: "cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7",
                 downloadByteCount: 282_966_632,
-                installedByteCount: nil,
+                installedByteCount: 307_801_147,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",
                     version: nil,
@@ -264,9 +266,9 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 conversionInformationURL: requiredURL(
                     "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/sam3",
                 ),
-                expectedArchiveSHA256: nil,
-                downloadByteCount: nil,
-                installedByteCount: nil,
+                expectedArchiveSHA256: "dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9",
+                downloadByteCount: 1_542_689_157,
+                installedByteCount: 1_667_576_486,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "SAM License",
                     version: "November 19, 2025",
@@ -279,7 +281,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     requiresExplicitAcceptance: true,
                 ),
                 releaseReadiness: .blocked(
-                    reason: "The complete SAM License and conversion evidence are packaged, but redistribution review remains open and the final generated archive size and SHA-256 have not been recorded.",
+                    reason: "The complete SAM License, conversion evidence, and generated archive metadata are recorded, but redistribution review remains open.",
                 ),
             ),
         ],
