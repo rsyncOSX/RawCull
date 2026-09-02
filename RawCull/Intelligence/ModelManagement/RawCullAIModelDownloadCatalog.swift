@@ -27,7 +27,7 @@ nonisolated enum RawCullAIModelInclusion {
     static let includeOpenAICLIP = true
     static let includeDataCompCLIP = true
     static let includeEfficientSAM = true
-    static let includeSAM3 = false
+    static let includeSAM3 = true
     static let includeEfficientSAMDownload = false
     static let includeSAM3Download = false
 
