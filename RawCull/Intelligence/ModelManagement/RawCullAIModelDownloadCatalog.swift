@@ -280,9 +280,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     textSHA256: "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
                     requiresExplicitAcceptance: true,
                 ),
-                releaseReadiness: .blocked(
-                    reason: "The complete SAM License, conversion evidence, and generated archive metadata are recorded, but redistribution review remains open.",
-                ),
+                releaseReadiness: .ready,
             ),
         ],
     )

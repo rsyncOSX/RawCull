@@ -82,7 +82,7 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(sam3.downloadByteCount == 1_542_689_157)
         #expect(sam3.installedByteCount == 1_667_576_486)
-        #expect(!sam3.releaseReadiness.isReady)
+        #expect(sam3.releaseReadiness.isReady)
 
         for descriptor in preparedCatalog.models {
             guard let resourceName =
@@ -206,7 +206,7 @@ struct RawCullAIModelDownloadsTests {
     }
 
     @Test
-    func `Production models expose their applicable availability failure`() async {
+    func `Production models expose the Background Assets runtime failure`() async throws {
         let failure = RawCullAIModelDownloadState.failed(
             message: RawCullBackgroundAssetsRuntime.unavailableMessage,
         )
@@ -220,6 +220,13 @@ struct RawCullAIModelDownloadsTests {
                 .appendingPathComponent("acceptances.json"),
             licenceBundle: licenceBundle(),
         )
+        let sam3 = try #require(
+            RawCullAIModelDownloadCatalog.production.descriptor(for: .sam3),
+        )
+        try await store.recordAcceptance(
+            for: sam3,
+            rawCullVersion: "test",
+        )
         let coordinator = RawCullAIModelDownloadCoordinator(
             catalog: .production,
             service: service,
@@ -230,11 +237,7 @@ struct RawCullAIModelDownloadsTests {
 
         #expect(snapshot.states[.clipDataComp] == failure)
         #expect(snapshot.states[.clipOpenAI] == nil)
-        #expect(
-            snapshot.states[.sam3] == .unavailable(
-                reason: "The complete SAM License, conversion evidence, and generated archive metadata are recorded, but redistribution review remains open.",
-            ),
-        )
+        #expect(snapshot.states[.sam3] == failure)
     }
 
     @MainActor
