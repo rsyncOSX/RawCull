@@ -107,7 +107,7 @@ struct ReleaseMetadataTests {
             #expect(catalog.contains("assetPackModelPath: \"\(destination)\""))
         }
         #expect(catalog.components(separatedBy: "expectedArchiveSHA256: nil").count - 1 == 1)
-        #expect(catalog.components(separatedBy: "releaseReadiness: .blocked").count - 1 == 2)
+        #expect(catalog.components(separatedBy: "releaseReadiness: .blocked").count - 1 == 1)
 
         let documentation = try repositoryText("ModelAssets/README.md")
         for (assetPackID, destination) in expectedDestinations {
