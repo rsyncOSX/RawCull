@@ -1,6 +1,7 @@
 import CoreAICLIPBackend
 import CoreAIEfficientSAMBackend
 import CoreAISAM3Backend
+import CoreGraphics
 import Foundation
 import OSLog
 import PhotoAIContracts
@@ -461,6 +462,14 @@ final class RawCullAIIntegration {
                     ),
                 )
             },
+            maskLoader: provider.flatMap { _ in
+                subjectMaskDiskStore.map {
+                    DeepAIReviewDiskMaskLoader(
+                        repository: subjectMaskRepository,
+                        diskStore: $0,
+                    )
+                }
+            },
             availability: availability,
         )
     }
@@ -513,5 +522,22 @@ private struct UnavailableSegmentationProvider: SubjectSegmenting {
         throw SubjectSegmentationError.providerFailure(
             "The selected segmentation model resources are not installed.",
         )
+    }
+}
+
+/// Presentation-only access to masks persisted by Deep Review.
+///
+/// This deliberately bypasses the repository's memory-first lookup so the
+/// preview verifies and displays the artifact written to the disk cache.
+nonisolated struct DeepAIReviewDiskMaskLoader: DeepAIReviewMaskLoading, Sendable {
+    let repository: SubjectMaskRepository
+    let diskStore: SubjectMaskDiskStore
+
+    func mask(
+        for source: AIImageSource,
+        prompt: SubjectSegmentationPrompt,
+    ) async -> CGImage? {
+        let key = await repository.storageKey(for: source, prompt: prompt)
+        return await diskStore.load(for: key)?.mask
     }
 }
