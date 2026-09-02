@@ -24,12 +24,12 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
 /// Code-only switches controlling which AI models RawCull presents in Settings
 /// and in the model-download sheet.
 nonisolated enum RawCullAIModelInclusion {
-    static let includeOpenAICLIP = true
+    static let includeOpenAICLIP = false
     static let includeDataCompCLIP = true
-    static let includeEfficientSAM = true
+    static let includeEfficientSAM = false
     static let includeSAM3 = true
     static let includeEfficientSAMDownload = false
-    static let includeSAM3Download = false
+    static let includeSAM3Download = true
 
     static var clipModels: [RawCullCLIPModel] {
         RawCullCLIPModel.allCases.filter { model in
