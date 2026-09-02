@@ -12,7 +12,7 @@ struct RawCullAIModelDownloadsTests {
 
         #expect(catalog.models.map(\.id) == [
             .clipDataComp,
-            .clipOpenAI,
+            .sam3,
         ])
         #expect(preparedCatalog.models.map(\.id) == [
             .clipDataComp,
@@ -20,7 +20,7 @@ struct RawCullAIModelDownloadsTests {
             .efficientSAM,
             .sam3,
         ])
-        #expect(RawCullAIModelInclusion.segmentationModels == [.efficientSAM])
+        #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
                 == true,
@@ -34,19 +34,23 @@ struct RawCullAIModelDownloadsTests {
                 == 282_966_632,
         )
         #expect(
-            catalog.descriptor(for: .clipOpenAI)?.releaseReadiness.isReady
-                == true,
+            catalog.descriptor(for: .clipDataComp)?.installedByteCount
+                == 307_801_147,
         )
+        let openAI = try #require(
+            preparedCatalog.descriptor(for: .clipOpenAI),
+        )
+        #expect(openAI.releaseReadiness.isReady)
         #expect(
-            catalog.descriptor(for: .clipOpenAI)?.upstreamRevision
+            openAI.upstreamRevision
                 == "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
         )
         #expect(
-            catalog.descriptor(for: .clipOpenAI)?.expectedArchiveSHA256
+            openAI.expectedArchiveSHA256
                 == "e9181157c2d4012db2e6478949488f9906696a4ed78ecaa10235d9762621136c",
         )
         #expect(
-            catalog.descriptor(for: .clipOpenAI)?.downloadByteCount
+            openAI.downloadByteCount
                 == 282_866_068,
         )
         #expect(
@@ -72,6 +76,12 @@ struct RawCullAIModelDownloadsTests {
         let sam3 = try #require(preparedCatalog.descriptor(for: .sam3))
         #expect(sam3.upstreamRevision == "3c879f39826c281e95690f02c7821c4de09afae7")
         #expect(sam3.assetPackModelPath == "Models/SAM3")
+        #expect(
+            sam3.expectedArchiveSHA256
+                == "dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9",
+        )
+        #expect(sam3.downloadByteCount == 1_542_689_157)
+        #expect(sam3.installedByteCount == 1_667_576_486)
         #expect(!sam3.releaseReadiness.isReady)
 
         for descriptor in preparedCatalog.models {
@@ -196,7 +206,7 @@ struct RawCullAIModelDownloadsTests {
     }
 
     @Test
-    func `Published CLIP models expose the Background Assets runtime failure`() async {
+    func `Production models expose their applicable availability failure`() async {
         let failure = RawCullAIModelDownloadState.failed(
             message: RawCullBackgroundAssetsRuntime.unavailableMessage,
         )
@@ -219,7 +229,12 @@ struct RawCullAIModelDownloadsTests {
         let snapshot = await coordinator.snapshot()
 
         #expect(snapshot.states[.clipDataComp] == failure)
-        #expect(snapshot.states[.clipOpenAI] == failure)
+        #expect(snapshot.states[.clipOpenAI] == nil)
+        #expect(
+            snapshot.states[.sam3] == .unavailable(
+                reason: "The complete SAM License, conversion evidence, and generated archive metadata are recorded, but redistribution review remains open.",
+            ),
+        )
     }
 
     @MainActor
