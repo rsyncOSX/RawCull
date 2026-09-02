@@ -168,6 +168,13 @@ nonisolated protocol DeepAIReviewServicing: Sendable {
     ) async throws -> DeepAIReviewResult
 }
 
+nonisolated protocol DeepAIReviewMaskLoading: Sendable {
+    func mask(
+        for source: AIImageSource,
+        prompt: SubjectSegmentationPrompt,
+    ) async -> CGImage?
+}
+
 @Observable @MainActor
 final class DeepAIReviewFeature {
     var preset: DeepAIReviewPreset = .auto
@@ -176,6 +183,7 @@ final class DeepAIReviewFeature {
     private(set) var results: [BurstGroupSignature: DeepAIReviewResult] = [:]
 
     @ObservationIgnored private var service: (any DeepAIReviewServicing)?
+    @ObservationIgnored private var maskLoader: (any DeepAIReviewMaskLoading)?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
 
@@ -184,9 +192,11 @@ final class DeepAIReviewFeature {
             reason: "A segmentation model has not been configured for in-process review.",
         ),
         service: (any DeepAIReviewServicing)? = nil,
+        maskLoader: (any DeepAIReviewMaskLoading)? = nil,
     ) {
         self.availability = availability
         self.service = service
+        self.maskLoader = maskLoader
     }
 
     var isRunning: Bool {
@@ -199,13 +209,30 @@ final class DeepAIReviewFeature {
 
     func install(
         service: (any DeepAIReviewServicing)?,
+        maskLoader: (any DeepAIReviewMaskLoading)?,
         availability: RawCullAICapabilityStatus,
     ) {
         self.service = service
+        self.maskLoader = maskLoader
         self.availability = availability
         if !availability.isAvailable, isRunning {
             cancel()
         }
+    }
+
+    func mask(
+        for candidate: DeepAIReviewCandidate,
+        fileURL: URL,
+    ) async -> CGImage? {
+        guard candidate.isCompleted, let prompt = candidate.maskPromptUsed else {
+            return nil
+        }
+        let source = AIImageSource(
+            id: candidate.fileID,
+            url: fileURL,
+            displayName: candidate.fileName,
+        )
+        return await maskLoader?.mask(for: source, prompt: prompt)
     }
 
     func start(_ request: DeepAIReviewRequest) async {

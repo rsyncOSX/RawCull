@@ -35,6 +35,8 @@ struct DeepAIReviewSheetView: View {
             Divider()
 
             DeepAIReviewSheetContent(
+                controller: controller,
+                files: files,
                 state: controller.presentationState(
                     groupID: groupID,
                     groupSignature: groupSignature,
@@ -104,13 +106,18 @@ private struct DeepAIReviewSheetControls: View {
 }
 
 private struct DeepAIReviewSheetContent: View {
+    let controller: DeepAIReviewController
+    let files: [FileItem]
     let state: DeepAIReviewPresentationState
 
     var body: some View {
         switch state {
         case let .completed(result):
-            DeepAIReviewSummaryView(result: result)
-            DeepAIReviewCandidateTable(candidates: result.candidates, winnerID: result.recommendedFileID)
+            DeepAIReviewCompletedContent(
+                controller: controller,
+                files: files,
+                result: result,
+            )
 
         case let .preparing(_, totalCount):
             DeepAIReviewProgressHeader(
@@ -194,6 +201,129 @@ private struct DeepAIReviewSheetContent: View {
 
         case let .pipelineFailed(reason):
             "The in-process segmentation pipeline failed: \(reason)"
+        }
+    }
+}
+
+private struct DeepAIReviewCompletedContent: View {
+    let controller: DeepAIReviewController
+    let files: [FileItem]
+    let result: DeepAIReviewResult
+
+    @State private var selectedCandidateID: UUID?
+
+    private var selectedCandidate: DeepAIReviewCandidate? {
+        selectedCandidateID.flatMap { id in
+            result.candidates.first { $0.fileID == id }
+        }
+    }
+
+    var body: some View {
+        DeepAIReviewSummaryView(result: result)
+
+        HSplitView {
+            DeepAIReviewCandidateTable(
+                candidates: result.candidates,
+                winnerID: result.recommendedFileID,
+                selection: $selectedCandidateID,
+            )
+            .frame(minWidth: 660)
+
+            DeepAIReviewMaskPreview(
+                controller: controller,
+                files: files,
+                candidate: selectedCandidate,
+            )
+            .frame(minWidth: 330, idealWidth: 420)
+        }
+        .task(id: result.timestamp) {
+            let availableIDs = Set(result.candidates.map(\.fileID))
+            if selectedCandidateID.map(availableIDs.contains) != true {
+                selectedCandidateID = result.recommendedFileID
+                    ?? result.candidates.first?.fileID
+            }
+        }
+    }
+}
+
+private struct DeepAIReviewMaskPreview: View {
+    let controller: DeepAIReviewController
+    let files: [FileItem]
+    let candidate: DeepAIReviewCandidate?
+
+    @State private var mask: CGImage?
+    @State private var isLoading = false
+
+    private var file: FileItem? {
+        guard let candidate else { return nil }
+        return files.first { $0.id == candidate.fileID }
+    }
+
+    private var loadIdentity: String? {
+        guard let candidate, let prompt = candidate.maskPromptUsed else { return nil }
+        return "\(candidate.fileID.uuidString):\(prompt.rawValue)"
+    }
+
+    var body: some View {
+        Group {
+            if let candidate, let file {
+                VStack(alignment: .leading, spacing: 8) {
+                    ZStack {
+                        ThumbnailImageView(
+                            url: file.url,
+                            targetSize: 1_200,
+                            style: .list,
+                            contentMode: .fit,
+                        )
+
+                        if let mask {
+                            Image(decorative: mask, scale: 1, orientation: .up)
+                                .resizable()
+                                .scaledToFit()
+                                .colorMultiply(.cyan)
+                                .blendMode(.screen)
+                                .opacity(0.72)
+                                .accessibilityHidden(true)
+                        }
+
+                        if isLoading {
+                            ProgressView("Loading mask…")
+                                .padding(10)
+                                .background(.regularMaterial, in: .rect(cornerRadius: 8))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.black, in: .rect(cornerRadius: 8))
+                    .clipShape(.rect(cornerRadius: 8))
+
+                    HStack {
+                        Label(candidate.fileName, systemImage: "photo")
+                            .lineLimit(1)
+                        Spacer()
+                        Text(mask == nil ? "Mask unavailable" : "Cyan mask overlay")
+                            .foregroundStyle(mask == nil ? Color.orange : Color.secondary)
+                    }
+                    .font(.caption)
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Mask preview for \(candidate.fileName)")
+            } else {
+                ContentUnavailableView(
+                    "Select a Candidate",
+                    systemImage: "photo.badge.magnifyingglass",
+                    description: Text("Select a completed row to inspect its stored subject mask."),
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task(id: loadIdentity) {
+            mask = nil
+            guard let candidate, loadIdentity != nil else { return }
+            isLoading = true
+            let loadedMask = await controller.mask(for: candidate, in: files)
+            guard !Task.isCancelled else { return }
+            mask = loadedMask
+            isLoading = false
         }
     }
 }
@@ -322,9 +452,20 @@ private struct DeepAIReviewSummaryView: View {
 private struct DeepAIReviewCandidateTable: View {
     let candidates: [DeepAIReviewCandidate]
     let winnerID: UUID?
+    @Binding var selection: UUID?
+
+    init(
+        candidates: [DeepAIReviewCandidate],
+        winnerID: UUID?,
+        selection: Binding<UUID?> = .constant(nil),
+    ) {
+        self.candidates = candidates
+        self.winnerID = winnerID
+        _selection = selection
+    }
 
     var body: some View {
-        Table(candidates) {
+        Table(candidates, selection: $selection) {
             TableColumn("Done") { candidate in
                 Image(systemName: candidate.isCompleted ? "checkmark.circle.fill" : "ellipsis.circle")
                     .foregroundStyle(candidate.isCompleted ? Color.green : Color.secondary)

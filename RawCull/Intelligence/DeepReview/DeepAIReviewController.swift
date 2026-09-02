@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -75,6 +76,15 @@ final class DeepAIReviewController {
 
     func result(for signature: BurstGroupSignature) -> DeepAIReviewResult? {
         feature.result(for: signature)
+    }
+
+    func mask(
+        for candidate: DeepAIReviewCandidate,
+        in files: [FileItem],
+    ) async -> CGImage? {
+        guard let file = files.first(where: { $0.id == candidate.fileID })
+        else { return nil }
+        return await feature.mask(for: candidate, fileURL: file.url)
     }
 
     func presentationState(

@@ -1,6 +1,8 @@
 import CoreGraphics
 import Foundation
 import PhotoAIContracts
+import PhotoAIStorage
+import PhotoAIWorkflows
 @testable import RawCull
 import RawCullCore
 import Testing
@@ -97,6 +99,7 @@ struct DeepAIReviewFeatureTests {
 
         feature.install(
             service: nil,
+            maskLoader: nil,
             availability: .missing(expectedLocations: [expectedLocation]),
         )
         #expect(controller.presentationState(
@@ -108,6 +111,7 @@ struct DeepAIReviewFeatureTests {
 
         feature.install(
             service: CancellableDeepReviewService(),
+            maskLoader: nil,
             availability: .available(location: expectedLocation),
         )
         let request = makeRequest(candidateCount: 1)
@@ -139,6 +143,69 @@ struct DeepAIReviewFeatureTests {
         ) == [.subject])
         #expect(RawCullDeepAIReviewPipeline.selectedCandidateCount(from: 12) == 12)
         #expect(RawCullDeepAIReviewPipeline.selectedCandidateCount(from: 13) == 8)
+    }
+
+    @Test
+    func `Deep Review preview loads the selected prompt from disk only`() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DeepReviewDiskMaskLoader-\(UUID().uuidString)", isDirectory: true)
+        let sourceURL = root.appendingPathComponent("frame.ARW")
+        let maskDirectory = root.appendingPathComponent("Masks", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data([1, 2, 3]).write(to: sourceURL, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let modelIdentity = ModelIdentity(
+            family: "efficient-sam",
+            name: "preview-test",
+            assetName: "preview-test.aimodel",
+        )
+        let configuration = SubjectMaskRepositoryConfiguration(
+            modelIdentity: modelIdentity,
+            inputMaxSide: 1_024,
+        )
+        let memoryStore = SubjectMaskMemoryStore()
+        let diskStore = try SubjectMaskDiskStore(cacheDirectory: maskDirectory)
+        let repository = SubjectMaskRepository(
+            configuration: configuration,
+            stores: [memoryStore, diskStore],
+        )
+        let source = AIImageSource(
+            id: UUID(),
+            url: sourceURL,
+            displayName: "frame.ARW",
+        )
+        let mask = try #require(makeCenteredMask(width: 32, height: 24))
+        let result = makeSegmentationResult(
+            sourceID: source.id,
+            prompt: .bird,
+            mask: mask,
+            modelIdentity: modelIdentity,
+        )
+
+        let birdKey = await repository.storageKey(for: source, prompt: .bird)
+        try await diskStore.save(result, for: birdKey)
+
+        let subjectKey = await repository.storageKey(for: source, prompt: .subject)
+        await memoryStore.save(
+            makeSegmentationResult(
+                sourceID: source.id,
+                prompt: .subject,
+                mask: mask,
+                modelIdentity: modelIdentity,
+            ),
+            for: subjectKey,
+        )
+
+        let loader = DeepAIReviewDiskMaskLoader(
+            repository: repository,
+            diskStore: diskStore,
+        )
+        let loaded = await loader.mask(for: source, prompt: .bird)
+
+        #expect(loaded?.width == 32)
+        #expect(loaded?.height == 24)
+        #expect(await loader.mask(for: source, prompt: .subject) == nil)
     }
 
     @Test
@@ -249,6 +316,36 @@ struct DeepAIReviewFeatureTests {
             height: height / 2,
         ))
         return context.makeImage()
+    }
+
+    private func makeSegmentationResult(
+        sourceID: UUID,
+        prompt: SubjectSegmentationPrompt,
+        mask: CGImage,
+        modelIdentity: ModelIdentity,
+    ) -> SubjectSegmentationResult {
+        let size = CGSize(width: mask.width, height: mask.height)
+        let timing = SubjectSegmentationTiming(totalMilliseconds: 1)
+        let diagnostics = SubjectSegmentationDiagnostics(
+            modelIdentity: modelIdentity,
+            prompt: prompt,
+            confidence: 0.9,
+            timing: timing,
+            inputSize: size,
+            outputSize: size,
+        )
+        return SubjectSegmentationResult(
+            sourceID: sourceID,
+            requestID: UUID(),
+            prompt: prompt,
+            mask: mask,
+            confidence: 0.9,
+            modelIdentity: modelIdentity,
+            inputSize: size,
+            outputSize: size,
+            timing: timing,
+            diagnostics: diagnostics,
+        )
     }
 }
 
