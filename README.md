@@ -5,10 +5,9 @@
 > [!IMPORTANT]
 > **This is the AI-based version of RawCull.** The `version-3.2.0` branch requires macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
 
-RawCull is a native macOS photo review and culling application for Sony ARW and
-Nikon NEF RAW files. It combines fast embedded-preview loading with focus-point
-extraction, sharpness analysis, visual similarity, burst grouping, ratings, and
-selective export.
+RawCull version 3.2.0 is available via Apple’s TestFlight; please email thomeven@gmail.com if you would like to try it through that service or [download RawCull (AI) v3.2.0 beta from GitHub](https://github.com/rsyncOSX/RawCull/releases/tag/v3.2.0) ·
+
+RawCull is a native macOS photo review and culling application for Sony ARW and Nikon NEF RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
 The application is written in Swift 6 and SwiftUI. Focused Swift packages own image parsing, analysis, AI inference, shared culling models, JSON encoding, and rsync execution. RawCull owns application state, workflow, caching, persistence, and presentation.
 
@@ -38,8 +37,6 @@ guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
 
 Both versions require an Apple Silicon Mac. The main difference between the macOS 26 and macOS 27 editions is the AI layer, not the basic photo-culling workflow: the macOS 26 edition uses Apple's built-in Vision feature prints, whereas the macOS 27 edition adds a local DataComp CLIP model for text-to-image search and optional similarity analysis, plus SAM 3 subject segmentation for Deep Review. It falls back to Vision similarity when the CLIP model is unavailable.
 
-RawCull `version-3.2.0` is not yet published as a prebuilt download; build this
-branch from source until its macOS 27 release is available.
 
 ## Main capabilities
 
