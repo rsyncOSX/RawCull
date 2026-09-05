@@ -58,7 +58,7 @@ struct RawCullAIIntegrationTests {
         let initialCapabilities = integration.capabilities()
 
         #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [],
         ))
         #expect(initialCapabilities.segmentationModelStatus(for: .efficientSAM) == .checking(
             expectedLocations: [paths.efficientSAMModelDirectory],
@@ -82,7 +82,7 @@ struct RawCullAIIntegrationTests {
         let capabilities = try await integration.refreshCapabilities()
 
         #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [],
         ))
         #expect(capabilities.segmentationModelStatus(for: .efficientSAM) == .missing(
             expectedLocations: [paths.efficientSAMModelDirectory],
@@ -404,7 +404,7 @@ struct RawCullAIIntegrationTests {
 
     @MainActor
     @Test
-    func `EfficientSAM is the enabled default and restores its preference`() throws {
+    func `blocked segmenters are excluded and rejected`() throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -427,13 +427,15 @@ struct RawCullAIIntegrationTests {
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
         )
 
-        #expect(RawCullAIModelInclusion.segmentationModels == [.efficientSAM])
+        #expect(RawCullAIModelInclusion.segmentationModels.isEmpty)
         #expect(model.selectedSegmentationModel == .efficientSAM)
         #expect(
             userDefaults.string(
                 forKey: RawCullAISettingsModel.selectedSegmentationModelPreferenceKey,
             ) == RawCullSegmentationModel.efficientSAM.rawValue,
         )
+        model.setSelectedSegmentationModel(.sam3)
+        #expect(model.selectedSegmentationModel == .efficientSAM)
         let relaunchedModel = RawCullAISettingsModel(
             integration: integration,
             userDefaults: userDefaults,

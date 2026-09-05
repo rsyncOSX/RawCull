@@ -144,10 +144,7 @@ struct CopyFilesView: View {
 
         guard let executionManager else { return }
 
-        switch executionManager.startcopyfiles(
-            fallbacksource: sourcecatalog,
-            fallbackdest: destinationcatalog,
-        ) {
+        switch executionManager.startcopyfiles() {
         case .success:
             copyFilesinProgress = true
 

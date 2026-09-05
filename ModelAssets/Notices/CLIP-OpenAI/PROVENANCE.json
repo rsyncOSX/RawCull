@@ -3,7 +3,9 @@
   "release_status": "ready",
   "release": {
     "tag": "v2",
-    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-openai"
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-openai",
+    "archive_sha256": "e9181157c2d4012db2e6478949488f9906696a4ed78ecaa10235d9762621136c",
+    "archive_byte_count": 282866068
   },
   "model": {
     "bundle": "CLIP-OpenAI",

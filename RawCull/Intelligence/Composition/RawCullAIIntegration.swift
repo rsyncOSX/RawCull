@@ -58,12 +58,12 @@ final class RawCullAIIntegration {
         self.paths = paths
         let allowsBundledModelFallback = allowsBundledModelFallback
             ?? Self.defaultAllowsBundledModelFallback
-        let sam3CandidateURLs = RawCullAIModelCandidates.urls(
+        let sam3CandidateURLs: [URL] = RawCullAIModelInclusion.includeSAM3 ? RawCullAIModelCandidates.urls(
             installedDirectory: paths.sam3ModelDirectory,
             resourceName: "SAM3",
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
-        )
+        ) : []
         let efficientSAMCandidateURLs = RawCullAIModelCandidates.urls(
             installedDirectory: paths.efficientSAMModelDirectory,
             resourceName: RawCullSegmentationModel.efficientSAM.resourceName,
@@ -201,7 +201,7 @@ final class RawCullAIIntegration {
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async {
         await sam3ModelResourceManager.setManagedCandidateURL(
-            locations[.sam3],
+            RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
         )
         await efficientSAMModelResourceManager.setManagedCandidateURL(
             locations[.efficientSAM],

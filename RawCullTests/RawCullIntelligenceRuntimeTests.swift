@@ -81,7 +81,8 @@ struct RawCullIntelligenceRuntimeTests {
             viewModel.similarityModel.semanticSearchCapability
                 == runtime.settingsModel.selectedSemanticSearchStatus,
         )
-        #expect(viewModel.similarityModel.semanticSearchCapability != originalCapability)
+        #expect(viewModel.similarityModel.semanticSearchCapability == originalCapability)
+        #expect(runtime.settingsModel.selectedCLIPModel == .dataComp)
     }
 
     @MainActor

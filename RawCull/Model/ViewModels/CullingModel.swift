@@ -32,6 +32,7 @@ struct CullingScoringResult {
 final class CullingModel {
     private(set) var savedFiles = [SavedFiles]()
     private(set) var persistenceError: String?
+    var isTerminationPending = false
     private(set) var persistenceLoadFailure: SavedFilesReadFailure?
     private(set) var hasUnsavedChanges = false
 

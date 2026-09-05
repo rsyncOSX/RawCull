@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import Testing
+@testable import RawCull
 
 @Suite("Release metadata", .tags(.smoke))
 struct ReleaseMetadataTests {
@@ -18,9 +19,11 @@ struct ReleaseMetadataTests {
 
         #expect(appBlocks.count == 2)
         #expect(extensionBlocks.count == 2)
+        let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
+        #expect(Int(buildNumber).map { $0 > 0 } == true)
         for block in appBlocks + extensionBlocks {
             #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.0")
-            #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == "350")
+            #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
             #expect(buildSetting("ENABLE_HARDENED_RUNTIME", in: block) == "YES")
@@ -55,7 +58,7 @@ struct ReleaseMetadataTests {
         #expect(about.contains("CFBundleShortVersionString"))
         #expect(about.contains("CFBundleVersion"))
         #expect(about.contains("CLIP semantic search"))
-        #expect(about.contains("SAM 3 Deep Review"))
+        #expect(about.contains("Deep Review"))
         #expect(about.contains("Vision fallback"))
     }
 
@@ -107,14 +110,14 @@ struct ReleaseMetadataTests {
             #expect(catalog.contains("assetPackModelPath: \"\(destination)\""))
         }
         #expect(catalog.components(separatedBy: "expectedArchiveSHA256: nil").count - 1 == 1)
-        #expect(catalog.components(separatedBy: "releaseReadiness: .blocked").count - 1 == 1)
+        #expect(RawCullAIModelDownloadCatalog.production.models.allSatisfy { $0.releaseReadiness.isReady })
 
         let documentation = try repositoryText("ModelAssets/README.md")
         for (assetPackID, destination) in expectedDestinations {
             #expect(documentation.contains("`\(assetPackID)`"))
             #expect(documentation.contains("`\(destination)`"))
         }
-        #expect(documentation.contains("releases/download/v2/manifest.json"))
+        #expect(documentation.contains("releases/download/v3/manifest.json"))
         #expect(documentation.contains("BAUsesAppleHosting"))
     }
 
@@ -148,23 +151,20 @@ struct ReleaseMetadataTests {
 
     @Test
     func `model provenance status and notice hashes are complete`() throws {
-        let provenanceStatuses = [
-            "ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json": "ready",
-            "ModelAssets/Notices/CLIP-OpenAI/PROVENANCE.json": "ready",
-            "ModelAssets/Notices/EfficientSAM/PROVENANCE.json": "blocked",
-            "ModelAssets/Notices/SAM3/PROVENANCE.json": "blocked",
-        ]
-
-        for (path, expectedStatus) in provenanceStatuses {
-            let provenance = try JSONDecoder().decode(
-                ModelProvenance.self,
-                from: repositoryData(path),
-            )
-            #expect(provenance.releaseStatus == expectedStatus)
-            if expectedStatus == "blocked" {
-                #expect(provenance.releaseBlocker?.isEmpty == false)
-            } else {
+        for descriptor in RawCullAIModelDownloadCatalog.prepared.models {
+            let path = "ModelAssets/Notices/\(descriptor.resourceName)/PROVENANCE.json"
+            let provenance = try JSONDecoder().decode(ModelProvenance.self, from: repositoryData(path))
+            #expect(["ready", "blocked"].contains(provenance.releaseStatus))
+            #expect(descriptor.releaseReadiness.isReady == (provenance.releaseStatus == "ready"))
+            if RawCullAIModelDownloadCatalog.production.descriptor(for: descriptor.id) != nil {
+                #expect(provenance.releaseStatus == "ready")
                 #expect(provenance.releaseBlocker == nil)
+                let archive = try #require(provenance.release)
+                #expect(archive.archiveSHA256 == descriptor.expectedArchiveSHA256)
+                #expect(archive.archiveByteCount == descriptor.downloadByteCount)
+            }
+            if provenance.releaseStatus == "blocked" {
+                #expect(provenance.releaseBlocker?.isEmpty == false)
             }
 
             let directory = repositoryRoot
@@ -223,6 +223,15 @@ private struct ModelManifest: Decodable {
 }
 
 private struct ModelProvenance: Decodable {
+    struct Archive: Decodable {
+        let archiveSHA256: String
+        let archiveByteCount: Int64
+        enum CodingKeys: String, CodingKey {
+            case archiveSHA256 = "archive_sha256"
+            case archiveByteCount = "archive_byte_count"
+        }
+    }
+    let release: Archive?
     struct Licence: Decodable {
         let file: String
         let sha256: String
@@ -236,6 +245,7 @@ private struct ModelProvenance: Decodable {
         case releaseStatus = "release_status"
         case releaseBlocker = "release_blocker"
         case licences
+        case release
     }
 }
 

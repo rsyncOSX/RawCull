@@ -40,10 +40,10 @@ enum CopyStartupFailure: Error, Equatable, LocalizedError {
             "Unable to write the copy-list file: \(message)"
 
         case .sourceAccessFailed:
-            "Unable to access the selected source folder."
+            "Unable to access the selected source folder. Please reselect the source folder and try again."
 
         case .destinationAccessFailed:
-            "Unable to access the selected destination folder."
+            "Unable to access the selected destination folder. Please reselect the destination folder and try again."
 
         case let .processLaunchFailed(message):
             "Unable to start rsync: \(message)"
@@ -66,6 +66,7 @@ final class ExecuteCopyFiles {
     var copytaggedfiles: Bool
     private let includeListDirectoryOverride: URL?
     private let fileManager: FileManager
+    private let bookmarkDefaults: UserDefaults
     private(set) var includeListURL: URL?
 
     // Streaming references
@@ -85,10 +86,7 @@ final class ExecuteCopyFiles {
     var progressStream: AsyncStream<Int>?
     private var progressContinuation: AsyncStream<Int>.Continuation?
 
-    func startcopyfiles(
-        fallbacksource: String,
-        fallbackdest: String,
-    ) -> Result<Void, CopyStartupFailure> {
+    func startcopyfiles() -> Result<Void, CopyStartupFailure> {
         guard var arguments = ArgumentsSynchronize(config: config).argumentsSynchronize(
             dryRun: dryrun,
         ) else {
@@ -139,7 +137,7 @@ final class ExecuteCopyFiles {
         let updateparamter = "--update"
         arguments.append(updateparamter)
 
-        guard let sourceURL = getAccessedURL(fromBookmarkKey: "sourceBookmark", fallbackPath: fallbacksource) else {
+        guard let sourceURL = getAccessedURL(fromBookmarkKey: "sourceBookmark") else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.sourceAccessFailed)
@@ -147,7 +145,7 @@ final class ExecuteCopyFiles {
 
         self.sourceAccessedURL = sourceURL
 
-        guard let destURL = getAccessedURL(fromBookmarkKey: "destBookmark", fallbackPath: fallbackdest) else {
+        guard let destURL = getAccessedURL(fromBookmarkKey: "destBookmark") else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.destinationAccessFailed)
@@ -188,6 +186,7 @@ final class ExecuteCopyFiles {
         sidebarRawCullViewModel: RawCullViewModel,
         includeListDirectory: URL? = nil,
         fileManager: FileManager = .default,
+        bookmarkDefaults: UserDefaults = .standard,
     ) {
         self.config = configuration
         self.dryrun = dryrun
@@ -196,6 +195,7 @@ final class ExecuteCopyFiles {
         self.copytaggedfiles = copytaggedfiles
         self.includeListDirectoryOverride = includeListDirectory
         self.fileManager = fileManager
+        self.bookmarkDefaults = bookmarkDefaults
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
         self.progressStream = stream
@@ -340,43 +340,36 @@ final class ExecuteCopyFiles {
         }
     }
 
-    func getAccessedURL(fromBookmarkKey key: String, fallbackPath: String) -> URL? {
-        // Try bookmark first
-        if let bookmarkData = UserDefaults.standard.data(forKey: key) {
-            do {
-                var isStale = false
-                let url = try URL(
-                    resolvingBookmarkData: bookmarkData,
-                    options: .withSecurityScope,
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale,
-                )
-                guard url.startAccessingSecurityScopedResource() else {
-                    Logger.process.errorMessageOnly(": Failed to start accessing bookmark for \(key)")
-                    // Try fallback instead
-                    return tryFallbackPath(fallbackPath, key: key)
-                }
-                Logger.process.debugMessageOnly("Successfully resolved bookmark for \(key)")
-                return url
-            } catch {
-                Logger.process.errorMessageOnly(": Bookmark resolution failed for \(key): \(error)")
-                // Try fallback instead
-                return tryFallbackPath(fallbackPath, key: key)
-            }
-        }
-
-        // If no bookmark exists, try the fallback path
-        return tryFallbackPath(fallbackPath, key: key)
-    }
-
-    private func tryFallbackPath(_ fallbackPath: String, key: String) -> URL? {
-        Logger.process.warning("WARNING: No bookmark found for \(key), attempting direct path access")
-        let fallbackURL = URL(fileURLWithPath: fallbackPath)
-        guard fallbackURL.startAccessingSecurityScopedResource() else {
-            Logger.process.errorMessageOnly(": Failed to access fallback path for \(key)")
+    func getAccessedURL(fromBookmarkKey key: String) -> URL? {
+        guard let bookmarkData = bookmarkDefaults.data(forKey: key) else {
+            Logger.process.warning("No bookmark for \(key); folder reselection is required")
             return nil
         }
-        Logger.process.debugMessageOnly("Successfully accessed fallback path for \(key)")
-        return fallbackURL
+        do {
+            var isStale = false
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale,
+            )
+            guard url.startAccessingSecurityScopedResource() else {
+                Logger.process.errorMessageOnly("Cannot access bookmark for \(key); reselect the folder")
+                return nil
+            }
+            // Refresh a stale bookmark only while its resolved grant is active.
+            if isStale {
+                do {
+                    let refreshed = try url.bookmarkData(options: .withSecurityScope)
+                    bookmarkDefaults.set(refreshed, forKey: key)
+                } catch {
+                    Logger.process.warning("Could not refresh bookmark for \(key): \(error)")
+                }
+            }
+            return url
+        } catch {
+            Logger.process.errorMessageOnly("Bookmark resolution failed for \(key): \(error); reselect the folder")
+            return nil
+        }
     }
 }
