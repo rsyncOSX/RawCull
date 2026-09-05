@@ -207,7 +207,7 @@ struct RawCullMainView: View {
 
     private var persistenceErrorIsPresented: Binding<Bool> {
         Binding(
-            get: { viewModel.cullingModel.persistenceError != nil },
+            get: { !viewModel.cullingModel.isTerminationPending && viewModel.cullingModel.persistenceError != nil },
             set: { _ in },
         )
     }

@@ -19,7 +19,6 @@ TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
 SMOKE_EXPECTED_TESTS = 210
 PERFORMANCE_EXPECTED_TESTS = 2
-ENABLED_MODEL_PROVENANCE = ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json
 
 # Default target is release build
 build: clean archive sign-app notarize staple prepare-dmg hash-dmg open
@@ -73,10 +72,10 @@ release-preflight:
 			echo "Release blocked: existing $(MARKETING_VERSION) tag does not point to this release candidate"; \
 			exit 1; \
 		fi
-	@if rg --quiet '"release_status": "blocked"' $(ENABLED_MODEL_PROVENANCE); then \
-		echo "Release blocked: enabled model provenance audit is incomplete"; \
-		exit 1; \
-	fi
+	@python3 Scripts/VerifyModelProvenance.py
+
+verify-model-provenance:
+	@python3 Scripts/VerifyModelProvenance.py
 
 archive: clean
 	osascript -e 'display notification "Exporting application archive..." with title "Build the RawCull"'
@@ -221,4 +220,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

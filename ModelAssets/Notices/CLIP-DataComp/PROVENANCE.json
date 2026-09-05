@@ -2,8 +2,10 @@
   "catalog_version": 2,
   "release_status": "ready",
   "release": {
-    "tag": "v2",
-    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v2/no.blogspot.RawCull.models.clip-datacomp"
+    "tag": "v3",
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.clip-datacomp",
+    "archive_sha256": "cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7",
+    "archive_byte_count": 282966632
   },
   "model": {
     "bundle": "CLIP-DataComp",

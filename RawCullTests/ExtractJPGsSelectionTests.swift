@@ -195,6 +195,48 @@ struct ExtractJPGsOutputURLTests {
         #expect(outputURL == destination.appendingPathComponent("Alpha_demosaic.jpg"))
     }
 
+    @Test(arguments: [ExtractJPGExportMode.embeddedJPG, .demosaicedRAW])
+    func `concurrent exports preserve existing photographs`(mode: ExtractJPGExportMode) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = URL(fileURLWithPath: "/source/Alpha.ARW")
+        let output = SaveJPGImage.outputURL(for: source, in: root, exportMode: mode)
+        let original = Data("original photograph".utf8)
+        try original.write(to: output)
+        // Separate actors exercise filesystem exclusion, not actor serialization.
+        let payloads = (0..<8).map { Data("export \($0)".utf8) }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for (index, payload) in payloads.enumerated() {
+                group.addTask {
+                    let input = URL(fileURLWithPath: "/source/\(index)/Alpha.ARW")
+                    try await SaveJPGImage().save(payload, originalURL: input,
+                                                  destinationCatalogURL: root, exportMode: mode)
+                }
+            }
+            try await group.waitForAll()
+        }
+        #expect(try Data(contentsOf: output) == original)
+        let urls = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        #expect(urls.count == payloads.count + 1)
+        let actual = try Set(urls.map { try Data(contentsOf: $0) })
+        #expect(actual == Set(payloads + [original]))
+    }
+
+    @Test
+    func `uppercase camera JPEG is preserved`() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let camera = root.appendingPathComponent("Alpha.JPG")
+        let original = Data("camera JPEG".utf8)
+        try original.write(to: camera)
+        try await SaveJPGImage().save(Data("export".utf8), originalURL: root.appendingPathComponent("Alpha.ARW"),
+                                      destinationCatalogURL: root, exportMode: .embeddedJPG)
+        #expect(try Data(contentsOf: camera) == original)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).count == 2)
+    }
+
     @Test
     func `save propagates destination write failure`() async throws {
         let root = FileManager.default.temporaryDirectory

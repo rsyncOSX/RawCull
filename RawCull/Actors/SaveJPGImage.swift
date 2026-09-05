@@ -28,7 +28,21 @@ actor SaveJPGImage {
         Logger.process.info("ExtractEmbeddedPreview: Attempting to save to \(outputURL.path)")
 
         try await Task.detached(priority: .background) {
-            try jpegData.write(to: outputURL, options: .atomic)
+            var candidate = outputURL
+            var suffix = 1
+            while true {
+                try Task.checkCancellation()
+                do {
+                    // Exclusive creation is enforced by the filesystem, including
+                    // case-insensitive collisions and simultaneous exporters.
+                    try jpegData.write(to: candidate, options: .withoutOverwriting)
+                    break
+                } catch CocoaError.fileWriteFileExists {
+                    candidate = outputURL.deletingLastPathComponent()
+                        .appendingPathComponent("\(outputURL.deletingPathExtension().lastPathComponent) (\(suffix)).jpg")
+                    suffix += 1
+                }
+            }
             Logger.process.info("ExtractEmbeddedPreview: Successfully saved JPEG. Output bytes: \(jpegData.count)")
         }.value
     }

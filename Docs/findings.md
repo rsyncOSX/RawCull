@@ -4,6 +4,10 @@ Reviewed 2026-09-05 at commit `71346dd7555fd4912bec888678018304bf37af34` (versio
 
 **Recommendation: hold the release pending the P1 findings below.** This is a source and release-configuration review, not certification of the packaged application. No production code, tags, model assets, or release artifacts were changed.
 
+## Remediation update — 2026-09-05
+
+Source fixes for findings 1 and 2 are implemented in the current worktree, together with the quit-save recovery and copy-bookmark issues from the Copilot review. See the [coordinated fix plan and validation record](fix-plan-2026-09-05.md). The original findings below remain as the review-time record; release-tag reconciliation, release-entry-point gating, and packaged-app validation are still separate work.
+
 ## Findings
 
 ### 1. [P1 — blocker] JPEG export silently overwrites existing photographs

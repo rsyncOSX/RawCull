@@ -83,7 +83,7 @@ struct AboutRawCullView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                Text("Fast Sony RAW culling with local CLIP semantic search and similarity, SAM 3 Deep Review, and built-in Vision fallback when an optional model is unavailable.")
+                Text("Fast Sony RAW culling with local CLIP semantic search and similarity, Deep Review, and built-in Vision fallback when an optional model is unavailable.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

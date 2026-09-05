@@ -1,6 +1,7 @@
 import Foundation
 @testable import RawCull
 import Testing
+import RawCullCore
 
 @MainActor
 struct ExecuteCopyFilesStartupTests {
@@ -9,10 +10,7 @@ struct ExecuteCopyFilesStartupTests {
         let viewModel = makeRawCullViewModel()
         let manager = makeManager(viewModel: viewModel, copytaggedfiles: true)
 
-        let result = manager.startcopyfiles(
-            fallbacksource: "/tmp/rawcull-source",
-            fallbackdest: "/tmp/rawcull-destination",
-        )
+        let result = manager.startcopyfiles()
 
         guard case .failure(.noMatchingFiles) = result else {
             Issue.record("Expected noMatchingFiles, got \(result)")
@@ -26,10 +24,7 @@ struct ExecuteCopyFilesStartupTests {
         let viewModel = makeRawCullViewModel()
         let manager = makeManager(viewModel: viewModel, copytaggedfiles: false)
 
-        let result = manager.startcopyfiles(
-            fallbacksource: "/tmp/rawcull-source",
-            fallbackdest: "/tmp/rawcull-destination",
-        )
+        let result = manager.startcopyfiles()
 
         guard case .failure(.noMatchingFiles) = result else {
             Issue.record("Expected noMatchingFiles, got \(result)")
@@ -46,10 +41,7 @@ struct ExecuteCopyFilesStartupTests {
             manager = makeManager(viewModel: viewModel)
         }
 
-        let result = manager.startcopyfiles(
-            fallbacksource: "/tmp/rawcull-source",
-            fallbackdest: "/tmp/rawcull-destination",
-        )
+        let result = manager.startcopyfiles()
 
         guard case .failure(.missingViewModel) = result else {
             Issue.record("Expected missingViewModel, got \(result)")
@@ -120,6 +112,34 @@ struct ExecuteCopyFilesStartupTests {
         #expect(data == expected)
         #expect(!data.contains(10))
 
+        manager.close()
+    }
+
+    @Test(arguments: [false, true])
+    func `missing or corrupt bookmark requires folder reselection`(corrupt: Bool) throws {
+        let suite = "RawCullCopyBookmarks-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        if corrupt { defaults.set(Data("invalid bookmark".utf8), forKey: "sourceBookmark") }
+        let viewModel = makeRawCullViewModel()
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = FileItem(url: directory.appendingPathComponent("A.ARW"), name: "A.ARW", size: 1,
+                            dateModified: Date(), exifData: nil, afFocusNormalized: nil)
+        viewModel.filteredFiles = [file]
+        let manager = ExecuteCopyFiles(configuration: SynchronizeConfiguration(), rating: 0, copytaggedfiles: false,
+                                       sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
+                                       bookmarkDefaults: defaults)
+        guard case .failure(.sourceAccessFailed) = manager.startcopyfiles() else {
+            Issue.record("Expected source access failure")
+            return
+        }
+        #expect(manager.includeListURL == nil)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+        #expect(manager.getAccessedURL(fromBookmarkKey: "sourceBookmark") == nil)
+        #expect(manager.getAccessedURL(fromBookmarkKey: "destBookmark") == nil)
+        #expect(CopyStartupFailure.sourceAccessFailed.localizedDescription.contains("reselect the source"))
+        #expect(CopyStartupFailure.destinationAccessFailed.localizedDescription.contains("reselect the destination"))
         manager.close()
     }
 

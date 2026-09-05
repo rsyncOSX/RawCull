@@ -23,17 +23,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let viewModel else { return .terminateNow }
-        guard terminationTask == nil else { return .terminateLater }
+        return beginTermination(
+            flush: { await viewModel.cullingModel.flushPersistence() },
+            chooseRecovery: { Self.showQuitRecovery(error: viewModel.cullingModel.persistenceError) },
+            setPending: { viewModel.cullingModel.isTerminationPending = $0 },
+            releaseAccess: { viewModel.stopActiveSecurityScopedAccess() },
+            reply: { sender.reply(toApplicationShouldTerminate: $0) },
+        )
+    }
 
+    enum QuitRecoveryChoice {
+        case retry, cancel, discard
+    }
+
+    // Keep exactly one deferred termination request alive through retries.
+    // Closures let tests exercise the real lifecycle without terminating the test host.
+    func beginTermination(
+        flush: @escaping @MainActor () async -> Bool,
+        chooseRecovery: @escaping @MainActor () -> QuitRecoveryChoice,
+        setPending: @escaping @MainActor (Bool) -> Void,
+        releaseAccess: @escaping @MainActor () -> Void,
+        reply: @escaping @MainActor (Bool) -> Void,
+    ) -> NSApplication.TerminateReply {
+        guard terminationTask == nil else { return .terminateLater }
+        setPending(true)
         terminationTask = Task {
-            let didSave = await viewModel.cullingModel.flushPersistence()
-            if didSave {
-                viewModel.stopActiveSecurityScopedAccess()
+            var shouldQuit = false
+            saveAttempts: while true {
+                if await flush() {
+                    shouldQuit = true
+                    break
+                }
+                switch chooseRecovery() {
+                case .retry: continue
+                case .cancel: break saveAttempts
+                case .discard:
+                    shouldQuit = true
+                    break saveAttempts
+                }
             }
+            if shouldQuit { releaseAccess() }
             terminationTask = nil
-            sender.reply(toApplicationShouldTerminate: didSave)
+            // Keep the normal persistence alert suppressed while exiting.
+            if !shouldQuit { setPending(false) }
+            reply(shouldQuit)
         }
         return .terminateLater
+    }
+
+    private static func showQuitRecovery(error: String?) -> QuitRecoveryChoice {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "Changes Could Not Be Saved")
+        alert.informativeText = String(localized: "Retry after restoring access or freeing disk space, cancel quitting to keep your changes in memory, or quit without saving. Quitting without saving discards unsaved ratings and culling changes.") + "\n\n" + (error ?? "")
+        alert.addButton(withTitle: String(localized: "Retry"))
+        alert.addButton(withTitle: String(localized: "Cancel Quit")).keyEquivalent = "\u{1b}"
+        let discard = alert.addButton(withTitle: String(localized: "Quit Without Saving"))
+        discard.hasDestructiveAction = true
+        discard.keyEquivalent = ""
+        // An app-modal alert also works after the last window has closed.
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: return .retry
+        case .alertThirdButtonReturn: return .discard
+        default: return .cancel
+        }
     }
 }
 
