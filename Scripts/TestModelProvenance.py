@@ -9,13 +9,17 @@ from VerifyModelProvenance import validate
 class ModelProvenanceTests(unittest.TestCase):
     def test_invalid_enabled_evidence_is_rejected(self):
         source = Path(__file__).resolve().parent.parent
+        self.assertEqual(validate(source), ['clipDataComp', 'sam3'])
         for mutation in ['blocked', 'missing', 'malformed', 'hash', 'size', 'enable_sam', 'enable_sam_download', 'unknown_flag', 'invalid_status', 'missing_field', 'wrong_filter', 'model_path', 'revision', 'stale_release_url', 'stale_release_tag']:
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 shutil.copy(source / "RawCull-Info.plist", root / "RawCull-Info.plist")
                 catalog = Path('RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift')
                 (root / catalog).parent.mkdir(parents=True)
-                shutil.copy(source / catalog, root / catalog)
+                # Start rejection fixtures from the release-ready DataComp-only configuration.
+                (root / catalog).write_text((source / catalog).read_text().replace(
+                    'includeSAM3Download = true', 'includeSAM3Download = false').replace(
+                    'includeSAM3 = true', 'includeSAM3 = false'))
                 shutil.copytree(source / 'ModelAssets/Notices', root / 'ModelAssets/Notices')
                 self.assertEqual(validate(root), ['clipDataComp'])
                 path = root / 'ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json'
@@ -25,6 +29,11 @@ class ModelProvenanceTests(unittest.TestCase):
                 elif mutation == 'malformed':
                     path.write_text('{')
                 elif mutation.startswith('enable_sam'):
+                    sam_path = root / 'ModelAssets/Notices/SAM3/PROVENANCE.json'
+                    sam_record = json.loads(sam_path.read_text())
+                    sam_record['release_status'] = 'blocked'
+                    sam_record['release_blocker'] = 'Test unresolved release evidence'
+                    sam_path.write_text(json.dumps(sam_record))
                     flag = 'includeSAM3Download' if mutation.endswith('download') else 'includeSAM3'
                     text = (root / catalog).read_text().replace(flag + ' = false', flag + ' = true')
                     (root / catalog).write_text(text)

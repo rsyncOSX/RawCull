@@ -1,7 +1,6 @@
 {
   "catalog_version": 2,
-  "release_status": "blocked",
-  "release_blocker": "Confirm that public delivery of the converted derivative is compatible with Meta's SAM License and the official gated checkpoint access flow, then generate the final Managed Background Assets archive and record its exact byte size and SHA-256.",
+  "release_status": "ready",
   "model": {
     "bundle": "SAM3",
     "asset": "Models/SAM3/sam3_float16.aimodel",
@@ -50,5 +49,12 @@
       "file": "Apple-coreai-models-BSD-3-Clause.txt",
       "sha256": "6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e"
     }
-  ]
+  ],
+  "release": {
+    "tag": "v3",
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.sam3",
+    "archive_sha256": "dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9",
+    "archive_byte_count": 1542689157,
+    "evidence_note": "Archive size and SHA-256 verified against GitHub release asset metadata on 2026-09-06; ID, URL, version, and size match the published v3 manifest. Download enabled at the project owner's explicit direction; RawCull retains verified SAM License acceptance. This records the release decision, not an independent legal review."
+  }
 }

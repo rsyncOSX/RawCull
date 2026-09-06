@@ -10,14 +10,14 @@ struct RawCullAIModelDownloadsTests {
         let catalog = RawCullAIModelDownloadCatalog.production
         let preparedCatalog = RawCullAIModelDownloadCatalog.prepared
 
-        #expect(catalog.models.map(\.id) == [.clipDataComp])
+        #expect(catalog.models.map(\.id) == [.clipDataComp, .sam3])
         #expect(preparedCatalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
             .efficientSAM,
             .sam3,
         ])
-        #expect(RawCullAIModelInclusion.segmentationModels.isEmpty)
+        #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
         #expect(
             catalog.descriptor(for: .clipDataComp)?.releaseReadiness.isReady
                 == true,
@@ -79,7 +79,7 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(sam3.downloadByteCount == 1_542_689_157)
         #expect(sam3.installedByteCount == 1_667_576_486)
-        #expect(!sam3.releaseReadiness.isReady)
+        #expect(sam3.releaseReadiness.isReady)
 
         for descriptor in preparedCatalog.models {
             guard let resourceName =
@@ -227,7 +227,11 @@ struct RawCullAIModelDownloadsTests {
 
         #expect(snapshot.states[.clipDataComp] == failure)
         #expect(snapshot.states[.clipOpenAI] == nil)
-        #expect(snapshot.states[.sam3] == nil)
+        #expect(snapshot.states[.sam3] == .licenceRequired)
+        #expect(snapshot.states[.efficientSAM] == nil)
+        try await coordinator.acceptLicence(for: .sam3, rawCullVersion: "3.2.0")
+        let accepted = await coordinator.snapshot()
+        #expect(accepted.states[.sam3] == failure)
     }
 
     @MainActor

@@ -27,9 +27,9 @@ nonisolated enum RawCullAIModelInclusion {
     static let includeOpenAICLIP = false
     static let includeDataCompCLIP = true
     static let includeEfficientSAM = false
-    static let includeSAM3 = false
+    static let includeSAM3 = true
     static let includeEfficientSAMDownload = false
-    static let includeSAM3Download = false
+    static let includeSAM3Download = true
 
     static var clipModels: [RawCullCLIPModel] {
         RawCullCLIPModel.allCases.filter { model in
@@ -280,9 +280,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     textSHA256: "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
                     requiresExplicitAcceptance: true,
                 ),
-                releaseReadiness: .blocked(
-                    reason: "Public distribution approval and final archive evidence remain unresolved in the SAM 3 provenance record.",
-                ),
+                releaseReadiness: .ready,
             ),
         ],
     )

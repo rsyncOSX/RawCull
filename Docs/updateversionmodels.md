@@ -13,8 +13,6 @@ with the release being prepared.
 | Model | Asset-pack ID | Manifest destination | App resource name |
 |---|---|---|---|
 | DataComp CLIP | `no.blogspot.RawCull.models.clip-datacomp` | `Models/CLIP-DataComp` | `CLIP-DataComp` |
-| OpenAI CLIP | `no.blogspot.RawCull.models.clip-openai` | `Models/CLIP-OpenAI` | `CLIP-OpenAI` |
-| EfficientSAM | `no.blogspot.RawCull.models.efficient-sam` | `Models/EfficientSAM` | `EfficientSAM` |
 | Meta SAM 3 | `no.blogspot.RawCull.models.sam3` | `Models/SAM3` | `SAM3` |
 
 Do not change an asset-pack ID or destination merely to publish a new
@@ -50,15 +48,6 @@ Use the following per-model evidence:
 - Asset-pack archive SHA-256 and byte size.
 - OpenCLIP/DataComp, OpenAI tokenizer, and Apple conversion-recipe notices.
 
-### OpenAI CLIP
-
-- Immutable `openai/clip-vit-base-patch32` revision.
-- `pytorch_model.bin` SHA-256 and byte size.
-- Tokenizer revision and checksum.
-- Converted model fingerprint.
-- Asset-pack archive SHA-256 and byte size.
-- OpenAI CLIP and Apple conversion-recipe notices.
-
 ### Meta SAM 3
 
 - Immutable Meta SAM 3 revision.
@@ -70,23 +59,9 @@ Use the following per-model evidence:
   Managed Background Assets URL is compatible with the SAM License, gated
   access conditions, and other applicable terms.
 
-SAM 3 must remain `releaseReadiness: .blocked` and must not appear in the
-deployable manifest until its redistribution review is complete. Publishing a
-SAM 3 archive is not, by itself, evidence that this review was completed.
-
-### EfficientSAM
-
-- Immutable `yformer/EfficientSAM` source revision.
-- Immutable EfficientSAM-Ti checkpoint revision, SHA-256, and byte size.
-- Exact query count, points-per-query, precision, and static-shape export
-  configuration.
-- Converted model runtime fingerprint and exporter directory fingerprint.
-- Asset-pack archive SHA-256 and byte size.
-- Complete EfficientSAM Apache 2.0 and Apple conversion-recipe notices.
-
-EfficientSAM must remain `releaseReadiness: .blocked` and must not appear in
-the deployable manifest until its final converted bundle and generated archive
-match every prepared provenance and catalog field.
+SAM 3 is enabled for v3 at the project owner’s direction, with verified archive
+metadata recorded in its provenance. For future releases, keep any unresolved
+release blocker until the corresponding release decision and evidence are recorded.
 
 ## 2. Generate the new release manifest
 
@@ -108,13 +83,11 @@ Example asset URLs:
 
 ```text
 https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.clip-datacomp
-https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.clip-openai
-https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.efficient-sam
 https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.sam3
 ```
 
-Include the EfficientSAM and SAM 3 entries only after each app descriptor and
-provenance catalog is release-ready.
+Include SAM 3 in the deployable manifest only after its app descriptor and
+provenance catalog are release-ready.
 
 ## 3. Update files in the RawCull repository
 
@@ -150,8 +123,8 @@ checks are complete. A pack that remains `.blocked` is deliberately skipped
 before RawCull asks Background Assets for its manifest state.
 
 Also update `RawCullAIModelInclusion` when a model should become visible or be
-removed from Settings. For SAM 3, this includes `includeSAM3` as well as its
-release-readiness state.
+removed from Settings. SAM 3 uses `includeSAM3Download` for the download sheet and `includeSAM3` for
+selection and loading; both are enabled for v3.
 
 ### Provenance and notices
 
@@ -159,8 +132,6 @@ Update the following directory for each model included in the release:
 
 ```text
 ModelAssets/Notices/CLIP-DataComp/
-ModelAssets/Notices/CLIP-OpenAI/
-ModelAssets/Notices/EfficientSAM/
 ModelAssets/Notices/SAM3/
 ```
 
@@ -197,7 +168,7 @@ Update `ModelAssets/README.md` with:
 - the new release tag;
 - archive SHA-256 and byte-size evidence;
 - model revisions and source checksums;
-- distribution state for all four models;
+- distribution state for both models;
 - the new production manifest URL; and
 - which packs the generated manifest publishes.
 
@@ -274,12 +245,10 @@ procedure, see [macOS Background Assets and RawCull release builds](macos-backgr
 - downloads resolve the expected asset-pack ID and destination;
 - downloaded model validation succeeds;
 - removing and redownloading each pack succeeds; and
-- switching between DataComp CLIP and OpenAI CLIP uses separate model indexes.
 
 ## Release checklist
 
 - [ ] DataComp CLIP archive, licence, provenance, revision, hash, and size verified.
-- [ ] OpenAI CLIP archive, licence, provenance, revision, hash, and size verified.
 - [ ] SAM 3 redistribution review completed, or SAM 3 remains blocked and absent from the manifest.
 - [ ] Generated manifest uses the new version and final archive URLs and sizes.
 - [ ] Asset packs uploaded before `manifest.json`.
