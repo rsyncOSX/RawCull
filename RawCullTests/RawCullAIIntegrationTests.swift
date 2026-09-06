@@ -58,7 +58,7 @@ struct RawCullAIIntegrationTests {
         let initialCapabilities = integration.capabilities()
 
         #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
-            expectedLocations: [],
+            expectedLocations: [paths.sam3ModelDirectory],
         ))
         #expect(initialCapabilities.segmentationModelStatus(for: .efficientSAM) == .checking(
             expectedLocations: [paths.efficientSAMModelDirectory],
@@ -82,7 +82,7 @@ struct RawCullAIIntegrationTests {
         let capabilities = try await integration.refreshCapabilities()
 
         #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
-            expectedLocations: [],
+            expectedLocations: [paths.sam3ModelDirectory],
         ))
         #expect(capabilities.segmentationModelStatus(for: .efficientSAM) == .missing(
             expectedLocations: [paths.efficientSAMModelDirectory],
@@ -427,21 +427,21 @@ struct RawCullAIIntegrationTests {
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
         )
 
-        #expect(RawCullAIModelInclusion.segmentationModels.isEmpty)
-        #expect(model.selectedSegmentationModel == .efficientSAM)
+        #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
+        #expect(model.selectedSegmentationModel == .sam3)
         #expect(
             userDefaults.string(
                 forKey: RawCullAISettingsModel.selectedSegmentationModelPreferenceKey,
             ) == RawCullSegmentationModel.efficientSAM.rawValue,
         )
-        model.setSelectedSegmentationModel(.sam3)
-        #expect(model.selectedSegmentationModel == .efficientSAM)
+        model.setSelectedSegmentationModel(.efficientSAM)
+        #expect(model.selectedSegmentationModel == .sam3)
         let relaunchedModel = RawCullAISettingsModel(
             integration: integration,
             userDefaults: userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
         )
-        #expect(relaunchedModel.selectedSegmentationModel == .efficientSAM)
+        #expect(relaunchedModel.selectedSegmentationModel == .sam3)
     }
 
     private func isolatedRoot() -> URL {

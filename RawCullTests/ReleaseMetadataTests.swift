@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
-import Testing
 @testable import RawCull
+import Testing
 
 @Suite("Release metadata", .tags(.smoke))
 struct ReleaseMetadataTests {
@@ -90,8 +90,6 @@ struct ReleaseMetadataTests {
         let manifest = try JSONDecoder().decode(ModelManifest.self, from: manifestData)
         let expectedDestinations = [
             "no.blogspot.RawCull.models.clip-datacomp": "Models/CLIP-DataComp",
-            "no.blogspot.RawCull.models.clip-openai": "Models/CLIP-OpenAI",
-            "no.blogspot.RawCull.models.efficient-sam": "Models/EfficientSAM",
             "no.blogspot.RawCull.models.sam3": "Models/SAM3",
         ]
         var actualDestinations: [String: String] = [:]
@@ -110,7 +108,13 @@ struct ReleaseMetadataTests {
             #expect(catalog.contains("assetPackModelPath: \"\(destination)\""))
         }
         #expect(catalog.components(separatedBy: "expectedArchiveSHA256: nil").count - 1 == 1)
+        let productionDestinations = Dictionary(uniqueKeysWithValues:
+            RawCullAIModelDownloadCatalog.production.models.map {
+                ($0.assetPackID, $0.assetPackModelPath)
+            })
         #expect(RawCullAIModelDownloadCatalog.production.models.allSatisfy { $0.releaseReadiness.isReady })
+        #expect(productionDestinations == expectedDestinations)
+        #expect(manifest.assetPacks.count == expectedDestinations.count)
 
         let documentation = try repositoryText("ModelAssets/README.md")
         for (assetPackID, destination) in expectedDestinations {
@@ -231,6 +235,7 @@ private struct ModelProvenance: Decodable {
             case archiveByteCount = "archive_byte_count"
         }
     }
+
     let release: Archive?
     struct Licence: Decodable {
         let file: String
