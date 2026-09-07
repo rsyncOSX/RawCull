@@ -39,6 +39,7 @@ final class RawCullAIModelManagementModel {
     @ObservationIgnored private var downloadTasks:
         [RawCullAIModelDownloadID: Task<Void, Never>] = [:]
     @ObservationIgnored private var refreshGeneration = 0
+    @ObservationIgnored private var removingModelIDs: Set<RawCullAIModelDownloadID> = []
 
     init(
         catalog: RawCullAIModelDownloadCatalog = .production,
@@ -89,14 +90,26 @@ final class RawCullAIModelManagementModel {
     }
 
     func refresh() async {
+        await refresh(completing: nil)
+    }
+
+    private func refresh(completing completedID: RawCullAIModelDownloadID?) async {
         refreshGeneration &+= 1
         let generation = refreshGeneration
         let snapshot = await coordinator.snapshot()
-        guard !Task.isCancelled, refreshGeneration == generation else { return }
+        guard !Task.isCancelled || completedID != nil else { return }
 
-        apply(snapshot: snapshot)
+        if refreshGeneration == generation {
+            apply(snapshot: snapshot, completing: completedID)
+        } else if let completedID, let state = snapshot.states[completedID] {
+            // Another row may have progressed while this operation finished.
+            // Its progress must not strand this row in Downloading/Removing.
+            setState(state, for: completedID)
+        } else {
+            return
+        }
         await locationsConsumer?.applyManagedModelLocations(
-            snapshot.managedModelLocations,
+            states.compactMapValues(\.installedLocation),
         )
     }
 
@@ -119,7 +132,7 @@ final class RawCullAIModelManagementModel {
     func startModelDownload(
         _ id: RawCullAIModelDownloadID,
     ) {
-        guard downloadTasks[id] == nil else { return }
+        guard downloadTasks[id] == nil, !removingModelIDs.contains(id) else { return }
         guard let state = states[id], state.canStartDownload else { return }
 
         setState(.downloading(progress: 0), for: id)
@@ -138,13 +151,15 @@ final class RawCullAIModelManagementModel {
     func removeManagedModel(
         _ id: RawCullAIModelDownloadID,
     ) async {
-        guard downloadTasks[id] == nil else { return }
+        guard downloadTasks[id] == nil, !removingModelIDs.contains(id) else { return }
+        removingModelIDs.insert(id)
+        defer { removingModelIDs.remove(id) }
         setState(.removing, for: id)
         do {
             try await coordinator.remove(id)
-            await refresh()
+            await refresh(completing: id)
         } catch is CancellationError {
-            return
+            await refresh(completing: id)
         } catch {
             setState(.failed(message: error.localizedDescription), for: id)
         }
@@ -168,14 +183,9 @@ final class RawCullAIModelManagementModel {
             )
             try Task.checkCancellation()
             setState(.validating, for: id)
-            await refresh()
+            await refresh(completing: id)
         } catch is CancellationError {
-            let snapshot = await coordinator.snapshot()
-            if let state = snapshot.states[id] {
-                setState(state, for: id)
-            } else {
-                setState(.ready, for: id)
-            }
+            await refresh(completing: id)
         } catch {
             setState(.failed(message: error.localizedDescription), for: id)
         }
@@ -183,8 +193,14 @@ final class RawCullAIModelManagementModel {
 
     private func apply(
         snapshot: RawCullAIModelDownloadsSnapshot,
+        completing completedID: RawCullAIModelDownloadID?,
     ) {
-        states = snapshot.states
+        var refreshedStates = snapshot.states
+        let activeIDs = Set(downloadTasks.keys).union(removingModelIDs)
+        for id in activeIDs where id != completedID {
+            refreshedStates[id] = states[id]
+        }
+        states = refreshedStates
         acceptedLicenceModelIDs = snapshot.acceptedLicenceModelIDs
         rebuildPresentations()
     }
@@ -193,6 +209,8 @@ final class RawCullAIModelManagementModel {
         _ state: RawCullAIModelDownloadState,
         for id: RawCullAIModelDownloadID,
     ) {
+        // Invalidate snapshots requested before this operation/progress change.
+        refreshGeneration &+= 1
         states[id] = state
         rebuildPresentations()
     }

@@ -267,26 +267,46 @@ private final class SimilarityDistanceCancellationProbe: Sendable {
     private struct State: Sendable {
         var started = false
         var observedCancellation = false
+        var mayReturn = false
+        var startWaiter: CheckedContinuation<Void, Never>?
     }
 
     private let state = Mutex(State())
+    private let releaseGate = NSCondition()
 
     func distance() -> Float {
-        state.withLock { $0.started = true }
-        let deadline = Date().addingTimeInterval(2)
-        while !Task.isCancelled, Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.001)
+        let waiter = state.withLock { state in
+            state.started = true
+            let waiter = state.startWaiter
+            state.startWaiter = nil
+            return waiter
         }
-        if Task.isCancelled {
-            state.withLock { $0.observedCancellation = true }
-        }
+        waiter?.resume()
+        // This fake implements a synchronous provider call. Hold only that
+        // worker until the test has requested cancellation, without a deadline.
+        releaseGate.lock()
+        while !state.withLock({ $0.mayReturn }) { releaseGate.wait() }
+        releaseGate.unlock()
+        state.withLock { $0.observedCancellation = Task.isCancelled }
         return 0
     }
 
     func waitUntilStarted() async {
-        while !state.withLock({ $0.started }) {
-            await Task.yield()
+        await withCheckedContinuation { continuation in
+            let alreadyStarted = state.withLock { state in
+                if state.started { return true }
+                state.startWaiter = continuation
+                return false
+            }
+            if alreadyStarted { continuation.resume() }
         }
+    }
+
+    func releaseDistance() {
+        releaseGate.lock()
+        state.withLock { $0.mayReturn = true }
+        releaseGate.broadcast()
+        releaseGate.unlock()
     }
 
     func didObserveCancellation() -> Bool {
@@ -541,6 +561,7 @@ struct CullingModelTests {
         }
         await probe.waitUntilStarted()
         ranking.cancel()
+        probe.releaseDistance()
         await ranking.value
 
         #expect(probe.didObserveCancellation())
@@ -577,6 +598,7 @@ struct CullingModelTests {
         await probe.waitUntilStarted()
         model.cancelSimilarityRanking()
         model.sortBySimilarity = false
+        probe.releaseDistance()
         await ranking.value
 
         #expect(probe.didObserveCancellation())

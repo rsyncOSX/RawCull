@@ -19,18 +19,27 @@ struct CreateStreamingHandlers {
 
     func createHandlers(
         fileHandler: @escaping (Int) -> Void,
-        processTermination: @escaping ([String]?, Int?) -> Void,
+        processTermination: @escaping ([String]?, Int?, CopyOutcome) -> Void,
     ) -> ProcessHandlers {
-        ProcessHandlers(
+        // The pinned RsyncProcess invokes these callbacks synchronously on
+        // MainActor, with propagateError before processTermination.
+        var outcome = CopyOutcome.success
+        return ProcessHandlers(
             processTermination: { output, hiddenID in
-                processTermination(output, hiddenID)
+                processTermination(output, hiddenID, outcome)
             },
             fileHandler: fileHandler,
             rsyncPath: "/usr/bin/rsync",
             checkLineForError: { _ in },
             updateProcess: { _ in },
-            propagateError: { _ in },
-            checkForErrorInRsyncOutput: false,
+            propagateError: { error in
+                if case RsyncProcessError.processCancelled = error {
+                    outcome = .cancelled
+                } else if outcome != .cancelled {
+                    outcome = .failed(message: error.localizedDescription)
+                }
+            },
+            checkForErrorInRsyncOutput: true,
             environment: nil,
         )
     }

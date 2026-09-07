@@ -10,6 +10,29 @@ import RsyncProcessStreaming
 struct CopyDataResult {
     let output: [String]?
     let viewOutput: [RsyncOutputData]?
+    let outcome: CopyOutcome
+    let operation: CopyOperation
+}
+
+enum CopyOutcome: Equatable {
+    case success
+    case failed(message: String)
+    case cancelled
+}
+
+/// The settings and resolved folders used by this operation, retained for its result.
+struct CopyOperation {
+    let dryRun: Bool
+    let sourceURL: URL
+    let destinationURL: URL
+
+    func title(for outcome: CopyOutcome) -> LocalizedStringResource {
+        switch outcome {
+        case .success: dryRun ? "Dry run complete" : "Copy complete"
+        case .failed: dryRun ? "Dry run failed" : "Copy incomplete"
+        case .cancelled: dryRun ? "Dry run cancelled" : "Copy cancelled"
+        }
+    }
 }
 
 enum CopyStartupFailure: Error, Equatable, LocalizedError {
@@ -40,7 +63,7 @@ enum CopyStartupFailure: Error, Equatable, LocalizedError {
             "Unable to write the copy-list file: \(message)"
 
         case .sourceAccessFailed:
-            "Unable to access the selected source folder. Please reselect the source folder and try again."
+            "Unable to access the source folder for the current catalog. Please reselect the source folder to match the current catalog and try again."
 
         case .destinationAccessFailed:
             "Unable to access the selected destination folder. Please reselect the destination folder and try again."
@@ -61,12 +84,13 @@ final class ExecuteCopyFiles {
     weak var sidebarRawCullViewModel: RawCullViewModel?
 
     let config: SynchronizeConfiguration
-    var dryrun: Bool
-    var rating: Int
-    var copytaggedfiles: Bool
+    let dryrun: Bool
+    let rating: Int
+    let copytaggedfiles: Bool
     private let includeListDirectoryOverride: URL?
     private let fileManager: FileManager
     private let bookmarkDefaults: UserDefaults
+    private let displayedSourceURL: URL?
     private(set) var includeListURL: URL?
 
     // Streaming references
@@ -78,6 +102,7 @@ final class ExecuteCopyFiles {
     private var destAccessedURL: URL?
     private var didCleanUp = false
     private var isClosing = false
+    private var operation: CopyOperation?
 
     /// Callback
     var onCompletion: ((CopyDataResult) -> Void)?
@@ -137,7 +162,13 @@ final class ExecuteCopyFiles {
         let updateparamter = "--update"
         arguments.append(updateparamter)
 
-        guard let sourceURL = getAccessedURL(fromBookmarkKey: "sourceBookmark") else {
+        guard let catalogURL = sidebarRawCullViewModel.selectedSource?.url,
+              let displayedSourceURL,
+              Self.sameFolder(catalogURL, displayedSourceURL),
+              let sourceURL = getAccessedURL(
+                  fromBookmarkKey: "sourceBookmark",
+                  matching: catalogURL,
+              ) else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.sourceAccessFailed)
@@ -152,6 +183,7 @@ final class ExecuteCopyFiles {
         }
 
         self.destAccessedURL = destURL
+        operation = CopyOperation(dryRun: dryrun, sourceURL: sourceURL, destinationURL: destURL)
 
         arguments.append(sourceURL.path + "/")
         arguments.append(destURL.path + "/")
@@ -187,6 +219,7 @@ final class ExecuteCopyFiles {
         includeListDirectory: URL? = nil,
         fileManager: FileManager = .default,
         bookmarkDefaults: UserDefaults = .standard,
+        displayedSourceURL: URL? = nil,
     ) {
         self.config = configuration
         self.dryrun = dryrun
@@ -196,6 +229,7 @@ final class ExecuteCopyFiles {
         self.includeListDirectoryOverride = includeListDirectory
         self.fileManager = fileManager
         self.bookmarkDefaults = bookmarkDefaults
+        self.displayedSourceURL = displayedSourceURL ?? sidebarRawCullViewModel.selectedSource?.url
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
         self.progressStream = stream
@@ -220,37 +254,45 @@ final class ExecuteCopyFiles {
                     self?.progressContinuation?.yield(count)
                 }
             },
-            processTermination: { [weak self] output, hiddenID in
+            processTermination: { [weak self] output, hiddenID, outcome in
                 Task { @MainActor in
                     await self?.handleProcessTermination(
                         stringoutputfromrsync: output,
                         hiddenID: hiddenID,
+                        outcome: outcome,
                     )
                 }
             },
         )
     }
 
-    private func handleProcessTermination(stringoutputfromrsync: [String]?, hiddenID _: Int?) async {
+    private func handleProcessTermination(stringoutputfromrsync: [String]?, hiddenID _: Int?, outcome: CopyOutcome) async {
+        guard !isClosing, let operation else {
+            cleanup()
+            return
+        }
+
+        // Keep stderr/exit diagnostics available in the detailed output too.
+        var output = stringoutputfromrsync ?? []
+        if case let .failed(message) = outcome {
+            output.append(contentsOf: message.components(separatedBy: .newlines))
+        }
+        let viewOutput = await CreateOutputforView().createOutputForView(output)
         guard !isClosing else {
             cleanup()
             return
         }
 
-        // Create view output asynchronously
-        let viewOutput = await CreateOutputforView().createOutputForView(stringoutputfromrsync)
-
         // Create the result
         let result = CopyDataResult(
-            output: stringoutputfromrsync,
+            output: output,
             viewOutput: viewOutput,
+            outcome: outcome,
+            operation: operation,
         )
 
         // Call completion handler - let it finish before cleanup
         onCompletion?(result)
-
-        // Give a tiny delay to ensure completion handler processes
-        try? await Task.sleep(for: .milliseconds(10))
 
         // Clean up only after completion has been processed
         cleanup()
@@ -340,7 +382,11 @@ final class ExecuteCopyFiles {
         }
     }
 
-    func getAccessedURL(fromBookmarkKey key: String) -> URL? {
+    private static func sameFolder(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.resolvingSymlinksInPath().standardizedFileURL == rhs.resolvingSymlinksInPath().standardizedFileURL
+    }
+
+    func getAccessedURL(fromBookmarkKey key: String, matching expectedURL: URL? = nil) -> URL? {
         guard let bookmarkData = bookmarkDefaults.data(forKey: key) else {
             Logger.process.warning("No bookmark for \(key); folder reselection is required")
             return nil
@@ -353,6 +399,12 @@ final class ExecuteCopyFiles {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale,
             )
+            // A valid grant can still belong to a previously selected catalog.
+            // Never apply the current catalog's filenames to that older source.
+            if let expectedURL, !Self.sameFolder(url, expectedURL) {
+                Logger.process.warning("Bookmark for \(key) does not match the selected catalog; reselect the folder")
+                return nil
+            }
             guard url.startAccessingSecurityScopedResource() else {
                 Logger.process.errorMessageOnly("Cannot access bookmark for \(key); reselect the folder")
                 return nil

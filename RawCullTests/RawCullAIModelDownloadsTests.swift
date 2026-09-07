@@ -372,8 +372,17 @@ struct RawCullAIModelDownloadsTests {
         #expect(model.presentations.map(\.state) == [.ready])
         #expect(model.presentations.first?.licenceAccepted == true)
 
+        await service.suspendNextStateQuery()
+        let staleRefresh = Task { await model.refresh() }
+        await service.waitUntilStateQueryIsSuspended()
         model.startModelDownload(descriptor.id)
         await service.waitUntilProgressIsSuspended()
+        await service.resumeStateQuery()
+        await staleRefresh.value
+        #expect(model.presentations.map(\.state) == [.downloading(progress: 0.4)])
+
+        // Reopening the sheet refreshes a service that still reports Ready.
+        await model.refresh()
         #expect(model.presentations.map(\.state) == [.downloading(progress: 0.4)])
 
         await service.resumeDownload()
@@ -421,6 +430,9 @@ struct RawCullAIModelDownloadsTests {
         await model.acceptModelLicence(for: descriptor.id)
         model.startModelDownload(descriptor.id)
         await service.waitUntilStarted()
+
+        await model.refresh()
+        #expect(model.presentations.map(\.state) == [.downloading(progress: 0.25)])
 
         model.cancelModelDownload(descriptor.id)
         await waitUntilPresentation(model, hasState: .ready)
@@ -643,6 +655,9 @@ private actor ModelManagementDownloadService:
     private var progressIsSuspended = false
     private var downloadMayResume = false
     private var removals = 0
+    private var shouldSuspendStateQuery = false
+    private var stateQueryIsSuspended = false
+    private var stateQueryMayResume = false
 
     init(downloadURL: URL) {
         self.downloadURL = downloadURL
@@ -650,9 +665,23 @@ private actor ModelManagementDownloadService:
 
     func state(
         for _: RawCullAIModelDownloadDescriptor,
-    ) -> RawCullAIModelDownloadState {
-        currentState
+    ) async -> RawCullAIModelDownloadState {
+        let snapshot = currentState
+        if shouldSuspendStateQuery {
+            shouldSuspendStateQuery = false
+            stateQueryIsSuspended = true
+            while !stateQueryMayResume { await Task.yield() }
+        }
+        return snapshot
     }
+
+    func suspendNextStateQuery() { shouldSuspendStateQuery = true }
+
+    func waitUntilStateQueryIsSuspended() async {
+        while !stateQueryIsSuspended { await Task.yield() }
+    }
+
+    func resumeStateQuery() { stateQueryMayResume = true }
 
     func download(
         _: RawCullAIModelDownloadDescriptor,
@@ -713,8 +742,8 @@ private actor CancellableModelManagementDownloadService:
         _: RawCullAIModelDownloadDescriptor,
         progress: @escaping @MainActor @Sendable (Double) -> Void,
     ) async throws -> URL {
-        started = true
         await progress(0.25)
+        started = true
         do {
             try await Task.sleep(for: .seconds(30))
             return downloadURL
