@@ -40,7 +40,7 @@ enum CopyStartupFailure: Error, Equatable, LocalizedError {
             "Unable to write the copy-list file: \(message)"
 
         case .sourceAccessFailed:
-            "Unable to access the selected source folder. Please reselect the source folder and try again."
+            "Unable to access the source folder for the current catalog. Please reselect the source folder to match the current catalog and try again."
 
         case .destinationAccessFailed:
             "Unable to access the selected destination folder. Please reselect the destination folder and try again."
@@ -67,6 +67,7 @@ final class ExecuteCopyFiles {
     private let includeListDirectoryOverride: URL?
     private let fileManager: FileManager
     private let bookmarkDefaults: UserDefaults
+    private let displayedSourceURL: URL?
     private(set) var includeListURL: URL?
 
     // Streaming references
@@ -137,7 +138,13 @@ final class ExecuteCopyFiles {
         let updateparamter = "--update"
         arguments.append(updateparamter)
 
-        guard let sourceURL = getAccessedURL(fromBookmarkKey: "sourceBookmark") else {
+        guard let catalogURL = sidebarRawCullViewModel.selectedSource?.url,
+              let displayedSourceURL,
+              Self.sameFolder(catalogURL, displayedSourceURL),
+              let sourceURL = getAccessedURL(
+                  fromBookmarkKey: "sourceBookmark",
+                  matching: catalogURL,
+              ) else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.sourceAccessFailed)
@@ -187,6 +194,7 @@ final class ExecuteCopyFiles {
         includeListDirectory: URL? = nil,
         fileManager: FileManager = .default,
         bookmarkDefaults: UserDefaults = .standard,
+        displayedSourceURL: URL? = nil,
     ) {
         self.config = configuration
         self.dryrun = dryrun
@@ -196,6 +204,7 @@ final class ExecuteCopyFiles {
         self.includeListDirectoryOverride = includeListDirectory
         self.fileManager = fileManager
         self.bookmarkDefaults = bookmarkDefaults
+        self.displayedSourceURL = displayedSourceURL ?? sidebarRawCullViewModel.selectedSource?.url
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
         self.progressStream = stream
@@ -340,7 +349,11 @@ final class ExecuteCopyFiles {
         }
     }
 
-    func getAccessedURL(fromBookmarkKey key: String) -> URL? {
+    private static func sameFolder(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.resolvingSymlinksInPath().standardizedFileURL == rhs.resolvingSymlinksInPath().standardizedFileURL
+    }
+
+    func getAccessedURL(fromBookmarkKey key: String, matching expectedURL: URL? = nil) -> URL? {
         guard let bookmarkData = bookmarkDefaults.data(forKey: key) else {
             Logger.process.warning("No bookmark for \(key); folder reselection is required")
             return nil
@@ -353,6 +366,12 @@ final class ExecuteCopyFiles {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale,
             )
+            // A valid grant can still belong to a previously selected catalog.
+            // Never apply the current catalog's filenames to that older source.
+            if let expectedURL, !Self.sameFolder(url, expectedURL) {
+                Logger.process.warning("Bookmark for \(key) does not match the selected catalog; reselect the folder")
+                return nil
+            }
             guard url.startAccessingSecurityScopedResource() else {
                 Logger.process.errorMessageOnly("Cannot access bookmark for \(key); reselect the folder")
                 return nil

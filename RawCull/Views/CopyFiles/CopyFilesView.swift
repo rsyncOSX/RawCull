@@ -136,6 +136,7 @@ struct CopyFilesView: View {
             rating: copyratedfiles,
             copytaggedfiles: copytaggedfiles,
             sidebarRawCullViewModel: viewModel,
+            displayedSourceURL: URL(fileURLWithPath: sourcecatalog),
         )
 
         executionManager?.onCompletion = { result in
