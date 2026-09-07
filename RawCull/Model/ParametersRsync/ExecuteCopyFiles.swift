@@ -10,6 +10,29 @@ import RsyncProcessStreaming
 struct CopyDataResult {
     let output: [String]?
     let viewOutput: [RsyncOutputData]?
+    let outcome: CopyOutcome
+    let operation: CopyOperation
+}
+
+enum CopyOutcome: Equatable {
+    case success
+    case failed(message: String)
+    case cancelled
+}
+
+/// The settings and resolved folders used by this operation, retained for its result.
+struct CopyOperation {
+    let dryRun: Bool
+    let sourceURL: URL
+    let destinationURL: URL
+
+    func title(for outcome: CopyOutcome) -> LocalizedStringResource {
+        switch outcome {
+        case .success: dryRun ? "Dry run complete" : "Copy complete"
+        case .failed: dryRun ? "Dry run failed" : "Copy incomplete"
+        case .cancelled: dryRun ? "Dry run cancelled" : "Copy cancelled"
+        }
+    }
 }
 
 enum CopyStartupFailure: Error, Equatable, LocalizedError {
@@ -61,9 +84,9 @@ final class ExecuteCopyFiles {
     weak var sidebarRawCullViewModel: RawCullViewModel?
 
     let config: SynchronizeConfiguration
-    var dryrun: Bool
-    var rating: Int
-    var copytaggedfiles: Bool
+    let dryrun: Bool
+    let rating: Int
+    let copytaggedfiles: Bool
     private let includeListDirectoryOverride: URL?
     private let fileManager: FileManager
     private let bookmarkDefaults: UserDefaults
@@ -79,6 +102,7 @@ final class ExecuteCopyFiles {
     private var destAccessedURL: URL?
     private var didCleanUp = false
     private var isClosing = false
+    private var operation: CopyOperation?
 
     /// Callback
     var onCompletion: ((CopyDataResult) -> Void)?
@@ -159,6 +183,7 @@ final class ExecuteCopyFiles {
         }
 
         self.destAccessedURL = destURL
+        operation = CopyOperation(dryRun: dryrun, sourceURL: sourceURL, destinationURL: destURL)
 
         arguments.append(sourceURL.path + "/")
         arguments.append(destURL.path + "/")
@@ -229,37 +254,45 @@ final class ExecuteCopyFiles {
                     self?.progressContinuation?.yield(count)
                 }
             },
-            processTermination: { [weak self] output, hiddenID in
+            processTermination: { [weak self] output, hiddenID, outcome in
                 Task { @MainActor in
                     await self?.handleProcessTermination(
                         stringoutputfromrsync: output,
                         hiddenID: hiddenID,
+                        outcome: outcome,
                     )
                 }
             },
         )
     }
 
-    private func handleProcessTermination(stringoutputfromrsync: [String]?, hiddenID _: Int?) async {
+    private func handleProcessTermination(stringoutputfromrsync: [String]?, hiddenID _: Int?, outcome: CopyOutcome) async {
+        guard !isClosing, let operation else {
+            cleanup()
+            return
+        }
+
+        // Keep stderr/exit diagnostics available in the detailed output too.
+        var output = stringoutputfromrsync ?? []
+        if case let .failed(message) = outcome {
+            output.append(contentsOf: message.components(separatedBy: .newlines))
+        }
+        let viewOutput = await CreateOutputforView().createOutputForView(output)
         guard !isClosing else {
             cleanup()
             return
         }
 
-        // Create view output asynchronously
-        let viewOutput = await CreateOutputforView().createOutputForView(stringoutputfromrsync)
-
         // Create the result
         let result = CopyDataResult(
-            output: stringoutputfromrsync,
+            output: output,
             viewOutput: viewOutput,
+            outcome: outcome,
+            operation: operation,
         )
 
         // Call completion handler - let it finish before cleanup
         onCompletion?(result)
-
-        // Give a tiny delay to ensure completion handler processes
-        try? await Task.sleep(for: .milliseconds(10))
 
         // Clean up only after completion has been processed
         cleanup()

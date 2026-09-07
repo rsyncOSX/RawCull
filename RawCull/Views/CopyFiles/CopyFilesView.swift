@@ -27,6 +27,7 @@ struct CopyFilesView: View {
 
     @State private var copyFilesinProgress: Bool = false
     @State private var showResult: Bool = false
+    @State private var completedResult: CopyDataResult?
     @State private var startupErrorMessage: String?
 
     var body: some View {
@@ -36,6 +37,7 @@ struct CopyFilesView: View {
                 copyratedfiles: $copyratedfiles,
                 dryrun: $dryrun,
             )
+            .disabled(copyFilesinProgress)
 
             Divider()
 
@@ -46,14 +48,15 @@ struct CopyFilesView: View {
                 copytaggedfiles: $copytaggedfiles,
                 copyratedfiles: $copyratedfiles,
             )
+            .disabled(copyFilesinProgress)
 
             if copyFilesinProgress {
                 ProgressView("Copying files…")
                     .padding(.vertical, 4)
             }
 
-            if showResult, let numbers = remotedatanumbers {
-                copyResultView(numbers)
+            if showResult, let numbers = remotedatanumbers, let result = completedResult {
+                copyResultView(numbers, result: result)
             }
 
             Spacer()
@@ -93,16 +96,31 @@ struct CopyFilesView: View {
         }
     }
 
-    private func copyResultView(_ numbers: RemoteDataNumbers) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+    private func copyResultView(_ numbers: RemoteDataNumbers, result: CopyDataResult) -> some View {
+        let succeeded = result.outcome == .success
+        let color: Color = succeeded ? .green : .orange
+        return HStack(spacing: 12) {
+            Image(systemName: succeeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(color)
                 .font(.title2)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(dryrun ? "Dry run complete" : "Copy complete")
+                Text(result.operation.title(for: result.outcome))
                     .fontWeight(.medium)
-                if numbers.datatosynchronize {
+                if case let .failed(message) = result.outcome {
+                    Text(message)
+                        .font(.caption)
+                        .textSelection(.enabled)
+                        .lineLimit(3)
+                        .help(message)
+                    Text(result.operation.dryRun ? "Review the output and retry." : "Some files may have been copied. Review the output before retrying.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if result.outcome == .cancelled {
+                    Text(result.operation.dryRun ? "The dry run was cancelled." : "Some files may have been copied before cancellation.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if numbers.datatosynchronize {
                     Text("\(numbers.filestransferredInt) files · \(numbers.totaltransferredfilessize)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -122,7 +140,7 @@ struct CopyFilesView: View {
             .font(.caption)
         }
         .padding()
-        .background(.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func executeCopyFiles() {
@@ -158,8 +176,8 @@ struct CopyFilesView: View {
 
     private func handleCompletion(result: CopyDataResult) {
         var configuration = SynchronizeConfiguration()
-        configuration.localCatalog = sourcecatalog
-        configuration.offsiteCatalog = destinationcatalog
+        configuration.localCatalog = result.operation.sourceURL.path
+        configuration.offsiteCatalog = result.operation.destinationURL.path
 
         copyFilesinProgress = false
 
@@ -173,6 +191,7 @@ struct CopyFilesView: View {
         }
 
         executionManager = nil
+        completedResult = result
         showResult = true
     }
 
