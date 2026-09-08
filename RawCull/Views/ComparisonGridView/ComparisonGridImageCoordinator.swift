@@ -54,7 +54,7 @@ enum ComparisonGridImageCoordinator {
         for file: FileItem,
         useThumbnailSource: Bool,
     ) async -> ComparisonImageState {
-        let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+        let decodedImage = await ComparisonImageLoader.loadImage(
             for: file,
             useThumbnailSource: useThumbnailSource,
         )
@@ -64,8 +64,9 @@ enum ComparisonGridImageCoordinator {
 
         return ComparisonImageState(
             id: file.id,
-            cgImage: cgImage,
-            nsImage: nsImage,
+            cgImage: decodedImage.displayCGImage,
+            analysisCGImage: decodedImage.analysisCGImage,
+            nsImage: decodedImage.nsImage,
             isLoading: false,
         )
     }
@@ -76,7 +77,7 @@ enum ComparisonGridImageCoordinator {
         viewModel: RawCullViewModel,
     ) async -> ComparisonImageState {
         var updatedState = state
-        guard let cgImage = state.cgImage else {
+        guard let cgImage = state.analysisCGImage ?? state.cgImage else {
             updatedState.isFocusAnalysisComplete = true
             return updatedState
         }
