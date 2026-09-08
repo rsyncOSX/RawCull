@@ -508,10 +508,6 @@ struct MainThumbnailImageView: View {
         var config = viewModel.sharpnessModel.effectiveFocusConfig
         config.iso = file.exifData?.isoValue ?? 400
         config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        if let score = viewModel.sharpnessModel.scores[file.id],
-           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
-            config.guaranteeVisibleFocusEvidence = true
-        }
         return config
     }
 

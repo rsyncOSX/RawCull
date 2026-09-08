@@ -699,7 +699,6 @@ struct ZoomOverlayView: View {
         var config = viewModel.sharpnessModel.effectiveFocusConfig
         config.iso = file.exifData?.isoValue ?? 400
         config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        config.guaranteeVisibleFocusEvidence = true
         return config
     }
 
