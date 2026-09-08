@@ -7,7 +7,7 @@ import OSLog
 
 extension RawCullViewModel {
     func fileHandler(_ update: Int) {
-        Logger.process.debugMessageOnly("RawCullViewModel.fileHandler()")
+        // Logger.process.debugMessageOnly("RawCullViewModel.fileHandler()")
         fileOperationCompleted = update
     }
 
