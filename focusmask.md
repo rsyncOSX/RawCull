@@ -11,12 +11,12 @@ photographic accuracy has been validated on a labeled image corpus.
 
 | Original priority | Status | Evidence | Assessment |
 |---|---|---|---|
-| 1. Preserve detail before mask analysis | Remaining | `ZoomOverlayView.regenerateMaskFromCG` and `ComparisonGridImageCoordinator.focusResult` both call `downscaled(toWidth: 1024)` before analysis. | This remains the largest accuracy gap. A width-only cap still loses small detail and creates inconsistent portrait/landscape analysis resolution. |
-| 2. Use the same fine detail for selection and rendering | Complete | PhotoAnalysisKit commit `98a9630` builds one fine-detail `boostedLaplacian` and uses it for rankings, threshold sampling, and rendered edges. | The mask no longer selects a patch with a detail signal that the overlay omits. The configuration comment for `fineDetailBlendWeight` is now stale: overlay generation no longer uses the primary scoring pass. |
-| 3. Avoid visibility and confidence overstating evidence | Mostly complete | PhotoAnalysisKit commit `ee92a17` makes `guaranteeVisibleFocusEvidence` source-compatible only; generated masks never relax their threshold. Confidence requires rendered coverage and measured detail before it can be high. | The engine behavior is correct. RawCull still assigns `guaranteeVisibleFocusEvidence = true` in Zoom and for sharp comparison images, but this no longer changes engine output and should be removed during cleanup. |
+| 1. Preserve detail before mask analysis | Complete | RawCull commit `1e6d096` removes the independent 1024-wide reductions and routes zoom/comparison analysis through `FocusMaskAnalysisResolutionPolicy`, whose current policy preserves the decoded image at native dimensions. | Small detail is no longer discarded before PhotoAnalysisKit sees it, and undersized previews are not enlarged. |
+| 2. Use the same fine detail for selection and rendering | Complete | PhotoAnalysisKit commit `98a9630` builds one fine-detail `boostedLaplacian` and uses it for rankings, threshold sampling, and rendered edges. Commit `9d6fd40` clarifies that `fineDetailBlendWeight` is scoring-only. | The mask no longer selects a patch with a detail signal that the overlay omits. |
+| 3. Avoid visibility and confidence overstating evidence | Complete | PhotoAnalysisKit commit `ee92a17` makes `guaranteeVisibleFocusEvidence` source-compatible only; generated masks never relax their threshold. RawCull commit `3c5c2f0` removes all writes to the obsolete flag. | Confidence requires rendered coverage and measured detail before it can be high. |
 | 4. Do not restrict the mask to three representative patches | Complete | PhotoAnalysisKit commit `98a9630` keeps three patch rankings for diagnostics but clips rendered edges to complete evidence search regions instead. | Global mode covers the full image; subject/AF modes intentionally cover their complete selected region. |
-| 5. Do not erase or misreport narrow edges in postprocessing | Complete | Default erosion and dilation are zero; the unconditional final erosion has been removed; default feathering is 0.5 px; coverage is measured on the rendered result after processing. | Explicit nonzero morphology still deliberately changes the result, and the rendered-coverage diagnostic reflects that result. |
-| 6. Keep preview sharpening out of analysis | Remaining | `ComparisonImageLoader.loadThumbnail` returns a sharpened `CGImage` when enabled, and `ComparisonGridImageCoordinator.analyzeFocus` analyzes that same image. | The thumbnail display preference can still change focus evidence. Zoom thumbnail mode currently has no `CGImage` mask analysis path, so its focus-mask control is misleading/unavailable rather than incorrectly analyzing the sharpened thumbnail. |
+| 5. Do not erase or misreport narrow edges in postprocessing | Complete | PhotoAnalysisKit defaults erosion and dilation to zero and feathering to 0.5 px; coverage is measured after processing. RawCull commit `d47108a` adopts those defaults for new settings and legacy files missing the fields. | Explicitly saved nonzero morphology remains a user choice and is not migrated. |
+| 6. Keep preview sharpening out of analysis | Complete | RawCull commit `8a0c44d` separates display and analysis images for comparison thumbnails. Commit `91aca7b` supplies the same dedicated unsharpened analysis image to thumbnail zoom. | Enabling display sharpening no longer changes comparison or zoom focus evidence. |
 | Performance: reuse overlap computations | Remaining | `patchRankings` samples each overlapping patch independently from the already-rendered energy image. | No benchmark or cache exists. Defer until the accuracy changes are measured. |
 
 ## Work already committed
@@ -32,6 +32,15 @@ photographic accuracy has been validated on a labeled image corpus.
 - `c487e43`, `402b72b`, and `61b59eb` transition the PhotoAnalysisKit package
   reference to the released remote version `1.3.0`, which resolves commit
   `ee92a1795532374a482eb0c388943a761b9f6c45`.
+- `0831946` replaces the remote package reference and duplicate product entries
+  with one local `../PhotoAnalysisKit` dependency.
+- `8a0c44d` separates sharpened display pixels from unsharpened comparison
+  analysis pixels.
+- `1e6d096` preserves native decoded preview resolution for mask analysis.
+- `91aca7b` enables thumbnail zoom masks using the dedicated unsharpened image.
+- `3c5c2f0` removes obsolete visibility overrides.
+- `d47108a` aligns RawCull's new and missing-field morphology settings with the
+  package defaults.
 
 ### PhotoAnalysisKit
 
@@ -40,85 +49,28 @@ photographic accuracy has been validated on a labeled image corpus.
   rendering, gentler defaults, and postprocessed coverage.
 - `ee92a17` adds conservative measured-evidence confidence gates and removes
   threshold relaxation from rendering.
+- `9d6fd40` clarifies the separation between scoring fine-detail blending and
+  the mask's dedicated fine-detail pass.
 - `FocusMaskAccuracyTests` contains five focused regression tests for weak
   AF-local evidence, rendered coverage, thin edges, full global coverage, and
   artificial border evidence.
 
-## Integration concern to resolve first
+## Integration state
 
-RawCull no longer imports the sibling package locally. Its project currently
-references the released remote package at `1.3.0`, which contains the package
-changes. That is a valid release integration, but it differs from the original
-instruction to use `../PhotoAnalysisKit` locally until the import is updated.
+RawCull now imports the sibling `../PhotoAnalysisKit` checkout locally. The
+project contains one package reference, one PhotoAnalysisKit product dependency,
+and one framework build entry. The remote PhotoAnalysisKit pin was removed from
+`Package.resolved`; package resolution and a complete Debug build succeeded.
 
-`RawCull.xcodeproj/project.pbxproj` also contains three
-`PhotoAnalysisKit` product dependencies and three framework build-file
-entries. Only one remote package reference is present. The extra unbound
-product references should be removed and the target left with exactly one
-PhotoAnalysisKit product dependency before additional package work. This
-avoids ambiguous or duplicate linking.
+## Implementation plan status
 
-## Detailed remaining plan
-
-Each numbered implementation step should be committed locally without pushing,
+Each completed implementation step was committed locally without pushing,
 matching the original workflow.
 
-1. **Normalize package integration.**
-   - Decide whether the next package iteration is local (`../PhotoAnalysisKit`)
-     or released remote (`1.3.0`).
-   - Remove the two unbound PhotoAnalysisKit product dependencies and their
-     framework build-file entries.
-   - Keep one package reference, one product dependency, and one framework
-     entry.
-   - Resolve packages and build the RawCull target to verify the project graph.
-   - Commit only the package-reference normalization.
+Steps 1–5 are complete in the commits listed above. Remaining work is external
+validation and measurement:
 
-2. **Introduce a dedicated, unsharpened analysis image.**
-   - Change `ComparisonImageLoader` to return separate display and analysis
-     images, or add a dedicated analysis loader used by
-     `ComparisonGridImageCoordinator`.
-   - For thumbnail source, request/load the orientation-normalized thumbnail
-     before `ThumbnailSharpener` and pass that as the analysis image; retain
-     the sharpened result only for display.
-   - Preserve cancellation and source-change generation guards so display and
-     analysis results cannot be mixed between files.
-   - Add a unit test that enables thumbnail sharpening and proves the image
-     passed to focus analysis is the unsharpened source.
-   - Commit the loader/coordinator change and its test.
-
-3. **Replace the fixed 1024-pixel mask-analysis cap.**
-   - Remove `downscaled(toWidth: 1024)` from the zoom and comparison focus-mask
-     call paths.
-   - Analyze the decoded preview at its native dimensions initially. Do not
-     enlarge undersized previews.
-   - If profiling requires a cap, add one explicit, aspect-ratio-preserving
-     maximum-pixel policy to `FocusMaskModel`/PhotoAnalysisKit instead of
-     independent width-only limits. Its default should preserve native detail
-     for zoom and comparison.
-   - Update or replace `FocusImageDownscalingTests`, which currently asserts
-     the obsolete 1024-pixel behavior.
-   - Commit this resolution-policy change separately.
-
-4. **Make thumbnail zoom behavior coherent.**
-   - Either supply an unsharpened `CGImage` analysis input for thumbnail zoom
-     and show its aligned mask, or disable/hide focus-mask controls when the
-     active image is only `zoomOverlayNSImage`.
-   - Prefer the first option if a thumbnail zoom mask is an intended feature;
-     otherwise make unavailability explicit in accessibility/help text.
-   - Add a view-model/coordinator regression test for the selected behavior.
-   - Commit the thumbnail-zoom behavior separately.
-
-5. **Remove obsolete visibility configuration and clarify configuration docs.**
-   - Remove RawCull writes to `guaranteeVisibleFocusEvidence`, since the
-     PhotoAnalysisKit property no longer affects rendering.
-   - Update `SharpnessConfiguration.fineDetailBlendWeight` documentation to
-     distinguish scoring behavior from the mask’s dedicated fine-detail pass.
-   - Retain the source-compatible package field only if external clients
-     require it; otherwise schedule its deprecation for a breaking package
-     release.
-   - Commit the cleanup separately.
-
-6. **Validate accuracy and performance on real photographs.**
+1. **Validate accuracy and performance on real photographs.**
    - Assemble a versioned, labeled corpus covering eyes, feathers, low-detail
      subjects, portrait and landscape orientations, ISO ranges, and varying
      subject sizes.
@@ -134,10 +86,19 @@ matching the original workflow.
 ## Verification completed in this audit
 
 `swift test --filter FocusMaskAccuracyTests` was run in the sibling
-PhotoAnalysisKit checkout. The build completed and all five focused tests
-passed. `xcodebuild -list -project RawCull.xcodeproj` also resolved the remote
-PhotoAnalysisKit `1.3.0` package successfully.
+PhotoAnalysisKit checkout after the final package documentation update. All
+five focused tests passed.
+
+RawCull verification completed during implementation:
+
+- Package resolution using the local sibling dependency and a complete Debug
+  build succeeded.
+- Comparison analysis-source, zoom image-policy, and PhotoAnalysisKit
+  integration tests passed.
+- Native resolution-policy tests passed.
+- All eight settings persistence tests passed, including package-default
+  alignment for new and legacy settings.
 
 This does not establish runtime correctness, UI alignment, or photographic
-accuracy. The remaining RawCull integration changes require targeted RawCull
-tests plus labeled-photo evaluation before calling the feature optimal.
+accuracy. Labeled-photo evaluation and profiling remain necessary before
+calling the feature optimal.
