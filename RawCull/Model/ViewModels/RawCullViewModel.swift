@@ -344,7 +344,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     // MARK: - Focus Points
 
     func getFocusPoints() -> [FocusPoint]? {
-        Logger.process.debugMessageOnly("RawCullViewModel.getFocusPoints()")
+        // Logger.process.debugMessageOnly("RawCullViewModel.getFocusPoints()")
         guard let imageName = selectedFile?.name else { return nil }
         let points = focusPoints?
             .filter { $0.sourceFile == imageName }
