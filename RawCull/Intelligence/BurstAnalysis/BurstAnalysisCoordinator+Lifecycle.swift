@@ -1,7 +1,9 @@
 import Foundation
+import OSLog
 
 extension BurstAnalysisCoordinator {
     func beginGeneration() -> Int {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.beginGeneration()")
         task?.cancel()
         task = nil
         generation &+= 1
@@ -9,6 +11,7 @@ extension BurstAnalysisCoordinator {
     }
 
     func register(_ task: Task<Void, Never>, generation: Int) {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.register()")
         guard self.generation == generation else {
             task.cancel()
             return
@@ -17,6 +20,7 @@ extension BurstAnalysisCoordinator {
     }
 
     func updateProgress(_ progress: BurstAnalysisProgress) {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.updateProgress()")
         self.progress = progress
     }
 
@@ -25,12 +29,14 @@ extension BurstAnalysisCoordinator {
     }
 
     func finish(generation: Int) {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.finish()")
         guard self.generation == generation else { return }
         task = nil
         progress = BurstAnalysisProgress()
     }
 
     func cancel() {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.cancel()")
         task?.cancel()
         task = nil
         generation &+= 1

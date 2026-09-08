@@ -65,6 +65,7 @@ actor ExtractAndSaveJPGs {
             )
         },
     ) {
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.init()")
         self.destinationCatalogURL = destinationCatalogURL
         self.exportMode = exportMode
         self.previewLoader = previewLoader
@@ -75,11 +76,13 @@ actor ExtractAndSaveJPGs {
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.setFileHandlers()")
         self.fileHandlers = fileHandlers
     }
 
     @discardableResult
     func extractAndSavejpgs() async -> JPGExportResult {
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.extractAndSavejpgs()")
         cancelExtractJPGSTask()
 
         if let filteredFilesURLs {
@@ -143,10 +146,12 @@ actor ExtractAndSaveJPGs {
     }
 
     private func embeddedJPEGImage(from url: URL) async -> CGImage? {
-        await previewLoader.loadEmbeddedPreview(for: url)
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.embeddedJPEGImage()")
+        return await previewLoader.loadEmbeddedPreview(for: url)
     }
 
     private func exportFailureMessage(for url: URL) async -> String? {
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.exportFailureMessage()")
         let jpegData: Data
         switch exportMode {
         case .embeddedJPG:
@@ -170,6 +175,7 @@ actor ExtractAndSaveJPGs {
     }
 
     private func saveFailureMessage(_ jpegData: Data, originalURL: URL) async -> String? {
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.saveFailureMessage()")
         guard let destinationCatalogURL else {
             return "The destination folder is unavailable."
         }
@@ -182,6 +188,7 @@ actor ExtractAndSaveJPGs {
     }
 
     private func updateEstimatedTime(itemsProcessed: Int) async {
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.updateEstimatedTime()")
         let now = Date()
 
         if let lastTime = lastItemTime {
@@ -202,7 +209,7 @@ actor ExtractAndSaveJPGs {
     func cancelExtractJPGSTask() {
         extractJPEGSTask?.cancel()
         extractJPEGSTask = nil
-        Logger.process.debugMessageOnly("ExtractAndSaveJPGs: Preload Cancelled")
+        Logger.process.debugMessageOnly("ExtractAndSaveJPGs.cancelExtractJPGSTask()")
     }
 }
 

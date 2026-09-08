@@ -7,22 +7,27 @@ import OSLog
 
 extension RawCullViewModel {
     func fileHandler(_ update: Int) {
+        Logger.process.debugMessageOnly("RawCullViewModel.fileHandler()")
         fileOperationCompleted = update
     }
 
     func maxfilesHandler(_ maxfiles: Int) {
+        Logger.process.debugMessageOnly("RawCullViewModel.maxfilesHandler()")
         fileOperationTotal = maxfiles
     }
 
     func estimatedTimeHandler(_ seconds: Int) {
+        // Logger.process.debugMessageOnly("RawCullViewModel.estimatedTimeHandler()")
         fileOperationEstimatedSeconds = seconds
     }
 
     func setMemoryPressureWarning(_ warning: Bool) {
+        Logger.process.debugMessageOnly("RawCullViewModel.setMemoryPressureWarning()")
         memoryPressureWarning = warning
     }
 
     func extractionNeeded() {
+        // Logger.process.debugMessageOnly("RawCullViewModel.extractionNeeded()")
         creatingthumbnails = true
     }
 
@@ -41,6 +46,7 @@ extension RawCullViewModel {
     }
 
     func presentExtractJPGsSheet() {
+        Logger.process.debugMessageOnly("RawCullViewModel.presentExtractJPGsSheet()")
         guard !sources.isEmpty else { return }
         if extractJPGDestination == nil {
             extractJPGDestination = selectedSource ?? sources.first
@@ -49,6 +55,7 @@ extension RawCullViewModel {
     }
 
     func startSelectedJPGExtraction(destination: ARWSourceCatalog, exportMode: ExtractJPGExportMode) {
+        Logger.process.debugMessageOnly("RawCullViewModel.startSelectedJPGExtraction()")
         let exportFiles = selectedFilesForJPGExtraction
         guard currentScanAndExtractJPGsActor == nil,
               currentScanAndCreateThumbnailsActor == nil,
@@ -107,6 +114,7 @@ extension RawCullViewModel {
     }
 
     func startScanAndExtractJPGs() {
+        Logger.process.debugMessageOnly("RawCullViewModel.startScanAndExtractJPGs()")
         let extractionFiles = activeCatalogFiles
         guard currentScanAndExtractJPGsActor == nil,
               currentScanAndCreateThumbnailsActor == nil,
@@ -146,6 +154,7 @@ extension RawCullViewModel {
     }
 
     func applyStoredScoringSettings() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.applyStoredScoringSettings()")
         // Wait for the initial settings load to complete before reading.
         // Without this, we may race with the fire-and-forget Task in SettingsViewModel.init()
         // and read default values from the JSON before the file I/O finishes.
@@ -171,7 +180,7 @@ extension RawCullViewModel {
     }
 
     func abort() {
-        Logger.process.debugMessageOnly("Abort scanning")
+        Logger.process.debugMessageOnly("RawCullViewModel.abort()")
 
         cancelCatalogLoad()
 

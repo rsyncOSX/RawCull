@@ -51,6 +51,7 @@ final class CullingModel {
             ReadSavedFilesJSON().read()
         },
     ) {
+        Logger.process.debugMessageOnly("CullingModel.init()")
         self.saveDelayNanoseconds = saveDelayNanoseconds
         self.saveHandler = saveHandler
         self.loadHandler = loadHandler
@@ -58,6 +59,7 @@ final class CullingModel {
 
     @discardableResult
     func loadSavedFiles() -> Bool {
+        Logger.process.debugMessageOnly("CullingModel.loadSavedFiles()")
         switch loadHandler() {
         case .missing:
             savedFiles = []
@@ -79,6 +81,7 @@ final class CullingModel {
     }
 
     func resetSavedFiles(in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.resetSavedFiles()")
         guard canMutate else { return }
         if let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) {
             savedFiles[index].filerecords = []
@@ -88,6 +91,7 @@ final class CullingModel {
     }
 
     func resetAllSavedFiles() {
+        Logger.process.debugMessageOnly("CullingModel.resetAllSavedFiles()")
         guard canMutate else { return }
         savedFiles.removeAll()
         scheduleSave()
@@ -115,10 +119,12 @@ final class CullingModel {
     }
 
     func updateRating(fileName: String, rating: Int, in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.updateRating()")
         updateRatings(fileNames: [fileName], rating: rating, in: catalog)
     }
 
     func updateRatings(fileNames: [String], rating: Int, in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.updateRatings()")
         guard canMutate, !fileNames.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
@@ -135,6 +141,7 @@ final class CullingModel {
     }
 
     func applyRatings(_ ratingsByFileName: [String: Int], in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.applyRatings()")
         guard canMutate, !ratingsByFileName.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
@@ -151,6 +158,7 @@ final class CullingModel {
     }
 
     func applyRatingStates(_ ratingsByFileName: [String: Int?], in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.applyRatingStates()")
         guard canMutate, !ratingsByFileName.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
@@ -173,6 +181,7 @@ final class CullingModel {
     }
 
     func mergeScoringResults(_ results: [CullingScoringResult], in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.mergeScoringResults()")
         guard canMutate, !results.isEmpty else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
@@ -193,6 +202,7 @@ final class CullingModel {
     }
 
     func upsertBurstWinnerOverride(_ override: BurstWinnerOverride, in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.upsertBurstWinnerOverride()")
         guard canMutate else { return }
         let date = Date().en_string_from_date()
         let catalogIndex = ensureCatalog(catalog, dateStart: date)
@@ -229,6 +239,7 @@ final class CullingModel {
     }
 
     func pruneStaleBurstOverrides(validFileNames: Set<String>, in catalog: URL) {
+        Logger.process.debugMessageOnly("CullingModel.pruneStaleBurstOverrides()")
         guard canMutate else { return }
         guard let index = savedFiles.firstIndex(where: { $0.catalog == catalog }) else { return }
         let original = savedFiles[index].burstWinnerOverrides ?? []
@@ -249,6 +260,7 @@ final class CullingModel {
     }
 
     private func scheduleSave() {
+        Logger.process.debugMessageOnly("CullingModel.scheduleSave()")
         persistenceRevision &+= 1
         let snapshot = savedFiles
         let revision = persistenceRevision
@@ -270,6 +282,7 @@ final class CullingModel {
 
     @discardableResult
     func retryPersistence() async -> Bool {
+        Logger.process.debugMessageOnly("CullingModel.retryPersistence()")
         if persistenceLoadFailure != nil {
             return loadSavedFiles()
         }
@@ -280,6 +293,7 @@ final class CullingModel {
 
     @discardableResult
     func flushPersistence() async -> Bool {
+        Logger.process.debugMessageOnly("CullingModel.flushPersistence()")
         guard persistenceLoadFailure == nil else { return false }
         guard hasUnsavedChanges else { return true }
         saveTask?.cancel()
@@ -289,6 +303,7 @@ final class CullingModel {
 
     @discardableResult
     func archiveCorruptStoreAndReset() async -> Bool {
+        Logger.process.debugMessageOnly("CullingModel.archiveCorruptStoreAndReset()")
         guard let failure = persistenceLoadFailure else { return true }
         do {
             _ = try ReadSavedFilesJSON.archiveCorruptStore(at: failure.url)
@@ -312,6 +327,7 @@ final class CullingModel {
     }
 
     private func persist(_ snapshot: [SavedFiles], revision: UInt64) async -> Bool {
+        Logger.process.debugMessageOnly("CullingModel.persist()")
         do {
             try await saveHandler(snapshot)
             if revision == persistenceRevision {

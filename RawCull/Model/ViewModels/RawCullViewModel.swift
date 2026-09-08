@@ -242,6 +242,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         burstAnalysisCacheRepository: any BurstAnalysisCacheRepository
             = LiveBurstAnalysisCacheRepository(),
     ) {
+        Logger.process.debugMessageOnly("RawCullViewModel.init()")
         let sharpnessModel = SharpnessScoringModel()
         self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature
@@ -289,6 +290,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     // MARK: - Zoom
 
     func resetZoom() {
+        Logger.process.debugMessageOnly("RawCullViewModel.resetZoom()")
         scale = 1.0
         lastScale = 1.0
         offset = .zero
@@ -301,6 +303,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         initialZoomMode: ZoomOverlayInitialZoomMode = .fit,
         showFocusPointsOnOpen: Bool = false,
     ) {
+        Logger.process.debugMessageOnly("RawCullViewModel.openZoomOverlay()")
         zoomOverlayNavigationAxis = mainViewMode == .loupe ? .vertical : .horizontal
         zoomOverlayNavigationContext = navigationIDs.map(ZoomOverlayNavigationContext.init(orderedFileIDs:))
         zoomOverlayLaunchContext = ZoomOverlayLaunchContext(
@@ -312,6 +315,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     func closeZoomOverlay() {
+        Logger.process.debugMessageOnly("RawCullViewModel.closeZoomOverlay()")
         zoomExtractionTask?.cancel()
         zoomExtractionTask = nil
         zoomOverlayVisible = false
@@ -324,6 +328,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     // MARK: - File Selection
 
     func selectMainViewMode(_ mode: MainViewMode) {
+        Logger.process.debugMessageOnly("RawCullViewModel.selectMainViewMode()")
         closeZoomOverlay()
         if mode != .similarityGrid {
             similarityModel.burstModeActive = false
@@ -332,12 +337,14 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     func selectFile(_ file: FileItem) {
+        Logger.process.debugMessageOnly("RawCullViewModel.selectFile()")
         selectedFileID = file.id
     }
 
     // MARK: - Focus Points
 
     func getFocusPoints() -> [FocusPoint]? {
+        Logger.process.debugMessageOnly("RawCullViewModel.getFocusPoints()")
         guard let imageName = selectedFile?.name else { return nil }
         let points = focusPoints?
             .filter { $0.sourceFile == imageName }
@@ -351,6 +358,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// catalog first. Re-selecting the same active catalog is a no-op.
     @discardableResult
     func startSecurityScopedAccess(for url: URL) -> Bool {
+        Logger.process.debugMessageOnly("RawCullViewModel.startSecurityScopedAccess()")
         if activeSecurityScopedURL == url {
             return true
         }
@@ -370,6 +378,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     }
 
     func stopActiveSecurityScopedAccess() {
+        Logger.process.debugMessageOnly("RawCullViewModel.stopActiveSecurityScopedAccess()")
         guard let url = activeSecurityScopedURL else { return }
         stopSecurityScopedResource(url)
         activeSecurityScopedURL = nil

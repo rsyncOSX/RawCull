@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 nonisolated struct RawCullSemanticSearchResultEvidence: Equatable, Sendable {
     let rank: Int
@@ -41,6 +42,7 @@ final class RawCullSemanticSearchFeature {
         similarityModel: SimilarityScoringModel,
         similarityFeature: RawCullSimilarityFeature? = nil,
     ) {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.init()")
         self.similarityModel = similarityModel
         self.similarityFeature = similarityFeature
             ?? RawCullSimilarityFeature(similarityModel: similarityModel)
@@ -59,6 +61,7 @@ final class RawCullSemanticSearchFeature {
     func bindApplicationTarget(
         _ target: any RawCullSemanticSearchApplicationTarget,
     ) {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.bindApplicationTarget()")
         if let applicationTarget {
             precondition(
                 applicationTarget === target,
@@ -149,6 +152,7 @@ final class RawCullSemanticSearchFeature {
     /// Rank only the admitted files that already have compatible cached CLIP
     /// artifacts. Image indexing and source decoding are intentionally absent.
     func search(for query: String) async {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.search()")
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             await clear()
             return
@@ -172,6 +176,7 @@ final class RawCullSemanticSearchFeature {
     }
 
     func setShowsAllResults(_ showsAll: Bool) async {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.setShowsAllResults()")
         guard let applicationTarget else { return }
         applicationTarget.invalidateScopedBurstAnalysisForSemanticSelectionChange()
         similarityModel.setSemanticSearchShowsAllResults(showsAll)
@@ -179,6 +184,7 @@ final class RawCullSemanticSearchFeature {
     }
 
     func adjustSelection(by delta: Int) async {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.adjustSelection()")
         guard let applicationTarget else { return }
         applicationTarget.invalidateScopedBurstAnalysisForSemanticSelectionChange()
         similarityModel.adjustSemanticSearchSelection(by: delta)
@@ -186,12 +192,14 @@ final class RawCullSemanticSearchFeature {
     }
 
     func clear() async {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.clear()")
         actionGeneration &+= 1
         similarityModel.clearSemanticSearch()
         await applicationTarget?.restoreOrdinaryCatalogAfterSemanticSearch()
     }
 
     func cancel() async {
+        Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.cancel()")
         actionGeneration &+= 1
         similarityModel.cancelSemanticSearch()
         await applicationTarget?.restoreOrdinaryCatalogAfterSemanticSearch()

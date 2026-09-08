@@ -27,23 +27,26 @@ actor ScanAndExtractJPGs {
         fullSizeCache: FullSizeJPGDiskCache? = nil,
         rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.init()")
         self.urls = urls
         self.fullSizeCache = fullSizeCache ?? SharedMemoryCache.shared.fullSizeJPGDiskCache
         self.rawLoader = rawLoader
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.setFileHandlers()")
         self.fileHandlers = fileHandlers
     }
 
     func cancelExtraction() {
         extractTask?.cancel()
         extractTask = nil
-        Logger.process.debugMessageOnly("ScanAndExtractJPGs: cancelled")
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.cancelExtraction()")
     }
 
     @discardableResult
     func extractCatalogJPGs() async -> Int {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.extractCatalogJPGs()")
         cancelExtraction()
 
         let task = Task<Int, Never> {
@@ -82,6 +85,7 @@ actor ScanAndExtractJPGs {
     }
 
     private func processSingleFile(_ url: URL) async {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.processSingleFile()")
         if Task.isCancelled {
             return
         }
@@ -123,11 +127,13 @@ actor ScanAndExtractJPGs {
     }
 
     private func notifyFileHandler(_ count: Int) {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.notifyFileHandler()")
         let handler = fileHandlers?.fileHandler
         Task { @MainActor in handler?(count) }
     }
 
     private func updateEstimatedTime(itemsProcessed: Int) {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.updateEstimatedTime()")
         let now = Date()
 
         if let lastTime = lastItemTime {
@@ -146,6 +152,7 @@ actor ScanAndExtractJPGs {
     }
 
     private func incrementAndGetCount() -> Int {
+        Logger.process.debugMessageOnly("ScanAndExtractJPGs.incrementAndGetCount()")
         completedCount += 1
         return completedCount
     }

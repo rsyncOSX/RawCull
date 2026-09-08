@@ -7,6 +7,7 @@ import OSLog
 
 extension RawCullViewModel {
     func startCatalogLoad(for source: ARWSourceCatalog?) {
+        Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if let url = source?.url,
            currentselectedSource == source,
            hasActiveSecurityScopedAccess(for: url) {
@@ -29,6 +30,7 @@ extension RawCullViewModel {
     }
 
     private func beginCatalogLoad(for source: ARWSourceCatalog?) {
+        Logger.process.debugMessageOnly("RawCullViewModel.beginCatalogLoad()")
         selectedFileID = nil
         selectedFileIDs = []
 
@@ -55,6 +57,7 @@ extension RawCullViewModel {
     }
 
     func cancelCatalogLoad() {
+        Logger.process.debugMessageOnly("RawCullViewModel.cancelCatalogLoad()")
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
         similarityFeature.cancelHydration()
@@ -85,6 +88,7 @@ extension RawCullViewModel {
     }
 
     func handleSourceChange(url: URL) async {
+        Logger.process.debugMessageOnly("RawCullViewModel.handleSourceChange()")
         guard isActiveCatalogLoad(url) else { return }
         scanning = true
         scanDiscoveredCount = 0
@@ -211,6 +215,7 @@ extension RawCullViewModel {
     }
 
     func handleSortOrderChange() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.handleSortOrderChange()")
         issorting = true
         let sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
         catalogDisplayCandidates = sorted
@@ -222,6 +227,7 @@ extension RawCullViewModel {
     /// admission. Semantic ranking is applied after these filters, so ratings
     /// and filename filtering continue to compose with text search.
     func semanticSearchAdmissionSnapshot() async -> [FileItem] {
+        Logger.process.debugMessageOnly("RawCullViewModel.semanticSearchAdmissionSnapshot()")
         let sorted = await ScanFiles.sortFiles(
             files,
             by: sortOrder,
@@ -250,6 +256,7 @@ extension RawCullViewModel {
     }
 
     func preselectFirstVisibleFileByName() {
+        Logger.process.debugMessageOnly("RawCullViewModel.preselectFirstVisibleFileByName()")
         selectedFileID = filteredFiles
             .min { lhs, rhs in
                 lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending

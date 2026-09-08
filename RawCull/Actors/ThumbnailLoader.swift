@@ -26,6 +26,7 @@ actor ThumbnailLoader {
 
     /// Cached settings so we don't hammer the settings actor
     func getSettings() async -> SavedSettings {
+        // Logger.process.debugMessageOnly("ThumbnailLoader.getSettings()")
         if let cachedSettings {
             return cachedSettings
         }
@@ -35,6 +36,7 @@ actor ThumbnailLoader {
     }
 
     private func acquireSlot() async -> SlotAcquisition {
+        Logger.process.debugMessageOnly("ThumbnailLoader.acquireSlot()")
         guard !Task.isCancelled else { return .cancelled }
 
         if activeTasks < maxConcurrent {
@@ -67,6 +69,7 @@ actor ThumbnailLoader {
     }
 
     private func releaseSlot() {
+        Logger.process.debugMessageOnly("ThumbnailLoader.releaseSlot()")
         if let next = pendingContinuations.first {
             pendingContinuations.removeFirst()
             // Transfer this real slot directly to the next waiter. Keeping activeTasks
@@ -79,6 +82,7 @@ actor ThumbnailLoader {
     }
 
     func thumbnailLoader(file: FileItem, targetSize: Int) async -> NSImage? {
+        // Logger.process.debugMessageOnly("ThumbnailLoader.thumbnailLoader()")
         // Fast path: return from dedicated 200px grid cache without acquiring a slot
         if targetSize <= 200 {
             if let image = cachedGridImage(for: file.url) {
@@ -132,6 +136,7 @@ actor ThumbnailLoader {
 
     /// Unblocks all continuations that are waiting for a concurrency slot as cancelled.
     func cancelAll() {
+        Logger.process.debugMessageOnly("ThumbnailLoader.cancelAll()")
         for entry in pendingContinuations {
             entry.continuation.resume(returning: .cancelled)
         }

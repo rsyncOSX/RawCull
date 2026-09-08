@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 import PhotoAIContracts
 import RawCullCore
 
@@ -102,10 +103,12 @@ final class RawCullSimilarityFeature {
     @ObservationIgnored private var rankingGeneration: UInt64 = 0
 
     init(similarityModel: SimilarityScoringModel) {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.init()")
         model = similarityModel
     }
 
     func bindApplicationContext(_ context: any RawCullSimilarityApplicationContext) {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.bindApplicationContext()")
         if let applicationContext {
             precondition(
                 applicationContext === context,
@@ -198,10 +201,12 @@ final class RawCullSimilarityFeature {
     }
 
     func setSimilaritySortingActive(_ isActive: Bool) {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.setSimilaritySortingActive()")
         model.sortBySimilarity = isActive
     }
 
     func replaceSimilarityService(_ service: any RawCullSimilarityServicing) {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.replaceSimilarityService()")
         guard model.backendDescriptor != service.backendDescriptor
             || model.artifactBackendDescriptors != service.artifactBackendDescriptors
         else { return }
@@ -228,6 +233,7 @@ final class RawCullSimilarityFeature {
         capability: RawCullSemanticSearchCapabilityStatus,
         service: (any RawCullSemanticSearchServicing)?,
     ) {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.replaceSemanticSearchConfiguration()")
         guard model.semanticSearchCapability != capability
             || model.semanticSearchBackendDescriptor != service?.backendDescriptor
         else { return }
@@ -253,6 +259,7 @@ final class RawCullSimilarityFeature {
 
     @discardableResult
     func hydrateCatalog(_ request: RawCullSimilarityCatalogHydrationRequest) async -> Bool {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.hydrateCatalog()")
         catalogHydrationTask?.cancel()
         catalogHydrationGeneration &+= 1
         let generation = catalogHydrationGeneration
@@ -273,6 +280,7 @@ final class RawCullSimilarityFeature {
     }
 
     func cancelHydration() {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.cancelHydration()")
         imageHydrationTask?.cancel()
         imageHydrationTask = nil
         semanticHydrationTask?.cancel()
@@ -285,12 +293,14 @@ final class RawCullSimilarityFeature {
     }
 
     func resetCatalogState() {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.resetCatalogState()")
         cancelHydration()
         cancelRanking()
         model.reset()
     }
 
     func index(_ request: RawCullSimilarityIndexRequest) async {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.index()")
         await model.hydrateArtifacts(request.files)
         guard requestIsCurrent(request.catalogIdentity) else { return }
         await model.hydrateSemanticArtifacts(request.files)
@@ -303,6 +313,7 @@ final class RawCullSimilarityFeature {
     }
 
     func indexCurrentCatalog(forceRefresh: Bool = false) async {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.indexCurrentCatalog()")
         guard let snapshot = applicationContext?.currentSimilarityCatalogSnapshot else {
             return
         }
@@ -319,16 +330,19 @@ final class RawCullSimilarityFeature {
 
     @discardableResult
     func hydrateBurstArtifacts(_ files: [FileItem]) async -> Int {
-        await model.hydrateArtifacts(files)
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.hydrateBurstArtifacts()")
+        return await model.hydrateArtifacts(files)
     }
 
     func indexBurstFiles(_ files: [FileItem], forceRefresh: Bool = false) async {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.indexBurstFiles()")
         await model.indexFiles(files, forceRefresh: forceRefresh)
     }
 
     func rank(
         _ request: RawCullSimilarityRankingRequest,
     ) async -> RawCullSimilarityRankingCompletion? {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.rank()")
         rankingGeneration &+= 1
         let generation = rankingGeneration
         let backendIdentity = model.backendDescriptor
@@ -367,6 +381,7 @@ final class RawCullSimilarityFeature {
     }
 
     func cancelRanking() {
+        Logger.process.debugMessageOnly("RawCullSimilarityFeature.cancelRanking()")
         rankingGeneration &+= 1
         model.cancelSimilarityRanking()
     }
