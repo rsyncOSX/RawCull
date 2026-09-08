@@ -145,8 +145,9 @@ enum ComparisonGridImageCoordinator {
         cgImage: CGImage,
         viewModel: RawCullViewModel,
     ) async -> ComparisonFocusMaskResult {
-        let downscaled = cgImage.downscaled(toWidth: 1024)
         let config = focusMaskConfig(for: file, viewModel: viewModel)
+        let downscaled = await cgImage.downscaled(toWidth: 1024)
+        guard !Task.isCancelled else { return (nil, nil, nil) }
         return await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: downscaled ?? cgImage,
             scale: 1.0,

@@ -621,9 +621,15 @@ struct ZoomOverlayView: View {
               let selectedFile = viewModel.selectedFile
         else { return }
         let selectedFileID = selectedFile.id
-        let downscaled = cg.downscaled(toWidth: 1024)
-        let source = downscaled ?? cg
+        let previewSource = sourceSelection.selected
         let config = focusMaskConfig(for: selectedFile)
+        let downscaled = await cg.downscaled(toWidth: 1024)
+        guard !Task.isCancelled,
+              viewModel.selectedFile?.id == selectedFileID,
+              viewModel.zoomOverlayCGImage === cg,
+              sourceSelection.selected == previewSource
+        else { return }
+        let source = downscaled ?? cg
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
             from: source,
             scale: 1.0,
@@ -631,10 +637,12 @@ struct ZoomOverlayView: View {
             afPoint: selectedFile.afFocusNormalized,
             iso: selectedFile.exifData?.isoValue ?? 400,
             aperture: selectedFile.exifData?.apertureValue,
-            scoringSource: sourceSelection.selected == .developedRAW ? .rawDemosaic : .embeddedPreview,
+            scoringSource: previewSource == .developedRAW ? .rawDemosaic : .embeddedPreview,
         )
         guard !Task.isCancelled,
-              viewModel.selectedFile?.id == selectedFileID
+              viewModel.selectedFile?.id == selectedFileID,
+              viewModel.zoomOverlayCGImage === cg,
+              sourceSelection.selected == previewSource
         else { return }
         await MainActor.run {
             self.focusMask = result.mask
@@ -848,7 +856,10 @@ struct ZoomOverlayView: View {
 }
 
 extension CGImage {
-    func downscaled(toWidth maxWidth: Int) -> CGImage? {
+    /// Drawing can trigger deferred image decoding; keep it off the caller's actor.
+    @concurrent
+    nonisolated func downscaled(toWidth maxWidth: Int) async -> CGImage? {
+        guard !Task.isCancelled else { return nil }
         guard width > maxWidth else { return self }
         let scale = CGFloat(maxWidth) / CGFloat(width)
         let newWidth = maxWidth
@@ -861,6 +872,7 @@ extension CGImage {
         ) else { return nil }
         context.interpolationQuality = .medium
         context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+        guard !Task.isCancelled else { return nil }
         return context.makeImage()
     }
 }
