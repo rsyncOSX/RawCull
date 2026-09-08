@@ -11,23 +11,6 @@ RawCull is a native macOS photo review and culling application for Sony ARW and 
 
 The application is written in Swift 6 and SwiftUI. Focused Swift packages own image parsing, analysis, AI inference, shared culling models, JSON encoding, and rsync execution. RawCull owns application state, workflow, caching, persistence, and presentation.
 
-## Purpose of the version-3.2.0 branch
-
-The `version-3.2.0` branch is the development branch for modularizing RawCull's
-AI architecture. It incrementally establishes one clear application-level owner
-for intelligence features, narrows the interfaces used by views and general
-application code, and separates similarity, semantic search, burst analysis,
-Deep Review, model management, and persistence responsibilities.
-
-This is a structural refactor, not a reduced AI edition or a feature rewrite.
-DataComp CLIP remains a core capability, Vision remains its runtime fallback,
-and SAM 3 Deep Review remains optional. Each phase must preserve current
-behavior, persisted formats, cache compatibility, cancellation and stale-result
-protection, preference keys, and the existing user experience.
-
-The complete scope, invariants, validation gates, exit criteria, and rollback
-guidance are documented in [the Modular AI Refactoring Plan](Docs/modularai.md).
-
 ## Supported versions and requirements
 
 | Branch | Minimum macOS | Development toolchain | Main characteristics |
