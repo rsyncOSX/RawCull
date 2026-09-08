@@ -73,7 +73,7 @@ struct ReleaseMetadataTests {
             .map(String.init)
             .filter { $0.hasPrefix("|") }
 
-        #expect(resolved.pins.count == 18)
+        #expect(resolved.pins.count == 17)
         for pin in resolved.pins {
             let expectedPin = pin.state.version ?? pin.state.revision
             let matchingRows = tableRows.filter { row in
@@ -82,6 +82,15 @@ struct ReleaseMetadataTests {
             }
             #expect(matchingRows.count == 1, "Missing or duplicate README row for \(pin.identity)")
         }
+
+        let localAnalysisRows = tableRows.filter { row in
+            row.contains("`photoanalysiskit`")
+                && row.contains("local `../PhotoAnalysisKit`")
+        }
+        #expect(localAnalysisRows.count == 1)
+
+        let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
+        #expect(project.contains("relativePath = ../PhotoAnalysisKit;"))
     }
 
     @Test
