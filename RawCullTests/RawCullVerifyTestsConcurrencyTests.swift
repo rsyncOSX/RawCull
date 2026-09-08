@@ -5,6 +5,7 @@
 
 import AppKit
 import Foundation
+import PhotoAnalysisKit
 @testable import RawCull
 import Testing
 
@@ -154,6 +155,22 @@ enum ConcurrencyTests {
 
             #expect(settings.scoringPhotoType == .auto)
             #expect(settings.scoringQuality == .fast)
+
+            let packageDefaults = PhotoAnalysisKit.SharpnessConfiguration()
+            #expect(settings.focusMaskErosionRadius == packageDefaults.erosionRadius)
+            #expect(settings.focusMaskDilationRadius == packageDefaults.dilationRadius)
+            #expect(settings.focusMaskFeatherRadius == packageDefaults.featherRadius)
+        }
+
+        @Test
+        @MainActor
+        func `new settings use package focus mask morphology defaults`() {
+            let settings = makeIsolatedSettingsViewModel()
+            let packageDefaults = PhotoAnalysisKit.SharpnessConfiguration()
+
+            #expect(settings.focusMaskErosionRadius == packageDefaults.erosionRadius)
+            #expect(settings.focusMaskDilationRadius == packageDefaults.dilationRadius)
+            #expect(settings.focusMaskFeatherRadius == packageDefaults.featherRadius)
         }
 
         @Test
