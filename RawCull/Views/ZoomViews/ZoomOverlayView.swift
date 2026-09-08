@@ -105,6 +105,15 @@ nonisolated struct ZoomViewportTransform: Equatable {
     var offset: CGSize
 }
 
+nonisolated enum ZoomOverlayImagePolicy {
+    nonisolated static func analysisImage(
+        dedicatedAnalysisImage: CGImage?,
+        displayImage: CGImage?,
+    ) -> CGImage? {
+        dedicatedAnalysisImage ?? displayImage
+    }
+}
+
 nonisolated enum ZoomViewportMath {
     static func aspectFitRect(imageSize: CGSize, in viewportSize: CGSize) -> CGRect {
         guard isFinitePositive(imageSize),
@@ -229,9 +238,16 @@ struct ZoomOverlayView: View {
 
     private var focusMaskTaskID: FocusMaskTaskID {
         FocusMaskTaskID(
-            imageID: viewModel.zoomOverlayCGImage.map(ObjectIdentifier.init),
+            imageID: maskAnalysisImage.map(ObjectIdentifier.init),
             source: sourceSelection.selected,
             fileID: viewModel.selectedFile?.id,
+        )
+    }
+
+    private var maskAnalysisImage: CGImage? {
+        ZoomOverlayImagePolicy.analysisImage(
+            dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
+            displayImage: viewModel.zoomOverlayCGImage,
         )
     }
 
@@ -322,7 +338,7 @@ struct ZoomOverlayView: View {
 
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
-                        focusMaskAvailable: viewModel.zoomOverlayCGImage != nil || focusMask != nil,
+                        focusMaskAvailable: maskAnalysisImage != nil || focusMask != nil,
                         hasFocusPoints: focusTarget != nil,
                         showFocusPoints: $showFocusPoints,
                         showShortcutHints: true,
@@ -636,14 +652,14 @@ struct ZoomOverlayView: View {
     // MARK: - Mask regeneration
 
     private func regenerateMaskFromCG() async {
-        guard let cg = viewModel.zoomOverlayCGImage,
+        guard let cg = maskAnalysisImage,
               let selectedFile = viewModel.selectedFile
         else { return }
         let selectedFileID = selectedFile.id
         let previewSource = sourceSelection.selected
         await MainActor.run {
             guard viewModel.selectedFile?.id == selectedFileID,
-                  viewModel.zoomOverlayCGImage === cg,
+                  maskAnalysisImage === cg,
                   sourceSelection.selected == previewSource
             else { return }
             self.focusMask = nil
@@ -651,7 +667,7 @@ struct ZoomOverlayView: View {
         let config = focusMaskConfig(for: selectedFile)
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
-              viewModel.zoomOverlayCGImage === cg,
+              maskAnalysisImage === cg,
               sourceSelection.selected == previewSource
         else { return }
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
@@ -665,7 +681,7 @@ struct ZoomOverlayView: View {
         )
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
-              viewModel.zoomOverlayCGImage === cg,
+              maskAnalysisImage === cg,
               sourceSelection.selected == previewSource
         else { return }
         await MainActor.run {
@@ -726,10 +742,26 @@ struct ZoomOverlayView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
+
+            if showFocusMask, let mask = focusMask {
+                Image(decorative: mask, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+                    .blendMode(.screen)
+                    .opacity(0.95)
+                    .transition(.opacity)
+            }
         }
         .scaleEffect(currentScale)
         .offset(offset)
         .gesture(zoomPanGesture)
+        .onAppear {
+            applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
+        }
+        .onChange(of: viewModel.zoomOverlayNSImage?.hashValue) { _, _ in
+            applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
+        }
         .onTapGesture(count: 2) {
             withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
         }

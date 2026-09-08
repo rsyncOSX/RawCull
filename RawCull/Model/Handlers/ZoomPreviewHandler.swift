@@ -32,6 +32,7 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayNSImage = nil
                 }
 
@@ -60,6 +61,8 @@ enum ZoomPreviewHandler {
                 }
 
                 await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    viewModel.zoomOverlayAnalysisCGImage = cgThumb
                     if let displayImage {
                         viewModel.zoomOverlayNSImage = NSImage(cgImage: displayImage, size: .zero)
                     }
@@ -71,6 +74,7 @@ enum ZoomPreviewHandler {
                 await MainActor.run {
                     viewModel.zoomOverlayNSImage = nil
                     viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayVisible = true
                 }
 

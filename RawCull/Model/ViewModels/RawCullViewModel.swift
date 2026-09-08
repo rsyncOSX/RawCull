@@ -132,6 +132,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var zoomOverlayNavigationContext: ZoomOverlayNavigationContext?
     var zoomOverlayLaunchContext: ZoomOverlayLaunchContext = .default
     var zoomOverlayCGImage: CGImage?
+    var zoomOverlayAnalysisCGImage: CGImage?
     var zoomOverlayNSImage: NSImage?
 
     // Thumbnail preview zoom state
@@ -322,6 +323,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
         zoomOverlayNavigationContext = nil
         zoomOverlayLaunchContext = .default
         zoomOverlayCGImage = nil
+        zoomOverlayAnalysisCGImage = nil
         zoomOverlayNSImage = nil
     }
 
