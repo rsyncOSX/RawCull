@@ -25,6 +25,8 @@
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
 		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E9D0555C305035950068BBD2 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9D0555B305035950068BBD2 /* PhotoAnalysisKit */; };
+		E9D0555F305035CC0068BBD2 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9D0555E305035CC0068BBD2 /* PhotoAnalysisKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,10 +107,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				E9634D6C2FD1D1A0009E567D /* RawCullCore in Frameworks */,
+				E9D0555C305035950068BBD2 /* PhotoAnalysisKit in Frameworks */,
 				E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */,
 				E950B17A3050342F00DDCEBA /* PhotoAnalysisKit in Frameworks */,
 				E9B609852F28FA3600704081 /* DecodeEncodeGeneric in Frameworks */,
 				E92E0F0B3017777200788A3C /* CoreAICLIPBackend in Frameworks */,
+				E9D0555F305035CC0068BBD2 /* PhotoAnalysisKit in Frameworks */,
 				E92E0F173017777200788A3C /* CoreAIEfficientSAMBackend in Frameworks */,
 				E92E0F0F3017777200788A3C /* PhotoAIContracts in Frameworks */,
 				E92E0F133017777200788A3C /* PhotoAIWorkflows in Frameworks */,
@@ -207,6 +211,8 @@
 				E92E0F123017777200788A3C /* PhotoAIWorkflows */,
 				E92E0F143017777200788A3C /* VisionFeaturePrintBackend */,
 				E950B1793050342F00DDCEBA /* PhotoAnalysisKit */,
+				E9D0555B305035950068BBD2 /* PhotoAnalysisKit */,
+				E9D0555E305035CC0068BBD2 /* PhotoAnalysisKit */,
 			);
 			productName = RawCull;
 			productReference = E90B07A22F1E58EA00A95D4A /* RawCull.app */;
@@ -297,7 +303,7 @@
 				E9634D6A2FD1D1A0009E567D /* XCRemoteSwiftPackageReference "RawCullCore" */,
 				E95349CE2FF9902900A4C0C3 /* XCRemoteSwiftPackageReference "RawParserKit" */,
 				E92E0F093017777200788A3C /* XCRemoteSwiftPackageReference "PhotoAIKit" */,
-				E950B1783050342F00DDCEBA /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */,
+				E9D0555D305035CC0068BBD2 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E90B07A32F1E58EA00A95D4A /* Products */;
@@ -778,13 +784,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		E950B1783050342F00DDCEBA /* XCLocalSwiftPackageReference "../PhotoAnalysisKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../PhotoAnalysisKit;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
 		E92712B12F2CF57E00A681D0 /* XCRemoteSwiftPackageReference "RsyncArguments" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -840,6 +839,14 @@
 			requirement = {
 				kind = exactVersion;
 				version = 1.0.0;
+			};
+		};
+		E9D0555D305035CC0068BBD2 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rsyncOSX/PhotoAnalysisKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.3.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -913,6 +920,15 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E9C5897B2F2CA0AC00D8B063 /* XCRemoteSwiftPackageReference "RsyncProcessStreaming" */;
 			productName = RsyncProcessStreaming;
+		};
+		E9D0555B305035950068BBD2 /* PhotoAnalysisKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PhotoAnalysisKit;
+		};
+		E9D0555E305035CC0068BBD2 /* PhotoAnalysisKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9D0555D305035CC0068BBD2 /* XCRemoteSwiftPackageReference "PhotoAnalysisKit" */;
+			productName = PhotoAnalysisKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
