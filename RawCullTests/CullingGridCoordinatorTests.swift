@@ -217,7 +217,7 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test
-    func `render cache key tracks complete membership and score revisions`() {
+    func `render cache key tracks complete membership and score availability`() {
         let first = makeGridTestFile("first.ARW")
         let middle = makeGridTestFile("middle.ARW")
         let replacement = makeGridTestFile("replacement.ARW")
@@ -227,17 +227,14 @@ struct CullingGridCoordinatorTests {
         func key(
             groups: [BurstGroup] = [group],
             files: [FileItem] = [first, middle, last],
-            scoreRevision: Int = 4,
-            maxScore: Float = 0.8,
+            scores: [UUID: Float] = [first.id: 0.8],
         ) -> CullingGridRenderCacheKey {
             CullingGridRenderCacheKey(
                 burstGroups: groups,
                 files: files,
                 ratingFilter: .all,
                 reviewQueueFilter: .all,
-                scoresCount: 3,
-                scoreRevision: scoreRevision,
-                maxScore: maxScore,
+                hasSharpnessScores: !scores.isEmpty,
                 burstAnalysisResults: [:],
             )
         }
@@ -245,8 +242,16 @@ struct CullingGridCoordinatorTests {
         let baseline = key()
         #expect(baseline != key(groups: [BurstGroup(id: 1, fileIDs: [first.id, replacement.id, last.id])]))
         #expect(baseline != key(files: [first, replacement, last]))
-        #expect(baseline != key(scoreRevision: 5))
-        #expect(baseline != key(maxScore: 0.9))
+        #expect(baseline == key(scores: [first.id: 0.9]))
+        #expect(baseline == key(scores: [first.id: 0.9, middle.id: 0.7]))
+        #expect(baseline != key(scores: [:]))
+
+        let scored = CullingGridRenderCache.rebuild(files: [first, middle, last], burstGroups: [group], scores: [first.id: 0.8])
+        let updated = CullingGridRenderCache.rebuild(files: [first, middle, last], burstGroups: [group], scores: [middle.id: 0.9])
+        let cleared = CullingGridRenderCache.rebuild(files: [first, middle, last], burstGroups: [group], scores: [:])
+        #expect(scored.visibleBurstGroups == updated.visibleBurstGroups)
+        #expect(scored.hasSharpnessScoresSnapshot == updated.hasSharpnessScoresSnapshot)
+        #expect(!cleared.hasSharpnessScoresSnapshot)
     }
 
     @Test

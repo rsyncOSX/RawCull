@@ -354,9 +354,6 @@ struct CullingGridView<Header: View>: View {
             }
         }
         .frame(minWidth: 400, minHeight: 400)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
-        .animation(.easeInOut(duration: 0.2), value: similarityFeature.indexing.isIndexing)
-        .animation(.easeInOut(duration: 0.2), value: similarityFeature.isGrouping)
         .animation(.easeInOut(duration: 0.15), value: viewModel.showsBurstGroups)
         .animation(.easeInOut(duration: 0.15), value: ratingFilter)
         .sheet(item: $deepReviewPresentation) { presentation in
@@ -520,9 +517,7 @@ struct CullingGridView<Header: View>: View {
             files: files,
             ratingFilter: ratingFilter,
             reviewQueueFilter: viewModel.burstReviewQueueFilter,
-            scoresCount: viewModel.sharpnessModel.scores.count,
-            scoreRevision: viewModel.sharpnessModel.scoreRevision,
-            maxScore: viewModel.sharpnessModel.maxScore,
+            hasSharpnessScores: !viewModel.sharpnessModel.scores.isEmpty,
             burstAnalysisResults: viewModel.burstAnalysisResults,
         )
     }
