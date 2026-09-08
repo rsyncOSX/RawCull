@@ -245,7 +245,13 @@ struct MainThumbnailImageView: View {
             resetFocusMaskImage()
             loadSelectedSourceIfNeeded()
         }
-        .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
+        .onChange(of: image) { _, newImage in
+            guard newImage != nil,
+                  sourceSelection.selected == .thumbnail,
+                  showFocusMask else { return }
+            generateFocusMaskIfNeeded()
+        }
+        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             maskTask?.cancel()
             focusMask = nil
             focusMaskSourceURL = nil
@@ -264,9 +270,10 @@ struct MainThumbnailImageView: View {
         }
         .onChange(of: url) { _, _ in
             resetSourceImages()
+            image = nil
             sourceSelection.resetForNewImage()
             clearRAWMessage()
-            resetFocusMaskState()
+            resetFocusMaskImage()
             loadSelectedSourceIfNeeded()
         }
         .onDisappear {
@@ -415,10 +422,12 @@ struct MainThumbnailImageView: View {
             }
             return
         }
-        if requestedSource == .embeddedJPG, embeddedJPGImage != nil {
-            return
-        }
-        if requestedSource == .developedRAW, developedRAWImage != nil {
+        if (requestedSource == .embeddedJPG && embeddedJPGImage != nil)
+            || (requestedSource == .developedRAW && developedRAWImage != nil) {
+            isLoadingSource = false
+            if showFocusMask {
+                generateFocusMaskIfNeeded()
+            }
             return
         }
 
@@ -501,20 +510,7 @@ struct MainThumbnailImageView: View {
         var config = viewModel.sharpnessModel.effectiveFocusConfig
         config.iso = file.exifData?.isoValue ?? 400
         config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        if let score = viewModel.sharpnessModel.scores[file.id],
-           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
-            config.guaranteeVisibleFocusEvidence = true
-        }
         return config
-    }
-
-    private func resetFocusMaskState() {
-        maskTask?.cancel()
-        maskTask = nil
-        focusMask = nil
-        focusMaskSourceURL = nil
-        showFocusMask = false
-        isGeneratingFocusMask = false
     }
 
     private func resetFocusMaskImage() {

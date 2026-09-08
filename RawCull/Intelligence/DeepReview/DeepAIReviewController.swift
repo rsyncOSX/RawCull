@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import Observation
+import OSLog
 
 nonisolated struct DeepAIReviewSourceCandidate: Equatable, Sendable {
     let fileID: UUID
@@ -52,6 +53,7 @@ final class DeepAIReviewController {
         (any DeepAIReviewApplicationContext)?
 
     init(feature: DeepAIReviewFeature = DeepAIReviewFeature()) {
+        Logger.process.debugMessageOnly("DeepAIReviewController.init()")
         self.feature = feature
     }
 
@@ -82,6 +84,7 @@ final class DeepAIReviewController {
         for candidate: DeepAIReviewCandidate,
         in files: [FileItem],
     ) async -> CGImage? {
+        Logger.process.debugMessageOnly("DeepAIReviewController.mask()")
         guard let file = files.first(where: { $0.id == candidate.fileID })
         else { return nil }
         return await feature.mask(for: candidate, fileURL: file.url)
@@ -151,6 +154,7 @@ final class DeepAIReviewController {
     }
 
     func bindApplicationContext(_ context: any DeepAIReviewApplicationContext) {
+        Logger.process.debugMessageOnly("DeepAIReviewController.bindApplicationContext()")
         if let applicationContext {
             assert(applicationContext === context)
             return
@@ -159,6 +163,7 @@ final class DeepAIReviewController {
     }
 
     func start(for groupFiles: [FileItem]) async {
+        Logger.process.debugMessageOnly("DeepAIReviewController.start()")
         guard !isActionUnavailable,
               let context = applicationContext?.deepAIReviewContext(for: groupFiles)
         else { return }
@@ -184,10 +189,12 @@ final class DeepAIReviewController {
     }
 
     func cancel() {
+        Logger.process.debugMessageOnly("DeepAIReviewController.cancel()")
         feature.cancel()
     }
 
     func reset() {
+        Logger.process.debugMessageOnly("DeepAIReviewController.reset()")
         feature.reset()
     }
 

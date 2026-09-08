@@ -14,14 +14,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var terminationTask: Task<Void, Never>?
 
     func configure(viewModel: RawCullViewModel) {
+        Logger.process.debugMessageOnly("AppDelegate.configure()")
         self.viewModel = viewModel
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
-        true
+        Logger.process.debugMessageOnly("AppDelegate.applicationShouldTerminateAfterLastWindowClosed()")
+        return true
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Logger.process.debugMessageOnly("AppDelegate.applicationShouldTerminate()")
         guard let viewModel else { return .terminateNow }
         return beginTermination(
             flush: { await viewModel.cullingModel.flushPersistence() },
@@ -45,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         releaseAccess: @escaping @MainActor () -> Void,
         reply: @escaping @MainActor (Bool) -> Void,
     ) -> NSApplication.TerminateReply {
+        Logger.process.debugMessageOnly("AppDelegate.beginTermination()")
         guard terminationTask == nil else { return .terminateLater }
         setPending(true)
         terminationTask = Task {
@@ -72,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func showQuitRecovery(error: String?) -> QuitRecoveryChoice {
+        Logger.process.debugMessageOnly("AppDelegate.showQuitRecovery()")
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = String(localized: "Changes Could Not Be Saved")
@@ -99,6 +104,7 @@ struct RawCullApp: App {
     @State private var intelligenceRuntime: RawCullIntelligenceRuntime
 
     init() {
+        Logger.process.debugMessageOnly("RawCullApp.init()")
         let applicationState = RawCullApplicationState.live()
         _viewModel = State(
             initialValue: applicationState.viewModel,

@@ -54,7 +54,7 @@ enum ComparisonGridImageCoordinator {
         for file: FileItem,
         useThumbnailSource: Bool,
     ) async -> ComparisonImageState {
-        let (cgImage, nsImage) = await ComparisonImageLoader.loadImage(
+        let decodedImage = await ComparisonImageLoader.loadImage(
             for: file,
             useThumbnailSource: useThumbnailSource,
         )
@@ -64,8 +64,9 @@ enum ComparisonGridImageCoordinator {
 
         return ComparisonImageState(
             id: file.id,
-            cgImage: cgImage,
-            nsImage: nsImage,
+            cgImage: decodedImage.displayCGImage,
+            analysisCGImage: decodedImage.analysisCGImage,
+            nsImage: decodedImage.nsImage,
             isLoading: false,
         )
     }
@@ -76,7 +77,7 @@ enum ComparisonGridImageCoordinator {
         viewModel: RawCullViewModel,
     ) async -> ComparisonImageState {
         var updatedState = state
-        guard let cgImage = state.cgImage else {
+        guard let cgImage = state.analysisCGImage ?? state.cgImage else {
             updatedState.isFocusAnalysisComplete = true
             return updatedState
         }
@@ -146,10 +147,9 @@ enum ComparisonGridImageCoordinator {
         viewModel: RawCullViewModel,
     ) async -> ComparisonFocusMaskResult {
         let config = focusMaskConfig(for: file, viewModel: viewModel)
-        let downscaled = await cgImage.downscaled(toWidth: 1024)
         guard !Task.isCancelled else { return (nil, nil, nil) }
         return await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-            from: downscaled ?? cgImage,
+            from: FocusMaskAnalysisResolutionPolicy.prepare(cgImage),
             scale: 1.0,
             configOverride: config,
             afPoint: file.afFocusNormalized,
@@ -165,10 +165,6 @@ enum ComparisonGridImageCoordinator {
         var config = viewModel.sharpnessModel.effectiveFocusConfig
         config.iso = file.exifData?.isoValue ?? 400
         config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        if let score = viewModel.sharpnessModel.scores[file.id],
-           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
-            config.guaranteeVisibleFocusEvidence = true
-        }
         return config
     }
 

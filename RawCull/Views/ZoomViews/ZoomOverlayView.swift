@@ -105,6 +105,15 @@ nonisolated struct ZoomViewportTransform: Equatable {
     var offset: CGSize
 }
 
+nonisolated enum ZoomOverlayImagePolicy {
+    nonisolated static func analysisImage(
+        dedicatedAnalysisImage: CGImage?,
+        displayImage: CGImage?,
+    ) -> CGImage? {
+        dedicatedAnalysisImage ?? displayImage
+    }
+}
+
 nonisolated enum ZoomViewportMath {
     static func aspectFitRect(imageSize: CGSize, in viewportSize: CGSize) -> CGRect {
         guard isFinitePositive(imageSize),
@@ -204,6 +213,12 @@ struct ZoomOverlayView: View {
         viewModel.getFocusPoints()
     }
 
+    private struct FocusMaskTaskID: Hashable {
+        let imageID: ObjectIdentifier?
+        let source: ImagePreviewSource
+        let fileID: FileItem.ID?
+    }
+
     @State private var focusMask: CGImage?
     @State private var currentScale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -220,6 +235,21 @@ struct ZoomOverlayView: View {
     @FocusState private var isImageFocused: Bool
 
     private let zoomLevel: CGFloat = 2.0
+
+    private var focusMaskTaskID: FocusMaskTaskID {
+        FocusMaskTaskID(
+            imageID: maskAnalysisImage.map(ObjectIdentifier.init),
+            source: sourceSelection.selected,
+            fileID: viewModel.selectedFile?.id,
+        )
+    }
+
+    private var maskAnalysisImage: CGImage? {
+        ZoomOverlayImagePolicy.analysisImage(
+            dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
+            displayImage: viewModel.zoomOverlayCGImage,
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -308,7 +338,7 @@ struct ZoomOverlayView: View {
 
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
-                        focusMaskAvailable: focusMask != nil,
+                        focusMaskAvailable: maskAnalysisImage != nil || focusMask != nil,
                         hasFocusPoints: focusTarget != nil,
                         showFocusPoints: $showFocusPoints,
                         showShortcutHints: true,
@@ -388,7 +418,12 @@ struct ZoomOverlayView: View {
             rawMessageTask?.cancel()
             rawMessageTask = nil
         }
-        .onChange(of: sourceSelection.selected) { _, _ in reload() }
+        .onChange(of: sourceSelection.selected) { _, _ in
+            maskTask?.cancel()
+            maskTask = nil
+            focusMask = nil
+            reload()
+        }
         .onChange(of: viewModel.selectedFile) { _, _ in
             guard viewModel.zoomOverlayVisible else { return }
             maskTask?.cancel()
@@ -399,7 +434,7 @@ struct ZoomOverlayView: View {
             pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
             reload()
         }
-        .task(id: viewModel.zoomOverlayCGImage?.hashValue) {
+        .task(id: focusMaskTaskID) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             await regenerateMaskFromCG()
@@ -617,21 +652,26 @@ struct ZoomOverlayView: View {
     // MARK: - Mask regeneration
 
     private func regenerateMaskFromCG() async {
-        guard let cg = viewModel.zoomOverlayCGImage,
+        guard let cg = maskAnalysisImage,
               let selectedFile = viewModel.selectedFile
         else { return }
         let selectedFileID = selectedFile.id
         let previewSource = sourceSelection.selected
+        await MainActor.run {
+            guard viewModel.selectedFile?.id == selectedFileID,
+                  maskAnalysisImage === cg,
+                  sourceSelection.selected == previewSource
+            else { return }
+            self.focusMask = nil
+        }
         let config = focusMaskConfig(for: selectedFile)
-        let downscaled = await cg.downscaled(toWidth: 1024)
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
-              viewModel.zoomOverlayCGImage === cg,
+              maskAnalysisImage === cg,
               sourceSelection.selected == previewSource
         else { return }
-        let source = downscaled ?? cg
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-            from: source,
+            from: FocusMaskAnalysisResolutionPolicy.prepare(cg),
             scale: 1.0,
             configOverride: config,
             afPoint: selectedFile.afFocusNormalized,
@@ -641,7 +681,7 @@ struct ZoomOverlayView: View {
         )
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
-              viewModel.zoomOverlayCGImage === cg,
+              maskAnalysisImage === cg,
               sourceSelection.selected == previewSource
         else { return }
         await MainActor.run {
@@ -659,10 +699,6 @@ struct ZoomOverlayView: View {
         var config = viewModel.sharpnessModel.effectiveFocusConfig
         config.iso = file.exifData?.isoValue ?? 400
         config.apertureHint = FocusDetectorConfig.ApertureHint.from(aperture: file.exifData?.apertureValue)
-        if let score = viewModel.sharpnessModel.scores[file.id],
-           SharpnessLabel(score: score, maxScore: viewModel.sharpnessModel.maxScore) == .sharp {
-            config.guaranteeVisibleFocusEvidence = true
-        }
         return config
     }
 
@@ -705,10 +741,26 @@ struct ZoomOverlayView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
+
+            if showFocusMask, let mask = focusMask {
+                Image(decorative: mask, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+                    .blendMode(.screen)
+                    .opacity(0.95)
+                    .transition(.opacity)
+            }
         }
         .scaleEffect(currentScale)
         .offset(offset)
         .gesture(zoomPanGesture)
+        .onAppear {
+            applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
+        }
+        .onChange(of: viewModel.zoomOverlayNSImage?.hashValue) { _, _ in
+            applyPendingInitialZoomIfNeeded(imageSize: image.size, viewportSize: size)
+        }
         .onTapGesture(count: 2) {
             withAnimation(.spring()) { currentScale > 1.0 ? resetToFit() : zoomToTarget() }
         }
@@ -852,27 +904,5 @@ struct ZoomOverlayView: View {
             currentScale = max(0.5, currentScale - 0.4)
             lastScale = currentScale
         }
-    }
-}
-
-extension CGImage {
-    /// Drawing can trigger deferred image decoding; keep it off the caller's actor.
-    @concurrent
-    nonisolated func downscaled(toWidth maxWidth: Int) async -> CGImage? {
-        guard !Task.isCancelled else { return nil }
-        guard width > maxWidth else { return self }
-        let scale = CGFloat(maxWidth) / CGFloat(width)
-        let newWidth = maxWidth
-        let newHeight = Int(CGFloat(height) * scale)
-        guard let context = CGContext(
-            data: nil, width: newWidth, height: newHeight,
-            bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-        ) else { return nil }
-        context.interpolationQuality = .medium
-        context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
-        guard !Task.isCancelled else { return nil }
-        return context.makeImage()
     }
 }

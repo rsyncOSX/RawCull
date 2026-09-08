@@ -14,6 +14,7 @@ extension RawCullViewModel {
         catalog: URL,
         files sorted: [FileItem],
     ) async {
+        Logger.process.debugMessageOnly("RawCullViewModel.startBurstAnalysis()")
         let generation = burstAnalysisCoordinator.beginGeneration()
         let request = makeBurstAnalysisPipelineRequest(
             catalog: catalog,
@@ -93,6 +94,7 @@ extension RawCullViewModel {
     /// run a fresh analysis pass. Existing valid artifacts remain available if
     /// refreshing an individual file fails.
     func reindexBurstAnalysis() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.reindexBurstAnalysis()")
         guard let catalog = selectedSource?.url, !files.isEmpty else { return }
 
         burstCatalogPreparationGeneration &+= 1
@@ -124,6 +126,7 @@ extension RawCullViewModel {
     }
 
     func prepareForFullCatalogReindex() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.prepareForFullCatalogReindex()")
         selectedFileIDs = []
         clearLoadedBurstAnalysisForReindex()
         await handleSortOrderChange()
@@ -133,6 +136,7 @@ extension RawCullViewModel {
     /// sharpness or similarity computation path.
     @discardableResult
     func restoreExistingFullCatalogBurstAnalysis() async -> Bool {
+        Logger.process.debugMessageOnly("RawCullViewModel.restoreExistingFullCatalogBurstAnalysis()")
         guard let catalog = selectedSource?.url, !files.isEmpty else { return false }
         if hasExistingFullCatalogBurstGroupIndex {
             return true
@@ -197,6 +201,7 @@ extension RawCullViewModel {
     /// Re-run burst clustering with the current sensitivity threshold.
     /// Requires embeddings to already be computed — no-ops otherwise.
     func reGroupBursts() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.reGroupBursts()")
         guard !similarityModel.embeddings.isEmpty else { return }
         guard let catalog = selectedSource?.url else { return }
         let sorted = completedBurstAnalysisContext
@@ -268,6 +273,7 @@ extension RawCullViewModel {
 
     /// Rate the recommended frame in `groupFiles` at ★★★ and reject all others.
     func keepBestInGroup(from groupFiles: [FileItem]) {
+        Logger.process.debugMessageOnly("RawCullViewModel.keepBestInGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
         guard canApplyOneClickCulling(groupID: groupID) else { return }
@@ -287,6 +293,7 @@ extension RawCullViewModel {
 
     /// Rate the recommended frame at ★★★, second best at ★★, and reject others.
     func keepTopTwoInGroup(from groupFiles: [FileItem]) {
+        Logger.process.debugMessageOnly("RawCullViewModel.keepTopTwoInGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
         guard canApplyOneClickCulling(groupID: groupID) else { return }
@@ -311,6 +318,7 @@ extension RawCullViewModel {
     }
 
     func compareBurstGroup(_ groupFiles: [FileItem]) {
+        Logger.process.debugMessageOnly("RawCullViewModel.compareBurstGroup()")
         guard !groupFiles.isEmpty else { return }
         let groupID = groupID(for: groupFiles)
         activateBurstGroup(groupID: groupID, groupFiles: groupFiles)
@@ -318,6 +326,7 @@ extension RawCullViewModel {
 
     @discardableResult
     func advanceToNextBurstGroup(after currentGroupID: Int) -> Bool {
+        Logger.process.debugMessageOnly("RawCullViewModel.advanceToNextBurstGroup()")
         let scopedGroups = burstGroupsInActiveCatalogScope
         guard let currentIndex = scopedGroups.firstIndex(where: { $0.id == currentGroupID })
         else { return false }
@@ -350,6 +359,7 @@ extension RawCullViewModel {
     }
 
     private func activateBurstGroup(groupID: Int, groupFiles: [FileItem]) {
+        Logger.process.debugMessageOnly("RawCullViewModel.activateBurstGroup()")
         activeBurstComparisonGroupID = groupID
         let groupFileIDs = Set(groupFiles.map(\.id))
         let savedRankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID)
@@ -364,6 +374,7 @@ extension RawCullViewModel {
     }
 
     func returnToActiveBurstGroupView() {
+        Logger.process.debugMessageOnly("RawCullViewModel.returnToActiveBurstGroupView()")
         closeZoomOverlay()
         activeBurstComparisonGroupID = nil
         mainViewMode = .similarityGrid
@@ -371,6 +382,7 @@ extension RawCullViewModel {
     }
 
     func undoLastBurstAction() {
+        Logger.process.debugMessageOnly("RawCullViewModel.undoLastBurstAction()")
         guard let entry = lastBurstUndoEntry,
               let selectedSource
         else { return }
@@ -423,6 +435,7 @@ extension RawCullViewModel {
     }
 
     func useExistingBurstGroupIndex() {
+        Logger.process.debugMessageOnly("RawCullViewModel.useExistingBurstGroupIndex()")
         burstReviewQueueFilter = .all
         selectMainViewMode(.similarityGrid)
         similarityModel.burstModeActive = true

@@ -31,6 +31,7 @@ final class BurstAnalysisCoordinator {
         similarityModel: SimilarityScoringModel,
         cacheRepository: any BurstAnalysisCacheRepository,
     ) {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.init()")
         self.sharpnessModel = sharpnessModel
         self.similarityFeature = similarityFeature
         self.similarityModel = similarityModel
@@ -46,6 +47,7 @@ final class BurstAnalysisCoordinator {
         fullCatalogFileIDs: Set<UUID>,
         callbacks: BurstAnalysisRunCallbacks,
     ) async -> BurstAnalysisPipelineResult? {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.run()")
         let files = request.orderedFiles
         guard callbacks.isCurrent() else { return nil }
 
@@ -137,7 +139,7 @@ final class BurstAnalysisCoordinator {
         callbacks: BurstAnalysisRunCallbacks,
     ) -> BurstAnalysisPipelineResult? {
         Logger.process.debugMessageOnly(
-            "BurstAnalysisCoordinator.run(): cache hit; applying cached analysis",
+            "BurstAnalysisCoordinator.applyCachedResult()",
         )
         applyCachedWorkerState(snapshot, files: files)
         guard callbacks.isCurrent() else { return nil }
@@ -160,6 +162,7 @@ final class BurstAnalysisCoordinator {
         files: [FileItem],
         callbacks: BurstAnalysisRunCallbacks,
     ) async -> BurstAnalysisDiagnostic {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.prepareSharpness()")
         guard files.contains(where: { sharpnessModel.scores[$0.id] == nil }) else {
             return .reusedSharpnessScores
         }
@@ -179,6 +182,7 @@ final class BurstAnalysisCoordinator {
         files: [FileItem],
         callbacks: BurstAnalysisRunCallbacks,
     ) async -> BurstAnalysisDiagnostic {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.prepareSimilarity()")
         guard files.contains(where: { similarityModel.embeddings[$0.id] == nil }) else {
             return .reusedSimilarityArtifacts
         }
@@ -201,6 +205,7 @@ final class BurstAnalysisCoordinator {
         importLegacyCandidate: Bool,
         isCurrent: @MainActor () -> Bool,
     ) async -> BurstAnalysisCachePreparation? {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.prepareCache()")
         guard isCurrent() else { return nil }
         await similarityFeature.hydrateBurstArtifacts(request.orderedFiles)
         guard isCurrent() else { return nil }
@@ -274,6 +279,7 @@ final class BurstAnalysisCoordinator {
     }
 
     func save(_ snapshot: BurstAnalysisCacheSnapshot, catalog: URL) async {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.save()")
         await cacheRepository.save(snapshot, catalog: catalog)
     }
 
@@ -281,6 +287,7 @@ final class BurstAnalysisCoordinator {
         _ snapshot: BurstAnalysisCacheSnapshot,
         files: [FileItem],
     ) {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.applyCachedWorkerState()")
         similarityModel.applyCachedBurstAnalysis(snapshot)
         sharpnessModel.applyPreloadedScores(
             files,
@@ -290,6 +297,7 @@ final class BurstAnalysisCoordinator {
     }
 
     func deleteCache(catalog: URL) async {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.deleteCache()")
         await cacheRepository.delete(catalog: catalog)
     }
 
@@ -297,6 +305,7 @@ final class BurstAnalysisCoordinator {
         request: BurstAnalysisPipelineRequest,
         result: BurstAnalysisPipelineResult,
     ) -> BurstAnalysisCacheSnapshot {
+        Logger.process.debugMessageOnly("BurstAnalysisCoordinator.makeCacheSnapshot()")
         let files = request.orderedFiles
         return BurstAnalysisCacheSnapshot(
             schemaVersion: request.configuration.cacheSchemaVersion,

@@ -32,6 +32,7 @@ enum ZoomPreviewHandler {
 
                 await MainActor.run {
                     viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayNSImage = nil
                 }
 
@@ -60,6 +61,8 @@ enum ZoomPreviewHandler {
                 }
 
                 await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    viewModel.zoomOverlayAnalysisCGImage = cgThumb
                     if let displayImage {
                         viewModel.zoomOverlayNSImage = NSImage(cgImage: displayImage, size: .zero)
                     }
@@ -71,6 +74,7 @@ enum ZoomPreviewHandler {
                 await MainActor.run {
                     viewModel.zoomOverlayNSImage = nil
                     viewModel.zoomOverlayCGImage = nil
+                    viewModel.zoomOverlayAnalysisCGImage = nil
                     viewModel.zoomOverlayVisible = true
                 }
 
@@ -82,7 +86,11 @@ enum ZoomPreviewHandler {
                     image = nil
 
                 case .embeddedJPG:
-                    image = await loadExtractedJPGPreview(for: file.url)
+                    if let extractedPreview = await loadExtractedJPGPreview(for: file.url) {
+                        image = extractedPreview
+                    } else {
+                        image = await loadThumbnailPreview(for: file, thumbnailSizePreview: thumbnailSizePreview)
+                    }
 
                 case .developedRAW:
                     do {
@@ -107,6 +115,14 @@ enum ZoomPreviewHandler {
 
     static func loadExtractedJPGPreview(for rawURL: URL) async -> CGImage? {
         await FullSizePreviewLoader.shared.loadEmbeddedPreview(for: rawURL)
+    }
+
+    private static func loadThumbnailPreview(for file: FileItem, thumbnailSizePreview: Int) async -> CGImage? {
+        await RequestThumbnail.shared.requestThumbnail(
+            for: file.url,
+            targetSize: thumbnailSizePreview,
+            purpose: .preview,
+        )
     }
 
     static func loadDevelopedRAWPreview(for rawURL: URL) async throws -> CGImage {

@@ -7,8 +7,7 @@
 
 import AppKit
 import Foundation
-
-// import OSLog
+import OSLog
 
 actor ScanAndCreateThumbnails {
     // MARK: - Isolated State
@@ -41,6 +40,7 @@ actor ScanAndCreateThumbnails {
         diskCache: DiskCacheManager? = nil,
         rawLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
+        Logger.process.debugMessageOnly("ScanAndCreateThumbnails.init()")
         self.diskCache = diskCache ?? DiskCacheManager()
         self.rawLoader = rawLoader
         // Logger.process.debugMessageOnly("ThumbnailProvider: init() complete (pending setup)")
@@ -49,12 +49,14 @@ actor ScanAndCreateThumbnails {
     // MARK: - Setup
 
     func getSettings() async {
+        Logger.process.debugMessageOnly("ScanAndCreateThumbnails.getSettings()")
         if savedSettings == nil {
             savedSettings = await SettingsViewModel.shared.asyncgetsettings()
         }
     }
 
     private func ensureReady() async {
+        Logger.process.debugMessageOnly("ScanAndCreateThumbnails.ensureReady()")
         if let task = setupTask {
             return await task.value
         }
@@ -69,6 +71,7 @@ actor ScanAndCreateThumbnails {
     }
 
     func setFileHandlers(_ fileHandlers: FileHandlers) {
+        Logger.process.debugMessageOnly("ScanAndCreateThumbnails.setFileHandlers()")
         self.fileHandlers = fileHandlers
     }
 
@@ -77,11 +80,12 @@ actor ScanAndCreateThumbnails {
     func cancelPreload() {
         preloadTask?.cancel()
         preloadTask = nil
-        // Logger.process.debugMessageOnly("ThumbnailProvider: Preload Cancelled")
+        Logger.process.debugMessageOnly("ScanAndCreateThumbnails.cancelPreload()")
     }
 
     @discardableResult
     func preloadCatalog(at catalogURL: URL, targetSize: Int) async -> Int {
+        Logger.process.debugMessageOnly("ScanAndCreateThumbnails.preloadCatalog()")
         await ensureReady()
         cancelPreload()
 
@@ -144,6 +148,7 @@ actor ScanAndCreateThumbnails {
         targetSize: Int,
         itemIndex _: Int,
     ) async {
+        // Logger.process.debugMessageOnly("ScanAndCreateThumbnails.processSingleFile()")
         if Task.isCancelled {
             return
         }
@@ -246,6 +251,7 @@ actor ScanAndCreateThumbnails {
     }
 
     private func notifyExtractionNeeded() {
+        // Logger.process.debugMessageOnly("ScanAndCreateThumbnails.notifyExtractionNeeded()")
         let handler = fileHandlers?.onExtractionNeeded
         Task { @MainActor in handler?() }
     }
@@ -274,6 +280,7 @@ actor ScanAndCreateThumbnails {
     // MARK: - Cache Helpers
 
     private func recordCompletion(succeeded: Bool) {
+        // Logger.process.debugMessageOnly("ScanAndCreateThumbnails.recordCompletion()")
         completedCount += 1
         if succeeded {
             successCount += 1

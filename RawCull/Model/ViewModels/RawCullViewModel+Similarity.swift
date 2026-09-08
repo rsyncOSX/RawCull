@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import OSLog
 
 extension RawCullViewModel {
     // MARK: - Ranking
@@ -12,6 +13,7 @@ extension RawCullViewModel {
     /// Reuses saliency labels from the sharpness model for a small subject-mismatch penalty.
     /// Updates filteredFiles ordering via handleSortOrderChange() after ranking.
     func findSimilarToSelected() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.findSimilarToSelected()")
         guard let anchor = selectedFile else { return }
         let catalogFiles = files
         let catalogIdentity = currentSimilarityCatalogSnapshot.identity
@@ -33,6 +35,7 @@ extension RawCullViewModel {
     }
 
     func refreshSemanticSearchSelection() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.refreshSemanticSearchSelection()")
         similarityModel.burstModeActive = false
         if activeBurstComparisonGroupID != nil
             || mainViewMode == .comparisonGrid {
@@ -47,6 +50,7 @@ extension RawCullViewModel {
 
 extension RawCullViewModel: RawCullSemanticSearchApplicationTarget {
     func prepareApplicationForNewSemanticSearch() {
+        Logger.process.debugMessageOnly("RawCullViewModel.prepareApplicationForNewSemanticSearch()")
         discardScopedBurstAnalysisIfNeeded()
         selectedFileIDs = []
         similarityModel.burstModeActive = false
@@ -54,14 +58,17 @@ extension RawCullViewModel: RawCullSemanticSearchApplicationTarget {
     }
 
     func invalidateScopedBurstAnalysisForSemanticSelectionChange() {
+        Logger.process.debugMessageOnly("RawCullViewModel.invalidateScopedBurstAnalysisForSemanticSelectionChange()")
         discardScopedBurstAnalysisIfNeeded()
     }
 
     func applySemanticSearchSelection() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.applySemanticSearchSelection()")
         await refreshSemanticSearchSelection()
     }
 
     func restoreOrdinaryCatalogAfterSemanticSearch() async {
+        Logger.process.debugMessageOnly("RawCullViewModel.restoreOrdinaryCatalogAfterSemanticSearch()")
         await handleSortOrderChange()
     }
 }
@@ -78,6 +85,7 @@ extension RawCullViewModel: RawCullSimilarityApplicationContext {
     }
 
     func cancelAndResetBurstAnalysisForSimilarityBackendChange() {
+        Logger.process.debugMessageOnly("RawCullViewModel.cancelAndResetBurstAnalysisForSimilarityBackendChange()")
         cancelAndResetBurstAnalysis()
     }
 }

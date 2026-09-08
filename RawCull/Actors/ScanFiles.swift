@@ -26,6 +26,7 @@ actor ScanFiles {
     private let rawLoader: any RawImageLoading
 
     init(rawLoader: any RawImageLoading = RawParserKitImageLoader.shared) {
+        Logger.process.debugMessageOnly("ScanFiles.init()")
         self.rawLoader = rawLoader
     }
 
@@ -33,6 +34,7 @@ actor ScanFiles {
         url: URL,
         onProgress: (@MainActor @Sendable (_ count: Int) -> Void)? = nil,
     ) async -> [FileItem] {
+        Logger.process.debugMessageOnly("ScanFiles.scanFiles()")
         let didStartSecurityScope = url.startAccessingSecurityScopedResource()
         defer {
             if didStartSecurityScope {
@@ -122,6 +124,7 @@ actor ScanFiles {
     /// Reads focuspoints.json from the catalog directory. File I/O is offloaded to a
     /// background thread to avoid blocking the ScanFiles actor.
     private func decodeFocusPointsJSON(from url: URL) async -> [DecodeFocusPoints]? {
+        Logger.process.debugMessageOnly("ScanFiles.decodeFocusPointsJSON()")
         let fileURL = url.appendingPathComponent("focuspoints.json")
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         do {
@@ -140,7 +143,7 @@ actor ScanFiles {
         by sortOrder: [some SortComparator<FileItem>],
         searchText: String,
     ) async -> [FileItem] {
-        Logger.process.debugThreadOnly("func sortFiles()")
+        Logger.process.debugMessageOnly("ScanFiles.sortFiles()")
         let sorted = files.sorted(using: sortOrder)
         if searchText.isEmpty {
             return sorted

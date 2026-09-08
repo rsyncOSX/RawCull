@@ -4,6 +4,7 @@ import SwiftUI
 struct ComparisonImageState: Identifiable {
     let id: FileItem.ID
     var cgImage: CGImage?
+    var analysisCGImage: CGImage?
     var nsImage: NSImage?
     var focusMask: CGImage?
     var sharpnessBreakdown: SharpnessBreakdown?

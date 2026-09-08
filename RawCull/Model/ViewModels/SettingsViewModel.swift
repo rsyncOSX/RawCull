@@ -121,12 +121,12 @@ final class SettingsViewModel {
     var focusMaskThreshold: Float = 0.46
     /// Energy amplification multiplier (default: 7.62)
     var focusMaskEnergyMultiplier: Float = 7.62
-    /// Erosion radius for noise removal (default: 1.0)
-    var focusMaskErosionRadius: Float = 1.0
-    /// Dilation radius for connecting regions (default: 1.0)
-    var focusMaskDilationRadius: Float = 1.0
-    /// Feather radius for mask edges (default: 2.0)
-    var focusMaskFeatherRadius: Float = 2.0
+    /// Erosion radius for noise removal (default: 0.0)
+    var focusMaskErosionRadius: Float = 0.0
+    /// Dilation radius for connecting regions (default: 0.0)
+    var focusMaskDilationRadius: Float = 0.0
+    /// Feather radius for mask edges (default: 0.5)
+    var focusMaskFeatherRadius: Float = 0.5
 
     // MARK: - Private Properties
 
@@ -365,9 +365,9 @@ struct SavedSettings: Codable {
         focusMaskPreBlurRadius: Float = 1.92,
         focusMaskThreshold: Float = 0.46,
         focusMaskEnergyMultiplier: Float = 7.62,
-        focusMaskErosionRadius: Float = 1.0,
-        focusMaskDilationRadius: Float = 1.0,
-        focusMaskFeatherRadius: Float = 2.0,
+        focusMaskErosionRadius: Float = 0.0,
+        focusMaskDilationRadius: Float = 0.0,
+        focusMaskFeatherRadius: Float = 0.5,
     ) {
         self.memoryCacheSizeMB = Self.clamp(memoryCacheSizeMB, CacheSettingsLimits.memoryMinMB ... CacheSettingsLimits.memoryMaxMB)
         self.gridCacheSizeMB = Self.clamp(gridCacheSizeMB, CacheSettingsLimits.gridMinMB ... CacheSettingsLimits.gridMaxMB)
@@ -417,9 +417,9 @@ struct SavedSettings: Codable {
             focusMaskPreBlurRadius: (try? c.decode(Float.self, forKey: .focusMaskPreBlurRadius)) ?? 1.92,
             focusMaskThreshold: (try? c.decode(Float.self, forKey: .focusMaskThreshold)) ?? 0.46,
             focusMaskEnergyMultiplier: (try? c.decode(Float.self, forKey: .focusMaskEnergyMultiplier)) ?? 7.62,
-            focusMaskErosionRadius: (try? c.decode(Float.self, forKey: .focusMaskErosionRadius)) ?? 1.0,
-            focusMaskDilationRadius: (try? c.decode(Float.self, forKey: .focusMaskDilationRadius)) ?? 1.0,
-            focusMaskFeatherRadius: (try? c.decode(Float.self, forKey: .focusMaskFeatherRadius)) ?? 2.0,
+            focusMaskErosionRadius: (try? c.decode(Float.self, forKey: .focusMaskErosionRadius)) ?? 0.0,
+            focusMaskDilationRadius: (try? c.decode(Float.self, forKey: .focusMaskDilationRadius)) ?? 0.0,
+            focusMaskFeatherRadius: (try? c.decode(Float.self, forKey: .focusMaskFeatherRadius)) ?? 0.5,
         )
     }
 
