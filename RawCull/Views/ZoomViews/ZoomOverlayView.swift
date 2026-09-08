@@ -649,15 +649,13 @@ struct ZoomOverlayView: View {
             self.focusMask = nil
         }
         let config = focusMaskConfig(for: selectedFile)
-        let downscaled = await cg.downscaled(toWidth: 1024)
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
               viewModel.zoomOverlayCGImage === cg,
               sourceSelection.selected == previewSource
         else { return }
-        let source = downscaled ?? cg
         let result = await viewModel.sharpnessModel.focusMaskModel.generateFocusMaskWithBreakdown(
-            from: source,
+            from: FocusMaskAnalysisResolutionPolicy.prepare(cg),
             scale: 1.0,
             configOverride: config,
             afPoint: selectedFile.afFocusNormalized,
@@ -875,27 +873,5 @@ struct ZoomOverlayView: View {
             currentScale = max(0.5, currentScale - 0.4)
             lastScale = currentScale
         }
-    }
-}
-
-extension CGImage {
-    /// Drawing can trigger deferred image decoding; keep it off the caller's actor.
-    @concurrent
-    nonisolated func downscaled(toWidth maxWidth: Int) async -> CGImage? {
-        guard !Task.isCancelled else { return nil }
-        guard width > maxWidth else { return self }
-        let scale = CGFloat(maxWidth) / CGFloat(width)
-        let newWidth = maxWidth
-        let newHeight = Int(CGFloat(height) * scale)
-        guard let context = CGContext(
-            data: nil, width: newWidth, height: newHeight,
-            bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-        ) else { return nil }
-        context.interpolationQuality = .medium
-        context.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
-        guard !Task.isCancelled else { return nil }
-        return context.makeImage()
     }
 }

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import PhotoAnalysisKit
 
@@ -7,6 +8,14 @@ typealias FocusMaskRegionSource = PhotoAnalysisKit.FocusMaskRegionSource
 typealias FocusPatchRanking = PhotoAnalysisKit.FocusPatchRanking
 typealias FocusEvidence = PhotoAnalysisKit.FocusEvidence
 typealias FocusCalibrationResult = PhotoAnalysisKit.FocusCalibrationResult
+
+/// Focus masks use every pixel already present in the decoded preview.
+/// This centralizes the policy so a future memory cap cannot diverge by view or orientation.
+nonisolated enum FocusMaskAnalysisResolutionPolicy {
+    nonisolated static func prepare(_ image: CGImage) -> CGImage {
+        image
+    }
+}
 
 /// RawCull presentation metadata layered over PhotoAnalysisKit's neutral result.
 nonisolated struct SharpnessBreakdown: Equatable, Sendable {
