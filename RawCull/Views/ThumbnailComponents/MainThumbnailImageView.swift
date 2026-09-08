@@ -245,6 +245,12 @@ struct MainThumbnailImageView: View {
             resetFocusMaskImage()
             loadSelectedSourceIfNeeded()
         }
+        .onChange(of: image) { _, newImage in
+            guard newImage != nil,
+                  sourceSelection.selected == .thumbnail,
+                  showFocusMask else { return }
+            generateFocusMaskIfNeeded()
+        }
         .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
             maskTask?.cancel()
             focusMask = nil
@@ -264,9 +270,10 @@ struct MainThumbnailImageView: View {
         }
         .onChange(of: url) { _, _ in
             resetSourceImages()
+            image = nil
             sourceSelection.resetForNewImage()
             clearRAWMessage()
-            resetFocusMaskState()
+            resetFocusMaskImage()
             loadSelectedSourceIfNeeded()
         }
         .onDisappear {
@@ -506,15 +513,6 @@ struct MainThumbnailImageView: View {
             config.guaranteeVisibleFocusEvidence = true
         }
         return config
-    }
-
-    private func resetFocusMaskState() {
-        maskTask?.cancel()
-        maskTask = nil
-        focusMask = nil
-        focusMaskSourceURL = nil
-        showFocusMask = false
-        isGeneratingFocusMask = false
     }
 
     private func resetFocusMaskImage() {
