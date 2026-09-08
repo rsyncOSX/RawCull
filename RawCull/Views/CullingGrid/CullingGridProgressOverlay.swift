@@ -5,6 +5,16 @@ struct CullingGridProgressOverlay: View {
     let similarityFeature: RawCullSimilarityFeature
 
     var body: some View {
+        ZStack {
+            progressContent
+        }
+        .animation(.easeInOut(duration: 0.2), value: viewModel.sharpnessModel.isScoring)
+        .animation(.easeInOut(duration: 0.2), value: similarityFeature.indexing.isIndexing)
+        .animation(.easeInOut(duration: 0.2), value: similarityFeature.isGrouping)
+    }
+
+    @ViewBuilder
+    private var progressContent: some View {
         if viewModel.sharpnessModel.isScoring {
             ProgressCount(
                 completed: viewModel.sharpnessModel.scoringProgress,

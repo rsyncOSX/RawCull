@@ -13,18 +13,15 @@ struct CullingGridRenderCacheKey: Hashable {
     let filesStructureHash: Int
     let ratingFilter: GridRatingFilter
     let reviewQueueFilter: BurstReviewQueueFilter
-    let scoresCount: Int
-    let scoreRevision: Int
-    let maxScore: Float
+    /// Membership does not depend on score values, only score availability.
+    let hasSharpnessScores: Bool
 
     init(
         burstGroups: [BurstGroup],
         files: [FileItem],
         ratingFilter: GridRatingFilter,
         reviewQueueFilter: BurstReviewQueueFilter,
-        scoresCount: Int,
-        scoreRevision: Int,
-        maxScore: Float,
+        hasSharpnessScores: Bool,
         burstAnalysisResults: [Int: BurstAnalysisResult],
     ) {
         var structureHasher = Hasher()
@@ -50,9 +47,7 @@ struct CullingGridRenderCacheKey: Hashable {
         self.filesStructureHash = filesHasher.finalize()
         self.ratingFilter = ratingFilter
         self.reviewQueueFilter = reviewQueueFilter
-        self.scoresCount = scoresCount
-        self.scoreRevision = scoreRevision
-        self.maxScore = maxScore
+        self.hasSharpnessScores = hasSharpnessScores
     }
 }
 
