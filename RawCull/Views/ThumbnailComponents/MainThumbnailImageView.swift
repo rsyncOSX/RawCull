@@ -251,7 +251,7 @@ struct MainThumbnailImageView: View {
                   showFocusMask else { return }
             generateFocusMaskIfNeeded()
         }
-        .onChange(of: viewModel.sharpnessModel.focusMaskModel.config) { _, _ in
+        .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             maskTask?.cancel()
             focusMask = nil
             focusMaskSourceURL = nil
@@ -422,10 +422,12 @@ struct MainThumbnailImageView: View {
             }
             return
         }
-        if requestedSource == .embeddedJPG, embeddedJPGImage != nil {
-            return
-        }
-        if requestedSource == .developedRAW, developedRAWImage != nil {
+        if (requestedSource == .embeddedJPG && embeddedJPGImage != nil)
+            || (requestedSource == .developedRAW && developedRAWImage != nil) {
+            isLoadingSource = false
+            if showFocusMask {
+                generateFocusMaskIfNeeded()
+            }
             return
         }
 

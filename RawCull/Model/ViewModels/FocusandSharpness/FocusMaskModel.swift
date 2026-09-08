@@ -75,7 +75,7 @@ final class FocusMaskModel {
     func calibrateAndApplyFromBurstParallel(
         files: [(url: URL, iso: Int?, aperture: Double?)],
         baseConfigOverride: FocusDetectorConfig? = nil,
-        thumbnailMaxPixelSize: Int = 512,
+        thumbnailMaxPixelSize: Int = FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize,
         scoringSource: SharpnessScoringSource = .embeddedPreview,
         thresholdPercentile: Float = 0.90,
         minSamples: Int = 5,

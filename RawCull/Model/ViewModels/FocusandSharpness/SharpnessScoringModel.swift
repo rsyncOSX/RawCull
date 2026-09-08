@@ -159,7 +159,7 @@ final class SharpnessScoringModel {
             guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
                 files: fileEntries,
                 baseConfigOverride: calibrationConfig,
-                thumbnailMaxPixelSize: effectiveThumbnailMaxPixelSize,
+                thumbnailMaxPixelSize: FocusMaskAnalysisResolutionPolicy.calibrationMaximumPixelSize,
                 scoringSource: scoringSource,
                 minSamples: 5,
                 maxConcurrentTasks: effectiveMaxConcurrentScoringTasks,

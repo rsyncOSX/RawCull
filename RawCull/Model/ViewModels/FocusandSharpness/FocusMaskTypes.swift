@@ -12,6 +12,10 @@ typealias FocusCalibrationResult = PhotoAnalysisKit.FocusCalibrationResult
 /// Focus masks use every pixel already present in the decoded preview.
 /// This centralizes the policy so a future memory cap cannot diverge by view or orientation.
 nonisolated enum FocusMaskAnalysisResolutionPolicy {
+    /// Calibration uses a stable preview size, independent of scalar scoring
+    /// quality. The displayed mask still analyzes every decoded preview pixel.
+    nonisolated static let calibrationMaximumPixelSize = 1616
+
     nonisolated static func prepare(_ image: CGImage) -> CGImage {
         image
     }
