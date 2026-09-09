@@ -258,6 +258,12 @@ struct ImageItemView: View {
                         .padding(6)
                     }
                 }
+                .overlay(alignment: .bottomLeading) {
+                    if hasDeepReviewMask {
+                        DeepAIReviewMaskAvailabilityBadge()
+                            .padding(6)
+                    }
+                }
             }
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
             // Selected: strong accent frame inside the image bounds
@@ -303,13 +309,20 @@ struct ImageItemView: View {
     }
 
     private var accessibilitySummary: String {
-        RawCullAccessibilityPresentation.imageValue(
+        let summary = RawCullAccessibilityPresentation.imageValue(
             rating: ratingDisplay,
             isSelected: isSelected,
             isMultiSelected: isMultiSelected,
             semanticRank: semanticResultRank,
             semanticResultCount: semanticResultCount,
         )
+        return hasDeepReviewMask
+            ? "\(summary), Deep Review subject mask available"
+            : summary
+    }
+
+    private var hasDeepReviewMask: Bool {
+        viewModel.deepAIReviewController.maskCandidate(for: file.id) != nil
     }
 
     private var borderColor: Color {

@@ -118,6 +118,11 @@ struct ZoomOverlayKeyActionTests {
             navigationAxis: .horizontal,
         ) == .toggleFocusMask)
         #expect(ZoomOverlayKeyAction.resolve(
+            characters: "S",
+            keyCode: 0,
+            navigationAxis: .horizontal,
+        ) == .toggleSubjectOutline)
+        #expect(ZoomOverlayKeyAction.resolve(
             characters: "a",
             keyCode: 0,
             navigationAxis: .horizontal,
@@ -473,6 +478,11 @@ struct LoupeImageKeyActionTests {
     @Test(.tags(.smoke), arguments: ["f", "F"])
     func `F resolves to focus mask`(characters: String) {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleFocusMask)
+    }
+
+    @Test("S resolves to Deep Review subject outline", .tags(.smoke), arguments: ["s", "S"])
+    func subjectOutlineShortcut(characters: String) {
+        #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleSubjectOutline)
     }
 
     @Test(.tags(.smoke), arguments: ["a", "A"])

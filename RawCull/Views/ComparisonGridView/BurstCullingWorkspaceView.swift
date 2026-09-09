@@ -597,6 +597,9 @@ struct BurstCullingWorkspaceView: View {
         case .toggleFocusMask:
             viewportState.showFocusMask.toggle()
 
+        case .toggleSubjectOutline:
+            return .ignored
+
         case .toggleFocusPoints:
             viewportState.showFocusPoints.toggle()
 

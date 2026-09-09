@@ -24,6 +24,10 @@ struct DeepAIReviewFeatureTests {
         #expect(feature.state == .completed(result))
         #expect(result.recommendedFileID == request.candidates.first?.fileID)
         #expect(result.reasons == [.strongestSubjectDetail])
+        #expect(feature.maskCandidate(for: result.candidates[0].fileID)?.maskPromptUsed == .birdHead)
+
+        feature.reset()
+        #expect(feature.maskCandidate(for: result.candidates[0].fileID) == nil)
     }
 
     @MainActor
@@ -364,7 +368,7 @@ private final class DeepReviewApplicationContextStub: DeepAIReviewApplicationCon
                 normalSharpnessScore: 0.8,
                 subjectLabel: "bird",
                 normalizedAFPoint: CGPoint(x: 0.5, y: 0.5),
-            )
+            ),
         ],
         scoringSource: .embeddedPreview,
     )

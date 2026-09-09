@@ -80,6 +80,10 @@ final class DeepAIReviewController {
         feature.result(for: signature)
     }
 
+    func maskCandidate(for fileID: UUID) -> DeepAIReviewCandidate? {
+        feature.maskCandidate(for: fileID)
+    }
+
     func mask(
         for candidate: DeepAIReviewCandidate,
         in files: [FileItem],

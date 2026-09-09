@@ -6,6 +6,7 @@ nonisolated enum LoupeImageKeyAction: Equatable {
     case toggleEmbeddedJPG
     case toggleDevelopedRAW
     case toggleFocusMask
+    case toggleSubjectOutline
     case toggleFocusPoints
     case toggleMetadata
     case inspectActualPixels
@@ -27,6 +28,9 @@ nonisolated enum LoupeImageKeyAction: Equatable {
         case "f", "F":
             .toggleFocusMask
 
+        case "s", "S":
+            .toggleSubjectOutline
+
         case "a", "A":
             .toggleFocusPoints
 
@@ -47,6 +51,12 @@ struct MainThumbnailImageView: View {
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
+    }
+
+    private struct SubjectOutlineTaskID: Hashable {
+        let fileID: UUID?
+        let prompt: String?
+        let isPresented: Bool
     }
 
     let url: URL
@@ -71,7 +81,23 @@ struct MainThumbnailImageView: View {
     @State private var isGeneratingFocusMask = false
     @State private var focusMaskSourceURL: URL?
     @State private var maskTask: Task<Void, Never>?
+    @State private var subjectOutline: CGImage?
+    @State private var showSubjectOutline = false
+    @State private var isLoadingSubjectOutline = false
     @FocusState private var isImageFocused: Bool
+
+    private var subjectOutlineCandidate: DeepAIReviewCandidate? {
+        guard let file else { return nil }
+        return viewModel.deepAIReviewController.maskCandidate(for: file.id)
+    }
+
+    private var subjectOutlineTaskID: SubjectOutlineTaskID {
+        SubjectOutlineTaskID(
+            fileID: file?.id,
+            prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
+            isPresented: showSubjectOutline,
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -124,6 +150,20 @@ struct MainThumbnailImageView: View {
                                     .transition(.opacity)
                             }
 
+                            if showSubjectOutline, let subjectOutline {
+                                Image(decorative: subjectOutline, scale: 1, orientation: .up)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                                    .scaleEffect(viewModel.scale)
+                                    .offset(viewModel.offset)
+                                    .colorMultiply(.orange)
+                                    .blendMode(.screen)
+                                    .opacity(0.95)
+                                    .allowsHitTesting(false)
+                                    .transition(.opacity)
+                            }
+
                             // 3️⃣ Focus points overlay
                             if showFocusPoints, let focusPoints {
                                 FocusOverlayView(
@@ -142,6 +182,10 @@ struct MainThumbnailImageView: View {
                                 ImageOverlayControlsView(
                                     showFocusMask: $showFocusMask,
                                     focusMaskAvailable: currentDisplayedImage != nil,
+                                    showSubjectOutline: $showSubjectOutline,
+                                    showsSubjectOutlineControl: true,
+                                    subjectOutlineAvailable: subjectOutlineCandidate != nil,
+                                    subjectOutlineLoading: isLoadingSubjectOutline,
                                     hasFocusPoints: focusPoints != nil,
                                     showFocusPoints: $showFocusPoints,
                                     showShortcutHints: true,
@@ -214,7 +258,7 @@ struct MainThumbnailImageView: View {
                         .focusable()
                         .focused($isImageFocused)
                         .focusEffectDisabled(true)
-                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAeEzZ")) { press in
+                        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAeEzZ")) { press in
                             handleKeyAction(LoupeImageKeyAction.resolve(characters: press.characters))
                         }
                         .onAppear { isImageFocused = true }
@@ -231,6 +275,9 @@ struct MainThumbnailImageView: View {
         .task {
             let settingsmanager = await SettingsViewModel.shared.asyncgetsettings()
             thumbnailSizePreview = settingsmanager.thumbnailSizePreview
+        }
+        .task(id: subjectOutlineTaskID) {
+            await loadSubjectOutline()
         }
         .onChange(of: showFocusMask) { _, newValue in
             if newValue {
@@ -390,6 +437,11 @@ struct MainThumbnailImageView: View {
             showFocusMask.toggle()
             return .handled
 
+        case .toggleSubjectOutline:
+            guard subjectOutlineCandidate != nil else { return .ignored }
+            showSubjectOutline.toggle()
+            return .handled
+
         case .toggleFocusPoints:
             showFocusPoints.toggle()
             return .handled
@@ -470,6 +522,34 @@ struct MainThumbnailImageView: View {
             rating: viewModel.getRating(for: file),
             isExplicit: viewModel.taggedNamesCache.contains(file.name),
         )
+    }
+
+    private func loadSubjectOutline() async {
+        subjectOutline = nil
+        isLoadingSubjectOutline = false
+        guard showSubjectOutline,
+              let file,
+              let candidate = subjectOutlineCandidate
+        else { return }
+
+        isLoadingSubjectOutline = true
+        let mask = await viewModel.deepAIReviewController.mask(
+            for: candidate,
+            in: [file],
+        )
+        guard !Task.isCancelled else {
+            isLoadingSubjectOutline = false
+            return
+        }
+        if let mask {
+            subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
+        }
+        guard !Task.isCancelled else {
+            subjectOutline = nil
+            isLoadingSubjectOutline = false
+            return
+        }
+        isLoadingSubjectOutline = false
     }
 
     // MARK: - Regenerate Mask

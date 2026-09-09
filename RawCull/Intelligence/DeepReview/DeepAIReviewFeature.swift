@@ -181,6 +181,7 @@ final class DeepAIReviewFeature {
     private(set) var state: DeepAIReviewState = .idle
     private(set) var availability: RawCullAICapabilityStatus
     private(set) var results: [BurstGroupSignature: DeepAIReviewResult] = [:]
+    private(set) var maskCandidatesByFileID: [UUID: DeepAIReviewCandidate] = [:]
 
     @ObservationIgnored private var service: (any DeepAIReviewServicing)?
     @ObservationIgnored private var maskLoader: (any DeepAIReviewMaskLoading)?
@@ -205,6 +206,10 @@ final class DeepAIReviewFeature {
 
     func result(for signature: BurstGroupSignature) -> DeepAIReviewResult? {
         results[signature]
+    }
+
+    func maskCandidate(for fileID: UUID) -> DeepAIReviewCandidate? {
+        maskCandidatesByFileID[fileID]
     }
 
     func install(
@@ -288,6 +293,7 @@ final class DeepAIReviewFeature {
                 )
                 feature.state = .completing(groupID: request.groupID)
                 feature.results[result.groupSignature] = result
+                feature.rebuildMaskCandidateIndex()
                 feature.state = .completed(result)
                 Logger.process.debugMessageOnly(
                     "DeepAIReviewFeature.start(): review completed for group \(request.groupID)",
@@ -347,6 +353,7 @@ final class DeepAIReviewFeature {
         cancel()
         state = .idle
         results = [:]
+        maskCandidatesByFileID = [:]
     }
 
     private func receive(_ progress: DeepAIReviewProgress, generation: Int) {
@@ -356,6 +363,16 @@ final class DeepAIReviewFeature {
         )
         guard self.generation == generation, !Task.isCancelled else { return }
         state = .running(progress)
+    }
+
+    private func rebuildMaskCandidateIndex() {
+        maskCandidatesByFileID = results.values
+            .sorted { $0.timestamp < $1.timestamp }
+            .flatMap(\.candidates)
+            .reduce(into: [:]) { candidates, candidate in
+                guard candidate.isCompleted, candidate.maskPromptUsed != nil else { return }
+                candidates[candidate.fileID] = candidate
+            }
     }
 
     private nonisolated static func unavailableReason(
