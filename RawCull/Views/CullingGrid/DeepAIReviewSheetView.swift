@@ -251,8 +251,9 @@ private struct DeepAIReviewMaskPreview: View {
     let files: [FileItem]
     let candidate: DeepAIReviewCandidate?
 
-    @State private var mask: CGImage?
+    @State private var maskOverlay: CGImage?
     @State private var isLoading = false
+    @State private var isOrganicOutline = false
 
     private var file: FileItem? {
         guard let candidate else { return nil }
@@ -271,18 +272,18 @@ private struct DeepAIReviewMaskPreview: View {
                     ZStack {
                         ThumbnailImageView(
                             url: file.url,
-                            targetSize: 1_200,
+                            targetSize: 1200,
                             style: .list,
                             contentMode: .fit,
                         )
 
-                        if let mask {
-                            Image(decorative: mask, scale: 1, orientation: .up)
+                        if let maskOverlay {
+                            Image(decorative: maskOverlay, scale: 1, orientation: .up)
                                 .resizable()
                                 .scaledToFit()
-                                .colorMultiply(.cyan)
+                                .colorMultiply(.orange)
                                 .blendMode(.screen)
-                                .opacity(0.72)
+                                .opacity(0.95)
                                 .accessibilityHidden(true)
                         }
 
@@ -300,8 +301,8 @@ private struct DeepAIReviewMaskPreview: View {
                         Label(candidate.fileName, systemImage: "photo")
                             .lineLimit(1)
                         Spacer()
-                        Text(mask == nil ? "Mask unavailable" : "Cyan mask overlay")
-                            .foregroundStyle(mask == nil ? Color.orange : Color.secondary)
+                        Text(maskOverlayLabel)
+                            .foregroundStyle(maskOverlay == nil ? Color.orange : Color.secondary)
                     }
                     .font(.caption)
                 }
@@ -317,13 +318,45 @@ private struct DeepAIReviewMaskPreview: View {
             }
         }
         .task(id: loadIdentity) {
-            mask = nil
+            maskOverlay = nil
+            isOrganicOutline = false
+            isLoading = false
             guard let candidate, loadIdentity != nil else { return }
             isLoading = true
             let loadedMask = await controller.mask(for: candidate, in: files)
-            guard !Task.isCancelled else { return }
-            mask = loadedMask
+            guard !Task.isCancelled else {
+                isLoading = false
+                return
+            }
+
+            if let loadedMask {
+                let outline = await DeepAIReviewMaskOutlineRenderer.outline(from: loadedMask)
+                guard !Task.isCancelled else {
+                    isLoading = false
+                    return
+                }
+                if let outline {
+                    maskOverlay = outline
+                    isOrganicOutline = true
+                } else {
+                    // The stored subject mask remains a useful fallback if Core
+                    // Image cannot derive a contour on a particular machine.
+                    maskOverlay = loadedMask
+                }
+            } else {
+                maskOverlay = nil
+            }
             isLoading = false
+        }
+    }
+
+    private var maskOverlayLabel: LocalizedStringResource {
+        if isOrganicOutline {
+            "Orange subject outline"
+        } else if maskOverlay != nil {
+            "Orange subject mask"
+        } else {
+            "Mask unavailable"
         }
     }
 }
