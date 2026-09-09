@@ -80,6 +80,7 @@ enum ZoomPreviewHandler {
 
                 guard !Task.isCancelled else { return }
 
+                async let analysisImage = loadThumbnailPreview(for: file, thumbnailSizePreview: thumbnailSizePreview)
                 let image: CGImage?
                 switch source {
                 case .thumbnail:
@@ -103,9 +104,11 @@ enum ZoomPreviewHandler {
                     }
                 }
 
+                let resolvedAnalysisImage = await analysisImage
                 if let image {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
+                        viewModel.zoomOverlayAnalysisCGImage = resolvedAnalysisImage ?? image
                         viewModel.zoomOverlayCGImage = image
                     }
                 }

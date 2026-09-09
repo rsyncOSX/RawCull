@@ -62,6 +62,12 @@ struct RatedImageItemView: View {
                     )
                     .padding(5)
                 }
+                .overlay(alignment: .bottomLeading) {
+                    if hasDeepReviewMask {
+                        DeepAIReviewMaskAvailabilityBadge()
+                            .padding(6)
+                    }
+                }
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
                         .stroke(Color.accentColor, lineWidth: isSelected ? 3 : 0),
@@ -94,11 +100,18 @@ struct RatedImageItemView: View {
     }
 
     private var accessibilitySummary: String {
-        RawCullAccessibilityPresentation.imageValue(
+        let summary = RawCullAccessibilityPresentation.imageValue(
             rating: ratingDisplay,
             isSelected: isSelected,
             isMultiSelected: isMultiSelected,
         )
+        return hasDeepReviewMask
+            ? "\(summary), Deep Review subject mask available"
+            : summary
+    }
+
+    private var hasDeepReviewMask: Bool {
+        viewModel.deepAIReviewController.maskCandidate(for: file.id) != nil
     }
 
     private var borderColor: Color {

@@ -14,6 +14,13 @@ struct ImageOverlayControlsView: View {
     @Binding var showFocusMask: Bool
     var focusMaskAvailable: Bool
 
+    // MARK: - Deep Review subject outline
+
+    @Binding var showSubjectOutline: Bool
+    var showsSubjectOutlineControl: Bool = false
+    var subjectOutlineAvailable: Bool = false
+    var subjectOutlineLoading: Bool = false
+
     // MARK: - Focus points
 
     var hasFocusPoints: Bool
@@ -52,6 +59,16 @@ struct ImageOverlayControlsView: View {
                 shortcutLabel: showShortcutHints ? "F" : nil,
                 density: density,
             )
+
+            if showsSubjectOutlineControl {
+                SubjectOutlineControlsView(
+                    showSubjectOutline: $showSubjectOutline,
+                    subjectOutlineAvailable: subjectOutlineAvailable,
+                    isLoading: subjectOutlineLoading,
+                    shortcutLabel: showShortcutHints ? "S" : nil,
+                    density: density,
+                )
+            }
 
             if hasFocusPoints {
                 FocusPointControllerView(

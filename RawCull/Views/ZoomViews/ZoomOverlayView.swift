@@ -11,86 +11,6 @@ import AppKit
 import RawCullCore
 import SwiftUI
 
-nonisolated enum ZoomOverlayKeyAction: Equatable {
-    case navigatePrevious
-    case navigateNext
-    case escape
-    case zoomIn
-    case zoomOut
-    case toggleEmbeddedJPG
-    case toggleDevelopedRAW
-    case toggleFocusMask
-    case toggleFocusPoints
-    case rating(Int)
-
-    nonisolated static func resolve(
-        characters: String?,
-        keyCode: UInt16,
-        navigationAxis: ZoomOverlayNavigationAxis,
-    ) -> ZoomOverlayKeyAction? {
-        if let action = action(for: characters) {
-            return action
-        }
-
-        return switch (navigationAxis, keyCode) {
-        case (.horizontal, 123), (.vertical, 126):
-            .navigatePrevious
-
-        case (.horizontal, 124), (.vertical, 125):
-            .navigateNext
-
-        case (_, 53):
-            .escape
-
-        default:
-            nil
-        }
-    }
-
-    private nonisolated static func action(for characters: String?) -> ZoomOverlayKeyAction? {
-        switch characters {
-        case "+":
-            .zoomIn
-
-        case "-":
-            .zoomOut
-
-        case "j", "J":
-            .toggleEmbeddedJPG
-
-        case "r", "R":
-            .toggleDevelopedRAW
-
-        case "f", "F":
-            .toggleFocusMask
-
-        case "a", "A":
-            .toggleFocusPoints
-
-        case "x", "X":
-            .rating(-1)
-
-        case "p", "P", "0":
-            .rating(0)
-
-        case "1", "2":
-            .rating(2)
-
-        case "3", "t", "T":
-            .rating(3)
-
-        case "4":
-            .rating(4)
-
-        case "5":
-            .rating(5)
-
-        default:
-            nil
-        }
-    }
-}
-
 nonisolated struct ZoomOverlayNavigationContext: Equatable {
     let orderedFileIDs: [FileItem.ID]
 
@@ -219,12 +139,21 @@ struct ZoomOverlayView: View {
         let fileID: FileItem.ID?
     }
 
+    private struct SubjectOutlineTaskID: Hashable {
+        let fileID: FileItem.ID?
+        let prompt: String?
+        let isPresented: Bool
+    }
+
     @State private var focusMask: CGImage?
+    @State private var subjectOutline: CGImage?
     @State private var currentScale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var showFocusMask: Bool = false
+    @State private var showSubjectOutline = false
+    @State private var isLoadingSubjectOutline = false
     @State private var showFocusPoints: Bool = false
     @State private var sourceSelection = ImageSourceSelectionState()
     @State private var showRAWNotSupported = false
@@ -241,6 +170,19 @@ struct ZoomOverlayView: View {
             imageID: maskAnalysisImage.map(ObjectIdentifier.init),
             source: sourceSelection.selected,
             fileID: viewModel.selectedFile?.id,
+        )
+    }
+
+    private var subjectOutlineCandidate: DeepAIReviewCandidate? {
+        guard let fileID = viewModel.selectedFile?.id else { return nil }
+        return viewModel.deepAIReviewController.maskCandidate(for: fileID)
+    }
+
+    private var subjectOutlineTaskID: SubjectOutlineTaskID {
+        SubjectOutlineTaskID(
+            fileID: viewModel.selectedFile?.id,
+            prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
+            isPresented: showSubjectOutline,
         )
     }
 
@@ -339,6 +281,10 @@ struct ZoomOverlayView: View {
                     ImageOverlayControlsView(
                         showFocusMask: $showFocusMask,
                         focusMaskAvailable: maskAnalysisImage != nil || focusMask != nil,
+                        showSubjectOutline: $showSubjectOutline,
+                        showsSubjectOutlineControl: true,
+                        subjectOutlineAvailable: subjectOutlineCandidate != nil,
+                        subjectOutlineLoading: isLoadingSubjectOutline,
                         hasFocusPoints: focusTarget != nil,
                         showFocusPoints: $showFocusPoints,
                         showShortcutHints: true,
@@ -397,7 +343,7 @@ struct ZoomOverlayView: View {
             dismiss()
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpP012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAxXpP012345tT")) { press in
             handleKeyAction(ZoomOverlayKeyAction.resolve(
                 characters: press.characters,
                 keyCode: 0,
@@ -415,13 +361,15 @@ struct ZoomOverlayView: View {
             maskTask?.cancel()
             maskTask = nil
             focusMask = nil
+            subjectOutline = nil
             rawMessageTask?.cancel()
             rawMessageTask = nil
         }
         .onChange(of: sourceSelection.selected) { _, _ in
             maskTask?.cancel()
             maskTask = nil
-            focusMask = nil
+            // The mask is normalized to the same photo, so keep it visible
+            // until analysis for the replacement preview completes.
             reload()
         }
         .onChange(of: viewModel.selectedFile) { _, _ in
@@ -429,6 +377,8 @@ struct ZoomOverlayView: View {
             maskTask?.cancel()
             maskTask = nil
             focusMask = nil
+            subjectOutline = nil
+            isLoadingSubjectOutline = false
             sourceSelection.resetForNewImage()
             clearRAWMessage()
             pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
@@ -438,6 +388,9 @@ struct ZoomOverlayView: View {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             await regenerateMaskFromCG()
+        }
+        .task(id: subjectOutlineTaskID) {
+            await loadSubjectOutline()
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
             maskTask?.cancel()
@@ -603,6 +556,11 @@ struct ZoomOverlayView: View {
             showFocusMask.toggle()
             return .handled
 
+        case .toggleSubjectOutline:
+            guard subjectOutlineCandidate != nil else { return .ignored }
+            showSubjectOutline.toggle()
+            return .handled
+
         case .toggleFocusPoints:
             showFocusPoints.toggle()
             return .handled
@@ -631,6 +589,7 @@ struct ZoomOverlayView: View {
         viewModel.closeZoomOverlay()
         resetToFit()
         focusMask = nil
+        subjectOutline = nil
     }
 
     private func showRAWFailureMessage() {
@@ -657,13 +616,6 @@ struct ZoomOverlayView: View {
         else { return }
         let selectedFileID = selectedFile.id
         let previewSource = sourceSelection.selected
-        await MainActor.run {
-            guard viewModel.selectedFile?.id == selectedFileID,
-                  maskAnalysisImage === cg,
-                  sourceSelection.selected == previewSource
-            else { return }
-            self.focusMask = nil
-        }
         let config = focusMaskConfig(for: selectedFile)
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,
@@ -702,6 +654,38 @@ struct ZoomOverlayView: View {
         return config
     }
 
+    private func loadSubjectOutline() async {
+        subjectOutline = nil
+        isLoadingSubjectOutline = false
+        guard showSubjectOutline,
+              let file = viewModel.selectedFile,
+              let candidate = subjectOutlineCandidate
+        else { return }
+
+        isLoadingSubjectOutline = true
+        let mask = await viewModel.deepAIReviewController.mask(
+            for: candidate,
+            in: [file],
+        )
+        guard !Task.isCancelled,
+              viewModel.selectedFile?.id == file.id
+        else {
+            isLoadingSubjectOutline = false
+            return
+        }
+        if let mask {
+            subjectOutline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
+        }
+        guard !Task.isCancelled,
+              viewModel.selectedFile?.id == file.id
+        else {
+            subjectOutline = nil
+            isLoadingSubjectOutline = false
+            return
+        }
+        isLoadingSubjectOutline = false
+    }
+
     // MARK: - Zoomable images
 
     private func zoomableCGImage(_ image: CGImage, in size: CGSize) -> some View {
@@ -719,6 +703,10 @@ struct ZoomOverlayView: View {
                     .blendMode(.screen)
                     .opacity(0.95)
                     .transition(.opacity)
+            }
+
+            if showSubjectOutline, let subjectOutline {
+                subjectOutlineImage(subjectOutline, in: size)
             }
         }
         .scaleEffect(currentScale)
@@ -750,6 +738,10 @@ struct ZoomOverlayView: View {
                     .blendMode(.screen)
                     .opacity(0.95)
                     .transition(.opacity)
+            }
+
+            if showSubjectOutline, let subjectOutline {
+                subjectOutlineImage(subjectOutline, in: size)
             }
         }
         .scaleEffect(currentScale)
@@ -787,6 +779,18 @@ struct ZoomOverlayView: View {
                 }
                 .onEnded { _ in lastOffset = offset },
         )
+    }
+
+    private func subjectOutlineImage(_ outline: CGImage, in size: CGSize) -> some View {
+        Image(decorative: outline, scale: 1, orientation: .up)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size.width, height: size.height)
+            .colorMultiply(.orange)
+            .blendMode(.screen)
+            .opacity(0.95)
+            .allowsHitTesting(false)
+            .transition(.opacity)
     }
 
     // MARK: - Focus point overlay

@@ -105,6 +105,7 @@ struct ComparisonImagePaneView: View {
                 ImageOverlayControlsView(
                     showFocusMask: $viewportState.showFocusMask,
                     focusMaskAvailable: focusMaskAvailable,
+                    showSubjectOutline: .constant(false),
                     hasFocusPoints: hasFocusPoints,
                     showFocusPoints: $viewportState.showFocusPoints,
                     showShortcutHints: true,
