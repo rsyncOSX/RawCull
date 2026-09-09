@@ -368,7 +368,8 @@ struct ZoomOverlayView: View {
         .onChange(of: sourceSelection.selected) { _, _ in
             maskTask?.cancel()
             maskTask = nil
-            focusMask = nil
+            // The mask is normalized to the same photo, so keep it visible
+            // until analysis for the replacement preview completes.
             reload()
         }
         .onChange(of: viewModel.selectedFile) { _, _ in
@@ -615,13 +616,6 @@ struct ZoomOverlayView: View {
         else { return }
         let selectedFileID = selectedFile.id
         let previewSource = sourceSelection.selected
-        await MainActor.run {
-            guard viewModel.selectedFile?.id == selectedFileID,
-                  maskAnalysisImage === cg,
-                  sourceSelection.selected == previewSource
-            else { return }
-            self.focusMask = nil
-        }
         let config = focusMaskConfig(for: selectedFile)
         guard !Task.isCancelled,
               viewModel.selectedFile?.id == selectedFileID,

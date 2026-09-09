@@ -80,6 +80,7 @@ struct MainThumbnailImageView: View {
     @State private var showFocusMask: Bool = false
     @State private var isGeneratingFocusMask = false
     @State private var focusMaskSourceURL: URL?
+    @State private var focusMaskPreviewSource: ImagePreviewSource?
     @State private var maskTask: Task<Void, Never>?
     @State private var subjectOutline: CGImage?
     @State private var showSubjectOutline = false
@@ -289,7 +290,8 @@ struct MainThumbnailImageView: View {
             }
         }
         .onChange(of: sourceSelection.selected) { _, _ in
-            resetFocusMaskImage()
+            // Preserve the normalized mask while the same photo is redrawn.
+            cancelFocusMaskGeneration()
             loadSelectedSourceIfNeeded()
         }
         .onChange(of: image) { _, newImage in
@@ -302,6 +304,7 @@ struct MainThumbnailImageView: View {
             maskTask?.cancel()
             focusMask = nil
             focusMaskSourceURL = nil
+            focusMaskPreviewSource = nil
             guard showFocusMask else {
                 isGeneratingFocusMask = false
                 maskTask = nil
@@ -311,7 +314,7 @@ struct MainThumbnailImageView: View {
                 isGeneratingFocusMask = true
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
-                await regenerateMask()
+                await regenerateMask(for: sourceSelection.selected)
                 isGeneratingFocusMask = false
             }
         }
@@ -474,8 +477,7 @@ struct MainThumbnailImageView: View {
             }
             return
         }
-        if (requestedSource == .embeddedJPG && embeddedJPGImage != nil)
-            || (requestedSource == .developedRAW && developedRAWImage != nil) {
+        if hasLoadedImage(for: requestedSource) {
             isLoadingSource = false
             if showFocusMask {
                 generateFocusMaskIfNeeded()
@@ -517,6 +519,19 @@ struct MainThumbnailImageView: View {
         }
     }
 
+    private func hasLoadedImage(for source: ImagePreviewSource) -> Bool {
+        switch source {
+        case .thumbnail:
+            image != nil
+
+        case .embeddedJPG:
+            embeddedJPGImage != nil
+
+        case .developedRAW:
+            developedRAWImage != nil
+        }
+    }
+
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
         RatingDisplay(
             rating: viewModel.getRating(for: file),
@@ -555,18 +570,22 @@ struct MainThumbnailImageView: View {
     // MARK: - Regenerate Mask
 
     private func generateFocusMaskIfNeeded() {
-        guard focusMaskSourceURL != url || focusMask == nil else { return }
+        let previewSource = sourceSelection.selected
+        guard focusMaskSourceURL != url
+            || focusMaskPreviewSource != previewSource
+            || focusMask == nil
+        else { return }
         guard currentDisplayedImage != nil, !isGeneratingFocusMask else { return }
 
         maskTask?.cancel()
         maskTask = Task {
             isGeneratingFocusMask = true
-            await regenerateMask()
+            await regenerateMask(for: previewSource)
             isGeneratingFocusMask = false
         }
     }
 
-    private func regenerateMask() async {
+    private func regenerateMask(for requestedSource: ImagePreviewSource) async {
         guard let image = currentDisplayedImage else { return }
         let config = focusMaskConfig()
         let mask = await viewModel.sharpnessModel.focusMaskModel.generateFocusMask(
@@ -578,10 +597,13 @@ struct MainThumbnailImageView: View {
             aperture: file?.exifData?.apertureValue,
             evidence: file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence },
         )
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled,
+              sourceSelection.selected == requestedSource
+        else { return }
         await MainActor.run {
             self.focusMask = mask
             self.focusMaskSourceURL = url
+            self.focusMaskPreviewSource = requestedSource
         }
     }
 
@@ -594,10 +616,15 @@ struct MainThumbnailImageView: View {
     }
 
     private func resetFocusMaskImage() {
-        maskTask?.cancel()
-        maskTask = nil
+        cancelFocusMaskGeneration()
         focusMask = nil
         focusMaskSourceURL = nil
+        focusMaskPreviewSource = nil
+    }
+
+    private func cancelFocusMaskGeneration() {
+        maskTask?.cancel()
+        maskTask = nil
         isGeneratingFocusMask = false
     }
 
