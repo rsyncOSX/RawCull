@@ -6,7 +6,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/coreai-models.git",
       "state" : {
-        "revision" : "bffc38fe48f50e4e962ac9772b64a5b55a605286"
+        "revision" : "cc812078731871574c9b2eb620aa40734c4b89ee"
       }
     },
     {
@@ -41,7 +41,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/PhotoAIKit.git",
       "state" : {
-        "revision" : "1e2eaccd00947fbadda300e4a617842479cae7b9"
+        "revision" : "8c983e72ad97a36f18d0ddfb7003d3b5356ab7b7"
       }
     },
     {
@@ -148,8 +148,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mlc-ai/xgrammar",
       "state" : {
-        "branch" : "main",
-        "revision" : "10bc0d735a4b9be6bdb6b76f6551584502855cef"
+        "revision" : "4d145cc13d878c751ebeed36af1c013074be76bc",
+        "version" : "0.2.2"
       }
     },
     {
