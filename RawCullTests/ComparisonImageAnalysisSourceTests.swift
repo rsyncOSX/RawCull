@@ -20,6 +20,33 @@ struct ComparisonImageAnalysisSourceTests {
         #expect(decoded.analysisCGImage === unsharpened)
     }
 
+    @Test
+    func `embedded JPG displays extracted pixels but analyzes thumbnail pixels`() throws {
+        let extractedJPG = try makeImage(gray: 0.25)
+        let thumbnail = try makeImage(gray: 0.75)
+
+        let decoded = ComparisonImageLoader.embeddedJPGImages(
+            display: extractedJPG,
+            analysis: thumbnail,
+        )
+
+        #expect(decoded.displayCGImage === extractedJPG)
+        #expect(decoded.analysisCGImage === thumbnail)
+    }
+
+    @Test
+    func `embedded JPG falls back to extracted pixels when thumbnail is unavailable`() throws {
+        let extractedJPG = try makeImage(gray: 0.25)
+
+        let decoded = ComparisonImageLoader.embeddedJPGImages(
+            display: extractedJPG,
+            analysis: nil,
+        )
+
+        #expect(decoded.displayCGImage === extractedJPG)
+        #expect(decoded.analysisCGImage === extractedJPG)
+    }
+
     private func makeImage(gray: CGFloat) throws -> CGImage {
         let context = try #require(CGContext(
             data: nil,
