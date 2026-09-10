@@ -85,6 +85,7 @@ struct MainThumbnailImageView: View {
     @State private var subjectOutline: CGImage?
     @State private var showSubjectOutline = false
     @State private var isLoadingSubjectOutline = false
+    @State private var subjectOutlineKeyMonitor: Any?
     @FocusState private var isImageFocused: Bool
 
     private var subjectOutlineCandidate: DeepAIReviewCandidate? {
@@ -280,6 +281,9 @@ struct MainThumbnailImageView: View {
         .task(id: subjectOutlineTaskID) {
             await loadSubjectOutline()
         }
+        .onAppear {
+            installSubjectOutlineKeyMonitor()
+        }
         .onChange(of: showFocusMask) { _, newValue in
             if newValue {
                 generateFocusMaskIfNeeded()
@@ -319,6 +323,7 @@ struct MainThumbnailImageView: View {
             }
         }
         .onChange(of: url) { _, _ in
+            installSubjectOutlineKeyMonitor()
             resetSourceImages()
             image = nil
             sourceSelection.resetForNewImage()
@@ -327,6 +332,7 @@ struct MainThumbnailImageView: View {
             loadSelectedSourceIfNeeded()
         }
         .onDisappear {
+            removeSubjectOutlineKeyMonitor()
             maskTask?.cancel()
             maskTask = nil
             isGeneratingFocusMask = false
@@ -462,6 +468,29 @@ struct MainThumbnailImageView: View {
                 showFocusPointsOnOpen: true,
             )
             return .handled
+        }
+    }
+
+    // The thumbnail list can retain focus while the Loupe image is visible.
+    // Match the zoom overlay's shortcut handling without intercepting text entry.
+    private func installSubjectOutlineKeyMonitor() {
+        removeSubjectOutlineKeyMonitor()
+        subjectOutlineKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard viewModel.mainViewMode == .loupe,
+                  !viewModel.zoomOverlayVisible,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  !(NSApp.keyWindow?.firstResponder is NSText),
+                  LoupeImageKeyAction.resolve(characters: event.characters) == .toggleSubjectOutline
+            else { return event }
+
+            return handleKeyAction(.toggleSubjectOutline) == .handled ? nil : event
+        }
+    }
+
+    private func removeSubjectOutlineKeyMonitor() {
+        if let subjectOutlineKeyMonitor {
+            NSEvent.removeMonitor(subjectOutlineKeyMonitor)
+            self.subjectOutlineKeyMonitor = nil
         }
     }
 
