@@ -40,7 +40,27 @@ struct BurstCullingWorkspaceView: View {
     @State private var imageCache: [BurstFrameCacheKey: ComparisonImageState] = [:]
     @State private var viewportState = ComparisonViewportInteractionState()
     @State private var sourceSelection = ImageSourceSelectionState(initialSource: .embeddedJPG)
+    @State private var showSubjectOutline = false
+    @State private var subjectOutline: CGImage?
+    @State private var subjectOutlineFileID: FileItem.ID?
+    @State private var overlayKeyMonitor: Any?
     @FocusState private var isFocused: Bool
+
+    private struct SubjectOutlineTaskID: Hashable {
+        let fileID: FileItem.ID?
+        let prompt: String?
+        let isPresented: Bool
+    }
+
+    private var subjectOutlineTaskID: SubjectOutlineTaskID {
+        SubjectOutlineTaskID(
+            fileID: selectedFile?.id,
+            prompt: selectedFile.flatMap {
+                viewModel.deepAIReviewController.maskCandidate(for: $0.id)?.maskPromptUsed?.rawValue
+            },
+            isPresented: showSubjectOutline,
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -60,12 +80,17 @@ struct BurstCullingWorkspaceView: View {
         .onAppear {
             isFocused = true
             selectFirstFileIfNeeded()
+            installOverlayKeyMonitor()
         }
+        .onDisappear { removeOverlayKeyMonitor() }
         .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
         .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
-        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFaAxXpPnNgG012345tT")) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "+-jJrRfFsSaAxXpPnNgG012345tT")) { press in
             handleKeyPress(press.characters)
+        }
+        .task(id: subjectOutlineTaskID) {
+            await loadSubjectOutline()
         }
         .task(id: imageLoadKey) {
             await loadSelectedImageWindow()
@@ -74,6 +99,8 @@ struct BurstCullingWorkspaceView: View {
             Task { await regenerateCachedFocusMasks() }
         }
         .onChange(of: groupID) { _, _ in
+            installOverlayKeyMonitor()
+            showSubjectOutline = false
             imageCache = [:]
             viewportState = ComparisonViewportInteractionState()
             sourceSelection.resetForNewImage()
@@ -186,6 +213,8 @@ struct BurstCullingWorkspaceView: View {
                     },
                     showsChrome: false,
                     allowsDoubleClickZoom: false,
+                    subjectOutline: showSubjectOutline && subjectOutlineFileID == selectedFile.id
+                        ? subjectOutline : nil,
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, 82)
@@ -563,6 +592,42 @@ struct BurstCullingWorkspaceView: View {
         BurstFrameCacheKey(fileID: file.id, source: source)
     }
 
+    private func installOverlayKeyMonitor() {
+        removeOverlayKeyMonitor()
+        overlayKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard !viewModel.zoomOverlayVisible,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  !(NSApp.keyWindow?.firstResponder is NSText),
+                  let characters = event.characters,
+                  ["s", "S", "f", "F"].contains(characters)
+            else { return event }
+            return handleKeyPress(characters) == .handled ? nil : event
+        }
+    }
+
+    private func removeOverlayKeyMonitor() {
+        if let overlayKeyMonitor {
+            NSEvent.removeMonitor(overlayKeyMonitor)
+            self.overlayKeyMonitor = nil
+        }
+    }
+
+    private func loadSubjectOutline() async {
+        subjectOutline = nil
+        subjectOutlineFileID = nil
+        guard showSubjectOutline,
+              let file = selectedFile,
+              let candidate = viewModel.deepAIReviewController.maskCandidate(for: file.id)
+        else { return }
+
+        guard let mask = await viewModel.deepAIReviewController.mask(for: candidate, in: [file]),
+              !Task.isCancelled else { return }
+        let outline = await DeepAIReviewMaskOutlineRenderer.outline(from: mask) ?? mask
+        guard !Task.isCancelled else { return }
+        subjectOutline = outline
+        subjectOutlineFileID = file.id
+    }
+
     private func handleKeyAction(_ action: ZoomOverlayKeyAction?) -> KeyPress.Result {
         guard let action else { return .ignored }
 
@@ -598,7 +663,10 @@ struct BurstCullingWorkspaceView: View {
             viewportState.showFocusMask.toggle()
 
         case .toggleSubjectOutline:
-            return .ignored
+            guard let selectedFile,
+                  viewModel.deepAIReviewController.maskCandidate(for: selectedFile.id) != nil
+            else { return .ignored }
+            showSubjectOutline.toggle()
 
         case .toggleFocusPoints:
             viewportState.showFocusPoints.toggle()
