@@ -13,16 +13,22 @@ enum ComparisonImageLoader {
             return await loadThumbnail(for: file)
         }
 
-        let image = await FullSizePreviewLoader.shared.loadEmbeddedPreview(for: file.url)
-        return ComparisonDecodedImage(
-            displayCGImage: image,
-            analysisCGImage: image,
-            nsImage: nil,
+        async let displayImage = FullSizePreviewLoader.shared.loadEmbeddedPreview(for: file.url)
+        async let analysisImage = RequestThumbnail.shared.requestThumbnail(
+            for: file.url,
+            targetSize: thumbnailSizePreview,
+            purpose: .preview,
+        )
+        let (resolvedDisplayImage, resolvedAnalysisImage) = await (displayImage, analysisImage)
+        guard !Task.isCancelled else { return emptyImage }
+
+        return embeddedJPGImages(
+            display: resolvedDisplayImage,
+            analysis: resolvedAnalysisImage,
         )
     }
 
     private static func loadThumbnail(for file: FileItem) async -> ComparisonDecodedImage {
-        let thumbnailSizePreview = 1616
         let settings = await SettingsViewModel.shared.asyncgetsettings()
         let cgThumb = await RequestThumbnail.shared.requestThumbnail(
             for: file.url,
@@ -59,6 +65,17 @@ enum ComparisonImageLoader {
         )
     }
 
+    static func embeddedJPGImages(
+        display: CGImage?,
+        analysis: CGImage?,
+    ) -> ComparisonDecodedImage {
+        ComparisonDecodedImage(
+            displayCGImage: display,
+            analysisCGImage: analysis ?? display,
+            nsImage: nil,
+        )
+    }
+
     static func thumbnailImages(
         unsharpened: CGImage?,
         sharpened: CGImage?,
@@ -74,4 +91,6 @@ enum ComparisonImageLoader {
     private static var emptyImage: ComparisonDecodedImage {
         ComparisonDecodedImage(displayCGImage: nil, analysisCGImage: nil, nsImage: nil)
     }
+
+    private static let thumbnailSizePreview = 1616
 }

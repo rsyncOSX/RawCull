@@ -20,6 +20,7 @@ struct ComparisonImagePaneView: View {
     let onSourceChange: () -> Void
     var showsChrome = true
     var allowsDoubleClickZoom = true
+    var subjectOutline: CGImage?
 
     @State private var isHovered = false
 
@@ -273,6 +274,8 @@ struct ComparisonImagePaneView: View {
                         .transition(.opacity)
                 }
 
+                subjectOutlineOverlay(in: size)
+
                 focusPointOverlay(imageSize: CGSize(width: cgImage.width, height: cgImage.height))
             }
             .scaleEffect(viewportState.scale)
@@ -283,6 +286,8 @@ struct ComparisonImagePaneView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: size.width, height: size.height)
+
+                subjectOutlineOverlay(in: size)
 
                 focusPointOverlay(imageSize: nsImage.size)
             }
@@ -305,6 +310,20 @@ struct ComparisonImagePaneView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func subjectOutlineOverlay(in size: CGSize) -> some View {
+        if let subjectOutline {
+            Image(decorative: subjectOutline, scale: 1, orientation: .up)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width, height: size.height)
+                .colorMultiply(.orange)
+                .blendMode(.screen)
+                .opacity(0.95)
+                .allowsHitTesting(false)
         }
     }
 
