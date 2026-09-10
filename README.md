@@ -1,11 +1,11 @@
 # RawCull
 
-[![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/version-3.2.0/Licence.MD)
+[![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/version-3.2.1/Licence.MD)
 
 > [!IMPORTANT]
-> **This is the AI-based version of RawCull.** The `version-3.2.0` branch requires macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
+> **This is the AI-based version of RawCull.** The `version-3.2.1` branch requires macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
 
-RawCull version 3.2.0 is available via Apple’s TestFlight; please email thomeven@gmail.com if you would like to try it through that service or [download RawCull (AI) v3.2.0 beta from GitHub](https://github.com/rsyncOSX/RawCull/releases/tag/v3.2.0) ·
+RawCull version 3.2.1 is available via Apple’s TestFlight; please email thomeven@gmail.com if you would like to try it through that service or [download RawCull (AI) v3.2.1 from GitHub](https://github.com/rsyncOSX/RawCull/releases/tag/v3.2.1) ·
 
 RawCull is a native macOS photo review and culling application for Sony ARW and Nikon NEF RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
@@ -15,7 +15,7 @@ The application is written in Swift 6 and SwiftUI. Focused Swift packages own im
 
 | Branch | Minimum macOS | Development toolchain | Main characteristics |
 |---|---:|---|---|
-| `version-3.2.0` | macOS 27 | Xcode 27, Swift 6 | Modular AI architecture with local DataComp CLIP semantic search and similarity, SAM 3 Deep Review, model validation, and Managed Background Assets support |
+| `version-3.2.1` | macOS 27 | Xcode 27, Swift 6 | Modular AI architecture with local DataComp CLIP semantic search and similarity, SAM 3 Deep Review, model validation, and Managed Background Assets support |
 | `version-3.0.0` | macOS 26.2 | Xcode 26, Swift 6 | macOS 26 release line using built-in Vision feature prints for visual similarity and burst grouping |
 
 Both versions require an Apple Silicon Mac. The main difference between the macOS 26 and macOS 27 editions is the AI layer, not the basic photo-culling workflow: the macOS 26 edition uses Apple's built-in Vision feature prints, whereas the macOS 27 edition adds a local DataComp CLIP model for text-to-image search and optional similarity analysis, plus SAM 3 subject segmentation for Deep Review. It falls back to Vision similarity when the CLIP model is unavailable.
@@ -507,11 +507,11 @@ make build
 The release workflow also requires the configured signing identity and
 notarytool keychain profile, plus `create-dmg` at `../create-dmg/create-dmg`.
 
-The release build also writes `RawCull.3.2.0.dmg.sha256`. After publishing and
+The release build also writes `RawCull.3.2.1.dmg.sha256`. After publishing and
 downloading the DMG through its distribution path, reproduce that hash with:
 
 ```bash
-make verify-downloaded-dmg DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.0.dmg
+make verify-downloaded-dmg DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.1.dmg
 ```
 
 The archive target uses only the package versions in the checked-in
