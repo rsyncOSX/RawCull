@@ -345,6 +345,21 @@ struct CullingGridView<Header: View>: View {
                             proxy.scrollTo(newID, anchor: .center)
                         }
                     }
+                    .onChange(of: sortScrollState) { _, newState in
+                        guard let selectedID = CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
+                            state: newState,
+                            selectedFileID: viewModel.selectedFileID,
+                            showsBurstGroups: viewModel.showsBurstGroups,
+                        ) else { return }
+
+                        // Let LazyVGrid apply the new ordering before locating the selected cell.
+                        Task { @MainActor in
+                            await Task.yield()
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(selectedID, anchor: .center)
+                            }
+                        }
+                    }
                 }
 
                 CullingGridProgressOverlay(
@@ -734,6 +749,14 @@ struct CullingGridView<Header: View>: View {
         case let .rating(n):
             return viewModel.filteredFiles.filter { viewModel.rating(for: $0) == n }
         }
+    }
+
+    private var sortScrollState: CullingGridSortScrollState {
+        CullingGridSortScrollState(
+            isSharpnessSortingActive: viewModel.sharpnessModel.sortBySharpness,
+            isSimilaritySortingActive: similarityFeature.isSimilaritySortingActive,
+            orderedFileIDs: files.map(\.id),
+        )
     }
 
     private var semanticResultCount: Int? {

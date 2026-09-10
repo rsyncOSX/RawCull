@@ -23,7 +23,30 @@ struct CullingGridSelectionState: Equatable {
     var selectedFileIDs: Set<FileItem.ID>
 }
 
+struct CullingGridSortScrollState: Equatable {
+    let isSharpnessSortingActive: Bool
+    let isSimilaritySortingActive: Bool
+    let orderedFileIDs: [FileItem.ID]
+
+    var isSortingActive: Bool {
+        isSharpnessSortingActive || isSimilaritySortingActive
+    }
+}
+
 enum CullingGridSelectionCoordinator {
+    static func scrollTargetAfterSortChange(
+        state: CullingGridSortScrollState,
+        selectedFileID: FileItem.ID?,
+        showsBurstGroups: Bool,
+    ) -> FileItem.ID? {
+        guard !showsBurstGroups,
+              state.isSortingActive,
+              let selectedFileID,
+              state.orderedFileIDs.contains(selectedFileID)
+        else { return nil }
+        return selectedFileID
+    }
+
     static func reconcileSelection(
         _ state: CullingGridSelectionState,
         visibleIDs: [FileItem.ID],

@@ -42,13 +42,20 @@ struct CopyCompletionTests {
         let suite = "RawCullCopyResult-\(UUID())"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(try source.bookmarkData(options: .withSecurityScope), forKey: "sourceBookmark")
+        let sourceBookmark = try source.bookmarkData(options: .withSecurityScope)
+        var sourceBookmarkIsStale = false
+        let scopedSource = try URL(
+            resolvingBookmarkData: sourceBookmark,
+            options: .withSecurityScope,
+            bookmarkDataIsStale: &sourceBookmarkIsStale,
+        )
+        #expect(!sourceBookmarkIsStale)
         defaults.set(try destination.bookmarkData(options: .withSecurityScope), forKey: "destBookmark")
         let bytes = Data("test photograph".utf8)
         try bytes.write(to: source.appendingPathComponent("Present.ARW"))
 
         let viewModel = makeRawCullViewModel()
-        viewModel.selectedSource = ARWSourceCatalog(name: "Source", url: source)
+        viewModel.selectedSource = ARWSourceCatalog(name: "Source", url: scopedSource)
         let names = missingFile ? ["Present.ARW", "Missing.ARW"] : ["Present.ARW"]
         viewModel.filteredFiles = names.map { name in
             FileItem(url: source.appendingPathComponent(name), name: name, size: 1,
@@ -80,7 +87,7 @@ struct CopyCompletionTests {
             #expect(try Data(contentsOf: destination.appendingPathComponent("Present.ARW")) == bytes)
         }
         #expect(!completed.operation.dryRun)
-        #expect(completed.operation.sourceURL == source)
+        #expect(completed.operation.sourceURL.standardizedFileURL == source.standardizedFileURL)
         #expect(completed.operation.destinationURL == destination)
         #expect(manager.includeListURL == nil)
     }

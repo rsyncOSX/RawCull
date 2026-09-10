@@ -104,6 +104,33 @@ struct CullingGridCoordinatorTests {
         )
         #expect(shift.selectedFileID == ids[3])
         #expect(shift.selectedFileIDs == Set(ids[0 ... 3]))
+
+        let reordered = CullingGridSortScrollState(
+            isSharpnessSortingActive: true,
+            isSimilaritySortingActive: false,
+            orderedFileIDs: Array(ids.reversed()),
+        )
+        #expect(CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
+            state: reordered,
+            selectedFileID: ids[3],
+            showsBurstGroups: false,
+        ) == ids[3])
+        #expect(CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
+            state: reordered,
+            selectedFileID: ids[3],
+            showsBurstGroups: true,
+        ) == nil)
+
+        let unsorted = CullingGridSortScrollState(
+            isSharpnessSortingActive: false,
+            isSimilaritySortingActive: false,
+            orderedFileIDs: ids,
+        )
+        #expect(CullingGridSelectionCoordinator.scrollTargetAfterSortChange(
+            state: unsorted,
+            selectedFileID: ids[3],
+            showsBurstGroups: false,
+        ) == nil)
     }
 
     @Test
