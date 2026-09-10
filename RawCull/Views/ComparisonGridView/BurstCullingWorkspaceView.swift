@@ -1,3 +1,4 @@
+import OSLog
 import RawCullCore
 import SwiftUI
 
@@ -44,6 +45,7 @@ struct BurstCullingWorkspaceView: View {
     @State private var subjectOutline: CGImage?
     @State private var subjectOutlineFileID: FileItem.ID?
     @State private var overlayKeyMonitor: Any?
+    @State private var focusConfigurationRevision = 0
     @FocusState private var isFocused: Bool
 
     private struct SubjectOutlineTaskID: Hashable {
@@ -59,6 +61,22 @@ struct BurstCullingWorkspaceView: View {
                 viewModel.deepAIReviewController.maskCandidate(for: $0.id)?.maskPromptUsed?.rawValue
             },
             isPresented: showSubjectOutline,
+        )
+    }
+
+    private struct FocusMaskTaskID: Hashable {
+        let imageKey: String
+        let hasImage: Bool
+        let isPresented: Bool
+        let configurationRevision: Int
+    }
+
+    private var focusMaskTaskID: FocusMaskTaskID {
+        FocusMaskTaskID(
+            imageKey: imageLoadKey,
+            hasImage: imageState?.cgImage != nil,
+            isPresented: viewportState.showFocusMask,
+            configurationRevision: focusConfigurationRevision,
         )
     }
 
@@ -95,8 +113,16 @@ struct BurstCullingWorkspaceView: View {
         .task(id: imageLoadKey) {
             await loadSelectedImageWindow()
         }
+        .task(id: focusMaskTaskID) {
+            guard viewportState.showFocusMask, let selectedFile else { return }
+            await analyzeFocusIfNeeded(for: selectedFile, source: sourceSelection.selected)
+        }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            Task { await regenerateCachedFocusMasks() }
+            for key in imageCache.keys {
+                imageCache[key]?.focusMask = nil
+                imageCache[key]?.isFocusAnalysisComplete = false
+            }
+            focusConfigurationRevision += 1
         }
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
@@ -497,10 +523,6 @@ struct BurstCullingWorkspaceView: View {
             }
         }
 
-        for file in loadOrder {
-            await analyzeFocusIfNeeded(for: file, source: source)
-            guard !Task.isCancelled else { return }
-        }
     }
 
     private func ensureDecodedImage(
@@ -551,9 +573,11 @@ struct BurstCullingWorkspaceView: View {
         let key = cacheKey(for: file, source: source)
         guard let state = imageCache[key],
               !state.isLoading,
-              !state.isFocusAnalysisComplete
+              state.cgImage != nil,
+              state.focusMask == nil
         else { return }
 
+        Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Generating focus mask")
         let analyzedState = await ComparisonGridImageCoordinator.analyzeFocus(
             for: file,
             state: state,
@@ -561,28 +585,8 @@ struct BurstCullingWorkspaceView: View {
         )
         guard !Task.isCancelled else { return }
         guard imageCache[key] != nil else { return }
+        Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Mask returned: \(analyzedState.focusMask != nil)")
         imageCache[key] = analyzedState
-    }
-
-    private func regenerateCachedFocusMasks() async {
-        let source = sourceSelection.selected
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        let cachedFiles = imageCache.keys.compactMap { key -> FileItem? in
-            guard key.source == source else { return nil }
-            return filesByID[key.fileID]
-        }
-
-        for file in cachedFiles {
-            let key = cacheKey(for: file, source: source)
-            imageCache[key]?.focusMask = nil
-            imageCache[key]?.sharpnessBreakdown = nil
-            imageCache[key]?.isFocusAnalysisComplete = false
-        }
-
-        for file in cachedFiles {
-            await analyzeFocusIfNeeded(for: file, source: source)
-            guard !Task.isCancelled else { return }
-        }
     }
 
     private func cacheKey(
@@ -661,6 +665,7 @@ struct BurstCullingWorkspaceView: View {
 
         case .toggleFocusMask:
             viewportState.showFocusMask.toggle()
+            Logger(subsystem: "RawCull", category: "BurstFocusDebug").notice("Toggle focus: \(viewportState.showFocusMask), image: \(imageState?.cgImage != nil)")
 
         case .toggleSubjectOutline:
             guard let selectedFile,
