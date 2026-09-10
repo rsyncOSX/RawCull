@@ -8,7 +8,6 @@ enum SheetType {
 struct CopyARWFilesView: View {
     @Bindable var viewModel: RawCullViewModel
     @Binding var sheetType: SheetType?
-    @Binding var selectedSource: ARWSourceCatalog?
     @Binding var remotedatanumbers: RemoteDataNumbers?
     @Binding var showcopytask: Bool
 
@@ -17,7 +16,6 @@ struct CopyARWFilesView: View {
         case .copytasksview:
             CopyFilesView(
                 viewModel: viewModel,
-                selectedSource: $selectedSource,
                 remotedatanumbers: $remotedatanumbers,
                 sheetType: $sheetType,
                 showcopytask: $showcopytask,

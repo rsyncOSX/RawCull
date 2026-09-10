@@ -116,36 +116,44 @@ struct ExecuteCopyFilesStartupTests {
     }
 
     @Test(arguments: [false, true])
-    func `missing or corrupt bookmark requires folder reselection`(corrupt: Bool) throws {
+    func `selected catalog does not require a source bookmark`(corrupt: Bool) throws {
         let suite = "RawCullCopyBookmarks-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         if corrupt { defaults.set(Data("invalid bookmark".utf8), forKey: "sourceBookmark") }
-        let viewModel = makeRawCullViewModel()
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceBookmark = try directory.bookmarkData(options: .withSecurityScope)
+        var sourceBookmarkIsStale = false
+        let scopedSource = try URL(
+            resolvingBookmarkData: sourceBookmark,
+            options: .withSecurityScope,
+            bookmarkDataIsStale: &sourceBookmarkIsStale,
+        )
+        #expect(!sourceBookmarkIsStale)
+        let viewModel = makeRawCullViewModel()
         let file = FileItem(url: directory.appendingPathComponent("A.ARW"), name: "A.ARW", size: 1,
                             dateModified: Date(), exifData: nil, afFocusNormalized: nil)
         viewModel.filteredFiles = [file]
-        viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: directory)
+        viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: scopedSource)
         let manager = ExecuteCopyFiles(configuration: SynchronizeConfiguration(), rating: 0, copytaggedfiles: false,
                                        sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
                                        bookmarkDefaults: defaults)
-        guard case .failure(.sourceAccessFailed) = manager.startcopyfiles() else {
-            Issue.record("Expected source access failure")
+        guard case .failure(.destinationAccessFailed) = manager.startcopyfiles() else {
+            Issue.record("Expected copy startup to accept the selected catalog and reach destination validation")
             return
         }
         #expect(manager.includeListURL == nil)
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
         #expect(manager.getAccessedURL(fromBookmarkKey: "sourceBookmark") == nil)
         #expect(manager.getAccessedURL(fromBookmarkKey: "destBookmark") == nil)
-        #expect(CopyStartupFailure.sourceAccessFailed.localizedDescription.contains("reselect the source"))
+        #expect(CopyStartupFailure.sourceAccessFailed.localizedDescription.contains("reopen the catalog"))
         #expect(CopyStartupFailure.destinationAccessFailed.localizedDescription.contains("reselect the destination"))
         manager.close()
     }
 
-    @Test(arguments: [false, true])
-    func `copy rejects a source that differs from the current catalog`(displayMismatch: Bool) throws {
+    @Test
+    func `obsolete source bookmark cannot override the selected catalog`() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let oldCatalog = directory.appendingPathComponent("Old", isDirectory: true)
@@ -157,16 +165,16 @@ struct ExecuteCopyFilesStartupTests {
         let suite = "RawCullCopySource-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let bookmarkedSource = displayMismatch ? currentCatalog : oldCatalog
-        let bookmark = try bookmarkedSource.bookmarkData(options: .withSecurityScope)
+        let bookmark = try oldCatalog.bookmarkData(options: .withSecurityScope)
         defaults.set(bookmark, forKey: "sourceBookmark")
+        let selectedCatalogBookmark = try currentCatalog.bookmarkData(options: .withSecurityScope)
         var stale = false
-        let resolved = try URL(resolvingBookmarkData: bookmark, options: .withSecurityScope,
+        let resolved = try URL(resolvingBookmarkData: selectedCatalogBookmark, options: .withSecurityScope,
                                bookmarkDataIsStale: &stale)
-        #expect(resolved.standardizedFileURL == bookmarkedSource.standardizedFileURL)
+        #expect(resolved.standardizedFileURL == currentCatalog.standardizedFileURL)
 
         let viewModel = makeRawCullViewModel()
-        viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: currentCatalog)
+        viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: resolved)
         viewModel.filteredFiles = [FileItem(url: currentCatalog.appendingPathComponent("A.ARW"),
                                             name: "A.ARW", size: 1, dateModified: Date(),
                                             exifData: nil, afFocusNormalized: nil)]
@@ -174,14 +182,9 @@ struct ExecuteCopyFilesStartupTests {
             configuration: SynchronizeConfiguration(), rating: 0, copytaggedfiles: false,
             sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
             bookmarkDefaults: defaults,
-            displayedSourceURL: displayMismatch ? oldCatalog : currentCatalog,
         )
-        // Prove this is a usable grant, so rejection cannot merely be an
-        // unrelated sandbox-access failure.
-        let accessed = try #require(manager.getAccessedURL(fromBookmarkKey: "sourceBookmark", matching: bookmarkedSource))
-        accessed.stopAccessingSecurityScopedResource()
-        guard case .failure(.sourceAccessFailed) = manager.startcopyfiles() else {
-            Issue.record("Copy must reject mismatched source identity before launching rsync")
+        guard case .failure(.destinationAccessFailed) = manager.startcopyfiles() else {
+            Issue.record("The obsolete source bookmark must not override the selected catalog")
             return
         }
         #expect(manager.includeListURL == nil)

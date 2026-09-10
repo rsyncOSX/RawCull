@@ -105,7 +105,6 @@ struct RawCullMainView: View {
             CopyARWFilesView(
                 viewModel: viewModel,
                 sheetType: $viewModel.sheetType,
-                selectedSource: $viewModel.selectedSource,
                 remotedatanumbers: $viewModel.remotedatanumbers,
                 showcopytask: $viewModel.showcopyARWFilesView,
             )

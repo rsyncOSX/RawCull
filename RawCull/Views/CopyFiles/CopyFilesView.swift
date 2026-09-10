@@ -12,12 +12,10 @@ struct CopyFilesView: View {
     @Environment(\.dismiss) var dismiss
     @Bindable var viewModel: RawCullViewModel
 
-    @Binding var selectedSource: ARWSourceCatalog?
     @Binding var remotedatanumbers: RemoteDataNumbers?
     @Binding var sheetType: SheetType?
     @Binding var showcopytask: Bool
 
-    @State private var sourcecatalog: String = ""
     @State private var destinationcatalog: String = ""
 
     @State private var executionManager: ExecuteCopyFiles?
@@ -42,11 +40,8 @@ struct CopyFilesView: View {
             Divider()
 
             SourceAndDestinationSection(
-                viewModel: viewModel,
-                sourcecatalog: $sourcecatalog,
+                sourcecatalog: viewModel.selectedSource?.url.path ?? "",
                 destinationcatalog: $destinationcatalog,
-                copytaggedfiles: $copytaggedfiles,
-                copyratedfiles: $copyratedfiles,
             )
             .disabled(copyFilesinProgress)
 
@@ -72,17 +67,13 @@ struct CopyFilesView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Copy") {
-                    guard !sourcecatalog.isEmpty,
+                    guard viewModel.selectedSource != nil,
                           !destinationcatalog.isEmpty else { return }
                     showResult = false
                     executeCopyFiles()
                 }
-                .disabled(copyFilesinProgress || sourcecatalog.isEmpty || destinationcatalog.isEmpty)
+                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationcatalog.isEmpty)
             }
-        }
-        .task(id: selectedSource) {
-            guard let selectedSource else { return }
-            sourcecatalog = selectedSource.url.path
         }
         .onDisappear {
             closeExecutionManager()
@@ -154,7 +145,6 @@ struct CopyFilesView: View {
             rating: copyratedfiles,
             copytaggedfiles: copytaggedfiles,
             sidebarRawCullViewModel: viewModel,
-            displayedSourceURL: URL(fileURLWithPath: sourcecatalog),
         )
 
         executionManager?.onCompletion = { result in
