@@ -8,6 +8,19 @@ import OSLog
 import RawCullCore
 
 extension RawCullViewModel {
+    /// Applies the current catalog ordering and, when sharpness sorting has
+    /// just been enabled, focuses its sharpest visible image. Selecting the
+    /// first sorted image also lets thumbnail views reset their scroll position
+    /// through their existing selection observers, matching similarity sorting.
+    func handleSharpnessSortingChange(isEnabled: Bool) async {
+        await handleSortOrderChange()
+        guard isEnabled,
+              sharpnessModel.sortBySharpness,
+              let sharpestFile = filteredFiles.first
+        else { return }
+        selectedFileID = sharpestFile.id
+    }
+
     var sharpnessScoringTargetFiles: [FileItem] {
         let ordered = activeCatalogFiles.sorted {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending

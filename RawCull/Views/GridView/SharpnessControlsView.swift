@@ -62,7 +62,7 @@ struct SharpnessControlsView: View {
                     return
                 }
                 Task(priority: .background) {
-                    await viewModel.handleSortOrderChange()
+                    await viewModel.handleSharpnessSortingChange(isEnabled: isEnabled)
                 }
             }
         }
