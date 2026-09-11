@@ -1183,6 +1183,41 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
+    func `enabling sharpness sorting selects sharpest visible file`() async {
+        let viewModel = makeRawCullViewModel()
+        let softest = makeCullingTestFile("A-softest.ARW")
+        let sharpest = makeCullingTestFile("B-sharpest.ARW")
+        let middle = makeCullingTestFile("C-middle.ARW")
+        viewModel.files = [softest, sharpest, middle]
+        viewModel.selectedFileID = softest.id
+        viewModel.sharpnessModel.scores = [
+            softest.id: 0.1,
+            sharpest.id: 0.9,
+            middle.id: 0.5,
+        ]
+        viewModel.sharpnessModel.sortBySharpness = true
+
+        await viewModel.handleSharpnessSortingChange(isEnabled: true)
+
+        #expect(viewModel.filteredFiles.map(\.id) == [sharpest.id, middle.id, softest.id])
+        #expect(viewModel.selectedFileID == sharpest.id)
+    }
+
+    @Test
+    func `disabling sharpness sorting preserves current selection`() async {
+        let viewModel = makeRawCullViewModel()
+        let first = makeCullingTestFile("A.ARW")
+        let selected = makeCullingTestFile("B.ARW")
+        viewModel.files = [selected, first]
+        viewModel.selectedFileID = selected.id
+        viewModel.sharpnessModel.sortBySharpness = false
+
+        await viewModel.handleSharpnessSortingChange(isEnabled: false)
+
+        #expect(viewModel.selectedFileID == selected.id)
+    }
+
+    @Test
     func `burst analysis targets selected thumbnails before rating filter`() {
         let viewModel = makeRawCullViewModel()
         let twoStar = makeCullingTestFile("B-two-star.ARW")
