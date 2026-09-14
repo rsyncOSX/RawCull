@@ -59,8 +59,8 @@ uploaded to an external inference service.
 - **Sharpness and subject evidence:** PhotoAnalysisKit combines sharpness,
   saliency, classification, focus-mask, and camera AF-point evidence to rank
   candidates and explain cautions.
-- **Deep Review:** SAM 3 isolates the subject, evaluates detail inside the
-  mask, checks whether the AF point falls within the subject, and recommends a
+- **Deep Review:** SAM 3 isolates every matching subject, evaluates detail inside the
+  combined mask, checks whether the AF point falls within a subject, and recommends a
   winner with confidence and supporting reasons. **Mark Winner & Close** saves
   the winner, gives it a three-star rating, and marks the burst reviewed.
 - **Local caching:** Embeddings, masks, scores, and burst decisions are cached
@@ -74,7 +74,7 @@ The two models are trained neural networks, but they produce different evidence:
 |---|---|---|
 | Primary task | Vision-language encoding | Vision-language segmentation |
 | Inputs | Image or text | Image plus text or visual prompt |
-| Output | One fixed-length vector per image or text | Masks, boxes, presence, and confidence scores |
+| Output | One fixed-length vector per image or text | Exhaustive subject mask, instance masks, boxes, presence, and confidence scores |
 | Spatial information | Compresses most of the image into one vector | Preserves detailed spatial information |
 | RawCull use | Search, similarity ranking, and burst grouping | Text-guided subject isolation for Deep Review |
 
@@ -225,15 +225,15 @@ graph.
 ### Swift package dependencies
 
 Remote requirements are pinned to exact versions or revisions in the Xcode
-project and recorded in `Package.resolved`. PhotoAnalysisKit is intentionally
-resolved from the sibling checkout during development. The tables below mirror
-every remote pin and the local dependency; revision-pinned dependencies use the
+project and recorded in `Package.resolved`. PhotoAIKit is intentionally resolved
+from its sibling checkout during development. The tables below mirror every
+remote pin and the local dependency; revision-pinned dependencies use the
 complete commit rather than an abbreviated display value.
 
 | Package (resolved identity) | Resolved pin | Responsibility | Main APIs used by RawCull |
 |---|---:|---|---|
-| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | revision `1e2eaccd00947fbadda300e4a617842479cae7b9` | AI contracts, validated Core AI resources, DataComp CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
-| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | local `../PhotoAnalysisKit` (`version-1.3.0`) | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
+| [PhotoAIKit](https://github.com/rsyncOSX/PhotoAIKit) (`photoaikit`) | local `../PhotoAIKit` (`version-2.4.1`) | AI contracts, validated Core AI resources, DataComp CLIP inference, SAM 3 inference, Vision fallback, segmentation workflows, and subject-mask storage | `CoreAICLIPProvider`, `CoreAISAM3Provider`, `VisionFeaturePrintBackend`, `SimilarityArtifactIndexer`, `SegmentationService`, `SubjectMaskSelector`, `SubjectMaskMemoryStore`, `SubjectMaskDiskStore` |
+| [PhotoAnalysisKit](https://github.com/rsyncOSX/PhotoAnalysisKit) (`photoanalysiskit`) | `1.3.1` | Sharpness scoring, focus masks, Vision saliency and classification, calibration, batch analysis, and cache identity | `PhotoAnalyzer.analyzeBatch`, `PhotoAnalyzer.calibrate`, `PhotoAnalyzer.focusMask`, `PhotoAnalyzer.analyzeWithFocusMask`, `PhotoAnalyzer.sharpnessDescriptor`, `SharpnessPreset`, `SharpnessQuality` |
 | [RawParserKit](https://github.com/rsyncOSX/RawParserKit) (`rawparserkit`) | `1.3.0` | RAW discovery, metadata parsing, embedded JPEG extraction, previews, and manufacturer MakerNote parsing | `RawFormatRegistry`, `RawImageLoader.metadata`, `thumbnailCGImage`, `thumbnail`, `previewImage`, `SonyMakerNoteParser`, `NikonMakerNoteParser`, `SupportedFileType` |
 | [RawCullCore](https://github.com/rsyncOSX/RawCullCore) (`rawcullcore`) | `1.1.2` | Shared file, catalog, EXIF, burst-grouping, ranking, and review-state value types | `RawCullFileItem`, `RawCullSourceCatalog`, `ExifMetadata`, `BurstGroupingConfig`, `BurstGroupingEngine.group`, `BurstAnalysisResult`, `BurstCandidateScore`, `BurstReviewState` |
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) (`rsyncarguments`) | `1.0.0` | Type-safe construction of rsync and synchronization arguments | `Parameters`, `BasicRsyncParameters`, `OptionalRsyncParameters`, `SSHParameters`, `PathConfiguration`, `RsyncParametersSynchronize.argumentsForSynchronize`, `computedArguments` |
@@ -246,15 +246,15 @@ though RawCull does not import their products directly:
 
 | Resolved identity | Resolved pin | Role in the package graph |
 |---|---:|---|
-| `coreai-models` | revision `bffc38fe48f50e4e962ac9772b64a5b55a605286` | Apple Core AI model and conversion support reached through PhotoAIKit |
+| `coreai-models` | revision `cc812078731871574c9b2eb620aa40734c4b89ee` | Apple Core AI model and conversion support reached through PhotoAIKit |
 | `eventsource` | `1.5.1` | Server-sent-event transport support used transitively by model tooling |
-| `swift-asn1` | `1.7.1` | ASN.1 support reached through the cryptography stack |
+| `swift-asn1` | `1.7.2` | ASN.1 support reached through the cryptography stack |
 | `swift-collections` | `1.6.0` | Collection data structures used by transitive packages |
-| `swift-crypto` | `4.5.1` | Cryptographic primitives used by transitive packages |
-| `swift-huggingface` | `0.9.0` | Hugging Face model download and metadata support used by model tooling |
-| `swift-jinja` | `2.4.2` | Prompt-template rendering used by model tooling |
-| `swift-transformers` | `1.3.3` | Tokenizer and transformer model support used by the AI package graph |
-| `xgrammar` | revision `3842647890df7c8133fba6bc0e3d11fc9730e0bd` | Grammar-constrained model tooling; the lockfile records this reviewed commit while the upstream transitive requirement remains `main` |
+| `swift-crypto` | `4.5.2` | Cryptographic primitives used by transitive packages |
+| `swift-huggingface` | `0.10.1` | Hugging Face model download and metadata support used by model tooling |
+| `swift-jinja` | `2.5.0` | Prompt-template rendering used by model tooling |
+| `swift-transformers` | `1.3.4` | Tokenizer and transformer model support used by the AI package graph |
+| `xgrammar` | `0.2.2` | Grammar-constrained model tooling used transitively by model tooling |
 | `yyjson` | `0.12.0` | C JSON engine used by transitive model tooling |
 
 ## Workflows and package boundaries

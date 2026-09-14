@@ -18,7 +18,27 @@ struct DeepAIReviewMaskOutlineRendererTests {
         #expect(sample(alpha, x: 1, y: 1, width: outline.width) == 0)
     }
 
+    @Test
+    func `disconnected subjects each receive a contour`() async throws {
+        let mask = try #require(makeMask(rectangles: [
+            CGRect(x: 4, y: 8, width: 8, height: 16),
+            CGRect(x: 20, y: 8, width: 8, height: 16),
+        ]))
+        let outline = try #require(
+            await DeepAIReviewMaskOutlineRenderer.outline(from: mask),
+        )
+        let alpha = try #require(alphaPixels(from: outline))
+
+        #expect(sample(alpha, x: 4, y: 16, width: outline.width) > 0)
+        #expect(sample(alpha, x: 27, y: 16, width: outline.width) > 0)
+        #expect(sample(alpha, x: 16, y: 16, width: outline.width) == 0)
+    }
+
     private func makeMask() -> CGImage? {
+        makeMask(rectangles: [CGRect(x: 8, y: 8, width: 16, height: 16)])
+    }
+
+    private func makeMask(rectangles: [CGRect]) -> CGImage? {
         let width = 32
         let height = 32
         guard let context = CGContext(
@@ -33,7 +53,9 @@ struct DeepAIReviewMaskOutlineRendererTests {
 
         context.clear(CGRect(x: 0, y: 0, width: width, height: height))
         context.setFillColor(CGColor(gray: 1, alpha: 1))
-        context.fill(CGRect(x: 8, y: 8, width: 16, height: 16))
+        for rectangle in rectangles {
+            context.fill(rectangle)
+        }
         return context.makeImage()
     }
 

@@ -22,7 +22,7 @@ struct ReleaseMetadataTests {
         let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
         #expect(Int(buildNumber).map { $0 > 0 } == true)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.0")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.1")
             #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
@@ -83,14 +83,14 @@ struct ReleaseMetadataTests {
             #expect(matchingRows.count == 1, "Missing or duplicate README row for \(pin.identity)")
         }
 
-        let localAnalysisRows = tableRows.filter { row in
-            row.contains("`photoanalysiskit`")
-                && row.contains("local `../PhotoAnalysisKit`")
+        let localAIRows = tableRows.filter { row in
+            row.contains("`photoaikit`")
+                && row.contains("local `../PhotoAIKit`")
         }
-        #expect(localAnalysisRows.count == 1)
+        #expect(localAIRows.count == 1)
 
         let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
-        #expect(project.contains("relativePath = ../PhotoAnalysisKit;"))
+        #expect(project.contains("relativePath = ../PhotoAIKit;"))
     }
 
     @Test

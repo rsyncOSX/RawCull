@@ -1,5 +1,5 @@
 {
-  "originHash" : "c55207f0bd1e4d5132126acbd7b5b712d329db40919e5a0cd6e8806cb4a587c0",
+  "originHash" : "9bf2ba360a61a73355481ce9e0460c75cbfdbca50157c86798f0538ebcd72ad6",
   "pins" : [
     {
       "identity" : "coreai-models",
@@ -41,7 +41,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rsyncOSX/PhotoAIKit.git",
       "state" : {
-        "revision" : "8c983e72ad97a36f18d0ddfb7003d3b5356ab7b7"
+        "revision" : "20e57359603313af7c2d38cae3e8b6e37f8838ef"
       }
     },
     {
@@ -130,8 +130,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-jinja.git",
       "state" : {
-        "revision" : "12ea4955e380dae6b0cd98299effe48c7fe584fc",
-        "version" : "2.5.0"
+        "revision" : "4588064a20f3fc093c95f2f7d3359999bf30cae5",
+        "version" : "2.5.1"
       }
     },
     {
