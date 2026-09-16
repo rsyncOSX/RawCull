@@ -166,7 +166,7 @@ struct DeepAIReviewFeatureTests {
         )
         let configuration = SubjectMaskRepositoryConfiguration(
             modelIdentity: modelIdentity,
-            inputMaxSide: 1_024,
+            inputMaxSide: 1024,
         )
         let memoryStore = SubjectMaskMemoryStore()
         let diskStore = try SubjectMaskDiskStore(cacheDirectory: maskDirectory)
@@ -368,7 +368,7 @@ private final class DeepReviewApplicationContextStub: DeepAIReviewApplicationCon
                 normalSharpnessScore: 0.8,
                 subjectLabel: "bird",
                 normalizedAFPoint: CGPoint(x: 0.5, y: 0.5),
-            ),
+            )
         ],
         scoringSource: .embeddedPreview,
     )

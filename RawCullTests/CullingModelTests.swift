@@ -285,7 +285,9 @@ private final class SimilarityDistanceCancellationProbe: Sendable {
         // This fake implements a synchronous provider call. Hold only that
         // worker until the test has requested cancellation, without a deadline.
         releaseGate.lock()
-        while !state.withLock({ $0.mayReturn }) { releaseGate.wait() }
+        while !state.withLock({ $0.mayReturn }) {
+            releaseGate.wait()
+        }
         releaseGate.unlock()
         state.withLock { $0.observedCancellation = Task.isCancelled }
         return 0
@@ -294,11 +296,15 @@ private final class SimilarityDistanceCancellationProbe: Sendable {
     func waitUntilStarted() async {
         await withCheckedContinuation { continuation in
             let alreadyStarted = state.withLock { state in
-                if state.started { return true }
+                if state.started {
+                    return true
+                }
                 state.startWaiter = continuation
                 return false
             }
-            if alreadyStarted { continuation.resume() }
+            if alreadyStarted {
+                continuation.resume()
+            }
         }
     }
 
@@ -1193,7 +1199,7 @@ struct RawCullViewModelCullingTests {
         viewModel.sharpnessModel.scores = [
             softest.id: 0.1,
             sharpest.id: 0.9,
-            middle.id: 0.5,
+            middle.id: 0.5
         ]
         viewModel.sharpnessModel.sortBySharpness = true
 

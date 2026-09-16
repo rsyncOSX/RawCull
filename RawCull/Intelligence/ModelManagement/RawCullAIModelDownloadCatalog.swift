@@ -281,7 +281,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     requiresExplicitAcceptance: true,
                 ),
                 releaseReadiness: .ready,
-            ),
+            )
         ],
     )
 

@@ -480,8 +480,8 @@ struct LoupeImageKeyActionTests {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleFocusMask)
     }
 
-    @Test("S resolves to Deep Review subject outline", .tags(.smoke), arguments: ["s", "S"])
-    func subjectOutlineShortcut(characters: String) {
+    @Test(.tags(.smoke), arguments: ["s", "S"])
+    func `S resolves to Deep Review subject outline`(characters: String) {
         #expect(LoupeImageKeyAction.resolve(characters: characters) == .toggleSubjectOutline)
     }
 

@@ -66,8 +66,7 @@ struct AIAnalysisView: View {
         }
         .task {
             if inputFiles.isEmpty,
-               !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty
-            {
+               !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 inputSource = .taggedImages
             }
         }
@@ -77,6 +76,7 @@ struct AIAnalysisView: View {
         switch inputSource {
         case .gridSelection:
             "Select one or more images in Grid View, then return to AI Analysis."
+
         case .taggedImages:
             "Tag images with two or more stars before opening AI Analysis."
         }
@@ -341,15 +341,19 @@ private struct QwenModelAvailabilityView: View {
         case .notConfigured:
             Label("Choose a local Qwen vision model in Settings › AI.", systemImage: "gearshape")
                 .foregroundStyle(.secondary)
+
         case .checking:
             ProgressView("Validating the local Qwen model…")
                 .controlSize(.small)
+
         case let .available(_, modelName):
             Label("Local model: \(modelName)", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
+
         case let .missing(url):
             Label("Qwen model not found at \(url.path)", systemImage: "questionmark.folder")
                 .foregroundStyle(.orange)
+
         case let .invalid(_, reason):
             Label(reason, systemImage: "xmark.circle.fill")
                 .foregroundStyle(.red)

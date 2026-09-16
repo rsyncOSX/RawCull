@@ -50,7 +50,7 @@ struct CopyCompletionTests {
             bookmarkDataIsStale: &sourceBookmarkIsStale,
         )
         #expect(!sourceBookmarkIsStale)
-        defaults.set(try destination.bookmarkData(options: .withSecurityScope), forKey: "destBookmark")
+        try defaults.set(destination.bookmarkData(options: .withSecurityScope), forKey: "destBookmark")
         let bytes = Data("test photograph".utf8)
         try bytes.write(to: source.appendingPathComponent("Present.ARW"))
 

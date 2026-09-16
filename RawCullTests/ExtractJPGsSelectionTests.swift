@@ -205,7 +205,7 @@ struct ExtractJPGsOutputURLTests {
         let original = Data("original photograph".utf8)
         try original.write(to: output)
         // Separate actors exercise filesystem exclusion, not actor serialization.
-        let payloads = (0..<8).map { Data("export \($0)".utf8) }
+        let payloads = (0 ..< 8).map { Data("export \($0)".utf8) }
         try await withThrowingTaskGroup(of: Void.self) { group in
             for (index, payload) in payloads.enumerated() {
                 group.addTask {

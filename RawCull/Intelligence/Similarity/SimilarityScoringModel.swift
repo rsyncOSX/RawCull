@@ -833,7 +833,7 @@ final class SimilarityScoringModel {
             ("deer", "a photo of a deer"),
             ("animal", "a photo of an animal"),
             ("car", "a photo of a car"),
-            ("landscape", "a landscape photo"),
+            ("landscape", "a landscape photo")
         ]
         var bestByID: [UUID: (label: String, score: Float)] = [:]
         for prompt in prompts {

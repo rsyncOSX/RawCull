@@ -39,8 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case retry, cancel, discard
     }
 
-    // Keep exactly one deferred termination request alive through retries.
-    // Closures let tests exercise the real lifecycle without terminating the test host.
+    /// Keep exactly one deferred termination request alive through retries.
+    /// Closures let tests exercise the real lifecycle without terminating the test host.
     func beginTermination(
         flush: @escaping @MainActor () async -> Bool,
         chooseRecovery: @escaping @MainActor () -> QuitRecoveryChoice,
@@ -61,15 +61,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 switch chooseRecovery() {
                 case .retry: continue
                 case .cancel: break saveAttempts
+
                 case .discard:
                     shouldQuit = true
                     break saveAttempts
                 }
             }
-            if shouldQuit { releaseAccess() }
+            if shouldQuit {
+                releaseAccess()
+            }
             terminationTask = nil
             // Keep the normal persistence alert suppressed while exiting.
-            if !shouldQuit { setPending(false) }
+            if !shouldQuit {
+                setPending(false)
+            }
             reply(shouldQuit)
         }
         return .terminateLater
