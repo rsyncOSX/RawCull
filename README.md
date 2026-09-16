@@ -1,11 +1,11 @@
 # RawCull
 
-[![GitHub license](https://img.shields.io/github/license/rsyncOSX/RawCull)](https://github.com/rsyncOSX/RawCull/blob/version-3.2.1/Licence.MD)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/rsyncOSX/RawCull/blob/main/Licence.MD)
 
 > [!IMPORTANT]
-> **This is the AI-based version of RawCull.** The `version-3.2.1` branch requires macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
+> **This is the AI-based version of RawCull.** The `version-3.2.3` branch requires macOS 27, an Apple Silicon Mac, and Xcode 27 to build. For macOS 26, use `version-3.0.0`.
 
-RawCull version 3.2.1 is available via Apple’s TestFlight; please email thomeven@gmail.com if you would like to try it through that service or [download RawCull (AI) v3.2.1 from GitHub](https://github.com/rsyncOSX/RawCull/releases/tag/v3.2.1) ·
+The latest released version is available from [the Mac App Store](https://apps.apple.com/no/app/rawcull/id6759362764?mt=12). RawCull version 3.2.3 is available via Apple’s TestFlight; please email thomeven@gmail.com if you would like to try it through that service.
 
 RawCull is a native macOS photo review and culling application for Sony ARW and Nikon NEF RAW files. It combines fast embedded-preview loading with focus-point extraction, sharpness analysis, visual similarity, burst grouping, ratings, and selective export.
 
