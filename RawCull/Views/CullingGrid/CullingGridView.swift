@@ -361,7 +361,6 @@ struct CullingGridView<Header: View>: View {
             return .ignored
         }
         .task(id: viewModel.selectedSource) {
-            viewModel.selectedFileIDs = []
             await ThumbnailLoader.shared.cancelAll()
         }
         .onChange(of: gridCacheKey, initial: true) { _, _ in

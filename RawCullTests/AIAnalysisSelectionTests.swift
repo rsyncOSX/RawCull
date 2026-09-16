@@ -38,6 +38,29 @@ struct AIAnalysisSelectionTests {
         #expect(state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id) == [file.id])
     }
 
+    @MainActor
+    @Test
+    func `Selected analysis images survive main view changes`() {
+        let state = RawCullApplicationState.make(
+            integration: makeIntegration(),
+            userDefaults: isolatedUserDefaults(),
+        )
+        let first = makeFile("first.ARW")
+        let second = makeFile("second.ARW")
+        state.viewModel.filteredFiles = [first, second]
+        state.viewModel.selectedFileIDs = [first.id, second.id]
+
+        state.viewModel.selectMainViewMode(.aiAnalysis)
+        state.viewModel.selectMainViewMode(.loupe)
+        state.viewModel.selectMainViewMode(.aiAnalysis)
+
+        #expect(state.viewModel.selectedFileIDs == [first.id, second.id])
+        #expect(
+            state.viewModel.aiAnalysisFiles(for: .gridSelection).map(\.id)
+                == [first.id, second.id],
+        )
+    }
+
     private func makeFile(_ name: String) -> FileItem {
         FileItem(
             id: UUID(),

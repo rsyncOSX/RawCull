@@ -39,6 +39,46 @@ struct QwenFeatureTests {
     }
 
     @Test
+    func `Structured assessment exposes a constrained generation schema`() throws {
+        let schemaData = try JSONEncoder().encode(QwenPhotoAssessment.generationSchema)
+        let schema = try #require(String(data: schemaData, encoding: .utf8))
+
+        #expect(schema.contains("compositionScore"))
+        #expect(schema.contains("exposureScore"))
+        #expect(schema.contains("subjectVisibilityScore"))
+        #expect(schema.contains("confidence"))
+    }
+
+    @Test
+    func `Free-form Qwen response counts as a successful result`() {
+        let result = QwenPhotoAnalysisResult(
+            fileID: UUID(),
+            fileName: "photo.ARW",
+            assessment: nil,
+            freeformResponse: "The bird appears to be a black grouse.",
+            failure: nil,
+        )
+
+        #expect(result.isSuccessful)
+    }
+
+    @Test
+    func `Fallback preserves nonempty Qwen prose`() throws {
+        let response = try QwenModelResponse.fallback(
+            from: "  The image is sharp and the subject is clearly visible.  ",
+        )
+
+        #expect(response == .freeform("The image is sharp and the subject is clearly visible."))
+    }
+
+    @Test
+    func `Fallback rejects an empty Qwen response`() {
+        #expect(throws: QwenModelError.self) {
+            try QwenModelResponse.fallback(from: "  \n  ")
+        }
+    }
+
+    @Test
     func `Qwen manager validates a compatible Core AI bundle`() async throws {
         let bundle = try makeQwenBundle(kind: "vlm")
         defer { try? FileManager.default.removeItem(at: bundle) }

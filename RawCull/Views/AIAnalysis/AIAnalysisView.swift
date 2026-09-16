@@ -51,10 +51,7 @@ struct AIAnalysisView: View {
 
                     AIAnalysisThumbnailStrip(
                         files: inputFiles,
-                        selectedFileID: viewModel.selectedFileID,
-                        onSelect: { file in
-                            viewModel.selectedFileID = file.id
-                        },
+                        thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                     )
                 }
             }
@@ -85,10 +82,7 @@ struct AIAnalysisView: View {
 
 private struct AIAnalysisThumbnailStrip: View {
     let files: [FileItem]
-    let selectedFileID: FileItem.ID?
-    let onSelect: (FileItem) -> Void
-
-    private let thumbnailSize: CGFloat = 72
+    let thumbnailSize: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -102,10 +96,6 @@ private struct AIAnalysisThumbnailStrip: View {
                         AIAnalysisThumbnailStripItem(
                             file: file,
                             thumbnailSize: thumbnailSize,
-                            isSelected: file.id == selectedFileID,
-                            onSelect: {
-                                onSelect(file)
-                            },
                         )
                     }
                 }
@@ -122,40 +112,32 @@ private struct AIAnalysisThumbnailStrip: View {
 
 private struct AIAnalysisThumbnailStripItem: View {
     let file: FileItem
-    let thumbnailSize: CGFloat
-    let isSelected: Bool
-    let onSelect: () -> Void
+    let thumbnailSize: Int
 
     var body: some View {
-        Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 5) {
-                ThumbnailImageView(
-                    file: file,
-                    targetSize: Int(thumbnailSize * 2),
-                    style: .grid,
-                )
-                .frame(width: thumbnailSize, height: thumbnailSize)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 3 : 1),
-                )
+        VStack(alignment: .leading, spacing: 5) {
+            ThumbnailImageView(
+                file: file,
+                targetSize: thumbnailSize,
+                style: .grid,
+            )
+            .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1),
+            )
 
-                Text(file.name)
-                    .font(.caption2)
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(width: thumbnailSize, alignment: .leading)
-            }
-            .frame(width: thumbnailSize)
-            .contentShape(Rectangle())
+            Text(file.name)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: CGFloat(thumbnailSize), alignment: .leading)
         }
-        .buttonStyle(.plain)
+        .frame(width: CGFloat(thumbnailSize))
         .accessibilityLabel(file.name)
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -304,7 +286,7 @@ private struct QwenAnalysisView: View {
                 ContentUnavailableView(
                     "No Qwen Results Yet",
                     systemImage: "text.bubble",
-                    description: Text("Qwen analyzes each image independently and returns structured, sortable results."),
+                    description: Text("Qwen returns sortable assessments when possible and preserves other answers as free-form responses."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -383,8 +365,13 @@ private struct QwenResultsTable: View {
                 Text(rating(result.assessment?.subjectVisibilityScore))
             }
             TableColumn("Status") { result in
-                Text(result.failure == nil ? "Complete" : "Failed")
-                    .foregroundStyle(result.failure == nil ? Color.green : Color.orange)
+                if result.assessment != nil {
+                    Text("Structured").foregroundStyle(.green)
+                } else if result.freeformResponse != nil {
+                    Text("Free-form").foregroundStyle(.blue)
+                } else {
+                    Text("Failed").foregroundStyle(.orange)
+                }
             }
         }
     }
@@ -420,6 +407,11 @@ private struct QwenAssessmentDetail: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
+            } else if let result, let response = result.freeformResponse {
+                QwenFreeformResponse(
+                    fileName: result.fileName,
+                    response: response,
+                )
             } else if let failure = result?.failure {
                 ContentUnavailableView(
                     "Analysis Failed",
@@ -430,6 +422,24 @@ private struct QwenAssessmentDetail: View {
                 ContentUnavailableView("Select a Photo", systemImage: "photo")
             }
         }
+    }
+}
+
+private struct QwenFreeformResponse: View {
+    let fileName: String
+    let response: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(fileName).font(.headline)
+            Label("Free-form response", systemImage: "text.bubble")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(response)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
     }
 }
 

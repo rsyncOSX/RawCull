@@ -22,7 +22,7 @@ nonisolated enum QwenModelStatus: Equatable, Sendable {
 
 nonisolated protocol QwenModelManaging: Sendable {
     func validate(url: URL) async -> QwenModelStatus
-    func assess(criteria: String, image: CGImage) async throws -> QwenPhotoAssessment
+    func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
     func clear() async
 }
 
@@ -64,7 +64,7 @@ actor QwenModelManager: QwenModelManaging {
         }
     }
 
-    func assess(criteria: String, image: CGImage) async throws -> QwenPhotoAssessment {
+    func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse {
         guard let provider else { throw QwenModelError.modelUnavailable }
 
         let model: CoreAIVisionLanguageModel
@@ -77,32 +77,24 @@ actor QwenModelManager: QwenModelManaging {
         }
 
         let session = LanguageModelSession(model: model)
-        let response = try await session.respond(
-            options: GenerationOptions(maximumResponseTokens: 512),
-        ) {
-            Attachment(image)
-            """
-            Analyze this photograph using these additional criteria:
-            \(criteria)
+        do {
+            let response = try await session.respond(
+                generating: QwenPhotoAssessment.self,
+                options: GenerationOptions(maximumResponseTokens: 512),
+            ) {
+                Attachment(image)
+                """
+                Assess this photograph using these additional criteria:
+                \(criteria)
 
-            Return exactly one JSON object and no Markdown. Use this schema:
-            {
-              "subject": "short description",
-              "compositionScore": 1,
-              "exposureScore": 1,
-              "subjectVisibilityScore": 1,
-              "eyesOpen": null,
-              "problems": ["short issue"],
-              "strengths": ["short strength"],
-              "confidence": 0.0
+                Base the assessment only on visible evidence. Keep the subject, problems,
+                and strengths concise. Always assess every field in the supplied schema.
+                """
             }
-            All three scores must be integers from 1 through 5. Confidence must be from 0 through 1.
-            Use null for eyesOpen when the photograph has no clearly visible eyes.
-            """
+            return .structured(try response.content.validated())
+        } catch let error as GeneratedContent.ParsingError {
+            return try QwenModelResponse.fallback(from: error.rawContent)
         }
-        let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { throw QwenModelError.emptyResponse }
-        return try QwenPhotoAssessment.decodeResponse(content)
     }
 
     func clear() {
