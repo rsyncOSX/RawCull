@@ -12,7 +12,6 @@ struct SimilarityGridSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewController: DeepAIReviewController
 
     // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
     // periphery:ignore
@@ -37,7 +36,6 @@ struct SimilarityGridSelectionView: View {
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
-                    deepAIReviewController: deepAIReviewController,
                     analyzeBurstsRequested: $analyzeBurstsRequested,
                     similarityThresholdChanged: scheduleBurstRegroup,
                 )
@@ -56,7 +54,6 @@ struct SimilarityGridSelectionView: View {
                     viewModel: viewModel,
                     similarityFeature: similarityFeature,
                     semanticSearchFeature: semanticSearchFeature,
-                    deepAIReviewController: deepAIReviewController,
                 ) {
                     SemanticSearchResultsHeaderView(
                         summary: summary,
@@ -109,7 +106,6 @@ private struct OrdinarySimilarityWorkflowView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewController: DeepAIReviewController
     @Binding var analyzeBurstsRequested: Bool
     let similarityThresholdChanged: () -> Void
 
@@ -119,7 +115,6 @@ private struct OrdinarySimilarityWorkflowView: View {
                 viewModel: viewModel,
                 similarityFeature: similarityFeature,
                 semanticSearchFeature: semanticSearchFeature,
-                deepAIReviewController: deepAIReviewController,
             ) {
                 BurstGroupHeaderControlsView(
                     viewModel: viewModel,

@@ -118,6 +118,7 @@ struct RawCullIntelligenceRuntimeTests {
             deepAIReviewController: DeepAIReviewController(
                 feature: fixture.integration.deepAIReviewFeature,
             ),
+            qwenAnalysisFeature: RawCullQwenAnalysisFeature(),
             settingsModel: settingsModel,
             applicationContext: target,
         )

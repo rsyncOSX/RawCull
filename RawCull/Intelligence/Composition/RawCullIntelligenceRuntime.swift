@@ -57,6 +57,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     let deepAIReviewController: DeepAIReviewController
+    let qwenAnalysisFeature: RawCullQwenAnalysisFeature
     let settingsModel: RawCullAISettingsModel
     let modelManagementModel: RawCullAIModelManagementModel
     private(set) var lastAppliedConfigurationIdentity:
@@ -68,6 +69,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         similarityFeature: RawCullSimilarityFeature,
         semanticSearchFeature: RawCullSemanticSearchFeature,
         deepAIReviewController: DeepAIReviewController,
+        qwenAnalysisFeature: RawCullQwenAnalysisFeature,
         settingsModel: RawCullAISettingsModel,
         applicationContext: any RawCullSimilarityApplicationContext,
     ) {
@@ -75,6 +77,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.similarityFeature = similarityFeature
         self.semanticSearchFeature = semanticSearchFeature
         self.deepAIReviewController = deepAIReviewController
+        self.qwenAnalysisFeature = qwenAnalysisFeature
         self.settingsModel = settingsModel
         self.modelManagementModel = settingsModel.modelManagementModel
         similarityFeature.bindApplicationContext(applicationContext)
@@ -163,11 +166,17 @@ struct RawCullApplicationState {
             coordinator: modelDownloadCoordinator,
             rawCullVersion: rawCullVersion,
         )
+        let qwenModelManager = QwenModelManager()
+        let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
+            modelManager: qwenModelManager,
+        )
         let settingsModel = RawCullAISettingsModel(
             integration: integration,
             evidenceScan: evidenceScan,
             userDefaults: userDefaults,
             modelManagementModel: modelManagementModel,
+            qwenModelManager: qwenModelManager,
+            qwenAnalysisFeature: qwenAnalysisFeature,
         )
         let initialConfiguration = settingsModel.configurationSnapshot()
         let similarityModel = SimilarityScoringModel(
@@ -197,6 +206,7 @@ struct RawCullApplicationState {
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
             deepAIReviewController: deepAIReviewController,
+            qwenAnalysisFeature: qwenAnalysisFeature,
             settingsModel: settingsModel,
             applicationContext: viewModel,
         )
@@ -207,6 +217,7 @@ struct RawCullApplicationState {
         assert(semanticSearchFeature.sharesSimilarityFeatureIdentity(with: similarityFeature))
         assert(viewModel.semanticSearchFeature === intelligenceRuntime.semanticSearchFeature)
         assert(viewModel.deepAIReviewController === intelligenceRuntime.deepAIReviewController)
+        assert(qwenAnalysisFeature === intelligenceRuntime.qwenAnalysisFeature)
         assert(
             intelligenceRuntime.deepAIReviewController.sharesFeatureIdentity(
                 with: integration.deepAIReviewFeature,

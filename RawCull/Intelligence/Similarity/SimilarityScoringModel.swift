@@ -809,6 +809,47 @@ final class SimilarityScoringModel {
         _rankingGeneration &+= 1
     }
 
+    /// Uses the active CLIP text/image backend and already-indexed artifacts to
+    /// provide coarse subject labels for SAM prompt selection. This does not
+    /// mutate semantic-search presentation state or decode source images.
+    func classifySubjects(in files: [FileItem]) async -> [UUID: String] {
+        guard let service = semanticSearchService else { return [:] }
+        let candidates = files.enumerated().compactMap {
+            element -> RawCullSemanticSearchCandidate? in
+            let (offset, file) = element
+            guard let artifact = semanticArtifacts[file.id] else { return nil }
+            return RawCullSemanticSearchCandidate(
+                fileID: file.id,
+                fileName: file.name,
+                catalogOrder: offset,
+                artifact: artifact,
+            )
+        }
+        guard !candidates.isEmpty else { return [:] }
+
+        let prompts: [(label: String, text: String)] = [
+            ("person", "a photo of a person"),
+            ("bird", "a photo of a bird"),
+            ("deer", "a photo of a deer"),
+            ("animal", "a photo of an animal"),
+            ("car", "a photo of a car"),
+            ("landscape", "a landscape photo"),
+        ]
+        var bestByID: [UUID: (label: String, score: Float)] = [:]
+        for prompt in prompts {
+            guard !Task.isCancelled else { return [:] }
+            guard let output = try? await service.rank(
+                query: prompt.text,
+                candidates: candidates,
+            ) else { continue }
+            for match in output.matches
+                where match.score > (bestByID[match.fileID]?.score ?? -.infinity) {
+                bestByID[match.fileID] = (prompt.label, match.score)
+            }
+        }
+        return bestByID.mapValues(\.label)
+    }
+
     /// Rank an admitted catalog snapshot using only compatible cached CLIP
     /// artifacts. No source image decoding or image embedding generation is
     /// reachable from this operation.
