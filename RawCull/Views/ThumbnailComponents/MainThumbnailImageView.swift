@@ -471,8 +471,8 @@ struct MainThumbnailImageView: View {
         }
     }
 
-    // The thumbnail list can retain focus while the Loupe image is visible.
-    // Match the zoom overlay's shortcut handling without intercepting text entry.
+    /// The thumbnail list can retain focus while the Loupe image is visible.
+    /// Match the zoom overlay's shortcut handling without intercepting text entry.
     private func installSubjectOutlineKeyMonitor() {
         removeSubjectOutlineKeyMonitor()
         subjectOutlineKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in

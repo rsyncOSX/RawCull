@@ -22,7 +22,7 @@ struct DeepAIReviewMaskOutlineRendererTests {
     func `disconnected subjects each receive a contour`() async throws {
         let mask = try #require(makeMask(rectangles: [
             CGRect(x: 4, y: 8, width: 8, height: 16),
-            CGRect(x: 20, y: 8, width: 8, height: 16),
+            CGRect(x: 20, y: 8, width: 8, height: 16)
         ]))
         let outline = try #require(
             await DeepAIReviewMaskOutlineRenderer.outline(from: mask),

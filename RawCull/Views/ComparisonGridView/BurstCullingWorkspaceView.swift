@@ -522,7 +522,6 @@ struct BurstCullingWorkspaceView: View {
                 return
             }
         }
-
     }
 
     private func ensureDecodedImage(
@@ -797,7 +796,12 @@ private struct BurstFilmstripThumbnail: View {
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
-                ThumbnailImageView(file: file, targetSize: 180, style: .grid, showsShimmer: true)
+                ThumbnailImageView(
+                    file: file,
+                    targetSize: 180,
+                    style: .grid,
+                    showsShimmer: true
+                )
                     .frame(width: 132, height: 82)
                     .clipped()
                     .overlay(alignment: .topTrailing) {

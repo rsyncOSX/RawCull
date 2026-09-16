@@ -15,7 +15,7 @@ struct RawCullAIModelDownloadsTests {
             .clipDataComp,
             .clipOpenAI,
             .efficientSAM,
-            .sam3,
+            .sam3
         ])
         #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
         #expect(
@@ -391,7 +391,7 @@ struct RawCullAIModelDownloadsTests {
             hasState: .installed(location: downloadedURL),
         )
         #expect(locationsConsumer.snapshots.contains([
-            descriptor.id: downloadedURL,
+            descriptor.id: downloadedURL
         ]))
 
         await model.removeManagedModel(descriptor.id)
@@ -592,8 +592,7 @@ struct RawCullAIModelDownloadsTests {
 private final class ModelDownloadTestBundleToken {}
 
 private actor ModelDownloadServiceSpy:
-    RawCullAIModelDownloadServicing
-{
+    RawCullAIModelDownloadServicing {
     private let currentState: RawCullAIModelDownloadState
     private let downloadURL: URL
     private let downloadFailureMessage: String?
@@ -648,8 +647,7 @@ private actor ModelDownloadServiceSpy:
 }
 
 private actor ModelManagementDownloadService:
-    RawCullAIModelDownloadServicing
-{
+    RawCullAIModelDownloadServicing {
     private let downloadURL: URL
     private var currentState: RawCullAIModelDownloadState = .ready
     private var progressIsSuspended = false
@@ -670,18 +668,26 @@ private actor ModelManagementDownloadService:
         if shouldSuspendStateQuery {
             shouldSuspendStateQuery = false
             stateQueryIsSuspended = true
-            while !stateQueryMayResume { await Task.yield() }
+            while !stateQueryMayResume {
+                await Task.yield()
+            }
         }
         return snapshot
     }
 
-    func suspendNextStateQuery() { shouldSuspendStateQuery = true }
-
-    func waitUntilStateQueryIsSuspended() async {
-        while !stateQueryIsSuspended { await Task.yield() }
+    func suspendNextStateQuery() {
+        shouldSuspendStateQuery = true
     }
 
-    func resumeStateQuery() { stateQueryMayResume = true }
+    func waitUntilStateQueryIsSuspended() async {
+        while !stateQueryIsSuspended {
+            await Task.yield()
+        }
+    }
+
+    func resumeStateQuery() {
+        stateQueryMayResume = true
+    }
 
     func download(
         _: RawCullAIModelDownloadDescriptor,
@@ -722,8 +728,7 @@ private actor ModelManagementDownloadService:
 }
 
 private actor CancellableModelManagementDownloadService:
-    RawCullAIModelDownloadServicing
-{
+    RawCullAIModelDownloadServicing {
     private let downloadURL: URL
     private var started = false
     private var observedCancellation = false
@@ -770,8 +775,7 @@ private actor CancellableModelManagementDownloadService:
 
 @MainActor
 private final class ManagedModelLocationsConsumerSpy:
-    RawCullAIManagedModelLocationsApplying
-{
+    RawCullAIManagedModelLocationsApplying {
     private(set) var snapshots: [[RawCullAIModelDownloadID: URL]] = []
 
     func applyManagedModelLocations(

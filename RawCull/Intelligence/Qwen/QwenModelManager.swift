@@ -127,12 +127,16 @@ nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
         switch self {
         case .modelUnavailable:
             "Select and validate a Qwen model in AI Settings first."
+
         case .visionModelRequired:
             "The selected model is text-only. Select a Qwen vision-language bundle, such as Qwen3-VL-2B-Instruct."
+
         case .imageUnavailable:
             "The selected photo could not be decoded for Qwen."
+
         case .emptyResponse:
             "Qwen returned an empty response."
+
         case .invalidStructuredResponse:
             "Qwen did not return a valid structured photo assessment."
         }

@@ -1,7 +1,7 @@
 import Foundation
 @testable import RawCull
-import Testing
 import RawCullCore
+import Testing
 
 @MainActor
 struct ExecuteCopyFilesStartupTests {
@@ -120,7 +120,9 @@ struct ExecuteCopyFilesStartupTests {
         let suite = "RawCullCopyBookmarks-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        if corrupt { defaults.set(Data("invalid bookmark".utf8), forKey: "sourceBookmark") }
+        if corrupt {
+            defaults.set(Data("invalid bookmark".utf8), forKey: "sourceBookmark")
+        }
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let sourceBookmark = try directory.bookmarkData(options: .withSecurityScope)
