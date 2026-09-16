@@ -1,0 +1,53 @@
+{
+  "catalog_version": 2,
+  "release_status": "ready",
+  "release": {
+    "tag": "v3",
+    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.qwen3-vl-2b"
+  },
+  "model": {
+    "bundle": "Qwen/qwen3_vl_2b",
+    "asset": "Models/Qwen/qwen3_vl_2b",
+    "architecture": "Qwen3-VL-2B-Instruct",
+    "precision": "converted Core AI representation",
+    "components": {
+      "language_main_mlirb_sha256": "270c0447e6e1dc8e43ca55b99b4b7dd6832127cef1e12f6cd5507c6cb5dcf4c7",
+      "embedding_main_mlirb_sha256": "0ea016ee6948565cc3955f1c6175959a41ec7240aef92b916045a1da526e425a",
+      "vision_main_mlirb_sha256": "bc52138936a87df59711b6a45007d9bf0c1f834ddcc9f4fc0c1197fde2960099"
+    }
+  },
+  "upstream": {
+    "project": "Qwen/Qwen3-VL-2B-Instruct",
+    "model_url": "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct",
+    "reference_revision": "78448d793a7eb2f7a987a1da76d464384aa1becd",
+    "source_revision_recorded_by_exporter": null,
+    "source_weight_sha256": null,
+    "evidence_note": "The bundle metadata records the upstream model ID but not an immutable source revision or source-weight checksum. The reference revision identifies the upstream snapshot used for the accompanying tokenizer and licence evidence."
+  },
+  "tokenizer": {
+    "source": "Qwen/Qwen3-VL-2B-Instruct",
+    "tokenizer_json_sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506",
+    "tokenizer_config_json_sha256": "928c3c44a7d2168cede835051a5f630c22b9ef4c6f6bd672d2ba8677af2343b3",
+    "chat_template_jinja_sha256": "3636d0f0bd6bef02654cdffdc447b79cb2cef8ab02cc75267345946291a489e4"
+  },
+  "conversion": {
+    "producer": "coreai-core 1.0.0b2",
+    "language_model_creation_date": "2026-09-15T16:32:32Z",
+    "embedding_model_creation_date": "2026-09-15T16:32:35Z",
+    "vision_model_creation_date": "2026-09-15T16:32:51Z"
+  },
+  "licences": [
+    {
+      "component": "Qwen3-VL-2B-Instruct model and tokenizer",
+      "spdx": "Apache-2.0",
+      "file": "Qwen3-VL-Apache-2.0.txt",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "component": "Apple coreai-models conversion recipe",
+      "spdx": "BSD-3-Clause",
+      "file": "Apple-coreai-models-BSD-3-Clause.txt",
+      "sha256": "6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e"
+    }
+  ]
+}
