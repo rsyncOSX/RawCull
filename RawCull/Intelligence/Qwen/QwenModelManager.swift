@@ -77,24 +77,32 @@ actor QwenModelManager: QwenModelManaging {
         }
 
         let session = LanguageModelSession(model: model)
-        do {
-            let response = try await session.respond(
-                generating: QwenPhotoAssessment.self,
-                options: GenerationOptions(maximumResponseTokens: 512),
-            ) {
-                Attachment(image)
-                """
-                Assess this photograph using these additional criteria:
-                \(criteria)
+        let response = try await session.respond(
+            options: GenerationOptions(maximumResponseTokens: 512),
+        ) {
+            Attachment(image)
+            """
+            Analyze this photograph and answer the user's request:
+            \(criteria)
 
-                Base the assessment only on visible evidence. Keep the subject, problems,
-                and strengths concise. Always assess every field in the supplied schema.
-                """
+            If the request is a photo assessment, return exactly one JSON object and no
+            Markdown using this schema:
+            {
+              "subject": "short description of the main subject",
+              "compositionScore": 1-5,
+              "exposureScore": 1-5,
+              "subjectVisibilityScore": 1-5,
+              "eyesOpen": true, false, or null,
+              "problems": ["up to four short visible problems"],
+              "strengths": ["up to four short visible strengths"],
+              "confidence": 0.0-1.0
             }
-            return .structured(try response.content.validated())
-        } catch let error as GeneratedContent.ParsingError {
-            return try QwenModelResponse.fallback(from: error.rawContent)
+
+            Base the answer only on visible evidence. If the user's request does not fit
+            this assessment schema, answer it normally in plain text.
+            """
         }
+        return try QwenModelResponse.decode(response.content)
     }
 
     func clear() {
