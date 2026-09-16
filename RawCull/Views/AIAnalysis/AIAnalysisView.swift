@@ -304,7 +304,7 @@ private struct QwenAnalysisView: View {
                 ContentUnavailableView(
                     "No Qwen Results Yet",
                     systemImage: "text.bubble",
-                    description: Text("Qwen analyzes each image independently and returns structured, sortable results."),
+                    description: Text("Qwen returns sortable assessments when possible and preserves other answers as free-form responses."),
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -383,8 +383,13 @@ private struct QwenResultsTable: View {
                 Text(rating(result.assessment?.subjectVisibilityScore))
             }
             TableColumn("Status") { result in
-                Text(result.failure == nil ? "Complete" : "Failed")
-                    .foregroundStyle(result.failure == nil ? Color.green : Color.orange)
+                if result.assessment != nil {
+                    Text("Structured").foregroundStyle(.green)
+                } else if result.freeformResponse != nil {
+                    Text("Free-form").foregroundStyle(.blue)
+                } else {
+                    Text("Failed").foregroundStyle(.orange)
+                }
             }
         }
     }
@@ -420,6 +425,11 @@ private struct QwenAssessmentDetail: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
+            } else if let result, let response = result.freeformResponse {
+                QwenFreeformResponse(
+                    fileName: result.fileName,
+                    response: response,
+                )
             } else if let failure = result?.failure {
                 ContentUnavailableView(
                     "Analysis Failed",
@@ -430,6 +440,24 @@ private struct QwenAssessmentDetail: View {
                 ContentUnavailableView("Select a Photo", systemImage: "photo")
             }
         }
+    }
+}
+
+private struct QwenFreeformResponse: View {
+    let fileName: String
+    let response: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(fileName).font(.headline)
+            Label("Free-form response", systemImage: "text.bubble")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(response)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
     }
 }
 

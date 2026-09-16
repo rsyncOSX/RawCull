@@ -72,15 +72,26 @@ final class RawCullQwenAnalysisFeature {
                         throw QwenModelError.imageUnavailable
                     }
                     try Task.checkCancellation()
-                    let assessment = try await feature.modelManager.assess(
+                    let response = try await feature.modelManager.assess(
                         criteria: criteria,
                         image: image,
                     )
                     try Task.checkCancellation()
+                    let assessment: QwenPhotoAssessment?
+                    let freeformResponse: String?
+                    switch response {
+                    case let .structured(value):
+                        assessment = value
+                        freeformResponse = nil
+                    case let .freeform(value):
+                        assessment = nil
+                        freeformResponse = value
+                    }
                     completed.append(QwenPhotoAnalysisResult(
                         fileID: file.id,
                         fileName: file.name,
                         assessment: assessment,
+                        freeformResponse: freeformResponse,
                         failure: nil,
                     ))
                 } catch is CancellationError {
@@ -90,6 +101,7 @@ final class RawCullQwenAnalysisFeature {
                         fileID: file.id,
                         fileName: file.name,
                         assessment: nil,
+                        freeformResponse: nil,
                         failure: error.localizedDescription,
                     ))
                 }
@@ -109,7 +121,7 @@ final class RawCullQwenAnalysisFeature {
             feature.progress = nil
             feature.isRunning = false
             feature.task = nil
-            if !completed.isEmpty, completed.allSatisfy({ $0.assessment == nil }) {
+            if !completed.isEmpty, completed.allSatisfy({ !$0.isSuccessful }) {
                 feature.failureMessage = "Qwen could not analyze any of the selected photos."
             }
         }

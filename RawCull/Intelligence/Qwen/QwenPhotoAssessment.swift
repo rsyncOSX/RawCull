@@ -68,14 +68,30 @@ nonisolated struct QwenPhotoAssessment: Codable, Equatable, Sendable {
     }
 }
 
+nonisolated enum QwenModelResponse: Equatable, Sendable {
+    case structured(QwenPhotoAssessment)
+    case freeform(String)
+
+    static func fallback(from rawContent: String) throws -> Self {
+        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else { throw QwenModelError.emptyResponse }
+        return .freeform(content)
+    }
+}
+
 nonisolated struct QwenPhotoAnalysisResult: Equatable, Identifiable, Sendable {
     let fileID: UUID
     let fileName: String
     let assessment: QwenPhotoAssessment?
+    let freeformResponse: String?
     let failure: String?
 
     var id: UUID {
         fileID
+    }
+
+    var isSuccessful: Bool {
+        assessment != nil || freeformResponse != nil
     }
 }
 
