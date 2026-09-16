@@ -39,17 +39,6 @@ struct QwenFeatureTests {
     }
 
     @Test
-    func `Structured assessment exposes a constrained generation schema`() throws {
-        let schemaData = try JSONEncoder().encode(QwenPhotoAssessment.generationSchema)
-        let schema = try #require(String(data: schemaData, encoding: .utf8))
-
-        #expect(schema.contains("compositionScore"))
-        #expect(schema.contains("exposureScore"))
-        #expect(schema.contains("subjectVisibilityScore"))
-        #expect(schema.contains("confidence"))
-    }
-
-    @Test
     func `Free-form Qwen response counts as a successful result`() {
         let result = QwenPhotoAnalysisResult(
             fileID: UUID(),
@@ -63,18 +52,41 @@ struct QwenFeatureTests {
     }
 
     @Test
-    func `Fallback preserves nonempty Qwen prose`() throws {
-        let response = try QwenModelResponse.fallback(
-            from: "  The image is sharp and the subject is clearly visible.  ",
+    func `Response decoder preserves nonempty Qwen prose`() throws {
+        let response = try QwenModelResponse.decode(
+            "  The image is sharp and the subject is clearly visible.  ",
         )
 
         #expect(response == .freeform("The image is sharp and the subject is clearly visible."))
     }
 
     @Test
-    func `Fallback rejects an empty Qwen response`() {
+    func `Response decoder uses structured assessment when valid`() throws {
+        let content = #"{"subject":"bird","compositionScore":4,"exposureScore":5,"subjectVisibilityScore":3,"eyesOpen":null,"problems":[],"strengths":["clean background"],"confidence":0.8}"#
+
+        let response = try QwenModelResponse.decode(content)
+
+        guard case let .structured(assessment) = response else {
+            Issue.record("Expected a structured assessment")
+            return
+        }
+        #expect(assessment.subject == "bird")
+        #expect(assessment.compositionScore == 4)
+    }
+
+    @Test
+    func `Response decoder preserves invalid structured output as freeform`() throws {
+        let content = #"{"subject":"bird","compositionScore":7}"#
+
+        let response = try QwenModelResponse.decode(content)
+
+        #expect(response == .freeform(content))
+    }
+
+    @Test
+    func `Response decoder rejects an empty Qwen response`() {
         #expect(throws: QwenModelError.self) {
-            try QwenModelResponse.fallback(from: "  \n  ")
+            try QwenModelResponse.decode("  \n  ")
         }
     }
 

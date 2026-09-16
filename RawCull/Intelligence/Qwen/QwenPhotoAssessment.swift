@@ -1,30 +1,20 @@
 import Foundation
-import FoundationModels
 
-@Generable(description: "A concise technical and aesthetic assessment of one photograph.")
 nonisolated struct QwenPhotoAssessment: Codable, Equatable, Sendable {
-    @Guide(description: "A short description of the main subject.")
     let subject: String
 
-    @Guide(description: "Composition quality from 1 (poor) through 5 (excellent).", .range(1 ... 5))
     let compositionScore: Int
 
-    @Guide(description: "Exposure quality from 1 (poor) through 5 (excellent).", .range(1 ... 5))
     let exposureScore: Int
 
-    @Guide(description: "Main-subject visibility from 1 (poor) through 5 (excellent).", .range(1 ... 5))
     let subjectVisibilityScore: Int
 
-    @Guide(description: "Whether clearly visible eyes are open, or nil when no eyes are clearly visible.")
     let eyesOpen: Bool?
 
-    @Guide(description: "A short list of visible technical or compositional problems.", .maximumCount(4))
     let problems: [String]
 
-    @Guide(description: "A short list of visible technical or compositional strengths.", .maximumCount(4))
     let strengths: [String]
 
-    @Guide(description: "Confidence in the assessment from 0 (uncertain) through 1 (certain).", .range(0 ... 1))
     let confidence: Float
 
     var overallScore: Double {
@@ -72,9 +62,14 @@ nonisolated enum QwenModelResponse: Equatable, Sendable {
     case structured(QwenPhotoAssessment)
     case freeform(String)
 
-    static func fallback(from rawContent: String) throws -> Self {
+    static func decode(_ rawContent: String) throws -> Self {
         let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { throw QwenModelError.emptyResponse }
+
+        if let assessment = try? QwenPhotoAssessment.decodeResponse(content) {
+            return .structured(assessment)
+        }
+
         return .freeform(content)
     }
 }
