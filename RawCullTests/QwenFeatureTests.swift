@@ -39,6 +39,17 @@ struct QwenFeatureTests {
     }
 
     @Test
+    func `Structured assessment exposes a constrained generation schema`() throws {
+        let schemaData = try JSONEncoder().encode(QwenPhotoAssessment.generationSchema)
+        let schema = try #require(String(data: schemaData, encoding: .utf8))
+
+        #expect(schema.contains("compositionScore"))
+        #expect(schema.contains("exposureScore"))
+        #expect(schema.contains("subjectVisibilityScore"))
+        #expect(schema.contains("confidence"))
+    }
+
+    @Test
     func `Qwen manager validates a compatible Core AI bundle`() async throws {
         let bundle = try makeQwenBundle(kind: "vlm")
         defer { try? FileManager.default.removeItem(at: bundle) }
