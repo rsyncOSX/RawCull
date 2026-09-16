@@ -23,29 +23,42 @@ struct AIAnalysisView: View {
 
             Divider()
 
-            if inputFiles.isEmpty {
-                ContentUnavailableView(
-                    "No Images to Analyze",
-                    systemImage: "sparkles.rectangle.stack",
-                    description: Text(emptyDescription),
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                switch selectedTool {
-                case .samCLIP:
-                    SAMCLIPAnalysisContainer(
-                        viewModel: viewModel,
-                        controller: deepAIReviewController,
-                        files: inputFiles,
+            VStack(spacing: 0) {
+                if inputFiles.isEmpty {
+                    ContentUnavailableView(
+                        "No Images to Analyze",
+                        systemImage: "sparkles.rectangle.stack",
+                        description: Text(emptyDescription),
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    switch selectedTool {
+                    case .samCLIP:
+                        SAMCLIPAnalysisContainer(
+                            viewModel: viewModel,
+                            controller: deepAIReviewController,
+                            files: inputFiles,
+                        )
 
-                case .qwen:
-                    QwenAnalysisView(
-                        feature: qwenAnalysisFeature,
+                    case .qwen:
+                        QwenAnalysisView(
+                            feature: qwenAnalysisFeature,
+                            files: inputFiles,
+                        )
+                    }
+
+                    Divider()
+
+                    AIAnalysisThumbnailStrip(
                         files: inputFiles,
+                        selectedFileID: viewModel.selectedFileID,
+                        onSelect: { file in
+                            viewModel.selectedFileID = file.id
+                        },
                     )
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onChange(of: inputSource) { _, _ in
             qwenAnalysisFeature.cancel()
@@ -67,6 +80,82 @@ struct AIAnalysisView: View {
         case .taggedImages:
             "Tag images with two or more stars before opening AI Analysis."
         }
+    }
+}
+
+private struct AIAnalysisThumbnailStrip: View {
+    let files: [FileItem]
+    let selectedFileID: FileItem.ID?
+    let onSelect: (FileItem) -> Void
+
+    private let thumbnailSize: CGFloat = 72
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Selected Images")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    ForEach(files) { file in
+                        AIAnalysisThumbnailStripItem(
+                            file: file,
+                            thumbnailSize: thumbnailSize,
+                            isSelected: file.id == selectedFileID,
+                            onSelect: {
+                                onSelect(file)
+                            },
+                        )
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+            .scrollIndicators(.visible)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.96))
+    }
+}
+
+private struct AIAnalysisThumbnailStripItem: View {
+    let file: FileItem
+    let thumbnailSize: CGFloat
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 5) {
+                ThumbnailImageView(
+                    file: file,
+                    targetSize: Int(thumbnailSize * 2),
+                    style: .grid,
+                )
+                .frame(width: thumbnailSize, height: thumbnailSize)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 3 : 1),
+                )
+
+                Text(file.name)
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(width: thumbnailSize, alignment: .leading)
+            }
+            .frame(width: thumbnailSize)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(file.name)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
