@@ -579,15 +579,15 @@ extension RawCullViewModel {
 
     func deepAIReviewContext(
         for groupFiles: [FileItem],
-    ) -> DeepAIReviewGroupContext? {
+    ) async -> DeepAIReviewGroupContext? {
         Logger.process.debugMessageOnly(
             "RawCullViewModel.deepAIReviewContext(): collecting burst evidence from \(groupFiles.count) files",
         )
         guard let catalog = selectedSource?.url,
               let signature = BurstGroupSignature(files: groupFiles, catalog: catalog)
         else { return nil }
-        let groupID = groupID(for: groupFiles)
-        guard groupID >= 0 else { return nil }
+        let burstGroupID = groupID(for: groupFiles)
+        let groupID = burstGroupID >= 0 ? burstGroupID : signature.hashValue
 
         let rankedIDs = burstAnalysisResults[groupID]?.candidates.map(\.fileID) ?? []
         let ranks = Dictionary(
@@ -600,6 +600,9 @@ extension RawCullViewModel {
                 (file.id, index + 1)
             },
         )
+        let clipSubjectLabels = await similarityModel.classifySubjects(
+            in: groupFiles,
+        )
         let candidates = groupFiles.map { file in
             DeepAIReviewSourceCandidate(
                 fileID: file.id,
@@ -607,7 +610,8 @@ extension RawCullViewModel {
                 url: file.url,
                 burstRank: ranks[file.id] ?? fallbackRanks[file.id] ?? 1,
                 normalSharpnessScore: sharpnessModel.scores[file.id],
-                subjectLabel: sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
+                subjectLabel: clipSubjectLabels[file.id]
+                    ?? sharpnessModel.saliencyInfo[file.id]?.subjectLabel,
                 normalizedAFPoint: file.afFocusNormalized,
             )
         }

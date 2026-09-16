@@ -4,11 +4,18 @@ struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
     @State private var showModelDownloads = false
+    @State private var showQwenModelPicker = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 AIModelSettingsCard(model: model)
+                QwenModelSettingsCard(
+                    status: model.qwenModelStatus,
+                    selectModel: { showQwenModelPicker = true },
+                    validateAgain: model.validateQwenModelAgain,
+                    clearModel: model.clearQwenModel,
+                )
                 AIIntegrationReadinessCard(
                     capabilities: model.capabilities,
                     selectedSegmentationModel: model.selectedSegmentationModel,
@@ -42,6 +49,81 @@ struct AISettingsTab: View {
         .sheet(isPresented: $showModelDownloads) {
             AIModelDownloadsView(model: model.modelManagementModel)
         }
+        .fileImporter(
+            isPresented: $showQwenModelPicker,
+            allowedContentTypes: [.folder],
+        ) { result in
+            guard let url = try? result.get() else { return }
+            model.setQwenModelURL(url)
+        }
+    }
+}
+
+private struct QwenModelSettingsCard: View {
+    let status: QwenModelStatus
+    let selectModel: () -> Void
+    let validateAgain: () -> Void
+    let clearModel: () -> Void
+
+    var body: some View {
+        SettingsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Local Qwen")
+                    .font(.system(size: 14, weight: .semibold))
+                Divider()
+
+                LabeledContent("Vision-language model") {
+                    statusView
+                }
+
+                ViewThatFits {
+                    HStack(spacing: 8) { actions }
+                    VStack(alignment: .leading, spacing: 8) { actions }
+                }
+
+                Text("Select a local Qwen vision-language Core AI bundle, such as Qwen3-VL-2B-Instruct. RawCull validates the bundle and keeps analysis on this Mac.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        switch status {
+        case .notConfigured:
+            Label("Not selected", systemImage: "minus.circle")
+                .foregroundStyle(.secondary)
+
+        case .checking:
+            ProgressView("Validating…")
+                .controlSize(.small)
+
+        case let .available(_, modelName):
+            Label(modelName, systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .textSelection(.enabled)
+
+        case let .missing(url):
+            Label("Missing: \(url.lastPathComponent)", systemImage: "questionmark.folder")
+                .foregroundStyle(.orange)
+
+        case let .invalid(_, reason):
+            Label(reason, systemImage: "xmark.circle.fill")
+                .foregroundStyle(.red)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        Button("Select Qwen Model", systemImage: "folder", action: selectModel)
+        Button("Validate Again", systemImage: "checkmark.shield", action: validateAgain)
+            .disabled(status == .notConfigured)
+        Button("Clear", systemImage: "xmark.circle", role: .destructive, action: clearModel)
+            .disabled(status == .notConfigured)
     }
 }
 

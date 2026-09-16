@@ -15,7 +15,6 @@ struct GridThumbnailSelectionView: View {
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
-    let deepAIReviewController: DeepAIReviewController
 
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
@@ -25,7 +24,6 @@ struct GridThumbnailSelectionView: View {
             viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewController: deepAIReviewController,
         ) {
             if !viewModel.showsBurstGroups {
                 SharpnessControlsView(

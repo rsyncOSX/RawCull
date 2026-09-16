@@ -142,6 +142,17 @@ struct SharedMainToolbarContent: ToolbarContent {
                     viewModel.creatingthumbnails)
 
                 Button {
+                    viewModel.selectMainViewMode(.aiAnalysis)
+                } label: {
+                    Label("AI Analysis", systemImage: "sparkles.rectangle.stack")
+                }
+                .help("Analyze selected or tagged images with SAM 3 + CLIP or local Qwen")
+                .disabled(viewModel.selectedSource == nil ||
+                    !hasAIAnalysisInput ||
+                    viewModel.mainViewMode == .aiAnalysis ||
+                    viewModel.creatingthumbnails)
+
+                Button {
                     viewModel.selectMainViewMode(.ratedGrid)
                 } label: {
                     Label("Rated", systemImage: "star.square.fill")
@@ -275,5 +286,10 @@ struct SharedMainToolbarContent: ToolbarContent {
     private var hasExplicitRatings: Bool {
         guard let catalog = viewModel.selectedSource?.url else { return false }
         return viewModel.cullingModel.hasExplicitRatings(in: catalog)
+    }
+
+    private var hasAIAnalysisInput: Bool {
+        !viewModel.aiAnalysisFiles(for: .gridSelection).isEmpty
+            || !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty
     }
 }

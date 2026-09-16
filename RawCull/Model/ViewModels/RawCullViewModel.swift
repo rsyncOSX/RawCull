@@ -22,6 +22,7 @@ enum MainViewMode: String, CaseIterable, Identifiable {
     case similarityGrid
     case ratedGrid
     case comparisonGrid
+    case aiAnalysis
 
     var id: String {
         rawValue

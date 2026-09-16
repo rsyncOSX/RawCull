@@ -373,7 +373,7 @@ private final class DeepReviewApplicationContextStub: DeepAIReviewApplicationCon
         scoringSource: .embeddedPreview,
     )
 
-    func deepAIReviewContext(for groupFiles: [FileItem]) -> DeepAIReviewGroupContext? {
+    func deepAIReviewContext(for groupFiles: [FileItem]) async -> DeepAIReviewGroupContext? {
         guard let file = groupFiles.first else { return nil }
         return DeepAIReviewGroupContext(
             groupID: context.groupID,

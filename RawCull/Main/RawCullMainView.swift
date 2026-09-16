@@ -12,6 +12,7 @@ struct RawCullMainView: View {
     let similarityFeature: RawCullSimilarityFeature
     let semanticSearchFeature: RawCullSemanticSearchFeature
     let deepAIReviewController: DeepAIReviewController
+    let qwenAnalysisFeature: RawCullQwenAnalysisFeature
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
@@ -48,6 +49,9 @@ struct RawCullMainView: View {
 
                 case .comparisonGrid:
                     comparisonGridSplit
+
+                case .aiAnalysis:
+                    aiAnalysisSplit
                 }
             }
 
@@ -341,7 +345,6 @@ struct RawCullMainView: View {
             viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewController: deepAIReviewController,
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
@@ -357,7 +360,6 @@ struct RawCullMainView: View {
             viewModel: viewModel,
             similarityFeature: similarityFeature,
             semanticSearchFeature: semanticSearchFeature,
-            deepAIReviewController: deepAIReviewController,
             nsImage: $nsImage,
             cgImage: $cgImage,
         )
@@ -422,6 +424,18 @@ struct RawCullMainView: View {
                 viewModel.startCatalogLoad(for: viewModel.selectedSource)
             }
         }
+    }
+
+    // MARK: - AI analysis mode
+
+    private var aiAnalysisSplit: some View {
+        AIAnalysisView(
+            viewModel: viewModel,
+            qwenAnalysisFeature: qwenAnalysisFeature,
+            deepAIReviewController: deepAIReviewController,
+        )
+        .navigationTitle("AI Analysis")
+        .toolbar { toolbarContent }
     }
 
     private var candidateInspectorContext: CandidateInspectorContext? {

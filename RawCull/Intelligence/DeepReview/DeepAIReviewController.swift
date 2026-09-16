@@ -26,7 +26,7 @@ protocol DeepAIReviewApplicationContext: AnyObject {
 
     func deepAIReviewContext(
         for groupFiles: [FileItem],
-    ) -> DeepAIReviewGroupContext?
+    ) async -> DeepAIReviewGroupContext?
 }
 
 nonisolated enum DeepAIReviewPresentationState: Equatable, Sendable {
@@ -169,7 +169,7 @@ final class DeepAIReviewController {
     func start(for groupFiles: [FileItem]) async {
         Logger.process.debugMessageOnly("DeepAIReviewController.start()")
         guard !isActionUnavailable,
-              let context = applicationContext?.deepAIReviewContext(for: groupFiles)
+              let context = await applicationContext?.deepAIReviewContext(for: groupFiles)
         else { return }
 
         let request = DeepAIReviewRequest(
