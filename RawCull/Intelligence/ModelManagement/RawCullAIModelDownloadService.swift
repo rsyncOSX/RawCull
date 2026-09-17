@@ -251,27 +251,11 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
     private func assetPack(
         for descriptor: RawCullAIModelDownloadDescriptor,
     ) async throws -> AssetPack {
-        if case .appleHosted = source {
-            _ = try? await AssetPackManager.shared.checkForUpdates()
-        }
-
-        do {
-            let manifest = try await AssetPackManager.shared.manifest
-            if let assetPack = manifest.assetPack(
-                withID: descriptor.assetPackID,
-            ) {
-                return assetPack
-            }
-        } catch where source == .appleHosted {
-            return try await AssetPackManager.shared.assetPack(
-                withID: descriptor.assetPackID,
-            )
-        }
-
-        if case .appleHosted = source {
-            return try await AssetPackManager.shared.assetPack(
-                withID: descriptor.assetPackID,
-            )
+        let manifest = try await AssetPackManager.shared.manifest
+        if let assetPack = manifest.assetPack(
+            withID: descriptor.assetPackID,
+        ) {
+            return assetPack
         }
 
         throw RawCullAIModelDownloadError.assetPackNotFound(
