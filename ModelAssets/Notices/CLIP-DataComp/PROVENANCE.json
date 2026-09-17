@@ -4,9 +4,10 @@
   "release": {
     "hosting": "apple",
     "app_bundle_id": "no.blogspot.RawCull",
-    "asset_pack_id": "no.blogspot.RawCull.models.clip-datacomp",
-    "archive_sha256": "682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17",
-    "archive_byte_count": 282967277,
+    "asset_pack_id": "rawcull-clip-datacomp",
+    "asset_pack_record_id": "a8bddf62-acbd-491f-87e0-8163661c0d2a",
+    "archive_sha256": "994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600",
+    "archive_byte_count": 282967354,
     "packaging_date": "2026-09-17",
     "processing_status": "pending-upload",
     "review_state": "not-submitted"

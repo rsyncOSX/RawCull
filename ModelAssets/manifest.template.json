@@ -2,7 +2,7 @@
   "toolsVersion": "1.0.0",
   "assetPacks": [
     {
-      "assetPackID": "no.blogspot.RawCull.models.clip-datacomp",
+      "assetPackID": "rawcull-clip-datacomp",
       "downloadPolicy": {
         "onDemand": {}
       },
@@ -19,7 +19,7 @@
       ]
     },
     {
-      "assetPackID": "no.blogspot.RawCull.models.sam3",
+      "assetPackID": "rawcull-sam3",
       "downloadPolicy": {
         "onDemand": {}
       },
@@ -36,7 +36,7 @@
       ]
     },
     {
-      "assetPackID": "no.blogspot.RawCull.models.qwen3-vl-2b",
+      "assetPackID": "rawcull-qwen3-vl-2b",
       "downloadPolicy": {
         "onDemand": {}
       },

@@ -26,11 +26,11 @@ also contains trade-control, prohibited-use, termination, warranty, liability,
 and indemnification terms. RawCull requires explicit acceptance of the verified
 licence text before enabling a download.
 
-The v3 asset pack is enabled for download at the project owner's direction.
-Its archive byte size and SHA-256 were verified against GitHub release metadata
-and its entry in the published v3 manifest on September 6, 2026. The release
-record is in `PROVENANCE.json`; this release decision does not claim an
-independent legal review. Verified licence acceptance remains required.
+The Apple-hosted asset pack is enabled for download at the project owner's
+direction. Its archive byte size and SHA-256 are recorded in the external
+release evidence after packaging, while the host-correct in-pack release record
+is in `PROVENANCE.json`. This release decision does not claim an independent
+legal review. Verified licence acceptance remains required.
 
 The model can produce inaccurate or biased results and is provided without
 warranty under the accompanying licences.

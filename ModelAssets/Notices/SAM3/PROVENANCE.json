@@ -53,9 +53,10 @@
   "release": {
     "hosting": "apple",
     "app_bundle_id": "no.blogspot.RawCull",
-    "asset_pack_id": "no.blogspot.RawCull.models.sam3",
-    "archive_sha256": "05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144",
-    "archive_byte_count": 1542689708,
+    "asset_pack_id": "rawcull-sam3",
+    "asset_pack_record_id": "e3c32c84-1afb-4f1d-abb1-548ca9e0bc69",
+    "archive_sha256": "08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4",
+    "archive_byte_count": 1542689931,
     "packaging_date": "2026-09-17",
     "processing_status": "pending-upload",
     "review_state": "not-submitted",
