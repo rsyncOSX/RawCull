@@ -55,11 +55,16 @@
     "app_bundle_id": "no.blogspot.RawCull",
     "asset_pack_id": "rawcull-sam3",
     "asset_pack_record_id": "e3c32c84-1afb-4f1d-abb1-548ca9e0bc69",
+    "asset_pack_version": "1",
+    "asset_pack_version_id": "93b2e488-855c-45c7-af3a-a3f1512fcf19",
     "archive_sha256": "08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4",
     "archive_byte_count": 1542689931,
     "packaging_date": "2026-09-17",
-    "processing_status": "pending-upload",
+    "processing_status": "succeeded",
+    "processing_date": "2026-09-17",
+    "internal_beta_release_id": "68a43f68-ad0d-484a-9242-e7aa57793043",
+    "internal_beta_state": "ready-for-testing",
     "review_state": "not-submitted",
-    "evidence_note": "The Apple-hosted archive was generated and hashed locally. App Store Connect processing and review evidence must be recorded after upload. RawCull retains verified SAM License acceptance."
+    "evidence_note": "App Store Connect processed Apple-hosted version 1 successfully for macOS. App Review remains pending. RawCull retains verified SAM License acceptance."
   }
 }

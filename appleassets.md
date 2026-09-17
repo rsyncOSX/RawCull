@@ -1,10 +1,11 @@
 # Apple-hosted Background Assets migration status and release plan
 
 RawCull's application-side migration to Apple-hosted Managed Background Assets
-is implemented. The three archives are packaged and measured, the App Store
-build selects Apple hosting, and the ordinary Release/Developer ID build keeps
-the existing self-hosted path. Uploading the archives, waiting for Apple to
-process them, creating the signed App Store archive, and TestFlight verification
+is implemented. The three archives are packaged, measured, uploaded, and fully
+processed by App Store Connect. Their internal beta releases are ready for
+testing. The App Store build selects Apple hosting, while the ordinary
+Release/Developer ID build keeps the existing self-hosted path. Creating and
+uploading the signed App Store archive and completing TestFlight verification
 remain release operations.
 
 ## Current implementation status
@@ -21,17 +22,18 @@ Status recorded on September 17, 2026:
 | Downloader host/protocol selection | **Completed** | App Store builds select `.appleHosted` and `StoreDownloaderExtension`; ordinary Release builds retain `.selfHosted` and `ManagedDownloaderExtension`. Both configurations build successfully. |
 | Production model catalog | **Completed** | CLIP, SAM 3, and Qwen use the final pack IDs, model paths, archive sizes, and SHA-256 values. |
 | Managed Qwen runtime and Settings UI | **Completed** | Downloaded Qwen activates automatically by default. A user-selected custom folder remains an explicit override, with cancellation-safe validation and source switching. |
-| Repository manifest, provenance, and release documentation | **Completed for the Apple-hosted records** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, and this evidence table are updated. Apple-assigned pack versions and processing dates remain pending. |
+| Repository manifest, provenance, and release documentation | **Completed for the Apple-hosted records** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, Apple record/version UUIDs, processing dates, and this evidence table are updated. |
 | Automated verification | **Completed for the implemented migration** | Provenance verification, provenance mutation tests, focused model-download/release-metadata tests, App Store build, Release build, plist validation, and `git diff --check` passed. |
 | App Store Connect asset-pack records | **Completed** | Permanent records were created for `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. |
-| Upload pack versions to App Store Connect | **Pending** | Upload CLIP first, wait for successful processing, then upload SAM 3 and Qwen. Record delivery logs and Apple-assigned versions. |
+| Upload pack versions to App Store Connect | **Completed** | Version 1 of CLIP, SAM 3, and Qwen uploaded with zero errors and zero warnings. All three report `COMPLETE` for `MAC_OS`. |
+| Internal beta asset releases | **Completed** | All three Apple-created internal beta releases report `READY_FOR_TESTING`. |
 | Release version and build number | **Completed** | RawCull and its downloader extension use marketing version `3.2.4` and build `371` across all three configurations. |
 | Signed App Store archive and upload | **Pending** | Requires App Store distribution credentials/profiles. |
 | TestFlight validation | **Pending** | Perform the clean-install and download tests in section 18 after all three packs are Ready for Testing. |
 
-The repository provenance deliberately records `processing_status` as
-`pending-upload` and `review_state` as `not-submitted`. Do not change these
-values until App Store Connect supplies the corresponding evidence.
+The repository provenance records `processing_status` as `succeeded` and the
+internal beta state as `ready-for-testing`. App Review remains correctly marked
+`not-submitted` until the packs are added to a review submission.
 
 The three intended production packs are:
 
@@ -105,18 +107,12 @@ shared across platforms. These three packs are comfortably inside those limits:
 - [Apple-hosted asset-pack limits](https://developer.apple.com/help/app-store-connect/reference/app-uploads/apple-hosted-asset-pack-size-limits)
 - [Uploading Apple-hosted asset packs](https://developer.apple.com/help/app-store-connect/manage-asset-packs/upload-apple-hosted-asset-packs)
 
-## 2. Clean and freeze the release inputs — partially completed
+## 2. Clean and freeze the release inputs — completed
 
-Do not upload the current archives as the final Apple-hosted versions until the
-packaged provenance is made host-correct.
-
-The staging tree under `/Users/thomas/ModelAssets/Release` currently contains
-records that need reconciliation:
-
-- CLIP's packaged provenance names an older GitHub release.
-- Qwen's packaged provenance names a GitHub v3 URL.
-- SAM 3's packaged provenance still says redistribution is blocked, while the
-  current RawCull repository records it as ready.
+The release inputs were reconciled before packaging. The staging provenance is
+host-correct for Apple delivery, SAM 3 is recorded as ready with its verified
+licence evidence, and the frozen inputs produced the processed version 1
+archives documented below.
 
 For each pack:
 
@@ -191,7 +187,7 @@ Do not use `Output/manifest.json` for Apple hosting. That is the third-party
 self-hosted download manifest with GitHub URLs. With Apple hosting, App Store
 Connect owns the server-side manifest and versions.
 
-## 4. Verify the generated files before upload — completed except `evaluate`
+## 4. Verify the generated files before upload — completed
 
 Record exact logical sizes and checksums:
 
@@ -206,6 +202,11 @@ Release evidence recorded on September 17, 2026:
 |---|---|---|---|
 | Asset-pack ID | `rawcull-clip-datacomp` | `rawcull-sam3` | `rawcull-qwen3-vl-2b` |
 | App Store Connect record ID | `a8bddf62-acbd-491f-87e0-8163661c0d2a` | `e3c32c84-1afb-4f1d-abb1-548ca9e0bc69` | `dd9484c0-ca1f-41cb-b566-3356b4a461fd` |
+| Apple-assigned pack version | `1` | `1` | `1` |
+| App Store Connect version ID | `120982fd-5a02-455f-bc9a-576ea290efca` | `93b2e488-855c-45c7-af3a-a3f1512fcf19` | `68d19be0-c04d-4897-b32c-b962211663ad` |
+| Processing state | `COMPLETE` (`MAC_OS`) | `COMPLETE` (`MAC_OS`) | `COMPLETE` (`MAC_OS`) |
+| Internal beta release ID | `3fa7254f-4dac-4c9d-9ae4-793ae3fb7d56` | `68a43f68-ad0d-484a-9242-e7aa57793043` | `61758a66-d648-4880-8bb6-a41d63c65334` |
+| Internal beta state | `READY_FOR_TESTING` | `READY_FOR_TESTING` | `READY_FOR_TESTING` |
 | Archive filename | `clip-datacomp.aar` | `sam3.aar` | `qwen3-vl-2b.aar` |
 | Exact byte count | `282967354` | `1542689931` | `3754599603` |
 | SHA-256 | `994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600` | `08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4` | `115eebbfdff7cb688b26dd6e2dd6c110b3fce5d27f6d5e8f40f69192d1ca2364` |
@@ -246,7 +247,7 @@ Verification results recorded on September 17, 2026:
 6. Keep the final archives immutable. If an upload must be replaced, package a
    new version rather than modifying an already processed version.
 
-## 5. Upload the packs to App Store Connect — pending
+## 5. Upload the packs to App Store Connect — completed
 
 ### Preferred first upload: Transporter
 
@@ -290,7 +291,7 @@ parts, commit it, and poll processing state.
 - [Background Assets API](https://developer.apple.com/documentation/appstoreconnectapi/background-assets)
 - [Uploading and versioning Apple-hosted assets](https://developer.apple.com/documentation/appstoreconnectapi/managing-apple-hosted-background-assets)
 
-## 6. Verify uploads in App Store Connect — pending
+## 6. Verify uploads in App Store Connect — processing completed; review pending
 
 For every pack, record and check:
 
@@ -880,10 +881,10 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 - [x] Evaluate all file selectors and compare the selected inventory.
 - [x] Regenerate all three archives with release Xcode.
 - [x] Record final hashes, sizes, tooling, model fingerprints, and licences.
-- [ ] Upload CLIP and verify processing.
-- [ ] Upload SAM 3 and verify processing.
-- [ ] Upload Qwen and verify processing.
-- [ ] Confirm all three internal beta releases are Ready for Testing.
+- [x] Upload CLIP version 1 and verify `COMPLETE` processing.
+- [x] Upload SAM 3 version 1 and verify `COMPLETE` processing.
+- [x] Upload Qwen version 1 and verify `COMPLETE` processing.
+- [x] Confirm all three internal beta releases are Ready for Testing.
 - [x] Add the AppStore build configuration and App Store export workflow.
 - [x] Add the Apple-hosted Info.plist with only the three permitted keys.
 - [x] Select `StoreDownloaderExtension` for AppStore builds.

@@ -6,10 +6,15 @@
     "app_bundle_id": "no.blogspot.RawCull",
     "asset_pack_id": "rawcull-clip-datacomp",
     "asset_pack_record_id": "a8bddf62-acbd-491f-87e0-8163661c0d2a",
+    "asset_pack_version": "1",
+    "asset_pack_version_id": "120982fd-5a02-455f-bc9a-576ea290efca",
     "archive_sha256": "994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600",
     "archive_byte_count": 282967354,
     "packaging_date": "2026-09-17",
-    "processing_status": "pending-upload",
+    "processing_status": "succeeded",
+    "processing_date": "2026-09-17",
+    "internal_beta_release_id": "3fa7254f-4dac-4c9d-9ae4-793ae3fb7d56",
+    "internal_beta_state": "ready-for-testing",
     "review_state": "not-submitted"
   },
   "model": {

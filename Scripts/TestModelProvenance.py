@@ -10,7 +10,7 @@ class ModelProvenanceTests(unittest.TestCase):
     def test_invalid_enabled_evidence_is_rejected(self):
         source = Path(__file__).resolve().parent.parent
         self.assertEqual(validate(source), ['clipDataComp', 'qwen3VL2B', 'sam3'])
-        for mutation in ['blocked', 'missing', 'malformed', 'hash', 'size', 'enable_sam', 'enable_sam_download', 'unknown_flag', 'invalid_status', 'missing_field', 'wrong_filter', 'model_path', 'revision', 'wrong_pack_id', 'wrong_app_id', 'wrong_hosting']:
+        for mutation in ['blocked', 'missing', 'malformed', 'hash', 'size', 'enable_sam', 'enable_sam_download', 'unknown_flag', 'invalid_status', 'missing_field', 'wrong_filter', 'model_path', 'revision', 'wrong_pack_id', 'invalid_pack_format', 'wrong_app_id', 'wrong_hosting', 'invalid_record_uuid', 'invalid_version_uuid', 'invalid_version', 'invalid_processing_date', 'invalid_beta_uuid', 'invalid_beta_state']:
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 shutil.copy(source / "RawCull-AppStore-Info.plist", root / "RawCull-AppStore-Info.plist")
@@ -45,10 +45,26 @@ class ModelProvenanceTests(unittest.TestCase):
                 else:
                     if mutation == 'wrong_pack_id':
                         record['release']['asset_pack_id'] = 'no.blogspot.RawCull.models.wrong'
+                    elif mutation == 'invalid_pack_format':
+                        invalid_id = 'rawcull.clip-datacomp'
+                        record['release']['asset_pack_id'] = invalid_id
+                        (root / catalog).write_text((root / catalog).read_text().replace('rawcull-clip-datacomp', invalid_id))
                     elif mutation == 'wrong_app_id':
                         record['release']['app_bundle_id'] = 'no.blogspot.Wrong'
                     elif mutation == 'wrong_hosting':
                         record['release']['hosting'] = 'self-hosted'
+                    elif mutation == 'invalid_record_uuid':
+                        record['release']['asset_pack_record_id'] = 'not-a-uuid'
+                    elif mutation == 'invalid_version_uuid':
+                        record['release']['asset_pack_version_id'] = 'not-a-uuid'
+                    elif mutation == 'invalid_version':
+                        record['release']['asset_pack_version'] = 'latest'
+                    elif mutation == 'invalid_processing_date':
+                        record['release']['processing_date'] = 'September 17, 2026'
+                    elif mutation == 'invalid_beta_uuid':
+                        record['release']['internal_beta_release_id'] = 'not-a-uuid'
+                    elif mutation == 'invalid_beta_state':
+                        record['release']['internal_beta_state'] = 'processing'
                     elif mutation == 'model_path':
                         record['model']['asset'] = 'Models/Wrong/model.aimodel'
                     elif mutation == 'revision':

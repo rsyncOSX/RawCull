@@ -6,11 +6,21 @@ from pathlib import Path
 import re
 import plistlib
 import sys
+import uuid
 
 
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def require_uuid(value, message):
+    require(isinstance(value, str), message)
+    try:
+        parsed = uuid.UUID(value)
+    except (ValueError, AttributeError):
+        raise ValueError(message)
+    require(str(parsed) == value, message)
 
 
 def validate(root):
@@ -79,8 +89,17 @@ def validate(root):
         require(archive['hosting'] == 'apple', f'{key}: release is not Apple-hosted')
         require(archive['app_bundle_id'] == 'no.blogspot.RawCull', f'{key}: app bundle ID mismatch')
         require(archive['asset_pack_id'] == field('assetPackID'), f'{key}: asset-pack ID mismatch')
+        require(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?', archive['asset_pack_id']) is not None, f'{key}: invalid Apple asset-pack ID')
         require(archive['processing_status'] in {'pending-upload', 'processing', 'succeeded'}, f'{key}: invalid processing status')
         require(archive['review_state'] in {'not-submitted', 'in-review', 'approved'}, f'{key}: invalid review state')
+        if archive['processing_status'] == 'succeeded':
+            require_uuid(archive.get('asset_pack_record_id'), f'{key}: invalid App Store Connect asset-pack record ID')
+            require_uuid(archive.get('asset_pack_version_id'), f'{key}: invalid App Store Connect asset-pack version ID')
+            version = archive.get('asset_pack_version')
+            require(isinstance(version, str) and re.fullmatch(r'[1-9][0-9]*', version) is not None, f'{key}: invalid Apple asset-pack version')
+            require(re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', archive.get('processing_date', '')) is not None, f'{key}: invalid processing date')
+            require_uuid(archive.get('internal_beta_release_id'), f'{key}: invalid internal beta release ID')
+            require(archive.get('internal_beta_state') == 'ready-for-testing', f'{key}: invalid internal beta state')
         require(record['licences'], f'{key}: missing notices')
         for notice in record['licences']:
             require(hashlib.sha256((directory / notice['file']).read_bytes()).hexdigest() == notice['sha256'], f'{key}: notice hash mismatch')
