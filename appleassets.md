@@ -1,10 +1,35 @@
-# Apple-hosted Background Assets migration plan
+# Apple-hosted Background Assets migration status and release plan
 
-This plan migrates RawCull's downloadable AI models from the current
-self-hosted GitHub manifest to Apple-hosted Managed Background Assets. It covers
-preparing and uploading the three model packs, verifying them in App Store
-Connect and TestFlight, changing RawCull's download and AI-settings behavior,
-and releasing the result.
+RawCull's application-side migration to Apple-hosted Managed Background Assets
+is implemented. The three archives are packaged and measured, the App Store
+build selects Apple hosting, and the ordinary Release/Developer ID build keeps
+the existing self-hosted path. Uploading the archives, waiting for Apple to
+process them, choosing the next marketing version/build number, and TestFlight
+verification remain release operations.
+
+## Current implementation status
+
+Status recorded on September 17, 2026:
+
+| Area | Status | Evidence or remaining work |
+|---|---|---|
+| Three `.aar` archives generated and measured | **Completed** | CLIP, SAM 3, and Qwen archive byte counts and SHA-256 values are recorded below. |
+| Packaging-manifest IDs, destinations, platform, and policy | **Completed** | The three IDs are unique and match RawCull. Every manifest contains exactly `"platforms": ["macOS"]` and `"downloadPolicy": {"onDemand": {}}`. |
+| `ba-package evaluate` inventory comparison | **Blocked by tooling** | Xcode 27.0 `ba-package 2.0` rejects every supplied JSON manifest path with `path extension isn’t “json”`. The selected paths were inspected directly; see section 4. |
+| Dedicated App Store build configuration | **Completed** | The app and downloader extension have an `AppStore` configuration with `RAWCULL_APPLE_HOSTED_MODEL_ASSETS`. `make archive-app-store` and App Store export options were added. |
+| Apple-hosted app metadata | **Completed** | `RawCull-AppStore-Info.plist` contains only `BAAppGroupID`, `BAHasManagedAssetPacks`, and `BAUsesAppleHosting` from the Background Assets key family. It omits the GitHub manifest and restrictions. |
+| Downloader host/protocol selection | **Completed** | App Store builds select `.appleHosted` and `StoreDownloaderExtension`; ordinary Release builds retain `.selfHosted` and `ManagedDownloaderExtension`. Both configurations build successfully. |
+| Production model catalog | **Completed** | CLIP, SAM 3, and Qwen use the final pack IDs, model paths, archive sizes, and SHA-256 values. |
+| Managed Qwen runtime and Settings UI | **Completed** | Downloaded Qwen activates automatically by default. A user-selected custom folder remains an explicit override, with cancellation-safe validation and source switching. |
+| Repository manifest, provenance, and release documentation | **Completed for the Apple-hosted records** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, and this evidence table are updated. Apple-assigned pack versions and processing dates remain pending. |
+| Automated verification | **Completed for the implemented migration** | Provenance verification, provenance mutation tests, focused model-download/release-metadata tests, App Store build, Release build, plist validation, and `git diff --check` passed. |
+| Upload packs to App Store Connect | **Pending** | Upload CLIP first, wait for successful processing, then upload SAM 3 and Qwen. Record delivery logs and Apple-assigned versions. |
+| Signed App Store archive and upload | **Pending** | Requires App Store distribution credentials/profiles and the resolved marketing version/build number. |
+| TestFlight validation | **Pending** | Perform the clean-install and download tests in section 18 after all three packs are Ready for Testing. |
+
+The repository provenance deliberately records `processing_status` as
+`pending-upload` and `review_state` as `not-submitted`. Do not change these
+values until App Store Connect supplies the corresponding evidence.
 
 The three intended production packs are:
 
@@ -26,7 +51,7 @@ These values are evidence for the current files only. Regenerating any archive,
 including merely changing a notice inside it, requires recording a new byte
 count and SHA-256.
 
-## 0. Release and distribution decisions
+## 0. Release and distribution decisions — partially completed
 
 ### Resolve the marketing-version mismatch first
 
@@ -47,13 +72,13 @@ apply that value to the Xcode project until this gate is resolved. Asset packs
 can be prepared and uploaded before resolving the app marketing version because
 Apple manages their versions independently.
 
-### Preserve separate distribution configurations
+### Preserve separate distribution configurations — completed
 
 Apple-hosted Background Assets are available only to apps installed through
 TestFlight or the App Store. RawCull's existing Developer ID/notarized DMG cannot
 rely on Apple-hosted packs.
 
-Create or retain two explicit distribution paths:
+The repository now has two explicit distribution paths:
 
 - **AppStore configuration:** Apple-hosted packs, used by TestFlight and Mac App
   Store builds.
@@ -61,11 +86,11 @@ Create or retain two explicit distribution paths:
   disable managed downloads and explain that models require the Mac App Store
   build. Do not accidentally ship `BAUsesAppleHosting = YES` in a DMG build.
 
-The recommended implementation is a dedicated `AppStore` Xcode build
-configuration derived from Release. It avoids making the existing `make build`
-Developer ID workflow silently incompatible.
+The implemented `AppStore` Xcode build configuration is derived from Release.
+It avoids making the existing `make build` Developer ID workflow silently
+incompatible.
 
-## 1. Prerequisites
+## 1. Prerequisites — partially completed
 
 - Use the release version of Xcode 27 and its `ba-package` tool. Do not submit
   archives created by a beta packaging tool for App Store review.
@@ -91,7 +116,7 @@ shared across platforms. These three packs are comfortably inside those limits:
 - [Apple-hosted asset-pack limits](https://developer.apple.com/help/app-store-connect/reference/app-uploads/apple-hosted-asset-pack-size-limits)
 - [Uploading Apple-hosted asset packs](https://developer.apple.com/help/app-store-connect/manage-asset-packs/upload-apple-hosted-asset-packs)
 
-## 2. Clean and freeze the release inputs
+## 2. Clean and freeze the release inputs — partially completed
 
 Do not upload the current archives as the final Apple-hosted versions until the
 packaged provenance is made host-correct.
@@ -141,7 +166,7 @@ no.blogspot.RawCull.models.qwen3-vl-2b  -> Models/Qwen/qwen3_vl_2b
 All three should remain `onDemand`; none of these multi-gigabyte models should
 be essential or automatically fetched during installation.
 
-## 3. Evaluate and regenerate the `.aar` files
+## 3. Evaluate and regenerate the `.aar` files — archives completed; evaluate blocked
 
 From the asset source root:
 
@@ -177,7 +202,7 @@ Do not use `Output/manifest.json` for Apple hosting. That is the third-party
 self-hosted download manifest with GitHub URLs. With Apple hosting, App Store
 Connect owns the server-side manifest and versions.
 
-## 4. Verify the generated files before upload
+## 4. Verify the generated files before upload — completed except `evaluate`
 
 Record exact logical sizes and checksums:
 
@@ -231,7 +256,7 @@ Verification results recorded on September 17, 2026:
 6. Keep the final archives immutable. If an upload must be replaced, package a
    new version rather than modifying an already processed version.
 
-## 5. Upload the packs to App Store Connect
+## 5. Upload the packs to App Store Connect — pending
 
 ### Preferred first upload: Transporter
 
@@ -275,7 +300,7 @@ parts, commit it, and poll processing state.
 - [Background Assets API](https://developer.apple.com/documentation/appstoreconnectapi/background-assets)
 - [Uploading and versioning Apple-hosted assets](https://developer.apple.com/documentation/appstoreconnectapi/managing-apple-hosted-background-assets)
 
-## 6. Verify uploads in App Store Connect
+## 6. Verify uploads in App Store Connect — pending
 
 For every pack, record and check:
 
@@ -296,10 +321,10 @@ the ID unusable.
 Uploading does not publish the packs to customers. It only makes processed
 versions eligible for TestFlight and App Review.
 
-## 7. Add an App Store build configuration
+## 7. Add an App Store build configuration — completed
 
-Create an `AppStore` configuration derived from Release for both the RawCull app
-and `RawCullModelDownloader` extension.
+An `AppStore` configuration derived from Release now exists for both the
+RawCull app and `RawCullModelDownloader` extension.
 
 For the AppStore configuration:
 
@@ -318,7 +343,7 @@ Add a Makefile target such as `archive-app-store` that archives with the
 `AppStore` configuration and exports/uploads the build. It must not run the
 Developer ID notarization/DMG path.
 
-## 8. Configure the Apple-hosted app metadata
+## 8. Configure the Apple-hosted app metadata — completed
 
 Apple says an Apple-hosted app should include only these Background Assets keys:
 
@@ -351,7 +376,7 @@ Assets keys.
 
 See [Downloading Apple-hosted asset packs](https://developer.apple.com/documentation/backgroundassets/downloading-apple-hosted-asset-packs).
 
-## 9. Switch the downloader extension by configuration
+## 9. Switch the downloader extension by configuration — completed locally
 
 `RawCullModelDownloader/RawCullModelDownloader.swift` already has both entry
 points:
@@ -374,7 +399,7 @@ Add a release-metadata test or archive inspection that detects the selected
 branch/build condition so a self-hosted extension cannot be shipped with an
 Apple-hosted plist.
 
-## 10. Select the correct source in application code
+## 10. Select the correct source in application code — completed
 
 Update
 `RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadService.swift`.
@@ -409,7 +434,7 @@ Add tests proving:
 - source, plist, and extension protocol cannot disagree; and
 - Xcode unit tests still avoid live Background Assets networking.
 
-## 11. Add Qwen to the managed-download catalog
+## 11. Add Qwen to the managed-download catalog — completed
 
 Update
 `RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift`.
@@ -458,7 +483,7 @@ clipDataComp, sam3, qwen3VL2B
 Do not add Qwen to `RawCullCLIPModel` or `RawCullSegmentationModel`; it is a
 separate vision-language runtime.
 
-## 12. Feed the managed Qwen location into the Qwen runtime
+## 12. Feed the managed Qwen location into the Qwen runtime — completed
 
 The existing managed-location path only configures CLIP and segmentation in
 `RawCullAIIntegration.setManagedModelLocations`. Qwen is owned by
@@ -525,7 +550,7 @@ When removing the managed pack:
 Consider extending `QwenModelManaging` with a cancellation/reset operation if
 `clear()` alone cannot safely stop an active model/session before pack removal.
 
-## 13. Redesign the AI Settings presentation
+## 13. Redesign the AI Settings presentation — completed
 
 Update `RawCull/Views/Settings/AISettingsTab.swift` and
 `RawCull/Views/Settings/AIModelDownloadsView.swift`.
@@ -584,7 +609,7 @@ Change the order:
 Preserve concurrency only for operations that cannot update the same Qwen
 manager/status.
 
-## 14. Update manifests, notices, and repository documentation
+## 14. Update manifests, notices, and repository documentation — completed for release records
 
 ### Developer packaging template
 
@@ -640,7 +665,7 @@ Update:
 - direct-distribution documentation to explain whether the DMG remains
   self-hosted or lacks managed downloads.
 
-## 15. Update tests
+## 15. Update tests — focused migration coverage completed
 
 ### `RawCullAIModelDownloadsTests.swift`
 
@@ -709,7 +734,7 @@ Verify:
   accessible; and
 - the model-download sheet remains usable at its fixed size with three rows.
 
-## 16. Version 2.3.4 project changes
+## 16. Version 2.3.4 project changes — pending version decision
 
 After resolving the version gate, update both RawCull and the downloader
 extension configurations together:
@@ -731,7 +756,7 @@ plutil -p <archive>/Products/Applications/RawCull.app/Contents/Extensions/RawCul
 For an App Store-only release, do not run the Developer ID DMG/notarization
 target as the distribution artifact for Apple-hosted assets.
 
-## 17. Local verification before TestFlight
+## 17. Local verification before TestFlight — partially completed
 
 Run formatting and repository checks:
 
@@ -788,7 +813,7 @@ Apple recommends local mock-server testing before distribution. Use the
 Managed Background Assets local testing tools to exercise the same IDs and
 paths, but treat TestFlight as the authoritative Apple-hosted integration test.
 
-## 18. Internal TestFlight verification
+## 18. Internal TestFlight verification — pending
 
 Upload the AppStore build after all three packs show Ready for Testing. Install
 the build through TestFlight on a clean supported Apple Silicon Mac.
@@ -822,7 +847,7 @@ Test from a clean installation:
 Repeat critical download/remove/update tests on a second Mac and a non-admin
 user account if available.
 
-## 19. Review and release
+## 19. Review and release — pending
 
 Asset packs must pass review before external TestFlight or App Store use.
 
@@ -848,7 +873,7 @@ Before submission:
 
 See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-apple-hosted-asset-packs).
 
-## 20. Rollback strategy
+## 20. Rollback strategy — defined
 
 - Do not delete the GitHub v3 release or self-hosted support during the first
   Apple-hosted rollout.
@@ -868,26 +893,35 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 
 - [ ] Confirm whether the app version is 2.3.4 or 3.2.4.
 - [ ] Confirm the next unused build number above 370.
-- [ ] Freeze the three permanent asset-pack IDs.
+- [x] Freeze the three permanent asset-pack IDs.
 - [ ] Resolve packaged CLIP, SAM, and Qwen provenance discrepancies.
-- [ ] Evaluate all file selectors.
-- [ ] Regenerate all three archives with release Xcode.
-- [ ] Record final hashes, sizes, tooling, model fingerprints, and licences.
+  **Repository release records are updated; confirm the corresponding
+  host-correct records are inside the immutable `.aar` files before upload.**
+- [ ] Evaluate all file selectors. **Blocked by the Xcode 27 `ba-package`
+  manifest-path error; selectors were inspected directly.**
+- [x] Regenerate all three archives with release Xcode.
+- [x] Record final hashes, sizes, tooling, model fingerprints, and licences.
 - [ ] Upload CLIP and verify processing.
 - [ ] Upload SAM 3 and verify processing.
 - [ ] Upload Qwen and verify processing.
 - [ ] Confirm all three internal beta releases are Ready for Testing.
-- [ ] Add the AppStore build configuration and App Store export workflow.
-- [ ] Add the Apple-hosted Info.plist with only the three permitted keys.
-- [ ] Select `StoreDownloaderExtension` for AppStore builds.
-- [ ] Select `.appleHosted` in the AppStore application code.
-- [ ] Add Qwen to the managed-download enum, catalog, and production inclusion.
-- [ ] Route managed Qwen locations into `QwenModelManager`.
-- [ ] Implement explicit managed/custom Qwen source precedence.
-- [ ] Update AI Settings and the download sheet.
-- [ ] Update the manifest template, provenance schema, notices, scripts, and docs.
-- [ ] Update model-download, Qwen, release-metadata, UI, and accessibility tests.
+- [x] Add the AppStore build configuration and App Store export workflow.
+- [x] Add the Apple-hosted Info.plist with only the three permitted keys.
+- [x] Select `StoreDownloaderExtension` for AppStore builds.
+- [x] Select `.appleHosted` in the AppStore application code.
+- [x] Add Qwen to the managed-download enum, catalog, and production inclusion.
+- [x] Route managed Qwen locations into `QwenModelManager`.
+- [x] Implement explicit managed/custom Qwen source precedence.
+- [x] Update AI Settings and the download sheet.
+- [ ] Update the manifest template, provenance schema, notices, scripts, and
+  docs. **Template, provenance records/schema, scripts, and model-assets docs
+  are complete; remaining documentation/notice review is pending.**
+- [ ] Update model-download, Qwen, release-metadata, UI, and accessibility
+  tests. **Focused model-download and release-metadata coverage passes;
+  additional UI/accessibility coverage remains.**
 - [ ] Run provenance, smoke, focused, and archive-verification checks.
+  **Provenance checks, focused tests, AppStore/Release builds, plist validation,
+  and diff checks pass; full smoke and signed-archive verification remain.**
 - [ ] Upload the AppStore build and complete clean-install internal TestFlight tests.
 - [ ] Submit the app and all three tested pack versions together for review.
-- [ ] Retain the self-hosted path until the Apple-hosted production rollout is verified.
+- [x] Retain the self-hosted path until the Apple-hosted production rollout is verified.
