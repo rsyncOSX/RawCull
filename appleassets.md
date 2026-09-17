@@ -14,13 +14,13 @@ The three intended production packs are:
 | Meta SAM 3 | `no.blogspot.RawCull.models.sam3` | `Models/SAM3` | `/Users/thomas/ModelAssets/Release/Output/sam3.aar` |
 | Qwen3-VL-2B-Instruct | `no.blogspot.RawCull.models.qwen3-vl-2b` | `Models/Qwen/qwen3_vl_2b` | `/Users/thomas/ModelAssets/Release/Output/qwen3-vl-2b.aar` |
 
-Current archive measurements, recorded on September 16, 2026:
+Current archive measurements, recorded on September 17, 2026:
 
 | Archive | Bytes | SHA-256 |
 |---|---:|---|
-| `clip-datacomp.aar` | 282,966,632 | `cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7` |
-| `sam3.aar` | 1,542,689,157 | `dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9` |
-| `qwen3-vl-2b.aar` | 3,752,528,130 | `9d52c6bb27732f28bf9eef2a508a446ef0d17e5d467df8d594433b78b2e05f09` |
+| `clip-datacomp.aar` | 282,967,277 | `682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17` |
+| `sam3.aar` | 1,542,689,708 | `05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144` |
+| `qwen3-vl-2b.aar` | 3,754,599,524 | `21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17` |
 
 These values are evidence for the current files only. Regenerating any archive,
 including merely changing a notice inside it, requires recording a new byte
@@ -186,20 +186,23 @@ stat -f '%N|%z' /Users/thomas/ModelAssets/Release/Output/*.aar
 shasum -a 256 /Users/thomas/ModelAssets/Release/Output/*.aar
 ```
 
-Create a release evidence table containing:
+Release evidence recorded on September 17, 2026. Fields marked **Not recorded**
+must be completed before upload.
 
-- asset-pack ID;
-- archive filename;
-- exact byte count;
-- SHA-256;
-- Xcode version and build number;
-- `xcrun ba-package --version` output;
-- packaging-manifest checksum;
-- converted-model tree fingerprint;
-- upstream model revision and source checksum where available;
-- licence/notice checksums;
-- packaging date; and
-- person making the release decision.
+| Evidence | DataComp CLIP | Meta SAM 3 | Qwen3-VL-2B-Instruct |
+|---|---|---|---|
+| Asset-pack ID | `no.blogspot.RawCull.models.clip-datacomp` | `no.blogspot.RawCull.models.sam3` | `no.blogspot.RawCull.models.qwen3-vl-2b` |
+| Archive filename | `clip-datacomp.aar` | `sam3.aar` | `qwen3-vl-2b.aar` |
+| Exact byte count | `282967277` | `1542689708` | `3754599524` |
+| SHA-256 | `682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17` | `05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144` | `21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17` |
+| Xcode version and build number | **Not recorded** | **Not recorded** | **Not recorded** |
+| `xcrun ba-package --version` output | **Not recorded** | **Not recorded** | **Not recorded** |
+| Packaging-manifest checksum | **Not recorded** | **Not recorded** | **Not recorded** |
+| Converted-model tree fingerprint | **Not recorded** | **Not recorded** | **Not recorded** |
+| Upstream model revision and source checksum | **Not recorded** | **Not recorded** | **Not recorded** |
+| Licence/notice checksums | **Not recorded** | **Not recorded** | **Not recorded** |
+| Packaging date | **Not recorded** | **Not recorded** | **Not recorded** |
+| Release decision made by | **Not recorded** | **Not recorded** | **Not recorded** |
 
 Then perform these checks:
 
