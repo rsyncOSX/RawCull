@@ -186,8 +186,7 @@ stat -f '%N|%z' /Users/thomas/ModelAssets/Release/Output/*.aar
 shasum -a 256 /Users/thomas/ModelAssets/Release/Output/*.aar
 ```
 
-Release evidence recorded on September 17, 2026. Fields marked **Not recorded**
-must be completed before upload.
+Release evidence recorded on September 17, 2026:
 
 | Evidence | DataComp CLIP | Meta SAM 3 | Qwen3-VL-2B-Instruct |
 |---|---|---|---|
@@ -195,14 +194,14 @@ must be completed before upload.
 | Archive filename | `clip-datacomp.aar` | `sam3.aar` | `qwen3-vl-2b.aar` |
 | Exact byte count | `282967277` | `1542689708` | `3754599524` |
 | SHA-256 | `682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17` | `05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144` | `21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17` |
-| Xcode version and build number | **Not recorded** | **Not recorded** | **Not recorded** |
-| `xcrun ba-package --version` output | **Not recorded** | **Not recorded** | **Not recorded** |
-| Packaging-manifest checksum | **Not recorded** | **Not recorded** | **Not recorded** |
-| Converted-model tree fingerprint | **Not recorded** | **Not recorded** | **Not recorded** |
-| Upstream model revision and source checksum | **Not recorded** | **Not recorded** | **Not recorded** |
-| Licence/notice checksums | **Not recorded** | **Not recorded** | **Not recorded** |
-| Packaging date | **Not recorded** | **Not recorded** | **Not recorded** |
-| Release decision made by | **Not recorded** | **Not recorded** | **Not recorded** |
+| Xcode version and build number | Xcode 27.0 (`27A266a`) | Xcode 27.0 (`27A266a`) | Xcode 27.0 (`27A266a`) |
+| `xcrun ba-package --version` output | `2.0` | `2.0` | `2.0` |
+| Packaging-manifest SHA-256 | `9a68bb6579b37834fc354f5a889887da038861f9115133d8908239e849f368a1` | `8f14c4bd673e41e8515dc448e0d8f94b3af77e9c0e87b296cadcead176cdda9d` | `0e3dbc8174c310bbe1f3c3e30b331a961da995064c6be5c58101bc026fe9eade` |
+| Converted-model tree fingerprint (`directory-tree-sha256-v1`) | Main: `6a3639a2049b8a4ea23fe04c3083e199a4f505433f7c8bd0748b3c8d4fcb1572` | Main: `fc1cf6197f2b201f2dd3d45de28e8fcb1d29480a8a3ff430dc6d398d2071f9f2` | Embed: `907a07282d20d9371ef68118056b1e878462b65878279b969f74d2309fa81418`<br>Language: `ce950fc0991a7d1129a5f87a8050f831030f0db0d10a29682bf6c803a9ef381a`<br>Vision: `7c8657a983683cedfc289d8725b7ca10c3f2f0692e2b3d2e324ce21a4cc786d1` |
+| Upstream model revision and source checksum | Revision: `4afec35ffe57a943d569ff7ee888061830164da8`<br>Source-weight checksum: unavailable in provenance | Revision: `3c879f39826c281e95690f02c7821c4de09afae7`<br>`model.safetensors`: `6d06f0a5f84e435071fe6603e61d0b4cc7b40e0d39d487cfd4d67d8cc11cc14a` | Revision: `78448d793a7eb2f7a987a1da76d464384aa1becd`<br>Source-weight checksum: unavailable in provenance |
+| Licence/notice SHA-256 | `NOTICE.md`: `e34549a667382e9937bfdf6916c4dfdfbde81ba8b159346554e9fecdbc49f561`<br>`OpenCLIP-DataComp-MIT.txt`: `6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986`<br>`OpenAI-CLIP-Tokenizer-MIT.txt`: `893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e`<br>`Apple-coreai-models-BSD-3-Clause.txt`: `6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e` | `NOTICE.md`: `f1a1d38c4de286bfc198acb8d20e79f9db5040a242fa06bcfdff87da45b4548f`<br>`SAM3-SAM-License-2025-11-19.txt`: `b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab`<br>`OpenAI-CLIP-Tokenizer-MIT.txt`: `893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e`<br>`Apple-coreai-models-BSD-3-Clause.txt`: `6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e` | `NOTICE.md`: `b3b0f99f0a8c839b7b9fc76eec29ba1d7440ca56256accddae5cfe79d7c5ea79`<br>`Qwen3-VL-Apache-2.0.txt`: `c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`<br>`Apple-coreai-models-BSD-3-Clause.txt`: `6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e` |
+| Packaging date | September 17, 2026 | September 17, 2026 | September 17, 2026 |
+| Release decision made by | Thomas Evensen | Thomas Evensen | Thomas Evensen |
 
 Then perform these checks:
 
