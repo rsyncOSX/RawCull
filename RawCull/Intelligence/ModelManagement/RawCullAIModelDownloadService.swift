@@ -203,14 +203,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         }
 
         do {
-            let manifest = try await AssetPackManager.shared.manifest
-            guard manifest.assetPack(withID: descriptor.assetPackID) != nil else {
-                return .failed(
-                    message: RawCullAIModelDownloadError.assetPackNotFound(
-                        descriptor.assetPackID,
-                    ).localizedDescription,
-                )
-            }
+            _ = try await assetPack(for: descriptor)
             return .ready
         } catch {
             return .failed(message: error.localizedDescription)
@@ -231,12 +224,7 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         }
         try Task.checkCancellation()
 
-        let manifest = try await AssetPackManager.shared.manifest
-        guard let assetPack = manifest.assetPack(withID: descriptor.assetPackID) else {
-            throw RawCullAIModelDownloadError.assetPackNotFound(
-                descriptor.assetPackID,
-            )
-        }
+        let assetPack = try await assetPack(for: descriptor)
 
         let updates = AssetPackManager.shared.statusUpdates(
             forAssetPackWithID: descriptor.assetPackID,
@@ -258,6 +246,37 @@ actor RawCullManagedBackgroundAssetsModelDownloadService:
         try Task.checkCancellation()
         await progress(1)
         return try modelURL(for: descriptor)
+    }
+
+    private func assetPack(
+        for descriptor: RawCullAIModelDownloadDescriptor,
+    ) async throws -> AssetPack {
+        if case .appleHosted = source {
+            _ = try? await AssetPackManager.shared.checkForUpdates()
+        }
+
+        do {
+            let manifest = try await AssetPackManager.shared.manifest
+            if let assetPack = manifest.assetPack(
+                withID: descriptor.assetPackID,
+            ) {
+                return assetPack
+            }
+        } catch where source == .appleHosted {
+            return try await AssetPackManager.shared.assetPack(
+                withID: descriptor.assetPackID,
+            )
+        }
+
+        if case .appleHosted = source {
+            return try await AssetPackManager.shared.assetPack(
+                withID: descriptor.assetPackID,
+            )
+        }
+
+        throw RawCullAIModelDownloadError.assetPackNotFound(
+            descriptor.assetPackID,
+        )
     }
 
     func remove(
