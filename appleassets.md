@@ -1,11 +1,12 @@
 # Apple-hosted Background Assets migration status and release plan
 
 RawCull's application-side migration to Apple-hosted Managed Background Assets
-is implemented. The three archives are packaged and measured, the App Store
-build selects Apple hosting, and the ordinary Release/Developer ID build keeps
-the existing self-hosted path. Uploading the archives, waiting for Apple to
-process them, choosing the next marketing version/build number, and TestFlight
-verification remain release operations.
+is implemented. The three archives are packaged, measured, uploaded, and fully
+processed by App Store Connect. Their internal beta releases are ready for
+testing. The App Store build selects Apple hosting, while the ordinary
+Release/Developer ID build keeps the existing self-hosted path. Creating and
+uploading the signed App Store archive and completing TestFlight verification
+remain release operations.
 
 ## Current implementation status
 
@@ -15,62 +16,52 @@ Status recorded on September 17, 2026:
 |---|---|---|
 | Three `.aar` archives generated and measured | **Completed** | CLIP, SAM 3, and Qwen archive byte counts and SHA-256 values are recorded below. |
 | Packaging-manifest IDs, destinations, platform, and policy | **Completed** | The three IDs are unique and match RawCull. Every manifest contains exactly `"platforms": ["macOS"]` and `"downloadPolicy": {"onDemand": {}}`. |
-| `ba-package evaluate` inventory comparison | **Blocked by tooling** | Xcode 27.0 `ba-package 2.0` rejects every supplied JSON manifest path with `path extension isn’t “json”`. The selected paths were inspected directly; see section 4. |
+| `ba-package evaluate` inventory comparison | **Completed** | All three manifests evaluate successfully with release `ba-package 2.0` outside the restricted workspace environment: 14 CLIP files, 11 SAM files, and 17 Qwen files. |
 | Dedicated App Store build configuration | **Completed** | The app and downloader extension have an `AppStore` configuration with `RAWCULL_APPLE_HOSTED_MODEL_ASSETS`. `make archive-app-store` and App Store export options were added. |
 | Apple-hosted app metadata | **Completed** | `RawCull-AppStore-Info.plist` contains only `BAAppGroupID`, `BAHasManagedAssetPacks`, and `BAUsesAppleHosting` from the Background Assets key family. It omits the GitHub manifest and restrictions. |
 | Downloader host/protocol selection | **Completed** | App Store builds select `.appleHosted` and `StoreDownloaderExtension`; ordinary Release builds retain `.selfHosted` and `ManagedDownloaderExtension`. Both configurations build successfully. |
 | Production model catalog | **Completed** | CLIP, SAM 3, and Qwen use the final pack IDs, model paths, archive sizes, and SHA-256 values. |
 | Managed Qwen runtime and Settings UI | **Completed** | Downloaded Qwen activates automatically by default. A user-selected custom folder remains an explicit override, with cancellation-safe validation and source switching. |
-| Repository manifest, provenance, and release documentation | **Completed for the Apple-hosted records** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, and this evidence table are updated. Apple-assigned pack versions and processing dates remain pending. |
+| Repository manifest, provenance, and release documentation | **Completed for the Apple-hosted records** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, Apple record/version UUIDs, processing dates, and this evidence table are updated. |
 | Automated verification | **Completed for the implemented migration** | Provenance verification, provenance mutation tests, focused model-download/release-metadata tests, App Store build, Release build, plist validation, and `git diff --check` passed. |
-| Upload packs to App Store Connect | **Pending** | Upload CLIP first, wait for successful processing, then upload SAM 3 and Qwen. Record delivery logs and Apple-assigned versions. |
-| Signed App Store archive and upload | **Pending** | Requires App Store distribution credentials/profiles and the resolved marketing version/build number. |
+| App Store Connect asset-pack records | **Completed** | Permanent records were created for `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. |
+| Upload pack versions to App Store Connect | **Completed** | Version 1 of CLIP, SAM 3, and Qwen uploaded with zero errors and zero warnings. All three report `COMPLETE` for `MAC_OS`. |
+| Internal beta asset releases | **Completed** | All three Apple-created internal beta releases report `READY_FOR_TESTING`. |
+| Release version and build number | **Completed** | RawCull and its downloader extension use marketing version `3.2.4` and build `371` across all three configurations. |
+| Signed App Store archive and upload | **Pending** | Requires App Store distribution credentials/profiles. |
 | TestFlight validation | **Pending** | Perform the clean-install and download tests in section 18 after all three packs are Ready for Testing. |
 
-The repository provenance deliberately records `processing_status` as
-`pending-upload` and `review_state` as `not-submitted`. Do not change these
-values until App Store Connect supplies the corresponding evidence.
+The repository provenance records `processing_status` as `succeeded` and the
+internal beta state as `ready-for-testing`. App Review remains correctly marked
+`not-submitted` until the packs are added to a review submission.
 
 The three intended production packs are:
 
 | Model | Stable asset-pack ID | Packaged model path | Current archive |
 |---|---|---|---|
-| DataComp CLIP | `no.blogspot.RawCull.models.clip-datacomp` | `Models/CLIP-DataComp` | `/Users/thomas/ModelAssets/Release/Output/clip-datacomp.aar` |
-| Meta SAM 3 | `no.blogspot.RawCull.models.sam3` | `Models/SAM3` | `/Users/thomas/ModelAssets/Release/Output/sam3.aar` |
-| Qwen3-VL-2B-Instruct | `no.blogspot.RawCull.models.qwen3-vl-2b` | `Models/Qwen/qwen3_vl_2b` | `/Users/thomas/ModelAssets/Release/Output/qwen3-vl-2b.aar` |
+| DataComp CLIP | `rawcull-clip-datacomp` | `Models/CLIP-DataComp` | `/Users/thomas/ModelAssets/Release/Output/clip-datacomp.aar` |
+| Meta SAM 3 | `rawcull-sam3` | `Models/SAM3` | `/Users/thomas/ModelAssets/Release/Output/sam3.aar` |
+| Qwen3-VL-2B-Instruct | `rawcull-qwen3-vl-2b` | `Models/Qwen/qwen3_vl_2b` | `/Users/thomas/ModelAssets/Release/Output/qwen3-vl-2b.aar` |
 
 Current archive measurements, recorded on September 17, 2026:
 
 | Archive | Bytes | SHA-256 |
 |---|---:|---|
-| `clip-datacomp.aar` | 282,967,277 | `682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17` |
-| `sam3.aar` | 1,542,689,708 | `05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144` |
-| `qwen3-vl-2b.aar` | 3,754,599,524 | `21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17` |
+| `clip-datacomp.aar` | 282,967,354 | `994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600` |
+| `sam3.aar` | 1,542,689,931 | `08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4` |
+| `qwen3-vl-2b.aar` | 3,754,599,603 | `115eebbfdff7cb688b26dd6e2dd6c110b3fce5d27f6d5e8f40f69192d1ca2364` |
 
 These values are evidence for the current files only. Regenerating any archive,
 including merely changing a notice inside it, requires recording a new byte
 count and SHA-256.
 
-## 0. Release and distribution decisions — partially completed
+## 0. Release and distribution decisions — completed
 
-### Resolve the marketing-version mismatch first
+### Marketing version and build number — completed
 
-The requested release version is `2.3.4`, but this checkout currently declares
-`MARKETING_VERSION = 3.2.3` and build `370`, and the README says 3.2.3 is already
-in TestFlight. App Store Connect normally does not accept a marketing-version
-downgrade for the same app record.
-
-Before changing version metadata, confirm one of the following:
-
-1. `2.3.4` is intentional and belongs to an App Store version line for which
-   App Store Connect still permits a build; or
-2. the intended new version is `3.2.4`, which is the natural successor to the
-   current checkout.
-
-All references to **2.3.4** below mean the requested release version. Do not
-apply that value to the Xcode project until this gate is resolved. Asset packs
-can be prepared and uploaded before resolving the app marketing version because
-Apple manages their versions independently.
+The version gate is resolved as `MARKETING_VERSION = 3.2.4` and
+`CURRENT_PROJECT_VERSION = 371`. The RawCull app and downloader extension use
+those values consistently in Debug, Release, and AppStore configurations.
 
 ### Preserve separate distribution configurations — completed
 
@@ -116,18 +107,12 @@ shared across platforms. These three packs are comfortably inside those limits:
 - [Apple-hosted asset-pack limits](https://developer.apple.com/help/app-store-connect/reference/app-uploads/apple-hosted-asset-pack-size-limits)
 - [Uploading Apple-hosted asset packs](https://developer.apple.com/help/app-store-connect/manage-asset-packs/upload-apple-hosted-asset-packs)
 
-## 2. Clean and freeze the release inputs — partially completed
+## 2. Clean and freeze the release inputs — completed
 
-Do not upload the current archives as the final Apple-hosted versions until the
-packaged provenance is made host-correct.
-
-The staging tree under `/Users/thomas/ModelAssets/Release` currently contains
-records that need reconciliation:
-
-- CLIP's packaged provenance names an older GitHub release.
-- Qwen's packaged provenance names a GitHub v3 URL.
-- SAM 3's packaged provenance still says redistribution is blocked, while the
-  current RawCull repository records it as ready.
+The release inputs were reconciled before packaging. The staging provenance is
+host-correct for Apple delivery, SAM 3 is recorded as ready with its verified
+licence evidence, and the frozen inputs produced the processed version 1
+archives documented below.
 
 For each pack:
 
@@ -158,15 +143,15 @@ The source manifests are:
 Verify that their identifiers and selected model roots remain exactly:
 
 ```text
-no.blogspot.RawCull.models.clip-datacomp -> Models/CLIP-DataComp
-no.blogspot.RawCull.models.sam3          -> Models/SAM3
-no.blogspot.RawCull.models.qwen3-vl-2b  -> Models/Qwen/qwen3_vl_2b
+rawcull-clip-datacomp -> Models/CLIP-DataComp
+rawcull-sam3          -> Models/SAM3
+rawcull-qwen3-vl-2b  -> Models/Qwen/qwen3_vl_2b
 ```
 
 All three should remain `onDemand`; none of these multi-gigabyte models should
 be essential or automatically fetched during installation.
 
-## 3. Evaluate and regenerate the `.aar` files — archives completed; evaluate blocked
+## 3. Evaluate and regenerate the `.aar` files — completed
 
 From the asset source root:
 
@@ -202,7 +187,7 @@ Do not use `Output/manifest.json` for Apple hosting. That is the third-party
 self-hosted download manifest with GitHub URLs. With Apple hosting, App Store
 Connect owns the server-side manifest and versions.
 
-## 4. Verify the generated files before upload — completed except `evaluate`
+## 4. Verify the generated files before upload — completed
 
 Record exact logical sizes and checksums:
 
@@ -215,13 +200,19 @@ Release evidence recorded on September 17, 2026:
 
 | Evidence | DataComp CLIP | Meta SAM 3 | Qwen3-VL-2B-Instruct |
 |---|---|---|---|
-| Asset-pack ID | `no.blogspot.RawCull.models.clip-datacomp` | `no.blogspot.RawCull.models.sam3` | `no.blogspot.RawCull.models.qwen3-vl-2b` |
+| Asset-pack ID | `rawcull-clip-datacomp` | `rawcull-sam3` | `rawcull-qwen3-vl-2b` |
+| App Store Connect record ID | `a8bddf62-acbd-491f-87e0-8163661c0d2a` | `e3c32c84-1afb-4f1d-abb1-548ca9e0bc69` | `dd9484c0-ca1f-41cb-b566-3356b4a461fd` |
+| Apple-assigned pack version | `1` | `1` | `1` |
+| App Store Connect version ID | `120982fd-5a02-455f-bc9a-576ea290efca` | `93b2e488-855c-45c7-af3a-a3f1512fcf19` | `68d19be0-c04d-4897-b32c-b962211663ad` |
+| Processing state | `COMPLETE` (`MAC_OS`) | `COMPLETE` (`MAC_OS`) | `COMPLETE` (`MAC_OS`) |
+| Internal beta release ID | `3fa7254f-4dac-4c9d-9ae4-793ae3fb7d56` | `68a43f68-ad0d-484a-9242-e7aa57793043` | `61758a66-d648-4880-8bb6-a41d63c65334` |
+| Internal beta state | `READY_FOR_TESTING` | `READY_FOR_TESTING` | `READY_FOR_TESTING` |
 | Archive filename | `clip-datacomp.aar` | `sam3.aar` | `qwen3-vl-2b.aar` |
-| Exact byte count | `282967277` | `1542689708` | `3754599524` |
-| SHA-256 | `682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17` | `05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144` | `21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17` |
+| Exact byte count | `282967354` | `1542689931` | `3754599603` |
+| SHA-256 | `994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600` | `08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4` | `115eebbfdff7cb688b26dd6e2dd6c110b3fce5d27f6d5e8f40f69192d1ca2364` |
 | Xcode version and build number | Xcode 27.0 (`27A266a`) | Xcode 27.0 (`27A266a`) | Xcode 27.0 (`27A266a`) |
 | `xcrun ba-package --version` output | `2.0` | `2.0` | `2.0` |
-| Packaging-manifest SHA-256 | `9a68bb6579b37834fc354f5a889887da038861f9115133d8908239e849f368a1` | `8f14c4bd673e41e8515dc448e0d8f94b3af77e9c0e87b296cadcead176cdda9d` | `0e3dbc8174c310bbe1f3c3e30b331a961da995064c6be5c58101bc026fe9eade` |
+| Packaging-manifest SHA-256 | `f29941a49f84ad57bf79e92aad96bdcbde1de206653cae576903738ceae6ec3b` | `c6264450e9ac322fd7212a596b6b374836954933dd7a81f5e213bdbe3dcf9658` | `d558ce3b1768661c3694d88d47d5e65b1fd95d0a3f1d323c6d68e90384e38dfb` |
 | Converted-model tree fingerprint (`directory-tree-sha256-v1`) | Main: `6a3639a2049b8a4ea23fe04c3083e199a4f505433f7c8bd0748b3c8d4fcb1572` | Main: `fc1cf6197f2b201f2dd3d45de28e8fcb1d29480a8a3ff430dc6d398d2071f9f2` | Embed: `907a07282d20d9371ef68118056b1e878462b65878279b969f74d2309fa81418`<br>Language: `ce950fc0991a7d1129a5f87a8050f831030f0db0d10a29682bf6c803a9ef381a`<br>Vision: `7c8657a983683cedfc289d8725b7ca10c3f2f0692e2b3d2e324ce21a4cc786d1` |
 | Upstream model revision and source checksum | Revision: `4afec35ffe57a943d569ff7ee888061830164da8`<br>Source-weight checksum: unavailable in provenance | Revision: `3c879f39826c281e95690f02c7821c4de09afae7`<br>`model.safetensors`: `6d06f0a5f84e435071fe6603e61d0b4cc7b40e0d39d487cfd4d67d8cc11cc14a` | Revision: `78448d793a7eb2f7a987a1da76d464384aa1becd`<br>Source-weight checksum: unavailable in provenance |
 | Licence/notice SHA-256 | `NOTICE.md`: `e34549a667382e9937bfdf6916c4dfdfbde81ba8b159346554e9fecdbc49f561`<br>`OpenCLIP-DataComp-MIT.txt`: `6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986`<br>`OpenAI-CLIP-Tokenizer-MIT.txt`: `893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e`<br>`Apple-coreai-models-BSD-3-Clause.txt`: `6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e` | `NOTICE.md`: `f1a1d38c4de286bfc198acb8d20e79f9db5040a242fa06bcfdff87da45b4548f`<br>`SAM3-SAM-License-2025-11-19.txt`: `b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab`<br>`OpenAI-CLIP-Tokenizer-MIT.txt`: `893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e`<br>`Apple-coreai-models-BSD-3-Clause.txt`: `6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e` | `NOTICE.md`: `b3b0f99f0a8c839b7b9fc76eec29ba1d7440ca56256accddae5cfe79d7c5ea79`<br>`Qwen3-VL-Apache-2.0.txt`: `c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`<br>`Apple-coreai-models-BSD-3-Clause.txt`: `6762cc4b6772662c50c4c666dafbb2d0c97c80d6d54c9d628480ab59d655cf6e` |
@@ -240,8 +231,8 @@ Verification results recorded on September 17, 2026:
 
 | Check | Result | Evidence |
 |---|---|---|
-| `ba-package evaluate` file-list comparison | **Blocked** | `ba-package 2.0` from Xcode 27.0 (`27A266a`) rejects every supplied `.json` path with `path extension isn’t “json”`, including a file named `Manifest.json`. No previously frozen input-inventory file exists under `/Users/thomas/ModelAssets/Release`, so an independent baseline comparison is also unavailable. The manifests currently select 14 CLIP files, 11 SAM files, and 17 Qwen files; none of those selected paths is a symbolic link or `.DS_Store` file. |
-| Asset-pack ID uniqueness and RawCull match | **Passed** | The manifest IDs are unique and exactly match RawCull's production download catalog: `no.blogspot.RawCull.models.clip-datacomp`, `no.blogspot.RawCull.models.sam3`, and `no.blogspot.RawCull.models.qwen3-vl-2b`. The managed Qwen location is now selected automatically when its pack is installed, while a user-selected custom Qwen bundle remains available as an explicit override. |
+| `ba-package evaluate` file-list comparison | **Passed** | `ba-package 2.0` from Xcode 27.0 (`27A266a`) evaluated all three manifests successfully outside the restricted workspace environment. It selected 14 CLIP files, 11 SAM files, and 17 Qwen files; none is a symbolic link or `.DS_Store` file. The selected lists match the packaged model, tokenizer, notice, licence, and provenance inventory. |
+| Asset-pack ID uniqueness and RawCull match | **Passed** | The manifest IDs are unique, conform to Apple's permitted character set, and exactly match RawCull's production download catalog: `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. The managed Qwen location is now selected automatically when its pack is installed, while a user-selected custom Qwen bundle remains available as an explicit override. |
 | Platform and download policy | **Passed** | All three packaging manifests contain exactly `"platforms": ["macOS"]` and `"downloadPolicy": {"onDemand": {}}`. |
 
 4. Verify the expected installed root exists in the selected source tree.
@@ -256,7 +247,7 @@ Verification results recorded on September 17, 2026:
 6. Keep the final archives immutable. If an upload must be replaced, package a
    new version rather than modifying an already processed version.
 
-## 5. Upload the packs to App Store Connect — pending
+## 5. Upload the packs to App Store Connect — completed
 
 ### Preferred first upload: Transporter
 
@@ -268,7 +259,7 @@ Verification results recorded on September 17, 2026:
 3. Wait for processing to complete; do not immediately upload all three if the
    first pack fails validation.
 4. Confirm that the processed record belongs to RawCull and has exactly
-   `no.blogspot.RawCull.models.clip-datacomp`.
+   `rawcull-clip-datacomp`.
 5. Upload and verify `sam3.aar`.
 6. Upload and verify `qwen3-vl-2b.aar`.
 7. Save Transporter delivery logs with the release evidence.
@@ -300,7 +291,7 @@ parts, commit it, and poll processing state.
 - [Background Assets API](https://developer.apple.com/documentation/appstoreconnectapi/background-assets)
 - [Uploading and versioning Apple-hosted assets](https://developer.apple.com/documentation/appstoreconnectapi/managing-apple-hosted-background-assets)
 
-## 6. Verify uploads in App Store Connect — pending
+## 6. Verify uploads in App Store Connect — processing completed; review pending
 
 For every pack, record and check:
 
@@ -461,7 +452,7 @@ Add a prepared, release-ready descriptor with:
 - immutable upstream revision
   `78448d793a7eb2f7a987a1da76d464384aa1becd`;
 - resource name `Qwen`;
-- asset-pack ID `no.blogspot.RawCull.models.qwen3-vl-2b`;
+- asset-pack ID `rawcull-qwen3-vl-2b`;
 - asset-pack model path `Models/Qwen/qwen3_vl_2b`;
 - pinned upstream/model-card URLs;
 - conversion source/revision information;
@@ -702,8 +693,8 @@ bookmarks in unit tests if necessary.
 
 ### `ReleaseMetadataTests.swift`
 
-Fix the existing stale version expectation (`3.2.1` versus project `3.2.3`) and
-then assert the confirmed new release version.
+The stale version expectation is updated to the confirmed release version
+`3.2.4`.
 
 Add AppStore-configuration assertions:
 
@@ -734,19 +725,11 @@ Verify:
   accessible; and
 - the model-download sheet remains usable at its fixed size with three rows.
 
-## 16. Version 2.3.4 project changes — pending version decision
+## 16. Version 3.2.4 project changes — completed
 
-After resolving the version gate, update both RawCull and the downloader
-extension configurations together:
-
-- `MARKETING_VERSION = 2.3.4` as requested, or `3.2.4` if the request was a
-  transposition;
-- increment `CURRENT_PROJECT_VERSION` above 370 to a build number not already
-  used in App Store Connect; and
-- update version-specific README, DMG, tag, and release instructions.
-
-Do not reuse build 370. Confirm the version/build shown inside the archived app
-and embedded extension:
+RawCull and the downloader extension now use `MARKETING_VERSION = 3.2.4` and
+`CURRENT_PROJECT_VERSION = 371`. Confirm those values inside the signed archived
+app and embedded extension before upload:
 
 ```bash
 plutil -p <archive>/Products/Applications/RawCull.app/Contents/Info.plist
@@ -891,20 +874,17 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 
 ## Completion checklist
 
-- [ ] Confirm whether the app version is 2.3.4 or 3.2.4.
-- [ ] Confirm the next unused build number above 370.
+- [x] Confirm app version 3.2.4.
+- [x] Set build number 371 across app and extension configurations.
 - [x] Freeze the three permanent asset-pack IDs.
-- [ ] Resolve packaged CLIP, SAM, and Qwen provenance discrepancies.
-  **Repository release records are updated; confirm the corresponding
-  host-correct records are inside the immutable `.aar` files before upload.**
-- [ ] Evaluate all file selectors. **Blocked by the Xcode 27 `ba-package`
-  manifest-path error; selectors were inspected directly.**
+- [x] Resolve packaged CLIP, SAM, and Qwen provenance discrepancies.
+- [x] Evaluate all file selectors and compare the selected inventory.
 - [x] Regenerate all three archives with release Xcode.
 - [x] Record final hashes, sizes, tooling, model fingerprints, and licences.
-- [ ] Upload CLIP and verify processing.
-- [ ] Upload SAM 3 and verify processing.
-- [ ] Upload Qwen and verify processing.
-- [ ] Confirm all three internal beta releases are Ready for Testing.
+- [x] Upload CLIP version 1 and verify `COMPLETE` processing.
+- [x] Upload SAM 3 version 1 and verify `COMPLETE` processing.
+- [x] Upload Qwen version 1 and verify `COMPLETE` processing.
+- [x] Confirm all three internal beta releases are Ready for Testing.
 - [x] Add the AppStore build configuration and App Store export workflow.
 - [x] Add the Apple-hosted Info.plist with only the three permitted keys.
 - [x] Select `StoreDownloaderExtension` for AppStore builds.

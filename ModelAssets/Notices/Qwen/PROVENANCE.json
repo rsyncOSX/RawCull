@@ -4,11 +4,17 @@
   "release": {
     "hosting": "apple",
     "app_bundle_id": "no.blogspot.RawCull",
-    "asset_pack_id": "no.blogspot.RawCull.models.qwen3-vl-2b",
-    "archive_sha256": "21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17",
-    "archive_byte_count": 3754599524,
+    "asset_pack_id": "rawcull-qwen3-vl-2b",
+    "asset_pack_record_id": "dd9484c0-ca1f-41cb-b566-3356b4a461fd",
+    "asset_pack_version": "1",
+    "asset_pack_version_id": "68d19be0-c04d-4897-b32c-b962211663ad",
+    "archive_sha256": "115eebbfdff7cb688b26dd6e2dd6c110b3fce5d27f6d5e8f40f69192d1ca2364",
+    "archive_byte_count": 3754599603,
     "packaging_date": "2026-09-17",
-    "processing_status": "pending-upload",
+    "processing_status": "succeeded",
+    "processing_date": "2026-09-17",
+    "internal_beta_release_id": "61758a66-d648-4880-8bb6-a41d63c65334",
+    "internal_beta_state": "ready-for-testing",
     "review_state": "not-submitted"
   },
   "model": {

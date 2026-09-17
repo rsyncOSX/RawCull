@@ -19,8 +19,8 @@ or the macOS version. Do not globally replace every occurrence of “3”.
 
 | Model | Asset-pack ID | Manifest destination | App resource name |
 |---|---|---|---|
-| DataComp CLIP | `no.blogspot.RawCull.models.clip-datacomp` | `Models/CLIP-DataComp` | `CLIP-DataComp` |
-| Meta SAM 3 | `no.blogspot.RawCull.models.sam3` | `Models/SAM3` | `SAM3` |
+| DataComp CLIP | `rawcull-clip-datacomp` | `Models/CLIP-DataComp` | `CLIP-DataComp` |
+| Meta SAM 3 | `rawcull-sam3` | `Models/SAM3` | `SAM3` |
 
 Do not change an asset-pack ID or destination merely to publish a new
 version. Change them only when intentionally creating a different pack or
@@ -89,8 +89,8 @@ The generated `manifest.json` for `v4` must contain, for every released pack:
 Example asset URLs:
 
 ```text
-https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v4/no.blogspot.RawCull.models.clip-datacomp
-https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v4/no.blogspot.RawCull.models.sam3
+https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v4/rawcull-clip-datacomp
+https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v4/rawcull-sam3
 ```
 
 Include SAM 3 in the deployable manifest only after its app descriptor and
@@ -376,7 +376,7 @@ Generate a separate packaging manifest for each pack, for example:
 
 ```json
 {
-  "assetPackID": "no.blogspot.RawCull.models.clip-datacomp",
+  "assetPackID": "rawcull-clip-datacomp",
   "downloadPolicy": { "onDemand": {} },
   "fileSelectors": [
     {
@@ -390,7 +390,7 @@ Generate a separate packaging manifest for each pack, for example:
 
 Save this as `clip-datacomp.pack.json` in an external staging directory alongside
 `CLIP-DataComp/`. Create `sam3.pack.json` with ID
-`no.blogspot.RawCull.models.sam3`, source `SAM3`, and destination `Models/SAM3`.
+`rawcull-sam3`, source `SAM3`, and destination `Models/SAM3`.
 Run the commands below from that staging directory. Include the entire
 provider-compatible bundle, metadata, tokenizer, and notices, not only the
 `.aimodel` directory. The current expected model paths are:
@@ -403,18 +403,18 @@ Models/SAM3/sam3_float16.aimodel
 ```sh
 mkdir -p release-v4
 xcrun ba-package package clip-datacomp.pack.json \
-  --output-path release-v4/no.blogspot.RawCull.models.clip-datacomp
+  --output-path release-v4/rawcull-clip-datacomp
 xcrun ba-package package sam3.pack.json \
-  --output-path release-v4/no.blogspot.RawCull.models.sam3
+  --output-path release-v4/rawcull-sam3
 
-shasum -a 256 release-v4/no.blogspot.RawCull.models.clip-datacomp \
-  release-v4/no.blogspot.RawCull.models.sam3
-stat -f '%z %N' release-v4/no.blogspot.RawCull.models.clip-datacomp \
-  release-v4/no.blogspot.RawCull.models.sam3
+shasum -a 256 release-v4/rawcull-clip-datacomp \
+  release-v4/rawcull-sam3
+stat -f '%z %N' release-v4/rawcull-clip-datacomp \
+  release-v4/rawcull-sam3
 
 xcrun ba-package download-manifest create \
-  release-v4/no.blogspot.RawCull.models.clip-datacomp \
-  release-v4/no.blogspot.RawCull.models.sam3 \
+  release-v4/rawcull-clip-datacomp \
+  release-v4/rawcull-sam3 \
   --asset-pack-versions 4 4 \
   --macos \
   --download-base-url https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v4/ \
@@ -439,14 +439,14 @@ compare bytes before publishing the manifest:
 
 ```sh
 mkdir -p verify-v4
-for pack in no.blogspot.RawCull.models.clip-datacomp no.blogspot.RawCull.models.sam3; do
+for pack in rawcull-clip-datacomp rawcull-sam3; do
   curl --fail --location --retry 3 \
     "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v4/$pack" \
     --output "verify-v4/$pack" || exit 1
   cmp "release-v4/$pack" "verify-v4/$pack" || exit 1
 done
-shasum -a 256 verify-v4/no.blogspot.RawCull.models.clip-datacomp \
-  verify-v4/no.blogspot.RawCull.models.sam3
+shasum -a 256 verify-v4/rawcull-clip-datacomp \
+  verify-v4/rawcull-sam3
 ```
 
 A private draft may require authenticated release downloads; independently test

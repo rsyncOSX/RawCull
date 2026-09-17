@@ -155,7 +155,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 modelVersion: "ViT-B/32 256px, datacomp_s34b_b86k",
                 upstreamRevision: "4afec35ffe57a943d569ff7ee888061830164da8",
                 resourceName: "CLIP-DataComp",
-                assetPackID: "no.blogspot.RawCull.models.clip-datacomp",
+                assetPackID: "rawcull-clip-datacomp",
                 assetPackModelPath: "Models/CLIP-DataComp",
                 upstreamSourceURL: requiredURL(
                     "https://huggingface.co/laion/CLIP-ViT-B-32-256x256-DataComp-s34B-b86K/tree/4afec35ffe57a943d569ff7ee888061830164da8",
@@ -166,8 +166,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 conversionInformationURL: requiredURL(
                     "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/clip",
                 ),
-                expectedArchiveSHA256: "682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17",
-                downloadByteCount: 282_967_277,
+                expectedArchiveSHA256: "994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600",
+                downloadByteCount: 282_967_354,
                 installedByteCount: 307_800_172,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",
@@ -260,7 +260,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 modelVersion: "SAM 3",
                 upstreamRevision: "3c879f39826c281e95690f02c7821c4de09afae7",
                 resourceName: "SAM3",
-                assetPackID: "no.blogspot.RawCull.models.sam3",
+                assetPackID: "rawcull-sam3",
                 assetPackModelPath: "Models/SAM3",
                 upstreamSourceURL: requiredURL(
                     "https://huggingface.co/facebook/sam3/tree/3c879f39826c281e95690f02c7821c4de09afae7",
@@ -271,8 +271,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 conversionInformationURL: requiredURL(
                     "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/sam3",
                 ),
-                expectedArchiveSHA256: "05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144",
-                downloadByteCount: 1_542_689_708,
+                expectedArchiveSHA256: "08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4",
+                downloadByteCount: 1_542_689_931,
                 installedByteCount: 1_667_570_378,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "SAM License",
@@ -295,7 +295,7 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 modelVersion: "Qwen3-VL-2B-Instruct",
                 upstreamRevision: "78448d793a7eb2f7a987a1da76d464384aa1becd",
                 resourceName: "Qwen",
-                assetPackID: "no.blogspot.RawCull.models.qwen3-vl-2b",
+                assetPackID: "rawcull-qwen3-vl-2b",
                 assetPackModelPath: "Models/Qwen/qwen3_vl_2b",
                 upstreamSourceURL: requiredURL(
                     "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct/tree/78448d793a7eb2f7a987a1da76d464384aa1becd",
@@ -306,8 +306,8 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 conversionInformationURL: requiredURL(
                     "https://github.com/apple/coreai-models",
                 ),
-                expectedArchiveSHA256: "21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17",
-                downloadByteCount: 3_754_599_524,
+                expectedArchiveSHA256: "115eebbfdff7cb688b26dd6e2dd6c110b3fce5d27f6d5e8f40f69192d1ca2364",
+                downloadByteCount: 3_754_599_603,
                 installedByteCount: 5_395_195_663,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "Apache License 2.0",

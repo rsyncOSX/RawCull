@@ -25,11 +25,11 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.expectedArchiveSHA256
-                == "682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17",
+                == "994939e74dbbe9844214d509267642939f5ddc535ae3bce4be36c8855bdfa600",
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.downloadByteCount
-                == 282_967_277,
+                == 282_967_354,
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.installedByteCount
@@ -77,9 +77,9 @@ struct RawCullAIModelDownloadsTests {
         #expect(sam3.assetPackModelPath == "Models/SAM3")
         #expect(
             sam3.expectedArchiveSHA256
-                == "05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144",
+                == "08c9a4f58242d6eecaa322d65521fd788589ea682aa92a5cea03fa1e2f2681d4",
         )
-        #expect(sam3.downloadByteCount == 1_542_689_708)
+        #expect(sam3.downloadByteCount == 1_542_689_931)
         #expect(sam3.installedByteCount == 1_667_570_378)
         #expect(sam3.releaseReadiness.isReady)
 
@@ -88,9 +88,9 @@ struct RawCullAIModelDownloadsTests {
         #expect(qwen.assetPackModelPath == "Models/Qwen/qwen3_vl_2b")
         #expect(
             qwen.expectedArchiveSHA256
-                == "21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17",
+                == "115eebbfdff7cb688b26dd6e2dd6c110b3fce5d27f6d5e8f40f69192d1ca2364",
         )
-        #expect(qwen.downloadByteCount == 3_754_599_524)
+        #expect(qwen.downloadByteCount == 3_754_599_603)
         #expect(qwen.installedByteCount == 5_395_195_663)
         #expect(qwen.releaseReadiness.isReady)
 
