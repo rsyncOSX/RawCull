@@ -9,17 +9,18 @@ from VerifyModelProvenance import validate
 class ModelProvenanceTests(unittest.TestCase):
     def test_invalid_enabled_evidence_is_rejected(self):
         source = Path(__file__).resolve().parent.parent
-        self.assertEqual(validate(source), ['clipDataComp', 'sam3'])
-        for mutation in ['blocked', 'missing', 'malformed', 'hash', 'size', 'enable_sam', 'enable_sam_download', 'unknown_flag', 'invalid_status', 'missing_field', 'wrong_filter', 'model_path', 'revision', 'stale_release_url', 'stale_release_tag']:
+        self.assertEqual(validate(source), ['clipDataComp', 'qwen3VL2B', 'sam3'])
+        for mutation in ['blocked', 'missing', 'malformed', 'hash', 'size', 'enable_sam', 'enable_sam_download', 'unknown_flag', 'invalid_status', 'missing_field', 'wrong_filter', 'model_path', 'revision', 'wrong_pack_id', 'wrong_app_id', 'wrong_hosting']:
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                shutil.copy(source / "RawCull-Info.plist", root / "RawCull-Info.plist")
+                shutil.copy(source / "RawCull-AppStore-Info.plist", root / "RawCull-AppStore-Info.plist")
                 catalog = Path('RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift')
                 (root / catalog).parent.mkdir(parents=True)
                 # Start rejection fixtures from the release-ready DataComp-only configuration.
                 (root / catalog).write_text((source / catalog).read_text().replace(
                     'includeSAM3Download = true', 'includeSAM3Download = false').replace(
-                    'includeSAM3 = true', 'includeSAM3 = false'))
+                    'includeSAM3 = true', 'includeSAM3 = false').replace(
+                    'includeQwen3VL2BDownload = true', 'includeQwen3VL2BDownload = false'))
                 shutil.copytree(source / 'ModelAssets/Notices', root / 'ModelAssets/Notices')
                 self.assertEqual(validate(root), ['clipDataComp'])
                 path = root / 'ModelAssets/Notices/CLIP-DataComp/PROVENANCE.json'
@@ -42,10 +43,12 @@ class ModelProvenanceTests(unittest.TestCase):
                 elif mutation == 'unknown_flag':
                     (root / catalog).write_text((root / catalog).read_text().replace('includeSAM3 = false', 'includeSAM3 = computedValue'))
                 else:
-                    if mutation == 'stale_release_url':
-                        record['release']['asset_url'] = record['release']['asset_url'].replace('/v3/', '/v2/')
-                    elif mutation == 'stale_release_tag':
-                        record['release']['tag'] = 'v2'
+                    if mutation == 'wrong_pack_id':
+                        record['release']['asset_pack_id'] = 'no.blogspot.RawCull.models.wrong'
+                    elif mutation == 'wrong_app_id':
+                        record['release']['app_bundle_id'] = 'no.blogspot.Wrong'
+                    elif mutation == 'wrong_hosting':
+                        record['release']['hosting'] = 'self-hosted'
                     elif mutation == 'model_path':
                         record['model']['asset'] = 'Models/Wrong/model.aimodel'
                     elif mutation == 'revision':

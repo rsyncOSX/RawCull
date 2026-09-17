@@ -26,6 +26,14 @@ nonisolated enum RawCullAIModelDownloadSource: Equatable, Sendable {
         return productionManifestURL
     }
 
+    static var live: Self {
+        #if RAWCULL_APPLE_HOSTED_MODEL_ASSETS
+            .appleHosted
+        #else
+            .selfHosted(manifestURL: liveManifestURL)
+        #endif
+    }
+
     var isConfigured: Bool {
         switch self {
         case let .selfHosted(manifestURL):
@@ -307,10 +315,7 @@ actor RawCullAIModelDownloadCoordinator {
         RawCullAIModelDownloadCoordinator(
             catalog: catalog,
             service: RawCullManagedBackgroundAssetsModelDownloadService(
-                source: .selfHosted(
-                    manifestURL: RawCullAIModelDownloadSource
-                        .liveManifestURL,
-                ),
+                source: .live,
             ),
             acceptanceStore: RawCullAIModelLicenceAcceptanceFileStore(
                 fileURL: paths.modelLicenceAcceptancesURL,

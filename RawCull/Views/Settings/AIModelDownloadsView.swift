@@ -209,6 +209,14 @@ private struct AIModelDownloadIdentityView: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
 
+            if let downloadByteCount = descriptor.downloadByteCount {
+                Text(
+                    "Download size: \(ByteCountFormatter.string(fromByteCount: downloadByteCount, countStyle: .file))",
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
             if case .installed = state {
                 Text("Stored and managed by macOS.")
                     .font(.caption)
@@ -237,10 +245,18 @@ private struct AIModelDownloadIdentityView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(descriptor.displayName)
-        .accessibilityValue(RawCullAccessibilityPresentation.modelDownloadValue(
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var accessibilityValue: String {
+        var value = RawCullAccessibilityPresentation.modelDownloadValue(
             state: state,
             licenceAccepted: licenceAccepted,
-        ))
+        )
+        if let downloadByteCount = descriptor.downloadByteCount {
+            value += ". Download size \(ByteCountFormatter.string(fromByteCount: downloadByteCount, countStyle: .file))."
+        }
+        return value
     }
 }
 
