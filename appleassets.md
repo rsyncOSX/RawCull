@@ -210,6 +210,15 @@ Then perform these checks:
 2. Verify the three IDs are unique and identical to the IDs that RawCull will
    request.
 3. Confirm the archive is generated for `macOS` and policy is `onDemand`.
+
+Verification results recorded on September 17, 2026:
+
+| Check | Result | Evidence |
+|---|---|---|
+| `ba-package evaluate` file-list comparison | **Blocked** | `ba-package 2.0` from Xcode 27.0 (`27A266a`) rejects every supplied `.json` path with `path extension isn’t “json”`, including a file named `Manifest.json`. No previously frozen input-inventory file exists under `/Users/thomas/ModelAssets/Release`, so an independent baseline comparison is also unavailable. The manifests currently select 14 CLIP files, 11 SAM files, and 17 Qwen files; none of those selected paths is a symbolic link or `.DS_Store` file. |
+| Asset-pack ID uniqueness and RawCull match | **Failed** | The manifest IDs are unique. `no.blogspot.RawCull.models.clip-datacomp` and `no.blogspot.RawCull.models.sam3` exactly match RawCull's production download catalog. `no.blogspot.RawCull.models.qwen3-vl-2b` has no download-catalog descriptor or download ID; Qwen is currently configured through a manually selected local bundle. RawCull therefore does not yet request all three IDs. |
+| Platform and download policy | **Passed** | All three packaging manifests contain exactly `"platforms": ["macOS"]` and `"downloadPolicy": {"onDemand": {}}`. |
+
 4. Verify the expected installed root exists in the selected source tree.
 5. Run RawCull's provenance verification after updating the repository copies:
 
