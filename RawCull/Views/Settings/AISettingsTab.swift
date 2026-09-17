@@ -12,6 +12,10 @@ struct AISettingsTab: View {
                 AIModelSettingsCard(model: model)
                 QwenModelSettingsCard(
                     status: model.qwenModelStatus,
+                    source: model.qwenModelSource,
+                    managedModelIsInstalled: model.managedQwenModelURL != nil,
+                    manageDownloads: { showModelDownloads = true },
+                    useManagedModel: model.useManagedQwenModel,
                     selectModel: { showQwenModelPicker = true },
                     validateAgain: model.validateQwenModelAgain,
                     clearModel: model.clearQwenModel,
@@ -61,6 +65,10 @@ struct AISettingsTab: View {
 
 private struct QwenModelSettingsCard: View {
     let status: QwenModelStatus
+    let source: RawCullQwenModelSource
+    let managedModelIsInstalled: Bool
+    let manageDownloads: () -> Void
+    let useManagedModel: () -> Void
     let selectModel: () -> Void
     let validateAgain: () -> Void
     let clearModel: () -> Void
@@ -68,7 +76,7 @@ private struct QwenModelSettingsCard: View {
     var body: some View {
         SettingsCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Local Qwen")
+                Text("Qwen Vision Model")
                     .font(.system(size: 14, weight: .semibold))
                 Divider()
 
@@ -76,12 +84,16 @@ private struct QwenModelSettingsCard: View {
                     statusView
                 }
 
+                LabeledContent("Active source") {
+                    Text(source == .managed ? "Downloaded by RawCull" : "Custom folder")
+                }
+
                 ViewThatFits {
                     HStack(spacing: 8) { actions }
                     VStack(alignment: .leading, spacing: 8) { actions }
                 }
 
-                Text("Select a local Qwen vision-language Core AI bundle, such as Qwen3-VL-2B-Instruct. RawCull validates the bundle and keeps analysis on this Mac.")
+                Text("Download Qwen through RawCull for automatic updates, or choose a custom Core AI bundle as an advanced override. Analysis remains on this Mac.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -119,11 +131,21 @@ private struct QwenModelSettingsCard: View {
 
     @ViewBuilder
     private var actions: some View {
-        Button("Select Qwen Model", systemImage: "folder", action: selectModel)
+        Button("Manage Downloads", systemImage: "arrow.down.circle", action: manageDownloads)
+        if source == .custom, managedModelIsInstalled {
+            Button("Use Downloaded Model", systemImage: "checkmark.icloud", action: useManagedModel)
+        }
+        Button("Choose Custom Model…", systemImage: "folder", action: selectModel)
         Button("Validate Again", systemImage: "checkmark.shield", action: validateAgain)
             .disabled(status == .notConfigured)
-        Button("Clear", systemImage: "xmark.circle", role: .destructive, action: clearModel)
-            .disabled(status == .notConfigured)
+        if source == .custom {
+            Button(
+                "Clear Custom Selection",
+                systemImage: "xmark.circle",
+                role: .destructive,
+                action: clearModel,
+            )
+        }
     }
 }
 

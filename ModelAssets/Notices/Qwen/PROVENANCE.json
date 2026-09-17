@@ -2,11 +2,17 @@
   "catalog_version": 2,
   "release_status": "ready",
   "release": {
-    "tag": "v3",
-    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.qwen3-vl-2b"
+    "hosting": "apple",
+    "app_bundle_id": "no.blogspot.RawCull",
+    "asset_pack_id": "no.blogspot.RawCull.models.qwen3-vl-2b",
+    "archive_sha256": "21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17",
+    "archive_byte_count": 3754599524,
+    "packaging_date": "2026-09-17",
+    "processing_status": "pending-upload",
+    "review_state": "not-submitted"
   },
   "model": {
-    "bundle": "Qwen/qwen3_vl_2b",
+    "bundle": "Qwen",
     "asset": "Models/Qwen/qwen3_vl_2b",
     "architecture": "Qwen3-VL-2B-Instruct",
     "precision": "converted Core AI representation",

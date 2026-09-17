@@ -51,10 +51,14 @@
     }
   ],
   "release": {
-    "tag": "v3",
-    "asset_url": "https://github.com/rsyncOSX/RawCull-AI-Models/releases/download/v3/no.blogspot.RawCull.models.sam3",
-    "archive_sha256": "dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9",
-    "archive_byte_count": 1542689157,
-    "evidence_note": "Archive size and SHA-256 verified against GitHub release asset metadata on 2026-09-06; ID, URL, version, and size match the published v3 manifest. Download enabled at the project owner's explicit direction; RawCull retains verified SAM License acceptance. This records the release decision, not an independent legal review."
+    "hosting": "apple",
+    "app_bundle_id": "no.blogspot.RawCull",
+    "asset_pack_id": "no.blogspot.RawCull.models.sam3",
+    "archive_sha256": "05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144",
+    "archive_byte_count": 1542689708,
+    "packaging_date": "2026-09-17",
+    "processing_status": "pending-upload",
+    "review_state": "not-submitted",
+    "evidence_note": "The Apple-hosted archive was generated and hashed locally. App Store Connect processing and review evidence must be recorded after upload. RawCull retains verified SAM License acceptance."
   }
 }

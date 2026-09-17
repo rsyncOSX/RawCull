@@ -11,6 +11,7 @@ MODEL_DOWNLOADER_PATH = $(BUILD_PATH)/$(APP).app/Contents/Extensions/RawCullMode
 TEST_DESTINATION = platform=macOS
 XCODE_TEST_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination '$(TEST_DESTINATION)' -onlyUsePackageVersionsFromResolvedFile
 XCODE_RELEASE_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination 'platform=macOS,arch=arm64' -configuration Release -onlyUsePackageVersionsFromResolvedFile
+XCODE_APP_STORE_FLAGS = -project RawCull.xcodeproj -scheme $(APP) -destination 'platform=macOS,arch=arm64' -configuration AppStore -onlyUsePackageVersionsFromResolvedFile
 SMOKE_TEST_MANIFEST = TestManifests/SmokeTests.txt
 PERFORMANCE_TEST_MANIFEST = TestManifests/PerformanceTests.txt
 SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
@@ -105,6 +106,18 @@ archive-debug: clean
 		-archivePath $(BUILD_PATH)/$(APP).xcarchive \
 		-exportPath $(BUILD_PATH)
 	echo "Debug build completed successfully"
+
+archive-app-store: clean
+	echo "Archiving Apple-hosted App Store build..."
+	xcodebuild \
+		$(XCODE_APP_STORE_FLAGS) archive \
+		-archivePath $(BUILD_PATH)/$(APP)-AppStore.xcarchive
+	xcodebuild -exportArchive \
+		-exportOptionsPlist "exportOptionsAppStore.plist" \
+		-archivePath $(BUILD_PATH)/$(APP)-AppStore.xcarchive \
+		-exportPath $(BUILD_PATH)/AppStore \
+		-allowProvisioningUpdates
+	echo "App Store build exported to $(BUILD_PATH)/AppStore"
 
 sign-app:
 	osascript -e 'display notification "Verifying Developer ID signatures..." with title "Build the RawCull"'
@@ -220,4 +233,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

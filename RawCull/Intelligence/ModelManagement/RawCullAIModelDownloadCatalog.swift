@@ -7,6 +7,7 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
     case clipOpenAI = "clip-openai"
     case efficientSAM = "efficient-sam"
     case sam3
+    case qwen3VL2B = "qwen3-vl-2b"
 
     var id: String {
         rawValue
@@ -16,7 +17,7 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
         switch self {
         case .clipDataComp: .dataComp
         case .clipOpenAI: .openAI
-        case .efficientSAM, .sam3: nil
+        case .efficientSAM, .sam3, .qwen3VL2B: nil
         }
     }
 }
@@ -30,6 +31,7 @@ nonisolated enum RawCullAIModelInclusion {
     static let includeSAM3 = true
     static let includeEfficientSAMDownload = false
     static let includeSAM3Download = true
+    static let includeQwen3VL2BDownload = true
 
     static var clipModels: [RawCullCLIPModel] {
         RawCullCLIPModel.allCases.filter { model in
@@ -62,6 +64,9 @@ nonisolated enum RawCullAIModelInclusion {
         }
         if includeSAM3Download {
             ids.insert(.sam3)
+        }
+        if includeQwen3VL2BDownload {
+            ids.insert(.qwen3VL2B)
         }
         return ids
     }
@@ -161,9 +166,9 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 conversionInformationURL: requiredURL(
                     "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/clip",
                 ),
-                expectedArchiveSHA256: "cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7",
-                downloadByteCount: 282_966_632,
-                installedByteCount: 307_801_147,
+                expectedArchiveSHA256: "682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17",
+                downloadByteCount: 282_967_277,
+                installedByteCount: 307_800_172,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "MIT License",
                     version: nil,
@@ -266,9 +271,9 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                 conversionInformationURL: requiredURL(
                     "https://github.com/apple/coreai-models/tree/bffc38fe48f50e4e962ac9772b64a5b55a605286/models/sam3",
                 ),
-                expectedArchiveSHA256: "dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9",
-                downloadByteCount: 1_542_689_157,
-                installedByteCount: 1_667_576_486,
+                expectedArchiveSHA256: "05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144",
+                downloadByteCount: 1_542_689_708,
+                installedByteCount: 1_667_570_378,
                 licence: RawCullAIModelLicenceDescriptor(
                     name: "SAM License",
                     version: "November 19, 2025",
@@ -279,6 +284,41 @@ nonisolated struct RawCullAIModelDownloadCatalog: Equatable, Sendable {
                     bundledTextResourceName: "SAM3-SAM-License-2025-11-19",
                     textSHA256: "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
                     requiresExplicitAcceptance: true,
+                ),
+                releaseReadiness: .ready,
+            ),
+            RawCullAIModelDownloadDescriptor(
+                id: .qwen3VL2B,
+                displayName: "Qwen3-VL-2B-Instruct",
+                purpose: "Local vision-language photo analysis and assessment.",
+                publisher: "Qwen Team / Alibaba Cloud",
+                modelVersion: "Qwen3-VL-2B-Instruct",
+                upstreamRevision: "78448d793a7eb2f7a987a1da76d464384aa1becd",
+                resourceName: "Qwen",
+                assetPackID: "no.blogspot.RawCull.models.qwen3-vl-2b",
+                assetPackModelPath: "Models/Qwen/qwen3_vl_2b",
+                upstreamSourceURL: requiredURL(
+                    "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct/tree/78448d793a7eb2f7a987a1da76d464384aa1becd",
+                ),
+                modelCardURL: requiredURL(
+                    "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct",
+                ),
+                conversionInformationURL: requiredURL(
+                    "https://github.com/apple/coreai-models",
+                ),
+                expectedArchiveSHA256: "21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17",
+                downloadByteCount: 3_754_599_524,
+                installedByteCount: 5_395_195_663,
+                licence: RawCullAIModelLicenceDescriptor(
+                    name: "Apache License 2.0",
+                    version: "2.0",
+                    summary: "Qwen3-VL-2B-Instruct is distributed under Apache License 2.0; redistributed copies must include the licence and preserve applicable notices.",
+                    completeTextURL: requiredURL(
+                        "https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct/blob/78448d793a7eb2f7a987a1da76d464384aa1becd/LICENSE",
+                    ),
+                    bundledTextResourceName: "Qwen3-VL-Apache-2.0",
+                    textSHA256: "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+                    requiresExplicitAcceptance: false,
                 ),
                 releaseReadiness: .ready,
             )

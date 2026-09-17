@@ -34,6 +34,23 @@
       "platforms": [
         "macOS"
       ]
+    },
+    {
+      "assetPackID": "no.blogspot.RawCull.models.qwen3-vl-2b",
+      "downloadPolicy": {
+        "onDemand": {}
+      },
+      "fileSelectors": [
+        {
+          "directory": {
+            "source": "Qwen/qwen3_vl_2b",
+            "destination": "Models/Qwen/qwen3_vl_2b"
+          }
+        }
+      ],
+      "platforms": [
+        "macOS"
+      ]
     }
   ]
 }

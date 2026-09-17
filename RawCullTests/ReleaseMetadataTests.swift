@@ -17,18 +17,18 @@ struct ReleaseMetadataTests {
             bundleIdentifier: "no.blogspot.RawCull.ModelDownloader",
         )
 
-        #expect(appBlocks.count == 2)
-        #expect(extensionBlocks.count == 2)
+        #expect(appBlocks.count == 3)
+        #expect(extensionBlocks.count == 3)
         let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
         #expect(Int(buildNumber).map { $0 > 0 } == true)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.1")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.3")
             #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
             #expect(buildSetting("ENABLE_HARDENED_RUNTIME", in: block) == "YES")
         }
-        #expect(project.components(separatedBy: "ARCHS = arm64;").count - 1 == 2)
+        #expect(project.components(separatedBy: "ARCHS = arm64;").count - 1 == 3)
         #expect(!project.contains("MACOSX_DEPLOYMENT_TARGET = 26"))
 
         let appEntitlements = try propertyList("RawCull.entitlements")
@@ -54,6 +54,21 @@ struct ReleaseMetadataTests {
         )
         #expect(appInfo["BAUsesAppleHosting"] as? Bool == false)
 
+        let appStoreInfo = try propertyList("RawCull-AppStore-Info.plist")
+        #expect(appStoreInfo["BAAppGroupID"] as? String == "group.no.blogspot.RawCull.model-assets")
+        #expect(appStoreInfo["BAHasManagedAssetPacks"] as? Bool == true)
+        #expect(appStoreInfo["BAUsesAppleHosting"] as? Bool == true)
+        #expect(appStoreInfo["BAManifestURL"] == nil)
+        #expect(appStoreInfo["BAInitialDownloadRestrictions"] == nil)
+        #expect(appStoreInfo["BAEssentialMaxInstallSize"] == nil)
+        #expect(appStoreInfo["BAMaxInstallSize"] == nil)
+        #expect(project.contains("INFOPLIST_FILE = \"RawCull-AppStore-Info.plist\";"))
+        #expect(
+            project.components(
+                separatedBy: "RAWCULL_APPLE_HOSTED_MODEL_ASSETS",
+            ).count - 1 == 2,
+        )
+
         let about = try repositoryText("RawCull/Views/Tools/AboutRawCullView.swift")
         #expect(about.contains("CFBundleShortVersionString"))
         #expect(about.contains("CFBundleVersion"))
@@ -73,7 +88,7 @@ struct ReleaseMetadataTests {
             .map(String.init)
             .filter { $0.hasPrefix("|") }
 
-        #expect(resolved.pins.count == 17)
+        #expect(resolved.pins.count == 18)
         for pin in resolved.pins {
             let expectedPin = pin.state.version ?? pin.state.revision
             let matchingRows = tableRows.filter { row in
@@ -83,14 +98,18 @@ struct ReleaseMetadataTests {
             #expect(matchingRows.count == 1, "Missing or duplicate README row for \(pin.identity)")
         }
 
-        let localAIRows = tableRows.filter { row in
+        let photoAIKitRows = tableRows.filter { row in
             row.contains("`photoaikit`")
-                && row.contains("local `../PhotoAIKit`")
+                && row.contains("`c5c76590c3d79ad508d24d893cd7d8d6aa873355`")
         }
-        #expect(localAIRows.count == 1)
+        #expect(photoAIKitRows.count == 1)
 
         let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
-        #expect(project.contains("relativePath = ../PhotoAIKit;"))
+        #expect(
+            project.contains(
+                "repositoryURL = \"https://github.com/rsyncOSX/PhotoAIKit.git\";",
+            ),
+        )
     }
 
     @Test
@@ -99,7 +118,8 @@ struct ReleaseMetadataTests {
         let manifest = try JSONDecoder().decode(ModelManifest.self, from: manifestData)
         let expectedDestinations = [
             "no.blogspot.RawCull.models.clip-datacomp": "Models/CLIP-DataComp",
-            "no.blogspot.RawCull.models.sam3": "Models/SAM3"
+            "no.blogspot.RawCull.models.sam3": "Models/SAM3",
+            "no.blogspot.RawCull.models.qwen3-vl-2b": "Models/Qwen/qwen3_vl_2b"
         ]
         var actualDestinations: [String: String] = [:]
         for assetPack in manifest.assetPacks {
@@ -195,7 +215,8 @@ struct ReleaseMetadataTests {
             "OpenCLIP-DataComp-MIT.txt": "6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986",
             "OpenAI-CLIP-Tokenizer-MIT.txt": "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e",
             "EfficientSAM-Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-            "SAM3-SAM-License-2025-11-19.txt": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab"
+            "SAM3-SAM-License-2025-11-19.txt": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
+            "Qwen3-VL-Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
         ]
         for (filename, expectedHash) in bundledLicenceHashes {
             let data = try repositoryData("RawCull/Resources/ModelLicences/\(filename)")

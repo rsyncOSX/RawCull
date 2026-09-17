@@ -14,9 +14,18 @@ def require(condition, message):
 
 
 def validate(root):
-    with (root / 'RawCull-Info.plist').open('rb') as handle:
-        manifest_url = plistlib.load(handle)['BAManifestURL']
-    release_base = manifest_url.rsplit('/', 1)[0]
+    with (root / 'RawCull-AppStore-Info.plist').open('rb') as handle:
+        app_store_info = plistlib.load(handle)
+    require(app_store_info.get('BAUsesAppleHosting') is True, 'App Store build must use Apple hosting')
+    require(app_store_info.get('BAHasManagedAssetPacks') is True, 'App Store build must declare managed asset packs')
+    require(app_store_info.get('BAAppGroupID') == 'group.no.blogspot.RawCull.model-assets', 'App Store app group mismatch')
+    forbidden_keys = {
+        'BAManifestURL',
+        'BAInitialDownloadRestrictions',
+        'BAEssentialMaxInstallSize',
+        'BAMaxInstallSize',
+    }
+    require(not forbidden_keys.intersection(app_store_info), 'App Store plist contains self-hosted Background Assets keys')
     source = (root / 'RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift').read_text()
     inclusion = source.split('nonisolated enum RawCullAIModelInclusion {', 1)[1].split('nonisolated struct', 1)[0]
     flags = dict(re.findall(r'static let (include\w+) = (true|false)\b', inclusion))
@@ -55,7 +64,8 @@ def validate(root):
         require(record['release_status'] == 'ready' and not record.get('release_blocker'), f'{key}: provenance is blocked')
         require('releaseReadiness: .ready,' in block, f'{key}: descriptor is blocked')
         require(record['model']['bundle'] == resource, f'{key}: bundle mismatch')
-        require(record['model']['asset'].startswith(field('assetPackModelPath') + '/'), f'{key}: model path mismatch')
+        model_path = field('assetPackModelPath')
+        require(record['model']['asset'] == model_path or record['model']['asset'].startswith(model_path + '/'), f'{key}: model path mismatch')
         upstream = record['upstream']
         revision = upstream.get('reference_revision') or upstream.get('local_cache_snapshot_revision')
         require(revision == field('upstreamRevision'), f'{key}: upstream revision mismatch')
@@ -66,8 +76,11 @@ def validate(root):
         require(size is not None, f'{key}: missing archive size')
         require(archive['archive_sha256'] == sha, f'{key}: archive hash mismatch')
         require(type(archive['archive_byte_count']) is int and archive['archive_byte_count'] == int(size.group(1).replace('_', '')) > 0, f'{key}: archive size mismatch')
-        require(archive['asset_url'] == release_base + '/' + field('assetPackID'), f'{key}: archive URL mismatch')
-        require(archive['tag'] == release_base.rsplit('/', 1)[1], f'{key}: release tag mismatch')
+        require(archive['hosting'] == 'apple', f'{key}: release is not Apple-hosted')
+        require(archive['app_bundle_id'] == 'no.blogspot.RawCull', f'{key}: app bundle ID mismatch')
+        require(archive['asset_pack_id'] == field('assetPackID'), f'{key}: asset-pack ID mismatch')
+        require(archive['processing_status'] in {'pending-upload', 'processing', 'succeeded'}, f'{key}: invalid processing status')
+        require(archive['review_state'] in {'not-submitted', 'in-review', 'approved'}, f'{key}: invalid review state')
         require(record['licences'], f'{key}: missing notices')
         for notice in record['licences']:
             require(hashlib.sha256((directory / notice['file']).read_bytes()).hexdigest() == notice['sha256'], f'{key}: notice hash mismatch')

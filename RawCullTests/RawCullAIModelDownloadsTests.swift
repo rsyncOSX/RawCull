@@ -10,12 +10,13 @@ struct RawCullAIModelDownloadsTests {
         let catalog = RawCullAIModelDownloadCatalog.production
         let preparedCatalog = RawCullAIModelDownloadCatalog.prepared
 
-        #expect(catalog.models.map(\.id) == [.clipDataComp, .sam3])
+        #expect(catalog.models.map(\.id) == [.clipDataComp, .sam3, .qwen3VL2B])
         #expect(preparedCatalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
             .efficientSAM,
-            .sam3
+            .sam3,
+            .qwen3VL2B
         ])
         #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
         #expect(
@@ -24,15 +25,15 @@ struct RawCullAIModelDownloadsTests {
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.expectedArchiveSHA256
-                == "cf433dcd199b44635a4ff0260bd8e79177e4907a4cfcb2f72043066b8cbe4ef7",
+                == "682661112f3c1f9396e3f5de605c92c9d0145b02cfc9ca2499cd99e1882cae17",
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.downloadByteCount
-                == 282_966_632,
+                == 282_967_277,
         )
         #expect(
             catalog.descriptor(for: .clipDataComp)?.installedByteCount
-                == 307_801_147,
+                == 307_800_172,
         )
         let openAI = try #require(
             preparedCatalog.descriptor(for: .clipOpenAI),
@@ -56,6 +57,7 @@ struct RawCullAIModelDownloadsTests {
                     .productionManifestURL,
             ).isConfigured,
         )
+        #expect(RawCullAIModelDownloadSource.appleHosted.isConfigured)
 
         let efficientSAM = try #require(
             preparedCatalog.descriptor(for: .efficientSAM),
@@ -75,11 +77,22 @@ struct RawCullAIModelDownloadsTests {
         #expect(sam3.assetPackModelPath == "Models/SAM3")
         #expect(
             sam3.expectedArchiveSHA256
-                == "dd0adc697060129435d4a70515011a37f547e1ad7cd530d943341bf3ca9184a9",
+                == "05a7784532b7652b194d712b7420aee86fcf24475037af554a32cd270eab5144",
         )
-        #expect(sam3.downloadByteCount == 1_542_689_157)
-        #expect(sam3.installedByteCount == 1_667_576_486)
+        #expect(sam3.downloadByteCount == 1_542_689_708)
+        #expect(sam3.installedByteCount == 1_667_570_378)
         #expect(sam3.releaseReadiness.isReady)
+
+        let qwen = try #require(preparedCatalog.descriptor(for: .qwen3VL2B))
+        #expect(qwen.upstreamRevision == "78448d793a7eb2f7a987a1da76d464384aa1becd")
+        #expect(qwen.assetPackModelPath == "Models/Qwen/qwen3_vl_2b")
+        #expect(
+            qwen.expectedArchiveSHA256
+                == "21ec31d75721e993f6ee1ea15714912c2d67f4ac5318ea63283041dd561c6c17",
+        )
+        #expect(qwen.downloadByteCount == 3_754_599_524)
+        #expect(qwen.installedByteCount == 5_395_195_663)
+        #expect(qwen.releaseReadiness.isReady)
 
         for descriptor in preparedCatalog.models {
             guard let resourceName =
