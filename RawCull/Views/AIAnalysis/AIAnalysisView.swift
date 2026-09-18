@@ -14,9 +14,11 @@ struct AIAnalysisView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AIAnalysisHeader(
+            AIAnalysisHeader()
+
+            AIAnalysisTabBar(
+                selection: $selectedTool,
                 inputSource: $inputSource,
-                selectedTool: $selectedTool,
                 selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
                 taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
             )
@@ -51,6 +53,7 @@ struct AIAnalysisView: View {
 
                     AIAnalysisThumbnailStrip(
                         files: inputFiles,
+                        inputSource: inputSource,
                         thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                     )
                 }
@@ -82,11 +85,12 @@ struct AIAnalysisView: View {
 
 private struct AIAnalysisThumbnailStrip: View {
     let files: [FileItem]
+    let inputSource: AIAnalysisInputSource
     let thumbnailSize: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Selected Images")
+            Text(inputSource == .gridSelection ? "Selected Images" : "Tagged Images")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
@@ -155,25 +159,53 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         case .qwen: "Qwen"
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .samCLIP: "sparkle.magnifyingglass"
+        case .qwen: "text.bubble"
+        }
+    }
 }
 
 private struct AIAnalysisHeader: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("AI Analysis")
+                .font(.title2.weight(.semibold))
+            Text("Analyze only the images you selected or tagged.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+        .padding(.bottom, 8)
+        .background(.ultraThinMaterial)
+    }
+}
+
+private struct AIAnalysisTabBar: View {
+    @Binding var selection: AIAnalysisTool
     @Binding var inputSource: AIAnalysisInputSource
-    @Binding var selectedTool: AIAnalysisTool
     let selectedCount: Int
     let taggedCount: Int
 
     var body: some View {
-        HStack(spacing: 18) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("AI Analysis")
-                    .font(.title2.weight(.semibold))
-                Text("Analyze only the images you selected or tagged.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        HStack(alignment: .center, spacing: 18) {
+            HStack(spacing: 4) {
+                ForEach(AIAnalysisTool.allCases) { tool in
+                    AIAnalysisTabButton(
+                        tool: tool,
+                        isSelected: selection == tool,
+                        action: { selection = tool },
+                    )
+                }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Analysis tabs")
 
-            Spacer()
+            Spacer(minLength: 24)
 
             Picker("Images", selection: $inputSource) {
                 Text("Selected (\(selectedCount))")
@@ -182,19 +214,45 @@ private struct AIAnalysisHeader: View {
                     .tag(AIAnalysisInputSource.taggedImages)
             }
             .pickerStyle(.segmented)
-            .frame(width: 280)
-
-            Picker("Analysis", selection: $selectedTool) {
-                ForEach(AIAnalysisTool.allCases) { tool in
-                    Text(tool.title).tag(tool)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 260)
+            .frame(minWidth: 240, idealWidth: 280, maxWidth: 320)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.top, 2)
+        .padding(.bottom, 10)
         .background(.ultraThinMaterial)
+    }
+}
+
+private struct AIAnalysisTabButton: View {
+    let tool: AIAnalysisTool
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(tool.title, systemImage: tool.systemImage)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .frame(minWidth: 132)
+                .background(
+                    isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
+                    in: .rect(cornerRadius: 7),
+                )
+                .overlay(alignment: .bottom) {
+                    if isSelected {
+                        Capsule()
+                            .fill(Color.accentColor)
+                            .frame(height: 2)
+                            .padding(.horizontal, 10)
+                    }
+                }
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint("Shows the \(tool.title) analysis.")
     }
 }
 
