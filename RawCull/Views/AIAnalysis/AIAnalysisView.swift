@@ -14,61 +14,83 @@ struct AIAnalysisView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AIAnalysisHeader()
-                .fixedSize(horizontal: false, vertical: true)
+            // Header & Control Bar
+            VStack(spacing: 12) {
+                AIAnalysisHeader()
 
-            AIAnalysisTabBar(
-                selection: $selectedTool,
-                inputSource: $inputSource,
-                selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
-                taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
-            )
-            .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 16) {
+                    Picker("Analysis Tool", selection: $selectedTool) {
+                        ForEach(AIAnalysisTool.allCases) { tool in
+                            Label(tool.title, systemImage: tool.systemImage)
+                                .tag(tool)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 320)
+
+                    Spacer()
+
+                    Picker("Source", selection: $inputSource) {
+                        Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
+                            .tag(AIAnalysisInputSource.gridSelection)
+                        Text("Tagged (\(viewModel.aiAnalysisFiles(for: .taggedImages).count))")
+                            .tag(AIAnalysisInputSource.taggedImages)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 220)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
 
             Divider()
 
-            VStack(spacing: 0) {
+            // Main Content Body
+            Group {
                 if inputFiles.isEmpty {
                     ContentUnavailableView(
                         "No Images to Analyze",
                         systemImage: "sparkles.rectangle.stack",
-                        description: Text(emptyDescription),
+                        description: Text(emptyDescription)
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     switch selectedTool {
                     case .samCLIP:
                         SAMCLIPAnalysisContainer(
                             viewModel: viewModel,
                             controller: deepAIReviewController,
-                            files: inputFiles,
+                            files: inputFiles
                         )
 
                     case .qwen:
                         QwenAnalysisView(
                             feature: qwenAnalysisFeature,
-                            files: inputFiles,
+                            files: inputFiles
                         )
                     }
-
-                    Divider()
-
-                    AIAnalysisThumbnailStrip(
-                        files: inputFiles,
-                        inputSource: inputSource,
-                        thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
-                    )
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Bottom Thumbnail Bar (Only shown when files are present)
+            if !inputFiles.isEmpty {
+                Divider()
+                AIAnalysisThumbnailStrip(
+                    files: inputFiles,
+                    inputSource: inputSource,
+                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid
+                )
+            }
         }
         .onChange(of: inputSource) { _, _ in
             qwenAnalysisFeature.cancel()
             deepAIReviewController.cancel()
         }
         .task {
-            if inputFiles.isEmpty,
-               !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+            if inputFiles.isEmpty && !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 inputSource = .taggedImages
             }
         }
@@ -78,87 +100,24 @@ struct AIAnalysisView: View {
         switch inputSource {
         case .gridSelection:
             "Select one or more images in Grid View, then return to AI Analysis."
-
         case .taggedImages:
             "Tag images with two or more stars before opening AI Analysis."
         }
     }
 }
 
-private struct AIAnalysisThumbnailStrip: View {
-    let files: [FileItem]
-    let inputSource: AIAnalysisInputSource
-    let thumbnailSize: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(inputSource == .gridSelection ? "Selected Images" : "Tagged Images")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    ForEach(files) { file in
-                        AIAnalysisThumbnailStripItem(
-                            file: file,
-                            thumbnailSize: thumbnailSize,
-                        )
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-            .scrollIndicators(.visible)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.96))
-    }
-}
-
-private struct AIAnalysisThumbnailStripItem: View {
-    let file: FileItem
-    let thumbnailSize: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            ThumbnailImageView(
-                file: file,
-                targetSize: thumbnailSize,
-                style: .grid,
-            )
-            .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1),
-            )
-
-            Text(file.name)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(width: CGFloat(thumbnailSize), alignment: .leading)
-        }
-        .frame(width: CGFloat(thumbnailSize))
-        .accessibilityLabel(file.name)
-    }
-}
+// MARK: - Subviews & Controls
 
 private enum AIAnalysisTool: String, CaseIterable, Identifiable {
     case samCLIP
     case qwen
 
-    var id: String {
-        rawValue
-    }
+    var id: String { rawValue }
 
     var title: String {
         switch self {
         case .samCLIP: "SAM 3 + CLIP"
-        case .qwen: "Qwen"
+        case .qwen: "Qwen Vision"
         }
     }
 
@@ -172,90 +131,80 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
 
 private struct AIAnalysisHeader: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("AI Analysis")
-                .font(.title2.weight(.semibold))
-            Text("Analyze only the images you selected or tagged.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI Analysis")
+                    .font(.title3.weight(.bold))
+                Text("Analyze selected or tagged batch items using local vision models.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 8)
-        .background(.ultraThinMaterial)
     }
 }
 
-private struct AIAnalysisTabBar: View {
-    @Binding var selection: AIAnalysisTool
-    @Binding var inputSource: AIAnalysisInputSource
-    let selectedCount: Int
-    let taggedCount: Int
+private struct AIAnalysisThumbnailStrip: View {
+    let files: [FileItem]
+    let inputSource: AIAnalysisInputSource
+    let thumbnailSize: Int
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 4) {
-                ForEach(AIAnalysisTool.allCases) { tool in
-                    AIAnalysisTabButton(
-                        tool: tool,
-                        isSelected: selection == tool,
-                        action: { selection = tool },
-                    )
-                }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(inputSource == .gridSelection ? "Selected Images" : "Tagged Images")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(files.count) items")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Analysis tabs")
-            .frame(maxWidth: .infinity, alignment: .center)
 
-            Picker("Images", selection: $inputSource) {
-                Label("Selected \(selectedCount)", systemImage: "checkmark.circle.fill")
-                    .tag(AIAnalysisInputSource.gridSelection)
-                Label("Tagged \(taggedCount)", systemImage: "tag.fill")
-                    .tag(AIAnalysisInputSource.taggedImages)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
-            .accessibilityLabel("Image source")
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 2)
-        .padding(.bottom, 10)
-        .background(.ultraThinMaterial)
-    }
-}
-
-private struct AIAnalysisTabButton: View {
-    let tool: AIAnalysisTool
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(tool.title, systemImage: tool.systemImage)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .frame(minWidth: 132)
-                .background(
-                    isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
-                    in: .rect(cornerRadius: 7),
-                )
-                .overlay(alignment: .bottom) {
-                    if isSelected {
-                        Capsule()
-                            .fill(Color.accentColor)
-                            .frame(height: 2)
-                            .padding(.horizontal, 10)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 8) {
+                    ForEach(files) { file in
+                        AIAnalysisThumbnailStripItem(
+                            file: file,
+                            thumbnailSize: thumbnailSize
+                        )
                     }
                 }
-                .contentShape(.rect)
+                .padding(.vertical, 2)
+            }
+            .frame(height: CGFloat(thumbnailSize) + 24)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityHint("Shows the \(tool.title) analysis.")
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+private struct AIAnalysisThumbnailStripItem: View {
+    let file: FileItem
+    let thumbnailSize: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ThumbnailImageView(
+                file: file,
+                targetSize: thumbnailSize,
+                style: .grid
+            )
+            .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+            )
+
+            Text(file.name)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(width: CGFloat(thumbnailSize))
     }
 }
 
@@ -267,7 +216,7 @@ private struct SAMCLIPAnalysisContainer: View {
     var body: some View {
         if let signature = BurstGroupSignature(
             files: files,
-            catalog: viewModel.selectedSource?.url,
+            catalog: viewModel.selectedSource?.url
         ) {
             DeepAIReviewSheetView(
                 controller: controller,
@@ -279,13 +228,13 @@ private struct SAMCLIPAnalysisContainer: View {
                 },
                 onClose: {
                     viewModel.selectMainViewMode(.grid)
-                },
+                }
             )
         } else {
             ContentUnavailableView(
                 "Catalog Required",
                 systemImage: "folder.badge.questionmark",
-                description: Text("Select a catalog before running SAM 3 + CLIP analysis."),
+                description: Text("Select a catalog before running SAM 3 + CLIP analysis.")
             )
         }
     }
@@ -304,9 +253,10 @@ private struct QwenAnalysisView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                TextField("Additional analysis criteria", text: $feature.prompt)
+        VStack(spacing: 12) {
+            // Action Control Bar
+            HStack(spacing: 12) {
+                TextField("Additional analysis prompt or focus criteria...", text: $feature.prompt)
                     .textFieldStyle(.roundedBorder)
                     .disabled(feature.isRunning)
                     .onSubmit(run)
@@ -315,52 +265,69 @@ private struct QwenAnalysisView: View {
                     Button("Cancel", systemImage: "stop.circle", role: .cancel) {
                         feature.cancel()
                     }
+                    .buttonStyle(.bordered)
                 } else {
-                    Button("Analyze \(files.count) Images", systemImage: "bubble.left.and.text.bubble.right") {
-                        run()
+                    Button(action: run) {
+                        Label("Analyze \(files.count) Images", systemImage: "sparkles")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!feature.canRun)
                 }
             }
 
-            QwenModelAvailabilityView(status: feature.modelStatus)
+            HStack {
+                QwenModelAvailabilityView(status: feature.modelStatus)
+                Spacer()
+            }
 
             if let progress = feature.progress {
                 ProgressView(
                     value: Double(progress.completedCount),
-                    total: Double(max(progress.totalCount, 1)),
+                    total: Double(max(progress.totalCount, 1))
                 ) {
-                    Text(progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis")
-                } currentValueLabel: {
-                    Text("\(progress.completedCount) of \(progress.totalCount)")
-                        .monospacedDigit()
+                    HStack {
+                        Text(progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis…")
+                        Spacer()
+                        Text("\(progress.completedCount) / \(progress.totalCount)")
+                            .monospacedDigit()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
+                .progressViewStyle(.linear)
             }
 
             if let failureMessage = feature.failureMessage {
-                Label(failureMessage, systemImage: "exclamationmark.triangle")
+                Label(failureMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
                     .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
+            // Data Presentation Split
             if feature.results.isEmpty {
                 ContentUnavailableView(
                     "No Qwen Results Yet",
                     systemImage: "text.bubble",
-                    description: Text("Qwen returns sortable assessments when possible and preserves other answers as free-form responses."),
+                    description: Text("Run analysis to evaluate composition, exposure, and key details across your batch.")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HSplitView {
                     QwenResultsTable(
                         results: feature.results,
-                        selection: $selectedResultID,
+                        selection: $selectedResultID
                     )
-                    .frame(minWidth: 680)
+                    .frame(minWidth: 400, idealWidth: 550)
 
                     QwenAssessmentDetail(result: selectedResult)
-                        .frame(minWidth: 300, idealWidth: 380)
+                        .frame(minWidth: 260, idealWidth: 320)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                )
             }
         }
         .padding(16)
@@ -380,27 +347,32 @@ private struct QwenModelAvailabilityView: View {
     let status: QwenModelStatus
 
     var body: some View {
-        switch status {
-        case .notConfigured:
-            Label("Choose a local Qwen vision model in Settings › AI.", systemImage: "gearshape")
-                .foregroundStyle(.secondary)
+        HStack(spacing: 6) {
+            switch status {
+            case .notConfigured:
+                Label("Choose a local Qwen vision model in Settings › AI.", systemImage: "gearshape")
+                    .foregroundStyle(.secondary)
 
-        case .checking:
-            ProgressView("Validating the local Qwen model…")
-                .controlSize(.small)
+            case .checking:
+                ProgressView()
+                    .controlSize(.small)
+                Text("Validating local model…")
+                    .foregroundStyle(.secondary)
 
-        case let .available(_, modelName):
-            Label("Local model: \(modelName)", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+            case let .available(_, modelName):
+                Label("Model ready: \(modelName)", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
 
-        case let .missing(url):
-            Label("Qwen model not found at \(url.path)", systemImage: "questionmark.folder")
-                .foregroundStyle(.orange)
+            case let .missing(url):
+                Label("Model missing at \(url.lastPathComponent)", systemImage: "questionmark.folder")
+                    .foregroundStyle(.orange)
 
-        case let .invalid(_, reason):
-            Label(reason, systemImage: "xmark.circle.fill")
-                .foregroundStyle(.red)
+            case let .invalid(_, reason):
+                Label(reason, systemImage: "xmark.circle.fill")
+                    .foregroundStyle(.red)
+            }
         }
+        .font(.caption)
     }
 }
 
@@ -411,29 +383,52 @@ private struct QwenResultsTable: View {
     var body: some View {
         Table(results, selection: $selection) {
             TableColumn("File") { result in
-                Text(result.fileName).lineLimit(1)
+                Text(result.fileName)
+                    .lineLimit(1)
             }
+            .width(min: 120, ideal: 180)
+
             TableColumn("Overall") { result in
-                Text(score(result.assessment?.overallScore)).monospacedDigit()
+                Text(score(result.assessment?.overallScore))
+                    .monospacedDigit()
             }
+            .width(60)
+
             TableColumn("Composition") { result in
                 Text(rating(result.assessment?.compositionScore))
             }
+            .width(80)
+
             TableColumn("Exposure") { result in
                 Text(rating(result.assessment?.exposureScore))
             }
-            TableColumn("Visibility") { result in
-                Text(rating(result.assessment?.subjectVisibilityScore))
-            }
+            .width(70)
+
             TableColumn("Status") { result in
                 if result.assessment != nil {
-                    Text("Structured").foregroundStyle(.green)
+                    Text("Structured")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.green)
                 } else if result.freeformResponse != nil {
-                    Text("Free-form").foregroundStyle(.blue)
+                    Text("Free-form")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.blue)
                 } else {
-                    Text("Failed").foregroundStyle(.orange)
+                    Text("Failed")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.orange)
                 }
             }
+            .width(90)
         }
     }
 
@@ -451,70 +446,98 @@ private struct QwenAssessmentDetail: View {
 
     var body: some View {
         ScrollView {
-            if let result, let assessment = result.assessment {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(result.fileName).font(.headline)
-                    LabeledContent("Subject", value: assessment.subject)
-                    LabeledContent(
-                        "Confidence",
-                        value: assessment.confidence.formatted(.percent.precision(.fractionLength(0))),
-                    )
-                    if let eyesOpen = assessment.eyesOpen {
-                        LabeledContent("Eyes", value: eyesOpen ? "Open" : "Closed")
+            VStack(alignment: .leading, spacing: 14) {
+                if let result, let assessment = result.assessment {
+                    Text(result.fileName)
+                        .font(.headline)
+                        .lineLimit(1)
+
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                        GridRow {
+                            Text("Subject")
+                                .foregroundStyle(.secondary)
+                            Text(assessment.subject)
+                                .bold()
+                        }
+                        GridRow {
+                            Text("Confidence")
+                                .foregroundStyle(.secondary)
+                            Text(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))
+                                .monospacedDigit()
+                        }
+                        if let eyesOpen = assessment.eyesOpen {
+                            GridRow {
+                                Text("Eyes")
+                                    .foregroundStyle(.secondary)
+                                Text(eyesOpen ? "Open" : "Closed")
+                            }
+                        }
                     }
+                    .font(.subheadline)
+
                     Divider()
-                    QwenAssessmentList(title: "Strengths", values: assessment.strengths)
-                    QwenAssessmentList(title: "Problems", values: assessment.problems)
+
+                    QwenAssessmentList(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
+                    QwenAssessmentList(title: "Issues", values: assessment.problems, icon: "exclamationmark.triangle", color: .orange)
+
+                } else if let result, let response = result.freeformResponse {
+                    Text(result.fileName)
+                        .font(.headline)
+                    Text("Free-form Assessment")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(response)
+                        .font(.callout)
+                        .textSelection(.enabled)
+
+                } else if let failure = result?.failure {
+                    ContentUnavailableView(
+                        "Analysis Failed",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(failure)
+                    )
+                } else {
+                    ContentUnavailableView(
+                        "No Selection",
+                        systemImage: "photo",
+                        description: Text("Select a row in the table to inspect analysis breakdowns.")
+                    )
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-            } else if let result, let response = result.freeformResponse {
-                QwenFreeformResponse(
-                    fileName: result.fileName,
-                    response: response,
-                )
-            } else if let failure = result?.failure {
-                ContentUnavailableView(
-                    "Analysis Failed",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(failure),
-                )
-            } else {
-                ContentUnavailableView("Select a Photo", systemImage: "photo")
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-}
-
-private struct QwenFreeformResponse: View {
-    let fileName: String
-    let response: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(fileName).font(.headline)
-            Label("Free-form response", systemImage: "text.bubble")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(response)
-                .textSelection(.enabled)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor))
     }
 }
 
 private struct QwenAssessmentList: View {
-    let title: LocalizedStringKey
+    let title: String
     let values: [String]
+    let icon: String
+    let color: Color
 
     var body: some View {
-        Text(title).font(.headline)
-        if values.isEmpty {
-            Text("None reported").foregroundStyle(.secondary)
-        } else {
-            ForEach(values, id: \.self) { value in
-                Text("• \(value)")
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(color)
+
+            if values.isEmpty {
+                Text("None detected")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(values, id: \.self) { value in
+                        HStack(alignment: .top, spacing: 6) {
+                            Text("•")
+                            Text(value)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
     }
