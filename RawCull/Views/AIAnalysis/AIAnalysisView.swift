@@ -15,6 +15,7 @@ struct AIAnalysisView: View {
     var body: some View {
         VStack(spacing: 0) {
             AIAnalysisHeader()
+                .fixedSize(horizontal: false, vertical: true)
 
             AIAnalysisTabBar(
                 selection: $selectedTool,
@@ -22,6 +23,7 @@ struct AIAnalysisView: View {
                 selectedCount: viewModel.aiAnalysisFiles(for: .gridSelection).count,
                 taggedCount: viewModel.aiAnalysisFiles(for: .taggedImages).count,
             )
+            .fixedSize(horizontal: false, vertical: true)
 
             Divider()
 
@@ -192,7 +194,7 @@ private struct AIAnalysisTabBar: View {
     let taggedCount: Int
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
+        VStack(spacing: 10) {
             HStack(spacing: 4) {
                 ForEach(AIAnalysisTool.allCases) { tool in
                     AIAnalysisTabButton(
@@ -204,17 +206,18 @@ private struct AIAnalysisTabBar: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Analysis tabs")
-
-            Spacer(minLength: 24)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             Picker("Images", selection: $inputSource) {
-                Text("Selected (\(selectedCount))")
+                Label("Selected \(selectedCount)", systemImage: "checkmark.circle.fill")
                     .tag(AIAnalysisInputSource.gridSelection)
-                Text("Tagged (\(taggedCount))")
+                Label("Tagged \(taggedCount)", systemImage: "tag.fill")
                     .tag(AIAnalysisInputSource.taggedImages)
             }
             .pickerStyle(.segmented)
-            .frame(minWidth: 240, idealWidth: 280, maxWidth: 320)
+            .labelsHidden()
+            .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
+            .accessibilityLabel("Image source")
         }
         .padding(.horizontal, 20)
         .padding(.top, 2)
