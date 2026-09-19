@@ -72,21 +72,31 @@ struct QwenAnalysisView: View {
             }
 
             // Data Presentation Split
-            HSplitView {
-                QwenResultsTable(
-                    results: feature.results,
-                    selection: $selectedResultID,
-                )
-                .frame(minWidth: 400, idealWidth: 550)
 
-                QwenAssessmentDetail(result: selectedResult)
-                    .frame(minWidth: 260, idealWidth: 320)
+            if feature.results.isEmpty {
+                ContentUnavailableView(
+                    "No Qwen Results Yet",
+                    systemImage: "text.bubble",
+                    description: Text("Run analysis to evaluate composition, exposure, and key details across your batch."),
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HSplitView {
+                    QwenResultsTable(
+                        results: feature.results,
+                        selection: $selectedResultID,
+                    )
+                    .frame(minWidth: 400, idealWidth: 550)
+
+                    QwenAssessmentDetail(result: selectedResult)
+                        .frame(minWidth: 260, idealWidth: 320)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1),
+                )
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1),
-            )
         }
         .padding(16)
         .task(id: feature.results.map(\.id)) {
