@@ -124,7 +124,7 @@ struct QwenFeatureTests {
 
     @MainActor
     @Test
-    func `Analysis keeps prior results and only processes newly selected files`() async throws {
+    func `Analysis keeps prior results and only processes newly selected files`() async {
         let model = QwenModelStub()
         let feature = RawCullQwenAnalysisFeature(
             modelManager: model,
@@ -212,7 +212,7 @@ private actor QwenModelStub: QwenModelManaging {
         .available(url: url, modelName: "Qwen Test")
     }
 
-    func assess(criteria: String, image: CGImage) -> QwenModelResponse {
+    func assess(criteria _: String, image _: CGImage) -> QwenModelResponse {
         count += 1
         return .freeform("Completed")
     }
@@ -225,9 +225,11 @@ private actor QwenModelStub: QwenModelManaging {
 }
 
 private struct QwenImageLoaderStub: RawImageLoading {
-    func fileMetadata(for url: URL) async -> RawImageFileMetadata? { nil }
+    func fileMetadata(for _: URL) async -> RawImageFileMetadata? {
+        nil
+    }
 
-    func thumbnailCGImage(for url: URL, maxPixelSize: Int) async -> CGImage? {
+    func thumbnailCGImage(for _: URL, maxPixelSize _: Int) async -> CGImage? {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         return CGContext(
             data: nil,
@@ -240,12 +242,19 @@ private struct QwenImageLoaderStub: RawImageLoading {
         )?.makeImage()
     }
 
-    func thumbnailImage(for url: URL, maxPixelSize: Int) async -> NSImage? { nil }
-    func previewCGImage(for url: URL) async -> CGImage? { nil }
+    func thumbnailImage(for _: URL, maxPixelSize _: Int) async -> NSImage? {
+        nil
+    }
+
+    func previewCGImage(for _: URL) async -> CGImage? {
+        nil
+    }
 
     func embeddedPreviewJPEGData(
-        for url: URL,
-        matchingPixelWidth pixelWidth: Int,
-        height pixelHeight: Int,
-    ) async -> Data? { nil }
+        for _: URL,
+        matchingPixelWidth _: Int,
+        height _: Int,
+    ) async -> Data? {
+        nil
+    }
 }

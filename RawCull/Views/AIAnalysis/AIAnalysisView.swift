@@ -20,6 +20,7 @@ struct AIAnalysisView: View {
         switch selectedTool {
         case .samCLIP:
             !deepAIReviewController.completedCandidates.isEmpty
+
         case .qwen:
             !qwenAnalysisFeature.results.isEmpty
         }

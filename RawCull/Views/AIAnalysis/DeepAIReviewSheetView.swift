@@ -92,7 +92,6 @@ private struct DeepAIReviewSheetContent: View {
     let completedCandidates: [DeepAIReviewCandidate]
     let state: DeepAIReviewPresentationState
 
-    @ViewBuilder
     var body: some View {
         if completedCandidates.isEmpty {
             emptyContent
