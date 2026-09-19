@@ -5,8 +5,6 @@ struct DeepAIReviewSheetView: View {
     let groupID: Int
     let groupSignature: BurstGroupSignature
     let files: [FileItem]
-    let onApply: (DeepAIReviewResult) -> Void
-    let onClose: () -> Void
 
     private var result: DeepAIReviewResult? {
         controller.result(for: groupSignature)
@@ -24,11 +22,6 @@ struct DeepAIReviewSheetView: View {
                     }
                 },
                 onCancel: controller.cancel,
-                onApply: {
-                    if let result {
-                        onApply(result)
-                    }
-                },
             )
 
             Divider()
@@ -63,7 +56,6 @@ private struct DeepAIReviewSheetControls: View {
     let canApply: Bool
     let onRun: () -> Void
     let onCancel: () -> Void
-    let onApply: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -76,11 +68,6 @@ private struct DeepAIReviewSheetControls: View {
             .frame(maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
-
-            Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
-                .buttonStyle(.borderedProminent)
-                .disabled(!canApply || controller.isRunning)
-                .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
 
             Spacer()
 
