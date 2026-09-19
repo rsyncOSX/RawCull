@@ -7,13 +7,6 @@ nonisolated enum AIAnalysisInputSource: String, CaseIterable, Identifiable, Send
     var id: String {
         rawValue
     }
-
-    var title: String {
-        switch self {
-        case .gridSelection: "Grid Selection"
-        case .taggedImages: "Tagged Images"
-        }
-    }
 }
 
 extension RawCullViewModel {
@@ -30,13 +23,5 @@ extension RawCullViewModel {
             let taggedNames = Set(extractTaggedfilenames())
             return files.filter { taggedNames.contains($0.name) }
         }
-    }
-
-    func selectAIAnalysisRecommendation(_ result: DeepAIReviewResult) {
-        guard let recommendedFileID = result.recommendedFileID,
-              files.contains(where: { $0.id == recommendedFileID })
-        else { return }
-        selectedFileID = recommendedFileID
-        selectedFileIDs = [recommendedFileID]
     }
 }

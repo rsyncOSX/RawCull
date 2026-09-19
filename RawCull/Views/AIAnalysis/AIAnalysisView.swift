@@ -210,4 +210,3 @@ private struct AIAnalysisThumbnailStripItem: View {
         .frame(width: CGFloat(thumbnailSize))
     }
 }
-

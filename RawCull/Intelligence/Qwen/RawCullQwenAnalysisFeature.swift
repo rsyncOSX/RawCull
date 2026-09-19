@@ -141,10 +141,4 @@ final class RawCullQwenAnalysisFeature {
         progress = nil
         isRunning = false
     }
-
-    func clearResults() {
-        guard !isRunning else { return }
-        results = []
-        failureMessage = nil
-    }
 }

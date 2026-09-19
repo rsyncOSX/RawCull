@@ -72,10 +72,6 @@ final class DeepAIReviewController {
             || feature.isRunning
     }
 
-    func isRunning(groupID: Int?) -> Bool {
-        feature.isRunning && feature.state.activeGroupID == groupID
-    }
-
     func result(for signature: BurstGroupSignature) -> DeepAIReviewResult? {
         feature.result(for: signature)
     }
