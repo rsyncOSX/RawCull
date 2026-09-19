@@ -170,6 +170,10 @@ struct RawCullApplicationState {
         let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
             modelManager: qwenModelManager,
         )
+        let deepAIReviewFeature = DeepAIReviewFeature(
+            availability: integration.capabilities().inProcessMaskGeneration,
+        )
+        integration.bindDeepAIReviewFeature(deepAIReviewFeature)
         let settingsModel = RawCullAISettingsModel(
             integration: integration,
             evidenceScan: evidenceScan,
@@ -193,7 +197,7 @@ struct RawCullApplicationState {
             similarityFeature: similarityFeature,
         )
         let deepAIReviewController = DeepAIReviewController(
-            feature: integration.deepAIReviewFeature,
+            feature: deepAIReviewFeature,
         )
         let viewModel = RawCullViewModel(
             similarityModel: similarityModel,
@@ -220,7 +224,7 @@ struct RawCullApplicationState {
         assert(qwenAnalysisFeature === intelligenceRuntime.qwenAnalysisFeature)
         assert(
             intelligenceRuntime.deepAIReviewController.sharesFeatureIdentity(
-                with: integration.deepAIReviewFeature,
+                with: deepAIReviewFeature,
             ),
         )
         assert(

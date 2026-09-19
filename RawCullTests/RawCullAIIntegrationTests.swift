@@ -41,7 +41,7 @@ struct RawCullAIIntegrationTests {
 
     @MainActor
     @Test
-    func `Composition root reports the complete Phase 1 capability surface`() async throws {
+    func `Integration reports the complete Phase 1 capability surface`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 

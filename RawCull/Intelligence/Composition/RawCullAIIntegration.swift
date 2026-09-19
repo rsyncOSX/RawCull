@@ -8,10 +8,10 @@ import PhotoAIStorage
 import PhotoAIWorkflows
 import VisionFeaturePrintBackend
 
-/// RawCull's single composition root for reusable AI services.
+/// RawCull's reusable AI backends, model resources, and service configuration.
 ///
-/// Feature models will receive narrow services from this root as each phase is
-/// implemented. Views and `RawCullViewModel` do not traverse the composition root.
+/// `RawCullApplicationState` constructs stateful features and binds them to the
+/// services they need. Views and `RawCullViewModel` do not traverse this object.
 @MainActor
 final class RawCullAIIntegration {
     let paths: RawCullAIPaths
@@ -33,12 +33,11 @@ final class RawCullAIIntegration {
     private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
     private(set) var sam3Segmentation: SegmentationService
     private(set) var subjectMaskSelector: SubjectMaskSelector
-    let deepAIReviewFeature: DeepAIReviewFeature
-
     private let subjectMaskStorageCapability: RawCullAICapabilityStatus
     private let subjectMaskStores: [any SubjectMaskStoring]
     private let defaultPrompt: SubjectSegmentationPrompt
     private let inputMaxSide: Int
+    private weak var deepAIReviewFeature: DeepAIReviewFeature?
     private var selectedSegmentationModel: RawCullSegmentationModel = .defaultSelection
     private var segmentationProviders: [RawCullSegmentationModel: any SubjectSegmenting] = [:]
     private var activeSegmentationModelIdentity: ModelIdentity?
@@ -136,11 +135,6 @@ final class RawCullAIIntegration {
             segmentationService: segmentation,
         )
 
-        self.deepAIReviewFeature = DeepAIReviewFeature(
-            availability: .checking(
-                expectedLocations: defaultSegmentationCandidateURLs,
-            ),
-        )
         self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
             segmentationModels: [
@@ -164,6 +158,17 @@ final class RawCullAIIntegration {
 
     func capabilities() -> RawCullAICapabilities {
         capabilitySnapshot
+    }
+
+    func bindDeepAIReviewFeature(_ feature: DeepAIReviewFeature) {
+        if let deepAIReviewFeature {
+            assert(deepAIReviewFeature === feature)
+            return
+        }
+        deepAIReviewFeature = feature
+        activateSelectedSegmentationProvider(
+            availability: capabilitySnapshot.inProcessMaskGeneration,
+        )
     }
 
     func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
@@ -425,7 +430,7 @@ final class RawCullAIIntegration {
         } else {
             installUnavailableSegmentationProviderIfNeeded()
         }
-        deepAIReviewFeature.install(
+        deepAIReviewFeature?.install(
             service: provider.map { _ in
                 RawCullDeepAIReviewPipeline(
                     selector: subjectMaskSelector,
