@@ -752,7 +752,7 @@ extension RawCullViewModel {
         guard burstAnalysisProgress.isRunning || completedAnalysisIsScoped
         else { return }
 
-        deepAIReviewController.reset()
+        deepAIReviewController.cancel()
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstAnalysisResults = [:]
@@ -765,7 +765,7 @@ extension RawCullViewModel {
     }
 
     func cancelAndResetBurstAnalysis() {
-        deepAIReviewController.reset()
+        deepAIReviewController.cancel()
         burstAnalysisCoordinator.cancel()
         completedBurstAnalysisContext = nil
         burstAnalysisResults = [:]

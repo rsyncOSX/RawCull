@@ -15,7 +15,6 @@ struct DeepAIReviewSheetView: View {
             DeepAIReviewSheetControls(
                 controller: controller,
                 canRun: !files.isEmpty && !controller.isActionUnavailable,
-                canApply: result?.recommendedFileID != nil,
                 onRun: {
                     Task {
                         await controller.start(for: files)
@@ -29,6 +28,8 @@ struct DeepAIReviewSheetView: View {
             DeepAIReviewSheetContent(
                 controller: controller,
                 files: files,
+                completedFiles: controller.completedFiles,
+                completedCandidates: controller.completedCandidates,
                 state: controller.presentationState(
                     groupID: groupID,
                     groupSignature: groupSignature,
@@ -53,7 +54,6 @@ struct DeepAIReviewSheetView: View {
 private struct DeepAIReviewSheetControls: View {
     @Bindable var controller: DeepAIReviewController
     let canRun: Bool
-    let canApply: Bool
     let onRun: () -> Void
     let onCancel: () -> Void
 
@@ -88,16 +88,49 @@ private struct DeepAIReviewSheetControls: View {
 private struct DeepAIReviewSheetContent: View {
     let controller: DeepAIReviewController
     let files: [FileItem]
+    let completedFiles: [FileItem]
+    let completedCandidates: [DeepAIReviewCandidate]
     let state: DeepAIReviewPresentationState
 
+    @ViewBuilder
     var body: some View {
-        switch state {
-        case let .completed(result):
-            DeepAIReviewCompletedContent(
+        if completedCandidates.isEmpty {
+            emptyContent
+        } else {
+            if case let .preparing(_, totalCount) = state {
+                DeepAIReviewProgressHeader(
+                    completedCount: 0,
+                    totalCount: totalCount,
+                    currentFileName: nil,
+                )
+            } else if case let .running(progress) = state {
+                DeepAIReviewProgressHeader(
+                    completedCount: progress.completedCount,
+                    totalCount: progress.totalCount,
+                    currentFileName: progress.currentFileName,
+                )
+            } else if case .completing = state {
+                ProgressView("Completing Deep Review…")
+            }
+
+            DeepAIReviewHistoryContent(
                 controller: controller,
-                files: files,
-                result: result,
+                files: completedFiles,
+                candidates: completedCandidates,
             )
+        }
+    }
+
+    @ViewBuilder
+    private var emptyContent: some View {
+        switch state {
+        case .completed:
+            ContentUnavailableView(
+                "No Deep Review Yet",
+                systemImage: "sparkle.magnifyingglass",
+                description: Text("Select new images to analyze."),
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case let .preparing(_, totalCount):
             let placeholders = files.enumerated().map { index, file in
@@ -188,26 +221,24 @@ private struct DeepAIReviewSheetContent: View {
     }
 }
 
-private struct DeepAIReviewCompletedContent: View {
+private struct DeepAIReviewHistoryContent: View {
     let controller: DeepAIReviewController
     let files: [FileItem]
-    let result: DeepAIReviewResult
+    let candidates: [DeepAIReviewCandidate]
 
     @State private var selectedCandidateID: UUID?
 
     private var selectedCandidate: DeepAIReviewCandidate? {
         selectedCandidateID.flatMap { id in
-            result.candidates.first { $0.fileID == id }
+            candidates.first { $0.fileID == id }
         }
     }
 
     var body: some View {
-        DeepAIReviewSummaryView(result: result)
-
         HSplitView {
             DeepAIReviewCandidateTable(
-                candidates: result.candidates,
-                winnerID: result.recommendedFileID,
+                candidates: candidates,
+                winnerID: nil,
                 selection: $selectedCandidateID,
             )
             .frame(minWidth: 660)
@@ -219,11 +250,10 @@ private struct DeepAIReviewCompletedContent: View {
             )
             .frame(minWidth: 330, idealWidth: 420)
         }
-        .task(id: result.timestamp) {
-            let availableIDs = Set(result.candidates.map(\.fileID))
+        .task(id: candidates.map(\.fileID)) {
+            let availableIDs = Set(candidates.map(\.fileID))
             if selectedCandidateID.map(availableIDs.contains) != true {
-                selectedCandidateID = result.recommendedFileID
-                    ?? result.candidates.first?.fileID
+                selectedCandidateID = candidates.first?.fileID
             }
         }
     }

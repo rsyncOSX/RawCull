@@ -181,6 +181,7 @@ final class DeepAIReviewFeature {
     private(set) var state: DeepAIReviewState = .idle
     private(set) var availability: RawCullAICapabilityStatus
     private(set) var results: [BurstGroupSignature: DeepAIReviewResult] = [:]
+    private(set) var completedCandidatesByFileID: [UUID: DeepAIReviewCandidate] = [:]
     private(set) var maskCandidatesByFileID: [UUID: DeepAIReviewCandidate] = [:]
 
     @ObservationIgnored private var service: (any DeepAIReviewServicing)?
@@ -210,6 +211,12 @@ final class DeepAIReviewFeature {
 
     func maskCandidate(for fileID: UUID) -> DeepAIReviewCandidate? {
         maskCandidatesByFileID[fileID]
+    }
+
+    var completedCandidates: [DeepAIReviewCandidate] {
+        completedCandidatesByFileID.values.sorted {
+            $0.fileName.localizedStandardCompare($1.fileName) == .orderedAscending
+        }
     }
 
     func install(
@@ -293,6 +300,7 @@ final class DeepAIReviewFeature {
                 )
                 feature.state = .completing(groupID: request.groupID)
                 feature.results[result.groupSignature] = result
+                feature.retainCompletedCandidates(result.candidates)
                 feature.rebuildMaskCandidateIndex()
                 feature.state = .completed(result)
                 Logger.process.debugMessageOnly(
@@ -353,6 +361,7 @@ final class DeepAIReviewFeature {
         cancel()
         state = .idle
         results = [:]
+        completedCandidatesByFileID = [:]
         maskCandidatesByFileID = [:]
     }
 
@@ -362,17 +371,24 @@ final class DeepAIReviewFeature {
                 + "\(progress.completedCount)/\(progress.totalCount) for group \(progress.groupID)",
         )
         guard self.generation == generation, !Task.isCancelled else { return }
+        retainCompletedCandidates(progress.candidates)
         state = .running(progress)
     }
 
-    private func rebuildMaskCandidateIndex() {
-        maskCandidatesByFileID = results.values
-            .sorted { $0.timestamp < $1.timestamp }
-            .flatMap(\.candidates)
-            .reduce(into: [:]) { candidates, candidate in
-                guard candidate.isCompleted, candidate.maskPromptUsed != nil else { return }
-                candidates[candidate.fileID] = candidate
+    private func retainCompletedCandidates(_ candidates: [DeepAIReviewCandidate]) {
+        for candidate in candidates where candidate.isCompleted {
+            completedCandidatesByFileID[candidate.fileID] = candidate
+            if candidate.maskPromptUsed != nil {
+                maskCandidatesByFileID[candidate.fileID] = candidate
             }
+        }
+    }
+
+    private func rebuildMaskCandidateIndex() {
+        maskCandidatesByFileID = completedCandidatesByFileID.reduce(into: [:]) { candidates, entry in
+            guard entry.value.maskPromptUsed != nil else { return }
+            candidates[entry.key] = entry.value
+        }
     }
 
     private nonisolated static func unavailableReason(

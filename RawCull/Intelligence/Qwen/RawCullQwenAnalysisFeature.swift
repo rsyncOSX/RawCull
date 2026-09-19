@@ -31,6 +31,11 @@ final class RawCullQwenAnalysisFeature {
             && !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    func filesNeedingAnalysis(from files: [FileItem]) -> [FileItem] {
+        let analyzedIDs = Set(results.map(\.fileID))
+        return files.filter { !analyzedIDs.contains($0.id) }
+    }
+
     func updateModelStatus(_ status: QwenModelStatus) {
         modelStatus = status
         if !status.isAvailable, isRunning {
@@ -40,28 +45,27 @@ final class RawCullQwenAnalysisFeature {
 
     func analyze(_ files: [FileItem]) async {
         let criteria = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard canRun, !criteria.isEmpty, !files.isEmpty else { return }
+        let pendingFiles = filesNeedingAnalysis(from: files)
+        guard canRun, !criteria.isEmpty, !pendingFiles.isEmpty else { return }
 
-        cancel()
         generation &+= 1
         let runGeneration = generation
         failureMessage = nil
-        results = []
         progress = QwenBatchProgress(
             completedCount: 0,
-            totalCount: files.count,
-            currentFileName: files.first?.name,
+            totalCount: pendingFiles.count,
+            currentFileName: pendingFiles.first?.name,
         )
         isRunning = true
 
         let feature = self
         let task = Task {
             var completed: [QwenPhotoAnalysisResult] = []
-            for (index, file) in files.enumerated() {
+            for (index, file) in pendingFiles.enumerated() {
                 guard !Task.isCancelled, feature.generation == runGeneration else { break }
                 feature.progress = QwenBatchProgress(
                     completedCount: completed.count,
-                    totalCount: files.count,
+                    totalCount: pendingFiles.count,
                     currentFileName: file.name,
                 )
                 do {
@@ -108,17 +112,17 @@ final class RawCullQwenAnalysisFeature {
                 }
 
                 guard feature.generation == runGeneration else { return }
-                feature.results = completed
-                let nextName = files.indices.contains(index + 1) ? files[index + 1].name : nil
+                feature.appendResults(completed)
+                let nextName = pendingFiles.indices.contains(index + 1) ? pendingFiles[index + 1].name : nil
                 feature.progress = QwenBatchProgress(
                     completedCount: completed.count,
-                    totalCount: files.count,
+                    totalCount: pendingFiles.count,
                     currentFileName: nextName,
                 )
             }
 
             guard feature.generation == runGeneration else { return }
-            feature.results = completed
+            feature.appendResults(completed)
             feature.progress = nil
             feature.isRunning = false
             feature.task = nil
@@ -132,6 +136,12 @@ final class RawCullQwenAnalysisFeature {
         } onCancel: {
             task.cancel()
         }
+    }
+
+    private func appendResults(_ newResults: [QwenPhotoAnalysisResult]) {
+        let newIDs = Set(newResults.map(\.fileID))
+        results.removeAll { newIDs.contains($0.fileID) }
+        results.append(contentsOf: newResults)
     }
 
     func cancel() {

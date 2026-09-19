@@ -55,6 +55,25 @@ struct DeepAIReviewFeatureTests {
 
     @MainActor
     @Test
+    func `Cancelling Deep Review retains candidates that already completed`() async {
+        let request = makeRequest(candidateCount: 2)
+        let service = PartiallyCompletedDeepReviewService()
+        let feature = DeepAIReviewFeature(
+            availability: .available(location: nil),
+            service: service,
+        )
+
+        let run = Task { await feature.start(request) }
+        await service.waitUntilProgressWasSent()
+        feature.cancel()
+        await run.value
+
+        #expect(feature.completedCandidates.map(\.fileID) == [request.candidates[0].fileID])
+        #expect(feature.state == .cancelled(groupID: request.groupID))
+    }
+
+    @MainActor
+    @Test
     func `Controller owns availability and request construction`() async throws {
         let feature = DeepAIReviewFeature(
             availability: .available(location: nil),
@@ -473,5 +492,50 @@ private actor CancellableDeepReviewService: DeepAIReviewServicing {
 
     func observedCancellation() -> Bool {
         didObserveCancellation
+    }
+}
+
+private actor PartiallyCompletedDeepReviewService: DeepAIReviewServicing {
+    private var progressWasSent = false
+
+    func review(
+        _ request: DeepAIReviewRequest,
+        progress: @escaping @Sendable (DeepAIReviewProgress) async -> Void,
+    ) async throws -> DeepAIReviewResult {
+        let input = request.candidates[0]
+        let candidate = DeepAIReviewCandidate(
+            fileID: input.fileID,
+            fileName: input.fileName,
+            rank: input.burstRank,
+            isCompleted: true,
+            deepScore: 1,
+            normalSharpnessScore: input.normalSharpnessScore,
+            broadSubjectScore: 1,
+            localDetailScore: 1,
+            fineDetailScore: 1,
+            maskPromptUsed: .bird,
+            maskConfidence: 0.9,
+            maskCoverage: 0.25,
+            autofocusInsideMask: true,
+            promptVerified: true,
+            usedFallbackMask: false,
+            issues: [],
+        )
+        await progress(DeepAIReviewProgress(
+            groupID: request.groupID,
+            completedCount: 1,
+            totalCount: request.candidates.count,
+            currentFileName: request.candidates[1].fileName,
+            candidates: [candidate],
+        ))
+        progressWasSent = true
+        try await Task.sleep(for: .seconds(30))
+        throw DeepAIReviewFailure.pipelineFailed("Unexpected test completion")
+    }
+
+    func waitUntilProgressWasSent() async {
+        while !progressWasSent {
+            await Task.yield()
+        }
     }
 }

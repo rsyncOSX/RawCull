@@ -12,6 +12,19 @@ struct AIAnalysisView: View {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
 
+    private var isAnalyzing: Bool {
+        qwenAnalysisFeature.isRunning || deepAIReviewController.isRunning
+    }
+
+    private var hasStoredResults: Bool {
+        switch selectedTool {
+        case .samCLIP:
+            !deepAIReviewController.completedCandidates.isEmpty
+        case .qwen:
+            !qwenAnalysisFeature.results.isEmpty
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header & Control Bar
@@ -28,6 +41,7 @@ struct AIAnalysisView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(maxWidth: 320)
+                    .disabled(isAnalyzing)
 
                     Spacer()
 
@@ -40,6 +54,7 @@ struct AIAnalysisView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(maxWidth: 220)
+                    .disabled(isAnalyzing)
                 }
             }
             .padding(.horizontal, 20)
@@ -50,7 +65,7 @@ struct AIAnalysisView: View {
 
             // Main Content Body
             Group {
-                if inputFiles.isEmpty {
+                if inputFiles.isEmpty, !hasStoredResults {
                     ContentUnavailableView(
                         "No Images to Analyze",
                         systemImage: "sparkles.rectangle.stack",
@@ -84,10 +99,6 @@ struct AIAnalysisView: View {
                     thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
-        }
-        .onChange(of: inputSource) { _, _ in
-            qwenAnalysisFeature.cancel()
-            deepAIReviewController.cancel()
         }
         .task {
             if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {

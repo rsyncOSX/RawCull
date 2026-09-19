@@ -51,6 +51,7 @@ final class DeepAIReviewController {
     @ObservationIgnored private let feature: DeepAIReviewFeature
     @ObservationIgnored private weak var applicationContext:
         (any DeepAIReviewApplicationContext)?
+    private var knownFilesByID: [UUID: FileItem] = [:]
 
     init(feature: DeepAIReviewFeature = DeepAIReviewFeature()) {
         Logger.process.debugMessageOnly("DeepAIReviewController.init()")
@@ -78,6 +79,19 @@ final class DeepAIReviewController {
 
     func maskCandidate(for fileID: UUID) -> DeepAIReviewCandidate? {
         feature.maskCandidate(for: fileID)
+    }
+
+    var completedCandidates: [DeepAIReviewCandidate] {
+        feature.completedCandidates
+    }
+
+    var completedFiles: [FileItem] {
+        feature.completedCandidates.compactMap { knownFilesByID[$0.fileID] }
+    }
+
+    func filesNeedingAnalysis(from files: [FileItem]) -> [FileItem] {
+        let completedIDs = Set(feature.completedCandidates.map(\.fileID))
+        return files.filter { !completedIDs.contains($0.id) }
     }
 
     func mask(
@@ -164,6 +178,9 @@ final class DeepAIReviewController {
 
     func start(for groupFiles: [FileItem]) async {
         Logger.process.debugMessageOnly("DeepAIReviewController.start()")
+        for file in groupFiles {
+            knownFilesByID[file.id] = file
+        }
         guard !isActionUnavailable,
               let context = await applicationContext?.deepAIReviewContext(for: groupFiles)
         else { return }

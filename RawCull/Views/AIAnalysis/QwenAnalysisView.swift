@@ -19,6 +19,10 @@ struct QwenAnalysisView: View {
         }
     }
 
+    private var pendingFiles: [FileItem] {
+        feature.filesNeedingAnalysis(from: files)
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             // Action Control Bar
@@ -38,7 +42,7 @@ struct QwenAnalysisView: View {
                         Label("Run Analyze", systemImage: "sparkles")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!feature.canRun)
+                    .disabled(!feature.canRun || pendingFiles.isEmpty)
                 }
             }
 
@@ -107,7 +111,7 @@ struct QwenAnalysisView: View {
     }
 
     private func run() {
-        Task { await feature.analyze(files) }
+        Task { await feature.analyze(pendingFiles) }
     }
 }
 

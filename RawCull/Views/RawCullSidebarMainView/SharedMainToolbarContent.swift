@@ -10,6 +10,7 @@ import SwiftUI
 struct SharedMainToolbarContent: ToolbarContent {
     @Bindable var viewModel: RawCullViewModel
     let semanticSearchFeature: RawCullSemanticSearchFeature
+    let isDisabled: Bool
     let toggleMetadataPanel: () -> Void
 
     var body: some ToolbarContent {
@@ -25,7 +26,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .labelStyle(.iconOnly)
                 .disabled(
-                    summary.resultCount <= 1
+                    isDisabled
+                        || summary.resultCount <= 1
                         || semanticSelectionIsBusy,
                 )
                 .help("Remove the lowest-ranked image from the semantic-search selection")
@@ -49,7 +51,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                 }
                 .labelStyle(.iconOnly)
                 .disabled(
-                    summary.resultCount >= summary.rankedImageCount
+                    isDisabled
+                        || summary.resultCount >= summary.rankedImageCount
                         || semanticSelectionIsBusy,
                 )
                 .help("Add the next highest-ranked image to the semantic-search selection")
@@ -65,6 +68,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         Label("Scoring Parameters", systemImage: "slider.horizontal.3")
                     }
                     .help("Configure sharpness scoring parameters")
+                    .disabled(isDisabled)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -74,7 +78,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         Label("Statistics", systemImage: "info.circle")
                     }
                     .help("Show scan statistics")
-                    .disabled(viewModel.files.isEmpty)
+                    .disabled(isDisabled || viewModel.files.isEmpty)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -82,7 +86,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         Label("Review", systemImage: "tray.full")
                     }
                     .help(reviewButtonHelp)
-                    .disabled(reviewButtonIsDisabled)
+                    .disabled(isDisabled || reviewButtonIsDisabled)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -90,7 +94,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                         Label("Compare", systemImage: "rectangle.split.2x1")
                     }
                     .help("Compare selected thumbnails")
-                    .disabled(viewModel.selectedFileIDs.count <= 1 ||
+                    .disabled(isDisabled ||
+                        viewModel.selectedFileIDs.count <= 1 ||
                         viewModel.selectedSource == nil ||
                         viewModel.creatingthumbnails)
                 }
@@ -105,7 +110,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                         },
                     )
                     .padding(.trailing, 8)
-                    .disabled(!hasExplicitRatings)
+                    .disabled(isDisabled || !hasExplicitRatings)
                 }
             }
 
@@ -117,7 +122,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label("Loupe", systemImage: "rectangle.center.inset.filled")
                 }
                 .help("Loupe view")
-                .disabled(viewModel.mainViewMode == .loupe)
+                .disabled(isDisabled || viewModel.mainViewMode == .loupe)
 
                 Button {
                     selectSimilarityGridMode()
@@ -125,7 +130,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label("Similarity", systemImage: "photo.stack")
                 }
                 .help("Similarity & burst grouping grid")
-                .disabled(viewModel.selectedSource == nil ||
+                .disabled(isDisabled ||
+                    viewModel.selectedSource == nil ||
                     viewModel.filteredFiles.isEmpty ||
                     viewModel.mainViewMode == .similarityGrid ||
                     viewModel.creatingthumbnails)
@@ -136,7 +142,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label("Grid", systemImage: "square.grid.2x2")
                 }
                 .help("Thumbnail grid")
-                .disabled(viewModel.selectedSource == nil ||
+                .disabled(isDisabled ||
+                    viewModel.selectedSource == nil ||
                     viewModel.filteredFiles.isEmpty ||
                     viewModel.mainViewMode == .grid ||
                     viewModel.creatingthumbnails)
@@ -147,7 +154,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label("AI Analysis", systemImage: "sparkles.rectangle.stack")
                 }
                 .help("Analyze selected or tagged images with SAM 3 + CLIP or local Qwen")
-                .disabled(viewModel.selectedSource == nil ||
+                .disabled(isDisabled ||
+                    viewModel.selectedSource == nil ||
                     !hasAIAnalysisInput ||
                     viewModel.mainViewMode == .aiAnalysis ||
                     viewModel.creatingthumbnails)
@@ -158,7 +166,8 @@ struct SharedMainToolbarContent: ToolbarContent {
                     Label("Rated", systemImage: "star.square.fill")
                 }
                 .help("Rated images grid")
-                .disabled(viewModel.selectedSource == nil ||
+                .disabled(isDisabled ||
+                    viewModel.selectedSource == nil ||
                     !showGridtaggedThumbnailWindow() ||
                     viewModel.mainViewMode == .ratedGrid ||
                     viewModel.creatingthumbnails)

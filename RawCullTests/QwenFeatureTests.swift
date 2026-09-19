@@ -1,5 +1,8 @@
+import AppKit
+import CoreGraphics
 import Foundation
 @testable import RawCull
+import RawCullCore
 import Testing
 
 @Suite("Qwen feature", .tags(.smoke))
@@ -119,6 +122,29 @@ struct QwenFeatureTests {
         #expect(reason.contains("text-only"))
     }
 
+    @MainActor
+    @Test
+    func `Analysis keeps prior results and only processes newly selected files`() async throws {
+        let model = QwenModelStub()
+        let feature = RawCullQwenAnalysisFeature(
+            modelManager: model,
+            imageLoader: QwenImageLoaderStub(),
+        )
+        feature.updateModelStatus(.available(
+            url: URL(fileURLWithPath: "/tmp/qwen"),
+            modelName: "Qwen Test",
+        ))
+        let first = makeFile(name: "first.ARW")
+        let second = makeFile(name: "second.ARW")
+
+        await feature.analyze([first])
+        await feature.analyze([first, second])
+
+        #expect(feature.results.map(\.fileID) == [first.id, second.id])
+        #expect(feature.filesNeedingAnalysis(from: [first, second]).isEmpty)
+        #expect(await model.assessmentCount() == 2)
+    }
+
     private func makeQwenBundle(
         tokenizer: String = "Qwen/Qwen3-4B",
         kind: String = "llm",
@@ -165,4 +191,61 @@ struct QwenFeatureTests {
         try Data(metadata.utf8).write(to: root.appendingPathComponent("metadata.json"))
         return root
     }
+
+    private func makeFile(name: String) -> FileItem {
+        FileItem(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/\(name)"),
+            name: name,
+            size: 1,
+            dateModified: .distantPast,
+            exifData: nil,
+            afFocusNormalized: nil,
+        )
+    }
+}
+
+private actor QwenModelStub: QwenModelManaging {
+    private var count = 0
+
+    func validate(url: URL) -> QwenModelStatus {
+        .available(url: url, modelName: "Qwen Test")
+    }
+
+    func assess(criteria: String, image: CGImage) -> QwenModelResponse {
+        count += 1
+        return .freeform("Completed")
+    }
+
+    func clear() {}
+
+    func assessmentCount() -> Int {
+        count
+    }
+}
+
+private struct QwenImageLoaderStub: RawImageLoading {
+    func fileMetadata(for url: URL) async -> RawImageFileMetadata? { nil }
+
+    func thumbnailCGImage(for url: URL, maxPixelSize: Int) async -> CGImage? {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        return CGContext(
+            data: nil,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+        )?.makeImage()
+    }
+
+    func thumbnailImage(for url: URL, maxPixelSize: Int) async -> NSImage? { nil }
+    func previewCGImage(for url: URL) async -> CGImage? { nil }
+
+    func embeddedPreviewJPEGData(
+        for url: URL,
+        matchingPixelWidth pixelWidth: Int,
+        height pixelHeight: Int,
+    ) async -> Data? { nil }
 }
