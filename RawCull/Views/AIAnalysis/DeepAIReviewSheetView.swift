@@ -29,7 +29,6 @@ struct DeepAIReviewSheetView: View {
                         onApply(result)
                     }
                 },
-                onClose: onClose,
             )
 
             Divider()
@@ -65,7 +64,6 @@ private struct DeepAIReviewSheetControls: View {
     let onRun: () -> Void
     let onCancel: () -> Void
     let onApply: () -> Void
-    let onClose: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -79,6 +77,13 @@ private struct DeepAIReviewSheetControls: View {
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
 
+            Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
+                .buttonStyle(.borderedProminent)
+                .disabled(!canApply || controller.isRunning)
+                .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
+
+            Spacer()
+
             if controller.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .buttonStyle(.bordered)
@@ -89,18 +94,6 @@ private struct DeepAIReviewSheetControls: View {
                     .disabled(!canRun)
                     .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
             }
-
-            Spacer()
-
-            Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
-                .buttonStyle(.borderedProminent)
-                .disabled(!canApply || controller.isRunning)
-                .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
-
-            Button("Close", systemImage: "xmark", action: onClose)
-                .buttonStyle(.bordered)
-                .disabled(controller.isRunning)
-                .accessibilityHint("Closes Deep Review without changing the burst winner.")
         }
     }
 }
@@ -120,12 +113,15 @@ private struct DeepAIReviewSheetContent: View {
             )
 
         case let .preparing(_, totalCount):
+            let placeholders = files.enumerated().map { index, file in
+                DeepAIReviewCandidate.placeholder(rank: index + 1, file: file)
+            }
             DeepAIReviewProgressHeader(
                 completedCount: 0,
                 totalCount: totalCount,
                 currentFileName: nil,
             )
-            Spacer()
+            DeepAIReviewCandidateTable(candidates: placeholders, winnerID: nil)
 
         case let .running(progress):
             DeepAIReviewProgressHeader(
@@ -611,5 +607,31 @@ private func issueTitle(_ issue: DeepAIReviewCandidateIssue) -> String {
     case .subjectDetailUnavailable: "Subject detail unavailable"
     case .noReliableLocalPatch: "No reliable local patch"
     case .backgroundDetailDominated: "Background detail dominated"
+    }
+}
+
+extension DeepAIReviewCandidate {
+    /// A "not yet analyzed" row for a file, used to populate the candidate
+    /// table immediately when Deep Review is preparing to run, before any
+    /// real scores exist.
+    static func placeholder(rank: Int, file: FileItem) -> DeepAIReviewCandidate {
+        DeepAIReviewCandidate(
+            fileID: file.id,
+            fileName: file.url.lastPathComponent,
+            rank: rank,
+            isCompleted: false,
+            deepScore: nil,
+            normalSharpnessScore: nil,
+            broadSubjectScore: nil,
+            localDetailScore: nil,
+            fineDetailScore: nil,
+            maskPromptUsed: nil,
+            maskConfidence: nil,
+            maskCoverage: nil,
+            autofocusInsideMask: nil,
+            promptVerified: nil,
+            usedFallbackMask: false,
+            issues: [],
+        )
     }
 }
