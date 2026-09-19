@@ -35,7 +35,7 @@ struct QwenAnalysisView: View {
                     .buttonStyle(.bordered)
                 } else {
                     Button(action: run) {
-                        Label("Analyze \(files.count) Images", systemImage: "sparkles")
+                        Label("Run Analyze", systemImage: "sparkles")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!feature.canRun)

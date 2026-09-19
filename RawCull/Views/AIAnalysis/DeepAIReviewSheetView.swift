@@ -29,7 +29,6 @@ struct DeepAIReviewSheetView: View {
                         onApply(result)
                     }
                 },
-                onClose: onClose,
             )
 
             Divider()
@@ -65,7 +64,6 @@ private struct DeepAIReviewSheetControls: View {
     let onRun: () -> Void
     let onCancel: () -> Void
     let onApply: () -> Void
-    let onClose: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -78,7 +76,14 @@ private struct DeepAIReviewSheetControls: View {
             .frame(maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
+            
+            Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
+                .buttonStyle(.borderedProminent)
+                .disabled(!canApply || controller.isRunning)
+                .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
 
+            Spacer()
+            
             if controller.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .buttonStyle(.bordered)
@@ -89,18 +94,6 @@ private struct DeepAIReviewSheetControls: View {
                     .disabled(!canRun)
                     .accessibilityHint("Runs local AI subject-detail analysis for this burst group.")
             }
-
-            Spacer()
-
-            Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
-                .buttonStyle(.borderedProminent)
-                .disabled(!canApply || controller.isRunning)
-                .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
-
-            Button("Close", systemImage: "xmark", action: onClose)
-                .buttonStyle(.bordered)
-                .disabled(controller.isRunning)
-                .accessibilityHint("Closes Deep Review without changing the burst winner.")
         }
     }
 }
