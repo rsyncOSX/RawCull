@@ -15,6 +15,7 @@ import VisionFeaturePrintBackend
 @MainActor
 final class RawCullAIIntegration {
     let paths: RawCullAIPaths
+    let qwenModelManager: QwenModelManager
     let sam3ModelResourceManager: RawCullAIModelResourceManager<CoreAISAM3Provider>
     let clipDataCompModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
@@ -51,6 +52,7 @@ final class RawCullAIIntegration {
         inputMaxSide: Int = 4320,
     ) {
         self.paths = paths
+        self.qwenModelManager = QwenModelManager()
         let allowsBundledModelFallback = allowsBundledModelFallback
             ?? Self.defaultAllowsBundledModelFallback
         let sam3CandidateURLs: [URL] = RawCullAIModelInclusion.includeSAM3 ? RawCullAIModelCandidates.urls(

@@ -166,9 +166,8 @@ struct RawCullApplicationState {
             coordinator: modelDownloadCoordinator,
             rawCullVersion: rawCullVersion,
         )
-        let qwenModelManager = QwenModelManager()
         let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
-            modelManager: qwenModelManager,
+            modelManager: integration.qwenModelManager,
         )
         let deepAIReviewFeature = DeepAIReviewFeature(
             availability: integration.capabilities().inProcessMaskGeneration,
@@ -179,7 +178,7 @@ struct RawCullApplicationState {
             evidenceScan: evidenceScan,
             userDefaults: userDefaults,
             modelManagementModel: modelManagementModel,
-            qwenModelManager: qwenModelManager,
+            qwenModelManager: integration.qwenModelManager,
             qwenAnalysisFeature: qwenAnalysisFeature,
         )
         let initialConfiguration = settingsModel.configurationSnapshot()
