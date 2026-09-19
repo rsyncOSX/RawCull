@@ -45,12 +45,6 @@ nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Ident
         case .sam3: "SAM 3"
         }
     }
-
-    var resourceName: String {
-        switch self {
-        case .sam3: "SAM3"
-        }
-    }
 }
 
 /// RawCull-owned locations used by the AI integration boundary.

@@ -4,7 +4,6 @@ struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
     @State private var showModelDownloads = false
-    @State private var showQwenModelPicker = false
 
     var body: some View {
         ScrollView {
@@ -52,13 +51,6 @@ struct AISettingsTab: View {
         }
         .sheet(isPresented: $showModelDownloads) {
             AIModelDownloadsView(model: model.modelManagementModel)
-        }
-        .fileImporter(
-            isPresented: $showQwenModelPicker,
-            allowedContentTypes: [.folder],
-        ) { result in
-            guard let url = try? result.get() else { return }
-            model.setQwenModelURL(url)
         }
     }
 }

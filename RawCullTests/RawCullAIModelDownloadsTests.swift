@@ -14,7 +14,6 @@ struct RawCullAIModelDownloadsTests {
         #expect(preparedCatalog.models.map(\.id) == [
             .clipDataComp,
             .clipOpenAI,
-            .efficientSAM,
             .sam3,
             .qwen3VL2B
         ])
@@ -58,19 +57,6 @@ struct RawCullAIModelDownloadsTests {
             ).isConfigured,
         )
         #expect(RawCullAIModelDownloadSource.appleHosted.isConfigured)
-
-        let efficientSAM = try #require(
-            preparedCatalog.descriptor(for: .efficientSAM),
-        )
-        #expect(efficientSAM.upstreamRevision == "d525f622e6f640acf5a0fc37c7ca1f243da5bde0")
-        #expect(efficientSAM.assetPackModelPath == "Models/EfficientSAM")
-        #expect(efficientSAM.expectedArchiveSHA256 == nil)
-        #expect(efficientSAM.downloadByteCount == nil)
-        #expect(!efficientSAM.releaseReadiness.isReady)
-        #expect(
-            efficientSAM.licence.textSHA256
-                == "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-        )
 
         let sam3 = try #require(preparedCatalog.descriptor(for: .sam3))
         #expect(sam3.upstreamRevision == "3c879f39826c281e95690f02c7821c4de09afae7")
@@ -241,7 +227,6 @@ struct RawCullAIModelDownloadsTests {
         #expect(snapshot.states[.clipDataComp] == failure)
         #expect(snapshot.states[.clipOpenAI] == nil)
         #expect(snapshot.states[.sam3] == .licenceRequired)
-        #expect(snapshot.states[.efficientSAM] == nil)
         try await coordinator.acceptLicence(for: .sam3, rawCullVersion: "3.2.0")
         let accepted = await coordinator.snapshot()
         #expect(accepted.states[.sam3] == failure)

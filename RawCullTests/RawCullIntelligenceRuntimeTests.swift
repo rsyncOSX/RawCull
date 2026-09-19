@@ -226,15 +226,15 @@ struct RawCullIntelligenceRuntimeTests {
             revision: current.revision,
             similarity: current.similarity,
             semanticSearch: current.semanticSearch,
-            segmentationModel: .efficientSAM,
+            segmentationModel: .sam3,
         )
 
         let capabilities = runtime.apply(configuration: segmentationOnly)
 
-        #expect(runtime.lastAppliedConfigurationIdentity?.segmentationModel == .efficientSAM)
+        #expect(runtime.lastAppliedConfigurationIdentity?.segmentationModel == .sam3)
         #expect(
             capabilities.inProcessMaskGeneration
-                == capabilities.segmentationModelStatus(for: .efficientSAM),
+                == capabilities.segmentationModelStatus(for: .sam3),
         )
         #expect(runtime.similarityFeature.imageHydrationTask == nil)
         #expect(runtime.similarityFeature.semanticHydrationTask == nil)
