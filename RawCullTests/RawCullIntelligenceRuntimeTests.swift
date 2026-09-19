@@ -36,11 +36,6 @@ struct RawCullIntelligenceRuntimeTests {
                 with: runtime.similarityFeature,
             ),
         )
-        #expect(
-            runtime.deepAIReviewController.sharesFeatureIdentity(
-                with: fixture.integration.deepAIReviewFeature,
-            ),
-        )
         #expect(runtime.deepAIReviewController === viewModel.deepAIReviewController)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
         #expect(
@@ -108,6 +103,10 @@ struct RawCullIntelligenceRuntimeTests {
         let similarityFeature = RawCullSimilarityFeature(
             similarityModel: similarityModel,
         )
+        let deepAIReviewFeature = DeepAIReviewFeature(
+            availability: fixture.integration.capabilities().inProcessMaskGeneration,
+        )
+        fixture.integration.bindDeepAIReviewFeature(deepAIReviewFeature)
         let runtime = RawCullIntelligenceRuntime(
             integration: fixture.integration,
             similarityFeature: similarityFeature,
@@ -116,7 +115,7 @@ struct RawCullIntelligenceRuntimeTests {
                 similarityFeature: similarityFeature,
             ),
             deepAIReviewController: DeepAIReviewController(
-                feature: fixture.integration.deepAIReviewFeature,
+                feature: deepAIReviewFeature,
             ),
             qwenAnalysisFeature: RawCullQwenAnalysisFeature(),
             settingsModel: settingsModel,

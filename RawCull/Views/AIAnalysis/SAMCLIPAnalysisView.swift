@@ -12,16 +12,23 @@ struct SAMCLIPAnalysisView: View {
     let controller: DeepAIReviewController
     let files: [FileItem]
 
+    private var pendingFiles: [FileItem] {
+        controller.filesNeedingAnalysis(from: files)
+    }
+
     var body: some View {
-        if let signature = BurstGroupSignature(
-            files: files,
-            catalog: viewModel.selectedSource?.url,
-        ) {
+        if viewModel.selectedSource != nil || !controller.completedCandidates.isEmpty {
+            let runnableFiles = viewModel.selectedSource == nil ? [] : pendingFiles
+            let signature = BurstGroupSignature(
+                files: runnableFiles,
+                catalog: viewModel.selectedSource?.url,
+            )
+                ?? BurstGroupSignature(memberKeys: [])
             DeepAIReviewSheetView(
                 controller: controller,
                 groupID: signature.hashValue,
                 groupSignature: signature,
-                files: files,
+                files: runnableFiles,
             )
         } else {
             ContentUnavailableView(
