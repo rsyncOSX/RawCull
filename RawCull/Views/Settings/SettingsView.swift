@@ -42,7 +42,7 @@ struct SettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 680, height: 750)
+        .frame(width: 680, height: 760)
         .task {
             await SettingsViewModel.shared.ensureLoaded()
             settingsLoaded = true
