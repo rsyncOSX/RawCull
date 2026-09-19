@@ -33,9 +33,8 @@ nonisolated enum RawCullCLIPModel: String, CaseIterable, Hashable, Identifiable,
 /// The mutually exclusive subject-segmentation backends available to Deep Review.
 nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Identifiable, Sendable {
     case sam3
-    case efficientSAM = "efficient-sam"
 
-    static let defaultSelection = Self.efficientSAM
+    static let defaultSelection = Self.sam3
 
     var id: String {
         rawValue
@@ -44,14 +43,12 @@ nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Ident
     var displayName: String {
         switch self {
         case .sam3: "SAM 3"
-        case .efficientSAM: "EfficientSAM"
         }
     }
 
     var resourceName: String {
         switch self {
         case .sam3: "SAM3"
-        case .efficientSAM: "EfficientSAM"
         }
     }
 }

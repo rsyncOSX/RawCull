@@ -1,5 +1,5 @@
 import CoreAICLIPBackend
-import CoreAIEfficientSAMBackend
+// import CoreAIEfficientSAMBackend
 import CoreAISAM3Backend
 import CoreGraphics
 import Foundation
@@ -21,7 +21,6 @@ final class RawCullAIIntegration {
         RawCullAIModelResourceManager<CoreAICLIPProvider>
     let clipOpenAIModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
-
     let visionSimilarityProvider: VisionFeaturePrintBackend
     let visionSimilarityService: any RawCullSimilarityServicing
     private(set) var clipSimilarityProviders: [
@@ -62,16 +61,9 @@ final class RawCullAIIntegration {
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         ) : []
-        let efficientSAMCandidateURLs = RawCullAIModelCandidates.urls(
-            installedDirectory: paths.efficientSAMModelDirectory,
-            resourceName: RawCullSegmentationModel.efficientSAM.resourceName,
-            bundle: bundle,
-            allowsBundledFallback: allowsBundledModelFallback,
-        )
-        let defaultSegmentationCandidateURLs = switch RawCullSegmentationModel.defaultSelection {
-        case .sam3: sam3CandidateURLs
-        case .efficientSAM: efficientSAMCandidateURLs
-        }
+        
+        let defaultSegmentationCandidateURLs = sam3CandidateURLs
+        
         let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
             installedDirectory: paths.clipDataCompModelDirectory,
             resourceName: RawCullCLIPModel.dataComp.resourceName,
@@ -154,7 +146,6 @@ final class RawCullAIIntegration {
         self.capabilitySnapshot = RawCullAICapabilities(
             segmentationModels: [
                 .sam3: .checking(expectedLocations: sam3CandidateURLs),
-                .efficientSAM: .checking(expectedLocations: efficientSAMCandidateURLs)
             ],
             clipModels: [
                 .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
@@ -306,7 +297,7 @@ final class RawCullAIIntegration {
         let segmentationStatuses: [
             RawCullSegmentationModel: RawCullAICapabilityStatus
         ] = [
-            .sam3: sam3Status,
+            .sam3: sam3Status
         ]
         let selectedSegmentationStatus = segmentationStatuses[
             selectedSegmentationModel,

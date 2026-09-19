@@ -234,11 +234,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         validateQwenModel(at: standardizedURL)
     }
 
-    func useManagedQwenModel() {
-        setQwenModelSource(.managed)
-        startQwenReconciliation()
-    }
-
     func validateQwenModelAgain() {
         startQwenReconciliation()
     }
