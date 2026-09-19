@@ -59,7 +59,7 @@ struct AIAnalysisView: View {
                 } else {
                     switch selectedTool {
                     case .samCLIP:
-                        SAMCLIPAnalysisContainer(
+                        SAMCLIPAnalysisView(
                             viewModel: viewModel,
                             controller: deepAIReviewController,
                             files: inputFiles,
@@ -208,37 +208,5 @@ private struct AIAnalysisThumbnailStripItem: View {
                 .truncationMode(.middle)
         }
         .frame(width: CGFloat(thumbnailSize))
-    }
-}
-
-private struct SAMCLIPAnalysisContainer: View {
-    @Bindable var viewModel: RawCullViewModel
-    let controller: DeepAIReviewController
-    let files: [FileItem]
-
-    var body: some View {
-        if let signature = BurstGroupSignature(
-            files: files,
-            catalog: viewModel.selectedSource?.url,
-        ) {
-            DeepAIReviewSheetView(
-                controller: controller,
-                groupID: signature.hashValue,
-                groupSignature: signature,
-                files: files,
-                onApply: { result in
-                    viewModel.selectAIAnalysisRecommendation(result)
-                },
-                onClose: {
-                    viewModel.selectMainViewMode(.grid)
-                },
-            )
-        } else {
-            ContentUnavailableView(
-                "Catalog Required",
-                systemImage: "folder.badge.questionmark",
-                description: Text("Select a catalog before running SAM 3 + CLIP analysis."),
-            )
-        }
     }
 }
