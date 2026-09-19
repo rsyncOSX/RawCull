@@ -1,5 +1,4 @@
 import CoreAICLIPBackend
-// import CoreAIEfficientSAMBackend
 import CoreAISAM3Backend
 import CoreGraphics
 import Foundation
@@ -61,9 +60,9 @@ final class RawCullAIIntegration {
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         ) : []
-        
+
         let defaultSegmentationCandidateURLs = sam3CandidateURLs
-        
+
         let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
             installedDirectory: paths.clipDataCompModelDirectory,
             resourceName: RawCullCLIPModel.dataComp.resourceName,
@@ -145,7 +144,7 @@ final class RawCullAIIntegration {
         self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
             segmentationModels: [
-                .sam3: .checking(expectedLocations: sam3CandidateURLs),
+                .sam3: .checking(expectedLocations: sam3CandidateURLs)
             ],
             clipModels: [
                 .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),

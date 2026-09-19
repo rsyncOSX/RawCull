@@ -61,7 +61,6 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
     let applicationSupportDirectory: URL
     let modelsDirectory: URL
     let sam3ModelDirectory: URL
-    let efficientSAMModelDirectory: URL
     let clipDataCompModelDirectory: URL
     let clipOpenAIModelDirectory: URL
     let modelLicenceAcceptancesURL: URL
@@ -81,8 +80,6 @@ nonisolated struct RawCullAIPaths: Equatable, Sendable {
         self.modelsDirectory = modelsDirectory
         self.sam3ModelDirectory = modelsDirectory
             .appendingPathComponent("SAM3", isDirectory: true)
-        self.efficientSAMModelDirectory = modelsDirectory
-            .appendingPathComponent("EfficientSAM", isDirectory: true)
         self.clipDataCompModelDirectory = modelsDirectory
             .appendingPathComponent(
                 RawCullCLIPModel.dataComp.resourceName,

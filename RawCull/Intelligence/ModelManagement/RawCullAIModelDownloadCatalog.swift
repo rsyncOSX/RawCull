@@ -5,7 +5,6 @@ import Foundation
 nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identifiable, Sendable {
     case clipDataComp = "clip-datacomp"
     case clipOpenAI = "clip-openai"
-    case efficientSAM = "efficient-sam"
     case sam3
     case qwen3VL2B = "qwen3-vl-2b"
 
@@ -17,7 +16,7 @@ nonisolated enum RawCullAIModelDownloadID: String, CaseIterable, Codable, Identi
         switch self {
         case .clipDataComp: .dataComp
         case .clipOpenAI: .openAI
-        case .efficientSAM, .sam3, .qwen3VL2B: nil
+        case .sam3, .qwen3VL2B: nil
         }
     }
 }
