@@ -1,5 +1,4 @@
 import CoreAICLIPBackend
-import CoreAIEfficientSAMBackend
 import CoreAISAM3Backend
 import CoreGraphics
 import Foundation
@@ -17,13 +16,10 @@ import VisionFeaturePrintBackend
 final class RawCullAIIntegration {
     let paths: RawCullAIPaths
     let sam3ModelResourceManager: RawCullAIModelResourceManager<CoreAISAM3Provider>
-    let efficientSAMModelResourceManager:
-        RawCullAIModelResourceManager<CoreAIEfficientSAMProvider>
     let clipDataCompModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
     let clipOpenAIModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
-
     let visionSimilarityProvider: VisionFeaturePrintBackend
     let visionSimilarityService: any RawCullSimilarityServicing
     private(set) var clipSimilarityProviders: [
@@ -64,16 +60,9 @@ final class RawCullAIIntegration {
             bundle: bundle,
             allowsBundledFallback: allowsBundledModelFallback,
         ) : []
-        let efficientSAMCandidateURLs = RawCullAIModelCandidates.urls(
-            installedDirectory: paths.efficientSAMModelDirectory,
-            resourceName: RawCullSegmentationModel.efficientSAM.resourceName,
-            bundle: bundle,
-            allowsBundledFallback: allowsBundledModelFallback,
-        )
-        let defaultSegmentationCandidateURLs = switch RawCullSegmentationModel.defaultSelection {
-        case .sam3: sam3CandidateURLs
-        case .efficientSAM: efficientSAMCandidateURLs
-        }
+
+        let defaultSegmentationCandidateURLs = sam3CandidateURLs
+
         let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
             installedDirectory: paths.clipDataCompModelDirectory,
             resourceName: RawCullCLIPModel.dataComp.resourceName,
@@ -89,10 +78,6 @@ final class RawCullAIIntegration {
         self.sam3ModelResourceManager = RawCullAIModelResourceManager(
             candidateURLs: sam3CandidateURLs,
             factory: CoreAISAM3Provider.factory,
-        )
-        self.efficientSAMModelResourceManager = RawCullAIModelResourceManager(
-            candidateURLs: efficientSAMCandidateURLs,
-            factory: CoreAIEfficientSAMProvider.factory,
         )
         self.clipDataCompModelResourceManager = RawCullAIModelResourceManager(
             candidateURLs: clipDataCompCandidateURLs,
@@ -159,8 +144,7 @@ final class RawCullAIIntegration {
         self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
             segmentationModels: [
-                .sam3: .checking(expectedLocations: sam3CandidateURLs),
-                .efficientSAM: .checking(expectedLocations: efficientSAMCandidateURLs)
+                .sam3: .checking(expectedLocations: sam3CandidateURLs)
             ],
             clipModels: [
                 .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
@@ -202,9 +186,6 @@ final class RawCullAIIntegration {
     ) async {
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
-        )
-        await efficientSAMModelResourceManager.setManagedCandidateURL(
-            locations[.efficientSAM],
         )
         await clipDataCompModelResourceManager.setManagedCandidateURL(
             locations[.clipDataComp],
@@ -280,12 +261,10 @@ final class RawCullAIIntegration {
     @discardableResult
     func refreshCapabilities() async throws -> RawCullAICapabilities {
         async let sam3Load = sam3ModelResourceManager.load()
-        async let efficientSAMLoad = efficientSAMModelResourceManager.load()
         async let clipDataCompLoad = clipDataCompModelResourceManager.load()
         async let clipOpenAILoad = clipOpenAIModelResourceManager.load()
-        let (sam3, efficientSAM, clipDataComp, clipOpenAI) = try await (
+        let (sam3, clipDataComp, clipOpenAI) = try await (
             sam3Load,
-            efficientSAMLoad,
             clipDataCompLoad,
             clipOpenAILoad,
         )
@@ -293,7 +272,6 @@ final class RawCullAIIntegration {
 
         segmentationProviders = [:]
         segmentationProviders[.sam3] = sam3.provider
-        segmentationProviders[.efficientSAM] = efficientSAM.provider
         clipSimilarityProviders = [
             .dataComp: clipDataComp.provider,
             .openAI: clipOpenAI.provider
@@ -307,10 +285,6 @@ final class RawCullAIIntegration {
             sam3.capability,
             providerInitializationFailure: sam3.providerInitializationFailure,
         )
-        let efficientSAMStatus = Self.capabilityStatus(
-            efficientSAM.capability,
-            providerInitializationFailure: efficientSAM.providerInitializationFailure,
-        )
         let clipDataCompStatus = Self.capabilityStatus(
             clipDataComp.capability,
             providerInitializationFailure: clipDataComp.providerInitializationFailure,
@@ -322,8 +296,7 @@ final class RawCullAIIntegration {
         let segmentationStatuses: [
             RawCullSegmentationModel: RawCullAICapabilityStatus
         ] = [
-            .sam3: sam3Status,
-            .efficientSAM: efficientSAMStatus
+            .sam3: sam3Status
         ]
         let selectedSegmentationStatus = segmentationStatuses[
             selectedSegmentationModel,

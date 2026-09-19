@@ -4,19 +4,18 @@ struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
     @State private var showModelDownloads = false
-    @State private var showQwenModelPicker = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                AIModelSettingsCard(model: model)
+                AIModelSettingsCard(
+                    model: model,
+                )
                 QwenModelSettingsCard(
                     status: model.qwenModelStatus,
                     source: model.qwenModelSource,
                     managedModelIsInstalled: model.managedQwenModelURL != nil,
                     manageDownloads: { showModelDownloads = true },
-                    useManagedModel: model.useManagedQwenModel,
-                    selectModel: { showQwenModelPicker = true },
                     validateAgain: model.validateQwenModelAgain,
                     clearModel: model.clearQwenModel,
                 )
@@ -53,13 +52,6 @@ struct AISettingsTab: View {
         .sheet(isPresented: $showModelDownloads) {
             AIModelDownloadsView(model: model.modelManagementModel)
         }
-        .fileImporter(
-            isPresented: $showQwenModelPicker,
-            allowedContentTypes: [.folder],
-        ) { result in
-            guard let url = try? result.get() else { return }
-            model.setQwenModelURL(url)
-        }
     }
 }
 
@@ -68,8 +60,6 @@ private struct QwenModelSettingsCard: View {
     let source: RawCullQwenModelSource
     let managedModelIsInstalled: Bool
     let manageDownloads: () -> Void
-    let useManagedModel: () -> Void
-    let selectModel: () -> Void
     let validateAgain: () -> Void
     let clearModel: () -> Void
 
