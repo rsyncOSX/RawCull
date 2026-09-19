@@ -83,20 +83,6 @@ private struct QwenModelSettingsCard: View {
                 LabeledContent("Vision-language model") {
                     statusView
                 }
-
-                LabeledContent("Active source") {
-                    Text(source == .managed ? "Downloaded by RawCull" : "Custom folder")
-                }
-
-                ViewThatFits {
-                    HStack(spacing: 8) { actions }
-                    VStack(alignment: .leading, spacing: 8) { actions }
-                }
-
-                Text("Download Qwen through RawCull for automatic updates, or choose a custom Core AI bundle as an advanced override. Analysis remains on this Mac.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -128,25 +114,6 @@ private struct QwenModelSettingsCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
-
-    @ViewBuilder
-    private var actions: some View {
-        Button("Manage Downloads", systemImage: "arrow.down.circle", action: manageDownloads)
-        if source == .custom, managedModelIsInstalled {
-            Button("Use Downloaded Model", systemImage: "checkmark.icloud", action: useManagedModel)
-        }
-        Button("Choose Custom Model…", systemImage: "folder", action: selectModel)
-        Button("Validate Again", systemImage: "checkmark.shield", action: validateAgain)
-            .disabled(status == .notConfigured)
-        if source == .custom {
-            Button(
-                "Clear Custom Selection",
-                systemImage: "xmark.circle",
-                role: .destructive,
-                action: clearModel,
-            )
-        }
-    }
 }
 
 private struct AIModelSettingsCard: View {
@@ -167,7 +134,7 @@ private struct AIModelSettingsCard: View {
                         ),
                         availableMessage: "\(segmentationModel.displayName) model resources are installed.",
                         missingMessage: "\(segmentationModel.displayName) model resources are not installed.",
-                        showsLocationAction: true,
+                        showsLocationAction: false,
                     )
                 }
 
@@ -206,7 +173,7 @@ private struct AIModelSettingsCard: View {
                         status: model.capabilities.clipModelStatus(for: clipModel),
                         availableMessage: "\(clipModel.displayName) CLIP model resources are installed.",
                         missingMessage: "\(clipModel.displayName) CLIP is not installed.",
-                        showsLocationAction: true,
+                        showsLocationAction: false,
                     )
                 }
 

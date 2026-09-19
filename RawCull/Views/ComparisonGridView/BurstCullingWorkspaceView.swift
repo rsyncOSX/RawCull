@@ -800,18 +800,18 @@ private struct BurstFilmstripThumbnail: View {
                     file: file,
                     targetSize: 180,
                     style: .grid,
-                    showsShimmer: true
+                    showsShimmer: true,
                 )
-                    .frame(width: 132, height: 82)
-                    .clipped()
-                    .overlay(alignment: .topTrailing) {
-                        if isSuggested || isDeferred {
-                            Circle()
-                                .fill(isSuggested ? Color.green : Color.orange)
-                                .frame(width: 9, height: 9)
-                                .padding(7)
-                        }
+                .frame(width: 132, height: 82)
+                .clipped()
+                .overlay(alignment: .topTrailing) {
+                    if isSuggested || isDeferred {
+                        Circle()
+                            .fill(isSuggested ? Color.green : Color.orange)
+                            .frame(width: 9, height: 9)
+                            .padding(7)
                     }
+                }
                 Text(file.name)
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
