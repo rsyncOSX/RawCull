@@ -33,7 +33,7 @@ struct DeepAIReviewSheetView: View {
             )
 
             Divider()
-
+            
             DeepAIReviewSheetContent(
                 controller: controller,
                 files: files,
