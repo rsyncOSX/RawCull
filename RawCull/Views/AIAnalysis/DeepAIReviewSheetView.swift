@@ -76,14 +76,14 @@ private struct DeepAIReviewSheetControls: View {
             .frame(maxWidth: 420)
             .disabled(controller.isRunning)
             .accessibilityHint("Selects the subject target used for local detail review.")
-            
+
             Button("Mark Winner & Close", systemImage: "checkmark.circle", action: onApply)
                 .buttonStyle(.borderedProminent)
                 .disabled(!canApply || controller.isRunning)
                 .accessibilityHint("Marks the recommended candidate as the manual winner and closes Deep Review.")
 
             Spacer()
-            
+
             if controller.isRunning {
                 Button("Cancel", role: .cancel, action: onCancel)
                     .buttonStyle(.bordered)
