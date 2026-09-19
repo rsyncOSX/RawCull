@@ -83,6 +83,7 @@ final class RawCullQwenAnalysisFeature {
                     case let .structured(value):
                         assessment = value
                         freeformResponse = nil
+
                     case let .freeform(value):
                         assessment = nil
                         freeformResponse = value

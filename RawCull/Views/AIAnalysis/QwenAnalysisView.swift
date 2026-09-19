@@ -50,7 +50,7 @@ struct QwenAnalysisView: View {
             if let progress = feature.progress {
                 ProgressView(
                     value: Double(progress.completedCount),
-                    total: Double(max(progress.totalCount, 1))
+                    total: Double(max(progress.totalCount, 1)),
                 ) {
                     HStack {
                         Text(progress.currentFileName.map { "Analyzing \($0)" } ?? "Completing analysis…")
@@ -75,7 +75,7 @@ struct QwenAnalysisView: View {
             HSplitView {
                 QwenResultsTable(
                     results: feature.results,
-                    selection: $selectedResultID
+                    selection: $selectedResultID,
                 )
                 .frame(minWidth: 400, idealWidth: 550)
 
@@ -85,9 +85,8 @@ struct QwenAnalysisView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1),
             )
-            
         }
         .padding(16)
         .task(id: feature.results.map(\.id)) {
@@ -238,7 +237,6 @@ private struct QwenAssessmentDetail: View {
 
                     QwenAssessmentList(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
                     QwenAssessmentList(title: "Issues", values: assessment.problems, icon: "exclamationmark.triangle", color: .orange)
-
                 } else if let result, let response = result.freeformResponse {
                     Text(result.fileName)
                         .font(.headline)
@@ -248,18 +246,17 @@ private struct QwenAssessmentDetail: View {
                     Text(response)
                         .font(.callout)
                         .textSelection(.enabled)
-
                 } else if let failure = result?.failure {
                     ContentUnavailableView(
                         "Analysis Failed",
                         systemImage: "exclamationmark.triangle",
-                        description: Text(failure)
+                        description: Text(failure),
                     )
                 } else {
                     ContentUnavailableView(
                         "No Selection",
                         systemImage: "photo",
-                        description: Text("Select a row in the table to inspect analysis breakdowns.")
+                        description: Text("Select a row in the table to inspect analysis breakdowns."),
                     )
                 }
             }

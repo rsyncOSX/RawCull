@@ -60,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 switch chooseRecovery() {
                 case .retry: continue
+
                 case .cancel: break saveAttempts
 
                 case .discard:

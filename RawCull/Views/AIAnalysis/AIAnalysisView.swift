@@ -54,7 +54,7 @@ struct AIAnalysisView: View {
                     ContentUnavailableView(
                         "No Images to Analyze",
                         systemImage: "sparkles.rectangle.stack",
-                        description: Text(emptyDescription)
+                        description: Text(emptyDescription),
                     )
                 } else {
                     switch selectedTool {
@@ -62,13 +62,13 @@ struct AIAnalysisView: View {
                         SAMCLIPAnalysisContainer(
                             viewModel: viewModel,
                             controller: deepAIReviewController,
-                            files: inputFiles
+                            files: inputFiles,
                         )
 
                     case .qwen:
                         QwenAnalysisView(
                             feature: qwenAnalysisFeature,
-                            files: inputFiles
+                            files: inputFiles,
                         )
                     }
                 }
@@ -81,7 +81,7 @@ struct AIAnalysisView: View {
                 AIAnalysisThumbnailStrip(
                     files: inputFiles,
                     inputSource: inputSource,
-                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid
+                    thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
                 )
             }
         }
@@ -90,7 +90,7 @@ struct AIAnalysisView: View {
             deepAIReviewController.cancel()
         }
         .task {
-            if inputFiles.isEmpty && !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
+            if inputFiles.isEmpty, !viewModel.aiAnalysisFiles(for: .taggedImages).isEmpty {
                 inputSource = .taggedImages
             }
         }
@@ -100,6 +100,7 @@ struct AIAnalysisView: View {
         switch inputSource {
         case .gridSelection:
             "Select one or more images in Grid View, then return to AI Analysis."
+
         case .taggedImages:
             "Tag images with two or more stars before opening AI Analysis."
         }
@@ -112,7 +113,9 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
     case samCLIP
     case qwen
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var title: String {
         switch self {
@@ -166,7 +169,7 @@ private struct AIAnalysisThumbnailStrip: View {
                     ForEach(files) { file in
                         AIAnalysisThumbnailStripItem(
                             file: file,
-                            thumbnailSize: thumbnailSize
+                            thumbnailSize: thumbnailSize,
                         )
                     }
                 }
@@ -189,13 +192,13 @@ private struct AIAnalysisThumbnailStripItem: View {
             ThumbnailImageView(
                 file: file,
                 targetSize: thumbnailSize,
-                style: .grid
+                style: .grid,
             )
             .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1),
             )
 
             Text(file.name)
@@ -216,7 +219,7 @@ private struct SAMCLIPAnalysisContainer: View {
     var body: some View {
         if let signature = BurstGroupSignature(
             files: files,
-            catalog: viewModel.selectedSource?.url
+            catalog: viewModel.selectedSource?.url,
         ) {
             DeepAIReviewSheetView(
                 controller: controller,
@@ -228,19 +231,14 @@ private struct SAMCLIPAnalysisContainer: View {
                 },
                 onClose: {
                     viewModel.selectMainViewMode(.grid)
-                }
+                },
             )
         } else {
             ContentUnavailableView(
                 "Catalog Required",
                 systemImage: "folder.badge.questionmark",
-                description: Text("Select a catalog before running SAM 3 + CLIP analysis.")
+                description: Text("Select a catalog before running SAM 3 + CLIP analysis."),
             )
         }
     }
 }
-
-
-
-
-
