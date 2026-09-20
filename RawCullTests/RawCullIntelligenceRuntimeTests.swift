@@ -50,8 +50,8 @@ struct RawCullIntelligenceRuntimeTests {
             ),
         )
         #expect(
-            runtime.modelManagementModel
-                === runtime.settingsModel.modelManagementModel,
+            runtime.modelDownloadsModel
+                === runtime.settingsModel.modelDownloadsModel,
         )
     }
 
@@ -336,7 +336,7 @@ struct RawCullIntelligenceRuntimeTests {
         weak var releasedSimilarityFeature: RawCullSimilarityFeature?
         weak var releasedSemanticSearchFeature: RawCullSemanticSearchFeature?
         weak var releasedSettingsModel: RawCullAISettingsModel?
-        weak var releasedModelManagementModel: RawCullAIModelManagementModel?
+        weak var releasedModelDownloadsModel: RawCullAIModelDownloadsModel?
 
         do {
             let applicationState = RawCullApplicationState.make(
@@ -354,8 +354,8 @@ struct RawCullIntelligenceRuntimeTests {
             releasedSemanticSearchFeature = applicationState.intelligenceRuntime
                 .semanticSearchFeature
             releasedSettingsModel = applicationState.intelligenceRuntime.settingsModel
-            releasedModelManagementModel = applicationState.intelligenceRuntime
-                .modelManagementModel
+            releasedModelDownloadsModel = applicationState.intelligenceRuntime
+                .modelDownloadsModel
         }
 
         #expect(releasedRuntime == nil)
@@ -364,7 +364,7 @@ struct RawCullIntelligenceRuntimeTests {
         #expect(releasedSimilarityFeature == nil)
         #expect(releasedSemanticSearchFeature == nil)
         #expect(releasedSettingsModel == nil)
-        #expect(releasedModelManagementModel == nil)
+        #expect(releasedModelDownloadsModel == nil)
     }
 
     @MainActor

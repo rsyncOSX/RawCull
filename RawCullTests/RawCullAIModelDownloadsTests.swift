@@ -256,7 +256,7 @@ struct RawCullAIModelDownloadsTests {
             for: descriptor.id,
             rawCullVersion: "test",
         )
-        let model = RawCullAIModelManagementModel(
+        let model = RawCullAIModelDownloadsModel(
             catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
             coordinator: coordinator,
             rawCullVersion: "test",
@@ -354,7 +354,7 @@ struct RawCullAIModelDownloadsTests {
                 licenceBundle: licenceBundle(),
             ),
         )
-        let model = RawCullAIModelManagementModel(
+        let model = RawCullAIModelDownloadsModel(
             catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
             coordinator: coordinator,
             rawCullVersion: "test",
@@ -416,7 +416,7 @@ struct RawCullAIModelDownloadsTests {
                 licenceBundle: licenceBundle(),
             ),
         )
-        let model = RawCullAIModelManagementModel(
+        let model = RawCullAIModelDownloadsModel(
             catalog: RawCullAIModelDownloadCatalog(models: [descriptor]),
             coordinator: coordinator,
             rawCullVersion: "test",
@@ -571,7 +571,7 @@ struct RawCullAIModelDownloadsTests {
 
     @MainActor
     private func waitUntilPresentation(
-        _ model: RawCullAIModelManagementModel,
+        _ model: RawCullAIModelDownloadsModel,
         hasState expectedState: RawCullAIModelDownloadState,
     ) async {
         for _ in 0 ..< 1000 {

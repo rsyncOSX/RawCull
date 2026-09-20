@@ -60,7 +60,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     let deepAIReviewController: DeepAIReviewController
     let qwenAnalysisFeature: RawCullQwenAnalysisFeature
     let settingsModel: RawCullAISettingsModel
-    let modelManagementModel: RawCullAIModelManagementModel
+    let modelDownloadsModel: RawCullAIModelDownloadsModel
     private(set) var lastAppliedConfigurationIdentity:
         RawCullIntelligenceConfigurationIdentity?
     private(set) var lastAcceptedConfigurationRevision: UInt64?
@@ -82,7 +82,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.deepAIReviewController = deepAIReviewController
         self.qwenAnalysisFeature = qwenAnalysisFeature
         self.settingsModel = settingsModel
-        self.modelManagementModel = settingsModel.modelManagementModel
+        self.modelDownloadsModel = settingsModel.modelDownloadsModel
         similarityFeature.bindApplicationContext(applicationContext)
 
         assert(
@@ -170,7 +170,7 @@ struct RawCullApplicationState {
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
     ) -> RawCullApplicationState {
-        let modelManagementModel = RawCullAIModelManagementModel(
+        let modelDownloadsModel = RawCullAIModelDownloadsModel(
             paths: integration.paths,
             catalog: modelDownloadCatalog,
             coordinator: modelDownloadCoordinator,
@@ -188,7 +188,7 @@ struct RawCullApplicationState {
             integration: integration,
             evidenceScan: evidenceScan,
             userDefaults: userDefaults,
-            modelManagementModel: modelManagementModel,
+            modelDownloadsModel: modelDownloadsModel,
             qwenModelManager: qwenModelManager,
             qwenAnalysisFeature: qwenAnalysisFeature,
         )
@@ -244,8 +244,8 @@ struct RawCullApplicationState {
             ),
         )
         assert(
-            settingsModel.modelManagementModel
-                === intelligenceRuntime.modelManagementModel,
+            settingsModel.modelDownloadsModel
+                === intelligenceRuntime.modelDownloadsModel,
         )
 
         return RawCullApplicationState(

@@ -42,7 +42,7 @@ struct AISettingsTab: View {
             await model.refresh()
         }
         .sheet(isPresented: $showModelDownloads) {
-            AIModelDownloadsView(model: model.modelManagementModel)
+            AIModelDownloadsView(model: model.modelDownloadsModel)
         }
     }
 }

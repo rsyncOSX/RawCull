@@ -21,9 +21,9 @@ protocol RawCullAIManagedModelLocationsApplying: AnyObject {
 ///
 /// SwiftUI sees prepared presentation values and actions. The catalog,
 /// coordinator, acceptance store, service, locations, and task ownership remain
-/// private to this focused model-management boundary.
+/// private to this focused model-download boundary.
 @Observable @MainActor
-final class RawCullAIModelManagementModel {
+final class RawCullAIModelDownloadsModel {
     private(set) var presentations: [RawCullAIModelDownloadPresentation]
 
     @ObservationIgnored private let catalog: RawCullAIModelDownloadCatalog
@@ -84,7 +84,7 @@ final class RawCullAIModelManagementModel {
     ) {
         precondition(
             locationsConsumer == nil,
-            "RawCullAIModelManagementModel locations consumer may only be bound once.",
+            "RawCullAIModelDownloadsModel locations consumer may only be bound once.",
         )
         locationsConsumer = consumer
     }

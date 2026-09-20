@@ -18,7 +18,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     private(set) var qwenModelStatus: RawCullAICapabilityStatus = .checking(
         expectedLocations: [],
     )
-    let modelManagementModel: RawCullAIModelManagementModel
+    let modelDownloadsModel: RawCullAIModelDownloadsModel
 
     var useCLIPForSimilarity: Bool {
         get { prefersCLIPForSimilarity }
@@ -67,7 +67,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         evidenceScanner: RawCullSavedBurstEvidenceScanner? = nil,
         evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
         userDefaults: UserDefaults = .standard,
-        modelManagementModel: RawCullAIModelManagementModel? = nil,
+        modelDownloadsModel: RawCullAIModelDownloadsModel? = nil,
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
@@ -106,15 +106,15 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         self.evidenceScan = evidenceScan ?? {
             try await scanner.scan()
         }
-        self.modelManagementModel = modelManagementModel
-            ?? RawCullAIModelManagementModel(
+        self.modelDownloadsModel = modelDownloadsModel
+            ?? RawCullAIModelDownloadsModel(
                 paths: integration.paths,
                 catalog: modelDownloadCatalog,
                 coordinator: modelDownloadCoordinator,
                 rawCullVersion: rawCullVersion,
             )
         self.capabilities = integration.capabilities()
-        self.modelManagementModel.bindLocationsConsumer(self)
+        self.modelDownloadsModel.bindLocationsConsumer(self)
     }
 
     func sharesQwenRuntimeIdentity(
@@ -199,7 +199,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     }
 
     func refresh() async {
-        await modelManagementModel.refresh()
+        await modelDownloadsModel.refresh()
     }
 
     func setUseCLIPForSimilarity(_ enabled: Bool) {

@@ -225,7 +225,7 @@ model validation, similarity artifacts, segmentation, mask storage, domain
 models, serialization, and process execution.
 
 The application-local intelligence boundary is assembled once by
-`RawCullApplicationState`. Views receive focused settings, model-management,
+`RawCullApplicationState`. Views receive focused settings, model-download,
 similarity, semantic-search, Deep Review, or Qwen analysis models; the runtime
 is a lifetime and configuration owner, not a forwarding facade.
 

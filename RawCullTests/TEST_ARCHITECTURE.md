@@ -136,7 +136,7 @@ the suite name, tag, or test body.
   saved burst evidence scanning, model validation reuse, Settings cancellation,
   and persisted CLIP preference behavior.
 - `RawCullIntelligenceRuntimeTests.swift`: stable application assembly, shared
-  similarity, model-management, and Deep Review identity, typed Settings
+  similarity, model-download, and Deep Review identity, typed Settings
   configuration ordering, no-op and stale-revision behavior, in-flight hydration
   supersession, segmentation isolation, and weak-edge lifetime behavior.
 - `RawCullSimilarityFeatureTests.swift`: shared feature/model identity, RawCull-owned
