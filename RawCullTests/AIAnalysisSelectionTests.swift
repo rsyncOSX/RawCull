@@ -89,7 +89,6 @@ struct AIAnalysisSelectionTests {
                 applicationSupportRoot: root.appendingPathComponent("Application Support"),
                 cachesRoot: root.appendingPathComponent("Caches"),
             ),
-            allowsBundledModelFallback: false,
         )
     }
 }

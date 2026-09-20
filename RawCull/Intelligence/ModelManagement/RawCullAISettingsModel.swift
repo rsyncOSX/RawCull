@@ -1,10 +1,5 @@
 import Foundation
 
-nonisolated enum RawCullQwenModelSource: String, Codable, Sendable {
-    case managed
-    case custom
-}
-
 /// Settings-facing state for AI integration readiness.
 ///
 /// This model is the narrow boundary consumed by SwiftUI. It intentionally does
@@ -15,17 +10,14 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
     static let selectedSegmentationModelPreferenceKey =
         "RawCullAI.selectedSegmentationModel"
-    static let qwenModelPathPreferenceKey = "RawCullAI.qwenModelPath"
-    static let qwenModelBookmarkPreferenceKey = "RawCullAI.qwenModelBookmark"
-    static let qwenModelSourcePreferenceKey = "RawCullAI.qwenModelSource"
 
     private(set) var capabilities: RawCullAICapabilities
     private(set) var savedBurstEvidence: RawCullSavedBurstEvidence?
     private(set) var savedBurstScanFailure: String?
     private(set) var isScanningSavedBurstData = false
-    private(set) var qwenModelStatus: QwenModelStatus = .notConfigured
-    private(set) var qwenModelSource: RawCullQwenModelSource
-    private(set) var managedQwenModelURL: URL?
+    private(set) var qwenModelStatus: RawCullAICapabilityStatus = .checking(
+        expectedLocations: [],
+    )
     let modelManagementModel: RawCullAIModelManagementModel
 
     var useCLIPForSimilarity: Bool {
@@ -62,10 +54,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private let qwenModelManager: any QwenModelManaging
     @ObservationIgnored private let qwenAnalysisFeature: RawCullQwenAnalysisFeature
-    @ObservationIgnored private var qwenValidationTask: Task<Void, Never>?
     @ObservationIgnored private var qwenValidationGeneration = 0
-    @ObservationIgnored private var activeQwenModelURL: URL?
-    @ObservationIgnored private var securityScopedQwenModelURL: URL?
     @ObservationIgnored private weak var configurationConsumer:
         (any RawCullIntelligenceConfigurationApplying)?
     @ObservationIgnored private var configurationRevision: UInt64 = 0
@@ -82,7 +71,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
-        qwenModelManager: any QwenModelManaging = QwenModelManager(),
+        qwenModelManager: any QwenModelManaging,
         qwenAnalysisFeature: RawCullQwenAnalysisFeature? = nil,
     ) {
         self.integration = integration
@@ -90,9 +79,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         self.qwenModelManager = qwenModelManager
         self.qwenAnalysisFeature = qwenAnalysisFeature
             ?? RawCullQwenAnalysisFeature(modelManager: qwenModelManager)
-        self.qwenModelSource = userDefaults.string(
-            forKey: Self.qwenModelSourcePreferenceKey,
-        ).flatMap(RawCullQwenModelSource.init(rawValue:)) ?? .managed
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
@@ -131,6 +117,13 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         self.modelManagementModel.bindLocationsConsumer(self)
     }
 
+    func sharesQwenRuntimeIdentity(
+        modelManager: any QwenModelManaging,
+        analysisFeature: RawCullQwenAnalysisFeature,
+    ) -> Bool {
+        qwenModelManager === modelManager && qwenAnalysisFeature === analysisFeature
+    }
+
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async {
@@ -145,8 +138,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
 
         do {
             await integration.setManagedModelLocations(locations)
-            managedQwenModelURL = locations[.qwen3VL2B]
-            await reconcileQwenModelSource()
+            await applyManagedQwenModel(at: locations[.qwen3VL2B])
             async let refreshedCapabilities = integration.refreshCapabilities()
             async let savedEvidence = evidenceScan()
             let (capabilities, result) = try await (
@@ -210,45 +202,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         await modelManagementModel.refresh()
     }
 
-    func setQwenModelURL(_ url: URL) {
-        let standardizedURL = url.standardizedFileURL
-        guard startQwenSecurityScopedAccess(for: standardizedURL) else {
-            applyQwenStatus(.invalid(
-                url: standardizedURL,
-                reason: "RawCull could not access the selected Qwen model folder.",
-            ))
-            return
-        }
-
-        userDefaults.set(
-            standardizedURL.path,
-            forKey: Self.qwenModelPathPreferenceKey,
-        )
-        let bookmark = try? standardizedURL.bookmarkData(
-            options: [.withSecurityScope],
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil,
-        )
-        userDefaults.set(bookmark, forKey: Self.qwenModelBookmarkPreferenceKey)
-        setQwenModelSource(.custom)
-        validateQwenModel(at: standardizedURL)
-    }
-
-    func validateQwenModelAgain() {
-        startQwenReconciliation()
-    }
-
-    func clearQwenModel() {
-        qwenValidationTask?.cancel()
-        qwenValidationTask = nil
-        userDefaults.removeObject(forKey: Self.qwenModelPathPreferenceKey)
-        userDefaults.removeObject(forKey: Self.qwenModelBookmarkPreferenceKey)
-        if qwenModelSource == .custom {
-            setQwenModelSource(.managed)
-        }
-        startQwenReconciliation()
-    }
-
     func setUseCLIPForSimilarity(_ enabled: Bool) {
         guard prefersCLIPForSimilarity != enabled else { return }
         prefersCLIPForSimilarity = enabled
@@ -287,130 +240,48 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         )
     }
 
-    private func validateQwenModel(at url: URL) {
+    private func applyManagedQwenModel(at url: URL?) async {
+        qwenValidationGeneration &+= 1
+        let generation = qwenValidationGeneration
+        guard let url else {
+            await qwenModelManager.clear()
+            guard qwenValidationGeneration == generation else { return }
+            applyQwenStatus(.notConfigured)
+            return
+        }
+
         let standardizedURL = url.standardizedFileURL
-        activeQwenModelURL = standardizedURL
-        qwenValidationTask?.cancel()
-        qwenValidationGeneration &+= 1
-        let generation = qwenValidationGeneration
         applyQwenStatus(.checking(standardizedURL))
-        qwenValidationTask = Task { [weak self] in
-            guard let self else { return }
-            let status = await qwenModelManager.validate(url: standardizedURL)
-            guard !Task.isCancelled,
-                  qwenValidationGeneration == generation,
-                  activeQwenModelURL == standardizedURL
-            else { return }
-            applyQwenStatus(status)
-            qwenValidationTask = nil
-        }
-    }
-
-    private func startQwenReconciliation() {
-        qwenValidationTask?.cancel()
-        qwenValidationTask = Task { [weak self] in
-            await self?.reconcileQwenModelSource(
-                cancelPendingValidation: false,
-            )
-        }
-    }
-
-    private func reconcileQwenModelSource(
-        cancelPendingValidation: Bool = true,
-    ) async {
-        if cancelPendingValidation {
-            qwenValidationTask?.cancel()
-            qwenValidationTask = nil
-        }
-        qwenValidationGeneration &+= 1
-        let generation = qwenValidationGeneration
-        defer {
-            if qwenValidationGeneration == generation {
-                qwenValidationTask = nil
-            }
-        }
-
-        let url: URL
-        switch qwenModelSource {
-        case .managed:
-            securityScopedQwenModelURL?.stopAccessingSecurityScopedResource()
-            securityScopedQwenModelURL = nil
-            guard let managedQwenModelURL else {
-                activeQwenModelURL = nil
-                await qwenModelManager.clear()
-                guard qwenValidationGeneration == generation else { return }
-                applyQwenStatus(.notConfigured)
-                return
-            }
-            url = managedQwenModelURL.standardizedFileURL
-
-        case .custom:
-            guard let customURL = resolvedQwenModelURL() else {
-                activeQwenModelURL = nil
-                await qwenModelManager.clear()
-                guard qwenValidationGeneration == generation else { return }
-                applyQwenStatus(.notConfigured)
-                return
-            }
-            guard startQwenSecurityScopedAccess(for: customURL) else {
-                activeQwenModelURL = nil
-                await qwenModelManager.clear()
-                guard qwenValidationGeneration == generation else { return }
-                applyQwenStatus(.invalid(
-                    url: customURL,
-                    reason: "RawCull could not access the saved Qwen model folder.",
-                ))
-                return
-            }
-            url = customURL.standardizedFileURL
-        }
-
-        activeQwenModelURL = url
-        applyQwenStatus(.checking(url))
-        let status = await qwenModelManager.validate(url: url)
+        let status = await qwenModelManager.validate(url: standardizedURL)
         guard !Task.isCancelled,
-              qwenValidationGeneration == generation,
-              activeQwenModelURL == url
+              qwenValidationGeneration == generation
         else { return }
         applyQwenStatus(status)
     }
 
-    private func setQwenModelSource(_ source: RawCullQwenModelSource) {
-        qwenModelSource = source
-        userDefaults.set(source.rawValue, forKey: Self.qwenModelSourcePreferenceKey)
-    }
-
     private func applyQwenStatus(_ status: QwenModelStatus) {
-        qwenModelStatus = status
+        qwenModelStatus = status.capabilityStatus
         qwenAnalysisFeature.updateModelStatus(status)
     }
+}
 
-    private func resolvedQwenModelURL() -> URL? {
-        if let bookmark = userDefaults.data(forKey: Self.qwenModelBookmarkPreferenceKey) {
-            var isStale = false
-            if let url = try? URL(
-                resolvingBookmarkData: bookmark,
-                options: [.withSecurityScope],
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale,
-            ) {
-                return url.standardizedFileURL
-            }
-        }
-        return userDefaults.string(forKey: Self.qwenModelPathPreferenceKey)
-            .map { URL(filePath: $0).standardizedFileURL }
-    }
+private nonisolated extension QwenModelStatus {
+    var capabilityStatus: RawCullAICapabilityStatus {
+        switch self {
+        case .notConfigured:
+            .missing(expectedLocations: [])
 
-    private func startQwenSecurityScopedAccess(for url: URL) -> Bool {
-        let standardizedURL = url.standardizedFileURL
-        if securityScopedQwenModelURL == standardizedURL {
-            return true
+        case let .checking(url):
+            .checking(expectedLocations: [url])
+
+        case let .available(url, _):
+            .available(location: url)
+
+        case let .missing(url):
+            .missing(expectedLocations: [url])
+
+        case let .invalid(url, reason):
+            .invalid(location: url, reason: reason)
         }
-        guard standardizedURL.startAccessingSecurityScopedResource() else {
-            return false
-        }
-        securityScopedQwenModelURL?.stopAccessingSecurityScopedResource()
-        securityScopedQwenModelURL = standardizedURL
-        return true
     }
 }

@@ -18,11 +18,15 @@ final class RawCullQwenAnalysisFeature {
     @ObservationIgnored private var generation = 0
 
     init(
-        modelManager: any QwenModelManaging = QwenModelManager(),
+        modelManager: any QwenModelManaging,
         imageLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
         self.modelManager = modelManager
         self.imageLoader = imageLoader
+    }
+
+    func sharesModelManagerIdentity(with modelManager: any QwenModelManaging) -> Bool {
+        self.modelManager === modelManager
     }
 
     var canRun: Bool {
