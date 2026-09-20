@@ -12,21 +12,21 @@ final class RawCullQwenAnalysisFeature {
     private(set) var isRunning = false
     private(set) var modelStatus: QwenModelStatus = .notConfigured
 
-    @ObservationIgnored private let modelManager: any QwenModelManaging
+    @ObservationIgnored private let inference: any QwenInferenceServing
     @ObservationIgnored private let imageLoader: any RawImageLoading
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
 
     init(
-        modelManager: any QwenModelManaging,
+        inference: any QwenInferenceServing,
         imageLoader: any RawImageLoading = RawParserKitImageLoader.shared,
     ) {
-        self.modelManager = modelManager
+        self.inference = inference
         self.imageLoader = imageLoader
     }
 
-    func sharesModelManagerIdentity(with modelManager: any QwenModelManaging) -> Bool {
-        self.modelManager === modelManager
+    func sharesInferenceIdentity(with inference: any QwenInferenceServing) -> Bool {
+        self.inference === inference
     }
 
     var canRun: Bool {
@@ -80,7 +80,7 @@ final class RawCullQwenAnalysisFeature {
                         throw QwenModelError.imageUnavailable
                     }
                     try Task.checkCancellation()
-                    let response = try await feature.modelManager.assess(
+                    let response = try await feature.inference.assess(
                         criteria: criteria,
                         image: image,
                     )

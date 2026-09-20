@@ -476,20 +476,19 @@ separate vision-language runtime.
 
 ## 12. Feed the managed Qwen location into the Qwen runtime — completed
 
-The existing managed-location path only configures CLIP and segmentation in
-`RawCullAIIntegration.setManagedModelLocations`. Qwen is owned by
-`RawCullAISettingsModel` and `QwenModelManager`, so extend that boundary rather
-than making the generic integration own the Qwen provider.
+All installed model locations now enter through
+`RawCullAIModelRuntime.applyManagedModelLocations`. The runtime owns the Qwen
+manager alongside the CLIP and SAM 3 resource managers, while the individual
+actors retain their separate isolation domains.
 
 Update `RawCullAISettingsModel.applyManagedModelLocations` to:
 
-1. continue forwarding CLIP/SAM locations to
-   `integration.setManagedModelLocations`;
-2. extract `locations[.qwen3VL2B]`;
-3. remember the managed Qwen URL;
-4. validate it with the existing `QwenModelManager.validate(url:)`;
-5. publish the resulting status to `RawCullQwenAnalysisFeature`; and
-6. clear/reconcile the provider when the managed pack is removed or updated.
+1. pass the complete location snapshot to
+   `modelRuntime.applyManagedModelLocations`;
+2. let the runtime update the CLIP and SAM 3 resource-manager actors;
+3. let the runtime validate or clear its Qwen manager;
+4. publish the returned Qwen status to `RawCullQwenAnalysisFeature`; and
+5. refresh the remaining capability snapshot.
 
 No security-scoped bookmark is needed for a URL returned by
 `AssetPackManager`. Continue using security-scoped access only for a manually
@@ -533,12 +532,13 @@ When switching from custom to managed:
 
 When removing the managed pack:
 
-- call `QwenModelManager.clear()`;
+- apply a location snapshot without Qwen through `RawCullAIModelRuntime`, which
+  clears its `QwenInferenceRuntime`;
 - set an unavailable/not-configured state unless custom override is active; and
 - prevent an in-flight Qwen analysis from retaining a provider backed by the
   removed path.
 
-Consider extending `QwenModelManaging` with a cancellation/reset operation if
+Consider extending `QwenInferenceServing` with a cancellation/reset operation if
 `clear()` alone cannot safely stop an active model/session before pack removal.
 
 ## 13. Redesign the AI Settings presentation — completed
@@ -890,7 +890,7 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 - [x] Select `StoreDownloaderExtension` for AppStore builds.
 - [x] Select `.appleHosted` in the AppStore application code.
 - [x] Add Qwen to the managed-download enum, catalog, and production inclusion.
-- [x] Route managed Qwen locations into `QwenModelManager`.
+- [x] Route managed Qwen locations into `QwenInferenceRuntime`.
 - [x] Implement explicit managed/custom Qwen source precedence.
 - [x] Update AI Settings and the download sheet.
 - [ ] Update the manifest template, provenance schema, notices, scripts, and

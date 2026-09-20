@@ -1,3 +1,4 @@
+// Qwen's actor-isolated provider and inference lifecycle.
 import CoreAILanguageModels
 import CoreAIQwenBackend
 import CoreGraphics
@@ -20,13 +21,13 @@ nonisolated enum QwenModelStatus: Equatable, Sendable {
     }
 }
 
-nonisolated protocol QwenModelManaging: AnyObject, Sendable {
+nonisolated protocol QwenInferenceServing: AnyObject, Sendable {
     func validate(url: URL) async -> QwenModelStatus
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
     func clear() async
 }
 
-actor QwenModelManager: QwenModelManaging {
+actor QwenInferenceRuntime: QwenInferenceServing {
     private var provider: CoreAIQwenProvider?
     private var model: CoreAIVisionLanguageModel?
     private var modelGeneration: UInt64 = 0

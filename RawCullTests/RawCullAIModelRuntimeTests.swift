@@ -4,8 +4,8 @@ import PhotoAIContracts
 import RawCullCore
 import Testing
 
-@Suite("RawCull AI integration", .tags(.smoke))
-struct RawCullAIIntegrationTests {
+@Suite("RawCull AI model runtime", .tags(.smoke))
+struct RawCullAIModelRuntimeTests {
     @Test
     func `AI paths retain RawCull's canonical data namespaces`() {
         let root = isolatedRoot()
@@ -41,13 +41,13 @@ struct RawCullAIIntegrationTests {
 
     @MainActor
     @Test
-    func `Integration reports the complete Phase 1 capability surface`() async throws {
+    func `Model runtime reports the complete Phase 1 capability surface`() async throws {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let paths = isolatedPaths(root: root)
-        let integration = RawCullAIIntegration(paths: paths)
-        let initialCapabilities = integration.capabilities()
+        let modelRuntime = RawCullAIModelRuntime(paths: paths)
+        let initialCapabilities = modelRuntime.capabilities()
 
         #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
             expectedLocations: [],
@@ -66,7 +66,7 @@ struct RawCullAIIntegrationTests {
             expectedLocations: [],
         ))
 
-        let capabilities = try await integration.refreshCapabilities()
+        let capabilities = try await modelRuntime.refreshCapabilities()
 
         #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
             expectedLocations: [],
@@ -86,13 +86,13 @@ struct RawCullAIIntegrationTests {
             reason: "Semantic search requires a valid CLIP model.",
             expectedLocations: [],
         ))
-        #expect(integration.semanticSearchService(clipModel: .dataComp) == nil)
-        #expect(integration.semanticSearchService(clipModel: .openAI) == nil)
-        #expect(integration.similarityService(
+        #expect(modelRuntime.semanticSearchService(clipModel: .dataComp) == nil)
+        #expect(modelRuntime.semanticSearchService(clipModel: .openAI) == nil)
+        #expect(modelRuntime.similarityService(
             prefersCLIP: false,
             clipModel: .dataComp,
         ).backendDescriptor.backend == "vision-feature-print")
-        #expect(integration.similarityService(
+        #expect(modelRuntime.similarityService(
             prefersCLIP: true,
             clipModel: .openAI,
         ).backendDescriptor.backend == "vision-feature-print")
@@ -285,14 +285,13 @@ struct RawCullAIIntegrationTests {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = isolatedPaths(root: root)
-        let integration = RawCullAIIntegration(paths: paths)
+        let modelRuntime = RawCullAIModelRuntime(paths: paths)
         let probe = SavedEvidenceCancellationProbe()
         let model = RawCullAISettingsModel(
-            integration: integration,
+            modelRuntime: modelRuntime,
             evidenceScan: {
                 try await probe.scan()
             },
-            qwenModelManager: QwenModelManager(),
         )
 
         let refresh = Task {
@@ -313,7 +312,7 @@ struct RawCullAIIntegrationTests {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let defaultsSuite = "RawCullAIIntegrationTests.\(UUID().uuidString)"
+        let defaultsSuite = "RawCullAIModelRuntimeTests.\(UUID().uuidString)"
         let userDefaults = try #require(UserDefaults(suiteName: defaultsSuite))
         defer { userDefaults.removePersistentDomain(forName: defaultsSuite) }
         userDefaults.set(
@@ -322,9 +321,9 @@ struct RawCullAIIntegrationTests {
         )
 
         let paths = isolatedPaths(root: root)
-        let integration = RawCullAIIntegration(paths: paths)
+        let modelRuntime = RawCullAIModelRuntime(paths: paths)
         let applicationState = RawCullApplicationState.make(
-            integration: integration,
+            modelRuntime: modelRuntime,
             similarityArtifactStore: PerFileAnalysisArtifactStore(
                 storageDirectory: root.appendingPathComponent(
                     "SimilarityArtifacts",
@@ -369,9 +368,8 @@ struct RawCullAIIntegrationTests {
                 == "vision-feature-print",
         )
         let relaunchedModel = RawCullAISettingsModel(
-            integration: integration,
+            modelRuntime: modelRuntime,
             userDefaults: userDefaults,
-            qwenModelManager: QwenModelManager(),
         )
         #expect(relaunchedModel.useCLIPForSimilarity)
         #expect(relaunchedModel.selectedCLIPModel == .dataComp)
@@ -383,17 +381,16 @@ struct RawCullAIIntegrationTests {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let defaultsSuite = "RawCullAIIntegrationTests.\(UUID().uuidString)"
+        let defaultsSuite = "RawCullAIModelRuntimeTests.\(UUID().uuidString)"
         let userDefaults = try #require(UserDefaults(suiteName: defaultsSuite))
         defer { userDefaults.removePersistentDomain(forName: defaultsSuite) }
 
-        let integration = RawCullAIIntegration(paths: isolatedPaths(root: root))
+        let modelRuntime = RawCullAIModelRuntime(paths: isolatedPaths(root: root))
 
         let model = RawCullAISettingsModel(
-            integration: integration,
+            modelRuntime: modelRuntime,
             userDefaults: userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
-            qwenModelManager: QwenModelManager(),
         )
 
         #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
@@ -401,17 +398,16 @@ struct RawCullAIIntegrationTests {
 
         #expect(model.selectedSegmentationModel == .sam3)
         let relaunchedModel = RawCullAISettingsModel(
-            integration: integration,
+            modelRuntime: modelRuntime,
             userDefaults: userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
-            qwenModelManager: QwenModelManager(),
         )
         #expect(relaunchedModel.selectedSegmentationModel == .sam3)
     }
 
     private func isolatedRoot() -> URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("RawCullAIIntegrationTests", isDirectory: true)
+            .appendingPathComponent("RawCullAIModelRuntimeTests", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
     }
 

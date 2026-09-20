@@ -31,7 +31,7 @@ non-benchmark PhotoAIKit migration matrix. Mandatory AI coverage maps as follows
 - PhotoAnalysisKit integration and Vision fallback:
   `PhotoAnalysisKitIntegrationTests` and the exact Vision migration tests.
 - DataComp/OpenAI CLIP selection, model validation, downloads, and licence:
-  `RawCullAIIntegrationTests` and `RawCullAIModelDownloadsTests`.
+  `RawCullAIModelRuntimeTests` and `RawCullAIModelDownloadsTests`.
 - Stable intelligence ownership, shared model identity, typed configuration
   ordering, stale-revision rejection, and retain-cycle safety:
   `RawCullIntelligenceRuntimeTests`.
@@ -132,7 +132,7 @@ the suite name, tag, or test body.
 - `PhotoAIKitSimilarityMigrationTests.swift`: CLIP batch/fallback behavior, real
   Vision artifact generation, RawCull ranking-policy parity, schema-6
   invalidation/schema-8 rebuild, and the indexing/ranking performance benchmark.
-- `RawCullAIIntegrationTests.swift`: canonical AI paths, Phase 1 capability state,
+- `RawCullAIModelRuntimeTests.swift`: canonical AI paths, Phase 1 capability state,
   saved burst evidence scanning, model validation reuse, Settings cancellation,
   and persisted CLIP preference behavior.
 - `RawCullIntelligenceRuntimeTests.swift`: stable application assembly, shared

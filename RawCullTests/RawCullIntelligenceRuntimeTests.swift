@@ -13,7 +13,7 @@ struct RawCullIntelligenceRuntimeTests {
         defer { fixture.cleanUp() }
 
         let applicationState = RawCullApplicationState.make(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             similarityArtifactStore: fixture.similarityArtifactStore,
             userDefaults: fixture.userDefaults,
             evidenceScan: { .success(.empty) },
@@ -23,7 +23,7 @@ struct RawCullIntelligenceRuntimeTests {
         let runtime = applicationState.intelligenceRuntime
         let viewModel = applicationState.viewModel
 
-        #expect(runtime.integration === fixture.integration)
+        #expect(runtime.modelRuntime === fixture.modelRuntime)
         #expect(runtime.similarityFeature === viewModel.similarityFeature)
         #expect(runtime.semanticSearchFeature === viewModel.semanticSearchFeature)
         #expect(
@@ -39,13 +39,13 @@ struct RawCullIntelligenceRuntimeTests {
         #expect(runtime.deepAIReviewController === viewModel.deepAIReviewController)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
         #expect(
-            runtime.qwenAnalysisFeature.sharesModelManagerIdentity(
-                with: runtime.qwenModelManager,
+            runtime.qwenAnalysisFeature.sharesInferenceIdentity(
+                with: runtime.modelRuntime.qwenInference,
             ),
         )
         #expect(
-            runtime.settingsModel.sharesQwenRuntimeIdentity(
-                modelManager: runtime.qwenModelManager,
+            runtime.settingsModel.sharesModelRuntimeIdentity(
+                runtime.modelRuntime,
                 analysisFeature: runtime.qwenAnalysisFeature,
             ),
         )
@@ -66,7 +66,7 @@ struct RawCullIntelligenceRuntimeTests {
         )
 
         let applicationState = RawCullApplicationState.make(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             similarityArtifactStore: fixture.similarityArtifactStore,
             userDefaults: fixture.userDefaults,
             evidenceScan: { .success(.empty) },
@@ -81,7 +81,7 @@ struct RawCullIntelligenceRuntimeTests {
 
         #expect(
             viewModel.similarityModel.backendDescriptor
-                == runtime.integration.visionSimilarityService.backendDescriptor,
+                == runtime.modelRuntime.visionSimilarityService.backendDescriptor,
         )
         #expect(
             viewModel.similarityModel.semanticSearchCapability
@@ -97,17 +97,15 @@ struct RawCullIntelligenceRuntimeTests {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
         let target = RuntimeApplicationTargetSpy()
-        let qwenModelManager = QwenModelManager()
         let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
-            modelManager: qwenModelManager,
+            inference: fixture.modelRuntime.qwenInference,
         )
         let settingsModel = RawCullAISettingsModel(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             evidenceScan: { .success(.empty) },
             userDefaults: fixture.userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
             rawCullVersion: "test",
-            qwenModelManager: qwenModelManager,
             qwenAnalysisFeature: qwenAnalysisFeature,
         )
         let configuration = settingsModel.configurationSnapshot(revision: 1)
@@ -121,12 +119,11 @@ struct RawCullIntelligenceRuntimeTests {
             similarityModel: similarityModel,
         )
         let deepAIReviewFeature = DeepAIReviewFeature(
-            availability: fixture.integration.capabilities().inProcessMaskGeneration,
+            availability: fixture.modelRuntime.capabilities().inProcessMaskGeneration,
         )
-        fixture.integration.bindDeepAIReviewFeature(deepAIReviewFeature)
+        fixture.modelRuntime.bindDeepAIReviewFeature(deepAIReviewFeature)
         let runtime = RawCullIntelligenceRuntime(
-            integration: fixture.integration,
-            qwenModelManager: qwenModelManager,
+            modelRuntime: fixture.modelRuntime,
             similarityFeature: similarityFeature,
             semanticSearchFeature: RawCullSemanticSearchFeature(
                 similarityModel: similarityModel,
@@ -154,7 +151,7 @@ struct RawCullIntelligenceRuntimeTests {
         defer { fixture.cleanUp() }
 
         let applicationState = RawCullApplicationState.make(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             similarityArtifactStore: fixture.similarityArtifactStore,
             userDefaults: fixture.userDefaults,
             evidenceScan: { .success(.empty) },
@@ -185,7 +182,7 @@ struct RawCullIntelligenceRuntimeTests {
         defer { fixture.cleanUp() }
 
         let applicationState = RawCullApplicationState.make(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             similarityArtifactStore: fixture.similarityArtifactStore,
             userDefaults: fixture.userDefaults,
             evidenceScan: { .success(.empty) },
@@ -229,7 +226,7 @@ struct RawCullIntelligenceRuntimeTests {
         defer { fixture.cleanUp() }
 
         let applicationState = RawCullApplicationState.make(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             similarityArtifactStore: fixture.similarityArtifactStore,
             userDefaults: fixture.userDefaults,
             evidenceScan: { .success(.empty) },
@@ -271,7 +268,7 @@ struct RawCullIntelligenceRuntimeTests {
             suspendedBackend: runtimeTestBackend,
         )
         let applicationState = RawCullApplicationState.make(
-            integration: fixture.integration,
+            modelRuntime: fixture.modelRuntime,
             similarityArtifactStore: hydrationStore,
             userDefaults: fixture.userDefaults,
             evidenceScan: { .success(.empty) },
@@ -340,7 +337,7 @@ struct RawCullIntelligenceRuntimeTests {
 
         do {
             let applicationState = RawCullApplicationState.make(
-                integration: fixture.integration,
+                modelRuntime: fixture.modelRuntime,
                 similarityArtifactStore: fixture.similarityArtifactStore,
                 userDefaults: fixture.userDefaults,
                 evidenceScan: { .success(.empty) },
@@ -384,12 +381,12 @@ struct RawCullIntelligenceRuntimeTests {
             ),
             cachesRoot: root.appendingPathComponent("Caches", isDirectory: true),
         )
-        let integration = RawCullAIIntegration(paths: paths)
+        let modelRuntime = RawCullAIModelRuntime(paths: paths)
         return RuntimeTestFixture(
             root: root,
             defaultsSuite: defaultsSuite,
             userDefaults: userDefaults,
-            integration: integration,
+            modelRuntime: modelRuntime,
             similarityArtifactStore: PerFileAnalysisArtifactStore(
                 storageDirectory: root.appendingPathComponent(
                     "SimilarityArtifacts",
@@ -405,7 +402,7 @@ private struct RuntimeTestFixture {
     let root: URL
     let defaultsSuite: String
     let userDefaults: UserDefaults
-    let integration: RawCullAIIntegration
+    let modelRuntime: RawCullAIModelRuntime
     let similarityArtifactStore: PerFileAnalysisArtifactStore
 
     func cleanUp() {

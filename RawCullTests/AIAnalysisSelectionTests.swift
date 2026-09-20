@@ -9,7 +9,7 @@ struct AIAnalysisSelectionTests {
     @Test
     func `Grid source includes only selected files in catalog order`() {
         let state = RawCullApplicationState.make(
-            integration: makeIntegration(),
+            modelRuntime: makeModelRuntime(),
             userDefaults: isolatedUserDefaults(),
         )
         let first = makeFile("first.ARW")
@@ -28,7 +28,7 @@ struct AIAnalysisSelectionTests {
     @Test
     func `Grid source falls back to the focused image`() {
         let state = RawCullApplicationState.make(
-            integration: makeIntegration(),
+            modelRuntime: makeModelRuntime(),
             userDefaults: isolatedUserDefaults(),
         )
         let file = makeFile("focused.ARW")
@@ -42,7 +42,7 @@ struct AIAnalysisSelectionTests {
     @Test
     func `Selected analysis images survive main view changes`() {
         let state = RawCullApplicationState.make(
-            integration: makeIntegration(),
+            modelRuntime: makeModelRuntime(),
             userDefaults: isolatedUserDefaults(),
         )
         let first = makeFile("first.ARW")
@@ -81,10 +81,10 @@ struct AIAnalysisSelectionTests {
     }
 
     @MainActor
-    private func makeIntegration() -> RawCullAIIntegration {
+    private func makeModelRuntime() -> RawCullAIModelRuntime {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AIAnalysisSelectionTests-\(UUID().uuidString)", isDirectory: true)
-        return RawCullAIIntegration(
+        return RawCullAIModelRuntime(
             paths: RawCullAIPaths(
                 applicationSupportRoot: root.appendingPathComponent("Application Support"),
                 cachesRoot: root.appendingPathComponent("Caches"),

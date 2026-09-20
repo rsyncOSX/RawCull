@@ -8,17 +8,20 @@ import PhotoAIStorage
 import PhotoAIWorkflows
 import VisionFeaturePrintBackend
 
-/// RawCull's reusable AI backends, model resources, and service configuration.
+/// Application-owned runtime for RawCull's AI model backends and resources.
 ///
 /// `RawCullApplicationState` constructs stateful features and binds them to the
 /// services they need. Views and `RawCullViewModel` do not traverse this object.
+/// The container is main-actor isolated for configuration, while CLIP, SAM 3,
+/// and Qwen retain independent actor isolation for resource and inference work.
 @MainActor
-final class RawCullAIIntegration {
+final class RawCullAIModelRuntime {
     let paths: RawCullAIPaths
-    let sam3ModelResourceManager: RawCullAIModelResourceManager<CoreAISAM3Provider>
-    let clipDataCompModelResourceManager:
+    let qwenInference: any QwenInferenceServing
+    private let sam3ModelResourceManager: RawCullAIModelResourceManager<CoreAISAM3Provider>
+    private let clipDataCompModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
-    let clipOpenAIModelResourceManager:
+    private let clipOpenAIModelResourceManager:
         RawCullAIModelResourceManager<CoreAICLIPProvider>
     let visionSimilarityProvider: VisionFeaturePrintBackend
     let visionSimilarityService: any RawCullSimilarityServicing
@@ -47,8 +50,10 @@ final class RawCullAIIntegration {
         paths: RawCullAIPaths = .live(),
         defaultPrompt: SubjectSegmentationPrompt = .subject,
         inputMaxSide: Int = 4320,
+        qwenInference: any QwenInferenceServing = QwenInferenceRuntime(),
     ) {
         self.paths = paths
+        self.qwenInference = qwenInference
         let sam3CandidateURLs: [URL] = []
         let defaultSegmentationCandidateURLs: [URL] = []
         let clipDataCompCandidateURLs: [URL] = []
@@ -165,9 +170,13 @@ final class RawCullAIIntegration {
         activateSelectedSegmentationProvider(availability: status)
     }
 
-    func setManagedModelLocations(
+    /// The single activation path for a complete installed-model snapshot.
+    ///
+    /// CLIP and SAM 3 invalidate their resource caches. Qwen validates or clears
+    /// its inference runtime and returns the status that Settings should publish.
+    func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
-    ) async {
+    ) async -> QwenModelStatus {
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
         )
@@ -177,6 +186,11 @@ final class RawCullAIIntegration {
         await clipOpenAIModelResourceManager.setManagedCandidateURL(
             locations[.clipOpenAI],
         )
+        guard let qwenURL = locations[.qwen3VL2B] else {
+            await qwenInference.clear()
+            return .notConfigured
+        }
+        return await qwenInference.validate(url: qwenURL.standardizedFileURL)
     }
 
     /// Semantic search exists only when the validated CLIP provider exposes
@@ -197,7 +211,7 @@ final class RawCullAIIntegration {
     ) -> any RawCullSimilarityServicing {
         guard prefersCLIP else {
             Logger.process.debugMessageOnly(
-                "RawCullAIIntegration: Vision similarity selected because CLIP is disabled",
+                "RawCullAIModelRuntime: Vision similarity selected because CLIP is disabled",
             )
             return visionSimilarityService
         }
@@ -206,7 +220,7 @@ final class RawCullAIIntegration {
                 ?? paths.clipModelDirectory(for: clipModel).path
             Logger.process.warning(
                 """
-                RawCullAIIntegration: Vision similarity selected because no validated \
+                RawCullAIModelRuntime: Vision similarity selected because no validated \
                 \(clipModel.displayName, privacy: .public) CLIP provider is available; \
                 expected/resolved model location=\(expectedLocation, privacy: .public)
                 """,
@@ -216,7 +230,7 @@ final class RawCullAIIntegration {
         guard let modelLocation = clipSimilarityModelLocations[clipModel] else {
             Logger.process.warning(
                 """
-                RawCullAIIntegration: Vision similarity selected because the validated \
+                RawCullAIModelRuntime: Vision similarity selected because the validated \
                 \(clipModel.displayName, privacy: .public) CLIP provider has no resolved \
                 model location
                 """,
@@ -226,7 +240,7 @@ final class RawCullAIIntegration {
         let location = modelLocation.path
         Logger.process.info(
             """
-            RawCullAIIntegration: \(clipModel.displayName, privacy: .public) CLIP \
+            RawCullAIModelRuntime: \(clipModel.displayName, privacy: .public) CLIP \
             similarity selected; model=\(location, privacy: .public); \
             fingerprint=\(provider.backendDescriptor.modelFingerprint, privacy: .public)
             """,
