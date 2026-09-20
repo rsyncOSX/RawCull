@@ -67,6 +67,10 @@ final class DeepAIReviewController {
         feature.isRunning
     }
 
+    var modelStatus: RawCullAICapabilityStatus {
+        feature.availability
+    }
+
     var isActionUnavailable: Bool {
         !feature.availability.isAvailable
             || applicationContext?.isDeepAIReviewBlockedByOtherWork != false

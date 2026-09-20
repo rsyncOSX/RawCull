@@ -82,6 +82,7 @@ struct DeepAIReviewFeatureTests {
         let controller = DeepAIReviewController(feature: feature)
         let applicationContext = DeepReviewApplicationContextStub()
         controller.bindApplicationContext(applicationContext)
+        #expect(controller.modelStatus == .available(location: nil))
         controller.preset = .headFace
         let file = FileItem(
             id: UUID(),
@@ -115,6 +116,7 @@ struct DeepAIReviewFeatureTests {
         let controller = DeepAIReviewController(feature: feature)
         let signature = BurstGroupSignature(memberKeys: ["frame.ARW"])
 
+        #expect(controller.modelStatus == .checking(expectedLocations: [expectedLocation]))
         #expect(controller.presentationState(
             groupID: 7,
             groupSignature: signature,
@@ -125,6 +127,7 @@ struct DeepAIReviewFeatureTests {
             maskLoader: nil,
             availability: .missing(expectedLocations: [expectedLocation]),
         )
+        #expect(controller.modelStatus == .missing(expectedLocations: [expectedLocation]))
         #expect(controller.presentationState(
             groupID: 7,
             groupSignature: signature,
@@ -137,6 +140,7 @@ struct DeepAIReviewFeatureTests {
             maskLoader: nil,
             availability: .available(location: expectedLocation),
         )
+        #expect(controller.modelStatus == .available(location: expectedLocation))
         let request = makeRequest(candidateCount: 1)
         let run = Task { await feature.start(request) }
         while !feature.isRunning {
