@@ -222,7 +222,7 @@ private struct AIAnalysisThumbnailStrip: View {
                 }
             }
             .frame(height: CGFloat(thumbnailSize) + 30)
-            .thumbnailKeyNavigation(viewModel: viewModel, axis: .vertical)
+            .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
