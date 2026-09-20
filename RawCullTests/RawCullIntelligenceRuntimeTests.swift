@@ -39,6 +39,17 @@ struct RawCullIntelligenceRuntimeTests {
         #expect(runtime.deepAIReviewController === viewModel.deepAIReviewController)
         #expect(runtime.settingsModel === applicationState.intelligenceRuntime.settingsModel)
         #expect(
+            runtime.qwenAnalysisFeature.sharesModelManagerIdentity(
+                with: runtime.qwenModelManager,
+            ),
+        )
+        #expect(
+            runtime.settingsModel.sharesQwenRuntimeIdentity(
+                modelManager: runtime.qwenModelManager,
+                analysisFeature: runtime.qwenAnalysisFeature,
+            ),
+        )
+        #expect(
             runtime.modelManagementModel
                 === runtime.settingsModel.modelManagementModel,
         )
@@ -86,12 +97,18 @@ struct RawCullIntelligenceRuntimeTests {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
         let target = RuntimeApplicationTargetSpy()
+        let qwenModelManager = QwenModelManager()
+        let qwenAnalysisFeature = RawCullQwenAnalysisFeature(
+            modelManager: qwenModelManager,
+        )
         let settingsModel = RawCullAISettingsModel(
             integration: fixture.integration,
             evidenceScan: { .success(.empty) },
             userDefaults: fixture.userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
             rawCullVersion: "test",
+            qwenModelManager: qwenModelManager,
+            qwenAnalysisFeature: qwenAnalysisFeature,
         )
         let configuration = settingsModel.configurationSnapshot(revision: 1)
         let similarityModel = SimilarityScoringModel(
@@ -109,6 +126,7 @@ struct RawCullIntelligenceRuntimeTests {
         fixture.integration.bindDeepAIReviewFeature(deepAIReviewFeature)
         let runtime = RawCullIntelligenceRuntime(
             integration: fixture.integration,
+            qwenModelManager: qwenModelManager,
             similarityFeature: similarityFeature,
             semanticSearchFeature: RawCullSemanticSearchFeature(
                 similarityModel: similarityModel,
@@ -117,7 +135,7 @@ struct RawCullIntelligenceRuntimeTests {
             deepAIReviewController: DeepAIReviewController(
                 feature: deepAIReviewFeature,
             ),
-            qwenAnalysisFeature: RawCullQwenAnalysisFeature(),
+            qwenAnalysisFeature: qwenAnalysisFeature,
             settingsModel: settingsModel,
             applicationContext: target,
         )

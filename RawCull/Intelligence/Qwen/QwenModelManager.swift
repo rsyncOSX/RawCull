@@ -20,7 +20,7 @@ nonisolated enum QwenModelStatus: Equatable, Sendable {
     }
 }
 
-nonisolated protocol QwenModelManaging: Sendable {
+nonisolated protocol QwenModelManaging: AnyObject, Sendable {
     func validate(url: URL) async -> QwenModelStatus
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
     func clear() async

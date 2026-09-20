@@ -300,6 +300,7 @@ struct RawCullAIIntegrationTests {
             evidenceScan: {
                 try await probe.scan()
             },
+            qwenModelManager: QwenModelManager(),
         )
 
         let refresh = Task {
@@ -381,6 +382,7 @@ struct RawCullAIIntegrationTests {
         let relaunchedModel = RawCullAISettingsModel(
             integration: integration,
             userDefaults: userDefaults,
+            qwenModelManager: QwenModelManager(),
         )
         #expect(relaunchedModel.useCLIPForSimilarity)
         #expect(relaunchedModel.selectedCLIPModel == .dataComp)
@@ -406,6 +408,7 @@ struct RawCullAIIntegrationTests {
             integration: integration,
             userDefaults: userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            qwenModelManager: QwenModelManager(),
         )
 
         #expect(RawCullAIModelInclusion.segmentationModels == [.sam3])
@@ -416,6 +419,7 @@ struct RawCullAIIntegrationTests {
             integration: integration,
             userDefaults: userDefaults,
             modelDownloadCatalog: RawCullAIModelDownloadCatalog(models: []),
+            qwenModelManager: QwenModelManager(),
         )
         #expect(relaunchedModel.selectedSegmentationModel == .sam3)
     }

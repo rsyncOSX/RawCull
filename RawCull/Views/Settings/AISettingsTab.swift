@@ -1,9 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
     @State private var showModelDownloads = false
+    @State private var showQwenModelPicker = false
 
     var body: some View {
         ScrollView {
@@ -16,6 +18,7 @@ struct AISettingsTab: View {
                     source: model.qwenModelSource,
                     managedModelIsInstalled: model.managedQwenModelURL != nil,
                     manageDownloads: { showModelDownloads = true },
+                    chooseCustomModel: { showQwenModelPicker = true },
                     validateAgain: model.validateQwenModelAgain,
                     clearModel: model.clearQwenModel,
                 )
@@ -52,6 +55,14 @@ struct AISettingsTab: View {
         .sheet(isPresented: $showModelDownloads) {
             AIModelDownloadsView(model: model.modelManagementModel)
         }
+        .fileImporter(
+            isPresented: $showQwenModelPicker,
+            allowedContentTypes: [.folder],
+        ) { result in
+            if case let .success(url) = result {
+                model.setQwenModelURL(url)
+            }
+        }
     }
 }
 
@@ -60,6 +71,7 @@ private struct QwenModelSettingsCard: View {
     let source: RawCullQwenModelSource
     let managedModelIsInstalled: Bool
     let manageDownloads: () -> Void
+    let chooseCustomModel: () -> Void
     let validateAgain: () -> Void
     let clearModel: () -> Void
 
@@ -73,8 +85,49 @@ private struct QwenModelSettingsCard: View {
                 LabeledContent("Vision-language model") {
                     statusView
                 }
+
+                LabeledContent("Source", value: sourceDescription)
+                    .font(.system(size: 12))
+
+                HStack {
+                    Button("Manage Download", systemImage: "arrow.down.circle") {
+                        manageDownloads()
+                    }
+
+                    Button("Choose Model Folder…", systemImage: "folder") {
+                        chooseCustomModel()
+                    }
+
+                    Button("Validate Again", systemImage: "arrow.clockwise") {
+                        validateAgain()
+                    }
+                    .disabled(!canValidate)
+
+                    if source == .custom {
+                        Button("Use Managed Model", systemImage: "shippingbox") {
+                            clearModel()
+                        }
+                    }
+                }
+                .font(.system(size: 11, weight: .medium))
             }
         }
+    }
+
+    private var sourceDescription: String {
+        switch source {
+        case .managed:
+            managedModelIsInstalled ? "Managed download" : "Managed download (not installed)"
+        case .custom:
+            "Custom folder"
+        }
+    }
+
+    private var canValidate: Bool {
+        if case .checking = status {
+            return false
+        }
+        return source == .custom || managedModelIsInstalled
     }
 
     @ViewBuilder

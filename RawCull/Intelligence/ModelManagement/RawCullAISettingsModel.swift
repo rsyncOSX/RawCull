@@ -82,7 +82,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
-        qwenModelManager: any QwenModelManaging = QwenModelManager(),
+        qwenModelManager: any QwenModelManaging,
         qwenAnalysisFeature: RawCullQwenAnalysisFeature? = nil,
     ) {
         self.integration = integration
@@ -129,6 +129,13 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
             )
         self.capabilities = integration.capabilities()
         self.modelManagementModel.bindLocationsConsumer(self)
+    }
+
+    func sharesQwenRuntimeIdentity(
+        modelManager: any QwenModelManaging,
+        analysisFeature: RawCullQwenAnalysisFeature,
+    ) -> Bool {
+        qwenModelManager === modelManager && qwenAnalysisFeature === analysisFeature
     }
 
     func applyManagedModelLocations(
