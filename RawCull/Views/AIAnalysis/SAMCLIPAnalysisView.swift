@@ -11,6 +11,7 @@ struct SAMCLIPAnalysisView: View {
     @Bindable var viewModel: RawCullViewModel
     let controller: DeepAIReviewController
     let files: [FileItem]
+    @Binding var selection: UUID?
 
     private var pendingFiles: [FileItem] {
         controller.filesNeedingAnalysis(from: files)
@@ -29,6 +30,7 @@ struct SAMCLIPAnalysisView: View {
                 groupID: signature.hashValue,
                 groupSignature: signature,
                 files: runnableFiles,
+                selection: $selection,
             )
         } else {
             ContentUnavailableView(

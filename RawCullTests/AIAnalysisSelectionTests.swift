@@ -61,6 +61,20 @@ struct AIAnalysisSelectionTests {
         )
     }
 
+    @Test
+    func `Analysis navigation walks ordered rows and stops at boundaries`() {
+        let first = UUID()
+        let second = UUID()
+        let third = UUID()
+        let ids = [first, second, third]
+
+        #expect(AIAnalysisSelectionNavigation.next(from: nil, in: ids) == first)
+        #expect(AIAnalysisSelectionNavigation.next(from: first, in: ids) == second)
+        #expect(AIAnalysisSelectionNavigation.next(from: third, in: ids) == third)
+        #expect(AIAnalysisSelectionNavigation.previous(from: third, in: ids) == second)
+        #expect(AIAnalysisSelectionNavigation.previous(from: first, in: ids) == first)
+    }
+
     private func makeFile(_ name: String) -> FileItem {
         FileItem(
             id: UUID(),

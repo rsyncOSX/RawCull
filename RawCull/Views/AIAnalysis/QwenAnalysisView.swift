@@ -10,11 +10,10 @@ import SwiftUI
 struct QwenAnalysisView: View {
     @Bindable var feature: RawCullQwenAnalysisFeature
     let files: [FileItem]
-
-    @State private var selectedResultID: UUID?
+    @Binding var selection: UUID?
 
     private var selectedResult: QwenPhotoAnalysisResult? {
-        selectedResultID.flatMap { id in
+        selection.flatMap { id in
             feature.results.first { $0.id == id }
         }
     }
@@ -88,7 +87,7 @@ struct QwenAnalysisView: View {
                 HSplitView {
                     QwenResultsTable(
                         results: feature.results,
-                        selection: $selectedResultID,
+                        selection: $selection,
                     )
                     .frame(minWidth: 400, idealWidth: 550)
 
@@ -104,8 +103,8 @@ struct QwenAnalysisView: View {
         }
         .padding(16)
         .task(id: feature.results.map(\.id)) {
-            if selectedResultID.map({ id in feature.results.contains { $0.id == id } }) != true {
-                selectedResultID = feature.results.first?.id
+            if selection.map({ id in feature.results.contains { $0.id == id } }) != true {
+                selection = feature.results.first?.id
             }
         }
     }
@@ -202,6 +201,7 @@ private struct QwenResultsTable: View {
             }
             .width(90)
         }
+        .aiAnalysisTableNavigation(ids: results.map(\.id), selection: $selection)
     }
 
     private func score(_ value: Double?) -> String {
