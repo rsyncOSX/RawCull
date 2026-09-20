@@ -5,6 +5,7 @@ struct DeepAIReviewSheetView: View {
     let groupID: Int
     let groupSignature: BurstGroupSignature
     let files: [FileItem]
+    @Binding var selection: UUID?
 
     private var result: DeepAIReviewResult? {
         controller.result(for: groupSignature)
@@ -39,6 +40,7 @@ struct DeepAIReviewSheetView: View {
                     groupID: groupID,
                     groupSignature: groupSignature,
                 ),
+                selection: $selection,
             )
         }
         .padding(16)
@@ -129,6 +131,7 @@ private struct DeepAIReviewSheetContent: View {
     let completedFiles: [FileItem]
     let completedCandidates: [DeepAIReviewCandidate]
     let state: DeepAIReviewPresentationState
+    @Binding var selection: UUID?
 
     var body: some View {
         if completedCandidates.isEmpty {
@@ -154,6 +157,7 @@ private struct DeepAIReviewSheetContent: View {
                 controller: controller,
                 files: completedFiles,
                 candidates: completedCandidates,
+                selection: $selection,
             )
         }
     }
@@ -178,7 +182,11 @@ private struct DeepAIReviewSheetContent: View {
                 totalCount: totalCount,
                 currentFileName: nil,
             )
-            DeepAIReviewCandidateTable(candidates: placeholders, winnerID: nil)
+            DeepAIReviewCandidateTable(
+                candidates: placeholders,
+                winnerID: nil,
+                selection: $selection,
+            )
 
         case let .running(progress):
             DeepAIReviewProgressHeader(
@@ -186,7 +194,11 @@ private struct DeepAIReviewSheetContent: View {
                 totalCount: progress.totalCount,
                 currentFileName: progress.currentFileName,
             )
-            DeepAIReviewCandidateTable(candidates: progress.candidates, winnerID: nil)
+            DeepAIReviewCandidateTable(
+                candidates: progress.candidates,
+                winnerID: nil,
+                selection: $selection,
+            )
 
         case .completing:
             HStack(spacing: 10) {
@@ -262,11 +274,10 @@ private struct DeepAIReviewHistoryContent: View {
     let controller: DeepAIReviewController
     let files: [FileItem]
     let candidates: [DeepAIReviewCandidate]
-
-    @State private var selectedCandidateID: UUID?
+    @Binding var selection: UUID?
 
     private var selectedCandidate: DeepAIReviewCandidate? {
-        selectedCandidateID.flatMap { id in
+        selection.flatMap { id in
             candidates.first { $0.fileID == id }
         }
     }
@@ -276,7 +287,7 @@ private struct DeepAIReviewHistoryContent: View {
             DeepAIReviewCandidateTable(
                 candidates: candidates,
                 winnerID: nil,
-                selection: $selectedCandidateID,
+                selection: $selection,
             )
             .frame(minWidth: 660)
 
@@ -289,8 +300,8 @@ private struct DeepAIReviewHistoryContent: View {
         }
         .task(id: candidates.map(\.fileID)) {
             let availableIDs = Set(candidates.map(\.fileID))
-            if selectedCandidateID.map(availableIDs.contains) != true {
-                selectedCandidateID = candidates.first?.fileID
+            if selection.map(availableIDs.contains) != true {
+                selection = candidates.first?.fileID
             }
         }
     }
@@ -537,16 +548,6 @@ private struct DeepAIReviewCandidateTable: View {
     let winnerID: UUID?
     @Binding var selection: UUID?
 
-    init(
-        candidates: [DeepAIReviewCandidate],
-        winnerID: UUID?,
-        selection: Binding<UUID?> = .constant(nil),
-    ) {
-        self.candidates = candidates
-        self.winnerID = winnerID
-        _selection = selection
-    }
-
     var body: some View {
         Table(candidates, selection: $selection) {
             TableColumn("Done") { candidate in
@@ -593,6 +594,7 @@ private struct DeepAIReviewCandidateTable: View {
                     .lineLimit(2)
             }
         }
+        .aiAnalysisTableNavigation(ids: candidates.map(\.fileID), selection: $selection)
     }
 
     private func score(_ value: Float?) -> String {

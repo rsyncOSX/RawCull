@@ -79,12 +79,14 @@ struct AIAnalysisView: View {
                             viewModel: viewModel,
                             controller: deepAIReviewController,
                             files: inputFiles,
+                            selection: $viewModel.selectedFileID,
                         )
 
                     case .qwen:
                         QwenAnalysisView(
                             feature: qwenAnalysisFeature,
                             files: inputFiles,
+                            selection: $viewModel.selectedFileID,
                         )
                     }
                 }
@@ -95,6 +97,7 @@ struct AIAnalysisView: View {
             if !inputFiles.isEmpty {
                 Divider()
                 AIAnalysisThumbnailStrip(
+                    viewModel: viewModel,
                     files: inputFiles,
                     inputSource: inputSource,
                     thumbnailSize: SettingsViewModel.shared.thumbnailSizeGrid,
@@ -106,6 +109,13 @@ struct AIAnalysisView: View {
                 inputSource = .taggedImages
             }
         }
+        .task(id: inputFiles.map(\.id)) {
+            let availableIDs = Set(inputFiles.map(\.id))
+            if viewModel.selectedFileID.map(availableIDs.contains) != true {
+                viewModel.selectedFileID = inputFiles.first?.id
+            }
+        }
+        .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
     }
 
     private var emptyDescription: String {
@@ -160,6 +170,7 @@ private struct AIAnalysisHeader: View {
 }
 
 private struct AIAnalysisThumbnailStrip: View {
+    @Bindable var viewModel: RawCullViewModel
     let files: [FileItem]
     let inputSource: AIAnalysisInputSource
     let thumbnailSize: Int
@@ -176,49 +187,62 @@ private struct AIAnalysisThumbnailStrip: View {
                     .foregroundStyle(.tertiary)
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
-                    ForEach(files) { file in
-                        AIAnalysisThumbnailStripItem(
-                            file: file,
-                            thumbnailSize: thumbnailSize,
-                        )
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 8) {
+                        ForEach(files) { file in
+                            ImageItemView(
+                                viewModel: viewModel,
+                                file: file,
+                                isSelected: viewModel.selectedFileID == file.id,
+                                thumbnailSize: thumbnailSize,
+                                ratingValue: viewModel.getRating(for: file),
+                                ratingDisplay: ratingDisplay(for: file),
+                                ratingColor: ratingColor(for: file),
+                                onSelect: { viewModel.selectFile(file) },
+                            )
+                            .id(file.id)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .onAppear {
+                    guard let selectedFileID = viewModel.selectedFileID,
+                          files.contains(where: { $0.id == selectedFileID }) else { return }
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(selectedFileID, anchor: .center)
                     }
                 }
-                .padding(.vertical, 2)
+                .onChange(of: viewModel.selectedFileID) { _, selectedFileID in
+                    guard let selectedFileID,
+                          files.contains(where: { $0.id == selectedFileID }) else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(selectedFileID, anchor: .center)
+                    }
+                }
             }
-            .frame(height: CGFloat(thumbnailSize) + 24)
+            .frame(height: CGFloat(thumbnailSize) + 30)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(nsColor: .windowBackgroundColor))
     }
-}
 
-private struct AIAnalysisThumbnailStripItem: View {
-    let file: FileItem
-    let thumbnailSize: Int
+    private func ratingDisplay(for file: FileItem) -> RatingDisplay {
+        RatingDisplay(
+            rating: viewModel.getRating(for: file),
+            isExplicit: viewModel.taggedNamesCache.contains(file.name),
+        )
+    }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ThumbnailImageView(
-                file: file,
-                targetSize: thumbnailSize,
-                style: .grid,
-            )
-            .frame(width: CGFloat(thumbnailSize), height: CGFloat(thumbnailSize))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1),
-            )
-
-            Text(file.name)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+    private func ratingColor(for file: FileItem) -> Color? {
+        switch viewModel.getRating(for: file) {
+        case -1: .red
+        case 2: .yellow
+        case 3: .green
+        case 4: .blue
+        case 5: .purple
+        default: nil
         }
-        .frame(width: CGFloat(thumbnailSize))
     }
 }
