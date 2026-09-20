@@ -45,35 +45,14 @@ final class RawCullAIIntegration {
 
     init(
         paths: RawCullAIPaths = .live(),
-        bundle: Bundle = .main,
-        allowsBundledModelFallback: Bool? = nil,
         defaultPrompt: SubjectSegmentationPrompt = .subject,
         inputMaxSide: Int = 4320,
     ) {
         self.paths = paths
-        let allowsBundledModelFallback = allowsBundledModelFallback
-            ?? Self.defaultAllowsBundledModelFallback
-        let sam3CandidateURLs: [URL] = RawCullAIModelInclusion.includeSAM3 ? RawCullAIModelCandidates.urls(
-            installedDirectory: paths.sam3ModelDirectory,
-            resourceName: "SAM3",
-            bundle: bundle,
-            allowsBundledFallback: allowsBundledModelFallback,
-        ) : []
-
-        let defaultSegmentationCandidateURLs = sam3CandidateURLs
-
-        let clipDataCompCandidateURLs = RawCullAIModelCandidates.urls(
-            installedDirectory: paths.clipDataCompModelDirectory,
-            resourceName: RawCullCLIPModel.dataComp.resourceName,
-            bundle: bundle,
-            allowsBundledFallback: allowsBundledModelFallback,
-        )
-        let clipOpenAICandidateURLs = RawCullAIModelCandidates.urls(
-            installedDirectory: paths.clipOpenAIModelDirectory,
-            resourceName: RawCullCLIPModel.openAI.resourceName,
-            bundle: bundle,
-            allowsBundledFallback: allowsBundledModelFallback,
-        )
+        let sam3CandidateURLs: [URL] = []
+        let defaultSegmentationCandidateURLs: [URL] = []
+        let clipDataCompCandidateURLs: [URL] = []
+        let clipOpenAICandidateURLs: [URL] = []
         self.sam3ModelResourceManager = RawCullAIModelResourceManager(
             candidateURLs: sam3CandidateURLs,
             factory: CoreAISAM3Provider.factory,
@@ -333,14 +312,6 @@ final class RawCullAIIntegration {
             availability: capabilities.inProcessMaskGeneration,
         )
         return capabilities
-    }
-
-    private static var defaultAllowsBundledModelFallback: Bool {
-        #if DEBUG
-            true
-        #else
-            false
-        #endif
     }
 
     private static func makeSubjectMaskDiskStore(

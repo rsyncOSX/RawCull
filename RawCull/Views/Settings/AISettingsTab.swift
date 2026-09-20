@@ -1,26 +1,15 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct AISettingsTab: View {
     @Bindable var model: RawCullAISettingsModel
 
     @State private var showModelDownloads = false
-    @State private var showQwenModelPicker = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 AIModelSettingsCard(
                     model: model,
-                )
-                QwenModelSettingsCard(
-                    status: model.qwenModelStatus,
-                    source: model.qwenModelSource,
-                    managedModelIsInstalled: model.managedQwenModelURL != nil,
-                    manageDownloads: { showModelDownloads = true },
-                    chooseCustomModel: { showQwenModelPicker = true },
-                    validateAgain: model.validateQwenModelAgain,
-                    clearModel: model.clearQwenModel,
                 )
                 AIIntegrationReadinessCard(
                     capabilities: model.capabilities,
@@ -54,107 +43,6 @@ struct AISettingsTab: View {
         }
         .sheet(isPresented: $showModelDownloads) {
             AIModelDownloadsView(model: model.modelManagementModel)
-        }
-        .fileImporter(
-            isPresented: $showQwenModelPicker,
-            allowedContentTypes: [.folder],
-        ) { result in
-            if case let .success(url) = result {
-                model.setQwenModelURL(url)
-            }
-        }
-    }
-}
-
-private struct QwenModelSettingsCard: View {
-    let status: QwenModelStatus
-    let source: RawCullQwenModelSource
-    let managedModelIsInstalled: Bool
-    let manageDownloads: () -> Void
-    let chooseCustomModel: () -> Void
-    let validateAgain: () -> Void
-    let clearModel: () -> Void
-
-    var body: some View {
-        SettingsCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Qwen Vision Model")
-                    .font(.system(size: 14, weight: .semibold))
-                Divider()
-
-                LabeledContent("Vision-language model") {
-                    statusView
-                }
-
-                LabeledContent("Source", value: sourceDescription)
-                    .font(.system(size: 12))
-
-                HStack {
-                    Button("Manage Download", systemImage: "arrow.down.circle") {
-                        manageDownloads()
-                    }
-
-                    Button("Choose Model Folder…", systemImage: "folder") {
-                        chooseCustomModel()
-                    }
-
-                    Button("Validate Again", systemImage: "arrow.clockwise") {
-                        validateAgain()
-                    }
-                    .disabled(!canValidate)
-
-                    if source == .custom {
-                        Button("Use Managed Model", systemImage: "shippingbox") {
-                            clearModel()
-                        }
-                    }
-                }
-                .font(.system(size: 11, weight: .medium))
-            }
-        }
-    }
-
-    private var sourceDescription: String {
-        switch source {
-        case .managed:
-            managedModelIsInstalled ? "Managed download" : "Managed download (not installed)"
-        case .custom:
-            "Custom folder"
-        }
-    }
-
-    private var canValidate: Bool {
-        if case .checking = status {
-            return false
-        }
-        return source == .custom || managedModelIsInstalled
-    }
-
-    @ViewBuilder
-    private var statusView: some View {
-        switch status {
-        case .notConfigured:
-            Label("Not selected", systemImage: "minus.circle")
-                .foregroundStyle(.secondary)
-
-        case .checking:
-            ProgressView("Validating…")
-                .controlSize(.small)
-
-        case let .available(_, modelName):
-            Label(modelName, systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .textSelection(.enabled)
-
-        case let .missing(url):
-            Label("Missing: \(url.lastPathComponent)", systemImage: "questionmark.folder")
-                .foregroundStyle(.orange)
-
-        case let .invalid(_, reason):
-            Label(reason, systemImage: "xmark.circle.fill")
-                .foregroundStyle(.red)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -219,6 +107,16 @@ private struct AIModelSettingsCard: View {
                         showsLocationAction: false,
                     )
                 }
+
+                Divider()
+
+                AICapabilityStatusView(
+                    title: "Qwen3-VL-2B-Instruct model",
+                    status: model.qwenModelStatus,
+                    availableMessage: "Qwen vision-language model resources are installed.",
+                    missingMessage: "Qwen vision-language model resources are not installed.",
+                    showsLocationAction: false,
+                )
 
                 if RawCullAIModelInclusion.clipModels.count > 1 {
                     Divider()

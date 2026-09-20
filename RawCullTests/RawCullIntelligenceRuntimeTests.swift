@@ -384,11 +384,7 @@ struct RawCullIntelligenceRuntimeTests {
             ),
             cachesRoot: root.appendingPathComponent("Caches", isDirectory: true),
         )
-        let integration = RawCullAIIntegration(
-            paths: paths,
-            bundle: .main,
-            allowsBundledModelFallback: false,
-        )
+        let integration = RawCullAIIntegration(paths: paths)
         return RuntimeTestFixture(
             root: root,
             defaultsSuite: defaultsSuite,

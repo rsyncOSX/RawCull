@@ -46,49 +46,45 @@ struct RawCullAIIntegrationTests {
         defer { try? FileManager.default.removeItem(at: root) }
 
         let paths = isolatedPaths(root: root)
-        let integration = RawCullAIIntegration(
-            paths: paths,
-            bundle: .main,
-            allowsBundledModelFallback: false,
-        )
+        let integration = RawCullAIIntegration(paths: paths)
         let initialCapabilities = integration.capabilities()
 
         #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [],
         ))
 
         #expect(initialCapabilities.clipModelStatus(for: .dataComp) == .checking(
-            expectedLocations: [paths.clipDataCompModelDirectory],
+            expectedLocations: [],
         ))
         #expect(initialCapabilities.clipModelStatus(for: .openAI) == .checking(
-            expectedLocations: [paths.clipOpenAIModelDirectory],
+            expectedLocations: [],
         ))
         #expect(initialCapabilities.semanticSearchStatus(for: .dataComp) == .checking(
-            expectedLocations: [paths.clipDataCompModelDirectory],
+            expectedLocations: [],
         ))
         #expect(initialCapabilities.semanticSearchStatus(for: .openAI) == .checking(
-            expectedLocations: [paths.clipOpenAIModelDirectory],
+            expectedLocations: [],
         ))
 
         let capabilities = try await integration.refreshCapabilities()
 
         #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
-            expectedLocations: [paths.sam3ModelDirectory],
+            expectedLocations: [],
         ))
 
         #expect(capabilities.clipModelStatus(for: .dataComp) == .missing(
-            expectedLocations: [paths.clipDataCompModelDirectory],
+            expectedLocations: [],
         ))
         #expect(capabilities.clipModelStatus(for: .openAI) == .missing(
-            expectedLocations: [paths.clipOpenAIModelDirectory],
+            expectedLocations: [],
         ))
         #expect(capabilities.semanticSearchStatus(for: .dataComp) == .unavailable(
             reason: "Semantic search requires a valid CLIP model.",
-            expectedLocations: [paths.clipDataCompModelDirectory],
+            expectedLocations: [],
         ))
         #expect(capabilities.semanticSearchStatus(for: .openAI) == .unavailable(
             reason: "Semantic search requires a valid CLIP model.",
-            expectedLocations: [paths.clipOpenAIModelDirectory],
+            expectedLocations: [],
         ))
         #expect(integration.semanticSearchService(clipModel: .dataComp) == nil)
         #expect(integration.semanticSearchService(clipModel: .openAI) == nil)
@@ -289,11 +285,7 @@ struct RawCullAIIntegrationTests {
         let root = isolatedRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = isolatedPaths(root: root)
-        let integration = RawCullAIIntegration(
-            paths: paths,
-            bundle: .main,
-            allowsBundledModelFallback: false,
-        )
+        let integration = RawCullAIIntegration(paths: paths)
         let probe = SavedEvidenceCancellationProbe()
         let model = RawCullAISettingsModel(
             integration: integration,
@@ -330,11 +322,7 @@ struct RawCullAIIntegrationTests {
         )
 
         let paths = isolatedPaths(root: root)
-        let integration = RawCullAIIntegration(
-            paths: paths,
-            bundle: .main,
-            allowsBundledModelFallback: false,
-        )
+        let integration = RawCullAIIntegration(paths: paths)
         let applicationState = RawCullApplicationState.make(
             integration: integration,
             similarityArtifactStore: PerFileAnalysisArtifactStore(
@@ -353,6 +341,7 @@ struct RawCullAIIntegrationTests {
         #expect(model.useCLIPForSimilarity)
         #expect(model.selectedCLIPModel == .dataComp)
         await model.refresh()
+        #expect(model.qwenModelStatus == .missing(expectedLocations: []))
         #expect(
             applicationState.viewModel.similarityModel.backendDescriptor.backend
                 == "vision-feature-print",
@@ -398,11 +387,7 @@ struct RawCullAIIntegrationTests {
         let userDefaults = try #require(UserDefaults(suiteName: defaultsSuite))
         defer { userDefaults.removePersistentDomain(forName: defaultsSuite) }
 
-        let integration = RawCullAIIntegration(
-            paths: isolatedPaths(root: root),
-            bundle: .main,
-            allowsBundledModelFallback: false,
-        )
+        let integration = RawCullAIIntegration(paths: isolatedPaths(root: root))
 
         let model = RawCullAISettingsModel(
             integration: integration,
