@@ -225,7 +225,7 @@ model validation, similarity artifacts, segmentation, mask storage, domain
 models, serialization, and process execution.
 
 The application-local intelligence boundary is assembled once by
-`RawCullApplicationState`. Views receive focused settings, model-management,
+`RawCullApplicationState`. Views receive focused settings, model-download,
 similarity, semantic-search, Deep Review, or Qwen analysis models; the runtime
 is a lifetime and configuration owner, not a forwarding facade.
 
@@ -237,17 +237,18 @@ flowchart LR
     Runtime --> Features
     Features --> Services["RawCull service and repository protocols"]
     Services --> Contracts["PhotoAIKit contracts / workflows / storage"]
-    Composition["RawCullAIIntegration composition root"] --> Runtime
-    Composition --> Backends["DataComp CLIP / Vision / SAM 3 backends"]
+    ModelRuntime["RawCullAIModelRuntime"] --> Runtime
+    ModelRuntime --> Backends["DataComp CLIP / Vision / SAM 3 backends"]
+    ModelRuntime --> QwenBackend["Qwen provider + Foundation Models session"]
     Backends --> Contracts
-    QwenBackend["Qwen provider + Foundation Models session"] --> Features
+    QwenBackend --> Features
 ```
 
 `Scripts/VerifyAIImportBoundary.sh` enforces exact production import locations and
 rejects the removed compatibility constructors and forwarding API. CLIP,
-segmentation, and Vision backend products are confined to `RawCullAIIntegration`
+segmentation, and Vision backend products are confined to `RawCullAIModelRuntime`
 and the focused Vision adapter. The Qwen backend imports are kept in
-`QwenModelManager`; views and general application models import none of these
+`QwenInferenceRuntime`; views and general application models import none of these
 concrete AI products. The model-release update checklist, including Background
 Assets packaging and verification, is documented in
 [Integrating the v4 AI model release](updateversionmodels.md).
@@ -382,13 +383,15 @@ RawCull ranks the candidates and caches the artifacts and decisions. Deep
 Review adds subject masks from the selected segmentation backend and
 subject-detail evidence to that workflow.
 
-`RawCullAIIntegration` validates the model bundles, selects CLIP or the Vision
-fallback, constructs SAM 3 mask services, and injects narrow
-services into the application models. RawCull retains ownership of RAW decoding,
+`RawCullAIModelRuntime` owns the CLIP and SAM 3 resource-manager actors and the
+Qwen inference actor. It validates model bundles, selects CLIP or the Vision
+fallback, constructs SAM 3 mask services, and injects narrow services into the
+application models. RawCull retains ownership of RAW decoding,
 model locations, settings, subject-detail scoring, recommendation policy,
 ratings, and review state.
 
-`QwenModelManager` is the separate boundary for Qwen. It validates that the
+`QwenInferenceRuntime` remains the actor-isolated execution boundary for Qwen, but
+its lifetime is owned by `RawCullAIModelRuntime`. It validates that the
 chosen bundle has vision capability, lazily loads the model, and creates a new
 session for each photograph. `RawCullQwenAnalysisFeature` decodes a 2048-pixel
 thumbnail, runs selected or two-star-and-higher images sequentially, supports
@@ -484,7 +487,8 @@ Important actors include:
 | `ExtractAndSaveJPGs` | Batch JPEG extraction |
 | `PerFileAnalysisArtifactStore` | Atomic, source- and pipeline-validated per-file analysis persistence |
 | `BurstAnalysisCache` | Burst groups, embeddings, sharpness results, signatures, and review-state snapshots |
-| `QwenModelManager` | Qwen bundle validation, lazy vision-language model loading, and per-image inference |
+| `RawCullAIModelResourceManager` | Per-backend installed-location tracking, validation, and provider caching for CLIP and SAM 3 |
+| `QwenInferenceRuntime` | Qwen bundle validation, lazy vision-language model loading, and per-image inference |
 | `WriteSavedFilesJSON` | Atomic persistence of culling records |
 
 ## Repository structure

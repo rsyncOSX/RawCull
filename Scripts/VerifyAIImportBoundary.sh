@@ -33,18 +33,18 @@ is_allowed_import() {
     file=$2
 
     case "$module:$file" in
-        CoreAICLIPBackend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
-        CoreAISAM3Backend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
-        CoreAIEfficientSAMBackend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
-        VisionFeaturePrintBackend:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        CoreAICLIPBackend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
+        CoreAISAM3Backend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
+        CoreAIEfficientSAMBackend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
+        VisionFeaturePrintBackend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         VisionFeaturePrintBackend:RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift) return 0 ;;
-        PhotoAIStorage:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        PhotoAIStorage:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         PhotoAIStorage:RawCull/Intelligence/Persistence/PerFileAnalysisArtifactStore.swift) return 0 ;;
-        PhotoAIWorkflows:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        PhotoAIWorkflows:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         PhotoAIWorkflows:RawCull/Intelligence/DeepReview/DeepAIReviewFeature.swift) return 0 ;;
         PhotoAIWorkflows:RawCull/Intelligence/Similarity/RawCullVisionSimilarityService.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/BurstAnalysis/BurstAnalysisCoordinator.swift) return 0 ;;
-        PhotoAIContracts:RawCull/Intelligence/Composition/RawCullAIIntegration.swift) return 0 ;;
+        PhotoAIContracts:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Composition/RawCullIntelligenceRuntime.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/Contracts/RawCullAIModels.swift) return 0 ;;
         PhotoAIContracts:RawCull/Intelligence/DeepReview/DeepAIReviewFeature.swift) return 0 ;;

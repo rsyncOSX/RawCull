@@ -47,7 +47,7 @@ nonisolated enum RawCullSegmentationModel: String, CaseIterable, Hashable, Ident
     }
 }
 
-/// RawCull-owned locations used by the AI integration boundary.
+/// RawCull-owned locations used by the AI model runtime.
 ///
 /// Existing application support and cache roots stay under RawCull's canonical
 /// names so the AI branch does not create a second application data namespace.

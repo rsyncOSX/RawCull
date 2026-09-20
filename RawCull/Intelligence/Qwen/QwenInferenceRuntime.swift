@@ -1,3 +1,4 @@
+// Qwen's actor-isolated provider and inference lifecycle.
 import CoreAILanguageModels
 import CoreAIQwenBackend
 import CoreGraphics
@@ -20,24 +21,26 @@ nonisolated enum QwenModelStatus: Equatable, Sendable {
     }
 }
 
-nonisolated protocol QwenModelManaging: AnyObject, Sendable {
+nonisolated protocol QwenInferenceServing: AnyObject, Sendable {
     func validate(url: URL) async -> QwenModelStatus
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
     func clear() async
 }
 
-actor QwenModelManager: QwenModelManaging {
+actor QwenInferenceRuntime: QwenInferenceServing {
     private var provider: CoreAIQwenProvider?
     private var model: CoreAIVisionLanguageModel?
+    private var modelGeneration: UInt64 = 0
 
     func validate(url: URL) -> QwenModelStatus {
+        modelGeneration &+= 1
         let standardizedURL = url.standardizedFileURL
         switch CoreAIQwenProvider.factory.capability(in: [standardizedURL]) {
         case let .available(resource):
             do {
                 let provider = try CoreAIQwenProvider.factory.makeProvider(from: resource)
                 guard provider.configuration.modality == .vision else {
-                    clear()
+                    resetModel()
                     return .invalid(
                         url: resource.bundleURL,
                         reason: QwenModelError.visionModelRequired.localizedDescription,
@@ -50,28 +53,31 @@ actor QwenModelManager: QwenModelManaging {
                     modelName: provider.configuration.name,
                 )
             } catch {
-                clear()
+                resetModel()
                 return .invalid(url: standardizedURL, reason: Self.message(for: error))
             }
 
         case .missing:
-            clear()
+            resetModel()
             return .missing(standardizedURL)
 
         case let .invalid(url, reason):
-            clear()
+            resetModel()
             return .invalid(url: url, reason: reason)
         }
     }
 
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse {
         guard let provider else { throw QwenModelError.modelUnavailable }
+        let generation = modelGeneration
 
         let model: CoreAIVisionLanguageModel
         if let loadedModel = self.model {
             model = loadedModel
         } else {
             let loadedModel = try await provider.makeVisionLanguageModel()
+            try Task.checkCancellation()
+            guard modelGeneration == generation else { throw CancellationError() }
             self.model = loadedModel
             model = loadedModel
         }
@@ -102,10 +108,17 @@ actor QwenModelManager: QwenModelManaging {
             this assessment schema, answer it normally in plain text.
             """
         }
+        try Task.checkCancellation()
+        guard modelGeneration == generation else { throw CancellationError() }
         return try QwenModelResponse.decode(response.content)
     }
 
     func clear() {
+        modelGeneration &+= 1
+        resetModel()
+    }
+
+    private func resetModel() {
         model = nil
         provider = nil
     }

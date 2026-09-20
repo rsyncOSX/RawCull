@@ -111,22 +111,23 @@ This behavior is correct for Deep Review and must remain unchanged.
 `RawCullQwenAnalysisFeature` currently:
 
 - decodes one thumbnail per file at a maximum side of 2,048 pixels;
-- passes one image and a text criterion to `QwenModelManager.assess`;
+- passes one image and a text criterion to `QwenInferenceRuntime.assess`;
 - processes selected files sequentially;
 - accepts either the existing structured photo schema or free-form text.
 
-`QwenModelManaging` exposes only the photo-assessment operation. The new
+`QwenInferenceServing` exposes only the photo-assessment operation. The new
 workflow needs a lower-level structured-response operation that can support
 both concept discovery and object-board analysis without duplicating model
 loading or creating a second Qwen provider.
 
 ### 3.3 Runtime ownership
 
-`RawCullApplicationState` creates one `QwenModelManager`, one
-`RawCullQwenAnalysisFeature`, and one `RawCullAIIntegration`. The object-analysis
-feature must be created in the same composition root and share those validated
-model resources. Views must receive the feature; views must not create model
-providers or perform inference directly.
+`RawCullApplicationState` creates one `RawCullAIModelRuntime`, which owns the
+single `QwenInferenceRuntime` alongside the CLIP and SAM 3 resource managers. It
+also creates one `RawCullQwenAnalysisFeature` using that manager. The
+object-analysis feature must be created in the same composition root and share
+those validated model resources. Views must receive the feature; views must not
+create model providers or perform inference directly.
 
 ### 3.4 Managed models are a prerequisite
 
@@ -446,7 +447,7 @@ nonisolated struct QwenVisionRequest: Sendable {
     let maximumResponseTokens: Int
 }
 
-nonisolated protocol QwenModelManaging: Sendable {
+nonisolated protocol QwenInferenceServing: Sendable {
     func validate(url: URL) async -> QwenModelStatus
     func respond(to request: QwenVisionRequest) async throws -> String
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
@@ -724,9 +725,9 @@ cache and reload masks from the object-mask store when necessary.
 
 ## 10. Phase 5 — composition and model lifecycle
 
-### 10.1 RawCullAIIntegration
+### 10.1 RawCullAIModelRuntime
 
-Extend `RawCullAIIntegration` to own:
+Extend `RawCullAIModelRuntime` to own:
 
 - object-mask memory and disk stores;
 - `ObjectSegmentationService` when the active provider supports

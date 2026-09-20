@@ -94,11 +94,11 @@ struct QwenFeatureTests {
     }
 
     @Test
-    func `Qwen manager validates a compatible Core AI bundle`() async throws {
+    func `Qwen inference runtime validates a compatible Core AI bundle`() async throws {
         let bundle = try makeQwenBundle(kind: "vlm")
         defer { try? FileManager.default.removeItem(at: bundle) }
 
-        let status = await QwenModelManager().validate(url: bundle)
+        let status = await QwenInferenceRuntime().validate(url: bundle)
 
         guard case let .available(url, modelName) = status else {
             Issue.record("Expected the Qwen model bundle to validate, got \(status)")
@@ -109,11 +109,11 @@ struct QwenFeatureTests {
     }
 
     @Test
-    func `Qwen manager rejects a text-only Qwen model`() async throws {
+    func `Qwen inference runtime rejects a text-only Qwen model`() async throws {
         let bundle = try makeQwenBundle()
         defer { try? FileManager.default.removeItem(at: bundle) }
 
-        let status = await QwenModelManager().validate(url: bundle)
+        let status = await QwenInferenceRuntime().validate(url: bundle)
 
         guard case let .invalid(_, reason) = status else {
             Issue.record("Expected the text-only Qwen model to be rejected, got \(status)")
@@ -125,9 +125,9 @@ struct QwenFeatureTests {
     @MainActor
     @Test
     func `Analysis keeps prior results and only processes newly selected files`() async {
-        let model = QwenModelStub()
+        let inference = QwenInferenceStub()
         let feature = RawCullQwenAnalysisFeature(
-            modelManager: model,
+            inference: inference,
             imageLoader: QwenImageLoaderStub(),
         )
         feature.updateModelStatus(.available(
@@ -142,7 +142,7 @@ struct QwenFeatureTests {
 
         #expect(feature.results.map(\.fileID) == [first.id, second.id])
         #expect(feature.filesNeedingAnalysis(from: [first, second]).isEmpty)
-        #expect(await model.assessmentCount() == 2)
+        #expect(await inference.assessmentCount() == 2)
     }
 
     private func makeQwenBundle(
@@ -205,7 +205,7 @@ struct QwenFeatureTests {
     }
 }
 
-private actor QwenModelStub: QwenModelManaging {
+private actor QwenInferenceStub: QwenInferenceServing {
     private var count = 0
 
     func validate(url: URL) -> QwenModelStatus {

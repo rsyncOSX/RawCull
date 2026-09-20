@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AIModelDownloadsView: View {
-    let model: RawCullAIModelManagementModel
+    let model: RawCullAIModelDownloadsModel
 
     @Environment(\.dismiss) private var dismiss
     // Periphery 3.8 does not follow projected-value reads from SDK 27's macro-backed @State.
@@ -72,7 +72,7 @@ private struct AIModelDownloadsHeader: View {
 
 private struct AIModelDownloadRow: View {
     let presentation: RawCullAIModelDownloadPresentation
-    let model: RawCullAIModelManagementModel
+    let model: RawCullAIModelDownloadsModel
     @Binding var selectedLicenceID: RawCullAIModelDownloadID?
 
     @State private var showRemoveConfirmation = false
@@ -322,7 +322,7 @@ private struct AIModelDownloadProgressView: View {
 
 private struct AIModelLicenceReviewView: View {
     let presentation: RawCullAIModelDownloadPresentation
-    let model: RawCullAIModelManagementModel
+    let model: RawCullAIModelDownloadsModel
 
     @Environment(\.dismiss) private var dismiss
     @State private var isAccepting = false

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Settings-facing state for AI integration readiness.
+/// Settings-facing state for AI model-runtime readiness.
 ///
 /// This model is the narrow boundary consumed by SwiftUI. It intentionally does
 /// not expose PhotoAIKit providers, repositories, or the composition root.
@@ -18,7 +18,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     private(set) var qwenModelStatus: RawCullAICapabilityStatus = .checking(
         expectedLocations: [],
     )
-    let modelManagementModel: RawCullAIModelManagementModel
+    let modelDownloadsModel: RawCullAIModelDownloadsModel
 
     var useCLIPForSimilarity: Bool {
         get { prefersCLIPForSimilarity }
@@ -50,11 +50,9 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     private var prefersCLIPForSimilarity: Bool
     private var selectedModel: RawCullCLIPModel
     private var selectedSegmenter: RawCullSegmentationModel
-    @ObservationIgnored private let integration: RawCullAIIntegration
+    @ObservationIgnored private let modelRuntime: RawCullAIModelRuntime
     @ObservationIgnored private let userDefaults: UserDefaults
-    @ObservationIgnored private let qwenModelManager: any QwenModelManaging
     @ObservationIgnored private let qwenAnalysisFeature: RawCullQwenAnalysisFeature
-    @ObservationIgnored private var qwenValidationGeneration = 0
     @ObservationIgnored private weak var configurationConsumer:
         (any RawCullIntelligenceConfigurationApplying)?
     @ObservationIgnored private var configurationRevision: UInt64 = 0
@@ -63,22 +61,22 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     @ObservationIgnored private var refreshGeneration = 0
 
     init(
-        integration: RawCullAIIntegration,
+        modelRuntime: RawCullAIModelRuntime,
         evidenceScanner: RawCullSavedBurstEvidenceScanner? = nil,
         evidenceScan: (@Sendable () async throws -> RawCullSavedBurstEvidenceScanResult)? = nil,
         userDefaults: UserDefaults = .standard,
-        modelManagementModel: RawCullAIModelManagementModel? = nil,
+        modelDownloadsModel: RawCullAIModelDownloadsModel? = nil,
         modelDownloadCatalog: RawCullAIModelDownloadCatalog = .production,
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
-        qwenModelManager: any QwenModelManaging,
         qwenAnalysisFeature: RawCullQwenAnalysisFeature? = nil,
     ) {
-        self.integration = integration
+        self.modelRuntime = modelRuntime
         self.userDefaults = userDefaults
-        self.qwenModelManager = qwenModelManager
         self.qwenAnalysisFeature = qwenAnalysisFeature
-            ?? RawCullQwenAnalysisFeature(modelManager: qwenModelManager)
+            ?? RawCullQwenAnalysisFeature(
+                inference: modelRuntime.qwenInference,
+            )
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
@@ -101,27 +99,31 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
             ?? RawCullAIModelInclusion.segmentationModels.first
             ?? .defaultSelection
         let scanner = evidenceScanner ?? RawCullSavedBurstEvidenceScanner(
-            cacheDirectory: integration.paths.burstAnalysisDirectory,
+            cacheDirectory: modelRuntime.paths.burstAnalysisDirectory,
         )
         self.evidenceScan = evidenceScan ?? {
             try await scanner.scan()
         }
-        self.modelManagementModel = modelManagementModel
-            ?? RawCullAIModelManagementModel(
-                paths: integration.paths,
+        self.modelDownloadsModel = modelDownloadsModel
+            ?? RawCullAIModelDownloadsModel(
+                paths: modelRuntime.paths,
                 catalog: modelDownloadCatalog,
                 coordinator: modelDownloadCoordinator,
                 rawCullVersion: rawCullVersion,
             )
-        self.capabilities = integration.capabilities()
-        self.modelManagementModel.bindLocationsConsumer(self)
+        self.capabilities = modelRuntime.capabilities()
+        self.modelDownloadsModel.bindLocationsConsumer(self)
     }
 
-    func sharesQwenRuntimeIdentity(
-        modelManager: any QwenModelManaging,
+    func sharesModelRuntimeIdentity(
+        _ modelRuntime: RawCullAIModelRuntime,
         analysisFeature: RawCullQwenAnalysisFeature,
     ) -> Bool {
-        qwenModelManager === modelManager && qwenAnalysisFeature === analysisFeature
+        self.modelRuntime === modelRuntime
+            && qwenAnalysisFeature === analysisFeature
+            && qwenAnalysisFeature.sharesInferenceIdentity(
+                with: modelRuntime.qwenInference,
+            )
     }
 
     func applyManagedModelLocations(
@@ -137,9 +139,15 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         }
 
         do {
-            await integration.setManagedModelLocations(locations)
-            await applyManagedQwenModel(at: locations[.qwen3VL2B])
-            async let refreshedCapabilities = integration.refreshCapabilities()
+            if let qwenURL = locations[.qwen3VL2B] {
+                applyQwenStatus(.checking(qwenURL.standardizedFileURL))
+            }
+            let qwenStatus = await modelRuntime.applyManagedModelLocations(locations)
+            try Task.checkCancellation()
+            guard refreshGeneration == generation else { return }
+            applyQwenStatus(qwenStatus)
+
+            async let refreshedCapabilities = modelRuntime.refreshCapabilities()
             async let savedEvidence = evidenceScan()
             let (capabilities, result) = try await (
                 refreshedCapabilities,
@@ -174,14 +182,14 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         RawCullIntelligenceConfiguration(
             revision: revision,
             similarity: RawCullSimilarityConfiguration(
-                service: integration.similarityService(
+                service: modelRuntime.similarityService(
                     prefersCLIP: prefersCLIPForSimilarity,
                     clipModel: selectedModel,
                 ),
             ),
             semanticSearch: RawCullSemanticSearchConfiguration(
                 capability: selectedSemanticSearchStatus,
-                service: integration.semanticSearchService(clipModel: selectedModel),
+                service: modelRuntime.semanticSearchService(clipModel: selectedModel),
             ),
             segmentationModel: selectedSegmenter,
         )
@@ -199,7 +207,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     }
 
     func refresh() async {
-        await modelManagementModel.refresh()
+        await modelDownloadsModel.refresh()
     }
 
     func setUseCLIPForSimilarity(_ enabled: Bool) {
@@ -238,25 +246,6 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
                 revision: configurationRevision,
             ),
         )
-    }
-
-    private func applyManagedQwenModel(at url: URL?) async {
-        qwenValidationGeneration &+= 1
-        let generation = qwenValidationGeneration
-        guard let url else {
-            await qwenModelManager.clear()
-            guard qwenValidationGeneration == generation else { return }
-            applyQwenStatus(.notConfigured)
-            return
-        }
-
-        let standardizedURL = url.standardizedFileURL
-        applyQwenStatus(.checking(standardizedURL))
-        let status = await qwenModelManager.validate(url: standardizedURL)
-        guard !Task.isCancelled,
-              qwenValidationGeneration == generation
-        else { return }
-        applyQwenStatus(status)
     }
 
     private func applyQwenStatus(_ status: QwenModelStatus) {
