@@ -20,6 +20,60 @@ struct DecodeFocusPoints: Codable {
     }
 }
 
+enum FileItemSortField: Sendable {
+    case name
+    case dateModified
+    case size
+}
+
+enum FileItemSortDirection: Sendable {
+    case ascending
+    case descending
+}
+
+struct FileItemSortDescriptor: Equatable, Sendable {
+    var field: FileItemSortField
+    var direction: FileItemSortDirection
+
+    init(
+        field: FileItemSortField = .name,
+        direction: FileItemSortDirection = .ascending,
+    ) {
+        self.field = field
+        self.direction = direction
+    }
+
+    nonisolated func sorted(_ files: [FileItem]) -> [FileItem] {
+        files.enumerated().sorted { lhs, rhs in
+            let comparison = compare(lhs.element, rhs.element)
+            guard comparison != .orderedSame else {
+                // Keep equal values in their input order instead of relying on
+                // the standard library sort implementation to be stable.
+                return lhs.offset < rhs.offset
+            }
+            switch direction {
+            case .ascending:
+                return comparison == .orderedAscending
+            case .descending:
+                return comparison == .orderedDescending
+            }
+        }.map(\.element)
+    }
+
+    private nonisolated func compare(_ lhs: FileItem, _ rhs: FileItem) -> ComparisonResult {
+        switch field {
+        case .name:
+            return lhs.name.localizedStandardCompare(rhs.name)
+        case .dateModified:
+            return lhs.dateModified.compare(rhs.dateModified)
+        case .size:
+            if lhs.size < rhs.size { return .orderedAscending }
+            if lhs.size > rhs.size { return .orderedDescending }
+            return .orderedSame
+        }
+    }
+}
+
 actor ScanFiles {
     /// Store raw decoded data
     var decodedFocusPoints: [DecodeFocusPoints]?
@@ -140,11 +194,11 @@ actor ScanFiles {
     @concurrent
     nonisolated static func sortFiles(
         _ files: [FileItem],
-        by sortOrder: [some SortComparator<FileItem>],
+        by sortOrder: FileItemSortDescriptor,
         searchText: String,
     ) async -> [FileItem] {
         Logger.process.debugMessageOnly("ScanFiles.sortFiles()")
-        let sorted = files.sorted(using: sortOrder)
+        let sorted = sortOrder.sorted(files)
         if searchText.isEmpty {
             return sorted
         } else {

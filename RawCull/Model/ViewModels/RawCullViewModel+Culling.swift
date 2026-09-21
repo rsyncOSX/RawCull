@@ -132,7 +132,7 @@ extension RawCullViewModel {
         guard ratingFilter != .all else { return }
 
         let candidates = catalogDisplayCandidates.isEmpty
-            ? files.sorted(using: sortOrder).filter {
+            ? sortOrder.sorted(files).filter {
                 searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText)
             }
             : catalogDisplayCandidates
