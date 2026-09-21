@@ -1,7 +1,9 @@
 # SAM 3 → Qwen Object Analysis Workplan
 
-Status: planned for implementation after the Apple-hosted model work in
-`appleassets.md` is complete and verified.
+Status: not started. Audited against the repository on September 21, 2026.
+RawCull still has the two existing AI Analysis modes, and the multi-instance
+PhotoAIKit contracts described below do not yet exist. Implementation remains
+gated on the clean-install Apple-hosted validation in `appleassets.md`.
 
 ## 1. Objective
 
@@ -12,7 +14,7 @@ uses Qwen to produce structured, object-aware photographic analysis.
 The user-facing modes should become:
 
 1. **SAM 3 + CLIP** — current burst/deep-review ranking.
-2. **Qwen** — current whole-image assessment.
+2. **Qwen Vision** — current whole-image assessment.
 3. **Objects** — new SAM 3 → Qwen object analysis.
 
 This is an additional mode inside the existing AI Analysis view, not a new
@@ -135,7 +137,7 @@ Finish and validate `appleassets.md` first, including:
 
 - the SAM 3 and Qwen asset packs;
 - managed Qwen location propagation;
-- managed/custom Qwen source precedence;
+- managed Qwen activation and removal behavior;
 - model removal and in-flight cancellation behavior;
 - clean-install TestFlight validation.
 
@@ -1060,7 +1062,7 @@ first so downstream failures are easier to isolate.
 
 - [ ] `appleassets.md` implementation is complete.
 - [ ] Managed SAM 3 and Qwen install, validate, activate, remove, and reinstall.
-- [ ] Qwen source precedence and cancellation are tested.
+- [ ] Managed Qwen activation, removal, and cancellation are tested.
 
 ### Capability
 

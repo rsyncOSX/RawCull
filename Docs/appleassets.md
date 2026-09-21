@@ -10,7 +10,8 @@ remain release operations.
 
 ## Current implementation status
 
-Status recorded on September 17, 2026:
+Status last audited against the repository on September 21, 2026. Archive and
+App Store Connect evidence remains dated September 17, 2026 where noted:
 
 | Area | Status | Evidence or remaining work |
 |---|---|---|
@@ -21,13 +22,13 @@ Status recorded on September 17, 2026:
 | Apple-hosted app metadata | **Completed** | `RawCull-AppStore-Info.plist` contains only `BAAppGroupID`, `BAHasManagedAssetPacks`, and `BAUsesAppleHosting` from the Background Assets key family. It omits the GitHub manifest and restrictions. |
 | Downloader host/protocol selection | **Completed** | App Store builds select `.appleHosted` and `StoreDownloaderExtension`; ordinary Release builds retain `.selfHosted` and `ManagedDownloaderExtension`. Both configurations build successfully. |
 | Production model catalog | **Completed** | CLIP, SAM 3, and Qwen use the final pack IDs, model paths, archive sizes, and SHA-256 values. |
-| Managed Qwen runtime and Settings UI | **Completed** | Downloaded Qwen activates automatically by default. A user-selected custom folder remains an explicit override, with cancellation-safe validation and source switching. |
-| Repository manifest, provenance, and release documentation | **Completed for the Apple-hosted records** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, Apple record/version UUIDs, processing dates, and this evidence table are updated. |
-| Automated verification | **Completed for the implemented migration** | Provenance verification, provenance mutation tests, focused model-download/release-metadata tests, App Store build, Release build, plist validation, and `git diff --check` passed. |
+| Managed Qwen runtime and Settings UI | **Completed** | Downloaded Qwen is validated and activated from the managed-location snapshot. The current application does not expose a custom-folder Qwen override. |
+| Repository manifest, provenance, and release documentation | **Partially completed** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, Apple record/version UUIDs, processing dates, and this evidence table are updated. The root `README.md` still describes the removed manual Qwen-folder workflow. |
+| Automated verification | **Completed for the implemented migration** | Provenance verification, provenance mutation tests, the 222-test smoke suite, the complete `RawCullTests` target, App Store and Release builds, plist validation, and `git diff --check` passed. The tests were rerun on September 21, 2026. |
 | App Store Connect asset-pack records | **Completed** | Permanent records were created for `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. |
 | Upload pack versions to App Store Connect | **Completed** | Version 1 of CLIP, SAM 3, and Qwen uploaded with zero errors and zero warnings. All three report `COMPLETE` for `MAC_OS`. |
 | Internal beta asset releases | **Completed** | All three Apple-created internal beta releases report `READY_FOR_TESTING`. |
-| Release version and build number | **Completed** | RawCull and its downloader extension use marketing version `3.2.4` and build `371` across all three configurations. |
+| Release version and build number | **Completed** | RawCull and its downloader extension use marketing version `3.2.4` and build `383` across all three configurations. |
 | Signed App Store archive and upload | **Pending** | Requires App Store distribution credentials/profiles. |
 | TestFlight validation | **Pending** | Perform the clean-install and download tests in section 18 after all three packs are Ready for Testing. |
 
@@ -60,7 +61,7 @@ count and SHA-256.
 ### Marketing version and build number — completed
 
 The version gate is resolved as `MARKETING_VERSION = 3.2.4` and
-`CURRENT_PROJECT_VERSION = 371`. The RawCull app and downloader extension use
+`CURRENT_PROJECT_VERSION = 383`. The RawCull app and downloader extension use
 those values consistently in Debug, Release, and AppStore configurations.
 
 ### Preserve separate distribution configurations — completed
@@ -232,7 +233,7 @@ Verification results recorded on September 17, 2026:
 | Check | Result | Evidence |
 |---|---|---|
 | `ba-package evaluate` file-list comparison | **Passed** | `ba-package 2.0` from Xcode 27.0 (`27A266a`) evaluated all three manifests successfully outside the restricted workspace environment. It selected 14 CLIP files, 11 SAM files, and 17 Qwen files; none is a symbolic link or `.DS_Store` file. The selected lists match the packaged model, tokenizer, notice, licence, and provenance inventory. |
-| Asset-pack ID uniqueness and RawCull match | **Passed** | The manifest IDs are unique, conform to Apple's permitted character set, and exactly match RawCull's production download catalog: `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. The managed Qwen location is now selected automatically when its pack is installed, while a user-selected custom Qwen bundle remains available as an explicit override. |
+| Asset-pack ID uniqueness and RawCull match | **Passed** | The manifest IDs are unique, conform to Apple's permitted character set, and exactly match RawCull's production download catalog: `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. The managed Qwen location is selected automatically when its pack is installed. |
 | Platform and download policy | **Passed** | All three packaging manifests contain exactly `"platforms": ["macOS"]` and `"downloadPolicy": {"onDemand": {}}`. |
 
 4. Verify the expected installed root exists in the selected source tree.
@@ -491,50 +492,22 @@ Update `RawCullAISettingsModel.applyManagedModelLocations` to:
 5. refresh the remaining capability snapshot.
 
 No security-scoped bookmark is needed for a URL returned by
-`AssetPackManager`. Continue using security-scoped access only for a manually
-selected external model directory.
+`AssetPackManager`. The current product supports the managed Qwen pack only;
+there is no manual-folder preference or second Qwen activation path.
 
-### Qwen source precedence
+### Managed Qwen lifecycle
 
-Implement an explicit source preference rather than allowing two unrelated
-paths to race during `refresh()`:
-
-```text
-1. User-selected custom model, when the user explicitly enables the override.
-2. Installed managed Qwen pack.
-3. No Qwen model configured.
-```
-
-Recommended persisted enum:
-
-```swift
-enum RawCullQwenModelSource: String, Codable, Sendable {
-    case managed
-    case custom
-}
-```
-
-Default to `.managed`. If `.custom` is selected but its bookmark is missing or
-invalid, show that error and provide a one-click action to return to the managed
-model. Do not silently switch source while an analysis is running.
-
-Centralize all activation in a method such as `reconcileQwenModelSource()`.
-Both `refresh()` and `applyManagedModelLocations` should call this method. It
-must cancel stale validation tasks and use a generation/token check so an older
-custom validation cannot overwrite a newer managed result.
-
-When switching from custom to managed:
-
-- stop security-scoped access to the custom URL;
-- keep the bookmark so the user can switch back later;
-- validate the managed URL; and
-- update `qwenModelStatus` and `qwenAnalysisFeature` together.
+`RawCullAISettingsModel.applyManagedModelLocations` is the single Settings-side
+activation path. It passes the complete location snapshot to
+`RawCullAIModelRuntime`, publishes the returned status to the Qwen feature, and
+uses a refresh generation to prevent an older refresh from publishing over a
+newer one.
 
 When removing the managed pack:
 
 - apply a location snapshot without Qwen through `RawCullAIModelRuntime`, which
   clears its `QwenInferenceRuntime`;
-- set an unavailable/not-configured state unless custom override is active; and
+- set an unavailable/not-configured state; and
 - prevent an in-flight Qwen analysis from retaining a provider backed by the
   removed path.
 
@@ -564,41 +537,18 @@ clear before the user starts it.
 
 ### Qwen settings card
 
-Rename **Local Qwen** to **Qwen Vision Model** and replace the current assumption
-that Qwen must always be selected manually.
-
-The card should show:
-
-- active source: `Downloaded by RawCull` or `Custom folder`;
-- validation/model name;
-- managed status: not downloaded, downloading, installed, invalid, or removed;
-- **Manage Downloads** action that opens the shared model-download sheet;
-- **Use Downloaded Model** when the managed pack is installed;
-- **Choose Custom Model…** as an advanced override/fallback;
-- **Validate Again** for the currently selected source;
-- **Clear Custom Selection** without deleting a managed pack; and
-- explanatory text that removing the Apple-managed model is done in the
-  downloads sheet.
-
-Do not label a managed Qwen model as a manually selected “local model.” It is
-local at runtime, but its lifecycle is managed by Background Assets.
-
-Change the file importer so choosing a folder sets source preference to
-`.custom`. The normal 2.3.4/3.2.4 experience should require no file picker: the
-user opens **Download AI Models**, downloads Qwen, and RawCull activates it.
+The AI Models card now reports Qwen3-VL-2B-Instruct readiness from the managed
+location snapshot. Users install or remove the pack in **Download AI Models**;
+successful installation activates it without a file picker. Keep the card and
+Qwen analysis unavailable state aligned with that managed-only lifecycle.
 
 ### Refresh behavior
 
-Currently `RawCullAISettingsModel.refresh()` starts managed-model refresh and
-saved custom-Qwen activation concurrently. That can race once Qwen is managed.
-Change the order:
-
-1. refresh managed-model locations;
-2. reconcile the selected Qwen source;
-3. refresh capability/status presentation.
-
-Preserve concurrency only for operations that cannot update the same Qwen
-manager/status.
+`RawCullAISettingsModel.refresh()` delegates to the downloads model, which
+publishes one complete installed-location snapshot. Applying that snapshot
+validates or clears Qwen before refreshing the remaining capabilities and
+saved evidence. Preserve the existing generation checks when changing this
+flow.
 
 ## 14. Update manifests, notices, and repository documentation — completed for release records
 
@@ -652,7 +602,8 @@ Update:
 - `ModelAssets/README.md` to describe Apple-hosted production and all three
   packs;
 - `updateversionmodels.md` or replace it with an Apple-hosted release procedure;
-- `README.md` to describe downloadable Qwen rather than manual-only Qwen; and
+- `README.md` to describe downloadable Qwen rather than manual-only Qwen
+  (**still pending as of September 21, 2026**); and
 - direct-distribution documentation to explain whether the DMG remains
   self-hosted or lacks managed downloads.
 
@@ -680,16 +631,10 @@ Update synthetic helpers and exhaustive switches for the new enum case.
 Extend `QwenFeatureTests.swift` or add focused settings-model tests for:
 
 - managed pack automatically activates after successful download;
-- custom override takes precedence only when explicitly selected;
-- switching back to managed stops custom security-scoped access;
-- a stale custom validation cannot overwrite a managed validation result;
+- a stale managed-location validation cannot overwrite a newer snapshot;
 - managed removal clears the provider;
-- custom fallback still works when managed Qwen is not installed;
-- relaunch restores source preference and validates the right URL; and
+- relaunch validates the installed managed URL; and
 - active analysis reacts safely when the pack is removed or updated.
-
-Use fakes for security-scoped access rather than relying on real sandbox
-bookmarks in unit tests if necessary.
 
 ### `ReleaseMetadataTests.swift`
 
@@ -719,7 +664,7 @@ Verify:
 
 - all three rows are accessible by model name and state;
 - multi-gigabyte sizes are spoken/read correctly;
-- Qwen's managed/custom source is exposed in accessibility value;
+- Qwen's managed readiness is exposed in its accessibility value;
 - licence review works for each pack;
 - progress, cancellation, retry, removal confirmation, and failure messages are
   accessible; and
@@ -728,7 +673,7 @@ Verify:
 ## 16. Version 3.2.4 project changes — completed
 
 RawCull and the downloader extension now use `MARKETING_VERSION = 3.2.4` and
-`CURRENT_PROJECT_VERSION = 371`. Confirm those values inside the signed archived
+`CURRENT_PROJECT_VERSION = 383`. Confirm those values inside the signed archived
 app and embedded extension before upload:
 
 ```bash
@@ -818,8 +763,8 @@ Test from a clean installation:
    errors.
 8. Remove each model independently and verify only that pack disappears.
 9. Verify removing Qwen clears its provider and disables analysis safely.
-10. Exercise custom Qwen override, switch back to downloaded Qwen, and verify
-    precedence survives relaunch.
+10. Remove and reinstall Qwen, relaunch, and verify the managed model is
+    rediscovered and reactivated.
 11. Upload a new internal-beta pack version under the same ID and verify
     `requireLatestVersion: true` updates it.
 12. Confirm disk-space errors and low-space behavior do not corrupt installed
@@ -875,7 +820,7 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 ## Completion checklist
 
 - [x] Confirm app version 3.2.4.
-- [x] Set build number 371 across app and extension configurations.
+- [x] Set build number 383 across app and extension configurations.
 - [x] Freeze the three permanent asset-pack IDs.
 - [x] Resolve packaged CLIP, SAM, and Qwen provenance discrepancies.
 - [x] Evaluate all file selectors and compare the selected inventory.
@@ -891,17 +836,17 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 - [x] Select `.appleHosted` in the AppStore application code.
 - [x] Add Qwen to the managed-download enum, catalog, and production inclusion.
 - [x] Route managed Qwen locations into `QwenInferenceRuntime`.
-- [x] Implement explicit managed/custom Qwen source precedence.
+- [x] Implement one managed Qwen activation path with stale-refresh suppression.
 - [x] Update AI Settings and the download sheet.
-- [ ] Update the manifest template, provenance schema, notices, scripts, and
-  docs. **Template, provenance records/schema, scripts, and model-assets docs
-  are complete; remaining documentation/notice review is pending.**
-- [ ] Update model-download, Qwen, release-metadata, UI, and accessibility
-  tests. **Focused model-download and release-metadata coverage passes;
-  additional UI/accessibility coverage remains.**
-- [ ] Run provenance, smoke, focused, and archive-verification checks.
-  **Provenance checks, focused tests, AppStore/Release builds, plist validation,
-  and diff checks pass; full smoke and signed-archive verification remain.**
+- [x] Update the manifest template, provenance schema and records, notices,
+  verification scripts, and `ModelAssets` documentation.
+- [ ] Update the root README and direct-distribution documentation; the root
+  README still describes the removed manual Qwen-folder workflow.
+- [x] Update and pass the focused model-download, Qwen, release-metadata, and
+  accessibility-presentation tests.
+- [ ] Add the remaining Settings UI/accessibility coverage listed in section 15.
+- [x] Run provenance, smoke, focused, plist, and diff verification checks.
+- [ ] Create and inspect the signed App Store archive.
 - [ ] Upload the AppStore build and complete clean-install internal TestFlight tests.
 - [ ] Submit the app and all three tested pack versions together for review.
 - [x] Retain the self-hosted path until the Apple-hosted production rollout is verified.
