@@ -8,7 +8,7 @@ The application is written in Swift 6 and SwiftUI. Focused Swift packages own im
 
 | Branch | Minimum macOS | Development toolchain | Main characteristics |
 |---|---:|---|---|
-| `version-3.2.5` | macOS 27 | Xcode 27, Swift 6 | Local DataComp CLIP search and similarity, SAM 3 Deep Review, Qwen3-VL photo assessment, model validation, and Managed Background Assets support |
+| `main` | macOS 27 | Xcode 27, Swift 6 | Local DataComp CLIP search and similarity, SAM 3 Deep Review, Qwen3-VL photo assessment, model validation, and Managed Background Assets support |
 
 ## Main capabilities
 
