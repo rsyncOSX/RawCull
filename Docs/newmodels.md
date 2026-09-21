@@ -1,5 +1,8 @@
 # Adding or updating Apple-hosted RawCull model packs
 
+Last reviewed against RawCull, Xcode 27 `ba-package` 2.0, and Apple's current
+Background Assets documentation on September 21, 2026.
+
 This runbook describes the complete RawCull workflow for turning converted
 model files into an Apple-hosted Managed Background Assets archive (`.aar`),
 updating the application metadata, uploading the archive with `xcrun altool`,
@@ -181,6 +184,12 @@ metadata, notices, licences, and provenance. It must not contain `.DS_Store`,
 temporary output, a previous `.aar`, secrets, or unrelated models.
 
 Do not package until `evaluate` succeeds and its list is understood.
+
+If `ba-package` reports that a visibly valid `.json` path does not have a JSON
+extension inside a restricted automation environment, rerun the command from a
+normal Terminal session with access to the release tree. If that installation
+also requires the conventional filename, stage one pack at a time as
+`Manifest.json` without changing any selector-relative paths.
 
 ## 5. Generate the `.aar`
 

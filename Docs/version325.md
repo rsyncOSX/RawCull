@@ -15,7 +15,7 @@ The high-level architecture is substantially better separated than the size of t
 
 The main weakness is that this separation is not yet consistent at the presentation boundary. Several large SwiftUI views still act as view, controller, task owner, cache owner, keyboard-event coordinator, and presentation mapper simultaneously. `RawCullViewModel` is also still the shared mutable surface for most workflows. This does not make the application structurally unsound, but it makes otherwise well-separated services harder to reason about and change independently.
 
-No confirmed user-data-loss or crashing runtime defect was found in the reviewed code. There is, however, one critical release-validation issue and several non-critical correctness and design issues.
+No confirmed user-data-loss or crashing runtime defect was found in the reviewed code. The review found one critical release-validation issue, which was resolved, and several non-critical correctness and design issues that remain.
 
 ## Critical issue (resolved during this review)
 
