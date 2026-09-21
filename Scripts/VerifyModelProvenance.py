@@ -52,7 +52,7 @@ def validate(root):
         key = re.search(r'id: \.(\w+),', block).group(1)
         require(key not in descriptors, f'Duplicate descriptor {key}')
         descriptors[key] = block
-    require(set(descriptors) == set(ids), 'Every model ID must have one descriptor')
+    require(set(descriptors).issubset(ids), 'Descriptor uses an unknown model ID')
     require(set(flags) == {flag for flag, _ in downloads} | {flag for _, flag in selections}, 'Unmapped inclusion flag')
     enabled = {key for flag, key in downloads if flags[flag] == 'true'}
     for name, flag in selections:
@@ -60,6 +60,7 @@ def validate(root):
             matches = [key for key in ids if key.lower() == name.lower() or key.lower() == ('clip' + name).lower()]
             require(len(matches) == 1, f'Unknown selectable model {name}')
             enabled.add(matches[0])
+    require(enabled.issubset(descriptors), 'Every enabled model ID must have one descriptor')
     production = source.split('static let production', 1)[1].split('private static func', 1)[0]
     require(re.sub(r'\s+', '', production) == '=Self(models:prepared.models.filter{RawCullAIModelInclusion.downloadIDs.contains($0.id)},)', 'Unrecognized production catalog filter')
     for key in enabled:

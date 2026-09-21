@@ -13,7 +13,6 @@ struct RawCullAIModelDownloadsTests {
         #expect(catalog.models.map(\.id) == [.clipDataComp, .sam3, .qwen3VL2B])
         #expect(preparedCatalog.models.map(\.id) == [
             .clipDataComp,
-            .clipOpenAI,
             .sam3,
             .qwen3VL2B
         ])
@@ -33,22 +32,6 @@ struct RawCullAIModelDownloadsTests {
         #expect(
             catalog.descriptor(for: .clipDataComp)?.installedByteCount
                 == 307_800_172,
-        )
-        let openAI = try #require(
-            preparedCatalog.descriptor(for: .clipOpenAI),
-        )
-        #expect(openAI.releaseReadiness.isReady)
-        #expect(
-            openAI.upstreamRevision
-                == "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
-        )
-        #expect(
-            openAI.expectedArchiveSHA256
-                == "e9181157c2d4012db2e6478949488f9906696a4ed78ecaa10235d9762621136c",
-        )
-        #expect(
-            openAI.downloadByteCount
-                == 282_866_068,
         )
         #expect(
             RawCullAIModelDownloadSource.selfHosted(
