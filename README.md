@@ -6,9 +6,9 @@ RawCull is a native macOS photo review and culling application for Sony ARW file
 
 The application is written in Swift 6 and SwiftUI. Focused Swift packages own image parsing, analysis, AI inference, shared culling models, JSON encoding, and rsync execution. RawCull owns application state, workflow, caching, persistence, and presentation.
 
-| Branch | Minimum macOS | Development toolchain | Main characteristics |
-|---|---:|---|---|
-| `main` | macOS 27 | Xcode 27, Swift 6 | Local DataComp CLIP search and similarity, SAM 3 Deep Review, Qwen3-VL photo assessment, model validation, and Managed Background Assets support |
+| macOS | Development toolchain | Main characteristics |
+|---|---|---|
+| macOS 27 | Xcode 27, Swift 6 | Local DataComp CLIP search and similarity, SAM 3 Deep Review, Qwen3-VL photo assessment, model validation, and Managed Background Assets support |
 
 ## Main capabilities
 
@@ -178,19 +178,6 @@ flowchart LR
     Backends --> Contracts
     QwenBackend --> Features
 ```
-
-`Scripts/VerifyAIImportBoundary.sh` enforces exact production import locations and
-rejects the removed compatibility constructors and forwarding API. CLIP,
-segmentation, and Vision backend products are confined to `RawCullAIModelRuntime`
-and the focused Vision adapter. The Qwen backend imports are kept in
-`QwenInferenceRuntime`; views and general application models import none of these
-concrete AI products. The model-release update checklist, including Background
-Assets packaging and verification, is documented in
-[Integrating the v4 AI model release](updateversionmodels.md).
-The boundary remains in the application target: it still uses app-owned `FileItem`
-values, application callbacks, model resources, and application-support paths, so a
-new Swift package would add adapters without establishing a cleaner dependency
-graph.
 
 ### Swift package dependencies
 
