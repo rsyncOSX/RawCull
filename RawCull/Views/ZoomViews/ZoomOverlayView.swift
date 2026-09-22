@@ -186,10 +186,6 @@ struct ZoomOverlayView: View {
         get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue }
     }
 
-    private var rawMessageTask: Task<Void, Never>? {
-        get { session.rawMessageTask } nonmutating set { session.rawMessageTask = newValue }
-    }
-
     private var maskTask: Task<Void, Never>? {
         get { session.maskTask } nonmutating set { session.maskTask = newValue }
     }
@@ -624,10 +620,6 @@ struct ZoomOverlayView: View {
 
     private func showRAWFailureMessage() {
         session.showRAWFailureMessage()
-    }
-
-    private func clearRAWMessage() {
-        session.clearRAWMessage()
     }
 
     // MARK: - Mask regeneration
