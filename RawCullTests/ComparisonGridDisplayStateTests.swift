@@ -43,7 +43,7 @@ struct ComparisonGridDisplayStateTests {
         UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
         UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
         UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
-        UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
+        UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
     ]
 
     @Test(.tags(.smoke))
@@ -77,7 +77,7 @@ struct ComparisonGridDisplayStateTests {
             ids[0],
             #require(UUID(uuidString: "00000000-0000-0000-0000-000000009999")),
             ids[4],
-            ids[1],
+            ids[1]
         ])
 
         #expect(state.files.map(\.id) == [ids[2], ids[0], ids[4]])
@@ -85,7 +85,7 @@ struct ComparisonGridDisplayStateTests {
             ids[2],
             ids[0],
             #require(UUID(uuidString: "00000000-0000-0000-0000-000000009999")),
-            ids[4],
+            ids[4]
         ])
         #expect(state.allComparisonFiles.map(\.id) == [ids[2], ids[0], ids[4]])
     }

@@ -98,18 +98,18 @@ private final class ControlledComparisonSessionImageService: ComparisonSessionIm
     var cancelCount = 0
 
     func loadImages(
-        files: [FileItem],
+        files _: [FileItem],
         sourceFlags: [FileItem.ID: Bool],
     ) async -> (
         states: [FileItem.ID: ComparisonImageState],
-        sourceFlags: [FileItem.ID: Bool]
+        sourceFlags: [FileItem.ID: Bool],
     ) {
         ([:], sourceFlags)
     }
 
     func reloadImage(
-        for file: FileItem,
-        sourceFlags: [FileItem.ID: Bool],
+        for _: FileItem,
+        sourceFlags _: [FileItem.ID: Bool],
     ) async -> ComparisonImageState {
         await withCheckedContinuation { continuation in
             reloadRequests.append(ReloadRequest(continuation: continuation))
@@ -118,7 +118,7 @@ private final class ControlledComparisonSessionImageService: ComparisonSessionIm
     }
 
     func regenerateFocusMasks(
-        files: [FileItem],
+        files _: [FileItem],
         states: [FileItem.ID: ComparisonImageState],
     ) async -> [FileItem.ID: ComparisonImageState] {
         states

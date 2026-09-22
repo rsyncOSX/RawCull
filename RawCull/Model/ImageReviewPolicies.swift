@@ -123,7 +123,7 @@ nonisolated enum ImageReviewRatingAction: Equatable, Sendable {
         .stars(2),
         .stars(3),
         .stars(4),
-        .stars(5),
+        .stars(5)
     ]
 
     var value: Int {
@@ -161,10 +161,13 @@ nonisolated enum RatingDisplay: Equatable, Sendable {
         switch rating {
         case -1:
             self = .rejected
+
         case 0 where isExplicit:
             self = .keeper
+
         case 2 ... 5:
             self = .stars(rating)
+
         default:
             self = .unrated
         }
@@ -221,14 +224,12 @@ nonisolated enum ImageReviewKeyboardPolicy {
     }
 }
 
-nonisolated struct ImageReviewRequestIdentity<Context>: Hashable, Sendable
-where Context: Hashable & Sendable {
+nonisolated struct ImageReviewRequestIdentity<Context: Hashable & Sendable>: Hashable, Sendable {
     let generation: UUID
     let context: Context
 }
 
-nonisolated struct ImageReviewRequestTracker<Context>: Sendable
-where Context: Hashable & Sendable {
+nonisolated struct ImageReviewRequestTracker<Context: Hashable & Sendable>: Sendable {
     private(set) var current: ImageReviewRequestIdentity<Context>?
 
     mutating func begin(

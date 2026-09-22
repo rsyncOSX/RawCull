@@ -142,21 +142,65 @@ struct ZoomOverlayView: View {
 
     @FocusState private var isImageFocused: Bool
 
-    private var focusMask: CGImage? { get { session.focusMask } nonmutating set { session.focusMask = newValue } }
-    private var subjectOutline: CGImage? { get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue } }
-    private var currentScale: CGFloat { get { session.viewport.scale } nonmutating set { session.viewport.scale = newValue } }
-    private var lastScale: CGFloat { get { session.viewport.lastScale } nonmutating set { session.viewport.lastScale = newValue } }
-    private var offset: CGSize { get { session.viewport.offset } nonmutating set { session.viewport.offset = newValue } }
-    private var lastOffset: CGSize { get { session.viewport.lastOffset } nonmutating set { session.viewport.lastOffset = newValue } }
-    private var showFocusMask: Bool { get { session.viewport.showFocusMask } nonmutating set { session.viewport.showFocusMask = newValue } }
-    private var showSubjectOutline: Bool { get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue } }
-    private var isLoadingSubjectOutline: Bool { get { session.isLoadingSubjectOutline } nonmutating set { session.isLoadingSubjectOutline = newValue } }
-    private var showFocusPoints: Bool { get { session.viewport.showFocusPoints } nonmutating set { session.viewport.showFocusPoints = newValue } }
-    private var sourceSelection: ImageSourceSelectionState { get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue } }
-    private var rawMessageTask: Task<Void, Never>? { get { session.rawMessageTask } nonmutating set { session.rawMessageTask = newValue } }
-    private var maskTask: Task<Void, Never>? { get { session.maskTask } nonmutating set { session.maskTask = newValue } }
-    private var keyMonitor: Any? { get { session.keyMonitor } nonmutating set { session.keyMonitor = newValue } }
-    private var pendingInitialZoomMode: ZoomOverlayInitialZoomMode? { get { session.pendingInitialZoomMode } nonmutating set { session.pendingInitialZoomMode = newValue } }
+    private var focusMask: CGImage? {
+        get { session.focusMask } nonmutating set { session.focusMask = newValue }
+    }
+
+    private var subjectOutline: CGImage? {
+        get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue }
+    }
+
+    private var currentScale: CGFloat {
+        get { session.viewport.scale } nonmutating set { session.viewport.scale = newValue }
+    }
+
+    private var lastScale: CGFloat {
+        get { session.viewport.lastScale } nonmutating set { session.viewport.lastScale = newValue }
+    }
+
+    private var offset: CGSize {
+        get { session.viewport.offset } nonmutating set { session.viewport.offset = newValue }
+    }
+
+    private var lastOffset: CGSize {
+        get { session.viewport.lastOffset } nonmutating set { session.viewport.lastOffset = newValue }
+    }
+
+    private var showFocusMask: Bool {
+        get { session.viewport.showFocusMask } nonmutating set { session.viewport.showFocusMask = newValue }
+    }
+
+    private var showSubjectOutline: Bool {
+        get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue }
+    }
+
+    private var isLoadingSubjectOutline: Bool {
+        get { session.isLoadingSubjectOutline } nonmutating set { session.isLoadingSubjectOutline = newValue }
+    }
+
+    private var showFocusPoints: Bool {
+        get { session.viewport.showFocusPoints } nonmutating set { session.viewport.showFocusPoints = newValue }
+    }
+
+    private var sourceSelection: ImageSourceSelectionState {
+        get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue }
+    }
+
+    private var rawMessageTask: Task<Void, Never>? {
+        get { session.rawMessageTask } nonmutating set { session.rawMessageTask = newValue }
+    }
+
+    private var maskTask: Task<Void, Never>? {
+        get { session.maskTask } nonmutating set { session.maskTask = newValue }
+    }
+
+    private var keyMonitor: Any? {
+        get { session.keyMonitor } nonmutating set { session.keyMonitor = newValue }
+    }
+
+    private var pendingInitialZoomMode: ZoomOverlayInitialZoomMode? {
+        get { session.pendingInitialZoomMode } nonmutating set { session.pendingInitialZoomMode = newValue }
+    }
 
     private let zoomLevel: CGFloat = 2.0
 

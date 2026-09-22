@@ -134,7 +134,7 @@ struct ScanFilesSortTests {
     @Test(arguments: [
         FileItemSortField.name,
         .dateModified,
-        .size,
+        .size
     ])
     func `sortFiles supports descending order for every field`(field: FileItemSortField) async {
         let files = [

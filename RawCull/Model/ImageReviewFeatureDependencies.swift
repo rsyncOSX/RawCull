@@ -20,8 +20,7 @@ protocol ImageReviewRatingActing: AnyObject {
 protocol ImageReviewFeatureActions:
     ImageReviewSelectionActing,
     ImageReviewRatingProviding,
-    ImageReviewRatingActing
-{}
+    ImageReviewRatingActing {}
 
 extension RawCullViewModel: ImageReviewFeatureActions {}
 

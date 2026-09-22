@@ -12,7 +12,6 @@ extension RatingDisplay {
         case .stars: .purple
         }
     }
-
 }
 
 struct CurrentRatingBadgeView: View {

@@ -54,6 +54,7 @@ struct FileItemSortDescriptor: Equatable, Sendable {
             switch direction {
             case .ascending:
                 return comparison == .orderedAscending
+
             case .descending:
                 return comparison == .orderedDescending
             }
@@ -64,11 +65,17 @@ struct FileItemSortDescriptor: Equatable, Sendable {
         switch field {
         case .name:
             return lhs.name.localizedStandardCompare(rhs.name)
+
         case .dateModified:
             return lhs.dateModified.compare(rhs.dateModified)
+
         case .size:
-            if lhs.size < rhs.size { return .orderedAscending }
-            if lhs.size > rhs.size { return .orderedDescending }
+            if lhs.size < rhs.size {
+                return .orderedAscending
+            }
+            if lhs.size > rhs.size {
+                return .orderedDescending
+            }
             return .orderedSame
         }
     }

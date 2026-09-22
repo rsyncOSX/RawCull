@@ -225,5 +225,4 @@ nonisolated enum ComparisonGridImageCompletionPolicy {
     ) -> Bool {
         !isCancelled && currentGeneration == generation
     }
-
 }

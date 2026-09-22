@@ -39,11 +39,25 @@ struct ComparisonSessionPresentation {
     let displayState: ComparisonGridDisplayState
     let imageStates: [FileItem.ID: ComparisonImageState]
 
-    var files: [FileItem] { displayState.files }
-    var allComparisonFiles: [FileItem] { displayState.allComparisonFiles }
-    var selectedComparisonFile: FileItem? { displayState.selectedComparisonFile }
-    var burstComparisonResult: BurstAnalysisResult? { displayState.burstComparisonResult }
-    var loadKey: String { displayState.loadKey }
+    var files: [FileItem] {
+        displayState.files
+    }
+
+    var allComparisonFiles: [FileItem] {
+        displayState.allComparisonFiles
+    }
+
+    var selectedComparisonFile: FileItem? {
+        displayState.selectedComparisonFile
+    }
+
+    var burstComparisonResult: BurstAnalysisResult? {
+        displayState.burstComparisonResult
+    }
+
+    var loadKey: String {
+        displayState.loadKey
+    }
 }
 
 @MainActor
@@ -153,8 +167,7 @@ final class ComparisonSessionModel {
     func ensureValidSelection(in files: [FileItem]) {
         guard let first = files.first else { return }
         if let selectedID = selection.selectedFileID,
-           files.contains(where: { $0.id == selectedID })
-        {
+           files.contains(where: { $0.id == selectedID }) {
             return
         }
         select(first.id)
