@@ -17,6 +17,23 @@ enum ComparisonGridImageCoordinator {
         states: [FileItem.ID: ComparisonImageState],
         sourceFlags: [FileItem.ID: Bool],
     ) {
+        await loadImages(files: files, sourceFlags: sourceFlags) { file, useThumbnailSource in
+            await loadState(
+                for: file,
+                useThumbnailSource: useThumbnailSource,
+                viewModel: viewModel,
+            )
+        }
+    }
+
+    static func loadImages(
+        files: [FileItem],
+        sourceFlags: [FileItem.ID: Bool],
+        loadState: (FileItem, Bool) async -> ComparisonImageState,
+    ) async -> (
+        states: [FileItem.ID: ComparisonImageState],
+        sourceFlags: [FileItem.ID: Bool],
+    ) {
         let syncedFlags = syncSourceStates(for: files, sourceFlags: sourceFlags)
         var states = Dictionary(
             uniqueKeysWithValues: files.map {
@@ -26,11 +43,7 @@ enum ComparisonGridImageCoordinator {
 
         for file in files {
             guard !Task.isCancelled else { return (states, syncedFlags) }
-            let state = await loadState(
-                for: file,
-                useThumbnailSource: syncedFlags[file.id] ?? false,
-                viewModel: viewModel,
-            )
+            let state = await loadState(file, syncedFlags[file.id] ?? false)
             guard !Task.isCancelled else { return (states, syncedFlags) }
             states[file.id] = state
         }
@@ -43,11 +56,21 @@ enum ComparisonGridImageCoordinator {
         sourceFlags: [FileItem.ID: Bool],
         viewModel: RawCullViewModel,
     ) async -> ComparisonImageState {
-        await loadState(
-            for: file,
-            useThumbnailSource: sourceFlags[file.id] ?? false,
-            viewModel: viewModel,
-        )
+        await reloadImage(for: file, sourceFlags: sourceFlags) { file, useThumbnailSource in
+            await loadState(
+                for: file,
+                useThumbnailSource: useThumbnailSource,
+                viewModel: viewModel,
+            )
+        }
+    }
+
+    static func reloadImage(
+        for file: FileItem,
+        sourceFlags: [FileItem.ID: Bool],
+        loadState: (FileItem, Bool) async -> ComparisonImageState,
+    ) async -> ComparisonImageState {
+        await loadState(file, sourceFlags[file.id] ?? false)
     }
 
     static func loadDecodedState(
@@ -180,4 +203,27 @@ enum ComparisonGridImageCoordinator {
             viewModel.sharpnessModel.saliencyInfo[fileID] = saliency
         }
     }
+}
+
+nonisolated enum ComparisonGridImageCompletionPolicy {
+    nonisolated static func acceptsBulkLoad(
+        isCancelled: Bool,
+        generation: UUID,
+        currentGeneration: UUID?,
+        mutationRevision: Int,
+        currentMutationRevision: Int,
+    ) -> Bool {
+        !isCancelled
+            && currentGeneration == generation
+            && currentMutationRevision == mutationRevision
+    }
+
+    nonisolated static func acceptsReload(
+        isCancelled: Bool,
+        generation: UUID,
+        currentGeneration: UUID?,
+    ) -> Bool {
+        !isCancelled && currentGeneration == generation
+    }
+
 }

@@ -1,4 +1,4 @@
-nonisolated enum ComparisonGridNavigationDirection {
+nonisolated enum ComparisonGridNavigationDirection: Sendable {
     case left
     case right
 }
@@ -61,48 +61,27 @@ nonisolated enum ComparisonGridKeyAction: Equatable {
     }
 
     private nonisolated static func action(for characters: String?) -> ComparisonGridKeyAction? {
-        switch characters {
-        case "+":
-            .zoomIn
+        if let sharedAction = ImageReviewKeyboardPolicy.action(for: characters) {
+            return switch sharedAction {
+            case .zoomIn: .zoomIn
+            case .zoomOut: .zoomOut
+            case .toggleEmbeddedJPG: .toggleImageSource
+            case .toggleFocusMask: .toggleFocusMask
+            case .toggleFocusPoints: .toggleFocusPoints
+            case let .rating(action): .rating(action.value)
+            case .toggleDevelopedRAW, .toggleSubjectOutline: nil
+            }
+        }
 
-        case "-":
-            .zoomOut
-
-        case "j", "J":
-            .toggleImageSource
-
+        return switch characters {
         case "i", "I":
             .toggleInspector
-
-        case "f", "F":
-            .toggleFocusMask
-
-        case "a", "A":
-            .toggleFocusPoints
 
         case "z", "Z":
             .inspectActualPixels
 
         case "b", "B":
             .keepBest
-
-        case "x", "X":
-            .rating(-1)
-
-        case "p", "P", "0":
-            .rating(0)
-
-        case "1", "2":
-            .rating(2)
-
-        case "3", "t", "T":
-            .rating(3)
-
-        case "4":
-            .rating(4)
-
-        case "5":
-            .rating(5)
 
         default:
             nil

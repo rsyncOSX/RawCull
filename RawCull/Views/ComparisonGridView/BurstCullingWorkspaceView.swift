@@ -48,14 +48,8 @@ struct BurstCullingWorkspaceView: View {
     @State private var focusConfigurationRevision = 0
     @FocusState private var isFocused: Bool
 
-    private struct SubjectOutlineTaskID: Hashable {
-        let fileID: FileItem.ID?
-        let prompt: String?
-        let isPresented: Bool
-    }
-
-    private var subjectOutlineTaskID: SubjectOutlineTaskID {
-        SubjectOutlineTaskID(
+    private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
+        ImageReviewSubjectOutlineRequestContext(
             fileID: selectedFile?.id,
             prompt: selectedFile.flatMap {
                 viewModel.deepAIReviewController.maskCandidate(for: $0.id)?.maskPromptUsed?.rawValue
@@ -646,13 +640,13 @@ struct BurstCullingWorkspaceView: View {
 
         case .zoomIn:
             withAnimation(.spring()) {
-                viewportState.scale = min(5.0, viewportState.scale + 0.4)
+                viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: viewportState.scale)
                 viewportState.lastScale = viewportState.scale
             }
 
         case .zoomOut:
             withAnimation(.spring()) {
-                viewportState.scale = max(0.5, viewportState.scale - 0.4)
+                viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: viewportState.scale)
                 viewportState.lastScale = viewportState.scale
             }
 

@@ -1,36 +1,6 @@
 import SwiftUI
 
-enum RatingDisplay {
-    case unrated
-    case rejected
-    case keeper
-    case stars(Int)
-
-    init(rating: Int, isExplicit: Bool = true) {
-        switch rating {
-        case -1:
-            self = .rejected
-
-        case 0 where isExplicit:
-            self = .keeper
-
-        case 2 ... 5:
-            self = .stars(rating)
-
-        default:
-            self = .unrated
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .unrated: "Unrated"
-        case .rejected: "X"
-        case .keeper: "P"
-        case let .stars(rating): "\(rating)"
-        }
-    }
-
+extension RatingDisplay {
     var color: Color {
         switch self {
         case .unrated: .secondary
@@ -43,14 +13,6 @@ enum RatingDisplay {
         }
     }
 
-    var help: String {
-        switch self {
-        case .unrated: "Unrated"
-        case .rejected: "Rejected"
-        case .keeper: "Keeper"
-        case let .stars(rating): "\(rating)-star rating"
-        }
-    }
 }
 
 struct CurrentRatingBadgeView: View {
@@ -104,22 +66,15 @@ struct RatingActionBarView: View {
     var density: ImageOverlayControlDensity = .regular
     let onSelect: (Int) -> Void
 
-    private let ratings: [(Int, String, Color)] = [
-        (-1, "X", .red),
-        (0, "P", .accentColor),
-        (2, "2", .yellow),
-        (3, "3", .green),
-        (4, "4", .blue),
-        (5, "5", .purple)
-    ]
-
     var body: some View {
         HStack(spacing: density == .compact ? 4 : 6) {
-            ForEach(ratings, id: \.0) { rating, label, color in
+            ForEach(ImageReviewRatingAction.standardActions, id: \.value) { action in
+                let rating = action.value
+                let color = color(for: action)
                 Button {
                     onSelect(rating)
                 } label: {
-                    Text(label)
+                    Text(action.label)
                         .font(.system(size: density == .compact ? 11 : 12, weight: .semibold, design: .monospaced))
                         .foregroundStyle(isActive(rating) ? .white : color)
                         .frame(width: density == .compact ? 20 : 24, height: density == .compact ? 20 : 24)
@@ -129,8 +84,8 @@ struct RatingActionBarView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help(help(for: rating))
-                .accessibilityLabel(help(for: rating))
+                .help(action.help)
+                .accessibilityLabel(action.help)
                 .accessibilityValue(isActive(rating) ? "Selected" : "Not selected")
                 .accessibilityAddTraits(isActive(rating) ? .isSelected : [])
             }
@@ -153,11 +108,14 @@ struct RatingActionBarView: View {
         }
     }
 
-    private func help(for rating: Int) -> String {
-        switch rating {
-        case -1: "Reject selected image"
-        case 0: "Mark selected image as keeper"
-        default: "Set selected image to \(rating) stars"
+    private func color(for action: ImageReviewRatingAction) -> Color {
+        switch action {
+        case .reject: .red
+        case .keeper: .accentColor
+        case .stars(2): .yellow
+        case .stars(3): .green
+        case .stars(4): .blue
+        case .stars: .purple
         }
     }
 }

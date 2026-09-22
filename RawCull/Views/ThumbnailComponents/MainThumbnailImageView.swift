@@ -12,28 +12,20 @@ nonisolated enum LoupeImageKeyAction: Equatable {
     case inspectActualPixels
 
     nonisolated static func resolve(characters: String?) -> LoupeImageKeyAction? {
-        switch characters {
-        case "+":
-            .zoomIn
+        if let sharedAction = ImageReviewKeyboardPolicy.action(for: characters) {
+            return switch sharedAction {
+            case .zoomIn: .zoomIn
+            case .zoomOut: .zoomOut
+            case .toggleEmbeddedJPG: .toggleEmbeddedJPG
+            case .toggleDevelopedRAW: .toggleDevelopedRAW
+            case .toggleFocusMask: .toggleFocusMask
+            case .toggleSubjectOutline: .toggleSubjectOutline
+            case .toggleFocusPoints: .toggleFocusPoints
+            case .rating: nil
+            }
+        }
 
-        case "-":
-            .zoomOut
-
-        case "j", "J":
-            .toggleEmbeddedJPG
-
-        case "r", "R":
-            .toggleDevelopedRAW
-
-        case "f", "F":
-            .toggleFocusMask
-
-        case "s", "S":
-            .toggleSubjectOutline
-
-        case "a", "A":
-            .toggleFocusPoints
-
+        return switch characters {
         case "e", "E":
             .toggleMetadata
 
@@ -51,12 +43,6 @@ struct MainThumbnailImageView: View {
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
-    }
-
-    private struct SubjectOutlineTaskID: Hashable {
-        let fileID: UUID?
-        let prompt: String?
-        let isPresented: Bool
     }
 
     let url: URL
@@ -93,8 +79,8 @@ struct MainThumbnailImageView: View {
         return viewModel.deepAIReviewController.maskCandidate(for: file.id)
     }
 
-    private var subjectOutlineTaskID: SubjectOutlineTaskID {
-        SubjectOutlineTaskID(
+    private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
+        ImageReviewSubjectOutlineRequestContext(
             fileID: file?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
             isPresented: showSubjectOutline,
@@ -195,19 +181,19 @@ struct MainThumbnailImageView: View {
                                     useThumbnailSource: useThumbnailSourceBinding,
                                     imageSourceSelection: $sourceSelection,
                                     scale: viewModel.scale,
-                                    canZoomOut: viewModel.scale > 0.5,
-                                    canZoomIn: viewModel.scale < 4.0,
+                                    canZoomOut: viewModel.scale > ImageReviewViewportPolicy.loupe.minimumScale,
+                                    canZoomIn: viewModel.scale < ImageReviewViewportPolicy.loupe.maximumScale,
                                     canReset: viewModel.scale != 1.0 || viewModel.offset != .zero,
                                     onZoomOut: {
                                         withAnimation(.spring()) {
-                                            viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                                            viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.scale)
                                             viewModel.lastScale = viewModel.scale
                                         }
                                     },
                                     onZoomReset: { withAnimation(.spring()) { viewModel.resetZoom() } },
                                     onZoomIn: {
                                         withAnimation(.spring()) {
-                                            viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                                            viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.scale)
                                             viewModel.lastScale = viewModel.scale
                                         }
                                     },
@@ -248,8 +234,8 @@ struct MainThumbnailImageView: View {
                                 )
                             }
 
-                            if showRAWNotSupported {
-                                Text("Not supported")
+                            if let failure = sourcePresentation.failure {
+                                Text(failure.message)
                                     .font(.title2.weight(.semibold))
                                     .padding(.horizontal, 18)
                                     .padding(.vertical, 10)
@@ -417,19 +403,26 @@ struct MainThumbnailImageView: View {
         )
     }
 
+    private var sourcePresentation: ImageReviewSourcePresentation {
+        ImageReviewSourcePresentation(
+            selection: sourceSelection,
+            showsDevelopedRAWFailure: showRAWNotSupported,
+        )
+    }
+
     private func handleKeyAction(_ action: LoupeImageKeyAction?) -> KeyPress.Result {
         guard let action else { return .ignored }
         switch action {
         case .zoomIn:
             withAnimation(.spring()) {
-                viewModel.scale = min(4.0, viewModel.scale + 0.2)
+                viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedIn(from: viewModel.scale)
                 viewModel.lastScale = viewModel.scale
             }
             return .handled
 
         case .zoomOut:
             withAnimation(.spring()) {
-                viewModel.scale = max(0.5, viewModel.scale - 0.2)
+                viewModel.scale = ImageReviewViewportPolicy.loupe.zoomedOut(from: viewModel.scale)
                 viewModel.lastScale = viewModel.scale
             }
             return .handled

@@ -21,6 +21,35 @@ struct ComparisonImageAnalysisSourceTests {
     }
 
     @Test
+    func `thumbnail source uses unsharpened pixels when sharpening is disabled`() throws {
+        let unsharpened = try makeImage(gray: 0.25)
+        let unusedSharpened = try makeImage(gray: 0.75)
+
+        let decoded = ComparisonImageLoader.thumbnailImages(
+            unsharpened: unsharpened,
+            sharpened: unusedSharpened,
+            sharpeningEnabled: false,
+        )
+
+        #expect(decoded.displayCGImage === unsharpened)
+        #expect(decoded.analysisCGImage === unsharpened)
+    }
+
+    @Test
+    func `thumbnail source falls back when sharpening produces no image`() throws {
+        let unsharpened = try makeImage(gray: 0.25)
+
+        let decoded = ComparisonImageLoader.thumbnailImages(
+            unsharpened: unsharpened,
+            sharpened: nil,
+            sharpeningEnabled: true,
+        )
+
+        #expect(decoded.displayCGImage === unsharpened)
+        #expect(decoded.analysisCGImage === unsharpened)
+    }
+
+    @Test
     func `embedded JPG displays extracted pixels but analyzes thumbnail pixels`() throws {
         let extractedJPG = try makeImage(gray: 0.25)
         let thumbnail = try makeImage(gray: 0.75)

@@ -358,14 +358,14 @@ struct ComparisonImagePaneView: View {
 
     private func increaseZoom() {
         withAnimation(.spring()) {
-            viewportState.scale = min(5.0, viewportState.scale + 0.4)
+            viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: viewportState.scale)
             viewportState.lastScale = viewportState.scale
         }
     }
 
     private func decreaseZoom() {
         withAnimation(.spring()) {
-            viewportState.scale = max(0.5, viewportState.scale - 0.4)
+            viewportState.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: viewportState.scale)
             viewportState.lastScale = viewportState.scale
         }
     }

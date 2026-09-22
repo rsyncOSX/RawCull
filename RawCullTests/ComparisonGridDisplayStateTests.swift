@@ -43,7 +43,7 @@ struct ComparisonGridDisplayStateTests {
         UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
         UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
         UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
-        UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+        UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
     ]
 
     @Test(.tags(.smoke))
@@ -58,6 +58,18 @@ struct ComparisonGridDisplayStateTests {
     }
 
     @Test(.tags(.smoke))
+    func `rapid selection changes update only the selected presentation value`() {
+        let files = makeFiles()
+        let states = [ids[0], ids[3], ids[1], ids[4], ids[2]].map {
+            makeState(filteredFiles: files, selectedFileID: $0)
+        }
+
+        #expect(states.map(\.loadKey) == Array(repeating: states[0].loadKey, count: states.count))
+        #expect(states.map { $0.selectedComparisonFile?.id } == [ids[0], ids[3], ids[1], nil, ids[2]])
+        #expect(states.allSatisfy { $0.files.map(\.id) == Array(ids.prefix(4)) })
+    }
+
+    @Test(.tags(.smoke))
     func `files resolve displayed comparison IDs in order`() throws {
         let files = makeFiles().reversed()
         let state = try makeState(filteredFiles: Array(files), comparisonFileIDs: [
@@ -65,7 +77,7 @@ struct ComparisonGridDisplayStateTests {
             ids[0],
             #require(UUID(uuidString: "00000000-0000-0000-0000-000000009999")),
             ids[4],
-            ids[1]
+            ids[1],
         ])
 
         #expect(state.files.map(\.id) == [ids[2], ids[0], ids[4]])
@@ -73,7 +85,7 @@ struct ComparisonGridDisplayStateTests {
             ids[2],
             ids[0],
             #require(UUID(uuidString: "00000000-0000-0000-0000-000000009999")),
-            ids[4]
+            ids[4],
         ])
         #expect(state.allComparisonFiles.map(\.id) == [ids[2], ids[0], ids[4]])
     }
@@ -118,6 +130,16 @@ struct ComparisonGridDisplayStateTests {
 
         #expect(state.files.map(\.id) == Array(ids.prefix(4)))
         #expect(state.selectedComparisonFile == nil)
+    }
+
+    @Test(.tags(.smoke))
+    func `missing comparison IDs leave an empty presentation and stable empty load key`() {
+        let state = makeState(filteredFiles: [])
+
+        #expect(state.files.isEmpty)
+        #expect(state.allComparisonFiles.isEmpty)
+        #expect(state.selectedComparisonFile == nil)
+        #expect(state.loadKey.isEmpty)
     }
 
     private func makeFiles() -> [FileItem] {

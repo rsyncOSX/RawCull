@@ -139,12 +139,6 @@ struct ZoomOverlayView: View {
         let fileID: FileItem.ID?
     }
 
-    private struct SubjectOutlineTaskID: Hashable {
-        let fileID: FileItem.ID?
-        let prompt: String?
-        let isPresented: Bool
-    }
-
     @State private var focusMask: CGImage?
     @State private var subjectOutline: CGImage?
     @State private var currentScale: CGFloat = 1.0
@@ -178,8 +172,8 @@ struct ZoomOverlayView: View {
         return viewModel.deepAIReviewController.maskCandidate(for: fileID)
     }
 
-    private var subjectOutlineTaskID: SubjectOutlineTaskID {
-        SubjectOutlineTaskID(
+    private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
+        ImageReviewSubjectOutlineRequestContext(
             fileID: viewModel.selectedFile?.id,
             prompt: subjectOutlineCandidate?.maskPromptUsed?.rawValue,
             isPresented: showSubjectOutline,
@@ -190,6 +184,13 @@ struct ZoomOverlayView: View {
         ZoomOverlayImagePolicy.analysisImage(
             dedicatedAnalysisImage: viewModel.zoomOverlayAnalysisCGImage,
             displayImage: viewModel.zoomOverlayCGImage,
+        )
+    }
+
+    private var sourcePresentation: ImageReviewSourcePresentation {
+        ImageReviewSourcePresentation(
+            selection: sourceSelection,
+            showsDevelopedRAWFailure: showRAWNotSupported,
         )
     }
 
@@ -214,8 +215,8 @@ struct ZoomOverlayView: View {
                     }
                     focusPoint()
 
-                    if showRAWNotSupported {
-                        Text("Not supported")
+                    if let failure = sourcePresentation.failure {
+                        Text(failure.message)
                             .font(.title2.weight(.semibold))
                             .padding(.horizontal, 18)
                             .padding(.vertical, 10)
@@ -898,14 +899,14 @@ struct ZoomOverlayView: View {
 
     private func increaseZoom() {
         withAnimation(.spring()) {
-            currentScale = min(5.0, currentScale + 0.4)
+            currentScale = ImageReviewViewportPolicy.comparison.zoomedIn(from: currentScale)
             lastScale = currentScale
         }
     }
 
     private func decreaseZoom() {
         withAnimation(.spring()) {
-            currentScale = max(0.5, currentScale - 0.4)
+            currentScale = ImageReviewViewportPolicy.comparison.zoomedOut(from: currentScale)
             lastScale = currentScale
         }
     }
