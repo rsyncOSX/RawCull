@@ -215,10 +215,13 @@ struct ComparisonGridView: View {
             sourceFlags: useThumbnailSourceByFileID,
             viewModel: viewModel,
         )
-        guard !Task.isCancelled,
-              bulkLoadGeneration == generation,
-              imageMutationRevision == mutationRevision
-        else { return }
+        guard ComparisonGridImageCompletionPolicy.acceptsBulkLoad(
+            isCancelled: Task.isCancelled,
+            generation: generation,
+            currentGeneration: bulkLoadGeneration,
+            mutationRevision: mutationRevision,
+            currentMutationRevision: imageMutationRevision,
+        ) else { return }
         imageStates = result.states
         useThumbnailSourceByFileID = result.sourceFlags
         bulkLoadGeneration = nil
@@ -237,9 +240,11 @@ struct ComparisonGridView: View {
                 sourceFlags: sourceFlags,
                 viewModel: viewModel,
             )
-            guard !Task.isCancelled,
-                  reloadGenerationByFileID[file.id] == generation
-            else { return }
+            guard ComparisonGridImageCompletionPolicy.acceptsReload(
+                isCancelled: Task.isCancelled,
+                generation: generation,
+                currentGeneration: reloadGenerationByFileID[file.id],
+            ) else { return }
             imageStates[file.id] = state
             reloadTasksByFileID[file.id] = nil
             reloadGenerationByFileID[file.id] = nil
@@ -253,7 +258,11 @@ struct ComparisonGridView: View {
             states: imageStates,
             viewModel: viewModel,
         )
-        guard !Task.isCancelled, imageMutationRevision == mutationRevision else { return }
+        guard ComparisonGridImageCompletionPolicy.acceptsFocusRegeneration(
+            isCancelled: Task.isCancelled,
+            mutationRevision: mutationRevision,
+            currentMutationRevision: imageMutationRevision,
+        ) else { return }
         imageStates = updatedStates
     }
 
@@ -315,7 +324,8 @@ struct ComparisonGridView: View {
     private func selectFirstComparisonFileIfNeeded() {
         guard !files.isEmpty else { return }
         if let selectedID = viewModel.selectedFileID,
-           files.contains(where: { $0.id == selectedID }) {
+           files.contains(where: { $0.id == selectedID })
+        {
             return
         }
         viewModel.selectedFileID = files[0].id

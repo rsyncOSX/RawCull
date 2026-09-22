@@ -1,4 +1,4 @@
-nonisolated enum ComparisonGridNavigationDirection {
+nonisolated enum ComparisonGridNavigationDirection: Sendable {
     case left
     case right
 }

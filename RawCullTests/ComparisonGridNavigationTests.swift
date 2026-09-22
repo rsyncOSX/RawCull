@@ -47,6 +47,40 @@ struct ComparisonGridNavigationTests {
         ) == nil)
     }
 
+    @Test(
+        .tags(.smoke),
+        arguments: [
+            (0, ComparisonGridNavigationDirection.left, nil),
+            (0, .right, 1),
+            (1, .left, 0),
+            (1, .right, 2),
+            (2, .left, 1),
+            (2, .right, 3),
+            (3, .left, 2),
+            (3, .right, nil),
+        ],
+    )
+    func `four item navigation preserves linear boundaries`(
+        currentIndex: Int,
+        direction: ComparisonGridNavigationDirection,
+        expectedIndex: Int?,
+    ) {
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: currentIndex,
+            itemCount: 4,
+            direction: direction,
+        ) == expectedIndex)
+    }
+
+    @Test(.tags(.smoke), arguments: [ComparisonGridNavigationDirection.left, .right])
+    func `single item comparison cannot navigate`(direction: ComparisonGridNavigationDirection) {
+        #expect(ComparisonGridNavigation.destinationIndex(
+            from: 0,
+            itemCount: 1,
+            direction: direction,
+        ) == nil)
+    }
+
     @Test(.tags(.smoke))
     func `printable shortcuts are resolved from characters before hardware key code`() {
         #expect(ComparisonGridKeyAction.resolve(characters: "+", keyCode: 27) == .zoomIn)
