@@ -128,6 +128,7 @@ nonisolated enum ZoomViewportMath {
 
 struct ZoomOverlayView: View {
     @Bindable var viewModel: RawCullViewModel
+    @State private var session = ZoomSessionModel()
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
@@ -139,23 +140,23 @@ struct ZoomOverlayView: View {
         let fileID: FileItem.ID?
     }
 
-    @State private var focusMask: CGImage?
-    @State private var subjectOutline: CGImage?
-    @State private var currentScale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-    @State private var showFocusMask: Bool = false
-    @State private var showSubjectOutline = false
-    @State private var isLoadingSubjectOutline = false
-    @State private var showFocusPoints: Bool = false
-    @State private var sourceSelection = ImageSourceSelectionState()
-    @State private var showRAWNotSupported = false
-    @State private var rawMessageTask: Task<Void, Never>?
-    @State private var maskTask: Task<Void, Never>?
-    @State private var keyMonitor: Any?
-    @State private var pendingInitialZoomMode: ZoomOverlayInitialZoomMode?
     @FocusState private var isImageFocused: Bool
+
+    private var focusMask: CGImage? { get { session.focusMask } nonmutating set { session.focusMask = newValue } }
+    private var subjectOutline: CGImage? { get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue } }
+    private var currentScale: CGFloat { get { session.viewport.scale } nonmutating set { session.viewport.scale = newValue } }
+    private var lastScale: CGFloat { get { session.viewport.lastScale } nonmutating set { session.viewport.lastScale = newValue } }
+    private var offset: CGSize { get { session.viewport.offset } nonmutating set { session.viewport.offset = newValue } }
+    private var lastOffset: CGSize { get { session.viewport.lastOffset } nonmutating set { session.viewport.lastOffset = newValue } }
+    private var showFocusMask: Bool { get { session.viewport.showFocusMask } nonmutating set { session.viewport.showFocusMask = newValue } }
+    private var showSubjectOutline: Bool { get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue } }
+    private var isLoadingSubjectOutline: Bool { get { session.isLoadingSubjectOutline } nonmutating set { session.isLoadingSubjectOutline = newValue } }
+    private var showFocusPoints: Bool { get { session.viewport.showFocusPoints } nonmutating set { session.viewport.showFocusPoints = newValue } }
+    private var sourceSelection: ImageSourceSelectionState { get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue } }
+    private var rawMessageTask: Task<Void, Never>? { get { session.rawMessageTask } nonmutating set { session.rawMessageTask = newValue } }
+    private var maskTask: Task<Void, Never>? { get { session.maskTask } nonmutating set { session.maskTask = newValue } }
+    private var keyMonitor: Any? { get { session.keyMonitor } nonmutating set { session.keyMonitor = newValue } }
+    private var pendingInitialZoomMode: ZoomOverlayInitialZoomMode? { get { session.pendingInitialZoomMode } nonmutating set { session.pendingInitialZoomMode = newValue } }
 
     private let zoomLevel: CGFloat = 2.0
 
@@ -188,10 +189,7 @@ struct ZoomOverlayView: View {
     }
 
     private var sourcePresentation: ImageReviewSourcePresentation {
-        ImageReviewSourcePresentation(
-            selection: sourceSelection,
-            showsDevelopedRAWFailure: showRAWNotSupported,
-        )
+        session.sourcePresentation
     }
 
     var body: some View {
@@ -280,18 +278,18 @@ struct ZoomOverlayView: View {
                     }
 
                     ImageOverlayControlsView(
-                        showFocusMask: $showFocusMask,
+                        showFocusMask: Binding(get: { showFocusMask }, set: { showFocusMask = $0 }),
                         focusMaskAvailable: maskAnalysisImage != nil || focusMask != nil,
-                        showSubjectOutline: $showSubjectOutline,
+                        showSubjectOutline: Binding(get: { showSubjectOutline }, set: { showSubjectOutline = $0 }),
                         showsSubjectOutlineControl: true,
                         subjectOutlineAvailable: subjectOutlineCandidate != nil,
                         subjectOutlineLoading: isLoadingSubjectOutline,
                         hasFocusPoints: focusTarget != nil,
-                        showFocusPoints: $showFocusPoints,
+                        showFocusPoints: Binding(get: { showFocusPoints }, set: { showFocusPoints = $0 }),
                         showShortcutHints: true,
                         showImageSourceToggle: true,
                         useThumbnailSource: useThumbnailSourceBinding,
-                        imageSourceSelection: $sourceSelection,
+                        imageSourceSelection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
                         scale: currentScale,
                         canZoomOut: currentScale > 0.5,
                         canZoomIn: currentScale < 5.0,
@@ -359,12 +357,7 @@ struct ZoomOverlayView: View {
         }
         .onDisappear {
             removeKeyMonitor()
-            maskTask?.cancel()
-            maskTask = nil
-            focusMask = nil
-            subjectOutline = nil
-            rawMessageTask?.cancel()
-            rawMessageTask = nil
+            session.cancel()
         }
         .onChange(of: sourceSelection.selected) { _, _ in
             maskTask?.cancel()
@@ -375,14 +368,9 @@ struct ZoomOverlayView: View {
         }
         .onChange(of: viewModel.selectedFile) { _, _ in
             guard viewModel.zoomOverlayVisible else { return }
-            maskTask?.cancel()
-            maskTask = nil
-            focusMask = nil
-            subjectOutline = nil
-            isLoadingSubjectOutline = false
-            sourceSelection.resetForNewImage()
-            clearRAWMessage()
-            pendingInitialZoomMode = viewModel.zoomOverlayLaunchContext.initialZoomMode
+            session.resetForSelectedFile(
+                initialZoomMode: viewModel.zoomOverlayLaunchContext.initialZoomMode,
+            )
             reload()
         }
         .task(id: focusMaskTaskID) {
@@ -407,11 +395,7 @@ struct ZoomOverlayView: View {
 
     private func applyLaunchContext() {
         let context = viewModel.zoomOverlayLaunchContext
-        sourceSelection.select(context.initialSource)
-        pendingInitialZoomMode = context.initialZoomMode
-        if context.showFocusPointsOnOpen {
-            showFocusPoints = focusTarget != nil
-        }
+        session.applyLaunchContext(context, hasFocusTarget: focusTarget != nil)
     }
 
     private func reload() {
@@ -489,10 +473,14 @@ struct ZoomOverlayView: View {
 
     private func navigateSelection(by delta: Int) {
         guard let currentZoomIndex else { return }
-        let newIndex = currentZoomIndex + delta
-        guard orderedZoomFiles.indices.contains(newIndex) else { return }
-        prepareForNavigatedImage()
-        viewModel.selectedFileID = orderedZoomFiles[newIndex].id
+        if session.navigate(
+            by: delta,
+            from: currentZoomIndex,
+            in: orderedZoomFiles,
+            using: viewModel,
+        ) {
+            prepareForNavigatedImage()
+        }
     }
 
     private func installKeyMonitor() {
@@ -573,15 +561,12 @@ struct ZoomOverlayView: View {
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: orderedZoomFiles)
+        session.applyRating(rating, to: selectedFile, in: orderedZoomFiles, using: viewModel)
         return .handled
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
-        )
+        session.ratingDisplay(for: file, using: viewModel)
     }
 
     // MARK: - Dismiss
@@ -594,19 +579,11 @@ struct ZoomOverlayView: View {
     }
 
     private func showRAWFailureMessage() {
-        rawMessageTask?.cancel()
-        withAnimation { showRAWNotSupported = true }
-        rawMessageTask = Task {
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-            withAnimation { showRAWNotSupported = false }
-        }
+        session.showRAWFailureMessage()
     }
 
     private func clearRAWMessage() {
-        rawMessageTask?.cancel()
-        rawMessageTask = nil
-        showRAWNotSupported = false
+        session.clearRAWMessage()
     }
 
     // MARK: - Mask regeneration

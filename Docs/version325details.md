@@ -98,13 +98,13 @@ The complete `RawCullTests` target was also run. The item 2 tests pass; the targ
 - Completed: sort behavior is represented by a finite, testable, sendable domain type.
 - Pending at the release level: the complete test target is blocked only by the unrelated release-metadata assertions described above.
 
-### 3. **First modular extraction:** introduce a session model for one image-review path (preferably `ComparisonGridView`, whose task-generation logic is already cohesive and tested), then reuse the extracted policies in Loupe and burst review.
+### 3. **First modular extraction — implementation completed:** introduce a session model for one image-review path (preferably `ComparisonGridView`, whose task-generation logic is already cohesive and tested), then reuse the extracted policies in Loupe and burst review.
 
 Use `ComparisonGridView` as the first vertical slice. The objective is not to create one universal image-review view. It is to separate testable state and policy from rendering, then share only the policies genuinely common to comparison, Loupe, zoom, and burst review.
 
-#### Progress through commit 3.5
+#### Progress through commit 3.9
 
-The first comparison vertical slice and shared-policy extraction are complete. Commits 3.6–3.9 remain pending, so item 3 has not yet met its section-level exit criteria.
+The comparison vertical slice, shared-policy extraction, Loupe/Zoom/burst adoption, and first dependency narrowing are complete. The implementation work for item 3 is finished; the section-wide test gate remains red only in the pre-existing release-metadata and smoke-manifest integrity assertions recorded below.
 
 | Commit | Revision | Completed outcome |
 | --- | --- | --- |
@@ -113,6 +113,10 @@ The first comparison vertical slice and shared-policy extraction are complete. C
 | 3.3 | `d088b6f` | Moved image and viewport state, source flags, task handles, mutation revisions, and generation ownership into the session. Added deterministic direct-session tests proving cancellation and out-of-order reload rejection. |
 | 3.4 | `ba4391f` | Moved finalist focus, valid-selection fallback, navigation policy, and display-state construction into the session. `ComparisonGridView` now consumes an immutable `ComparisonSessionPresentation` built through `ComparisonGridDisplayState`. |
 | 3.5 | `e5e6a54` | Extracted small `Sendable` image-review values and policies for source/RAW-failure presentation, viewport limits, semantic keyboard input, focus and subject-outline request identity, cancellation and stale-result rejection, and rating presentation/actions. Existing comparison, Loupe, Zoom, and burst adapters reuse the applicable policies without prematurely moving their state ownership. |
+| 3.6 | `d4cf067` | Added `LoupeSessionModel` and moved preview-source selection, decoded preview ownership, loading cancellation, RAW-failure presentation, and stale-result rejection out of `MainThumbnailImageView`. |
+| 3.7 | `974af7d` | Added `ZoomSessionModel` for viewport/source state, launch context, keyboard-policy adaptation, async task lifetime, and mask/outline presentation while keeping overlay layout and dismissal in `ZoomOverlayView`. |
+| 3.8 | `3739bac` | Added `BurstWorkspaceSessionModel` for the sliding image cache, source and viewport state, focus-analysis invalidation, subject-outline presentation, group reset, and event-monitor cancellation. |
+| 3.9 | `b14d593` | Added focused selection and rating capabilities, adapted `RawCullViewModel` at the composition boundary, and routed Loupe, Zoom, and burst session intents through those narrow interfaces. |
 
 Focused verification completed for commits 3.3–3.5:
 
@@ -169,7 +173,7 @@ From the proven comparison implementation, extract small independent policies fo
 
 Each policy should be value-based or protocol-backed, `Sendable` where it crosses actor boundaries, and tested without SwiftUI. Avoid a single `ImageReviewManager` with broad mutable state.
 
-#### Commit 3.6 — Adopt shared policy in the Loupe path
+#### Commit 3.6 — Adopt shared policy in the Loupe path — completed
 
 Introduce `LoupeSessionModel` for `MainThumbnailImageView`. Move source loading, preview ownership, mask/outline work, and task cancellation into it one concern at a time. Keep layout-specific controls and visual state in the view.
 
@@ -180,19 +184,19 @@ If the move is larger than one reviewable diff, split it into these commits, eac
 3. viewport and keyboard/rating actions; and
 4. view simplification and extraction of visual subviews.
 
-#### Commit 3.7 — Adopt shared policy in Zoom Overlay
+#### Commit 3.7 — Adopt shared policy in Zoom Overlay — completed
 
 Introduce `ZoomSessionModel` for zoom navigation, viewport state, async image-review work, and keyboard actions. Preserve overlay-specific layout and dismissal behavior in `ZoomOverlayView`. Keep the gesture API modernization for item 6 so this commit remains an ownership change only.
 
 Verify `ZoomOverlayKeyActionTests.swift`, `ZoomCullingMetadataTests.swift`, and the relevant image-loading tests after each slice.
 
-#### Commit 3.8 — Adopt shared policy in burst review
+#### Commit 3.8 — Adopt shared policy in burst review — completed
 
 Introduce `BurstWorkspaceSessionModel` for the sliding image window, cache ownership, preloading, focus analysis, masks/outlines, and cancellation. Keep burst-specific comparison layout in `BurstCullingWorkspaceView`.
 
 Split this work if necessary into separate commits for window/cache ownership, analysis ownership, and view simplification. Verify `BurstAnalysisCoordinatorTests`, `BurstAnalysisPipelineValuesTests`, burst presentation tests, and image-source tests.
 
-#### Commit 3.9 — Narrow feature dependencies
+#### Commit 3.9 — Narrow feature dependencies — completed
 
 Define the smallest interfaces needed by the extracted sessions—for example, focused catalog selection, rating, and culling actions—instead of passing all of `RawCullViewModel`. Wire live implementations at `RawCullApplicationState`. This is the first incremental reduction of the broad application façade described in the review; it is not a request to rewrite the entire view model.
 
@@ -203,6 +207,16 @@ Define the smallest interfaces needed by the extracted sessions—for example, f
 - Each feature root observes a focused session; leaf views receive values, bindings only where necessary, and action closures.
 - Shared behavior is factored into small policies, not a monolithic shared view or manager.
 - The complete `RawCullTests` target passes before item 4 starts.
+
+#### Section 3 summary
+
+**What is done.** Comparison Grid, Loupe, Zoom Overlay, and burst review now have focused `@MainActor @Observable` session models. The sessions own the review state that changes together—preview/source state, viewport state, sliding-window cache state, relevant async-task lifetime, cancellation, and stale-result protection—while the SwiftUI feature roots continue to own layout-only behavior. Shared source, viewport, keyboard, request-identity, and rating policies are reused across the four surfaces. Selection and rating interactions now cross focused capability protocols rather than requiring session code to know the complete `RawCullViewModel` API.
+
+**Objectives achieved.** The extraction established a tested boundary between image-review policy/state and rendering, preserved existing user-visible behavior, made cancellation and out-of-order completion independently testable, reduced duplicated rules, and created the first incremental seam in the broad application façade without introducing a universal review manager or a shared monolithic view.
+
+**Why this was important.** Image decoding, focus analysis, navigation, ratings, and rapid selection changes are concurrency-sensitive workflows. Keeping their ownership in feature sessions makes lifecycle and stale-result rules explicit, reduces the chance that an old task overwrites a newer image, limits SwiftUI invalidation to focused observable state, and gives later refactors small interfaces that can be faked in tests. It also lets each review surface keep its distinct presentation and dismissal behavior while sharing only proven domain rules.
+
+**Verification.** The new Loupe, Zoom, burst-session, and focused-dependency suites pass together with the existing image-review, zoom, burst-analysis, burst-presentation, and image-source suites. The complete `RawCullTests` target was run after commit 3.9. All modular-extraction tests pass; the target remains red in the previously unrelated `ReleaseMetadataTests` package/version assertions and `SmokeManifestIntegrityTests` suite-selector assertions. Those release-integrity failures are not caused by the session extraction and remain a release-level gate to reconcile before item 4 begins.
 
 ### 4. **Copy boundary:** replace the `RawCullViewModel` dependency in `ExecuteCopyFiles` with an immutable request and move bookmark persistence out of `OpencatalogView`.
 
