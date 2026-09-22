@@ -493,14 +493,14 @@ struct MainThumbnailImageView: View {
 
         session.beginSourceLoad { source in
             switch source {
-                case .thumbnail:
-                    nil
+            case .thumbnail:
+                nil
 
-                case .embeddedJPG:
-                    await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
+            case .embeddedJPG:
+                await ZoomPreviewHandler.loadExtractedJPGPreview(for: url)
 
-                case .developedRAW:
-                    try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: url)
+            case .developedRAW:
+                try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: url)
             }
         }
     }
@@ -597,5 +597,4 @@ struct MainThumbnailImageView: View {
         maskTask = nil
         isGeneratingFocusMask = false
     }
-
 }

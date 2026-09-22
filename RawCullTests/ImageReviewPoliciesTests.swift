@@ -58,16 +58,16 @@ struct ImageReviewPoliciesTests {
     }
 
     @Test
-    func `focus request identity rejects cancellation supersession and stale content`() {
+    func `focus request identity rejects cancellation supersession and stale content`() throws {
         let fileID = UUID()
         var tracker = ImageReviewRequestTracker<ImageReviewFocusRequestContext>()
-        let older = tracker.begin(
+        let older = try tracker.begin(
             context: ImageReviewFocusRequestContext(fileIDs: [fileID]),
-            generation: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            generation: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
         )
-        let newer = tracker.begin(
+        let newer = try tracker.begin(
             context: ImageReviewFocusRequestContext(fileIDs: [fileID]),
-            generation: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            generation: #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002")),
         )
 
         #expect(!tracker.accepts(older, isCancelled: false))

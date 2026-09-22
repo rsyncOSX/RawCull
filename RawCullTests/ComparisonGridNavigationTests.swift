@@ -57,7 +57,7 @@ struct ComparisonGridNavigationTests {
             (2, .left, 1),
             (2, .right, 3),
             (3, .left, 2),
-            (3, .right, nil),
+            (3, .right, nil)
         ],
     )
     func `four item navigation preserves linear boundaries`(

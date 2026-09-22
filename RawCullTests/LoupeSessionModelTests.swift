@@ -52,7 +52,7 @@ struct LoupeSessionModelTests {
             provider: CGDataProvider(data: Data([0, 0, 0, 255]) as CFData)!,
             decode: nil,
             shouldInterpolate: false,
-            intent: .defaultIntent
+            intent: .defaultIntent,
         )!
     }
 }

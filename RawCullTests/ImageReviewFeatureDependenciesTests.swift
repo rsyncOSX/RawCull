@@ -10,7 +10,9 @@ private final class ImageReviewFeatureActionsSpy: ImageReviewFeatureActions {
     var ratings: [FileItem.ID: Int] = [:]
     private(set) var appliedRating: Int?
 
-    func getRating(for file: FileItem) -> Int { ratings[file.id] ?? 0 }
+    func getRating(for file: FileItem) -> Int {
+        ratings[file.id] ?? 0
+    }
 
     func updateRatingAndAdvance(for _: FileItem, rating: Int, in _: [FileItem]) {
         appliedRating = rating

@@ -41,14 +41,37 @@ struct BurstCullingWorkspaceView: View {
 
     @FocusState private var isFocused: Bool
 
-    private var imageCache: [BurstFrameCacheKey: ComparisonImageState] { get { session.imageCache } nonmutating set { session.imageCache = newValue } }
-    private var viewportState: ComparisonViewportInteractionState { get { session.viewportState } nonmutating set { session.viewportState = newValue } }
-    private var sourceSelection: ImageSourceSelectionState { get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue } }
-    private var showSubjectOutline: Bool { get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue } }
-    private var subjectOutline: CGImage? { get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue } }
-    private var subjectOutlineFileID: FileItem.ID? { get { session.subjectOutlineFileID } nonmutating set { session.subjectOutlineFileID = newValue } }
-    private var overlayKeyMonitor: Any? { get { session.overlayKeyMonitor } nonmutating set { session.overlayKeyMonitor = newValue } }
-    private var focusConfigurationRevision: Int { session.focusConfigurationRevision }
+    private var imageCache: [BurstFrameCacheKey: ComparisonImageState] {
+        get { session.imageCache } nonmutating set { session.imageCache = newValue }
+    }
+
+    private var viewportState: ComparisonViewportInteractionState {
+        get { session.viewportState } nonmutating set { session.viewportState = newValue }
+    }
+
+    private var sourceSelection: ImageSourceSelectionState {
+        get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue }
+    }
+
+    private var showSubjectOutline: Bool {
+        get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue }
+    }
+
+    private var subjectOutline: CGImage? {
+        get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue }
+    }
+
+    private var subjectOutlineFileID: FileItem.ID? {
+        get { session.subjectOutlineFileID } nonmutating set { session.subjectOutlineFileID = newValue }
+    }
+
+    private var overlayKeyMonitor: Any? {
+        get { session.overlayKeyMonitor } nonmutating set { session.overlayKeyMonitor = newValue }
+    }
+
+    private var focusConfigurationRevision: Int {
+        session.focusConfigurationRevision
+    }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
         ImageReviewSubjectOutlineRequestContext(
