@@ -458,91 +458,6 @@ private struct DeepAIReviewProgressHeader: View {
     }
 }
 
-private struct DeepAIReviewSummaryView: View {
-    let result: DeepAIReviewResult
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
-                Text(recommendationLabel)
-                    .font(.headline)
-                Text(confidenceTitle)
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(confidenceColor.opacity(0.16), in: Capsule())
-                    .foregroundStyle(confidenceColor)
-                Text(presetTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if !explanation.isEmpty {
-                Text(explanation)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(recommendationLabel)
-        .accessibilityValue(summaryAccessibilityValue)
-    }
-
-    private var recommendationLabel: String {
-        guard let candidate = result.recommendedCandidate else {
-            return "No reliable winner"
-        }
-        return "Deep Review recommends frame \(candidate.rank)"
-    }
-
-    private var confidenceTitle: LocalizedStringResource {
-        switch result.confidence {
-        case .high: "High confidence"
-        case .medium: "Medium confidence"
-        case .low: "Low confidence"
-        }
-    }
-
-    private var presetTitle: LocalizedStringResource {
-        switch result.preset {
-        case .auto: "Auto"
-        case .fullSubject: "Full Subject"
-        case .headFace: "Head / Face"
-        }
-    }
-
-    private var confidenceColor: Color {
-        switch result.confidence {
-        case .high: .green
-        case .medium: .orange
-        case .low: .gray
-        }
-    }
-
-    private var summaryAccessibilityValue: String {
-        let confidence = switch result.confidence {
-        case .high: "High confidence"
-        case .medium: "Medium confidence"
-        case .low: "Low confidence"
-        }
-        let preset = switch result.preset {
-        case .auto: "Auto target"
-        case .fullSubject: "Full Subject target"
-        case .headFace: "Head or Face target"
-        }
-        if explanation.isEmpty {
-            return "\(confidence). \(preset)."
-        }
-        return "\(confidence). \(preset). \(explanation)"
-    }
-
-    private var explanation: String {
-        let reasons = result.reasons.map(reasonTitle)
-        let cautions = result.cautions.map(issueTitle)
-        return (reasons + cautions).prefix(4).joined(separator: " · ")
-    }
-}
-
 private struct DeepAIReviewCandidateTable: View {
     let candidates: [DeepAIReviewCandidate]
     let winnerID: UUID?
@@ -641,15 +556,6 @@ private struct DeepAIReviewCandidateTable: View {
             return "Recommended"
         }
         return candidate.issues.map(issueTitle).joined(separator: " · ")
-    }
-}
-
-private func reasonTitle(_ reason: DeepAIReviewReason) -> String {
-    switch reason {
-    case .strongestSubjectDetail: "Strongest subject detail"
-    case .autofocusInsideSubject: "AF point inside subject"
-    case .localDetailEvidence: "Local detail evidence"
-    case .requestedPromptMatched: "Requested prompt matched"
     }
 }
 

@@ -214,11 +214,6 @@ final class DeepAIReviewController {
         feature.cancel()
     }
 
-    func reset() {
-        Logger.process.debugMessageOnly("DeepAIReviewController.reset()")
-        feature.reset()
-    }
-
     func sharesFeatureIdentity(with feature: DeepAIReviewFeature) -> Bool {
         self.feature === feature
     }
