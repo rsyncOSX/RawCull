@@ -440,7 +440,7 @@ struct ComparisonGridView: View {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
             var state = session.viewportState(for: selectedID)
-            state.scale = min(5.0, state.scale + 0.4)
+            state.scale = ImageReviewViewportPolicy.comparison.zoomedIn(from: state.scale)
             state.lastScale = state.scale
             session.setViewportState(state, for: selectedID)
         }
@@ -451,7 +451,7 @@ struct ComparisonGridView: View {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
             var state = session.viewportState(for: selectedID)
-            state.scale = max(0.5, state.scale - 0.4)
+            state.scale = ImageReviewViewportPolicy.comparison.zoomedOut(from: state.scale)
             state.lastScale = state.scale
             session.setViewportState(state, for: selectedID)
         }

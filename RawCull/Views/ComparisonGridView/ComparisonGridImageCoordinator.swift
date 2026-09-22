@@ -226,11 +226,4 @@ nonisolated enum ComparisonGridImageCompletionPolicy {
         !isCancelled && currentGeneration == generation
     }
 
-    nonisolated static func acceptsFocusRegeneration(
-        isCancelled: Bool,
-        mutationRevision: Int,
-        currentMutationRevision: Int,
-    ) -> Bool {
-        !isCancelled && currentMutationRevision == mutationRevision
-    }
 }

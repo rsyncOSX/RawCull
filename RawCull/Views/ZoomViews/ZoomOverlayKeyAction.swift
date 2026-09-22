@@ -36,48 +36,18 @@ nonisolated enum ZoomOverlayKeyAction: Equatable {
     }
 
     private nonisolated static func action(for characters: String?) -> ZoomOverlayKeyAction? {
-        switch characters {
-        case "+":
-            .zoomIn
-
-        case "-":
-            .zoomOut
-
-        case "j", "J":
-            .toggleEmbeddedJPG
-
-        case "r", "R":
-            .toggleDevelopedRAW
-
-        case "f", "F":
-            .toggleFocusMask
-
-        case "s", "S":
-            .toggleSubjectOutline
-
-        case "a", "A":
-            .toggleFocusPoints
-
-        case "x", "X":
-            .rating(-1)
-
-        case "p", "P", "0":
-            .rating(0)
-
-        case "1", "2":
-            .rating(2)
-
-        case "3", "t", "T":
-            .rating(3)
-
-        case "4":
-            .rating(4)
-
-        case "5":
-            .rating(5)
-
-        default:
-            nil
+        guard let sharedAction = ImageReviewKeyboardPolicy.action(for: characters) else {
+            return nil
+        }
+        return switch sharedAction {
+        case .zoomIn: .zoomIn
+        case .zoomOut: .zoomOut
+        case .toggleEmbeddedJPG: .toggleEmbeddedJPG
+        case .toggleDevelopedRAW: .toggleDevelopedRAW
+        case .toggleFocusMask: .toggleFocusMask
+        case .toggleSubjectOutline: .toggleSubjectOutline
+        case .toggleFocusPoints: .toggleFocusPoints
+        case let .rating(action): .rating(action.value)
         }
     }
 }

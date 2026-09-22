@@ -115,7 +115,7 @@ final class ComparisonSessionModel {
     @ObservationIgnored private var focusRegenerationTask: Task<[FileItem.ID: ComparisonImageState], Never>?
     @ObservationIgnored private var reloadGenerationByFileID: [FileItem.ID: UUID] = [:]
     @ObservationIgnored private var bulkLoadGeneration: UUID?
-    @ObservationIgnored private var focusRegenerationGeneration: UUID?
+    @ObservationIgnored private var focusRequestTracker = ImageReviewRequestTracker<ImageReviewFocusRequestContext>()
     @ObservationIgnored private var imageMutationRevision = 0
 
     init(
@@ -277,10 +277,11 @@ final class ComparisonSessionModel {
     func regenerateFocusMasks(files: [FileItem]) async {
         focusRegenerationTask?.cancel()
 
-        let generation = UUID()
         let mutationRevision = imageMutationRevision
         let states = imageStates
-        focusRegenerationGeneration = generation
+        let request = focusRequestTracker.begin(
+            context: ImageReviewFocusRequestContext(fileIDs: files.map(\.id)),
+        )
 
         let task = Task {
             await imageService.regenerateFocusMasks(files: files, states: states)
@@ -288,18 +289,19 @@ final class ComparisonSessionModel {
         focusRegenerationTask = task
         let updatedStates = await task.value
 
-        guard !task.isCancelled,
-              generation == focusRegenerationGeneration,
-              ComparisonGridImageCompletionPolicy.acceptsFocusRegeneration(
-                  isCancelled: false,
-                  mutationRevision: mutationRevision,
-                  currentMutationRevision: imageMutationRevision,
-              )
-        else { return }
+        let acceptsResult = focusRequestTracker.accepts(
+            request,
+            isCancelled: task.isCancelled,
+            requestRevision: mutationRevision,
+            currentRevision: imageMutationRevision,
+        )
+        if focusRequestTracker.current == request {
+            focusRegenerationTask = nil
+            focusRequestTracker.finish(request)
+        }
+        guard acceptsResult else { return }
 
         imageStates = updatedStates
-        focusRegenerationTask = nil
-        focusRegenerationGeneration = nil
     }
 
     func cancel() {
@@ -312,7 +314,7 @@ final class ComparisonSessionModel {
         reloadGenerationByFileID = [:]
         focusRegenerationTask?.cancel()
         focusRegenerationTask = nil
-        focusRegenerationGeneration = nil
+        focusRequestTracker.cancel()
         imageService.cancel()
     }
 }

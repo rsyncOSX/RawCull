@@ -1,45 +1,5 @@
 import SwiftUI
 
-nonisolated enum ImagePreviewSource: Hashable {
-    case thumbnail
-    case embeddedJPG
-    case developedRAW
-}
-
-nonisolated struct ImageSourceSelectionState: Equatable {
-    var selected: ImagePreviewSource
-    private(set) var previous: ImagePreviewSource
-    private(set) var rawUnavailable = false
-
-    init(initialSource: ImagePreviewSource = .thumbnail) {
-        selected = initialSource
-        previous = initialSource
-    }
-
-    mutating func select(_ source: ImagePreviewSource) {
-        guard source != selected else { return }
-        previous = selected
-        selected = source
-    }
-
-    mutating func toggleExtractionSource(_ source: ImagePreviewSource) {
-        guard source != .thumbnail else { return }
-        guard source != .developedRAW || !rawUnavailable else { return }
-        select(selected == source ? .thumbnail : source)
-    }
-
-    mutating func markDevelopedRAWUnavailable() {
-        selected = previous == .developedRAW ? .thumbnail : previous
-        previous = .developedRAW
-        rawUnavailable = true
-    }
-
-    mutating func resetForNewImage() {
-        previous = selected
-        rawUnavailable = false
-    }
-}
-
 struct ImageSourceToggleView: View {
     @Binding var useThumbnailSource: Bool
     var density: ImageOverlayControlDensity = .regular
@@ -75,7 +35,7 @@ struct ImageSourceSelectorView: View {
         HStack(spacing: density == .compact ? 2 : 4) {
             sourceButton(.embeddedJPG, icon: "photo.stack", label: "JPG")
             sourceButton(.developedRAW, icon: "camera.aperture", label: "RAW")
-                .disabled(selection.rawUnavailable)
+                .disabled(!presentation.isDevelopedRAWAvailable)
         }
         .padding(density == .compact ? 3 : 5)
         .background(.regularMaterial, in: Capsule())
@@ -114,8 +74,15 @@ struct ImageSourceSelectorView: View {
         switch source {
         case .thumbnail: "Show thumbnail"
         case .embeddedJPG: "Show embedded JPG"
-        case .developedRAW: selection.rawUnavailable ? "RAW development is not supported for this image" : "Develop and show full-size RAW JPEG"
+        case .developedRAW: presentation.isDevelopedRAWAvailable ? "Develop and show full-size RAW JPEG" : "RAW development is not supported for this image"
         }
+    }
+
+    private var presentation: ImageReviewSourcePresentation {
+        ImageReviewSourcePresentation(
+            selection: selection,
+            showsDevelopedRAWFailure: false,
+        )
     }
 
     private func accessibilityLabel(for source: ImagePreviewSource) -> String {

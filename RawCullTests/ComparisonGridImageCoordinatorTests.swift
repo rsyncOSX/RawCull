@@ -118,7 +118,7 @@ struct ComparisonGridImageCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `bulk and focus completions reject work superseded by a reload`() {
+    func `bulk completion rejects work superseded by a reload`() {
         let generation = UUID()
 
         #expect(ComparisonGridImageCompletionPolicy.acceptsBulkLoad(
@@ -132,11 +132,6 @@ struct ComparisonGridImageCoordinatorTests {
             isCancelled: false,
             generation: generation,
             currentGeneration: generation,
-            mutationRevision: 3,
-            currentMutationRevision: 4,
-        ))
-        #expect(!ComparisonGridImageCompletionPolicy.acceptsFocusRegeneration(
-            isCancelled: false,
             mutationRevision: 3,
             currentMutationRevision: 4,
         ))
