@@ -38,7 +38,7 @@ nonisolated enum LoupeImageKeyAction: Equatable {
     }
 }
 
-struct MainThumbnailImageView: View {
+struct LoupeMainImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
     @State private var session = LoupeSessionModel()
 

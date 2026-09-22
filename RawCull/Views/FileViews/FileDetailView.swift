@@ -23,7 +23,7 @@ struct FileDetailView: View {
     private var content: some View {
         if let file {
             VStack(spacing: 20) {
-                MainThumbnailImageView(
+                LoupeMainImageView(
                     url: file.url,
                     file: file,
                     semanticSearchFeature: semanticSearchFeature,
