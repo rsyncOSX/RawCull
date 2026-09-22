@@ -442,16 +442,17 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func navigate(by delta: Int) {
-        guard let destination = navigationDestination(by: delta) else { return }
-        viewportState.offset = .zero
-        viewportState.lastOffset = .zero
-        sourceSelection.resetForNewImage()
-        viewModel.selectedFileID = destination.id
+        _ = session.navigate(
+            by: delta,
+            from: selectedIndex,
+            in: files,
+            using: viewModel,
+        )
     }
 
     private func applyRating(_ rating: Int) {
         guard let selectedFile else { return }
-        viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: files)
+        session.applyRating(rating, to: selectedFile, in: files, using: viewModel)
     }
 
     private var imageLoadKey: String {
@@ -474,10 +475,7 @@ struct BurstCullingWorkspaceView: View {
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
-        )
+        session.ratingDisplay(for: file, using: viewModel)
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {

@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import RawCullCore
 
 @MainActor
 @Observable
@@ -20,6 +21,13 @@ final class LoupeSessionModel {
             selection: sourceSelection,
             showsDevelopedRAWFailure: showsDevelopedRAWFailure,
         )
+    }
+
+    func ratingDisplay(
+        for file: FileItem,
+        using provider: any ImageReviewRatingProviding,
+    ) -> RatingDisplay {
+        ImageReviewFeaturePolicy.ratingDisplay(for: file, using: provider)
     }
 
     func selectSource(_ source: ImagePreviewSource) {

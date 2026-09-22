@@ -506,10 +506,7 @@ struct MainThumbnailImageView: View {
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
-        )
+        session.ratingDisplay(for: file, using: viewModel)
     }
 
     private func loadSubjectOutline() async {

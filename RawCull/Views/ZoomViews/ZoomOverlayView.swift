@@ -473,10 +473,14 @@ struct ZoomOverlayView: View {
 
     private func navigateSelection(by delta: Int) {
         guard let currentZoomIndex else { return }
-        let newIndex = currentZoomIndex + delta
-        guard orderedZoomFiles.indices.contains(newIndex) else { return }
-        prepareForNavigatedImage()
-        viewModel.selectedFileID = orderedZoomFiles[newIndex].id
+        if session.navigate(
+            by: delta,
+            from: currentZoomIndex,
+            in: orderedZoomFiles,
+            using: viewModel,
+        ) {
+            prepareForNavigatedImage()
+        }
     }
 
     private func installKeyMonitor() {
@@ -557,15 +561,12 @@ struct ZoomOverlayView: View {
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
         guard let selectedFile = viewModel.selectedFile else { return .ignored }
-        viewModel.updateRatingAndAdvance(for: selectedFile, rating: rating, in: orderedZoomFiles)
+        session.applyRating(rating, to: selectedFile, in: orderedZoomFiles, using: viewModel)
         return .handled
     }
 
     private func ratingDisplay(for file: FileItem) -> RatingDisplay {
-        RatingDisplay(
-            rating: viewModel.getRating(for: file),
-            isExplicit: viewModel.taggedNamesCache.contains(file.name),
-        )
+        session.ratingDisplay(for: file, using: viewModel)
     }
 
     // MARK: - Dismiss

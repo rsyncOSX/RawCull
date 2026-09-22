@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import RawCullCore
 
 @MainActor
 @Observable
@@ -34,6 +35,36 @@ final class ZoomSessionModel {
             keyCode: keyCode,
             navigationAxis: navigationAxis,
         )
+    }
+
+    func navigate(
+        by delta: Int,
+        from currentIndex: Int,
+        in files: [FileItem],
+        using actions: any ImageReviewSelectionActing,
+    ) -> Bool {
+        ImageReviewFeaturePolicy.select(
+            delta: delta,
+            from: currentIndex,
+            in: files,
+            using: actions,
+        )
+    }
+
+    func applyRating(
+        _ rating: Int,
+        to file: FileItem,
+        in files: [FileItem],
+        using actions: any ImageReviewRatingActing,
+    ) {
+        actions.updateRatingAndAdvance(for: file, rating: rating, in: files)
+    }
+
+    func ratingDisplay(
+        for file: FileItem,
+        using provider: any ImageReviewRatingProviding,
+    ) -> RatingDisplay {
+        ImageReviewFeaturePolicy.ratingDisplay(for: file, using: provider)
     }
 
     func applyLaunchContext(_ context: ZoomOverlayLaunchContext, hasFocusTarget: Bool) {
