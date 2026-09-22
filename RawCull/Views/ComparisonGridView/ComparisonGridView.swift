@@ -7,20 +7,10 @@ struct ComparisonGridView: View {
     @Binding var showCandidateInspector: Bool
 
     @State private var session: ComparisonSessionModel
-    @State private var imageStates: [FileItem.ID: ComparisonImageState] = [:]
-    // Per-file viewport state so zoom/pan/focus-mask visibility from one
-    // frame doesn't bleed into the next when arrowing through a burst.
-    @State private var viewportStatesByFileID: [FileItem.ID: ComparisonViewportInteractionState] = [:]
-    @State private var useThumbnailSourceByFileID: [FileItem.ID: Bool] = [:]
     @State private var finalistFocusActive = false
     @State private var keyMonitor: Any?
     @State private var scrollPositionID: FileItem.ID?
     @State private var scrollSettleTask: Task<Void, Never>?
-    @State private var reloadTasksByFileID: [FileItem.ID: Task<Void, Never>] = [:]
-    @State private var reloadGenerationByFileID: [FileItem.ID: UUID] = [:]
-    @State private var bulkLoadGeneration: UUID?
-    @State private var imageMutationRevision = 0
-    @State private var focusRegenerationTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
     init(
@@ -59,7 +49,7 @@ struct ComparisonGridView: View {
                                     let burstAnalysis = burstComparisonResult
                                     ComparisonImagePaneView(
                                         file: file,
-                                        state: imageStates[file.id],
+                                        state: session.imageStates[file.id],
                                         focusPoints: focusPoints(for: file),
                                         viewportState: viewportStateBinding(for: file),
                                         useThumbnailSource: useThumbnailSourceBinding(for: file),
@@ -137,29 +127,23 @@ struct ComparisonGridView: View {
             session.cancel()
             removeKeyMonitor()
             scrollSettleTask?.cancel()
-            focusRegenerationTask?.cancel()
-            reloadTasksByFileID.values.forEach { $0.cancel() }
-            reloadTasksByFileID = [:]
-            reloadGenerationByFileID = [:]
-            bulkLoadGeneration = nil
         }
         .task(id: loadKey) {
             selectFirstComparisonFileIfNeeded()
-            await loadImages()
+            await session.loadImages(files: files)
         }
         .onChange(of: viewModel.comparisonFileIDs) { _, _ in
-            viewportStatesByFileID = [:]
+            session.resetViewportStates()
             finalistFocusActive = false
             selectFirstComparisonFileIfNeeded()
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
-            viewportStatesByFileID = [:]
+            session.resetViewportStates()
             finalistFocusActive = false
             showCandidateInspector = false
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            focusRegenerationTask?.cancel()
-            focusRegenerationTask = Task { await regenerateFocusMasks() }
+            Task { await session.regenerateFocusMasks(files: files) }
         }
     }
 
@@ -203,10 +187,10 @@ struct ComparisonGridView: View {
     private func useThumbnailSourceBinding(for file: FileItem) -> Binding<Bool> {
         Binding(
             get: {
-                useThumbnailSourceByFileID[file.id] ?? false
+                session.usesThumbnailSource(for: file.id)
             },
             set: { newValue in
-                useThumbnailSourceByFileID[file.id] = newValue
+                session.setUsesThumbnailSource(newValue, for: file.id)
             },
         )
     }
@@ -214,69 +198,16 @@ struct ComparisonGridView: View {
     private func viewportStateBinding(for file: FileItem) -> Binding<ComparisonViewportInteractionState> {
         Binding(
             get: {
-                viewportStatesByFileID[file.id] ?? ComparisonViewportInteractionState()
+                session.viewportState(for: file.id)
             },
             set: { newValue in
-                viewportStatesByFileID[file.id] = newValue
+                session.setViewportState(newValue, for: file.id)
             },
         )
-    }
-
-    private func loadImages() async {
-        let generation = UUID()
-        let mutationRevision = imageMutationRevision
-        bulkLoadGeneration = generation
-        let result = await session.loadImages(
-            files: files,
-            sourceFlags: useThumbnailSourceByFileID,
-        )
-        guard ComparisonGridImageCompletionPolicy.acceptsBulkLoad(
-            isCancelled: Task.isCancelled,
-            generation: generation,
-            currentGeneration: bulkLoadGeneration,
-            mutationRevision: mutationRevision,
-            currentMutationRevision: imageMutationRevision,
-        ) else { return }
-        imageStates = result.states
-        useThumbnailSourceByFileID = result.sourceFlags
-        bulkLoadGeneration = nil
     }
 
     private func startReloadImage(for file: FileItem) {
-        reloadTasksByFileID[file.id]?.cancel()
-        imageMutationRevision &+= 1
-        let generation = UUID()
-        reloadGenerationByFileID[file.id] = generation
-        imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
-        let sourceFlags = useThumbnailSourceByFileID
-        reloadTasksByFileID[file.id] = Task {
-            let state = await session.reload(
-                file,
-                sourceFlags: sourceFlags,
-            )
-            guard ComparisonGridImageCompletionPolicy.acceptsReload(
-                isCancelled: Task.isCancelled,
-                generation: generation,
-                currentGeneration: reloadGenerationByFileID[file.id],
-            ) else { return }
-            imageStates[file.id] = state
-            reloadTasksByFileID[file.id] = nil
-            reloadGenerationByFileID[file.id] = nil
-        }
-    }
-
-    private func regenerateFocusMasks() async {
-        let mutationRevision = imageMutationRevision
-        let updatedStates = await session.regenerateFocusMasks(
-            files: files,
-            states: imageStates,
-        )
-        guard ComparisonGridImageCompletionPolicy.acceptsFocusRegeneration(
-            isCancelled: Task.isCancelled,
-            mutationRevision: mutationRevision,
-            currentMutationRevision: imageMutationRevision,
-        ) else { return }
-        imageStates = updatedStates
+        Task { await session.reload(file) }
     }
 
     private func focusPoints(for file: FileItem) -> [FocusPoint]? {
@@ -319,7 +250,7 @@ struct ComparisonGridView: View {
 
     private func comparisonBreakdowns() -> [FileItem.ID: SharpnessBreakdown] {
         Dictionary(uniqueKeysWithValues: files.compactMap { file in
-            guard let breakdown = imageStates[file.id]?.sharpnessBreakdown
+            guard let breakdown = session.imageStates[file.id]?.sharpnessBreakdown
                 ?? viewModel.sharpnessModel.breakdowns[file.id]
             else { return nil }
             return (file.id, breakdown)
@@ -486,23 +417,26 @@ struct ComparisonGridView: View {
 
     private func toggleSelectedFocusMask() -> KeyPress.Result {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
-        var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+        var state = session.viewportState(for: selectedID)
         state.showFocusMask.toggle()
-        viewportStatesByFileID[selectedID] = state
+        session.setViewportState(state, for: selectedID)
         return .handled
     }
 
     private func toggleSelectedFocusPoints() -> KeyPress.Result {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
-        var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+        var state = session.viewportState(for: selectedID)
         state.showFocusPoints.toggle()
-        viewportStatesByFileID[selectedID] = state
+        session.setViewportState(state, for: selectedID)
         return .handled
     }
 
     private func toggleSelectedImageSource() -> KeyPress.Result {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
-        useThumbnailSourceByFileID[selectedID, default: false].toggle()
+        session.setUsesThumbnailSource(
+            !session.usesThumbnailSource(for: selectedID),
+            for: selectedID,
+        )
         return .handled
     }
 
@@ -520,10 +454,10 @@ struct ComparisonGridView: View {
     private func increaseZoom() -> KeyPress.Result {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
-            var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+            var state = session.viewportState(for: selectedID)
             state.scale = min(5.0, state.scale + 0.4)
             state.lastScale = state.scale
-            viewportStatesByFileID[selectedID] = state
+            session.setViewportState(state, for: selectedID)
         }
         return .handled
     }
@@ -531,10 +465,10 @@ struct ComparisonGridView: View {
     private func decreaseZoom() -> KeyPress.Result {
         guard let selectedID = selectedFileIDForInteraction() else { return .ignored }
         withAnimation(.spring()) {
-            var state = viewportStatesByFileID[selectedID] ?? ComparisonViewportInteractionState()
+            var state = session.viewportState(for: selectedID)
             state.scale = max(0.5, state.scale - 0.4)
             state.lastScale = state.scale
-            viewportStatesByFileID[selectedID] = state
+            session.setViewportState(state, for: selectedID)
         }
         return .handled
     }

@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import RawCullCore
 
@@ -79,8 +80,8 @@ final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
     }
 
     func cancel() {
-        // The live pipeline uses structured task cancellation. Task ownership
-        // remains in ComparisonGridView until commit 3.3.
+        // The session owns and cancels the structured tasks that invoke this
+        // service. The live coordinator has no additional task registry.
     }
 }
 
@@ -88,9 +89,22 @@ final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
 @Observable
 final class ComparisonSessionModel {
     private(set) var isActive = false
+    private(set) var imageStates: [FileItem.ID: ComparisonImageState] = [:]
+    private(set) var viewportStatesByFileID: [FileItem.ID: ComparisonViewportInteractionState] = [:]
+    private(set) var useThumbnailSourceByFileID: [FileItem.ID: Bool] = [:]
 
     @ObservationIgnored private let imageService: any ComparisonSessionImageServing
     @ObservationIgnored private let selection: any ComparisonSessionSelection
+    @ObservationIgnored private var bulkLoadTask: Task<(
+        states: [FileItem.ID: ComparisonImageState],
+        sourceFlags: [FileItem.ID: Bool]
+    ), Never>?
+    @ObservationIgnored private var reloadTasksByFileID: [FileItem.ID: Task<ComparisonImageState, Never>] = [:]
+    @ObservationIgnored private var focusRegenerationTask: Task<[FileItem.ID: ComparisonImageState], Never>?
+    @ObservationIgnored private var reloadGenerationByFileID: [FileItem.ID: UUID] = [:]
+    @ObservationIgnored private var bulkLoadGeneration: UUID?
+    @ObservationIgnored private var focusRegenerationGeneration: UUID?
+    @ObservationIgnored private var imageMutationRevision = 0
 
     init(
         imageService: any ComparisonSessionImageServing,
@@ -124,32 +138,122 @@ final class ComparisonSessionModel {
         select(files[destinationIndex].id)
     }
 
-    func loadImages(
-        files: [FileItem],
-        sourceFlags: [FileItem.ID: Bool],
-    ) async -> (
-        states: [FileItem.ID: ComparisonImageState],
-        sourceFlags: [FileItem.ID: Bool],
+    func viewportState(for fileID: FileItem.ID) -> ComparisonViewportInteractionState {
+        viewportStatesByFileID[fileID] ?? ComparisonViewportInteractionState()
+    }
+
+    func setViewportState(
+        _ state: ComparisonViewportInteractionState,
+        for fileID: FileItem.ID,
     ) {
-        await imageService.loadImages(files: files, sourceFlags: sourceFlags)
+        viewportStatesByFileID[fileID] = state
     }
 
-    func reload(
-        _ file: FileItem,
-        sourceFlags: [FileItem.ID: Bool],
-    ) async -> ComparisonImageState {
-        await imageService.reloadImage(for: file, sourceFlags: sourceFlags)
+    func usesThumbnailSource(for fileID: FileItem.ID) -> Bool {
+        useThumbnailSourceByFileID[fileID] ?? false
     }
 
-    func regenerateFocusMasks(
-        files: [FileItem],
-        states: [FileItem.ID: ComparisonImageState],
-    ) async -> [FileItem.ID: ComparisonImageState] {
-        await imageService.regenerateFocusMasks(files: files, states: states)
+    func setUsesThumbnailSource(_ useThumbnail: Bool, for fileID: FileItem.ID) {
+        useThumbnailSourceByFileID[fileID] = useThumbnail
+    }
+
+    func resetViewportStates() {
+        viewportStatesByFileID = [:]
+    }
+
+    func loadImages(files: [FileItem]) async {
+        bulkLoadTask?.cancel()
+
+        let generation = UUID()
+        let mutationRevision = imageMutationRevision
+        let sourceFlags = useThumbnailSourceByFileID
+        bulkLoadGeneration = generation
+
+        let task = Task {
+            await imageService.loadImages(files: files, sourceFlags: sourceFlags)
+        }
+        bulkLoadTask = task
+        let result = await task.value
+
+        guard ComparisonGridImageCompletionPolicy.acceptsBulkLoad(
+            isCancelled: task.isCancelled,
+            generation: generation,
+            currentGeneration: bulkLoadGeneration,
+            mutationRevision: mutationRevision,
+            currentMutationRevision: imageMutationRevision,
+        ) else { return }
+
+        imageStates = result.states
+        useThumbnailSourceByFileID = result.sourceFlags
+        bulkLoadTask = nil
+        bulkLoadGeneration = nil
+    }
+
+    func reload(_ file: FileItem) async {
+        reloadTasksByFileID[file.id]?.cancel()
+        imageMutationRevision &+= 1
+
+        let generation = UUID()
+        let sourceFlags = useThumbnailSourceByFileID
+        reloadGenerationByFileID[file.id] = generation
+        imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
+
+        let task = Task {
+            await imageService.reloadImage(for: file, sourceFlags: sourceFlags)
+        }
+        reloadTasksByFileID[file.id] = task
+        let state = await task.value
+
+        guard ComparisonGridImageCompletionPolicy.acceptsReload(
+            isCancelled: task.isCancelled,
+            generation: generation,
+            currentGeneration: reloadGenerationByFileID[file.id],
+        ) else { return }
+
+        imageStates[file.id] = state
+        reloadTasksByFileID[file.id] = nil
+        reloadGenerationByFileID[file.id] = nil
+    }
+
+    func regenerateFocusMasks(files: [FileItem]) async {
+        focusRegenerationTask?.cancel()
+
+        let generation = UUID()
+        let mutationRevision = imageMutationRevision
+        let states = imageStates
+        focusRegenerationGeneration = generation
+
+        let task = Task {
+            await imageService.regenerateFocusMasks(files: files, states: states)
+        }
+        focusRegenerationTask = task
+        let updatedStates = await task.value
+
+        guard !task.isCancelled,
+              generation == focusRegenerationGeneration,
+              ComparisonGridImageCompletionPolicy.acceptsFocusRegeneration(
+                  isCancelled: false,
+                  mutationRevision: mutationRevision,
+                  currentMutationRevision: imageMutationRevision,
+              )
+        else { return }
+
+        imageStates = updatedStates
+        focusRegenerationTask = nil
+        focusRegenerationGeneration = nil
     }
 
     func cancel() {
         isActive = false
+        bulkLoadTask?.cancel()
+        bulkLoadTask = nil
+        bulkLoadGeneration = nil
+        reloadTasksByFileID.values.forEach { $0.cancel() }
+        reloadTasksByFileID = [:]
+        reloadGenerationByFileID = [:]
+        focusRegenerationTask?.cancel()
+        focusRegenerationTask = nil
+        focusRegenerationGeneration = nil
         imageService.cancel()
     }
 }

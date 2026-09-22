@@ -69,6 +69,65 @@ private final class ComparisonSessionImageServiceSpy: ComparisonSessionImageServ
 }
 
 @MainActor
+private final class ControlledComparisonSessionImageService: ComparisonSessionImageServing {
+    private struct ReloadRequest {
+        let continuation: CheckedContinuation<ComparisonImageState, Never>
+    }
+
+    private var reloadRequests: [ReloadRequest] = []
+    private var reloadCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    var cancelCount = 0
+
+    func loadImages(
+        files: [FileItem],
+        sourceFlags: [FileItem.ID: Bool],
+    ) async -> (
+        states: [FileItem.ID: ComparisonImageState],
+        sourceFlags: [FileItem.ID: Bool]
+    ) {
+        ([:], sourceFlags)
+    }
+
+    func reloadImage(
+        for file: FileItem,
+        sourceFlags: [FileItem.ID: Bool],
+    ) async -> ComparisonImageState {
+        await withCheckedContinuation { continuation in
+            reloadRequests.append(ReloadRequest(continuation: continuation))
+            resumeSatisfiedWaiters()
+        }
+    }
+
+    func regenerateFocusMasks(
+        files: [FileItem],
+        states: [FileItem.ID: ComparisonImageState],
+    ) async -> [FileItem.ID: ComparisonImageState] {
+        states
+    }
+
+    func cancel() {
+        cancelCount += 1
+    }
+
+    func waitForReloadCount(_ count: Int) async {
+        guard reloadRequests.count < count else { return }
+        await withCheckedContinuation { continuation in
+            reloadCountWaiters.append((count, continuation))
+        }
+    }
+
+    func completeReload(at index: Int, with state: ComparisonImageState) {
+        reloadRequests[index].continuation.resume(returning: state)
+    }
+
+    private func resumeSatisfiedWaiters() {
+        let satisfied = reloadCountWaiters.filter { reloadRequests.count >= $0.count }
+        reloadCountWaiters.removeAll { reloadRequests.count >= $0.count }
+        satisfied.forEach { $0.continuation.resume() }
+    }
+}
+
+@MainActor
 @Suite("ComparisonSessionModel")
 struct ComparisonSessionModelTests {
     @Test
@@ -110,20 +169,80 @@ struct ComparisonSessionModelTests {
         let imageService = ComparisonSessionImageServiceSpy()
         let model = makeModel(imageService: imageService)
 
-        let loaded = await model.loadImages(files: [file], sourceFlags: sourceFlags)
-        let reloaded = await model.reload(file, sourceFlags: sourceFlags)
-        let regenerated = await model.regenerateFocusMasks(
-            files: [file],
-            states: loaded.states,
-        )
+        model.setUsesThumbnailSource(true, for: file.id)
+        await model.loadImages(files: [file])
+        await model.reload(file)
+        await model.regenerateFocusMasks(files: [file])
 
         #expect(imageService.loadedFiles.map(\.id) == [file.id])
         #expect(imageService.loadedSourceFlags == sourceFlags)
         #expect(imageService.reloadedFile?.id == file.id)
         #expect(imageService.reloadedSourceFlags == sourceFlags)
         #expect(imageService.regeneratedFiles.map(\.id) == [file.id])
-        #expect(reloaded.id == file.id)
-        #expect(regenerated[file.id]?.id == file.id)
+        #expect(model.imageStates[file.id]?.id == file.id)
+    }
+
+    @Test
+    func `newer reload wins when an older request finishes last`() async {
+        let file = makeComparisonSessionFile("stale.ARW")
+        let imageService = ControlledComparisonSessionImageService()
+        let model = ComparisonSessionModel(
+            imageService: imageService,
+            selection: ComparisonSessionSelectionSpy(),
+        )
+
+        let older = Task { await model.reload(file) }
+        await imageService.waitForReloadCount(1)
+        let newer = Task { await model.reload(file) }
+        await imageService.waitForReloadCount(2)
+
+        imageService.completeReload(
+            at: 1,
+            with: ComparisonImageState(
+                id: file.id,
+                isLoading: false,
+                isFocusAnalysisComplete: true,
+            ),
+        )
+        await newer.value
+        imageService.completeReload(
+            at: 0,
+            with: ComparisonImageState(
+                id: file.id,
+                isLoading: false,
+                isFocusAnalysisComplete: false,
+            ),
+        )
+        await older.value
+
+        #expect(model.imageStates[file.id]?.isFocusAnalysisComplete == true)
+    }
+
+    @Test
+    func `cancellation prevents an in flight reload from publishing`() async {
+        let file = makeComparisonSessionFile("cancelled.ARW")
+        let imageService = ControlledComparisonSessionImageService()
+        let model = ComparisonSessionModel(
+            imageService: imageService,
+            selection: ComparisonSessionSelectionSpy(),
+        )
+
+        let reload = Task { await model.reload(file) }
+        await imageService.waitForReloadCount(1)
+        model.cancel()
+        imageService.completeReload(
+            at: 0,
+            with: ComparisonImageState(
+                id: file.id,
+                isLoading: false,
+                isFocusAnalysisComplete: true,
+            ),
+        )
+        await reload.value
+
+        #expect(model.imageStates[file.id]?.isLoading == true)
+        #expect(model.imageStates[file.id]?.isFocusAnalysisComplete == false)
+        #expect(imageService.cancelCount == 1)
     }
 
     private func makeModel(
