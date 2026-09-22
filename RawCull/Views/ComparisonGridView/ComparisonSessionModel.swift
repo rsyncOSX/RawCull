@@ -35,6 +35,17 @@ protocol ComparisonSessionSelection: AnyObject {
 
 extension RawCullViewModel: ComparisonSessionSelection {}
 
+struct ComparisonSessionPresentation {
+    let displayState: ComparisonGridDisplayState
+    let imageStates: [FileItem.ID: ComparisonImageState]
+
+    var files: [FileItem] { displayState.files }
+    var allComparisonFiles: [FileItem] { displayState.allComparisonFiles }
+    var selectedComparisonFile: FileItem? { displayState.selectedComparisonFile }
+    var burstComparisonResult: BurstAnalysisResult? { displayState.burstComparisonResult }
+    var loadKey: String { displayState.loadKey }
+}
+
 @MainActor
 final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
     private let viewModel: RawCullViewModel
@@ -89,6 +100,7 @@ final class LiveComparisonSessionImageService: ComparisonSessionImageServing {
 @Observable
 final class ComparisonSessionModel {
     private(set) var isActive = false
+    private(set) var finalistFocusActive = false
     private(set) var imageStates: [FileItem.ID: ComparisonImageState] = [:]
     private(set) var viewportStatesByFileID: [FileItem.ID: ComparisonViewportInteractionState] = [:]
     private(set) var useThumbnailSourceByFileID: [FileItem.ID: Bool] = [:]
@@ -136,6 +148,53 @@ final class ComparisonSessionModel {
         else { return }
 
         select(files[destinationIndex].id)
+    }
+
+    func ensureValidSelection(in files: [FileItem]) {
+        guard let first = files.first else { return }
+        if let selectedID = selection.selectedFileID,
+           files.contains(where: { $0.id == selectedID })
+        {
+            return
+        }
+        select(first.id)
+    }
+
+    func focusFinalists(in result: BurstAnalysisResult?) -> Bool {
+        let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: result)
+        guard let firstFinalistID = finalistIDs.first else { return false }
+        finalistFocusActive = true
+        select(firstFinalistID)
+        return true
+    }
+
+    func showAllCandidates(in files: [FileItem]) {
+        finalistFocusActive = false
+        ensureValidSelection(in: files)
+    }
+
+    func resetDisplayScope() {
+        finalistFocusActive = false
+        resetViewportStates()
+    }
+
+    func presentation(
+        filteredFiles: [FileItem],
+        comparisonFileIDs: [FileItem.ID],
+        activeBurstComparisonGroupID: Int?,
+        burstAnalysisResult: (Int) -> BurstAnalysisResult?,
+    ) -> ComparisonSessionPresentation {
+        ComparisonSessionPresentation(
+            displayState: ComparisonGridDisplayState(
+                filteredFiles: filteredFiles,
+                comparisonFileIDs: comparisonFileIDs,
+                selectedFileID: selection.selectedFileID,
+                activeBurstComparisonGroupID: activeBurstComparisonGroupID,
+                finalistFocusActive: finalistFocusActive,
+                burstAnalysisResult: burstAnalysisResult,
+            ),
+            imageStates: imageStates,
+        )
     }
 
     func viewportState(for fileID: FileItem.ID) -> ComparisonViewportInteractionState {

@@ -15,6 +15,25 @@ private func makeComparisonSessionFile(_ name: String) -> FileItem {
     )
 }
 
+private func makeComparisonSessionBurstResult(
+    fileIDs: [FileItem.ID],
+    recommendedFileID: FileItem.ID,
+    secondBestFileID: FileItem.ID,
+) -> BurstAnalysisResult {
+    BurstAnalysisResult(
+        groupID: 9,
+        fileIDs: fileIDs,
+        candidates: [],
+        recommendedFileID: recommendedFileID,
+        secondBestFileID: secondBestFileID,
+        confidence: .medium,
+        reviewState: .algorithmReviewed,
+        isSafeForOneClickCulling: true,
+        reasons: [],
+        cautions: [],
+    )
+}
+
 @MainActor
 private final class ComparisonSessionSelectionSpy: ComparisonSessionSelection {
     var selectedFileID: FileItem.ID?
@@ -160,6 +179,46 @@ struct ComparisonSessionModelTests {
 
         model.moveSelection(.right, in: [first, second])
         #expect(selection.selectedFileID == second.id)
+    }
+
+    @Test
+    func `presentation reuses display mapping and owns finalist focus`() {
+        let first = makeComparisonSessionFile("first.ARW")
+        let second = makeComparisonSessionFile("second.ARW")
+        let third = makeComparisonSessionFile("third.ARW")
+        let files = [first, second, third]
+        let result = makeComparisonSessionBurstResult(
+            fileIDs: files.map(\.id),
+            recommendedFileID: third.id,
+            secondBestFileID: first.id,
+        )
+        let selection = ComparisonSessionSelectionSpy()
+        let model = makeModel(selection: selection)
+
+        model.ensureValidSelection(in: files)
+        #expect(selection.selectedFileID == first.id)
+
+        #expect(model.focusFinalists(in: result))
+        let focused = model.presentation(
+            filteredFiles: files,
+            comparisonFileIDs: files.map(\.id),
+            activeBurstComparisonGroupID: result.groupID,
+            burstAnalysisResult: { _ in result },
+        )
+
+        #expect(focused.files.map(\.id) == [third.id, first.id])
+        #expect(focused.selectedComparisonFile?.id == third.id)
+        #expect(focused.loadKey == [third.id, first.id].map(\.uuidString).joined(separator: ","))
+
+        model.showAllCandidates(in: files)
+        let allCandidates = model.presentation(
+            filteredFiles: files,
+            comparisonFileIDs: files.map(\.id),
+            activeBurstComparisonGroupID: result.groupID,
+            burstAnalysisResult: { _ in result },
+        )
+        #expect(allCandidates.files.map(\.id) == files.map(\.id))
+        #expect(selection.selectedFileID == third.id)
     }
 
     @Test

@@ -7,7 +7,6 @@ struct ComparisonGridView: View {
     @Binding var showCandidateInspector: Bool
 
     @State private var session: ComparisonSessionModel
-    @State private var finalistFocusActive = false
     @State private var keyMonitor: Any?
     @State private var scrollPositionID: FileItem.ID?
     @State private var scrollSettleTask: Task<Void, Never>?
@@ -49,7 +48,7 @@ struct ComparisonGridView: View {
                                     let burstAnalysis = burstComparisonResult
                                     ComparisonImagePaneView(
                                         file: file,
-                                        state: session.imageStates[file.id],
+                                        state: presentation.imageStates[file.id],
                                         focusPoints: focusPoints(for: file),
                                         viewportState: viewportStateBinding(for: file),
                                         useThumbnailSource: useThumbnailSourceBinding(for: file),
@@ -133,13 +132,11 @@ struct ComparisonGridView: View {
             await session.loadImages(files: files)
         }
         .onChange(of: viewModel.comparisonFileIDs) { _, _ in
-            session.resetViewportStates()
-            finalistFocusActive = false
+            session.resetDisplayScope()
             selectFirstComparisonFileIfNeeded()
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { _, _ in
-            session.resetViewportStates()
-            finalistFocusActive = false
+            session.resetDisplayScope()
             showCandidateInspector = false
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
@@ -147,31 +144,29 @@ struct ComparisonGridView: View {
         }
     }
 
-    private var displayState: ComparisonGridDisplayState {
-        ComparisonGridDisplayState(
+    private var presentation: ComparisonSessionPresentation {
+        session.presentation(
             filteredFiles: viewModel.filteredFiles,
             comparisonFileIDs: viewModel.comparisonFileIDs,
-            selectedFileID: viewModel.selectedFileID,
             activeBurstComparisonGroupID: viewModel.activeBurstComparisonGroupID,
-            finalistFocusActive: finalistFocusActive,
             burstAnalysisResult: viewModel.burstAnalysisResult(for:),
         )
     }
 
     private var files: [FileItem] {
-        displayState.files
+        presentation.files
     }
 
     private var allComparisonFiles: [FileItem] {
-        displayState.allComparisonFiles
+        presentation.allComparisonFiles
     }
 
     private var selectedComparisonFile: FileItem? {
-        displayState.selectedComparisonFile
+        presentation.selectedComparisonFile
     }
 
     private var burstComparisonResult: BurstAnalysisResult? {
-        displayState.burstComparisonResult
+        presentation.burstComparisonResult
     }
 
     private var canApplyOneClickCulling: Bool {
@@ -181,7 +176,7 @@ struct ComparisonGridView: View {
     }
 
     private var loadKey: String {
-        displayState.loadKey
+        presentation.loadKey
     }
 
     private func useThumbnailSourceBinding(for file: FileItem) -> Binding<Bool> {
@@ -250,7 +245,7 @@ struct ComparisonGridView: View {
 
     private func comparisonBreakdowns() -> [FileItem.ID: SharpnessBreakdown] {
         Dictionary(uniqueKeysWithValues: files.compactMap { file in
-            guard let breakdown = session.imageStates[file.id]?.sharpnessBreakdown
+            guard let breakdown = presentation.imageStates[file.id]?.sharpnessBreakdown
                 ?? viewModel.sharpnessModel.breakdowns[file.id]
             else { return nil }
             return (file.id, breakdown)
@@ -266,28 +261,18 @@ struct ComparisonGridView: View {
     }
 
     private func selectFirstComparisonFileIfNeeded() {
-        guard !files.isEmpty else { return }
-        if let selectedID = viewModel.selectedFileID,
-           files.contains(where: { $0.id == selectedID })
-        {
-            return
-        }
-        session.select(files[0].id)
+        session.ensureValidSelection(in: files)
     }
 
     // periphery:ignore
     private func inspectFinalists() {
-        let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: burstComparisonResult)
-        guard !finalistIDs.isEmpty else { return }
-        finalistFocusActive = true
-        session.select(finalistIDs[0])
+        guard session.focusFinalists(in: burstComparisonResult) else { return }
         showCandidateInspector = true
     }
 
     // periphery:ignore
     private func showAllCandidates() {
-        finalistFocusActive = false
-        selectFirstComparisonFileIfNeeded()
+        session.showAllCandidates(in: allComparisonFiles)
     }
 
     private func applyRating(_ rating: Int) -> KeyPress.Result {
