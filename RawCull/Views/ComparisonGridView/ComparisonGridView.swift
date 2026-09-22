@@ -6,6 +6,7 @@ struct ComparisonGridView: View {
     @Bindable var viewModel: RawCullViewModel
     @Binding var showCandidateInspector: Bool
 
+    @State private var session: ComparisonSessionModel
     @State private var imageStates: [FileItem.ID: ComparisonImageState] = [:]
     // Per-file viewport state so zoom/pan/focus-mask visibility from one
     // frame doesn't bleed into the next when arrowing through a burst.
@@ -21,6 +22,19 @@ struct ComparisonGridView: View {
     @State private var imageMutationRevision = 0
     @State private var focusRegenerationTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
+
+    init(
+        viewModel: RawCullViewModel,
+        showCandidateInspector: Binding<Bool>,
+        imageService: (any ComparisonSessionImageServing)? = nil,
+    ) {
+        self.viewModel = viewModel
+        _showCandidateInspector = showCandidateInspector
+        _session = State(initialValue: ComparisonSessionModel(
+            imageService: imageService ?? LiveComparisonSessionImageService(viewModel: viewModel),
+            selection: viewModel,
+        ))
+    }
 
     var body: some View {
         ZStack {
@@ -57,7 +71,7 @@ struct ComparisonGridView: View {
                                         burstCandidate: burstCandidate(for: file, in: burstAnalysis),
                                         burstRating: viewModel.getRating(for: file),
                                         sharpnessContext: sharpnessContext(for: file),
-                                        onSelect: { viewModel.selectedFileID = file.id },
+                                        onSelect: { session.select(file.id) },
                                         onRate: { rating in
                                             viewModel.updateRatingAndAdvance(for: file, rating: rating, in: files)
                                         },
@@ -97,7 +111,7 @@ struct ComparisonGridView: View {
                                       viewModel.selectedFileID != newID,
                                       files.contains(where: { $0.id == newID })
                                 else { return }
-                                viewModel.selectedFileID = newID
+                                session.select(newID)
                             }
                         }
                     }
@@ -114,11 +128,13 @@ struct ComparisonGridView: View {
         .focused($isFocused)
         .focusEffectDisabled(true)
         .onAppear {
+            session.activate()
             isFocused = true
             installKeyMonitor()
             selectFirstComparisonFileIfNeeded()
         }
         .onDisappear {
+            session.cancel()
             removeKeyMonitor()
             scrollSettleTask?.cancel()
             focusRegenerationTask?.cancel()
@@ -210,10 +226,9 @@ struct ComparisonGridView: View {
         let generation = UUID()
         let mutationRevision = imageMutationRevision
         bulkLoadGeneration = generation
-        let result = await ComparisonGridImageCoordinator.loadImages(
+        let result = await session.loadImages(
             files: files,
             sourceFlags: useThumbnailSourceByFileID,
-            viewModel: viewModel,
         )
         guard ComparisonGridImageCompletionPolicy.acceptsBulkLoad(
             isCancelled: Task.isCancelled,
@@ -235,10 +250,9 @@ struct ComparisonGridView: View {
         imageStates[file.id] = ComparisonImageState(id: file.id, isLoading: true)
         let sourceFlags = useThumbnailSourceByFileID
         reloadTasksByFileID[file.id] = Task {
-            let state = await ComparisonGridImageCoordinator.reloadImage(
-                for: file,
+            let state = await session.reload(
+                file,
                 sourceFlags: sourceFlags,
-                viewModel: viewModel,
             )
             guard ComparisonGridImageCompletionPolicy.acceptsReload(
                 isCancelled: Task.isCancelled,
@@ -253,10 +267,9 @@ struct ComparisonGridView: View {
 
     private func regenerateFocusMasks() async {
         let mutationRevision = imageMutationRevision
-        let updatedStates = await ComparisonGridImageCoordinator.regenerateFocusMasks(
+        let updatedStates = await session.regenerateFocusMasks(
             files: files,
             states: imageStates,
-            viewModel: viewModel,
         )
         guard ComparisonGridImageCompletionPolicy.acceptsFocusRegeneration(
             isCancelled: Task.isCancelled,
@@ -328,7 +341,7 @@ struct ComparisonGridView: View {
         {
             return
         }
-        viewModel.selectedFileID = files[0].id
+        session.select(files[0].id)
     }
 
     // periphery:ignore
@@ -336,7 +349,7 @@ struct ComparisonGridView: View {
         let finalistIDs = ComparisonFinalistFocus.focusedIDs(from: burstComparisonResult)
         guard !finalistIDs.isEmpty else { return }
         finalistFocusActive = true
-        viewModel.selectedFileID = finalistIDs[0]
+        session.select(finalistIDs[0])
         showCandidateInspector = true
     }
 
@@ -459,16 +472,7 @@ struct ComparisonGridView: View {
     }
 
     private func navigate(_ direction: ComparisonGridNavigationDirection) {
-        guard let selectedID = viewModel.selectedFileID,
-              let currentIndex = files.firstIndex(where: { $0.id == selectedID }),
-              let destinationIndex = ComparisonGridNavigation.destinationIndex(
-                  from: currentIndex,
-                  itemCount: files.count,
-                  direction: direction,
-              )
-        else { return }
-
-        viewModel.selectedFileID = files[destinationIndex].id
+        session.moveSelection(direction, in: files)
     }
 
     @discardableResult
