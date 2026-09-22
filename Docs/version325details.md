@@ -1,6 +1,6 @@
 # RawCull 3.2.5 detailed implementation plan
 
-This document expands the implementation sequence from `Docs/version325.md`. It is a plan only: it does not record or authorize source-code changes.
+This document expands the implementation sequence from `Docs/version325.md` and records progress where a section is explicitly marked completed. Planned sections do not by themselves record or authorize source-code changes.
 
 ## Recommended 3.2.5 implementation order
 
@@ -102,7 +102,33 @@ The complete `RawCullTests` target was also run. The item 2 tests pass; the targ
 
 Use `ComparisonGridView` as the first vertical slice. The objective is not to create one universal image-review view. It is to separate testable state and policy from rendering, then share only the policies genuinely common to comparison, Loupe, zoom, and burst review.
 
-#### Commit 3.1 — Freeze Comparison Grid behavior with characterization tests
+#### Progress through commit 3.5
+
+The first comparison vertical slice and shared-policy extraction are complete. Commits 3.6–3.9 remain pending, so item 3 has not yet met its section-level exit criteria.
+
+| Commit | Revision | Completed outcome |
+| --- | --- | --- |
+| 3.1 | `381ea49` | Added characterization coverage for display mapping, navigation, source selection, cancellation, stale generations, reloads, and rapid selection changes. |
+| 3.2 | `efaf2a5` | Added the `@MainActor @Observable` `ComparisonSessionModel` shell with narrow selection, loading, reload, navigation, lifecycle, and cancellation boundaries. |
+| 3.3 | `d088b6f` | Moved image and viewport state, source flags, task handles, mutation revisions, and generation ownership into the session. Added deterministic direct-session tests proving cancellation and out-of-order reload rejection. |
+| 3.4 | `ba4391f` | Moved finalist focus, valid-selection fallback, navigation policy, and display-state construction into the session. `ComparisonGridView` now consumes an immutable `ComparisonSessionPresentation` built through `ComparisonGridDisplayState`. |
+| 3.5 | `e5e6a54` | Extracted small `Sendable` image-review values and policies for source/RAW-failure presentation, viewport limits, semantic keyboard input, focus and subject-outline request identity, cancellation and stale-result rejection, and rating presentation/actions. Existing comparison, Loupe, Zoom, and burst adapters reuse the applicable policies without prematurely moving their state ownership. |
+
+Focused verification completed for commits 3.3–3.5:
+
+```text
+xcodebuild test -project RawCull.xcodeproj -scheme RawCull \
+  -destination 'platform=macOS' \
+  -only-testing:RawCullTests/ImageReviewPoliciesTests \
+  -only-testing:RawCullTests/ComparisonGridNavigationTests \
+  -only-testing:RawCullTests/ZoomOverlayKeyActionTests \
+  -only-testing:RawCullTests/ComparisonSessionModelTests \
+  -only-testing:RawCullTests/ComparisonGridImageCoordinatorTests
+```
+
+The dedicated 3.4 run also passed `ComparisonGridDisplayStateTests`. The complete `RawCullTests` section gate remains scheduled after commit 3.9, as required below.
+
+#### Commit 3.1 — Freeze Comparison Grid behavior with characterization tests — completed
 
 Extend the existing focused suites before moving ownership:
 
@@ -113,25 +139,25 @@ Extend the existing focused suites before moving ownership:
 
 Cover rapid selection changes and out-of-order async completion. No production types move in this commit.
 
-#### Commit 3.2 — Add the `ComparisonSessionModel` shell
+#### Commit 3.2 — Add the `ComparisonSessionModel` shell — completed
 
 Create a `@MainActor @Observable` session owned privately by `ComparisonGridView` through `@State`. Inject its loader, cache, and other services through its initializer. Initially move only construction, dependency storage, and lifecycle entry points; keep rendering unchanged.
 
 The session must expose narrow intents such as `select`, `reload`, `moveSelection`, and `cancel`, rather than exposing mutable task dictionaries. Keep hover, disclosure, and other purely visual state in the view.
 
-#### Commit 3.3 — Move per-file load state and generation ownership
+#### Commit 3.3 — Move per-file load state and generation ownership — completed
 
 Move per-file image state, viewport state where applicable, task handles, and generation tokens from `ComparisonGridView` into `ComparisonSessionModel`. Preserve the rule that stale work cannot overwrite a newer selection or generation.
 
 Update tests to drive the session directly with deterministic fake loaders. Commit only when cancellation and stale-result tests pass without rendering a SwiftUI view.
 
-#### Commit 3.4 — Move navigation and display-state mapping
+#### Commit 3.4 — Move navigation and display-state mapping — completed
 
 Have the session produce immutable presentation values for the view and own navigation policy. Reuse the existing `ComparisonGridNavigation` and `ComparisonGridDisplayState` types where they remain good boundaries; do not duplicate their rules inside the new session.
 
 Reduce `ComparisonGridView` to rendering those values and forwarding actions. Extract substantial visual regions into real `View` structs with narrow inputs where doing so reduces invalidation scope. Do not move files or rename unrelated symbols in this commit.
 
-#### Commit 3.5 — Extract shared image-review policies
+#### Commit 3.5 — Extract shared image-review policies — completed
 
 From the proven comparison implementation, extract small independent policies for the behavior duplicated across image-review surfaces:
 
