@@ -40,6 +40,7 @@ nonisolated enum LoupeImageKeyAction: Equatable {
 
 struct MainThumbnailImageView: View {
     @Environment(RawCullViewModel.self) private var viewModel
+    @State private var session = LoupeSessionModel()
 
     private var focusPoints: [FocusPoint]? {
         viewModel.getFocusPoints()
@@ -49,15 +50,7 @@ struct MainThumbnailImageView: View {
     let file: FileItem?
     let semanticSearchFeature: RawCullSemanticSearchFeature
 
-    @State private var image: NSImage?
     @State private var thumbnailSizePreview: Int?
-    @State private var sourceSelection = ImageSourceSelectionState()
-    @State private var embeddedJPGImage: CGImage?
-    @State private var developedRAWImage: CGImage?
-    @State private var isLoadingSource = false
-    @State private var sourceTask: Task<Void, Never>?
-    @State private var showRAWNotSupported = false
-    @State private var rawMessageTask: Task<Void, Never>?
 
     @State private var showFocusPoints = false
 
@@ -179,7 +172,10 @@ struct MainThumbnailImageView: View {
                                     showShortcutHints: true,
                                     showImageSourceToggle: true,
                                     useThumbnailSource: useThumbnailSourceBinding,
-                                    imageSourceSelection: $sourceSelection,
+                                    imageSourceSelection: Binding(
+                                        get: { session.sourceSelection },
+                                        set: { session.sourceSelection = $0 },
+                                    ),
                                     scale: viewModel.scale,
                                     canZoomOut: viewModel.scale > ImageReviewViewportPolicy.loupe.minimumScale,
                                     canZoomIn: viewModel.scale < ImageReviewViewportPolicy.loupe.maximumScale,
@@ -279,14 +275,14 @@ struct MainThumbnailImageView: View {
                 isGeneratingFocusMask = false
             }
         }
-        .onChange(of: sourceSelection.selected) { _, _ in
+        .onChange(of: session.sourceSelection.selected) { _, _ in
             // Preserve the normalized mask while the same photo is redrawn.
             cancelFocusMaskGeneration()
             loadSelectedSourceIfNeeded()
         }
-        .onChange(of: image) { _, newImage in
+        .onChange(of: session.thumbnailImage) { _, newImage in
             guard newImage != nil,
-                  sourceSelection.selected == .thumbnail,
+                  session.sourceSelection.selected == .thumbnail,
                   showFocusMask else { return }
             generateFocusMaskIfNeeded()
         }
@@ -304,16 +300,13 @@ struct MainThumbnailImageView: View {
                 isGeneratingFocusMask = true
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
-                await regenerateMask(for: sourceSelection.selected)
+                await regenerateMask(for: session.sourceSelection.selected)
                 isGeneratingFocusMask = false
             }
         }
         .onChange(of: url) { _, _ in
             installSubjectOutlineKeyMonitor()
-            resetSourceImages()
-            image = nil
-            sourceSelection.resetForNewImage()
-            clearRAWMessage()
+            session.resetForNewImage()
             resetFocusMaskImage()
             loadSelectedSourceIfNeeded()
         }
@@ -322,17 +315,13 @@ struct MainThumbnailImageView: View {
             maskTask?.cancel()
             maskTask = nil
             isGeneratingFocusMask = false
-            sourceTask?.cancel()
-            sourceTask = nil
-            rawMessageTask?.cancel()
-            rawMessageTask = nil
-            isLoadingSource = false
+            session.cancel()
         }
     }
 
     @ViewBuilder
     private func displayedImageContent(thumbnailSizePreview: Int) -> some View {
-        switch sourceSelection.selected {
+        switch session.sourceSelection.selected {
         case .thumbnail:
             ThumbnailImageView(
                 url: url,
@@ -340,15 +329,18 @@ struct MainThumbnailImageView: View {
                 style: .list,
                 showsShimmer: false,
                 contentMode: .fit,
-                image: $image,
+                image: Binding(
+                    get: { session.thumbnailImage },
+                    set: { session.thumbnailImage = $0 },
+                ),
             )
 
         case .embeddedJPG:
-            if let embeddedJPGImage {
+            if let embeddedJPGImage = session.embeddedJPGImage {
                 Image(decorative: embeddedJPGImage, scale: 1.0, orientation: .up)
                     .resizable()
                     .scaledToFit()
-            } else if isLoadingSource {
+            } else if session.isLoadingSource {
                 ProgressView()
                     .fixedSize()
             } else {
@@ -362,7 +354,7 @@ struct MainThumbnailImageView: View {
             }
 
         case .developedRAW:
-            if let developedRAWImage {
+            if let developedRAWImage = session.developedRAWImage {
                 Image(decorative: developedRAWImage, scale: 1.0, orientation: .up)
                     .resizable()
                     .scaledToFit()
@@ -374,40 +366,37 @@ struct MainThumbnailImageView: View {
     }
 
     private var currentDisplayedImage: NSImage? {
-        if sourceSelection.selected == .embeddedJPG, let embeddedJPGImage {
+        if session.sourceSelection.selected == .embeddedJPG, let embeddedJPGImage = session.embeddedJPGImage {
             return NSImage(
                 cgImage: embeddedJPGImage,
                 size: NSSize(width: embeddedJPGImage.width, height: embeddedJPGImage.height),
             )
         }
-        if sourceSelection.selected == .developedRAW, let developedRAWImage {
+        if session.sourceSelection.selected == .developedRAW, let developedRAWImage = session.developedRAWImage {
             return NSImage(cgImage: developedRAWImage, size: .zero)
         }
-        return image
+        return session.thumbnailImage
     }
 
     private var currentImageSize: NSSize? {
-        if sourceSelection.selected == .embeddedJPG, let embeddedJPGImage {
+        if session.sourceSelection.selected == .embeddedJPG, let embeddedJPGImage = session.embeddedJPGImage {
             return NSSize(width: embeddedJPGImage.width, height: embeddedJPGImage.height)
         }
-        if sourceSelection.selected == .developedRAW, let developedRAWImage {
+        if session.sourceSelection.selected == .developedRAW, let developedRAWImage = session.developedRAWImage {
             return NSSize(width: developedRAWImage.width, height: developedRAWImage.height)
         }
-        return image?.size
+        return session.thumbnailImage?.size
     }
 
     private var useThumbnailSourceBinding: Binding<Bool> {
         Binding(
-            get: { sourceSelection.selected == .thumbnail },
-            set: { sourceSelection.select($0 ? .thumbnail : .embeddedJPG) },
+            get: { session.sourceSelection.selected == .thumbnail },
+            set: { session.selectSource($0 ? .thumbnail : .embeddedJPG) },
         )
     }
 
     private var sourcePresentation: ImageReviewSourcePresentation {
-        ImageReviewSourcePresentation(
-            selection: sourceSelection,
-            showsDevelopedRAWFailure: showRAWNotSupported,
-        )
+        session.sourcePresentation
     }
 
     private func handleKeyAction(_ action: LoupeImageKeyAction?) -> KeyPress.Result {
@@ -428,11 +417,11 @@ struct MainThumbnailImageView: View {
             return .handled
 
         case .toggleEmbeddedJPG:
-            sourceSelection.toggleExtractionSource(.embeddedJPG)
+            session.toggleSource(.embeddedJPG)
             return .handled
 
         case .toggleDevelopedRAW:
-            sourceSelection.toggleExtractionSource(.developedRAW)
+            session.toggleSource(.developedRAW)
             return .handled
 
         case .toggleFocusMask:
@@ -488,29 +477,22 @@ struct MainThumbnailImageView: View {
     }
 
     private func loadSelectedSourceIfNeeded() {
-        sourceTask?.cancel()
-        sourceTask = nil
-
-        let requestedSource = sourceSelection.selected
+        let requestedSource = session.sourceSelection.selected
         guard requestedSource != .thumbnail else {
-            isLoadingSource = false
             if showFocusMask {
                 generateFocusMaskIfNeeded()
             }
             return
         }
-        if hasLoadedImage(for: requestedSource) {
-            isLoadingSource = false
+        if session.hasLoadedImage(for: requestedSource) {
             if showFocusMask {
                 generateFocusMaskIfNeeded()
             }
             return
         }
 
-        isLoadingSource = true
-        sourceTask = Task {
-            do {
-                let loadedImage: CGImage? = switch requestedSource {
+        session.beginSourceLoad { source in
+            switch source {
                 case .thumbnail:
                     nil
 
@@ -519,38 +501,7 @@ struct MainThumbnailImageView: View {
 
                 case .developedRAW:
                     try await ZoomPreviewHandler.loadDevelopedRAWPreview(for: url)
-                }
-                guard !Task.isCancelled, sourceSelection.selected == requestedSource else { return }
-                if requestedSource == .embeddedJPG {
-                    embeddedJPGImage = loadedImage
-                } else {
-                    developedRAWImage = loadedImage
-                }
-                isLoadingSource = false
-                if showFocusMask {
-                    generateFocusMaskIfNeeded()
-                }
-            } catch is CancellationError {
-                return
-            } catch {
-                guard sourceSelection.selected == .developedRAW else { return }
-                isLoadingSource = false
-                sourceSelection.markDevelopedRAWUnavailable()
-                showRAWFailureMessage()
             }
-        }
-    }
-
-    private func hasLoadedImage(for source: ImagePreviewSource) -> Bool {
-        switch source {
-        case .thumbnail:
-            image != nil
-
-        case .embeddedJPG:
-            embeddedJPGImage != nil
-
-        case .developedRAW:
-            developedRAWImage != nil
         }
     }
 
@@ -592,7 +543,7 @@ struct MainThumbnailImageView: View {
     // MARK: - Regenerate Mask
 
     private func generateFocusMaskIfNeeded() {
-        let previewSource = sourceSelection.selected
+        let previewSource = session.sourceSelection.selected
         guard focusMaskSourceURL != url
             || focusMaskPreviewSource != previewSource
             || focusMask == nil
@@ -620,7 +571,7 @@ struct MainThumbnailImageView: View {
             evidence: file.flatMap { viewModel.sharpnessModel.breakdowns[$0.id]?.focusEvidence },
         )
         guard !Task.isCancelled,
-              sourceSelection.selected == requestedSource
+              session.sourceSelection.selected == requestedSource
         else { return }
         await MainActor.run {
             self.focusMask = mask
@@ -650,27 +601,4 @@ struct MainThumbnailImageView: View {
         isGeneratingFocusMask = false
     }
 
-    private func resetSourceImages() {
-        sourceTask?.cancel()
-        sourceTask = nil
-        embeddedJPGImage = nil
-        developedRAWImage = nil
-        isLoadingSource = false
-    }
-
-    private func showRAWFailureMessage() {
-        rawMessageTask?.cancel()
-        withAnimation { showRAWNotSupported = true }
-        rawMessageTask = Task {
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-            withAnimation { showRAWNotSupported = false }
-        }
-    }
-
-    private func clearRAWMessage() {
-        rawMessageTask?.cancel()
-        rawMessageTask = nil
-        showRAWNotSupported = false
-    }
 }
