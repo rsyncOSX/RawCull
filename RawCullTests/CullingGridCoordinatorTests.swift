@@ -206,41 +206,33 @@ struct CullingGridCoordinatorTests {
     }
 
     @Test(.tags(.smoke))
-    func `burst view lists ranked files in priority order and clean view limits results`() {
+    func `burst view lists every file in ranked priority order`() {
         let first = makeGridTestFile("first.ARW")
         let second = makeGridTestFile("second.ARW")
         let third = makeGridTestFile("third.ARW")
         let fourth = makeGridTestFile("fourth.ARW")
 
-        let collapsed = BurstGroupCleanViewPolicy.visibleFiles(
+        let visible = BurstGroupFileOrderPolicy.orderedFiles(
             in: [first, second, third, fourth],
-            rankedFileIDs: [third.id, first.id, fourth.id, second.id],
-            isCollapsed: true,
-        )
-        let expanded = BurstGroupCleanViewPolicy.visibleFiles(
-            in: [first, second, third, fourth],
-            rankedFileIDs: [third.id, first.id, fourth.id, second.id],
-            isCollapsed: false,
+            rankedFileIDs: [third.id, first.id, fourth.id, second.id]
         )
 
-        #expect(collapsed.map(\.id) == [third.id, first.id, fourth.id])
-        #expect(expanded.map(\.id) == [third.id, first.id, fourth.id, second.id])
+        #expect(visible.map(\.id) == [third.id, first.id, fourth.id, second.id])
     }
 
     @Test
-    func `clean view fills missing rankings in original order`() {
+    func `burst view appends every unranked file in original order`() {
         let first = makeGridTestFile("first.ARW")
         let second = makeGridTestFile("second.ARW")
         let third = makeGridTestFile("third.ARW")
         let fourth = makeGridTestFile("fourth.ARW")
 
-        let visible = BurstGroupCleanViewPolicy.visibleFiles(
+        let visible = BurstGroupFileOrderPolicy.orderedFiles(
             in: [first, second, third, fourth],
-            rankedFileIDs: [third.id],
-            isCollapsed: true,
+            rankedFileIDs: [third.id]
         )
 
-        #expect(visible.map(\.id) == [third.id, first.id, second.id])
+        #expect(visible.map(\.id) == [third.id, first.id, second.id, fourth.id])
     }
 
     @Test

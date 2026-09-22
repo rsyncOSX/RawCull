@@ -29,9 +29,6 @@ private struct BurstGroupHeaderView: View {
     let groupNumber: Int
     let files: [FileItem]
     let analysis: BurstAnalysisResult?
-    let isCollapsed: Bool
-    let hiddenCount: Int
-    let onToggleCollapsed: () -> Void
     let onReviewed: (Int) -> Void
     let onDeferred: (Int) -> Void
     @Bindable var viewModel: RawCullViewModel
@@ -46,28 +43,12 @@ private struct BurstGroupHeaderView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: onToggleCollapsed) {
-                Label(
-                    isCollapsed ? "Expand burst" : "Collapse burst",
-                    systemImage: isCollapsed ? "chevron.right" : "chevron.down",
-                )
-                .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.plain)
-            .help(isCollapsed ? "Show every frame in this burst" : "Show only the top three ranked frames")
-
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text("Burst \(groupNumber.formatted(.number.precision(.integerLength(2))))")
                     .font(.headline)
                 Text("\(files.count) frames")
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
-                if isCollapsed, hiddenCount > 0 {
-                    Text("·  +\(hiddenCount) more")
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .accessibilityLabel("\(hiddenCount) more frames hidden")
-                }
             }
 
             Spacer(minLength: 12)
@@ -202,9 +183,6 @@ struct CullingGridView<Header: View>: View {
 
     @State private var ratingFilter: GridRatingFilter = .all
     @State private var batchRating: Int = 3
-    @State private var cleanViewEnabled: Bool = true
-    @State private var expandedBurstGroupIDs: Set<Int> = []
-    @State private var collapsedBurstGroupIDs: Set<Int> = []
 
     // ── Burst-mode render cache ──────────────────────────────────────────
     // Recomputed only when `gridCacheKey` changes, so hover/selection
@@ -224,14 +202,6 @@ struct CullingGridView<Header: View>: View {
                         onSelectBadge: selectFiles(matchingBadge:),
                         onApplyRating: applyBatchRating,
                     )
-                }
-                if viewModel.showsBurstGroups {
-                    Toggle(isOn: $cleanViewEnabled) {
-                        Label("Clean View", systemImage: "rectangle.3.group")
-                    }
-                    .toggleStyle(.button)
-                    .controlSize(.small)
-                    .help("Show only the top three ranked frames in each burst")
                 }
                 Spacer()
             }
@@ -435,10 +405,9 @@ struct CullingGridView<Header: View>: View {
     private var renderedBurstGroups: [CullingGridVisibleBurstGroup] {
         visibleBurstGroups.compactMap { group in
             let analysis = viewModel.burstAnalysisResult(for: group.id)
-            let shownFiles = BurstGroupCleanViewPolicy.visibleFiles(
+            let shownFiles = BurstGroupFileOrderPolicy.orderedFiles(
                 in: group.files,
-                rankedFileIDs: analysis?.candidates.map(\.fileID) ?? [],
-                isCollapsed: isBurstGroupCollapsed(group.id),
+                rankedFileIDs: analysis?.candidates.map(\.fileID) ?? []
             )
             guard !shownFiles.isEmpty else { return nil }
             return CullingGridVisibleBurstGroup(id: group.id, files: shownFiles)
@@ -550,81 +519,44 @@ struct CullingGridView<Header: View>: View {
 
     private func burstGroupCard(_ group: CullingGridVisibleBurstGroup, number: Int) -> some View {
         let analysis = viewModel.burstAnalysisResult(for: group.id)
-        let collapsed = isBurstGroupCollapsed(group.id)
-        let allFiles = visibleBurstGroups.first(where: { $0.id == group.id })?.files ?? group.files
 
         return VStack(alignment: .leading, spacing: 0) {
-            if allFiles.count > 1 {
+            if group.files.count > 1 {
                 BurstGroupHeaderView(
                     groupNumber: number,
-                    files: allFiles,
+                    files: group.files,
                     analysis: analysis,
-                    isCollapsed: collapsed,
-                    hiddenCount: allFiles.count - group.files.count,
-                    onToggleCollapsed: { toggleBurstGroup(group.id) },
                     onReviewed: markBurstGroupReviewed,
                     onDeferred: deferBurstGroup,
                     viewModel: viewModel,
                 )
             }
 
-            if !collapsed || cleanViewEnabled {
-                Divider()
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: 12) {
-                        ForEach(group.files, id: \.id) { file in
-                            burstCell(file: file)
-                                .id(file.id)
-                        }
+            Divider()
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 12) {
+                    ForEach(group.files, id: \.id) { file in
+                        burstCell(file: file)
+                            .id(file.id)
                     }
-                    .padding(16)
                 }
-                .scrollIndicators(.hidden)
+                .padding(16)
             }
+            .scrollIndicators(.hidden)
         }
         .background(.quaternary.opacity(0.45), in: .rect(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(.separator.opacity(0.55), lineWidth: 1)
         }
-        .animation(.easeInOut(duration: 0.18), value: collapsed)
-    }
-
-    private func isBurstGroupCollapsed(_ groupID: Int) -> Bool {
-        cleanViewEnabled
-            ? !expandedBurstGroupIDs.contains(groupID)
-            : collapsedBurstGroupIDs.contains(groupID)
-    }
-
-    private func toggleBurstGroup(_ groupID: Int) {
-        if cleanViewEnabled {
-            if expandedBurstGroupIDs.contains(groupID) {
-                expandedBurstGroupIDs.remove(groupID)
-            } else {
-                expandedBurstGroupIDs.insert(groupID)
-            }
-        } else if collapsedBurstGroupIDs.contains(groupID) {
-            collapsedBurstGroupIDs.remove(groupID)
-        } else {
-            collapsedBurstGroupIDs.insert(groupID)
-        }
     }
 
     private func markBurstGroupReviewed(_ groupID: Int) {
-        let isActive = viewModel.toggleBurstGroupReviewed(groupID: groupID)
-        if isActive {
-            expandedBurstGroupIDs.remove(groupID)
-            collapsedBurstGroupIDs.insert(groupID)
-        } else {
-            collapsedBurstGroupIDs.remove(groupID)
-            expandedBurstGroupIDs.insert(groupID)
-        }
+        viewModel.toggleBurstGroupReviewed(groupID: groupID)
     }
 
     private func deferBurstGroup(_ groupID: Int) {
         viewModel.toggleBurstGroupDeferred(groupID: groupID)
-        collapsedBurstGroupIDs.remove(groupID)
-        expandedBurstGroupIDs.insert(groupID)
     }
 
     private func handleBurstKeyPress(_ characters: String) -> KeyPress.Result {
