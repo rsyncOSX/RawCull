@@ -639,6 +639,40 @@ struct CullingGridCoordinatorTests {
         #expect(viewModel.reviewStateSnapshots(catalog: catalog, files: [first, second]).isEmpty)
     }
 
+    @Test(.tags(.smoke))
+    func `reviewed and deferred groups leave the needs review queue immediately`() {
+        let reviewedFiles = [makeGridTestFile("reviewed-first.ARW"), makeGridTestFile("reviewed-second.ARW")]
+        let deferredFiles = [makeGridTestFile("deferred-first.ARW"), makeGridTestFile("deferred-second.ARW")]
+        let viewModel = makeRawCullViewModel()
+        viewModel.similarityModel.burstGroups = [
+            BurstGroup(id: 1, fileIDs: reviewedFiles.map(\.id)),
+            BurstGroup(id: 2, fileIDs: deferredFiles.map(\.id))
+        ]
+        viewModel.burstAnalysisResults = [
+            1: makeReviewQueueResult(
+                groupID: 1,
+                fileIDs: reviewedFiles.map(\.id),
+                confidence: .low,
+            ),
+            2: makeReviewQueueResult(
+                groupID: 2,
+                fileIDs: deferredFiles.map(\.id),
+                confidence: .low,
+            )
+        ]
+        viewModel.burstReviewQueueFilter = .needsReview
+
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [1, 2])
+
+        viewModel.markBurstGroupReviewed(groupID: 1)
+
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.map(\.id) == [2])
+
+        viewModel.deferBurstGroup(groupID: 2)
+
+        #expect(viewModel.filteredBurstGroupsForReviewQueue.isEmpty)
+    }
+
     @Test
     func `singleton groups have a separate queue from all bursts`() {
         let viewModel = makeRawCullViewModel()

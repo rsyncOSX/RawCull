@@ -534,7 +534,10 @@ struct CullingGridView<Header: View>: View {
 
             Divider()
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 12) {
+                // An eager stack gives the horizontal scroll view a stable intrinsic
+                // height while its card is hosted in the outer LazyVStack. A nested
+                // LazyHStack can remain unrealized and collapse the row to its header.
+                HStack(spacing: 12) {
                     ForEach(group.files, id: \.id) { file in
                         burstCell(file: file)
                             .id(file.id)
