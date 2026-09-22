@@ -37,16 +37,18 @@ struct BurstCullingWorkspaceView: View {
     @Bindable var viewModel: RawCullViewModel
     let groupID: Int
     let onCompare: () -> Void
+    @State private var session = BurstWorkspaceSessionModel()
 
-    @State private var imageCache: [BurstFrameCacheKey: ComparisonImageState] = [:]
-    @State private var viewportState = ComparisonViewportInteractionState()
-    @State private var sourceSelection = ImageSourceSelectionState(initialSource: .embeddedJPG)
-    @State private var showSubjectOutline = false
-    @State private var subjectOutline: CGImage?
-    @State private var subjectOutlineFileID: FileItem.ID?
-    @State private var overlayKeyMonitor: Any?
-    @State private var focusConfigurationRevision = 0
     @FocusState private var isFocused: Bool
+
+    private var imageCache: [BurstFrameCacheKey: ComparisonImageState] { get { session.imageCache } nonmutating set { session.imageCache = newValue } }
+    private var viewportState: ComparisonViewportInteractionState { get { session.viewportState } nonmutating set { session.viewportState = newValue } }
+    private var sourceSelection: ImageSourceSelectionState { get { session.sourceSelection } nonmutating set { session.sourceSelection = newValue } }
+    private var showSubjectOutline: Bool { get { session.showSubjectOutline } nonmutating set { session.showSubjectOutline = newValue } }
+    private var subjectOutline: CGImage? { get { session.subjectOutline } nonmutating set { session.subjectOutline = newValue } }
+    private var subjectOutlineFileID: FileItem.ID? { get { session.subjectOutlineFileID } nonmutating set { session.subjectOutlineFileID = newValue } }
+    private var overlayKeyMonitor: Any? { get { session.overlayKeyMonitor } nonmutating set { session.overlayKeyMonitor = newValue } }
+    private var focusConfigurationRevision: Int { session.focusConfigurationRevision }
 
     private var subjectOutlineTaskID: ImageReviewSubjectOutlineRequestContext {
         ImageReviewSubjectOutlineRequestContext(
@@ -94,7 +96,7 @@ struct BurstCullingWorkspaceView: View {
             selectFirstFileIfNeeded()
             installOverlayKeyMonitor()
         }
-        .onDisappear { removeOverlayKeyMonitor() }
+        .onDisappear { session.cancel() }
         .onKeyPress(.leftArrow) { navigate(by: -1); return .handled }
         .onKeyPress(.rightArrow) { navigate(by: 1); return .handled }
         .onKeyPress(.escape) { viewModel.returnToActiveBurstGroupView(); return .handled }
@@ -112,18 +114,11 @@ struct BurstCullingWorkspaceView: View {
             await analyzeFocusIfNeeded(for: selectedFile, source: sourceSelection.selected)
         }
         .onChange(of: viewModel.sharpnessModel.effectiveFocusConfig) { _, _ in
-            for key in imageCache.keys {
-                imageCache[key]?.focusMask = nil
-                imageCache[key]?.isFocusAnalysisComplete = false
-            }
-            focusConfigurationRevision += 1
+            session.invalidateFocusAnalysis()
         }
         .onChange(of: groupID) { _, _ in
             installOverlayKeyMonitor()
-            showSubjectOutline = false
-            imageCache = [:]
-            viewportState = ComparisonViewportInteractionState()
-            sourceSelection.resetForNewImage()
+            session.resetForGroupChange()
             selectFirstFileIfNeeded()
         }
     }
@@ -216,7 +211,7 @@ struct BurstCullingWorkspaceView: View {
                     file: selectedFile,
                     state: imageState,
                     focusPoints: focusPoints(for: selectedFile),
-                    viewportState: $viewportState,
+                    viewportState: Binding(get: { viewportState }, set: { viewportState = $0 }),
                     useThumbnailSource: thumbnailSourceBinding,
                     isSelected: true,
                     rating: ratingDisplay(for: selectedFile),
@@ -497,8 +492,8 @@ struct BurstCullingWorkspaceView: View {
         }
 
         let source = sourceSelection.selected
-        let windowFiles = BurstFrameCachePolicy.indices(
-            around: selectedIndex,
+        let windowFiles = session.cachedWindowIndices(
+            selectedIndex: selectedIndex,
             itemCount: files.count,
         ).map { files[$0] }
         let retainedKeys = Set(windowFiles.map { cacheKey(for: $0, source: source) })
