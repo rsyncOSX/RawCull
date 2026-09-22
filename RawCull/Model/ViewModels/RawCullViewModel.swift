@@ -80,7 +80,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var searchText = ""
     var selectedFileID: FileItem.ID?
     var previouslySelectedFileID: FileItem.ID?
-    var sortOrder = [KeyPathComparator(\FileItem.name)]
+    var sortOrder = FileItemSortDescriptor()
     var isShowingPicker = false
     var showsLoupeMetadataPanel = true
     var selectedFile: FileItem? {

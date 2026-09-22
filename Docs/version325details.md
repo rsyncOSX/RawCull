@@ -49,68 +49,54 @@ Also run any repository provenance-verification command documented alongside `Mo
 - Reference-only models are not required as production downloads or application-bundled licences.
 - All release-integrity tests pass.
 
-### 2. **Correctness hardening:** fix the rsync parse fallback and remove or tightly scope the blanket `KeyPath` unchecked `Sendable` conformance.
+### 2. **Correctness hardening — completed:** the rsync parse fallback is fail-safe and sort state no longer relies on unchecked `KeyPath` sendability.
 
-Complete the rsync correction first because it is a contained runtime defect. Address the concurrency escape hatch second, with a typed replacement rather than another application-wide unchecked conformance.
+This item is implemented. The contained parsing defect was corrected first, followed by replacement of key-path transport with a typed, finite `Sendable` sort description. No replacement unchecked wrapper or retroactive conformance was introduced.
 
-#### Commit 2.1 — Fix and test failed rsync-stat parsing
+#### Completed scope
 
-Add a regression test in `RawCullTests/ItemizedOutputTests.swift` or a new focused `RemoteDataNumbersTests.swift` that forces `getstats()` to fail. Assert every fallback value, with an explicit assertion that `datatosynchronize` is `false`.
-
-In the same commit, update `RawCull/Model/ParametersRsync/RemoteDataNumbers.swift` so the failure path cannot fall through into assignments from an invalid parser. Prefer either:
-
-- an immediate return after applying fallback values; or
-- parsing into a temporary result and assigning all stored properties only after a complete successful parse.
-
-The second form is preferable if it makes partial assignment impossible. Do not rename the existing properties in this commit; naming is handled in item 5.
-
-Verification:
-
-```text
-xcodebuild test -project RawCull.xcodeproj -scheme RawCull \
-  -destination 'platform=macOS' \
-  -only-testing:RawCullTests/ItemizedOutputTests
-```
-
-- Run the new failure-path test.
-- Run all rsync/copy result tests, including `ItemizedOutputTests`, `CopyCompletionTests`, and `ExecuteCopyFilesStartupTests`.
-
-#### Commit 2.2 — Introduce a sendable sort description
-
-Add a small `Sendable` value that represents the supported file sort choices. An enum such as `FileItemSortField`, combined with direction in a `FileItemSortDescriptor`, should cover only real application cases. Give it an explicit comparator or immutable sortable projection; do not store or transport a `KeyPath`.
-
-Add focused tests for every supported field, ascending and descending order, tie behavior, and empty/single-item input. Use stable tie-breaking where the current UI depends on stable ordering.
-
-Likely touch points include:
-
-- `RawCull/Main/RawCullMainView.swift`;
-- the scan/sort workflow under `RawCull/Actors` and `RawCull/Model/ViewModels`; and
-- `RawCullTests/ScanFilesSortAndFormatTests.swift`.
-
-This commit may introduce the typed API alongside the existing call path, but should not yet remove the old conformance.
-
-#### Commit 2.3 — Replace key-path transport and remove the blanket conformance
-
-Migrate the caller and worker to the typed sort description. Then delete:
+- Updated `RawCull/Model/ParametersRsync/RemoteDataNumbers.swift` so a `getstats()` failure applies explicit safe defaults and returns immediately. Invalid parser values can no longer overwrite the fallback state, and `datatosynchronize` remains `false`.
+- Added a malformed-summary regression test in `RawCullTests/ItemizedOutputTests.swift` that checks every parser-derived fallback value.
+- Added `FileItemSortField`, `FileItemSortDirection`, and `FileItemSortDescriptor` as finite `Sendable` values covering name, modification date, and size sorting.
+- Implemented explicit ascending and descending comparisons with stable input-order preservation when primary values tie.
+- Migrated `ScanFiles`, `RawCullViewModel`, and the culling refresh path from `KeyPathComparator` transport to `FileItemSortDescriptor`.
+- Removed the application-wide declaration:
 
 ```swift
 extension KeyPath: @unchecked @retroactive Sendable where Root == FileItem {}
 ```
 
-Do not replace it with a similarly broad conformance. If a narrow unchecked wrapper proves unavoidable, keep it private to the concrete sorting implementation, constrain its value type, document why it is safe, and add an actor-boundary test.
+- Extended `RawCullTests/ScanFilesSortAndFormatTests.swift` to cover every supported field and direction, stable ties, filtering after sorting, and empty and single-item inputs.
 
-Verification:
+#### Copy-engine decision
 
-- Run `ScanFilesSortAndFormatTests` and relevant concurrency tests.
-- Build with Swift concurrency diagnostics enabled by the project configuration.
-- Run the complete `RawCullTests` target before starting item 3.
+Keep `/usr/bin/rsync` for the 3.2.5 correctness release. The current copy path invokes the executable without a shell, supplies selected paths through a NUL-separated `--files-from` list, supports dry runs, progress and cancellation, and uses process outcome rather than parsed statistics to decide success. Replacing it in this section would mix a copy-engine rewrite into two contained correctness fixes.
 
-#### Exit criteria
+A native staged-copy engine remains a worthwhile follow-up. It should copy each file to a unique temporary item on the destination volume, validate the result, and publish it atomically with an explicit collision policy. That design can remove human-readable rsync-stat parsing and avoid the potentially surprising `--update` rule, but it requires separate characterization of cancellation, progress, metadata preservation, existing-file handling, partial-copy cleanup, security-scoped access, and cross-volume behavior.
 
-- Failed rsync-stat parsing leaves all documented safe defaults intact.
-- No global retroactive `KeyPath` `Sendable` conformance remains.
-- Sort behavior is represented by a finite, testable, sendable domain type.
-- The complete test target passes.
+#### Verification completed
+
+The focused verification passed with Swift 6, complete strict-concurrency checking, MainActor default isolation, and Approachable Concurrency enabled:
+
+```text
+xcodebuild test -project RawCull.xcodeproj -scheme RawCull \
+  -destination 'platform=macOS' \
+  -only-testing:RawCullTests/ItemizedOutputTests \
+  -only-testing:RawCullTests/ScanFilesSortTests \
+  -only-testing:RawCullTests/CopyCompletionTests \
+  -only-testing:RawCullTests/ExecuteCopyFilesStartupTests
+```
+
+This includes the malformed-stat fallback, all typed sort cases, copy startup behavior, filename-literal handling, and the real-rsync completion test.
+
+The complete `RawCullTests` target was also run. The item 2 tests pass; the target remains red only in pre-existing `ReleaseMetadataTests` assertions, including the test that expects marketing version `3.2.4` while the project is `3.2.5`, plus README package-pin assertions. Those release-metadata failures are outside this correctness-hardening change and must be reconciled before the release-wide completion gate.
+
+#### Exit criteria status
+
+- Completed: failed rsync-stat parsing leaves all documented safe defaults intact.
+- Completed: no global retroactive `KeyPath` `Sendable` conformance remains.
+- Completed: sort behavior is represented by a finite, testable, sendable domain type.
+- Pending at the release level: the complete test target is blocked only by the unrelated release-metadata assertions described above.
 
 ### 3. **First modular extraction:** introduce a session model for one image-review path (preferably `ComparisonGridView`, whose task-generation logic is already cohesive and tested), then reuse the extracted policies in Loupe and burst review.
 

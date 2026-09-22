@@ -39,7 +39,7 @@ struct ScanFilesSortTests {
 
         let sorted = await ScanFiles.sortFiles(
             files,
-            by: [KeyPathComparator(\FileItem.name)],
+            by: FileItemSortDescriptor(field: .name),
             searchText: "",
         )
 
@@ -56,11 +56,28 @@ struct ScanFilesSortTests {
 
         let sorted = await ScanFiles.sortFiles(
             files,
-            by: [KeyPathComparator(\FileItem.dateModified, order: .reverse)],
+            by: FileItemSortDescriptor(field: .dateModified, direction: .descending),
             searchText: "",
         )
 
         #expect(fileNames(sorted) == ["recent.ARW", "middle.ARW", "old.ARW"])
+    }
+
+    @Test
+    func `sortFiles sorts by date ascending`() async {
+        let files = [
+            makeSortTestFile(name: "recent.ARW", size: 30, date: recent),
+            makeSortTestFile(name: "old.ARW", size: 10, date: old),
+            makeSortTestFile(name: "middle.ARW", size: 20, date: middle)
+        ]
+
+        let sorted = await ScanFiles.sortFiles(
+            files,
+            by: FileItemSortDescriptor(field: .dateModified),
+            searchText: "",
+        )
+
+        #expect(fileNames(sorted) == ["old.ARW", "middle.ARW", "recent.ARW"])
     }
 
     @Test
@@ -73,7 +90,7 @@ struct ScanFilesSortTests {
 
         let sorted = await ScanFiles.sortFiles(
             files,
-            by: [KeyPathComparator(\FileItem.size)],
+            by: FileItemSortDescriptor(field: .size),
             searchText: "",
         )
 
@@ -90,7 +107,7 @@ struct ScanFilesSortTests {
 
         let sorted = await ScanFiles.sortFiles(
             files,
-            by: [KeyPathComparator(\FileItem.name)],
+            by: FileItemSortDescriptor(field: .name),
             searchText: "ARW",
         )
 
@@ -107,10 +124,60 @@ struct ScanFilesSortTests {
 
         let sorted = await ScanFiles.sortFiles(
             files,
-            by: [KeyPathComparator(\FileItem.name)],
+            by: FileItemSortDescriptor(field: .name),
             searchText: "bird",
         )
 
         #expect(fileNames(sorted) == ["bird-close.ARW", "bird-wide.NEF"])
+    }
+
+    @Test(arguments: [
+        FileItemSortField.name,
+        .dateModified,
+        .size,
+    ])
+    func `sortFiles supports descending order for every field`(field: FileItemSortField) async {
+        let files = [
+            makeSortTestFile(name: "a.ARW", size: 10, date: old),
+            makeSortTestFile(name: "b.ARW", size: 20, date: middle),
+            makeSortTestFile(name: "c.ARW", size: 30, date: recent)
+        ]
+
+        let sorted = await ScanFiles.sortFiles(
+            files,
+            by: FileItemSortDescriptor(field: field, direction: .descending),
+            searchText: "",
+        )
+
+        #expect(fileNames(sorted) == ["c.ARW", "b.ARW", "a.ARW"])
+    }
+
+    @Test
+    func `sortFiles preserves input order when field values tie`() async {
+        let files = [
+            makeSortTestFile(name: "first.ARW", size: 10, date: old),
+            makeSortTestFile(name: "second.ARW", size: 10, date: middle),
+            makeSortTestFile(name: "third.ARW", size: 10, date: recent)
+        ]
+
+        let sorted = await ScanFiles.sortFiles(
+            files,
+            by: FileItemSortDescriptor(field: .size, direction: .descending),
+            searchText: "",
+        )
+
+        #expect(fileNames(sorted) == ["first.ARW", "second.ARW", "third.ARW"])
+    }
+
+    @Test
+    func `sortFiles handles empty and single-item input`() async {
+        let descriptor = FileItemSortDescriptor(field: .dateModified)
+        let file = makeSortTestFile(name: "only.ARW", size: 10, date: old)
+
+        let empty = await ScanFiles.sortFiles([], by: descriptor, searchText: "")
+        let single = await ScanFiles.sortFiles([file], by: descriptor, searchText: "")
+
+        #expect(empty.isEmpty)
+        #expect(fileNames(single) == ["only.ARW"])
     }
 }

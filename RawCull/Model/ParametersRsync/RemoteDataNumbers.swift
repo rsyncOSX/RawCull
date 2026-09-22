@@ -63,6 +63,7 @@ struct RemoteDataNumbers: Identifiable, Hashable {
         newfilesInt = 0
         deletefilesInt = 0
         totaltransferredfilessizeInt = 0
+        totaltransferredfilessize = "0"
         totalfilesizeInt = 0
         numberoffiles = "0"
         totalfilesize = "0"
@@ -107,6 +108,7 @@ struct RemoteDataNumbers: Identifiable, Hashable {
                 Logger.process.errorMessageOnly("RemoteDataNumbers: getstats() FAILED - \(error.localizedDescription)")
                 // Ensure sane defaults when stats parsing fails
                 self.defaultvalues()
+                return
             }
 
             filestransferred = parsersyncoutput.formatted_filestransferred
