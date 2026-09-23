@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct RawCullMainView: View {
     @Environment(\.openWindow) var openWindow
-    @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
+    @Environment(GridThumbnailViewModel.self) var gridThumbnailViewModel
 
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
@@ -165,13 +165,13 @@ struct RawCullMainView: View {
         }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
-                gridthumbnailviewmodel.open(
+                gridThumbnailViewModel.open(
                     cullingModel: viewModel.cullingModel,
                     selectedSource: viewModel.selectedSource,
                     filteredFiles: viewModel.filteredFiles,
                 )
             } else {
-                gridthumbnailviewmodel.close()
+                gridThumbnailViewModel.close()
             }
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { oldGroupID, newGroupID in
