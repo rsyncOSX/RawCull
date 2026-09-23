@@ -123,7 +123,7 @@ struct RawCullViewModelSecurityScopeTests {
         viewModel.stopSecurityScopedResource = { stopped.append($0) }
 
         viewModel.selectedSource = source
-        viewModel.currentselectedSource = source
+        viewModel.currentSelectedSource = source
         viewModel.activeCatalogLoadURL = url
         #expect(viewModel.startSecurityScopedAccess(for: url))
 
@@ -132,7 +132,7 @@ struct RawCullViewModelSecurityScopeTests {
         #expect(viewModel.files.isEmpty)
         #expect(viewModel.filteredFiles.isEmpty)
         #expect(!viewModel.scanning)
-        #expect(viewModel.currentselectedSource == nil)
+        #expect(viewModel.currentSelectedSource == nil)
         #expect(viewModel.activeCatalogLoadURL == nil)
         #expect(!viewModel.hasActiveSecurityScopedAccess(for: url))
         #expect(stopped == [url])

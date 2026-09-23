@@ -9,12 +9,12 @@ extension RawCullViewModel {
     func startCatalogLoad(for source: ARWSourceCatalog?) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if let url = source?.url,
-           currentselectedSource == source,
+           currentSelectedSource == source,
            hasActiveSecurityScopedAccess(for: url) {
             return
         }
 
-        let previousSource = currentselectedSource
+        let previousSource = currentSelectedSource
         catalogTransitionTask?.cancel()
         catalogTransitionTask = Task {
             guard await cullingModel.flushPersistence() else {
@@ -36,7 +36,7 @@ extension RawCullViewModel {
 
         cancelCatalogLoad()
         similarityCatalogGeneration &+= 1
-        currentselectedSource = source
+        currentSelectedSource = source
         resetCatalogWorkingSet()
         scanning = source != nil
 
@@ -63,7 +63,7 @@ extension RawCullViewModel {
         similarityFeature.cancelHydration()
         similarityCatalogGeneration &+= 1
         activeCatalogLoadURL = nil
-        currentselectedSource = nil
+        currentSelectedSource = nil
         cancelAndResetBurstAnalysis()
         stopActiveSecurityScopedAccess()
 
@@ -142,7 +142,7 @@ extension RawCullViewModel {
 
         guard !files.isEmpty else {
             scanning = false
-            currentselectedSource = nil
+            currentSelectedSource = nil
             stopActiveSecurityScopedAccess()
             if activeCatalogLoadURL == url {
                 catalogLoadTask = nil

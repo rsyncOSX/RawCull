@@ -71,7 +71,7 @@ struct OperationFailurePresentation: Identifiable {
 final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Remember previous selected source to avoid a new rescan of
     /// already scanned catalog
-    @ObservationIgnored var currentselectedSource: ARWSourceCatalog?
+    @ObservationIgnored var currentSelectedSource: ARWSourceCatalog?
 
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
