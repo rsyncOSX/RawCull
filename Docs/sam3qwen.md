@@ -1,9 +1,38 @@
 # SAM 3 → Qwen Object Analysis Workplan
 
-Status: not started. Audited against the repository on September 21, 2026.
-RawCull still has the two existing AI Analysis modes, and the multi-instance
-PhotoAIKit contracts described below do not yet exist. Implementation remains
-gated on the clean-install Apple-hosted validation in `appleassets.md`.
+Status: proposal, reevaluated against RawCull and the adjacent PhotoAIKit
+checkout on September 23, 2026. RawCull still has two AI Analysis modes;
+PhotoAIKit still exposes one union mask, so true object instances remain an
+unproven capability. The CLIP, SAM 3, and Qwen Apple-hosted packs are uploaded,
+processed, and ready for internal testing. A signed App Store build and
+clean-install TestFlight validation remain pending in `appleassets.md`.
+
+## Recommendation for the next update
+
+**Next release gate:** finish the signed App Store build and clean-install
+TestFlight checks for the existing three models. This validates the exact
+download, activation, removal, and relaunch path on which any new AI feature
+depends. The prerequisite is release validation, not more asset-pack code.
+
+**Next feature update:** add an optional, resumable **Catalog AI Triage** pass
+using the Qwen model RawCull already distributes. Run it after the normal scan
+and CLIP indexing, first on a bounded, representative subset of images. Show
+review cues and reasons in the grid or burst review without changing ratings
+or selections. Section 17 defines the coverage and measurement gate. This has
+broader culling value than requiring photographers to select images before
+Qwen can help, and it reuses an installed model. It must never delay initial
+catalog browsing or compete with interactive analysis.
+
+**Following feature update:** implement this document's **Objects** mode if
+the Phase 0 spike proves the distributed SAM 3 runtime yields reliable
+individual instances. It would improve close comparison of multiple subjects,
+especially overlapping or repeated subjects, but the current union-mask API
+cannot yet support that promise. The spike can run while Catalog AI Triage is
+being designed. A failed spike keeps the Objects work out of the release path.
+
+These priorities are product recommendations, not evidence that Qwen batch
+throughput or SAM 3 instance output already meets release quality. Record the
+benchmarks and user-visible value before promoting either feature.
 
 ## 1. Objective
 
@@ -58,9 +87,9 @@ References:
 - [Meta SAM 3 overview](https://ai.meta.com/research/sam3/)
 - [Official SAM 3 repository](https://github.com/facebookresearch/sam3)
 
-### 2.2 First-release user experience
+### 2.2 First Objects release user experience
 
-The first production release should support:
+The first Objects release should support:
 
 - automatic concept discovery, limited to a small number of concrete visible
   object categories;
@@ -131,15 +160,14 @@ object-analysis feature must be created in the same composition root and share
 those validated model resources. Views must receive the feature; views must not
 create model providers or perform inference directly.
 
-### 3.4 Managed models are a prerequisite
+### 3.4 Managed model release validation is a prerequisite
 
-Finish and validate `appleassets.md` first, including:
-
-- the SAM 3 and Qwen asset packs;
-- managed Qwen location propagation;
-- managed Qwen activation and removal behavior;
-- model removal and in-flight cancellation behavior;
-- clean-install TestFlight validation.
+The three packs, managed Qwen location propagation, and app-side activation
+path are implemented. Before shipping either new AI feature, finish the remaining
+`appleassets.md` release checks: signed App Store upload, clean-install
+TestFlight download/use/relaunch/remove/reinstall, and removal during active
+inference. Treat a passed automated build as insufficient evidence for the
+Apple-hosted end-to-end path.
 
 Object Analysis should not add another model-location or download mechanism.
 
@@ -1035,11 +1063,18 @@ Do not market the feature as flawless object inventory. Preferred wording:
 > segment matching visible instances, and Qwen to analyze those numbered
 > subjects locally on your Mac.
 
-## 16. Implementation sequence
+## 16. Implementation sequence and release order
 
-Apply the work in reviewable changes:
+The release order is: complete Apple-hosted validation; deliver Catalog AI
+Triage only if its Section 17 pilot improves review outcomes within the measured
+resource budget; then deliver Objects only if Phase 0 passes. The Triage and
+Objects features share Qwen, so the generic response and inference
+serialization work in Phase 3 should be designed once and reused.
 
-1. **Capability spike** — verify real multi-instance Core AI output.
+For the Objects feature, apply the work in reviewable changes:
+
+1. **Capability spike** — verify real multi-instance Core AI output, before
+   committing to the Objects feature.
 2. **PhotoAIKit contracts** — add concept and instance result APIs.
 3. **SAM 3 backend** — preserve individual segments while retaining union API.
 4. **PhotoAIKit cache/service** — add object-set storage and orchestration.
@@ -1056,11 +1091,119 @@ Do not combine the PhotoAIKit API change, RawCull pipeline, and UI into one
 large commit. The additive package API and compatibility tests should land
 first so downstream failures are easier to isolate.
 
-## 17. Completion checklist
+## 17. Catalog AI coverage beyond CLIP and future models
+
+### 17.1 Can AI run on all or most scanned images?
+
+**Yes, technically, but coverage must be a separate post-scan job.** The scan
+in `RawCull/Actors/ScanFiles.swift` discovers RAW files and metadata. CLIP
+artifacts are generated and reused by `SimilarityScoringModel`; the existing
+Qwen feature decodes up to a 2,048-pixel thumbnail and analyzes selected or
+tagged files sequentially. Qwen currently has no catalog-wide scheduler,
+persistent per-image assessment cache, or measured throughput budget. SAM 3
+requires prompted concepts and is substantially more specialized than a
+whole-image screening pass. Therefore, simply invoking the existing Qwen or
+SAM 3 action for every discovered file would make scan time, memory use, and
+failure behavior unpredictable.
+
+The valuable new job is **review triage**: identify frames that merit attention
+because of visible subject obstruction, closed eyes where applicable, weak
+composition, or a potentially exceptional moment. These are advisory cues;
+RawCull's focus/sharpness and burst evidence remain the source for technical
+comparison, and the photographer makes the culling decision. CLIP already
+covers semantic retrieval; repeating that task with another model offers less
+value than adding visual judgments CLIP does not supply.
+
+### 17.2 Proposed coverage ladder for the next feature update
+
+1. **All catalog files:** continue normal metadata, preview, and CLIP artifact
+   processing. Build only inexpensive scheduling inputs from existing catalog,
+   burst, focus, and sharpness evidence. No Qwen inference on this critical
+   browsing path.
+2. **Representative majority when useful:** group near-duplicates/bursts and
+   queue one or a few representative frames per group, plus unique images.
+   Prioritize uncertain groups and frames likely to affect a keep/reject
+   decision. This can cover the major *visual variety* of a catalog without
+   processing every near-duplicate. Show both image coverage and group
+   coverage; do not describe group coverage as per-image analysis.
+3. **Optional exhaustive pass:** allow a user to request Qwen screening of all
+   eligible images after seeing an estimated time and disk impact based on
+   measured local throughput. Resume from durable results and skip matching
+   image/model/prompt versions. Make this opt-in until large-catalog tests show
+   that it finishes acceptably on supported Macs.
+4. **Targeted detail:** run SAM 3 and Objects on images the user opens or marks
+   for close comparison. This retains the expensive segmentation where masks
+   make a visible difference to culling.
+
+The coverage unit must be explicit: scanned RAW files, successfully decoded
+images, Qwen-processed images, and represented burst groups are different
+counts. If decoding fails or the model is unavailable, retain the file in the
+catalog and report an unprocessed state.
+
+### 17.3 Catalog AI Triage pilot and acceptance gate
+
+Use the already packaged Qwen3-VL-2B model for a narrow pilot with a short,
+bounded response schema: visible issue categories, one sentence of evidence,
+uncertainty, and whether the cue is relevant to culling. Keep the full-image
+thumbnail; do not ask Qwen for precise pixel-level sharpness or face identity.
+Run at utility priority with one active inference, pause for foreground Qwen or
+Objects work, honor cancellation/model removal, and cap memory. Persist results
+with source size/date (or stronger content identity), model fingerprint,
+prompt/schema version, and image preprocessing version. Display provenance and
+allow retry, clear, and reanalysis.
+
+Benchmark several catalog sizes and photographic subjects on the minimum
+supported Mac and a faster Mac. Record decode and inference time per image,
+peak resident memory, energy/thermal behavior, cache size, interruption and
+resume, and browsing responsiveness. Compare triage cues with photographer
+judgments on a held-out set that includes bursts, wildlife, portraits, low
+light, and challenging RAW previews. Track useful surfaced frames, missed
+keepers, false issue flags, and time saved in review. A new cue must be more
+useful than existing focus/sharpness/burst evidence alone. Set numeric release
+thresholds from this pilot before enabling broad default coverage; no latency
+or accuracy threshold is currently established in the repository.
+
+If the pilot fails on speed or value, ship only selected/tagged Qwen analysis
+and revisit lighter specialized models. A background pass should never auto
+reject, auto rate, or hide an image based on a generative assessment.
+
+The next feature update can be split into four reviewable changes: (1) a
+reproducible Qwen throughput/quality pilot and release thresholds; (2) a
+versioned assessment record plus resumable post-scan queue; (3) advisory grid
+and burst cues with progress, pause, and clear controls; and (4) large-catalog,
+model-removal, and clean-install verification. Ship broad coverage only after
+the pilot passes. The user should see which images were actually assessed,
+which were represented by another frame, and which remain pending.
+
+### 17.4 Should future versions add other models?
+
+Add a model only for a measured gap in culling quality or speed, with local
+inference, redistribution rights, reproducible conversion, managed delivery,
+and a clear fallback. Candidate directions, in priority order:
+
+| Candidate | Potential RawCull gain | Decision test |
+|---|---|---|
+| Small task-specific image-quality or eye-state model | Fast per-image issue detection that could make broad coverage practical | Compare against current sharpness/focus evidence and Qwen pilot on real RAW previews; reject if it adds false rejects or weak coverage. |
+| Alternative compact vision-language model | Faster or more reliable structured critique than current Qwen | Same prompts, images, hardware, memory, and review labels; adopt only with a clear gain. |
+| DINOv2-style visual feature model | Better grouping of visually similar frames or subject details | Compare burst grouping and nearest-neighbor quality against existing CLIP and Vision features; avoid a second catalog embedding without benefit. |
+| SigLIP 2-style image/text encoder | Better multilingual or fine-grained semantic search | Compare retrieval quality and indexing cost against shipped CLIP; this is a possible replacement or optional backend, not a reason to compute two embeddings for every image by default. |
+
+The [official DINOv2 model card](https://github.com/facebookresearch/dinov2/blob/main/MODEL_CARD.md)
+describes visual features; the [official SigLIP 2 project](https://github.com/google-research/big_vision/blob/main/big_vision/configs/proj/image_text/README_siglip2.md)
+describes image/text retrieval capabilities. Neither source establishes a
+RawCull-specific gain. SAM 3 itself is documented as concept-prompted
+segmentation by [Meta](https://github.com/facebookresearch/sam3); its value
+for this plan still depends on the shipped Core AI runtime returning usable
+instances. Future candidates must pass the same product benchmark and asset
+provenance checks as existing models. Do not add a model merely because it is
+newer or more capable on general benchmarks.
+
+## 18. Completion checklist
 
 ### Prerequisites
 
-- [ ] `appleassets.md` implementation is complete.
+- [x] CLIP, SAM 3, and Qwen packs are uploaded and ready for internal testing.
+- [ ] Signed App Store build and clean-install TestFlight validation complete.
 - [ ] Managed SAM 3 and Qwen install, validate, activate, remove, and reinstall.
 - [ ] Managed Qwen activation, removal, and cancellation are tested.
 
@@ -1112,7 +1255,7 @@ first so downstream failures are easier to isolate.
 - [ ] Clean-install manual validation succeeds with Apple-hosted model packs.
 - [ ] Documentation and App Review notes are updated.
 
-## 18. Definition of done
+## 19. Definition of done
 
 The feature is done when a clean-install user can download SAM 3 and Qwen,
 select or tag photographs, choose **AI Analysis › Objects**, automatically
