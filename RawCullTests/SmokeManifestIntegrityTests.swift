@@ -32,6 +32,7 @@ RawCullTests/BurstAnalysisPipelineValuesTests
 RawCullTests/BurstFrameCachePolicyTests
 RawCullTests/BurstReviewKeyActionTests
 RawCullTests/ComparisonGridDisplayStateTests
+RawCullTests/ComparisonGridImageCoordinatorTests
 RawCullTests/ComparisonGridNavigationTests
 RawCullTests/CullingGridCoordinatorTests
 RawCullTests/DeepAIReviewFeatureTests
@@ -85,6 +86,7 @@ private let expectedTaggedSuites: Set<String> = [
     "BurstAnalysisPipelineValuesTests",
     "BurstReviewKeyActionTests",
     "ComparisonGridDisplayStateTests",
+    "ComparisonGridImageCoordinatorTests",
     "ComparisonGridNavigationTests",
     "CullingGridCoordinatorTests",
     "DeepAIReviewFeatureTests",

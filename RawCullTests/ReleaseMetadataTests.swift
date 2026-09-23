@@ -100,7 +100,7 @@ struct ReleaseMetadataTests {
 
         let photoAIKitRows = tableRows.filter { row in
             row.contains("`photoaikit`")
-                && row.contains("`c5c76590c3d79ad508d24d893cd7d8d6aa873355`")
+                && row.contains("`4be7c0187848838ba9cebf19a678139262f53133`")
         }
         #expect(photoAIKitRows.count == 1)
 
