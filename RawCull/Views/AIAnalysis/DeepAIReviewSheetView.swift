@@ -299,8 +299,7 @@ private struct DeepAIReviewHistoryContent: View {
             .frame(minWidth: 330, idealWidth: 420)
         }
         .task(id: candidates.map(\.fileID)) {
-            let availableIDs = Set(candidates.map(\.fileID))
-            if selection.map(availableIDs.contains) != true {
+            if selection == nil {
                 selection = candidates.first?.fileID
             }
         }
