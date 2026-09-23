@@ -94,7 +94,7 @@ final class DeepAIReviewController {
     }
 
     func filesNeedingAnalysis(from files: [FileItem]) -> [FileItem] {
-        let completedIDs = Set(feature.completedCandidates.map(\.fileID))
+        let completedIDs = feature.completedFileIDsByPreset[preset, default: []]
         return files.filter { !completedIDs.contains($0.id) }
     }
 

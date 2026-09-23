@@ -100,6 +100,11 @@ struct DeepAIReviewFeatureTests {
         let result = try #require(controller.result(for: context.groupSignature))
         #expect(result.preset == .headFace)
         #expect(result.recommendedFileID == file.id)
+        #expect(controller.filesNeedingAnalysis(from: [file]).isEmpty)
+        controller.preset = .fullSubject
+        #expect(controller.filesNeedingAnalysis(from: [file]).map(\.id) == [file.id])
+        controller.preset = .headFace
+        #expect(controller.filesNeedingAnalysis(from: [file]).isEmpty)
         #expect(controller.presentationState(
             groupID: context.groupID,
             groupSignature: context.groupSignature,
