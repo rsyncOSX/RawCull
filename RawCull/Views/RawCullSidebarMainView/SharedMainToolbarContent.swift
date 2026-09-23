@@ -97,7 +97,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     .disabled(isDisabled ||
                         viewModel.selectedFileIDs.count <= 1 ||
                         viewModel.selectedSource == nil ||
-                        viewModel.creatingthumbnails)
+                        viewModel.isCreatingThumbnails)
                 }
 
                 ToolbarItem(placement: .status) {
@@ -134,7 +134,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     viewModel.selectedSource == nil ||
                     viewModel.filteredFiles.isEmpty ||
                     viewModel.mainViewMode == .similarityGrid ||
-                    viewModel.creatingthumbnails)
+                    viewModel.isCreatingThumbnails)
 
                 Button {
                     selectGridMode()
@@ -146,7 +146,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     viewModel.selectedSource == nil ||
                     viewModel.filteredFiles.isEmpty ||
                     viewModel.mainViewMode == .grid ||
-                    viewModel.creatingthumbnails)
+                    viewModel.isCreatingThumbnails)
 
                 Button {
                     viewModel.selectMainViewMode(.aiAnalysis)
@@ -158,7 +158,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     viewModel.selectedSource == nil ||
                     !hasAIAnalysisInput ||
                     viewModel.mainViewMode == .aiAnalysis ||
-                    viewModel.creatingthumbnails)
+                    viewModel.isCreatingThumbnails)
 
                 Button {
                     viewModel.selectMainViewMode(.ratedGrid)
@@ -170,7 +170,7 @@ struct SharedMainToolbarContent: ToolbarContent {
                     viewModel.selectedSource == nil ||
                     !showGridtaggedThumbnailWindow() ||
                     viewModel.mainViewMode == .ratedGrid ||
-                    viewModel.creatingthumbnails)
+                    viewModel.isCreatingThumbnails)
             }
         }
     }
@@ -199,7 +199,7 @@ struct SharedMainToolbarContent: ToolbarContent {
 
     private var reviewButtonIsDisabled: Bool {
         guard viewModel.selectedSource != nil,
-              !viewModel.creatingthumbnails,
+              !viewModel.isCreatingThumbnails,
               !semanticSelectionIsBusy
         else { return true }
 

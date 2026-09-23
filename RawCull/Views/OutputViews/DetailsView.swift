@@ -10,7 +10,7 @@ import SwiftUI
 struct DetailsView: View {
     @Environment(\.dismiss) var dismiss
 
-    let remotedatanumbers: RemoteDataNumbers
+    let remoteDataNumbers: RemoteDataNumbers
 
     var body: some View {
         HStack {
@@ -26,7 +26,7 @@ struct DetailsView: View {
 
             Divider()
 
-            RsyncOutputRowView(remotedatanumbers: remotedatanumbers)
+            RsyncOutputRowView(remoteDataNumbers: remoteDataNumbers)
         }
         .padding()
         .frame(width: 1000, height: 520)
@@ -36,7 +36,7 @@ struct DetailsView: View {
 
     private var leftPanelContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DetailsViewHeading(remotedatanumbers: remotedatanumbers)
+            DetailsViewHeading(remoteDataNumbers: remoteDataNumbers)
 
             Spacer()
 
@@ -46,7 +46,7 @@ struct DetailsView: View {
 
     private var syncStatusBox: some View {
         Group {
-            if remotedatanumbers.datatosynchronize {
+            if remoteDataNumbers.datatosynchronize {
                 syncDataContent
             } else {
                 noSyncDataContent
@@ -63,14 +63,14 @@ struct DetailsView: View {
 
     private var syncDataContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            let filesChangedText = remotedatanumbers.filestransferredInt == 1
+            let filesChangedText = remoteDataNumbers.filestransferredInt == 1
                 ? "1 file changed"
-                : "\(remotedatanumbers.filestransferredInt) files changed"
+                : "\(remoteDataNumbers.filestransferredInt) files changed"
             Text(filesChangedText)
 
-            let transferSizeText = remotedatanumbers.totaltransferredfilessizeInt == 1
+            let transferSizeText = remoteDataNumbers.totaltransferredfilessizeInt == 1
                 ? "byte for transfer"
-                : "\(remotedatanumbers.totaltransferredfilessize) bytes for transfer"
+                : "\(remoteDataNumbers.totaltransferredfilessize) bytes for transfer"
             Text(transferSizeText)
         }
     }
@@ -84,10 +84,10 @@ struct DetailsView: View {
 // MARK: - RsyncOutputRowView
 
 struct RsyncOutputRowView: View {
-    let remotedatanumbers: RemoteDataNumbers
+    let remoteDataNumbers: RemoteDataNumbers
 
     var body: some View {
-        if let originalRecords = remotedatanumbers.outputfromrsync {
+        if let originalRecords = remoteDataNumbers.outputfromrsync {
             // Safely drop the last 11 elements if available
             let countToDrop = min(11, originalRecords.count)
             let records = Array(originalRecords.dropLast(countToDrop))

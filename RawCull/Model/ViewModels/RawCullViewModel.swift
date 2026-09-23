@@ -71,7 +71,7 @@ struct OperationFailurePresentation: Identifiable {
 final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Remember previous selected source to avoid a new rescan of
     /// already scanned catalog
-    @ObservationIgnored var currentselectedSource: ARWSourceCatalog?
+    @ObservationIgnored var currentSelectedSource: ARWSourceCatalog?
 
     var sources: [ARWSourceCatalog] = []
     var selectedSource: ARWSourceCatalog?
@@ -91,7 +91,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     /// Ordered IDs currently rendered by the culling grid. Keyboard and loupe
     /// navigation use this projection so hidden burst frames cannot become targets.
     var cullingGridRenderedFileIDs: [FileItem.ID] = []
-    var issorting: Bool = false
+    var isSorting: Bool = false
     /// Number of RAW files discovered by the active catalog scan. This is
     /// reset with the catalog working set and is the source of truth for the
     /// scanning progress label.
@@ -99,21 +99,21 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var fileOperationCompleted: Int = 0
     var fileOperationTotal: Int = 0
     var fileOperationEstimatedSeconds: Int = 0
-    var creatingthumbnails: Bool = false
+    var isCreatingThumbnails: Bool = false
     var scanning: Bool = true
     var showingAlert: Bool = false
 
-    var focusaborttask: Bool = false
+    var focusAbortTask: Bool = false
     var focusExtractJPGs: Bool = false
     var focusCopyTaggedFiles: Bool = false
     var focusShowSavedFiles: Bool = false
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
     var extractJPGDestination: ARWSourceCatalog?
 
-    var showcopyARWFilesView: Bool = false
+    var showCopyARWFilesView: Bool = false
     var alertType: AlertType?
     var sheetType: SheetType? = .copytasksview
-    var remotedatanumbers: RemoteDataNumbers?
+    var remoteDataNumbers: RemoteDataNumbers?
     var ratingFilter: RatingFilter = .all
 
     // Zoom window state

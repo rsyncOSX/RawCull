@@ -21,9 +21,9 @@ struct RawCullDetailContainerView: View {
 
         // Move the conditional labels inside the ZStack so they participate in the ViewBuilder
 
-        if viewModel.focusaborttask {
+        if viewModel.focusAbortTask {
             AbortTaskFocusView(
-                focusaborttask: $viewModel.focusaborttask,
+                focusAbortTask: $viewModel.focusAbortTask,
                 abort: abort,
             )
         }

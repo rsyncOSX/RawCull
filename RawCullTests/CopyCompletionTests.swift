@@ -63,13 +63,13 @@ struct CopyCompletionTests {
         }
         let manager = ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(), dryrun: false, rating: 0,
-            copytaggedfiles: false, sidebarRawCullViewModel: viewModel,
+            copyTaggedFiles: false, sidebarRawCullViewModel: viewModel,
             includeListDirectory: root, bookmarkDefaults: defaults,
         )
         defer { manager.close() }
         let result: CopyDataResult? = await withCheckedContinuation { continuation in
             manager.onCompletion = { result in continuation.resume(returning: result) }
-            if case let .failure(error) = manager.startcopyfiles() {
+            if case let .failure(error) = manager.startCopyFiles() {
                 Issue.record("Unexpected startup failure: \(error)")
                 continuation.resume(returning: nil)
             }

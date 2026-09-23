@@ -28,7 +28,7 @@ extension RawCullViewModel {
 
     func extractionNeeded() {
         // Logger.process.debugMessageOnly("RawCullViewModel.extractionNeeded()")
-        creatingthumbnails = true
+        isCreatingThumbnails = true
     }
 
     var selectedFilesForJPGExtraction: [FileItem] {
@@ -66,7 +66,7 @@ extension RawCullViewModel {
         fileOperationCompleted = 0
         fileOperationTotal = exportFiles.count
         fileOperationEstimatedSeconds = 0
-        creatingthumbnails = true
+        isCreatingThumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
             fileHandler: fileHandler,
@@ -79,7 +79,7 @@ extension RawCullViewModel {
         let destinationURL = destination.url
         let destinationAccessStarted = startSecurityScopedResource(destinationURL)
         guard destinationAccessStarted else {
-            creatingthumbnails = false
+            isCreatingThumbnails = false
             operationFailurePresentation = OperationFailurePresentation(
                 title: "Export Not Started",
                 message: "RawCull could not access the selected destination folder. Choose the folder again and retry.",
@@ -101,7 +101,7 @@ extension RawCullViewModel {
                 self.stopSecurityScopedResource(destinationURL)
                 guard self.currentExtractAndSaveJPGsActor === extract else { return }
                 self.currentExtractAndSaveJPGsActor = nil
-                self.creatingthumbnails = false
+                self.isCreatingThumbnails = false
                 if !result.failures.isEmpty {
                     let firstFailure = result.failures[0]
                     self.operationFailurePresentation = OperationFailurePresentation(
@@ -127,7 +127,7 @@ extension RawCullViewModel {
         fileOperationCompleted = 0
         fileOperationTotal = extractionFiles.count
         fileOperationEstimatedSeconds = 0
-        creatingthumbnails = true
+        isCreatingThumbnails = true
 
         let handlers = CreateFileHandlers().createFileHandlers(
             fileHandler: fileHandler,
@@ -148,7 +148,7 @@ extension RawCullViewModel {
                 guard self.currentScanAndExtractJPGsActor === actor else { return }
                 self.currentScanAndExtractJPGsActor = nil
                 self.jpgCacheWarmTask = nil
-                self.creatingthumbnails = false
+                self.isCreatingThumbnails = false
             }
         }
     }
@@ -197,6 +197,6 @@ extension RawCullViewModel {
         }
         currentScanAndExtractJPGsActor = nil
 
-        creatingthumbnails = false
+        isCreatingThumbnails = false
     }
 }

@@ -72,7 +72,30 @@ The app keeps UI, workflow, caching, persistence, and culling policy in RawCull 
 | [RsyncArguments](https://github.com/rsyncOSX/RsyncArguments) + [RsyncProcessStreaming](https://github.com/rsyncOSX/RsyncProcessStreaming) | Safe copy configuration and streaming execution |
 | [DecodeEncodeGeneric](https://github.com/rsyncOSX/DecodeEncodeGeneric) | Codable persistence helpers |
 
-Remote dependencies are pinned in `Package.resolved`. Model manifests, licence notices, and provenance records live in [`ModelAssets`](ModelAssets/README.md).
+Remote dependencies are pinned in `Package.resolved`. The exact resolved versions and revisions are:
+
+| Package identity | Resolved pin |
+|---|---|
+| `coreai-models` | `475c585fdb0fe82a83c8f777f259e9414bd44c98` |
+| `decodeencodegeneric` | `1.0.0` |
+| `eventsource` | `1.5.1` |
+| `parsersyncoutput` | `1.0.0` |
+| `photoaikit` | `4be7c0187848838ba9cebf19a678139262f53133` |
+| `photoanalysiskit` | `1.3.1` |
+| `rawcullcore` | `1.1.2` |
+| `rawparserkit` | `1.3.0` |
+| `rsyncarguments` | `1.0.0` |
+| `rsyncprocessstreaming` | `1.0.0` |
+| `swift-asn1` | `1.7.3` |
+| `swift-collections` | `1.6.0` |
+| `swift-crypto` | `4.5.2` |
+| `swift-huggingface` | `0.11.0` |
+| `swift-jinja` | `2.5.1` |
+| `swift-transformers` | `1.3.4` |
+| `xgrammar` | `0.2.2` |
+| `yyjson` | `0.12.0` |
+
+Model manifests, licence notices, and provenance records live in [`ModelAssets`](ModelAssets/README.md).
 
 ## Build
 

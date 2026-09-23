@@ -9,12 +9,12 @@ extension RawCullViewModel {
     func startCatalogLoad(for source: ARWSourceCatalog?) {
         Logger.process.debugMessageOnly("RawCullViewModel.startCatalogLoad()")
         if let url = source?.url,
-           currentselectedSource == source,
+           currentSelectedSource == source,
            hasActiveSecurityScopedAccess(for: url) {
             return
         }
 
-        let previousSource = currentselectedSource
+        let previousSource = currentSelectedSource
         catalogTransitionTask?.cancel()
         catalogTransitionTask = Task {
             guard await cullingModel.flushPersistence() else {
@@ -36,7 +36,7 @@ extension RawCullViewModel {
 
         cancelCatalogLoad()
         similarityCatalogGeneration &+= 1
-        currentselectedSource = source
+        currentSelectedSource = source
         resetCatalogWorkingSet()
         scanning = source != nil
 
@@ -63,7 +63,7 @@ extension RawCullViewModel {
         similarityFeature.cancelHydration()
         similarityCatalogGeneration &+= 1
         activeCatalogLoadURL = nil
-        currentselectedSource = nil
+        currentSelectedSource = nil
         cancelAndResetBurstAnalysis()
         stopActiveSecurityScopedAccess()
 
@@ -83,7 +83,7 @@ extension RawCullViewModel {
         }
         currentScanAndExtractJPGsActor = nil
 
-        creatingthumbnails = false
+        isCreatingThumbnails = false
         scanning = false
     }
 
@@ -142,7 +142,7 @@ extension RawCullViewModel {
 
         guard !files.isEmpty else {
             scanning = false
-            currentselectedSource = nil
+            currentSelectedSource = nil
             stopActiveSecurityScopedAccess()
             if activeCatalogLoadURL == url {
                 catalogLoadTask = nil
@@ -204,7 +204,7 @@ extension RawCullViewModel {
             await preloadTask?.value
             guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
             processedURLs.insert(url)
-            creatingthumbnails = false
+            isCreatingThumbnails = false
             currentScanAndCreateThumbnailsActor = nil
         }
 
@@ -216,11 +216,11 @@ extension RawCullViewModel {
 
     func handleSortOrderChange() async {
         Logger.process.debugMessageOnly("RawCullViewModel.handleSortOrderChange()")
-        issorting = true
+        isSorting = true
         let sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
         catalogDisplayCandidates = sorted
         filteredFiles = applyFilters(to: catalogDisplayCandidates)
-        issorting = false
+        isSorting = false
     }
 
     /// Snapshot the current non-semantic catalog ordering and metadata

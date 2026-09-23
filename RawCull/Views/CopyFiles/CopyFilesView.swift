@@ -12,15 +12,15 @@ struct CopyFilesView: View {
     @Environment(\.dismiss) var dismiss
     @Bindable var viewModel: RawCullViewModel
 
-    @Binding var remotedatanumbers: RemoteDataNumbers?
+    @Binding var remoteDataNumbers: RemoteDataNumbers?
     @Binding var sheetType: SheetType?
     @Binding var showcopytask: Bool
 
-    @State private var destinationcatalog: String = ""
+    @State private var destinationCatalog: String = ""
 
     @State private var executionManager: ExecuteCopyFiles?
     @State private var dryrun: Bool = true
-    @State private var copytaggedfiles: Bool = true
+    @State private var copyTaggedFiles: Bool = true
     @State private var copyratedfiles: Int = 1
 
     @State private var copyFilesinProgress: Bool = false
@@ -31,7 +31,7 @@ struct CopyFilesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             CopyOptionsSection(
-                copytaggedfiles: $copytaggedfiles,
+                copyTaggedFiles: $copyTaggedFiles,
                 copyratedfiles: $copyratedfiles,
                 dryrun: $dryrun,
             )
@@ -40,8 +40,8 @@ struct CopyFilesView: View {
             Divider()
 
             SourceAndDestinationSection(
-                sourcecatalog: viewModel.selectedSource?.url.path ?? "",
-                destinationcatalog: $destinationcatalog,
+                sourceCatalog: viewModel.selectedSource?.url.path ?? "",
+                destinationCatalog: $destinationCatalog,
             )
             .disabled(copyFilesinProgress)
 
@@ -50,7 +50,7 @@ struct CopyFilesView: View {
                     .padding(.vertical, 4)
             }
 
-            if showResult, let numbers = remotedatanumbers, let result = completedResult {
+            if showResult, let numbers = remoteDataNumbers, let result = completedResult {
                 copyResultView(numbers, result: result)
             }
 
@@ -68,11 +68,11 @@ struct CopyFilesView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Copy") {
                     guard viewModel.selectedSource != nil,
-                          !destinationcatalog.isEmpty else { return }
+                          !destinationCatalog.isEmpty else { return }
                     showResult = false
                     executeCopyFiles()
                 }
-                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationcatalog.isEmpty)
+                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationCatalog.isEmpty)
             }
         }
         .onDisappear {
@@ -143,7 +143,7 @@ struct CopyFilesView: View {
             configuration: configuration,
             dryrun: dryrun,
             rating: copyratedfiles,
-            copytaggedfiles: copytaggedfiles,
+            copyTaggedFiles: copyTaggedFiles,
             sidebarRawCullViewModel: viewModel,
         )
 
@@ -153,7 +153,7 @@ struct CopyFilesView: View {
 
         guard let executionManager else { return }
 
-        switch executionManager.startcopyfiles() {
+        switch executionManager.startCopyFiles() {
         case .success:
             copyFilesinProgress = true
 
@@ -171,13 +171,13 @@ struct CopyFilesView: View {
 
         copyFilesinProgress = false
 
-        remotedatanumbers = RemoteDataNumbers(
+        remoteDataNumbers = RemoteDataNumbers(
             stringoutputfromrsync: result.output,
             config: configuration,
         )
 
         if let viewOutput = result.viewOutput {
-            remotedatanumbers?.outputfromrsync = viewOutput
+            remoteDataNumbers?.outputfromrsync = viewOutput
         }
 
         executionManager = nil

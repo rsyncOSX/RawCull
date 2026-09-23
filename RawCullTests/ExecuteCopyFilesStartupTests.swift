@@ -8,9 +8,9 @@ struct ExecuteCopyFilesStartupTests {
     @Test
     func `empty tagged list fails before copy starts`() {
         let viewModel = makeRawCullViewModel()
-        let manager = makeManager(viewModel: viewModel, copytaggedfiles: true)
+        let manager = makeManager(viewModel: viewModel, copyTaggedFiles: true)
 
-        let result = manager.startcopyfiles()
+        let result = manager.startCopyFiles()
 
         guard case .failure(.noMatchingFiles) = result else {
             Issue.record("Expected noMatchingFiles, got \(result)")
@@ -22,9 +22,9 @@ struct ExecuteCopyFilesStartupTests {
     @Test
     func `empty rated list fails before copy starts`() {
         let viewModel = makeRawCullViewModel()
-        let manager = makeManager(viewModel: viewModel, copytaggedfiles: false)
+        let manager = makeManager(viewModel: viewModel, copyTaggedFiles: false)
 
-        let result = manager.startcopyfiles()
+        let result = manager.startCopyFiles()
 
         guard case .failure(.noMatchingFiles) = result else {
             Issue.record("Expected noMatchingFiles, got \(result)")
@@ -41,7 +41,7 @@ struct ExecuteCopyFilesStartupTests {
             manager = makeManager(viewModel: viewModel)
         }
 
-        let result = manager.startcopyfiles()
+        let result = manager.startCopyFiles()
 
         guard case .failure(.missingViewModel) = result else {
             Issue.record("Expected missingViewModel, got \(result)")
@@ -138,10 +138,10 @@ struct ExecuteCopyFilesStartupTests {
                             dateModified: Date(), exifData: nil, afFocusNormalized: nil)
         viewModel.filteredFiles = [file]
         viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: scopedSource)
-        let manager = ExecuteCopyFiles(configuration: SynchronizeConfiguration(), rating: 0, copytaggedfiles: false,
+        let manager = ExecuteCopyFiles(configuration: SynchronizeConfiguration(), rating: 0, copyTaggedFiles: false,
                                        sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
                                        bookmarkDefaults: defaults)
-        guard case .failure(.destinationAccessFailed) = manager.startcopyfiles() else {
+        guard case .failure(.destinationAccessFailed) = manager.startCopyFiles() else {
             Issue.record("Expected copy startup to accept the selected catalog and reach destination validation")
             return
         }
@@ -181,11 +181,11 @@ struct ExecuteCopyFilesStartupTests {
                                             name: "A.ARW", size: 1, dateModified: Date(),
                                             exifData: nil, afFocusNormalized: nil)]
         let manager = ExecuteCopyFiles(
-            configuration: SynchronizeConfiguration(), rating: 0, copytaggedfiles: false,
+            configuration: SynchronizeConfiguration(), rating: 0, copyTaggedFiles: false,
             sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
             bookmarkDefaults: defaults,
         )
-        guard case .failure(.destinationAccessFailed) = manager.startcopyfiles() else {
+        guard case .failure(.destinationAccessFailed) = manager.startCopyFiles() else {
             Issue.record("The obsolete source bookmark must not override the selected catalog")
             return
         }
@@ -195,14 +195,14 @@ struct ExecuteCopyFilesStartupTests {
 
     private func makeManager(
         viewModel: RawCullViewModel,
-        copytaggedfiles: Bool = true,
+        copyTaggedFiles: Bool = true,
         includeListDirectory: URL? = nil,
     ) -> ExecuteCopyFiles {
         ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(),
             dryrun: true,
             rating: 1,
-            copytaggedfiles: copytaggedfiles,
+            copyTaggedFiles: copyTaggedFiles,
             sidebarRawCullViewModel: viewModel,
             includeListDirectory: includeListDirectory,
         )

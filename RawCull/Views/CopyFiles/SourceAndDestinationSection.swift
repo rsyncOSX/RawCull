@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct SourceAndDestinationSection: View {
-    let sourcecatalog: String
-    @Binding var destinationcatalog: String
+    let sourceCatalog: String
+    @Binding var destinationCatalog: String
 
     var body: some View {
         Section("Source and Destination") {
             VStack(alignment: .trailing) {
                 HStack {
-                    Text(sourcecatalog)
+                    Text(sourceCatalog)
                     Image(systemName: "arrowshape.right.fill")
                 }
                 .padding()
@@ -18,7 +18,7 @@ struct SourceAndDestinationSection: View {
                 )
 
                 HStack {
-                    if destinationcatalog.isEmpty {
+                    if destinationCatalog.isEmpty {
                         HStack {
                             Text("Select destination")
                                 .foregroundStyle(.red)
@@ -31,7 +31,7 @@ struct SourceAndDestinationSection: View {
                         )
                     } else {
                         HStack {
-                            Text(destinationcatalog)
+                            Text(destinationCatalog)
                             Image(systemName: "arrowshape.right.fill")
                         }
                         .padding()
@@ -42,7 +42,7 @@ struct SourceAndDestinationSection: View {
                     }
 
                     OpencatalogView(
-                        selecteditem: $destinationcatalog,
+                        selectedItem: $destinationCatalog,
                         catalogs: true,
                         bookmarkKey: "destBookmark",
                     )

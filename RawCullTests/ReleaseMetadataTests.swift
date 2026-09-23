@@ -22,7 +22,7 @@ struct ReleaseMetadataTests {
         let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
         #expect(Int(buildNumber).map { $0 > 0 } == true)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.4")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.5")
             #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
@@ -100,7 +100,7 @@ struct ReleaseMetadataTests {
 
         let photoAIKitRows = tableRows.filter { row in
             row.contains("`photoaikit`")
-                && row.contains("`c5c76590c3d79ad508d24d893cd7d8d6aa873355`")
+                && row.contains("`4be7c0187848838ba9cebf19a678139262f53133`")
         }
         #expect(photoAIKitRows.count == 1)
 

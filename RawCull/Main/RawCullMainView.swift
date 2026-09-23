@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct RawCullMainView: View {
     @Environment(\.openWindow) var openWindow
-    @Environment(GridThumbnailViewModel.self) var gridthumbnailviewmodel
+    @Environment(GridThumbnailViewModel.self) var gridThumbnailViewModel
 
     @Bindable var viewModel: RawCullViewModel
     let similarityFeature: RawCullSimilarityFeature
@@ -103,12 +103,12 @@ struct RawCullMainView: View {
         .sheet(isPresented: $viewModel.showSavedFiles) {
             SavedFilesView()
         }
-        .sheet(isPresented: $viewModel.showcopyARWFilesView) {
+        .sheet(isPresented: $viewModel.showCopyARWFilesView) {
             CopyARWFilesView(
                 viewModel: viewModel,
                 sheetType: $viewModel.sheetType,
-                remotedatanumbers: $viewModel.remotedatanumbers,
-                showcopytask: $viewModel.showcopyARWFilesView,
+                remoteDataNumbers: $viewModel.remoteDataNumbers,
+                showcopytask: $viewModel.showCopyARWFilesView,
             )
         }
         .alert(item: $viewModel.operationFailurePresentation) { presentation in
@@ -165,13 +165,13 @@ struct RawCullMainView: View {
         }
         .onChange(of: viewModel.mainViewMode) { _, newMode in
             if newMode == .grid || newMode == .similarityGrid {
-                gridthumbnailviewmodel.open(
+                gridThumbnailViewModel.open(
                     cullingModel: viewModel.cullingModel,
                     selectedSource: viewModel.selectedSource,
                     filteredFiles: viewModel.filteredFiles,
                 )
             } else {
-                gridthumbnailviewmodel.close()
+                gridThumbnailViewModel.close()
             }
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { oldGroupID, newGroupID in
@@ -180,13 +180,13 @@ struct RawCullMainView: View {
             }
         }
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
-        .focusedSceneValue(\.aborttask, $viewModel.focusaborttask)
+        .focusedSceneValue(\.aborttask, $viewModel.focusAbortTask)
         .focusedSceneValue(\.addCatalog, $viewModel.isShowingPicker)
         .focusedSceneValue(\.copyTaggedFiles, $viewModel.focusCopyTaggedFiles)
         .focusedSceneValue(\.showSavedFiles, $viewModel.focusShowSavedFiles)
         .focusedSceneValue(
             \.canCopyTaggedFiles,
-            viewModel.selectedSource != nil && !viewModel.creatingthumbnails,
+            viewModel.selectedSource != nil && !viewModel.isCreatingThumbnails,
         )
         .onChange(of: viewModel.focusExtractJPGs) { _, shouldPresent in
             guard shouldPresent else { return }
@@ -197,7 +197,7 @@ struct RawCullMainView: View {
             guard shouldPresent else { return }
             viewModel.focusCopyTaggedFiles = false
             viewModel.sheetType = .copytasksview
-            viewModel.showcopyARWFilesView = true
+            viewModel.showCopyARWFilesView = true
         }
         .onChange(of: viewModel.focusShowSavedFiles) { _, shouldPresent in
             guard shouldPresent else { return }
@@ -251,10 +251,10 @@ struct RawCullMainView: View {
                 viewModel: viewModel,
                 selectedSource: $viewModel.selectedSource,
                 scanning: $viewModel.scanning,
-                creatingThumbnails: $viewModel.creatingthumbnails,
+                creatingThumbnails: $viewModel.isCreatingThumbnails,
                 nsImage: $nsImage,
                 cgImage: $cgImage,
-                issorting: viewModel.issorting,
+                isSorting: viewModel.isSorting,
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Files") +
                 " (\(viewModel.filteredFiles.count) files)")
