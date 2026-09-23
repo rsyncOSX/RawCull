@@ -138,17 +138,17 @@ struct ExecuteCopyFilesStartupTests {
                             dateModified: Date(), exifData: nil, afFocusNormalized: nil)
         viewModel.filteredFiles = [file]
         viewModel.selectedSource = ARWSourceCatalog(name: "Current", url: scopedSource)
+        let bookmarkStore = CopyBookmarkStore(defaults: defaults)
         let manager = ExecuteCopyFiles(configuration: SynchronizeConfiguration(), rating: 0, copyTaggedFiles: false,
                                        sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
-                                       bookmarkDefaults: defaults)
+                                       bookmarkStore: bookmarkStore)
         guard case .failure(.destinationAccessFailed) = manager.startCopyFiles() else {
             Issue.record("Expected copy startup to accept the selected catalog and reach destination validation")
             return
         }
         #expect(manager.includeListURL == nil)
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
-        #expect(manager.getAccessedURL(fromBookmarkKey: "sourceBookmark") == nil)
-        #expect(manager.getAccessedURL(fromBookmarkKey: "destBookmark") == nil)
+        #expect(throws: CopyBookmarkFailure.self) { try bookmarkStore.acquireDestination() }
         #expect(CopyStartupFailure.sourceAccessFailed.localizedDescription.contains("reopen the catalog"))
         #expect(CopyStartupFailure.destinationAccessFailed.localizedDescription.contains("reselect the destination"))
         manager.close()
@@ -183,7 +183,7 @@ struct ExecuteCopyFilesStartupTests {
         let manager = ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(), rating: 0, copyTaggedFiles: false,
             sidebarRawCullViewModel: viewModel, includeListDirectory: directory,
-            bookmarkDefaults: defaults,
+            bookmarkStore: CopyBookmarkStore(defaults: defaults),
         )
         guard case .failure(.destinationAccessFailed) = manager.startCopyFiles() else {
             Issue.record("The obsolete source bookmark must not override the selected catalog")
