@@ -2,8 +2,9 @@
 
 Status: proposal, reevaluated against RawCull and the adjacent PhotoAIKit
 checkout on September 23, 2026. RawCull still has two AI Analysis modes;
-PhotoAIKit still exposes one union mask, so true object instances remain an
-unproven capability. The CLIP, SAM 3, and Qwen Apple-hosted packs are uploaded,
+PhotoAIKit still exposes one union mask. A four-photo muskox spike now confirms
+that the tested Core AI runtime also returns separate instance segments, but
+release-quality instance handling remains unproven. The CLIP, SAM 3, and Qwen Apple-hosted packs are uploaded,
 processed, and ready for internal testing. A signed App Store build and
 clean-install TestFlight validation remain pending in `appleassets.md`.
 
@@ -23,12 +24,12 @@ broader culling value than requiring photographers to select images before
 Qwen can help, and it reuses an installed model. It must never delay initial
 catalog browsing or compete with interactive analysis.
 
-**Following feature update:** implement this document's **Objects** mode if
-the Phase 0 spike proves the distributed SAM 3 runtime yields reliable
-individual instances. It would improve close comparison of multiple subjects,
-especially overlapping or repeated subjects, but the current union-mask API
-cannot yet support that promise. The spike can run while Catalog AI Triage is
-being designed. A failed spike keeps the Objects work out of the release path.
+**Following feature update:** continue this document's **Objects** mode through
+the additive PhotoAIKit instance contract and a larger validation set. The
+four-photo Phase 0 spike supports that work: it separated six touching muskox
+in one image, while also showing why low-score fragments must be filtered. The
+current union-mask API cannot yet expose those instances to RawCull. The
+Objects work can proceed while Catalog AI Triage is being designed.
 
 These priorities are product recommendations, not evidence that Qwen batch
 throughput or SAM 3 instance output already meets release quality. Record the
@@ -195,6 +196,12 @@ spike proves one of them impossible.
 
 Do this before changing public APIs.
 
+**Diagnostic completed on four muskox photographs:** The local PhotoAIKit
+checkout includes the opt-in `SAM3InstanceCapabilityTests` and its run guide
+at `../PhotoAIKit/Documentation/SAM3InstanceSpike.md`. It records individual
+instance masks and overlays without changing the existing union-mask API.
+The result is summarized in §5.4.
+
 ### 5.1 Add a diagnostic test or executable in PhotoAIKit
 
 Run the exact SAM 3 model that RawCull will distribute against representative
@@ -238,6 +245,61 @@ If it returns only a union probability map:
 Add a short result section to this document containing the tested model
 fingerprint, runtime revision, images used, observed output fields, chosen
 instance cap, and the go/no-go decision.
+
+### 5.4 Four-photo muskox spike result — September 23, 2026
+
+The release-build diagnostic completed 56 runs using the local release bundle
+at `~/ModelAssets/Release/Models/SAM3`, PhotoAIKit's pinned
+`coreai-models` revision `475c585fdb0fe82a83c8f777f259e9414bd44c98`,
+and macOS 27.0 (26A428). The bundle reports `sam3_float16.aimodel` and this
+artifact identity:
+
+```text
+coreai-sam3-local:sam3_float16:sam3_float16.aimodel:file-metadata-v1:1663921567:1783701311.5240934
+```
+
+That identity uses file metadata because this bundle has no cryptographic
+fingerprint manifest. Confirm that the Apple-hosted pack has the same model
+artifact before treating these measurements as release validation.
+
+| Photo | Visible muskox | Strong separate instance masks at cap 8 |
+|---|---:|---:|
+| `_DSC7268_DxO.jpg` | 2 | 2 |
+| `_DSC7470_DxO.jpg` | 2, overlapping | 2 |
+| `_DSC7605_DxO.jpg` | 1 | 1 |
+| `_DSC7625_DxO.jpg` | About 6, touching/partly occluded | 6 |
+
+Both `musk ox` and `muskox` produced the same strong counts on the two photos
+tested with both spellings. The `car` negative control on the single-muskox
+photo returned only scores at or below 0.016. The runtime returned individual
+`segments` **and** a semantic probability map on every run. Segment mask
+fingerprints and ordering were identical across both repetitions for every
+photo, concept, and cap (28 paired comparisons). Strong boxes were within the
+input-image pixel bounds and used the macOS bottom-left coordinate convention;
+some low-score boxes extended slightly beyond an edge, so production code must
+validate or recompute them.
+
+The raw response always filled the requested cap, including false masks. On
+this sample, a provisional score floor of 0.5 and minimum mask area of 0.1%
+of the image removed extra fragments while retaining the visible animals.
+The separated-pair photo had a 0.676-score mask covering only 0.02% of the
+image, demonstrating why score alone is insufficient. The herd needed six
+instances, so cap 5 truncated a real animal; caps 8, 12, and 16 yielded the
+same six strong animals. **Choose engine cap 8 for the next prototype**, then
+retune filters and cap on a wider set with smaller and more diverse subjects.
+
+The first call took 17.7 seconds including model load; the median subsequent
+provider call took 2.13 seconds. The test process reached a 6.33 GiB resident
+memory high-water mark, including diagnostic image output. These are single-Mac
+measurements, not release performance targets. The complete report, individual
+masks, and overlays are under `../images/sam3-results/`; the input manifest is
+`../images/sam3-muskox-cases.json`.
+
+**Decision: conditional go for additive multi-instance prototyping.** These
+photos demonstrate useful separation, including overlapping animals. The
+four-photo set does not establish broad recall, prompt discovery quality, or
+Qwen object-board value. Validate the hosted pack identity and test more
+subjects, tiny distant objects, and negative controls before a release gate.
 
 ## 6. Phase 1 — PhotoAIKit multi-instance contracts
 
