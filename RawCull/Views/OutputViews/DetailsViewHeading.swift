@@ -8,47 +8,47 @@
 import SwiftUI
 
 struct DetailsViewHeading: View {
-    let remotedatanumbers: RemoteDataNumbers
+    let remoteDataNumbers: RemoteDataNumbers
 
     var body: some View {
         HStack {
             VStack(alignment: .leading) {
                 VStack(alignment: .leading) {
                     LabeledContent("Synchronize ID: ") {
-                        if remotedatanumbers.backupID.isEmpty {
+                        if remoteDataNumbers.backupID.isEmpty {
                             Text("Synchronize ID")
                                 .foregroundColor(.blue)
                         } else {
-                            Text(remotedatanumbers.backupID)
+                            Text(remoteDataNumbers.backupID)
                                 .foregroundColor(.blue)
                         }
                     }
                     .padding(-3)
 
                     LabeledContent("Task: ") {
-                        Text(remotedatanumbers.task)
+                        Text(remoteDataNumbers.task)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)
 
                     LabeledContent("Source folder: ") {
-                        Text(remotedatanumbers.localCatalog)
+                        Text(remoteDataNumbers.localCatalog)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)
 
                     LabeledContent("Destination folder: ") {
-                        Text(remotedatanumbers.offsiteCatalog)
+                        Text(remoteDataNumbers.offsiteCatalog)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)
 
                     LabeledContent("Server: ") {
-                        if remotedatanumbers.offsiteServer.isEmpty {
+                        if remoteDataNumbers.offsiteServer.isEmpty {
                             Text("localhost")
                                 .foregroundColor(.blue)
                         } else {
-                            Text(remotedatanumbers.offsiteServer)
+                            Text(remoteDataNumbers.offsiteServer)
                                 .foregroundColor(.blue)
                         }
                     }
@@ -58,25 +58,25 @@ struct DetailsViewHeading: View {
 
                 VStack(alignment: .leading) {
                     LabeledContent("Total number of files: ") {
-                        Text(remotedatanumbers.numberoffiles)
+                        Text(remoteDataNumbers.numberoffiles)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)
 
                     LabeledContent("Total number of catalogs: ") {
-                        Text(remotedatanumbers.totaldirectories)
+                        Text(remoteDataNumbers.totaldirectories)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)
 
                     LabeledContent("Total numbers: ") {
-                        Text(remotedatanumbers.totalnumbers)
+                        Text(remoteDataNumbers.totalnumbers)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)
 
                     LabeledContent("Total bytes: ") {
-                        Text(remotedatanumbers.totalfilesize)
+                        Text(remoteDataNumbers.totalfilesize)
                             .foregroundColor(.blue)
                     }
                     .padding(-3)

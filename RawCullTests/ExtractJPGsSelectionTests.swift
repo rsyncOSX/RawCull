@@ -72,7 +72,7 @@ struct ExtractJPGsSelectionTests {
 
         #expect(viewModel.selectedFilesForJPGExtraction.isEmpty)
         #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
-        #expect(!viewModel.creatingthumbnails)
+        #expect(!viewModel.isCreatingThumbnails)
     }
 
     @Test
@@ -91,7 +91,7 @@ struct ExtractJPGsSelectionTests {
         viewModel.startSelectedJPGExtraction(destination: destination, exportMode: .embeddedJPG)
 
         #expect(viewModel.currentExtractAndSaveJPGsActor == nil)
-        #expect(!viewModel.creatingthumbnails)
+        #expect(!viewModel.isCreatingThumbnails)
         #expect(viewModel.operationFailurePresentation?.title == "Export Not Started")
     }
 

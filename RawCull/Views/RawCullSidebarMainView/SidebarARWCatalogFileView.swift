@@ -15,7 +15,7 @@ struct SidebarARWCatalogFileView: View {
     @Binding var nsImage: NSImage?
     @Binding var cgImage: CGImage?
 
-    let issorting: Bool
+    let isSorting: Bool
 
     var body: some View {
         if selectedSource == nil {
@@ -63,7 +63,7 @@ struct SidebarARWCatalogFileView: View {
                             viewModel.alertType = .clearRatedFiles
                             viewModel.showingAlert = true
                         }
-                        .disabled(viewModel.creatingthumbnails)
+                        .disabled(viewModel.isCreatingThumbnails)
 
                         ConditionalGlassButton(
                             systemImage: "photo.badge.arrow.down",
@@ -76,7 +76,7 @@ struct SidebarARWCatalogFileView: View {
                         .disabled(
                             selectedSource == nil ||
                                 files.isEmpty ||
-                                viewModel.creatingthumbnails,
+                                viewModel.isCreatingThumbnails,
                         )
 
                         LoupeSortBadge(status: sortStatus)
@@ -103,7 +103,7 @@ struct SidebarARWCatalogFileView: View {
                     }
                 }
 
-                if issorting {
+                if isSorting {
                     HStack {
                         ProgressView()
                             .fixedSize()

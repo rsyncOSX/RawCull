@@ -12,7 +12,7 @@ struct CopyFilesView: View {
     @Environment(\.dismiss) var dismiss
     @Bindable var viewModel: RawCullViewModel
 
-    @Binding var remotedatanumbers: RemoteDataNumbers?
+    @Binding var remoteDataNumbers: RemoteDataNumbers?
     @Binding var sheetType: SheetType?
     @Binding var showcopytask: Bool
 
@@ -50,7 +50,7 @@ struct CopyFilesView: View {
                     .padding(.vertical, 4)
             }
 
-            if showResult, let numbers = remotedatanumbers, let result = completedResult {
+            if showResult, let numbers = remoteDataNumbers, let result = completedResult {
                 copyResultView(numbers, result: result)
             }
 
@@ -171,13 +171,13 @@ struct CopyFilesView: View {
 
         copyFilesinProgress = false
 
-        remotedatanumbers = RemoteDataNumbers(
+        remoteDataNumbers = RemoteDataNumbers(
             stringoutputfromrsync: result.output,
             config: configuration,
         )
 
         if let viewOutput = result.viewOutput {
-            remotedatanumbers?.outputfromrsync = viewOutput
+            remoteDataNumbers?.outputfromrsync = viewOutput
         }
 
         executionManager = nil

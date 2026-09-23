@@ -52,7 +52,7 @@ struct SavedFilesView: View {
                 ) {
                     showResetAlert = true
                 }
-                .disabled(viewModel.creatingthumbnails)
+                .disabled(viewModel.isCreatingThumbnails)
             }
         }
         .frame(minWidth: 820, minHeight: 500)

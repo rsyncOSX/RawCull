@@ -83,7 +83,7 @@ extension RawCullViewModel {
         }
         currentScanAndExtractJPGsActor = nil
 
-        creatingthumbnails = false
+        isCreatingThumbnails = false
         scanning = false
     }
 
@@ -204,7 +204,7 @@ extension RawCullViewModel {
             await preloadTask?.value
             guard isActiveCatalogLoad(url), !Task.isCancelled else { return }
             processedURLs.insert(url)
-            creatingthumbnails = false
+            isCreatingThumbnails = false
             currentScanAndCreateThumbnailsActor = nil
         }
 
@@ -216,11 +216,11 @@ extension RawCullViewModel {
 
     func handleSortOrderChange() async {
         Logger.process.debugMessageOnly("RawCullViewModel.handleSortOrderChange()")
-        issorting = true
+        isSorting = true
         let sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
         catalogDisplayCandidates = sorted
         filteredFiles = applyFilters(to: catalogDisplayCandidates)
-        issorting = false
+        isSorting = false
     }
 
     /// Snapshot the current non-semantic catalog ordering and metadata
