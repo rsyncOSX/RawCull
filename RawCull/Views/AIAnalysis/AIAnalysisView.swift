@@ -44,8 +44,6 @@ struct AIAnalysisView: View {
                     .frame(maxWidth: 320)
                     .disabled(isAnalyzing)
 
-                    Spacer()
-
                     Picker("Source", selection: $inputSource) {
                         Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
                             .tag(AIAnalysisInputSource.gridSelection)
@@ -56,6 +54,8 @@ struct AIAnalysisView: View {
                     .labelsHidden()
                     .frame(maxWidth: 220)
                     .disabled(isAnalyzing)
+
+                    Spacer(minLength: 0)
                 }
             }
             .padding(.horizontal, 20)
