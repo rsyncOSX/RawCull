@@ -103,7 +103,7 @@ struct QwenAnalysisView: View {
         }
         .padding(16)
         .task(id: feature.results.map(\.id)) {
-            if selection.map({ id in feature.results.contains { $0.id == id } }) != true {
+            if selection == nil {
                 selection = feature.results.first?.id
             }
         }

@@ -182,6 +182,7 @@ final class DeepAIReviewFeature {
     private(set) var availability: RawCullAICapabilityStatus
     private(set) var results: [BurstGroupSignature: DeepAIReviewResult] = [:]
     private(set) var completedCandidatesByFileID: [UUID: DeepAIReviewCandidate] = [:]
+    private(set) var completedFileIDsByPreset: [DeepAIReviewPreset: Set<UUID>] = [:]
     private(set) var maskCandidatesByFileID: [UUID: DeepAIReviewCandidate] = [:]
 
     @ObservationIgnored private var service: (any DeepAIReviewServicing)?
@@ -291,7 +292,7 @@ final class DeepAIReviewFeature {
                     "DeepAIReviewFeature.start(): invoking the Deep Review service",
                 )
                 let result = try await service.review(request) { progress in
-                    await feature.receive(progress, generation: runGeneration)
+                    await feature.receive(progress, preset: request.preset, generation: runGeneration)
                 }
                 try Task.checkCancellation()
                 guard feature.generation == runGeneration else { return }
@@ -300,7 +301,7 @@ final class DeepAIReviewFeature {
                 )
                 feature.state = .completing(groupID: request.groupID)
                 feature.results[result.groupSignature] = result
-                feature.retainCompletedCandidates(result.candidates)
+                feature.retainCompletedCandidates(result.candidates, preset: request.preset)
                 feature.rebuildMaskCandidateIndex()
                 feature.state = .completed(result)
                 Logger.process.debugMessageOnly(
@@ -362,22 +363,24 @@ final class DeepAIReviewFeature {
         state = .idle
         results = [:]
         completedCandidatesByFileID = [:]
+        completedFileIDsByPreset = [:]
         maskCandidatesByFileID = [:]
     }
 
-    private func receive(_ progress: DeepAIReviewProgress, generation: Int) {
+    private func receive(_ progress: DeepAIReviewProgress, preset: DeepAIReviewPreset, generation: Int) {
         Logger.process.debugMessageOnly(
             "DeepAIReviewFeature.receive(): received progress "
                 + "\(progress.completedCount)/\(progress.totalCount) for group \(progress.groupID)",
         )
         guard self.generation == generation, !Task.isCancelled else { return }
-        retainCompletedCandidates(progress.candidates)
+        retainCompletedCandidates(progress.candidates, preset: preset)
         state = .running(progress)
     }
 
-    private func retainCompletedCandidates(_ candidates: [DeepAIReviewCandidate]) {
+    private func retainCompletedCandidates(_ candidates: [DeepAIReviewCandidate], preset: DeepAIReviewPreset) {
         for candidate in candidates where candidate.isCompleted {
             completedCandidatesByFileID[candidate.fileID] = candidate
+            completedFileIDsByPreset[preset, default: []].insert(candidate.fileID)
             if candidate.maskPromptUsed != nil {
                 maskCandidatesByFileID[candidate.fileID] = candidate
             }
