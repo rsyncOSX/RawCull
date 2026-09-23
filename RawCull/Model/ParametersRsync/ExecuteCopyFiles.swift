@@ -89,7 +89,7 @@ final class ExecuteCopyFiles {
     let copyTaggedFiles: Bool
     private let includeListDirectoryOverride: URL?
     private let fileManager: FileManager
-    private let bookmarkDefaults: UserDefaults
+    private let bookmarkStore: CopyBookmarkStore
     private(set) var includeListURL: URL?
 
     // Streaming references
@@ -97,8 +97,8 @@ final class ExecuteCopyFiles {
     private var activeStreamingProcess: RsyncProcessStreaming.RsyncProcess?
 
     // Security-scoped URL references
-    private var sourceAccessedURL: URL?
-    private var destAccessedURL: URL?
+    private var sourceAccess: CopyScopedAccess?
+    private var destinationAccess: CopyScopedAccess?
     private var didCleanUp = false
     private var isClosing = false
     private var operation: CopyOperation?
@@ -161,21 +161,24 @@ final class ExecuteCopyFiles {
         let updateParameter = "--update"
         arguments.append(updateParameter)
 
-        guard let sourceURL = getAccessedSelectedCatalogURL() else {
+        guard let selectedSourceURL = sidebarRawCullViewModel.selectedSource?.url,
+              let sourceAccess = try? bookmarkStore.acquireSource(selectedSourceURL) else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.sourceAccessFailed)
         }
 
-        self.sourceAccessedURL = sourceURL
+        self.sourceAccess = sourceAccess
 
-        guard let destURL = getAccessedURL(fromBookmarkKey: "destBookmark") else {
+        guard let destinationAccess = try? bookmarkStore.acquireDestination() else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.destinationAccessFailed)
         }
 
-        self.destAccessedURL = destURL
+        self.destinationAccess = destinationAccess
+        let sourceURL = sourceAccess.url
+        let destURL = destinationAccess.url
         operation = CopyOperation(dryRun: dryrun, sourceURL: sourceURL, destinationURL: destURL)
 
         arguments.append(sourceURL.path + "/")
@@ -211,7 +214,7 @@ final class ExecuteCopyFiles {
         sidebarRawCullViewModel: RawCullViewModel,
         includeListDirectory: URL? = nil,
         fileManager: FileManager = .default,
-        bookmarkDefaults: UserDefaults = .standard,
+        bookmarkStore: CopyBookmarkStore = CopyBookmarkStore(),
     ) {
         self.config = configuration
         self.dryrun = dryrun
@@ -220,7 +223,7 @@ final class ExecuteCopyFiles {
         self.copyTaggedFiles = copyTaggedFiles
         self.includeListDirectoryOverride = includeListDirectory
         self.fileManager = fileManager
-        self.bookmarkDefaults = bookmarkDefaults
+        self.bookmarkStore = bookmarkStore
 
         let (stream, continuation) = AsyncStream.makeStream(of: Int.self)
         self.progressStream = stream
@@ -298,11 +301,11 @@ final class ExecuteCopyFiles {
         progressStream = nil
 
         // Stop accessing security-scoped resources
-        sourceAccessedURL?.stopAccessingSecurityScopedResource()
-        destAccessedURL?.stopAccessingSecurityScopedResource()
+        sourceAccess?.release()
+        destinationAccess?.release()
 
-        sourceAccessedURL = nil
-        destAccessedURL = nil
+        sourceAccess = nil
+        destinationAccess = nil
 
         if let includeListURL {
             try? fileManager.removeItem(at: includeListURL)
@@ -370,51 +373,6 @@ final class ExecuteCopyFiles {
                 code: 2,
                 userInfo: [NSLocalizedDescriptionKey: "Failed to write filelist to URL: \(error)"],
             )
-        }
-    }
-
-    private func getAccessedSelectedCatalogURL() -> URL? {
-        guard let url = sidebarRawCullViewModel?.selectedSource?.url else {
-            Logger.process.warning("No catalog is selected")
-            return nil
-        }
-        guard url.startAccessingSecurityScopedResource() else {
-            Logger.process.errorMessageOnly("Cannot access the selected catalog URL")
-            return nil
-        }
-        return url
-    }
-
-    func getAccessedURL(fromBookmarkKey key: String) -> URL? {
-        guard let bookmarkData = bookmarkDefaults.data(forKey: key) else {
-            Logger.process.warning("No bookmark for \(key); folder reselection is required")
-            return nil
-        }
-        do {
-            var isStale = false
-            let url = try URL(
-                resolvingBookmarkData: bookmarkData,
-                options: .withSecurityScope,
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale,
-            )
-            guard url.startAccessingSecurityScopedResource() else {
-                Logger.process.errorMessageOnly("Cannot access bookmark for \(key); reselect the folder")
-                return nil
-            }
-            // Refresh a stale bookmark only while its resolved grant is active.
-            if isStale {
-                do {
-                    let refreshed = try url.bookmarkData(options: .withSecurityScope)
-                    bookmarkDefaults.set(refreshed, forKey: key)
-                } catch {
-                    Logger.process.warning("Could not refresh bookmark for \(key): \(error)")
-                }
-            }
-            return url
-        } catch {
-            Logger.process.errorMessageOnly("Bookmark resolution failed for \(key): \(error); reselect the folder")
-            return nil
         }
     }
 }

@@ -17,6 +17,7 @@ struct CopyFilesView: View {
     @Binding var showcopytask: Bool
 
     @State private var destinationCatalog: String = ""
+    @State private var bookmarkStore = CopyBookmarkStore()
 
     @State private var executionManager: ExecuteCopyFiles?
     @State private var dryrun: Bool = true
@@ -42,6 +43,7 @@ struct CopyFilesView: View {
             SourceAndDestinationSection(
                 sourceCatalog: viewModel.selectedSource?.url.path ?? "",
                 destinationCatalog: $destinationCatalog,
+                bookmarkStore: bookmarkStore,
             )
             .disabled(copyFilesinProgress)
 
@@ -145,6 +147,7 @@ struct CopyFilesView: View {
             rating: copyratedfiles,
             copyTaggedFiles: copyTaggedFiles,
             sidebarRawCullViewModel: viewModel,
+            bookmarkStore: bookmarkStore,
         )
 
         executionManager?.onCompletion = { result in

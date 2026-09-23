@@ -7,7 +7,7 @@ struct OpencatalogView: View {
     @State private var isImporting: Bool = false
     @State private var selectionErrorMessage: String?
     let catalogs: Bool
-    let bookmarkKey: String
+    let bookmarkStore: CopyBookmarkStore
 
     var body: some View {
         Button(action: {
@@ -28,28 +28,15 @@ struct OpencatalogView: View {
                           case let .success(url):
                               Logger.process.debugMessageOnly("Selected URL: \(url.path)")
 
-                              guard url.startAccessingSecurityScopedResource() else {
-                                  Logger.process.errorMessageOnly(": Failed to start accessing security-scoped resource")
-                                  clearBookmarkAndShowError("RawCull could not access the selected folder. Please choose the folder again.")
-                                  return
-                              }
-
                               do {
-                                  let bookmarkData = try url.bookmarkData(
-                                      options: .withSecurityScope,
-                                      includingResourceValuesForKeys: nil,
-                                      relativeTo: nil,
-                                  )
-                                  UserDefaults.standard.set(bookmarkData, forKey: bookmarkKey)
+                                  try bookmarkStore.saveDestination(url)
                                   selectedItem = url.path
-                                  Logger.process.debugMessageOnly("Bookmark saved for key: \(bookmarkKey)")
-                                  Logger.process.debugMessageOnly("Bookmark data size: \(bookmarkData.count) bytes")
+                              } catch CopyBookmarkFailure.accessDenied {
+                                  selectionErrorMessage = "RawCull could not access the selected folder. Please choose the folder again."
                               } catch {
                                   Logger.process.errorMessageOnly(": Could not create bookmark: \(error)")
-                                  clearBookmarkAndShowError("RawCull could not save access to the selected folder. Please choose the folder again.")
+                                  selectionErrorMessage = "RawCull could not save access to the selected folder. Please choose the folder again."
                               }
-
-                              url.stopAccessingSecurityScopedResource()
 
                           case let .failure(error):
                               Logger.process.errorMessageOnly(": File picker error: \(error)")
@@ -82,10 +69,5 @@ struct OpencatalogView: View {
                 }
             },
         )
-    }
-
-    private func clearBookmarkAndShowError(_ message: String) {
-        UserDefaults.standard.removeObject(forKey: bookmarkKey)
-        selectionErrorMessage = message
     }
 }

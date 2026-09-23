@@ -64,7 +64,7 @@ struct CopyCompletionTests {
         let manager = ExecuteCopyFiles(
             configuration: SynchronizeConfiguration(), dryrun: false, rating: 0,
             copyTaggedFiles: false, sidebarRawCullViewModel: viewModel,
-            includeListDirectory: root, bookmarkDefaults: defaults,
+            includeListDirectory: root, bookmarkStore: CopyBookmarkStore(defaults: defaults),
         )
         defer { manager.close() }
         let result: CopyDataResult? = await withCheckedContinuation { continuation in
@@ -88,7 +88,7 @@ struct CopyCompletionTests {
         }
         #expect(!completed.operation.dryRun)
         #expect(completed.operation.sourceURL.standardizedFileURL == source.standardizedFileURL)
-        #expect(completed.operation.destinationURL == destination)
+        #expect(completed.operation.destinationURL.resolvingSymlinksInPath() == destination.resolvingSymlinksInPath())
         #expect(manager.includeListURL == nil)
     }
 

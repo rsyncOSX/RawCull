@@ -3,6 +3,7 @@ import SwiftUI
 struct SourceAndDestinationSection: View {
     let sourceCatalog: String
     @Binding var destinationCatalog: String
+    let bookmarkStore: CopyBookmarkStore
 
     var body: some View {
         Section("Source and Destination") {
@@ -44,7 +45,7 @@ struct SourceAndDestinationSection: View {
                     OpencatalogView(
                         selectedItem: $destinationCatalog,
                         catalogs: true,
-                        bookmarkKey: "destBookmark",
+                        bookmarkStore: bookmarkStore,
                     )
                 }
             }
