@@ -86,7 +86,7 @@ final class ExecuteCopyFiles {
     let config: SynchronizeConfiguration
     let dryrun: Bool
     let rating: Int
-    let copytaggedfiles: Bool
+    let copyTaggedFiles: Bool
     private let includeListDirectoryOverride: URL?
     private let fileManager: FileManager
     private let bookmarkDefaults: UserDefaults
@@ -110,7 +110,7 @@ final class ExecuteCopyFiles {
     var progressStream: AsyncStream<Int>?
     private var progressContinuation: AsyncStream<Int>.Continuation?
 
-    func startcopyfiles() -> Result<Void, CopyStartupFailure> {
+    func startCopyFiles() -> Result<Void, CopyStartupFailure> {
         guard var arguments = ArgumentsSynchronize(config: config).argumentsSynchronize(
             dryRun: dryrun,
         ) else {
@@ -130,7 +130,7 @@ final class ExecuteCopyFiles {
             return .failure(.missingViewModel)
         }
 
-        if copytaggedfiles {
+        if copyTaggedFiles {
             filelist = sidebarRawCullViewModel.extractTaggedfilenames()
         } else {
             filelist = sidebarRawCullViewModel.extractRatedfilenames(rating)
@@ -156,10 +156,10 @@ final class ExecuteCopyFiles {
         arguments.append("--files-from=" + savePath.path)
 
         // Add itemize parameter to get a nice formatted output
-        let itemizeparameter = "--itemize-changes"
-        arguments.append(itemizeparameter)
-        let updateparamter = "--update"
-        arguments.append(updateparamter)
+        let itemizedParameter = "--itemize-changes"
+        arguments.append(itemizedParameter)
+        let updateParameter = "--update"
+        arguments.append(updateParameter)
 
         guard let sourceURL = getAccessedSelectedCatalogURL() else {
             Logger.process.errorMessageOnly("Failed to access folders")
@@ -207,7 +207,7 @@ final class ExecuteCopyFiles {
         configuration: SynchronizeConfiguration,
         dryrun: Bool = true,
         rating: Int = 0,
-        copytaggedfiles: Bool = true,
+        copyTaggedFiles: Bool = true,
         sidebarRawCullViewModel: RawCullViewModel,
         includeListDirectory: URL? = nil,
         fileManager: FileManager = .default,
@@ -217,7 +217,7 @@ final class ExecuteCopyFiles {
         self.dryrun = dryrun
         self.rating = rating
         self.sidebarRawCullViewModel = sidebarRawCullViewModel
-        self.copytaggedfiles = copytaggedfiles
+        self.copyTaggedFiles = copyTaggedFiles
         self.includeListDirectoryOverride = includeListDirectory
         self.fileManager = fileManager
         self.bookmarkDefaults = bookmarkDefaults

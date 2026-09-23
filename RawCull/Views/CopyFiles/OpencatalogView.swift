@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct OpencatalogView: View {
-    @Binding var selecteditem: String
+    @Binding var selectedItem: String
     @State private var isImporting: Bool = false
     @State private var selectionErrorMessage: String?
     let catalogs: Bool
@@ -22,7 +22,7 @@ struct OpencatalogView: View {
             }
         })
         .fileImporter(isPresented: $isImporting,
-                      allowedContentTypes: [uutype],
+                      allowedContentTypes: [allowedContentType],
                       onCompletion: { result in
                           switch result {
                           case let .success(url):
@@ -41,7 +41,7 @@ struct OpencatalogView: View {
                                       relativeTo: nil,
                                   )
                                   UserDefaults.standard.set(bookmarkData, forKey: bookmarkKey)
-                                  selecteditem = url.path
+                                  selectedItem = url.path
                                   Logger.process.debugMessageOnly("Bookmark saved for key: \(bookmarkKey)")
                                   Logger.process.debugMessageOnly("Bookmark data size: \(bookmarkData.count) bytes")
                               } catch {
@@ -65,7 +65,7 @@ struct OpencatalogView: View {
         }
     }
 
-    var uutype: UTType {
+    var allowedContentType: UTType {
         if catalogs {
             .directory
         } else {

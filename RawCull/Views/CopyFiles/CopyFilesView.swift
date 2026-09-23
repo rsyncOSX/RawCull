@@ -16,11 +16,11 @@ struct CopyFilesView: View {
     @Binding var sheetType: SheetType?
     @Binding var showcopytask: Bool
 
-    @State private var destinationcatalog: String = ""
+    @State private var destinationCatalog: String = ""
 
     @State private var executionManager: ExecuteCopyFiles?
     @State private var dryrun: Bool = true
-    @State private var copytaggedfiles: Bool = true
+    @State private var copyTaggedFiles: Bool = true
     @State private var copyratedfiles: Int = 1
 
     @State private var copyFilesinProgress: Bool = false
@@ -31,7 +31,7 @@ struct CopyFilesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             CopyOptionsSection(
-                copytaggedfiles: $copytaggedfiles,
+                copyTaggedFiles: $copyTaggedFiles,
                 copyratedfiles: $copyratedfiles,
                 dryrun: $dryrun,
             )
@@ -40,8 +40,8 @@ struct CopyFilesView: View {
             Divider()
 
             SourceAndDestinationSection(
-                sourcecatalog: viewModel.selectedSource?.url.path ?? "",
-                destinationcatalog: $destinationcatalog,
+                sourceCatalog: viewModel.selectedSource?.url.path ?? "",
+                destinationCatalog: $destinationCatalog,
             )
             .disabled(copyFilesinProgress)
 
@@ -68,11 +68,11 @@ struct CopyFilesView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Copy") {
                     guard viewModel.selectedSource != nil,
-                          !destinationcatalog.isEmpty else { return }
+                          !destinationCatalog.isEmpty else { return }
                     showResult = false
                     executeCopyFiles()
                 }
-                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationcatalog.isEmpty)
+                .disabled(copyFilesinProgress || viewModel.selectedSource == nil || destinationCatalog.isEmpty)
             }
         }
         .onDisappear {
@@ -143,7 +143,7 @@ struct CopyFilesView: View {
             configuration: configuration,
             dryrun: dryrun,
             rating: copyratedfiles,
-            copytaggedfiles: copytaggedfiles,
+            copyTaggedFiles: copyTaggedFiles,
             sidebarRawCullViewModel: viewModel,
         )
 
@@ -153,7 +153,7 @@ struct CopyFilesView: View {
 
         guard let executionManager else { return }
 
-        switch executionManager.startcopyfiles() {
+        switch executionManager.startCopyFiles() {
         case .success:
             copyFilesinProgress = true
 
