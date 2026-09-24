@@ -184,8 +184,10 @@ final class RawCullObjectAnalysisFeature {
     ) async -> ObjectPhotoAnalysisResult {
         var concepts: [SegmentationConcept] = []
         var descriptors: [ObjectInstanceDescriptor] = []
+        var rawInstanceCount = 0
         var modelIdentity: ModelIdentity?
         var failureStage: String?
+        var timings = ObjectAnalysisTimings()
         do {
             guard let image = await imageLoader.thumbnailCGImage(
                 for: file.url, maxPixelSize: 4_320,
@@ -208,6 +210,7 @@ final class RawCullObjectAnalysisFeature {
             if reuse, let reusable {
                 concepts = reusable.concepts.compactMap { try? SegmentationConcept($0) }
                 descriptors = reusable.instances
+                rawInstanceCount = reusable.rawInstanceCount
                 modelIdentity = reusable.sam3Model
                 retained = descriptors.compactMap { descriptor in
                     cached[descriptor.id].map { .init(descriptor: descriptor, mask: $0) }
@@ -215,18 +218,21 @@ final class RawCullObjectAnalysisFeature {
             } else if mode == .automatic {
                 setStage(.discoveringConcepts)
                 failureStage = "Concept discovery"
+                let discoveryStart = Date()
                 let response = try await inference.respond(to: QwenVisionRequest(
                     instruction: ObjectConceptDiscovery.instruction,
                     image: image, maximumResponseTokens: 384,
                 ))
                 captureDiagnostic(response, file: file, stage: "discovery", tokenLimit: 384)
                 concepts = try ObjectConceptDiscovery.decode(response).map(\.concept)
+                timings.conceptDiscoverySeconds = Date().timeIntervalSince(discoveryStart)
             } else {
                 concepts = manualConcepts
             }
             guard !concepts.isEmpty else { throw ObjectAnalysisError.noConcepts }
             failureStage = nil
             if !reuse {
+                let segmentationStart = Date()
                 var candidates: [ObjectInstanceDeduplicator.Candidate] = []
                 let source = AIImageSource(id: file.id, url: file.url, displayName: file.name)
                 for (index, concept) in concepts.enumerated() {
@@ -236,6 +242,7 @@ final class RawCullObjectAnalysisFeature {
                     let result = try await segmentation.segment(image: image, source: source,
                                                                 concept: concept)
                     modelIdentity = result.modelIdentity
+                    rawInstanceCount += result.instances.count
                     candidates += result.instances.map {
                         ObjectInstanceDeduplicator.Candidate(
                             concept: concept, mask: $0.mask, score: $0.score,
@@ -246,49 +253,59 @@ final class RawCullObjectAnalysisFeature {
                 }
                 retained = await Task { @concurrent in ObjectInstanceDeduplicator.retain(candidates) }.value
                 descriptors = retained.map(\.descriptor)
+                timings.segmentationSeconds = Date().timeIntervalSince(segmentationStart)
             }
             setStage(.preparingObjectBoard)
             if retained.isEmpty {
                 return makeResult(file, mode: mode, concepts: concepts, descriptors: [],
                                   assessment: nil, freeform: nil, failure: nil,
-                                  modelIdentity: modelIdentity)
+                                  modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
+                                  timings: timings)
             }
+            let boardStart = Date()
             let board = try await Task { @concurrent in
                 try ObjectReviewBoardRenderer.render(image: image, objects: retained)
             }.value
+            timings.boardRenderingSeconds = Date().timeIntervalSince(boardStart)
             try Task.checkCancellation()
             setStage(.analyzingObjects)
             failureStage = "Object assessment"
+            let assessmentStart = Date()
             let response = try await inference.respond(to: QwenVisionRequest(
                 instruction: Self.analysisInstruction(ids: board.objectIDs, criteria: criteria),
                 image: board.image, maximumResponseTokens: 1_024,
             ))
             captureDiagnostic(response, file: file, stage: "assessment", tokenLimit: 1_024)
+            timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
             try Task.checkCancellation()
             do {
                 let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs))
                 return makeResult(file, mode: mode, concepts: concepts,
                                   descriptors: descriptors, assessment: assessment,
-                                  freeform: nil, failure: nil, modelIdentity: modelIdentity)
+                                  freeform: nil, failure: nil, modelIdentity: modelIdentity,
+                                  rawInstanceCount: rawInstanceCount, timings: timings)
             } catch {
                 return makeResult(file, mode: mode, concepts: concepts,
                                   descriptors: descriptors, assessment: nil,
                                   freeform: response,
                                   failure: "Object assessment: \(error.localizedDescription)",
-                                  modelIdentity: modelIdentity)
+                                  modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
+                                  timings: timings)
             }
         } catch is CancellationError {
             return makeResult(file, mode: mode, concepts: concepts,
                               descriptors: descriptors, assessment: nil,
                               freeform: nil, failure: "Cancelled",
-                              modelIdentity: modelIdentity)
+                              modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
+                              timings: timings)
         } catch {
             return makeResult(file, mode: mode, concepts: concepts,
                               descriptors: descriptors, assessment: nil,
                               freeform: nil,
                               failure: failureStage.map { "\($0): \(error.localizedDescription)" }
                                   ?? error.localizedDescription,
-                              modelIdentity: modelIdentity)
+                              modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
+                              timings: timings)
         }
     }
 
@@ -296,16 +313,18 @@ final class RawCullObjectAnalysisFeature {
         _ file: FileItem, mode: ObjectDiscoveryMode,
         concepts: [SegmentationConcept], descriptors: [ObjectInstanceDescriptor],
         assessment: ObjectPhotoAssessment?, freeform: String?, failure: String?,
-        modelIdentity: ModelIdentity?,
+        modelIdentity: ModelIdentity?, rawInstanceCount: Int,
+        timings: ObjectAnalysisTimings,
     ) -> ObjectPhotoAnalysisResult {
         let qwenName: String? = if case let .available(_, name) = qwenStatus { name } else { nil }
         return ObjectPhotoAnalysisResult(
             fileID: file.id, fileName: file.name, concepts: concepts.map(\.query),
-            discoveryMode: mode, instances: descriptors,
+            discoveryMode: mode, rawInstanceCount: rawInstanceCount, instances: descriptors,
             assessment: assessment, freeformResponse: freeform, failure: failure,
             sam3ModelIdentity: modelIdentity?.artifactIdentifier,
             sam3Model: modelIdentity, qwenModelName: qwenName,
-            sourceSize: file.size, sourceModified: file.dateModified, timestamp: Date(),
+            sourceSize: file.size, sourceModified: file.dateModified,
+            timings: timings, timestamp: Date(),
         )
     }
 
@@ -313,15 +332,16 @@ final class RawCullObjectAnalysisFeature {
         """
         This board shows one photograph: the top overview and the numbered crops below are repeated views of the same photo, not separate photographs. Analyze only the numbered objects. Use visible evidence only.
         Object IDs: \(ids.joined(separator: ", ")).
+        The numbered crops at the bottom are ordered left to right: \(ids.map { "crop \($0) is object \($0)" }.joined(separator: "; ")). Match each description to that crop's large number, not to its order of mention in the overview.
         Additional criteria: \(criteria)
         Return exactly one JSON object and no Markdown with these keys:
-        imageSummary (string), objects (array of {id, concept, description, visibility,
+        imageSummary (short string), objects (array of {id, concept, description, visibility,
         focusQuality, expression, obstructions, strengths, problems, confidence}),
         relationships (strings), strengths (strings), problems (strings),
         preferredObjectIDs (array of board IDs), confidence (0 to 1).
         visibility must be clear, partial, obscured, or uncertain.
         focusQuality must be sharp, soft, blurred, or uncertain.
-        Include one entry for each board ID and use that exact ID. expression must be a string or null; all list fields must be arrays, using [] when empty. Keep lists short. Each object's description must use visible evidence from its matching numbered crop. Describe relationships only when supported by the overview. Do not invent extra objects, issues, or relationships.
+        The objects array must contain exactly \(ids.count) entries: one per listed ID, with no repeated IDs. Each numbered ID marks a different physical subject in the one photograph. The overview and crops repeat those subjects, so do not list a new object for each view. expression must be a visible facial expression string or null; all list fields must be arrays, using [] when empty. Use at most two short sentences per description and at most two short items per list. Each object's description must use visible evidence from its matching numbered crop. imageSummary must describe the scene without calling separate IDs the same subject or different photographs. Describe relationships only when supported by the overview; never call different IDs the same subject. Do not invent extra objects, issues, or relationships.
         """
     }
 

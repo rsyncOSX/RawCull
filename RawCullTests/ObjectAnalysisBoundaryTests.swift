@@ -79,4 +79,38 @@ struct ObjectAnalysisBoundaryTests {
             try ObjectAnalysisResponseDecoder.decode(extra, boardIDs: ["1"])
         }
     }
+
+    @Test func `Captured assessment shape normalizes singular text lists`() throws {
+        let observedShape = #"{"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":"none","strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#
+        let recovered = try ObjectAnalysisResponseDecoder.decode(observedShape, boardIDs: ["1"])
+        #expect(recovered.imageSummary == nil)
+        #expect(recovered.objects[0].obstructions.isEmpty)
+        let singular = observedShape.replacingOccurrences(of: "\"obstructions\":\"none\"", with: "\"obstructions\":\"branch across wing\"")
+        #expect(try ObjectAnalysisResponseDecoder.decode(singular, boardIDs: ["1"]).objects[0].obstructions == ["branch across wing"])
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(
+                observedShape.replacingOccurrences(of: "\"obstructions\":\"none\"", with: "\"obstructions\":3"),
+                boardIDs: ["1"])
+        }
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(
+                observedShape.replacingOccurrences(of: "\"preferredObjectIDs\":[\"1\"],", with: ""),
+                boardIDs: ["1"])
+        }
+    }
+
+    @Test func `Numeric board IDs normalize but still require an exact board match`() throws {
+        let response = #"{"objects":[{"id":1,"concept":"bird","description":"Flying bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[1],"confidence":0.8}"#
+        let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"])
+        #expect(assessment.objects.map(\.id) == ["1"])
+        #expect(assessment.preferredObjectIDs == ["1"])
+        #expect(throws: ObjectResponseIssue.unknownID("1")) {
+            try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["2"])
+        }
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(
+                response.replacingOccurrences(of: "\"id\":1", with: "\"id\":1.5"),
+                boardIDs: ["1"])
+        }
+    }
 }

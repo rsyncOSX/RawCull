@@ -226,7 +226,9 @@ private struct ObjectPhotoDetailView: View {
                                     .accessibilityLabel("Cropped view of selected object")
                             }
                             if let assessment = result.assessment {
-                                Text(assessment.imageSummary).font(.body)
+                                if let summary = assessment.imageSummary {
+                                    Text(summary).font(.body)
+                                }
                                 Text("Qwen assessment confidence: \(assessment.confidence.formatted(.percent))")
                                     .font(.caption)
                                 if let object = assessment.objects.first(where: { $0.id == selectedObjectID }) {

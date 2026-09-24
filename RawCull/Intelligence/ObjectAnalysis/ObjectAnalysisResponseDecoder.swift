@@ -3,7 +3,8 @@ import Foundation
 nonisolated enum ObjectAnalysisResponseDecoder {
     static func decode(_ response: String, boardIDs: Set<String>) throws -> ObjectPhotoAssessment {
         let value = try ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response)
-        guard !value.imageSummary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        if let summary = value.imageSummary,
+           summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw ObjectResponseIssue.invalidValue("imageSummary")
         }
         guard value.objects.count <= 8, value.preferredObjectIDs.count <= 8 else {

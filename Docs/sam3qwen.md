@@ -1384,11 +1384,68 @@ and response length. The directory must be private to the current user
 after diagnosis. The runtime does not currently expose a finish reason or
 output token count, so record response length and inspect truncation directly.
 
-The eight original puffin files and their Qwen responses are not present in
-this checkout. The real-model eight-photo acceptance run, response-shape
-fixtures derived from that run, broader §12.5 matrix, latency and peak-memory
-measurements, clean-install TestFlight, and cache-lifecycle checks remain open.
-Record the per-photo results in §16.2 before treating Objects mode as ready.
+The eight original ARW files were supplied locally for this checkpoint. Captured
+packaged-model responses exposed two narrow schema variations: Qwen sometimes
+omits `imageSummary`, emits a whole-number JSON board ID, or writes one short
+list value as a string, often `"none"`. The decoder accepts those shapes and
+still rejects missing object entries, unknown or duplicate IDs, invalid values,
+and out-of-range confidence. The anonymized response-shape fixtures cover these
+cases. Review-board numbers now sit above the crops, and aspect-fit rendering
+keeps the entire crop and mask outline visible. A two-photo rerun confirmed that
+the board itself is readable, but Qwen still swapped flying/perched IDs once and
+gave nearly identical descriptions of two differently facing puffins. Structured
+decoding and high self-reported confidence therefore do not establish visual
+accuracy.
+
+The broader §12.5 matrix, clean-install TestFlight, and cache-lifecycle checks
+remain open. The user does not yet have the additional mixed-category,
+overlapping, tiny-subject, no-match, and RAW/JPEG comparison samples. Keep Objects
+mode behind its existing validation gate until those cases and the remaining
+visual-grounding issues are resolved.
+
+#### Eight-photo packaged-model rerun
+
+The local macOS XCTest probe processed the eight supplied ARW files sequentially
+in Automatic and Specific Concepts (`bird`) modes on September 24, 2026. The
+packaged models were Qwen `qwen3_vl_2b` and local SAM 3
+`sam3_float16.aimodel` (model identity suffix
+`file-metadata-v1:1663921567:1783701311.5240934`). Automatic discovered
+`puffin` for every photo. The test ran from this checkout at `2303f01` plus the
+uncommitted changes described above; it was an in-process feature/model test,
+not a clean-install app or TestFlight test. `A` means Automatic and `B` means
+manual `bird`. Raw counts are SAM 3 candidates before deduplication; retained
+counts are objects sent to Qwen. Every row below decoded to a structured result
+with all expected board IDs, no decode failure, and Qwen confidence shown.
+
+| Photo | A raw → retained | B raw → retained | A / B Qwen confidence | A / B elapsed (s) | Visual grounding note |
+|---|---:|---:|---:|---:|---|
+| `_DSC1867.ARW` | 7 → 1 | 8 → 1 | .95 / .95 | 45.1 / 18.0 | One flying bird; one board ID. |
+| `_DSC2063.ARW` | 8 → 1 | 8 → 1 | .95 / .95 | 22.7 / 19.2 | One partly occluded bird; obstruction language needs visual review. |
+| `_DSC2076.ARW` | 8 → 1 | 8 → 1 | .95 / .95 | 21.8 / 18.1 | One perched bird; one board ID. |
+| `_DSC2412.ARW` | 8 → 1 | 8 → 1 | 1.00 / 1.00 | 20.2 / 17.0 | One distant bird; one board ID. |
+| `_DSC2426.ARW` | 8 → 1 | 8 → 1 | 1.00 / 1.00 | 22.4 / 17.6 | One flying bird; one board ID. |
+| `_DSC3028.ARW` | 8 → 2 | 8 → 2 | 1.00 / 1.00 | 30.0 / 26.3 | One flying and one perched; separate spot check swapped their descriptions once. |
+| `_DSC3055.ARW` | 8 → 2 | 8 → 2 | .95 / .95 | 29.3 / 25.6 | Two perched birds; separate spot check repeated descriptions and claimed three in its summary once. |
+| `_DSC3472.ARW` | 8 → 1 | 8 → 1 | .95 / .95 | 21.0 / 17.0 | One flying bird; one board ID. |
+
+The first Automatic run included cold model startup: concept discovery 21.40 s
+and segmentation 11.19 s. Warm discovery was 2.98–3.56 s, segmentation
+6.59–6.99 s, board rendering 0.028–0.044 s, and Qwen assessment
+10.21–20.14 s depending on board size. The complete sequential test took
+371.5 s. Process peak resident memory was 10,164,355,072 bytes (9.47 GiB),
+measured with `getrusage`; it is a process peak, not a per-photo allocation.
+The runtime did not expose a finish reason or output-token count. Captured
+responses in earlier one- and two-photo reruns were complete at the existing
+384/1,024-token caps, so these limits were not changed. The assessment-retry
+path was verified by a focused feature test using cached SAM 3 masks; it was
+not triggered by the 16 successful structured decodes in this real-model run.
+
+**Gate status:** response reliability on this puffin set is met (16/16
+structured, 16/16 expected ID sets), while visual grounding remains open.
+The two-bird errors show that schema-valid IDs and Qwen's .95–1.00 confidence
+can accompany false claims. Re-test the two-bird descriptions and occlusion
+claims against the source photos after the next board/prompt or model change,
+then run the remaining §12.5 samples and TestFlight lifecycle checks.
 
 ## 17. Catalog AI coverage beyond CLIP and future models
 
