@@ -31,15 +31,13 @@ noted; the current project version is checked against the repository:
 | Upload pack versions to App Store Connect | **Completed** | Version 1 of CLIP, SAM 3, and Qwen uploaded with zero errors and zero warnings. All three report `COMPLETE` for `MAC_OS`. |
 | Internal beta asset releases | **Completed** | All three Apple-created internal beta releases report `READY_FOR_TESTING`. |
 | Released version | **Completed** | Version `3.2.4` is on the Mac App Store, with all three AI models available, per the maintainer's September 24 report. Build `383` below is the historical migration baseline. |
-| Current checkout | **Version 3.2.6** | The project currently declares marketing version `3.2.6`; its App Store release status is not established by this document. |
+| Current checkout | **Version 3.2.6, build 389** | The app and downloader extension declare the same marketing version and build number in Debug, Release, and AppStore. `ReleaseMetadataTests.swift` expects version `3.2.6` and matching build numbers. Its App Store release status is not established by this document. |
+| Current RawCull test run | **Passed with one skip** | The maintainer's September 24 Xcode result screenshot shows 467 tests: 466 passed and one skipped, on a Mac mini with macOS 27.0. Xcode also shows 511 passed and one skipped at the parameterized-run level. The screenshot does not identify the skipped test. |
 | Signed App Store archive and upload | **Completed for 3.2.4** | Successful TestFlight builds and the App Store release establish that the distribution path has been exercised. |
 | TestFlight validation | **Operational** | The maintainer reports several successful builds and tests. The individual clean-install, cancellation, removal, and update cases in section 18 are not all separately documented here. |
 
-For the next 3.2.6 archive, reconcile current release metadata: the project
-sets app build `389` and downloader-extension build `388` in all three
-configurations, while `ReleaseMetadataTests.swift` still expects marketing
-version `3.2.5` and matching build numbers. This is a source audit finding,
-separate from the maintainer's successful TestFlight experience.
+The previously noted 3.2.6 release-metadata mismatch has been corrected in
+source. Both targets now use build `389`, and the test expects version `3.2.6`.
 
 The repository provenance records `processing_status` as `succeeded` and the
 internal beta state as `ready-for-testing`. Any `not-submitted` review value in
@@ -73,7 +71,8 @@ count and SHA-256.
 
 The migration baseline used `MARKETING_VERSION = 3.2.4` and
 `CURRENT_PROJECT_VERSION = 383`. The current checkout declares marketing
-version `3.2.6`; inspect both app and extension versions in each new archive.
+version `3.2.6` and build `389` for both app and extension. Inspect both
+versions in each new archive.
 
 ### Distribution configuration — App Store path in use
 
@@ -683,7 +682,8 @@ Verify:
 ## 16. Version 3.2.4 project changes — historical release baseline
 
 The 3.2.4 migration baseline used `MARKETING_VERSION = 3.2.4` and
-`CURRENT_PROJECT_VERSION = 383`. The checkout now declares version 3.2.6.
+`CURRENT_PROJECT_VERSION = 383`. The checkout now declares version 3.2.6,
+build 389, for both app and downloader extension.
 For each new upload, confirm the intended version and build inside the signed
 archived app and embedded extension:
 
@@ -696,6 +696,12 @@ The active release workflow uses the App Store archive and TestFlight. It does
 not produce a local DMG distribution artifact.
 
 ## 17. Local verification for future TestFlight builds
+
+The maintainer's September 24, 2026 Xcode result screenshot records a complete
+RawCull test run on macOS 27.0: 467 tests, 466 passed, one skipped. Xcode's
+device/configuration summary counts 511 passed and one skipped parameterized
+runs. This is the current suite result; the following commands remain the
+repeatable verification procedure for later builds.
 
 Run formatting and repository checks:
 
@@ -864,7 +870,10 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
   per the maintainer.
 - [ ] Record the individual section 18 clean-install, cancellation, removal,
   and update test results for the next release gate.
-- [ ] Align the 3.2.6 app/extension build numbers and update the stale
-  `ReleaseMetadataTests.swift` version expectation before the next archive.
+- [x] Align the 3.2.6 app/extension build numbers at `389` and update
+  `ReleaseMetadataTests.swift` to expect version `3.2.6`.
+- [x] Run the complete RawCull Xcode test suite on macOS 27.0: 466 passed,
+  one skipped (467 tests; 511 passed parameterized runs), per the September 24
+  result screenshot.
 - [ ] Reconcile historical `not-submitted` provenance review metadata with the
   production App Store Connect records.
