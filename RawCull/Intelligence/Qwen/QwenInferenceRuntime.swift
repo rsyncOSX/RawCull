@@ -87,7 +87,7 @@ actor QwenInferenceRuntime: QwenInferenceServing {
     }
 
     func respond(to request: QwenVisionRequest) async throws -> String {
-        guard (1 ... 4_096).contains(request.maximumResponseTokens) else {
+        guard (1 ... 4096).contains(request.maximumResponseTokens) else {
             throw QwenModelError.invalidTokenLimit
         }
         let requestedGeneration = modelGeneration

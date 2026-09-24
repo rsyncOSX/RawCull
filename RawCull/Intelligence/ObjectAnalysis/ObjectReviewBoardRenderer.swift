@@ -11,16 +11,17 @@ nonisolated enum ObjectReviewBoardRenderer {
 
     static func render(image: CGImage,
                        objects: [ObjectInstanceDeduplicator.Retained]) throws -> Board {
-        let side = 2_048
+        let side = 2048
         guard let context = CGContext(data: nil, width: side, height: side,
                                       bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else {
             throw ObjectAnalysisError.imageUnavailable
         }
         context.setFillColor(CGColor(gray: 0.12, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: side, height: side))
-        let overview = CGRect(x: 0, y: 1_024, width: side, height: 1_024)
+        let overview = CGRect(x: 0, y: 1024, width: side, height: 1024)
         drawAspectFit(image, in: overview, context: context)
 
         for (index, object) in objects.prefix(8).enumerated() {
@@ -78,7 +79,7 @@ nonisolated enum ObjectReviewBoardRenderer {
         let font = CTFontCreateWithName("Helvetica-Bold" as CFString, 64, nil)
         let attributes: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key(kCTFontAttributeName as String): font,
-            NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor.white,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor.white
         ]
         let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
         context.textPosition = CGPoint(x: rect.minX + 26, y: rect.minY + 10)
@@ -97,12 +98,12 @@ nonisolated enum ObjectReviewBoardRenderer {
         maskContext.interpolationQuality = .none
         maskContext.draw(mask, in: CGRect(x: 0, y: 0, width: width, height: height))
         var edges = [UInt8](repeating: 0, count: width * height * 4)
-        for y in 1..<(height - 1) {
-            for x in 1..<(width - 1) {
+        for y in 1 ..< (height - 1) {
+            for x in 1 ..< (width - 1) {
                 let p = y * width + x
                 guard pixels[p] > 127,
                       pixels[p - 1] <= 127 || pixels[p + 1] <= 127
-                        || pixels[p - width] <= 127 || pixels[p + width] <= 127 else { continue }
+                      || pixels[p - width] <= 127 || pixels[p + width] <= 127 else { continue }
                 let offset = p * 4
                 edges[offset] = 255
                 edges[offset + 1] = 220

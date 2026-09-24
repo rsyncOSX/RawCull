@@ -5,8 +5,8 @@
 //  Created by Thomas Evensen on 22/09/2026.
 //
 
-import Observation
 import AppKit
+import Observation
 import OSLog
 
 @MainActor

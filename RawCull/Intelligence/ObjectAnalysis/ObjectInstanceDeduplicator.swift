@@ -43,7 +43,9 @@ nonisolated enum ObjectInstanceDeduplicator {
             guard area >= 64, area < pixels.count * 95 / 100 else { return nil }
             return Work(candidate: candidate, pixels: pixels, area: area, aliases: [])
         }.sorted { a, b in
-            if a.candidate.score != b.candidate.score { return a.candidate.score > b.candidate.score }
+            if a.candidate.score != b.candidate.score {
+                return a.candidate.score > b.candidate.score
+            }
             if a.candidate.normalizedBoundingBox.minX != b.candidate.normalizedBoundingBox.minX {
                 return a.candidate.normalizedBoundingBox.minX < b.candidate.normalizedBoundingBox.minX
             }

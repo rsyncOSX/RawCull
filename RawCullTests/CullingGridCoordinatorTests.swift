@@ -214,7 +214,7 @@ struct CullingGridCoordinatorTests {
 
         let visible = BurstGroupFileOrderPolicy.orderedFiles(
             in: [first, second, third, fourth],
-            rankedFileIDs: [third.id, first.id, fourth.id, second.id]
+            rankedFileIDs: [third.id, first.id, fourth.id, second.id],
         )
 
         #expect(visible.map(\.id) == [third.id, first.id, fourth.id, second.id])
@@ -229,7 +229,7 @@ struct CullingGridCoordinatorTests {
 
         let visible = BurstGroupFileOrderPolicy.orderedFiles(
             in: [first, second, third, fourth],
-            rankedFileIDs: [third.id]
+            rankedFileIDs: [third.id],
         )
 
         #expect(visible.map(\.id) == [third.id, first.id, second.id, fourth.id])

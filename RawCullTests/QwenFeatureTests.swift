@@ -9,7 +9,7 @@ import Testing
 @Suite("Qwen feature", .tags(.smoke))
 struct QwenFeatureTests {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["QWEN_PHASE3_BUNDLE"] != nil &&
-                       ProcessInfo.processInfo.environment["QWEN_PHASE3_IMAGE"] != nil))
+            ProcessInfo.processInfo.environment["QWEN_PHASE3_IMAGE"] != nil))
     func `Local Qwen model answers a general vision request`() async throws {
         let environment = ProcessInfo.processInfo.environment
         let bundlePath = try #require(environment["QWEN_PHASE3_BUNDLE"])
@@ -20,7 +20,7 @@ struct QwenFeatureTests {
         let image = try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1024,
+            kCGImageSourceThumbnailMaxPixelSize: 1024
         ] as CFDictionary))
         let runtime = QwenInferenceRuntime()
         let status = await runtime.validate(url: URL(fileURLWithPath: bundlePath))
@@ -43,7 +43,7 @@ struct QwenFeatureTests {
             await gate.release()
         }
         try await Task.sleep(for: .milliseconds(40))
-        #expect(!(await probe.entered))
+        #expect(await !(probe.entered))
         await gate.release()
         try await second.value
         #expect(await probe.entered)
@@ -282,7 +282,9 @@ struct QwenFeatureTests {
 
 private actor GateProbe {
     private(set) var entered = false
-    func markEntered() { entered = true }
+    func markEntered() {
+        entered = true
+    }
 }
 
 private actor QwenInferenceStub: QwenInferenceServing {
@@ -297,7 +299,9 @@ private actor QwenInferenceStub: QwenInferenceServing {
         return .freeform("Completed")
     }
 
-    func respond(to _: QwenVisionRequest) -> String { "Completed" }
+    func respond(to _: QwenVisionRequest) -> String {
+        "Completed"
+    }
 
     func clear() {}
 

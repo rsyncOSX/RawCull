@@ -10,7 +10,7 @@ import Testing
 struct ObjectAnalysisRealModelProbeTests {
     @MainActor
     @Test(.enabled(if: ProcessInfo.processInfo.environment["OBJECT_PROBE_IMAGE"] != nil))
-    func probeOnePhoto() async throws {
+    func `probe one photo`() async throws {
         let environment = ProcessInfo.processInfo.environment
         let imagePath = try #require(environment["OBJECT_PROBE_IMAGE"])
         let qwenPath = try #require(environment["OBJECT_PROBE_QWEN"])
@@ -28,7 +28,7 @@ struct ObjectAnalysisRealModelProbeTests {
         #expect(qwenStatus.isAvailable)
         let provider = try CoreAISAM3Provider(modelBundleURL: URL(fileURLWithPath: samPath))
         let store = ObjectMaskMemoryStore()
-        let segmentation = try ObjectSegmentationService(provider: provider, stores: [store], maxSide: 4_320)
+        let segmentation = try ObjectSegmentationService(provider: provider, stores: [store], maxSide: 4320)
         for mode in [ObjectDiscoveryMode.automatic, .specificConcepts] {
             let feature = RawCullObjectAnalysisFeature(inference: inference, maskStores: [store])
             feature.install(segmentation: segmentation, qwenStatus: qwenStatus)

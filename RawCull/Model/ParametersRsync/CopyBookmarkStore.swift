@@ -57,7 +57,7 @@ struct CopyBookmarkOperations {
 @MainActor
 final class CopyBookmarkStore {
     private enum Key: String {
-        // Preserve the existing preference key so saved destinations keep working.
+        /// Preserve the existing preference key so saved destinations keep working.
         case destination = "destBookmark"
     }
 
@@ -101,7 +101,7 @@ final class CopyBookmarkStore {
         let access = try acquire(resolved.url)
         if resolved.isStale {
             do {
-                defaults.set(try operations.makeBookmark(resolved.url), forKey: Key.destination.rawValue)
+                try defaults.set(operations.makeBookmark(resolved.url), forKey: Key.destination.rawValue)
             } catch {
                 Logger.process.warning("Could not refresh the destination bookmark: \(error)")
             }

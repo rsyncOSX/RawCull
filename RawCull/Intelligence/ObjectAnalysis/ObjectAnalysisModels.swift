@@ -166,9 +166,17 @@ nonisolated struct ObjectPhotoAnalysisResult: Equatable, Identifiable, Sendable 
     let timings: ObjectAnalysisTimings
     let timestamp: Date
 
-    var id: UUID { fileID }
-    var needsAssessmentRetry: Bool { !instances.isEmpty && assessment == nil && failure != "Cancelled" }
-    var isSuccessful: Bool { failure == nil && !needsAssessmentRetry }
+    var id: UUID {
+        fileID
+    }
+
+    var needsAssessmentRetry: Bool {
+        !instances.isEmpty && assessment == nil && failure != "Cancelled"
+    }
+
+    var isSuccessful: Bool {
+        failure == nil && !needsAssessmentRetry
+    }
 }
 
 nonisolated enum ObjectAnalysisError: Error, LocalizedError, Equatable, Sendable {

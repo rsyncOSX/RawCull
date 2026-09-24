@@ -6,7 +6,10 @@ struct ObjectAnalysisView: View {
     let files: [FileItem]
     @Binding var selection: UUID?
 
-    private var pendingFiles: [FileItem] { feature.filesNeedingAnalysis(from: files) }
+    private var pendingFiles: [FileItem] {
+        feature.filesNeedingAnalysis(from: files)
+    }
+
     private var selectedResult: ObjectPhotoAnalysisResult? {
         selection.flatMap { id in feature.results.first { $0.fileID == id } }
     }
@@ -49,7 +52,9 @@ struct ObjectAnalysisView: View {
         }
         .padding(16)
         .task(id: feature.results.map(\.id)) {
-            if selection == nil { selection = feature.results.first?.id }
+            if selection == nil {
+                selection = feature.results.first?.id
+            }
         }
     }
 }
@@ -113,15 +118,19 @@ private struct ObjectAnalysisAvailabilityView: View {
             case .checking:
                 ProgressView().controlSize(.small)
                 Text("Checking local SAM 3 and Qwen models…")
+
             case .ready:
                 Label("SAM 3 and Qwen ready", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
+
             case .sam3Unavailable:
                 Label("Install SAM 3 in Settings › AI › Download AI Models", systemImage: "questionmark.folder")
                     .foregroundStyle(.orange)
+
             case .qwenUnavailable:
                 Label("Install Qwen in Settings › AI › Download AI Models", systemImage: "questionmark.folder")
                     .foregroundStyle(.orange)
+
             case .bothUnavailable:
                 Label("Install SAM 3 and Qwen in Settings › AI › Download AI Models", systemImage: "questionmark.folder")
                     .foregroundStyle(.orange)
@@ -194,7 +203,7 @@ private struct ObjectPhotoDetailView: View {
                             Label(failure, systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(.orange)
                         }
-                        if result.instances.isEmpty && result.failure == nil {
+                        if result.instances.isEmpty, result.failure == nil {
                             ContentUnavailableView("No Matching Objects",
                                                    systemImage: "square.dashed",
                                                    description: Text("Try a different concept or photograph."))
@@ -220,8 +229,7 @@ private struct ObjectPhotoDetailView: View {
                             }
                             if let selectedCrop {
                                 Image(decorative: selectedCrop, scale: 1)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .resizable().scaledToFit()
                                     .frame(maxHeight: 240)
                                     .accessibilityLabel("Cropped view of selected object")
                             }
@@ -261,7 +269,9 @@ private struct ObjectPhotoDetailView: View {
             outlines = [:]
             image = if let file {
                 await RawParserKitImageLoader.shared.thumbnailCGImage(for: file.url, maxPixelSize: 2048)
-            } else { nil }
+            } else {
+                nil
+            }
             if let result, let file {
                 let masks = await feature.cachedMasks(for: result, file: file)
                 var rendered: [String: CGImage] = [:]
@@ -269,7 +279,9 @@ private struct ObjectPhotoDetailView: View {
                     guard !Task.isCancelled else { return }
                     rendered[id] = await ObjectMaskOutlineRenderer.outline(from: mask)
                 }
-                if !Task.isCancelled { outlines = rendered }
+                if !Task.isCancelled {
+                    outlines = rendered
+                }
             }
         }
     }
@@ -330,7 +342,9 @@ private struct ObjectAssessmentDetail: View {
             Text("Object \(object.id): \(object.concept)").font(.headline)
             Text(object.description)
             Text("Visibility: \(object.visibility.rawValue); focus: \(object.focusQuality.rawValue)")
-            if let expression = object.expression { Text("Expression: \(expression)") }
+            if let expression = object.expression {
+                Text("Expression: \(expression)")
+            }
             ForEach(object.obstructions, id: \.self) { Text("Obstruction: \($0)") }
             ForEach(object.strengths, id: \.self) { Text("Strength: \($0)") }
             ForEach(object.problems, id: \.self) { Text("Problem: \($0)") }

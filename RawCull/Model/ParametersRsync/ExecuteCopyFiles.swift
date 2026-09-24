@@ -162,7 +162,8 @@ final class ExecuteCopyFiles {
         arguments.append(updateParameter)
 
         guard let selectedSourceURL = sidebarRawCullViewModel.selectedSource?.url,
-              let sourceAccess = try? bookmarkStore.acquireSource(selectedSourceURL) else {
+              let sourceAccess = try? bookmarkStore.acquireSource(selectedSourceURL)
+        else {
             Logger.process.errorMessageOnly("Failed to access folders")
             cleanup()
             return .failure(.sourceAccessFailed)

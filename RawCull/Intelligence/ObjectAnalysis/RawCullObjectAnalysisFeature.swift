@@ -56,7 +56,7 @@ final class RawCullObjectAnalysisFeature {
             guard let concept = try? SegmentationConcept(query) else { continue }
             let key = ObjectMaskStorageKey(
                 source: source, sourceIdentity: identity, concept: concept,
-                modelIdentity: model, inputMaxSide: 4_320, maximumInstanceCount: 8,
+                modelIdentity: model, inputMaxSide: 4320, maximumInstanceCount: 8,
             )
             for store in maskStores {
                 if let cached = await store.load(for: key) {
@@ -74,7 +74,9 @@ final class RawCullObjectAnalysisFeature {
 
     func install(segmentation: ObjectSegmentationService?, qwenStatus: QwenModelStatus) {
         let changed = self.segmentation !== segmentation || self.qwenStatus != qwenStatus
-        if changed && isRunning { cancel() }
+        if changed, isRunning {
+            cancel()
+        }
         self.segmentation = segmentation
         self.qwenStatus = qwenStatus
         availability = switch (segmentation != nil, qwenStatus.isAvailable) {
@@ -180,7 +182,7 @@ final class RawCullObjectAnalysisFeature {
         _ file: FileItem, mode: ObjectDiscoveryMode,
         manualConcepts: [SegmentationConcept], criteria: String,
         segmentation: ObjectSegmentationService,
-        completedCount: Int, totalCount: Int,
+        completedCount _: Int, totalCount _: Int,
     ) async -> ObjectPhotoAnalysisResult {
         var concepts: [SegmentationConcept] = []
         var descriptors: [ObjectInstanceDescriptor] = []
@@ -190,21 +192,29 @@ final class RawCullObjectAnalysisFeature {
         var timings = ObjectAnalysisTimings()
         do {
             guard let image = await imageLoader.thumbnailCGImage(
-                for: file.url, maxPixelSize: 4_320,
+                for: file.url, maxPixelSize: 4320,
             ) else { throw ObjectAnalysisError.imageUnavailable }
             try Task.checkCancellation()
             let previous = results.first { $0.fileID == file.id }
-            let currentQwenName: String? = if case let .available(_, name) = qwenStatus { name } else { nil }
+            let currentQwenName: String? = if case let .available(_, name) = qwenStatus {
+                name
+            } else {
+                nil
+            }
             let reusable = previous.flatMap { result -> ObjectPhotoAnalysisResult? in
                 guard result.needsAssessmentRetry, result.discoveryMode == mode,
-                      (mode == .automatic || result.concepts == manualConcepts.map(\.query)),
+                      mode == .automatic || result.concepts == manualConcepts.map(\.query),
                       result.sourceSize == file.size,
                       result.sourceModified == file.dateModified,
                       result.qwenModelName == currentQwenName,
                       !result.instances.isEmpty else { return nil }
                 return result
             }
-            let cached = if let reusable { await cachedMasks(for: reusable, file: file) } else { [String: CGImage]() }
+            let cached = if let reusable {
+                await cachedMasks(for: reusable, file: file)
+            } else {
+                [String: CGImage]()
+            }
             let reuse = reusable != nil && cached.count == reusable?.instances.count
             var retained: [ObjectInstanceDeduplicator.Retained] = []
             if reuse, let reusable {
@@ -238,7 +248,7 @@ final class RawCullObjectAnalysisFeature {
                 for (index, concept) in concepts.enumerated() {
                     try Task.checkCancellation()
                     setStage(.segmenting(concept: concept.query, conceptIndex: index + 1,
-                                          conceptCount: concepts.count))
+                                         conceptCount: concepts.count))
                     let result = try await segmentation.segment(image: image, source: source,
                                                                 concept: concept)
                     modelIdentity = result.modelIdentity
@@ -273,9 +283,9 @@ final class RawCullObjectAnalysisFeature {
             let assessmentStart = Date()
             let response = try await inference.respond(to: QwenVisionRequest(
                 instruction: Self.analysisInstruction(ids: board.objectIDs, criteria: criteria),
-                image: board.image, maximumResponseTokens: 1_024,
+                image: board.image, maximumResponseTokens: 1024,
             ))
-            captureDiagnostic(response, file: file, stage: "assessment", tokenLimit: 1_024)
+            captureDiagnostic(response, file: file, stage: "assessment", tokenLimit: 1024)
             timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
             try Task.checkCancellation()
             do {
@@ -316,7 +326,11 @@ final class RawCullObjectAnalysisFeature {
         modelIdentity: ModelIdentity?, rawInstanceCount: Int,
         timings: ObjectAnalysisTimings,
     ) -> ObjectPhotoAnalysisResult {
-        let qwenName: String? = if case let .available(_, name) = qwenStatus { name } else { nil }
+        let qwenName: String? = if case let .available(_, name) = qwenStatus {
+            name
+        } else {
+            nil
+        }
         return ObjectPhotoAnalysisResult(
             fileID: file.id, fileName: file.name, concepts: concepts.map(\.query),
             discoveryMode: mode, rawInstanceCount: rawInstanceCount, instances: descriptors,
@@ -349,7 +363,11 @@ final class RawCullObjectAnalysisFeature {
         guard let path = ProcessInfo.processInfo.environment["RAWCULL_OBJECT_CAPTURE_DIR"],
               !path.isEmpty else { return }
         let directory = URL(fileURLWithPath: path, isDirectory: true)
-        let model = if case let .available(_, name) = qwenStatus { name } else { "unknown" }
+        let model = if case let .available(_, name) = qwenStatus {
+            name
+        } else {
+            "unknown"
+        }
         let header = "file: \(file.name)\nfile ID: \(file.id)\nstage: \(stage)\nmodel: \(model)\nrequested token limit: \(tokenLimit)\nresponse characters: \(response.count)\n\n"
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
