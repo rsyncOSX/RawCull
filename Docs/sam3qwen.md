@@ -1,7 +1,8 @@
 # SAM 3 → Qwen Object Analysis Workplan
 
 Status: Objects implemented and under real-model validation in RawCull 3.2.6,
-updated September 24, 2026 after an eight-photo puffin run. RawCull pins
+updated September 24, 2026 after successful in-app Automatic runs on puffin
+and mixed-subject batches. RawCull pins
 PhotoAIKit revision `77cc1d84a5d98a485caa15be102c8a55eb3d7698`, which
 contains the additive instance API alongside the existing union mask. A
 four-photo muskox spike confirms that the tested Core AI runtime also returns
@@ -12,34 +13,31 @@ The 3.2.6 app and downloader extension both declare build 389. A complete
 RawCull Xcode test run on September 24 reports 466 passed and one skipped out
 of 467 tests; parameterized runs are counted separately in Xcode. The earlier
 one-photo muskox test reached SAM 3 and Qwen but fell back to free-form output.
-In the new eight-photo puffin run, Automatic failed on all eight photos at
-concept discovery. Specific Concepts with `bird` completed on all eight,
-showing one or two instances per photo, while Qwen's final assessment again
-appeared as free-form output.
+An earlier eight-photo puffin run failed Automatic concept discovery and
+displayed free-form Qwen output. Subsequent decoder and prompt changes yielded
+structured results in the packaged-model rerun described in §16.3. The latest
+in-app screenshots show all eight puffin photos and all eight mixed-subject
+photos Complete in Automatic mode. The remaining observed issue is that the
+two puffin object crops are switched when clicked in `_DSC3028.ARW`.
 
 ## What is done and what is next
 
 **Done:** the Apple-hosted distribution path is in production for 3.2.4;
 Objects mode, the PhotoAIKit instance API, RawCull's object pipeline and UI,
 and their stubbed tests are implemented. The 3.2.6 suite passes apart from one
-skip. The manual `bird` run is useful evidence that the instance path works on
-the user's eight puffin photographs: each photo completed with one or two
-numbered birds, including photos with two visible subjects. This is a strong
-proof of the prompted-concept path on this sample, not a claim that every
-object category or every difficult instance is detected. The screenshots do
-not establish the identity of the installed model packs or a clean-install
-Objects result.
+skip. The manual `bird` run and later Automatic runs provide in-app evidence
+that these eight puffin photos complete with one or two numbered birds; the
+latest mixed-subject batch also completes all eight photos. These samples do
+not establish that every object category or difficult instance is detected.
+The screenshots do not establish the identity of the installed model packs or
+a clean-install Objects result.
 
-**Next Objects step:** make both Qwen boundaries reliable, in order. Automatic
-discovery currently fails on all eight puffin photos with “Qwen did not return
-valid object concepts”; this prevents SAM 3 from running. With the manual
-`bird` concept, the final response contains JSON-like text but is displayed as
-**Free-form Qwen response**, so no structured object findings or assessment
-confidence appear. The response also calls the review board a collage and may
-describe repeated views as separate photos. Diagnose the exact decoder failure
-for each boundary before changing prompts or token limits. Then make the
-numbered analysis refer to the single source photo and its object crops.
-Section 16.1 gives the ordered implementation and acceptance plan.
+**Next Objects step:** investigate the clicked-object-to-crop mapping for the
+two puffins in `_DSC3028.ARW`; the user plans to fix this later. Keep the
+earlier Qwen visual-grounding concerns under review, since a structured result
+and high confidence do not prove that descriptions match their numbered crops.
+Section 16.1 records the earlier response-reliability plan, and §16.3 records
+the later rerun and current manual evidence.
 
 **Remaining release evidence:** record a clean-install TestFlight Objects run
 with the Apple-hosted SAM 3 and Qwen packs, model removal during work, cache
@@ -1447,6 +1445,30 @@ can accompany false claims. Re-test the two-bird descriptions and occlusion
 claims against the source photos after the next board/prompt or model change,
 then run the remaining §12.5 samples and TestFlight lifecycle checks.
 
+#### In-app Automatic validation — September 24, 2026
+
+The user reports a positive test of the latest Objects analysis. In the
+provided AI Analysis screenshots, an eight-photo puffin batch and an
+eight-photo mixed-subject batch each show every row as **Complete** under
+**Objects → Automatic**. The puffin batch shows one or two numbered objects
+per photo. The mixed batch shows completed results for landscape, deer,
+muskox, horse, bird, rabbit, and puffin photographs, with object masks,
+crops, and structured Qwen details visible in the examples. This is in-app
+evidence of the Automatic path across these selected photos; the screenshots
+do not identify the installed model-pack fingerprint or establish a
+clean-install TestFlight result.
+
+**Known follow-up — `_DSC3028.ARW`:** the two puffins' displayed object crops
+are switched when clicked. The screenshot with **Object 1** describes the
+perched puffin but displays the flying puffin crop; the **Object 2** screenshot
+describes the flying puffin but displays the perched puffin crop. The numbered
+overview places object 1 on the flying bird and object 2 on the perched bird,
+so the visible crop, overview number, and description do not agree. The user
+plans to fix this later. Trace selection through the numbered overview, crop
+lookup, and detail text before considering this mapping verified. This report
+does not establish whether the error originates in Qwen's board grounding or
+in the UI's object-to-crop association.
+
 ## 17. Catalog AI coverage beyond CLIP and future models
 
 ### 17.1 Can AI run on all or most scanned images?
@@ -1591,7 +1613,8 @@ newer or more capable on general benchmarks.
 - [x] Cancellation and stale-result suppression work in stubbed tests.
 - [x] Model removal cannot publish a stale result in a stubbed test.
 - [x] One 3.2.6 real-model RAW run reached SAM 3 segmentation and Qwen response.
-- [ ] Real-model Qwen response decodes into the structured per-object assessment.
+- [x] Real-model Qwen response decodes into the structured per-object assessment
+  in the eight-photo packaged-model rerun and latest in-app examples.
 - [ ] Numbered descriptions are distinct where the visible subjects differ and
   remain grounded in the matching crop.
 - [ ] Seven candidates from the first run are reviewed for fragments,
@@ -1605,6 +1628,8 @@ newer or more capable on general benchmarks.
 - [x] Progress reports the current semantic stage.
 - [ ] Results table and object detail remain responsive under real-model load.
 - [x] Object numbers do not rely on color alone.
+- [ ] Clicking a numbered object displays its matching crop and description;
+  `_DSC3028.ARW` currently switches the two puffin crops.
 - [ ] Keyboard and accessibility behavior are verified.
 
 ### Verification
