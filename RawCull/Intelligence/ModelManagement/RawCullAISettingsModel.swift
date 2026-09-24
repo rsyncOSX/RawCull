@@ -53,6 +53,8 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     @ObservationIgnored private let modelRuntime: RawCullAIModelRuntime
     @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private let qwenAnalysisFeature: RawCullQwenAnalysisFeature
+    @ObservationIgnored private let objectAnalysisFeature: RawCullObjectAnalysisFeature?
+    @ObservationIgnored private var currentQwenStatus: QwenModelStatus = .notConfigured
     @ObservationIgnored private weak var configurationConsumer:
         (any RawCullIntelligenceConfigurationApplying)?
     @ObservationIgnored private var configurationRevision: UInt64 = 0
@@ -70,6 +72,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         modelDownloadCoordinator: RawCullAIModelDownloadCoordinator? = nil,
         rawCullVersion: String? = nil,
         qwenAnalysisFeature: RawCullQwenAnalysisFeature? = nil,
+        objectAnalysisFeature: RawCullObjectAnalysisFeature? = nil,
     ) {
         self.modelRuntime = modelRuntime
         self.userDefaults = userDefaults
@@ -77,6 +80,7 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
             ?? RawCullQwenAnalysisFeature(
                 inference: modelRuntime.qwenInference,
             )
+        self.objectAnalysisFeature = objectAnalysisFeature
         self.prefersCLIPForSimilarity = userDefaults.object(
             forKey: Self.useCLIPPreferenceKey,
         ) == nil ? true : userDefaults.bool(forKey: Self.useCLIPPreferenceKey)
@@ -129,6 +133,8 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async {
+        objectAnalysisFeature?.cancel()
+        objectAnalysisFeature?.install(segmentation: nil, qwenStatus: .notConfigured)
         refreshGeneration &+= 1
         let generation = refreshGeneration
         isScanningSavedBurstData = true
@@ -157,6 +163,10 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
             guard refreshGeneration == generation else { return }
 
             self.capabilities = capabilities
+            objectAnalysisFeature?.install(
+                segmentation: modelRuntime.objectSegmentation,
+                qwenStatus: currentQwenStatus,
+            )
             publishConfiguration()
             switch result {
             case let .success(evidence):
@@ -249,8 +259,13 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     }
 
     private func applyQwenStatus(_ status: QwenModelStatus) {
+        currentQwenStatus = status
         qwenModelStatus = status.capabilityStatus
         qwenAnalysisFeature.updateModelStatus(status)
+        objectAnalysisFeature?.install(
+            segmentation: modelRuntime.objectSegmentation,
+            qwenStatus: status,
+        )
     }
 }
 

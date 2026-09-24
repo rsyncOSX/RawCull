@@ -11,6 +11,7 @@ struct RawCullMainView: View {
     let semanticSearchFeature: RawCullSemanticSearchFeature
     let deepAIReviewController: DeepAIReviewController
     let qwenAnalysisFeature: RawCullQwenAnalysisFeature
+    let objectAnalysisFeature: RawCullObjectAnalysisFeature
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
@@ -430,6 +431,7 @@ struct RawCullMainView: View {
         AIAnalysisView(
             viewModel: viewModel,
             qwenAnalysisFeature: qwenAnalysisFeature,
+            objectAnalysisFeature: objectAnalysisFeature,
             deepAIReviewController: deepAIReviewController,
         )
         .navigationTitle("AI Analysis")

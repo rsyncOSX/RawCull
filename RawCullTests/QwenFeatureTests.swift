@@ -1,12 +1,87 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import ImageIO
 @testable import RawCull
 import RawCullCore
 import Testing
 
 @Suite("Qwen feature", .tags(.smoke))
 struct QwenFeatureTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["QWEN_PHASE3_BUNDLE"] != nil &&
+                       ProcessInfo.processInfo.environment["QWEN_PHASE3_IMAGE"] != nil))
+    func `Local Qwen model answers a general vision request`() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let bundlePath = try #require(environment["QWEN_PHASE3_BUNDLE"])
+        let imagePath = try #require(environment["QWEN_PHASE3_IMAGE"])
+        let source = try #require(CGImageSourceCreateWithURL(
+            URL(fileURLWithPath: imagePath) as CFURL, nil,
+        ))
+        let image = try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1024,
+        ] as CFDictionary))
+        let runtime = QwenInferenceRuntime()
+        let status = await runtime.validate(url: URL(fileURLWithPath: bundlePath))
+        #expect(status.isAvailable)
+        let response = try await runtime.respond(to: QwenVisionRequest(
+            instruction: "Describe the main visible subject in one short sentence.",
+            image: image, maximumResponseTokens: 96,
+        ))
+        #expect(!response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    @Test
+    func `Qwen generation gate serializes and cancels queued work`() async throws {
+        let gate = QwenGenerationGate()
+        try await gate.acquire()
+        let probe = GateProbe()
+        let second = Task {
+            try await gate.acquire()
+            await probe.markEntered()
+            await gate.release()
+        }
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(!(await probe.entered))
+        await gate.release()
+        try await second.value
+        #expect(await probe.entered)
+
+        try await gate.acquire()
+        let queued = Task { try await gate.acquire() }
+        queued.cancel()
+        await #expect(throws: CancellationError.self) { try await queued.value }
+        await gate.release()
+        try await gate.acquire()
+        await gate.release()
+    }
+
+    @Test
+    func `Assessment instruction keeps the existing schema`() {
+        let instruction = QwenInferenceRuntime.assessmentInstruction(criteria: "Is the bird sharp?")
+        #expect(instruction.contains("Analyze this photograph and answer the user's request:"))
+        #expect(instruction.contains("Is the bird sharp?"))
+        #expect(instruction.contains("\"compositionScore\": 1-5"))
+        #expect(instruction.contains("\"subjectVisibilityScore\": 1-5"))
+        #expect(instruction.contains("answer it normally in plain text"))
+    }
+
+    @Test
+    func `General Qwen request rejects an invalid token cap`() async throws {
+        let image = try #require(CGContext(
+            data: nil, width: 1, height: 1, bitsPerComponent: 8,
+            bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+        )?.makeImage())
+        let runtime = QwenInferenceRuntime()
+        await #expect(throws: QwenModelError.self) {
+            try await runtime.respond(to: QwenVisionRequest(
+                instruction: "Describe the bird", image: image, maximumResponseTokens: 0,
+            ))
+        }
+    }
+
     @Test
     func `Structured assessment decodes JSON wrapped in model prose`() throws {
         let response = """
@@ -205,6 +280,11 @@ struct QwenFeatureTests {
     }
 }
 
+private actor GateProbe {
+    private(set) var entered = false
+    func markEntered() { entered = true }
+}
+
 private actor QwenInferenceStub: QwenInferenceServing {
     private var count = 0
 
@@ -216,6 +296,8 @@ private actor QwenInferenceStub: QwenInferenceServing {
         count += 1
         return .freeform("Completed")
     }
+
+    func respond(to _: QwenVisionRequest) -> String { "Completed" }
 
     func clear() {}
 

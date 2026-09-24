@@ -117,6 +117,9 @@ private struct AIModelSettingsCard: View {
                     missingMessage: "Qwen vision-language model resources are not installed.",
                     showsLocationAction: false,
                 )
+                Text("Objects in AI Analysis uses SAM 3 to find visible instances and Qwen to assess a numbered review board. Analysis runs locally on this Mac.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
 
                 if RawCullAIModelInclusion.clipModels.count > 1 {
                     Divider()

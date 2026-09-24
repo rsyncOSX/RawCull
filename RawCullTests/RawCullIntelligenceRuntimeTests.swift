@@ -44,6 +44,11 @@ struct RawCullIntelligenceRuntimeTests {
             ),
         )
         #expect(
+            runtime.objectAnalysisFeature.sharesInferenceIdentity(
+                with: runtime.modelRuntime.qwenInference,
+            ),
+        )
+        #expect(
             runtime.settingsModel.sharesModelRuntimeIdentity(
                 runtime.modelRuntime,
                 analysisFeature: runtime.qwenAnalysisFeature,

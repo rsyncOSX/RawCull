@@ -3,6 +3,7 @@ import SwiftUI
 struct AIAnalysisView: View {
     @Bindable var viewModel: RawCullViewModel
     @Bindable var qwenAnalysisFeature: RawCullQwenAnalysisFeature
+    @Bindable var objectAnalysisFeature: RawCullObjectAnalysisFeature
     let deepAIReviewController: DeepAIReviewController
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
@@ -12,10 +13,6 @@ struct AIAnalysisView: View {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
 
-    private var isAnalyzing: Bool {
-        qwenAnalysisFeature.isRunning || deepAIReviewController.isRunning
-    }
-
     private var hasStoredResults: Bool {
         switch selectedTool {
         case .samCLIP:
@@ -23,6 +20,9 @@ struct AIAnalysisView: View {
 
         case .qwen:
             !qwenAnalysisFeature.results.isEmpty
+
+        case .objects:
+            !objectAnalysisFeature.results.isEmpty
         }
     }
 
@@ -41,8 +41,8 @@ struct AIAnalysisView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(maxWidth: 320)
-                    .disabled(isAnalyzing)
+                    .frame(maxWidth: 480)
+                    .accessibilityLabel("Analysis mode")
 
                     Picker("Source", selection: $inputSource) {
                         Text("Selected (\(viewModel.aiAnalysisFiles(for: .gridSelection).count))")
@@ -53,7 +53,7 @@ struct AIAnalysisView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(maxWidth: 220)
-                    .disabled(isAnalyzing)
+                    .accessibilityLabel("Image source")
 
                     Spacer(minLength: 0)
                 }
@@ -88,6 +88,13 @@ struct AIAnalysisView: View {
                             files: inputFiles,
                             selection: $viewModel.selectedFileID,
                         )
+
+                    case .objects:
+                        ObjectAnalysisView(
+                            feature: objectAnalysisFeature,
+                            files: inputFiles,
+                            selection: $viewModel.selectedFileID,
+                        )
                     }
                 }
             }
@@ -115,6 +122,16 @@ struct AIAnalysisView: View {
                 viewModel.selectedFileID = inputFiles.first?.id
             }
         }
+        .onChange(of: selectedTool) { _, newTool in
+            if newTool != .samCLIP { deepAIReviewController.cancel() }
+            if newTool != .qwen { qwenAnalysisFeature.cancel() }
+            if newTool != .objects { objectAnalysisFeature.cancel() }
+        }
+        .onChange(of: inputSource) { _, _ in
+            deepAIReviewController.cancel()
+            qwenAnalysisFeature.cancel()
+            objectAnalysisFeature.cancel()
+        }
         .thumbnailKeyNavigation(viewModel: viewModel, axis: .horizontal) { inputFiles }
     }
 
@@ -134,6 +151,7 @@ struct AIAnalysisView: View {
 private enum AIAnalysisTool: String, CaseIterable, Identifiable {
     case samCLIP
     case qwen
+    case objects
 
     var id: String {
         rawValue
@@ -143,6 +161,7 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         switch self {
         case .samCLIP: "SAM 3 + CLIP"
         case .qwen: "Qwen Vision"
+        case .objects: "Objects"
         }
     }
 
@@ -150,6 +169,7 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         switch self {
         case .samCLIP: "sparkle.magnifyingglass"
         case .qwen: "text.bubble"
+        case .objects: "square.3.layers.3d"
         }
     }
 }

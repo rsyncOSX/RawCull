@@ -128,6 +128,7 @@ struct RawCullApp: App {
                 semanticSearchFeature: intelligenceRuntime.semanticSearchFeature,
                 deepAIReviewController: intelligenceRuntime.deepAIReviewController,
                 qwenAnalysisFeature: intelligenceRuntime.qwenAnalysisFeature,
+                objectAnalysisFeature: intelligenceRuntime.objectAnalysisFeature,
             )
             .background(.windowBackground)
             .environment(gridThumbnailViewModel)

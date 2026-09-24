@@ -41,6 +41,8 @@ RawCullTests/HistogramLoadingTests
 RawCullTests/ISOScalingTests
 RawCullTests/ImageSourceSelectionStateTests
 RawCullTests/LoupeImageKeyActionTests
+RawCullTests/ObjectAnalysisBoundaryTests
+RawCullTests/ObjectAnalysisFeatureTests
 RawCullTests/PerFileAnalysisArtifactStoreTests
 RawCullTests/PhotoAnalysisKitIntegrationTests
 RawCullTests/QwenFeatureTests
@@ -95,6 +97,8 @@ private let expectedTaggedSuites: Set<String> = [
     "ISOScalingTests",
     "ImageSourceSelectionStateTests",
     "LoupeImageKeyActionTests",
+    "ObjectAnalysisBoundaryTests",
+    "ObjectAnalysisFeatureTests",
     "PhotoAnalysisKitIntegrationTests",
     "QwenFeatureTests",
     "RawCullAIModelDownloadsTests",

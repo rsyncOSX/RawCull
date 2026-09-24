@@ -36,6 +36,8 @@ struct RawCullAIModelRuntimeTests {
                 == paths.clipOpenAIModelDirectory,
         )
         #expect(paths.subjectMaskDirectory.path.hasSuffix("no.blogspot.RawCull/SAM3Masks"))
+        #expect(paths.objectMaskDirectory.path.hasSuffix("no.blogspot.RawCull/SAM3ObjectMasks"))
+        #expect(paths.objectMaskDirectory != paths.subjectMaskDirectory)
         #expect(paths.burstAnalysisDirectory.path.hasSuffix("RawCull/BurstAnalysis"))
     }
 
@@ -102,6 +104,8 @@ struct RawCullAIModelRuntimeTests {
         ))
 
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
+        #expect(FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path))
+        #expect(modelRuntime.objectSegmentation == nil)
     }
 
     @Test
