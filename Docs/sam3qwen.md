@@ -1,40 +1,47 @@
 # SAM 3 → Qwen Object Analysis Workplan
 
-Status: implementation in progress, updated September 24, 2026. RawCull pins
+Status: Objects implemented and under real-model validation in RawCull 3.2.6,
+updated September 24, 2026. RawCull pins
 PhotoAIKit revision `77cc1d84a5d98a485caa15be102c8a55eb3d7698`, which
 contains the additive instance API alongside the existing union mask. A
 four-photo muskox spike confirms that the tested Core AI runtime also returns
 separate instance segments, but release-quality instance handling remains
-unproven. The CLIP, SAM 3, and Qwen Apple-hosted packs are uploaded,
-processed, and ready for internal testing. A signed App Store build and
-clean-install TestFlight validation remain pending in `appleassets.md`.
+unproven. RawCull 3.2.4 is on the Mac App Store with CLIP, SAM 3, and Qwen
+available, and the maintainer reports repeated successful TestFlight builds.
+The 3.2.6 app and downloader extension both declare build 389. A complete
+RawCull Xcode test run on September 24 reports 466 passed and one skipped out
+of 467 tests; parameterized runs are counted separately in Xcode. A one-photo
+3.2.6 Objects test reached SAM 3 and Qwen, but its Qwen response fell back to
+free-form display rather than a validated structured assessment.
 
-## Recommendation for the next update
+## What is done and what is next
 
-**Next release gate:** finish the signed App Store build and clean-install
-TestFlight checks for the existing three models. This validates the exact
-download, activation, removal, and relaunch path on which any new AI feature
-depends. The prerequisite is release validation, not more asset-pack code.
+**Done:** the Apple-hosted distribution path is in production for 3.2.4;
+Objects mode, the PhotoAIKit instance API, RawCull's object pipeline and UI,
+and their stubbed tests are implemented. The 3.2.6 suite passes apart from one
+skip. The September 24 manual Objects run found seven muskox candidates in one
+RAW photo and produced a Qwen response. The screenshots do not establish the
+identity of the installed model packs or a clean-install Objects result.
 
-**Next feature update:** add an optional, resumable **Catalog AI Triage** pass
-using the Qwen model RawCull already distributes. Run it after the normal scan
-and CLIP indexing, first on a bounded, representative subset of images. Show
-review cues and reasons in the grid or burst review without changing ratings
-or selections. Section 17 defines the coverage and measurement gate. This has
-broader culling value than requiring photographers to select images before
-Qwen can help, and it reuses an installed model. It must never delay initial
-catalog browsing or compete with interactive analysis.
+**Next Objects step:** diagnose why the Qwen JSON was not accepted by the
+structured decoder, then verify that each numbered description is grounded in
+its corresponding crop. The screenshot shows repeated near-identical text for
+different IDs and a blank assessment-confidence column. Inspect whether the
+response was truncated at the current 1,024-token limit, omitted required
+fields, or failed another schema check; do not assume a cause from the
+screenshot alone. Check the seven mask outlines against the visible animals
+for fragments, duplicates, and missed subjects. Repeat on the manual matrix
+in section 12.5 before treating Objects as release quality.
 
-**Following feature update:** validate this document's implemented **Objects**
-mode with the hosted SAM 3 and Qwen packs and a larger photo set. The four-photo
-Phase 0 spike separated six touching muskox in one image while showing why
-low-score fragments must be filtered. The additive PhotoAIKit instance API now
-exposes those masks to RawCull. Objects validation can proceed while Catalog AI
-Triage is being designed.
+**Remaining release evidence:** record a clean-install TestFlight Objects run
+with the Apple-hosted SAM 3 and Qwen packs, model removal during work, cache
+lifecycle, responsiveness, and release-build memory/latency measurements.
+The broader 3.2.4 model delivery path is proven by release, but these
+Objects-specific checks are not documented as passed.
 
-These priorities are product recommendations, not evidence that Qwen batch
-throughput or SAM 3 instance output already meets release quality. Record the
-benchmarks and user-visible value before promoting either feature.
+**Later product work:** the optional Catalog AI Triage proposal in section 17
+remains a separate pilot. It should be scheduled from measured culling value
+and Qwen throughput, without delaying initial catalog browsing.
 
 ## 1. Objective
 
@@ -162,14 +169,15 @@ object-analysis feature must be created in the same composition root and share
 those validated model resources. Views must receive the feature; views must not
 create model providers or perform inference directly.
 
-### 3.4 Managed model release validation is a prerequisite
+### 3.4 Managed model delivery is in production; Objects validation remains
 
 The three packs, managed Qwen location propagation, and app-side activation
-path are implemented. Before shipping either new AI feature, finish the remaining
-`appleassets.md` release checks: signed App Store upload, clean-install
-TestFlight download/use/relaunch/remove/reinstall, and removal during active
-inference. Treat a passed automated build as insufficient evidence for the
-Apple-hosted end-to-end path.
+path are implemented, and all three models are available in the released 3.2.4
+Mac App Store app. Signed App Store and TestFlight distribution are operational.
+Before shipping Objects as a finished feature, record its own clean-install
+download/use/relaunch/remove/reinstall behavior and removal during active
+inference. The complete 3.2.6 automated test run does not cover those manual
+end-to-end cases. See `appleassets.md` for the model lifecycle matrix.
 
 Object Analysis should not add another model-location or download mechanism.
 
@@ -852,13 +860,22 @@ uses that API with its original prompt and 512-token cap.
 RawCull also has an application-owned Objects feature, strict concept and
 assessment decoders, mask-based cross-concept deduplication, a numbered
 review-board renderer, and a third AI Analysis mode. Focused model, Qwen,
-runtime, and stubbed pipeline tests pass. The full RawCull macOS test suite and
-a local build succeed. The combined
-SAM 3 → Qwen pipeline has not yet been validated with the hosted model packs
-or a broader photo set. The UI reloads cached masks for the selected photo,
+runtime, and stubbed pipeline tests pass. The September 24 complete Xcode run
+on a Mac mini with macOS 27.0 reports 467 tests, 466 passed and one skipped;
+Xcode's parameterized-run summary reports 511 passed and one skipped. The
+skipped test is not identified in the screenshot. The combined SAM 3 → Qwen
+pipeline ran on one 3.2.6 RAW photo, but it has not been validated with a
+documented clean install of the hosted model packs or a broader photo set.
+The UI reloads cached masks for the selected photo,
 draws numbered contours, and shows a crop of the selected object. The pinned
 PhotoAIKit cache still needs the full Phase 2
 atomic replacement and lifecycle test matrix before release.
+
+The one-photo run found seven candidate muskox instances, while the Qwen
+response appeared in the **Free-form Qwen response** fallback. Multiple
+numbered objects received near-identical descriptions. This demonstrates that
+inference completed, not that structured per-object analysis passed. The
+decoder failure reason and candidate-mask accuracy remain to be established.
 
 ### 10.1 RawCullAIModelRuntime
 
@@ -1170,11 +1187,12 @@ Do not market the feature as flawless object inventory. Preferred wording:
 
 ## 16. Implementation sequence and release order
 
-The release order is: complete Apple-hosted validation; deliver Catalog AI
-Triage only if its Section 17 pilot improves review outcomes within the measured
-resource budget; then deliver Objects only if Phase 0 passes. The Triage and
-Objects features share Qwen, so the generic response and inference
-serialization work in Phase 3 should be designed once and reused.
+Apple-hosted delivery is in production for 3.2.4, and the Objects implementation
+has reached a one-photo real-model test in 3.2.6. The immediate sequence is to
+resolve structured Qwen output and object grounding, expand the manual photo
+matrix, then complete Objects-specific TestFlight lifecycle and performance
+checks. Catalog AI Triage is a separate future pilot; ship it only if section
+17 demonstrates improved review outcomes within the measured resource budget.
 
 For the Objects feature, apply the work in reviewable changes:
 
@@ -1219,7 +1237,7 @@ comparison, and the photographer makes the culling decision. CLIP already
 covers semantic retrieval; repeating that task with another model offers less
 value than adding visual judgments CLIP does not supply.
 
-### 17.2 Proposed coverage ladder for the next feature update
+### 17.2 Proposed coverage ladder for a future feature update
 
 1. **All catalog files:** continue normal metadata, preview, and CLIP artifact
    processing. Build only inexpensive scheduling inputs from existing catalog,
@@ -1272,7 +1290,7 @@ If the pilot fails on speed or value, ship only selected/tagged Qwen analysis
 and revisit lighter specialized models. A background pass should never auto
 reject, auto rate, or hide an image based on a generative assessment.
 
-The next feature update can be split into four reviewable changes: (1) a
+A future Catalog AI Triage update can be split into four reviewable changes: (1) a
 reproducible Qwen throughput/quality pilot and release thresholds; (2) a
 versioned assessment record plus resumable post-scan queue; (3) advisory grid
 and burst cues with progress, pause, and clear controls; and (4) large-catalog,
@@ -1307,8 +1325,9 @@ newer or more capable on general benchmarks.
 
 ### Prerequisites
 
-- [x] CLIP, SAM 3, and Qwen packs are uploaded and ready for internal testing.
-- [ ] Signed App Store build and clean-install TestFlight validation complete.
+- [x] CLIP, SAM 3, and Qwen are available in the released 3.2.4 Mac App Store app.
+- [x] Signed App Store and TestFlight builds have been produced and tested.
+- [ ] Record clean-install and model-lifecycle results for the Objects workflow.
 - [ ] Managed SAM 3 and Qwen install, validate, activate, remove, and reinstall.
 - [ ] Managed Qwen activation, removal, and cancellation are tested.
 
@@ -1338,6 +1357,12 @@ newer or more capable on general benchmarks.
 - [x] Structured object responses validate strictly in unit tests.
 - [x] Cancellation and stale-result suppression work in stubbed tests.
 - [x] Model removal cannot publish a stale result in a stubbed test.
+- [x] One 3.2.6 real-model RAW run reached SAM 3 segmentation and Qwen response.
+- [ ] Real-model Qwen response decodes into the structured per-object assessment.
+- [ ] Numbered descriptions are distinct where the visible subjects differ and
+  remain grounded in the matching crop.
+- [ ] Seven candidates from the first run are reviewed for fragments,
+  duplicates, and missed visible subjects.
 
 ### UI
 
@@ -1352,6 +1377,8 @@ newer or more capable on general benchmarks.
 ### Verification
 
 - [ ] PhotoAIKit focused tests pass.
+- [x] Full RawCull Xcode run on macOS 27.0: 466 passed, one skipped out of 467
+  tests; Xcode also reports 511 passed parameterized runs.
 - [x] RawCull object-analysis tests pass.
 - [x] Existing Qwen and Deep Review tests pass.
 - [x] Runtime/composition identity tests pass.
