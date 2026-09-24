@@ -28,21 +28,27 @@ nonisolated enum ObjectReviewBoardRenderer {
             let row = index / 4
             let panel = CGRect(x: column * 512, y: (1 - row) * 512,
                                width: 512, height: 512).insetBy(dx: 6, dy: 6)
+            let header = CGRect(x: panel.minX, y: panel.maxY - 88,
+                                width: panel.width, height: 88)
+            let imagePanel = CGRect(x: panel.minX, y: panel.minY,
+                                    width: panel.width, height: panel.height - header.height)
             let cropRect = crop(for: object.descriptor.normalizedBoundingBox,
                                 width: image.width, height: image.height)
             guard let crop = image.cropping(to: cropRect),
                   let maskCrop = object.mask.cropping(to: cropRect) else { continue }
             context.saveGState()
-            context.clip(to: panel)
-            drawAspectFill(crop, in: panel, context: context)
+            context.clip(to: imagePanel)
+            drawAspectFit(crop, in: imagePanel, context: context)
             if let outline = outlineImage(maskCrop) {
-                drawAspectFill(outline, in: panel, context: context)
+                drawAspectFit(outline, in: imagePanel, context: context)
             }
             context.restoreGState()
+            context.setFillColor(CGColor(gray: 0.05, alpha: 1))
+            context.fill(header)
             context.setStrokeColor(CGColor(gray: 1, alpha: 1))
             context.setLineWidth(3)
             context.stroke(panel)
-            drawNumber(object.descriptor.id, in: panel, context: context)
+            drawNumber(object.descriptor.id, in: header, context: context)
         }
         guard let board = context.makeImage() else { throw ObjectAnalysisError.imageUnavailable }
         return Board(image: board, objectIDs: objects.map(\.descriptor.id))
@@ -68,25 +74,14 @@ nonisolated enum ObjectReviewBoardRenderer {
                                        width: size.width, height: size.height))
     }
 
-    private static func drawAspectFill(_ image: CGImage, in rect: CGRect, context: CGContext) {
-        let scale = max(rect.width / CGFloat(image.width), rect.height / CGFloat(image.height))
-        let size = CGSize(width: CGFloat(image.width) * scale, height: CGFloat(image.height) * scale)
-        context.draw(image, in: CGRect(x: rect.midX - size.width / 2,
-                                       y: rect.midY - size.height / 2,
-                                       width: size.width, height: size.height))
-    }
-
     private static func drawNumber(_ text: String, in rect: CGRect, context: CGContext) {
-        let badge = CGRect(x: rect.minX + 12, y: rect.maxY - 58, width: 48, height: 44)
-        context.setFillColor(CGColor(gray: 0, alpha: 0.85))
-        context.fill(badge)
-        let font = CTFontCreateWithName("Helvetica-Bold" as CFString, 32, nil)
+        let font = CTFontCreateWithName("Helvetica-Bold" as CFString, 64, nil)
         let attributes: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key(kCTFontAttributeName as String): font,
             NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor.white,
         ]
         let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
-        context.textPosition = CGPoint(x: badge.minX + 13, y: badge.minY + 7)
+        context.textPosition = CGPoint(x: rect.minX + 26, y: rect.minY + 10)
         CTLineDraw(line, context)
     }
 

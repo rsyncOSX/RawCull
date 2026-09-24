@@ -4,7 +4,7 @@ import PhotoAIContracts
 nonisolated enum ObjectConceptDiscovery {
     static let maximumConcepts = 6
     static let instruction = """
-        Examine this photograph and return JSON only: {"concepts":[{"query":"bird","displayName":"Bird","reason":"Primary visible subject"}]}. Return zero to six concrete, visible object categories. Use short singular noun phrases that SAM 3 can ground. Prefer photographically meaningful subjects. Avoid scene adjectives, actions, relationships, abstract concepts, unseen objects, and redundant parent/child categories.
+        Look at this one photograph. Return one short JSON object only, for example {"concepts":[{"query":"bird","displayName":"Bird","reason":"Visible subject"}]}. Use the key concepts with zero to six entries. Each entry needs query, displayName, and reason as short strings. Query must be a concrete visible object category in a short singular noun phrase that SAM 3 can locate. Prefer the main subject. Avoid scene adjectives, actions, relationships, abstract concepts, unseen objects, and redundant parent/child categories.
         """
 
     static func decode(_ response: String) throws -> [ObjectConceptSuggestion] {
@@ -16,10 +16,9 @@ nonisolated enum ObjectConceptDiscovery {
             }
             let concepts: [Entry]
         }
-        guard let data = response.data(using: .utf8),
-              let payload = try? JSONDecoder().decode(Payload.self, from: data),
-              payload.concepts.count <= maximumConcepts else {
-            throw ObjectAnalysisError.invalidConceptResponse
+        let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
+        guard payload.concepts.count <= maximumConcepts else {
+            throw ObjectResponseIssue.tooManyItems("concepts")
         }
         var seen: Set<String> = []
         return try payload.concepts.compactMap { entry in
@@ -27,7 +26,7 @@ nonisolated enum ObjectConceptDiscovery {
                   !entry.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   !entry.reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   entry.displayName.count <= 80, entry.reason.count <= 160 else {
-                throw ObjectAnalysisError.invalidConceptResponse
+                throw ObjectResponseIssue.invalidValue("concept")
             }
             guard seen.insert(concept.cacheIdentifier).inserted else { return nil }
             return ObjectConceptSuggestion(concept: concept,

@@ -147,6 +147,35 @@ struct ObjectAnalysisFeatureTests {
         #expect(await segmenter.callCount == 2)
     }
 
+    @MainActor
+    @Test func `Invalid assessment stays retryable and reuses cached segmentation`() async throws {
+        let image = try makeMask()
+        let qwen = ObjectQwenStub(invalidFirstAssessment: true)
+        let segmenter = ObjectSegmenterStub(mask: image)
+        let store = ObjectMaskMemoryStore()
+        let service = try ObjectSegmentationService(provider: segmenter, stores: [store], maxSide: 4_320)
+        let feature = RawCullObjectAnalysisFeature(
+            inference: qwen, imageLoader: ObjectImageLoaderStub(image: image), maskStores: [store],
+        )
+        feature.install(segmentation: service, qwenStatus: .available(
+            url: URL(fileURLWithPath: "/tmp/qwen"), modelName: "Qwen Test",
+        ))
+        feature.discoveryMode = .specificConcepts
+        feature.manualConceptText = "bird"
+        let file = FileItem(id: UUID(), url: URL(fileURLWithPath: "/tmp/retry-object-test.jpg"),
+                            name: "retry.jpg", size: 1, dateModified: .distantPast,
+                            exifData: nil, afFocusNormalized: nil)
+        await feature.analyze([file])
+        #expect(feature.results.first?.needsAssessmentRetry == true)
+        #expect(feature.filesNeedingAnalysis(from: [file]).count == 1)
+        #expect(await segmenter.callCount == 1)
+        await feature.retryFailed([file])
+        #expect(feature.results.first?.isSuccessful == true)
+        #expect(feature.results.first?.assessment?.objects.first?.id == "1")
+        #expect(await segmenter.callCount == 1)
+        #expect(await qwen.callCount == 2)
+    }
+
     private func makeMask() throws -> CGImage {
         let width = 32, height = 32
         let pixels = Data((0..<(width * height)).map { index in
@@ -166,15 +195,20 @@ struct ObjectAnalysisFeatureTests {
 private actor ObjectQwenStub: QwenInferenceServing {
     private(set) var callCount = 0
     let delayResponse: Bool
+    let invalidFirstAssessment: Bool
     private var startWaiter: CheckedContinuation<Void, Never>?
-    init(delayResponse: Bool = false) { self.delayResponse = delayResponse }
+    init(delayResponse: Bool = false, invalidFirstAssessment: Bool = false) {
+        self.delayResponse = delayResponse
+        self.invalidFirstAssessment = invalidFirstAssessment
+    }
     func validate(url: URL) -> QwenModelStatus { .available(url: url, modelName: "Qwen Test") }
     func respond(to _: QwenVisionRequest) async throws -> String {
         callCount += 1
         startWaiter?.resume()
         startWaiter = nil
         if delayResponse { try await Task.sleep(for: .seconds(1)) }
-        if callCount == 1 {
+        if invalidFirstAssessment && callCount == 1 { return #"{"imageSummary":"Incomplete"}"# }
+        if callCount == 1 && !invalidFirstAssessment {
             return #"{"concepts":[{"query":"bird","displayName":"Bird","reason":"Visible"},{"query":"animal","displayName":"Animal","reason":"Visible"}]}"#
         }
         return #"{"imageSummary":"One bird","objects":[{"id":"1","concept":"bird","description":"A bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#

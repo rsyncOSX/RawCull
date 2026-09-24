@@ -2,32 +2,33 @@ import Foundation
 
 nonisolated enum ObjectAnalysisResponseDecoder {
     static func decode(_ response: String, boardIDs: Set<String>) throws -> ObjectPhotoAssessment {
-        guard let data = response.data(using: .utf8),
-              let value = try? JSONDecoder().decode(ObjectPhotoAssessment.self, from: data),
-              !value.imageSummary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              value.objects.count <= 8,
-              validConfidence(value.confidence),
-              validList(value.relationships, cap: 8),
-              validList(value.strengths, cap: 8),
-              validList(value.problems, cap: 8),
-              value.preferredObjectIDs.count <= 8 else {
-            throw ObjectAnalysisError.invalidAssessment
+        let value = try ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response)
+        if let summary = value.imageSummary,
+           summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw ObjectResponseIssue.invalidValue("imageSummary")
         }
+        guard value.objects.count <= 8, value.preferredObjectIDs.count <= 8 else {
+            throw ObjectResponseIssue.tooManyItems("objects")
+        }
+        guard validConfidence(value.confidence) else { throw ObjectResponseIssue.invalidValue("confidence") }
+        guard validList(value.relationships, cap: 8), validList(value.strengths, cap: 8),
+              validList(value.problems, cap: 8) else { throw ObjectResponseIssue.invalidValue("photo lists") }
         let ids = value.objects.map(\.id)
-        guard Set(ids).count == ids.count,
-              Set(ids).isSubset(of: boardIDs),
-              Set(value.preferredObjectIDs).count == value.preferredObjectIDs.count,
-              Set(value.preferredObjectIDs).isSubset(of: Set(ids)),
-              value.objects.allSatisfy({ object in
-                  !object.id.isEmpty
-                      && !object.concept.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                      && !object.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                      && validConfidence(object.confidence)
-                      && validList(object.obstructions, cap: 8)
-                      && validList(object.strengths, cap: 8)
-                      && validList(object.problems, cap: 8)
-              }) else {
-            throw ObjectAnalysisError.invalidAssessment
+        for id in ids where ids.filter({ $0 == id }).count > 1 { throw ObjectResponseIssue.duplicateID(id) }
+        for id in ids where !boardIDs.contains(id) { throw ObjectResponseIssue.unknownID(id) }
+        for id in boardIDs.sorted() where !ids.contains(id) { throw ObjectResponseIssue.missingID(id) }
+        for id in value.preferredObjectIDs where !ids.contains(id) { throw ObjectResponseIssue.unknownID(id) }
+        for id in value.preferredObjectIDs where value.preferredObjectIDs.filter({ $0 == id }).count > 1 {
+            throw ObjectResponseIssue.duplicateID(id)
+        }
+        for object in value.objects {
+            guard !object.concept.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !object.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  validConfidence(object.confidence),
+                  validList(object.obstructions, cap: 8), validList(object.strengths, cap: 8),
+                  validList(object.problems, cap: 8) else {
+                throw ObjectResponseIssue.invalidValue("object \(object.id)")
+            }
         }
         return value
     }
