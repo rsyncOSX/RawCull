@@ -1362,6 +1362,34 @@ should have a reproducible response shape, a named validation reason, and an
 owner for the next experiment. After this gate, continue with the broader
 subject matrix and TestFlight lifecycle work in §16.1 and §12.5.
 
+### 16.3 Implementation checkpoint — September 24, 2026
+
+The code now reports JSON envelope, incomplete JSON, missing or mistyped field,
+invalid value, list cap, duplicate ID, unknown ID, and omitted board ID errors.
+It extracts one complete JSON object from a wrapper, then applies the same
+strict concept and assessment validation. The discovery prompt requests a short
+concrete schema; the assessment prompt identifies the board as repeated views
+of one photograph and requires visible evidence for each numbered crop.
+Assessment failures remain retryable and the table distinguishes Qwen assessment
+confidence from per-instance SAM 3 mask scores. Retry reuses cached masks when
+the source size and modification date, Qwen model name, concept mode, and cache
+keys still match; otherwise it reruns segmentation. The 384 and 1,024 output
+token limits have not been raised without measured truncation evidence.
+
+For an explicit private raw-response capture, launch RawCull with
+`RAWCULL_OBJECT_CAPTURE_DIR` set to a local directory. It writes separate
+discovery and assessment text files with the model name, requested token limit,
+and response length. The directory must be private to the current user
+(mode 0700); new files use mode 0600. Keep it outside the repository and remove it
+after diagnosis. The runtime does not currently expose a finish reason or
+output token count, so record response length and inspect truncation directly.
+
+The eight original puffin files and their Qwen responses are not present in
+this checkout. The real-model eight-photo acceptance run, response-shape
+fixtures derived from that run, broader §12.5 matrix, latency and peak-memory
+measurements, clean-install TestFlight, and cache-lifecycle checks remain open.
+Record the per-photo results in §16.2 before treating Objects mode as ready.
+
 ## 17. Catalog AI coverage beyond CLIP and future models
 
 ### 17.1 Can AI run on all or most scanned images?

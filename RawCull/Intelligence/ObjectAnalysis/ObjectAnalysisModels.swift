@@ -82,10 +82,13 @@ nonisolated struct ObjectPhotoAnalysisResult: Equatable, Identifiable, Sendable 
     let sam3ModelIdentity: String?
     let sam3Model: ModelIdentity?
     let qwenModelName: String?
+    let sourceSize: Int64
+    let sourceModified: Date
     let timestamp: Date
 
     var id: UUID { fileID }
-    var isSuccessful: Bool { failure == nil }
+    var needsAssessmentRetry: Bool { !instances.isEmpty && assessment == nil && failure != "Cancelled" }
+    var isSuccessful: Bool { failure == nil && !needsAssessmentRetry }
 }
 
 nonisolated enum ObjectAnalysisError: Error, LocalizedError, Equatable, Sendable {

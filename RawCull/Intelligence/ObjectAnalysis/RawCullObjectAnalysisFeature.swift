@@ -144,7 +144,7 @@ final class RawCullObjectAnalysisFeature {
     }
 
     func retryFailed(_ files: [FileItem]) async {
-        let failed = Set(results.filter { $0.failure != nil }.map(\.fileID))
+        let failed = Set(results.filter { !$0.isSuccessful }.map(\.fileID))
         await analyze(files.filter { failed.contains($0.id) })
     }
 
@@ -185,44 +185,69 @@ final class RawCullObjectAnalysisFeature {
         var concepts: [SegmentationConcept] = []
         var descriptors: [ObjectInstanceDescriptor] = []
         var modelIdentity: ModelIdentity?
+        var failureStage: String?
         do {
             guard let image = await imageLoader.thumbnailCGImage(
                 for: file.url, maxPixelSize: 4_320,
             ) else { throw ObjectAnalysisError.imageUnavailable }
             try Task.checkCancellation()
-            if mode == .automatic {
+            let previous = results.first { $0.fileID == file.id }
+            let currentQwenName: String? = if case let .available(_, name) = qwenStatus { name } else { nil }
+            let reusable = previous.flatMap { result -> ObjectPhotoAnalysisResult? in
+                guard result.needsAssessmentRetry, result.discoveryMode == mode,
+                      (mode == .automatic || result.concepts == manualConcepts.map(\.query)),
+                      result.sourceSize == file.size,
+                      result.sourceModified == file.dateModified,
+                      result.qwenModelName == currentQwenName,
+                      !result.instances.isEmpty else { return nil }
+                return result
+            }
+            let cached = if let reusable { await cachedMasks(for: reusable, file: file) } else { [String: CGImage]() }
+            let reuse = reusable != nil && cached.count == reusable?.instances.count
+            var retained: [ObjectInstanceDeduplicator.Retained] = []
+            if reuse, let reusable {
+                concepts = reusable.concepts.compactMap { try? SegmentationConcept($0) }
+                descriptors = reusable.instances
+                modelIdentity = reusable.sam3Model
+                retained = descriptors.compactMap { descriptor in
+                    cached[descriptor.id].map { .init(descriptor: descriptor, mask: $0) }
+                }
+            } else if mode == .automatic {
                 setStage(.discoveringConcepts)
+                failureStage = "Concept discovery"
                 let response = try await inference.respond(to: QwenVisionRequest(
                     instruction: ObjectConceptDiscovery.instruction,
                     image: image, maximumResponseTokens: 384,
                 ))
+                captureDiagnostic(response, file: file, stage: "discovery", tokenLimit: 384)
                 concepts = try ObjectConceptDiscovery.decode(response).map(\.concept)
             } else {
                 concepts = manualConcepts
             }
             guard !concepts.isEmpty else { throw ObjectAnalysisError.noConcepts }
-            var candidates: [ObjectInstanceDeduplicator.Candidate] = []
-            let source = AIImageSource(id: file.id, url: file.url, displayName: file.name)
-            for (index, concept) in concepts.enumerated() {
-                try Task.checkCancellation()
-                setStage(.segmenting(concept: concept.query, conceptIndex: index + 1,
-                                      conceptCount: concepts.count))
-                let result = try await segmentation.segment(image: image, source: source,
-                                                            concept: concept)
-                modelIdentity = result.modelIdentity
-                candidates += result.instances.map {
-                    ObjectInstanceDeduplicator.Candidate(
-                        concept: concept, mask: $0.mask, score: $0.score,
-                        normalizedBoundingBox: $0.normalizedBoundingBox,
-                        sourceInstanceID: $0.id,
-                    )
+            failureStage = nil
+            if !reuse {
+                var candidates: [ObjectInstanceDeduplicator.Candidate] = []
+                let source = AIImageSource(id: file.id, url: file.url, displayName: file.name)
+                for (index, concept) in concepts.enumerated() {
+                    try Task.checkCancellation()
+                    setStage(.segmenting(concept: concept.query, conceptIndex: index + 1,
+                                          conceptCount: concepts.count))
+                    let result = try await segmentation.segment(image: image, source: source,
+                                                                concept: concept)
+                    modelIdentity = result.modelIdentity
+                    candidates += result.instances.map {
+                        ObjectInstanceDeduplicator.Candidate(
+                            concept: concept, mask: $0.mask, score: $0.score,
+                            normalizedBoundingBox: $0.normalizedBoundingBox,
+                            sourceInstanceID: $0.id,
+                        )
+                    }
                 }
+                retained = await Task { @concurrent in ObjectInstanceDeduplicator.retain(candidates) }.value
+                descriptors = retained.map(\.descriptor)
             }
             setStage(.preparingObjectBoard)
-            let retained = await Task { @concurrent in
-                ObjectInstanceDeduplicator.retain(candidates)
-            }.value
-            descriptors = retained.map(\.descriptor)
             if retained.isEmpty {
                 return makeResult(file, mode: mode, concepts: concepts, descriptors: [],
                                   assessment: nil, freeform: nil, failure: nil,
@@ -233,18 +258,25 @@ final class RawCullObjectAnalysisFeature {
             }.value
             try Task.checkCancellation()
             setStage(.analyzingObjects)
+            failureStage = "Object assessment"
             let response = try await inference.respond(to: QwenVisionRequest(
                 instruction: Self.analysisInstruction(ids: board.objectIDs, criteria: criteria),
                 image: board.image, maximumResponseTokens: 1_024,
             ))
+            captureDiagnostic(response, file: file, stage: "assessment", tokenLimit: 1_024)
             try Task.checkCancellation()
-            let assessment = try? ObjectAnalysisResponseDecoder.decode(
-                response, boardIDs: Set(board.objectIDs),
-            )
-            return makeResult(file, mode: mode, concepts: concepts,
-                              descriptors: descriptors, assessment: assessment,
-                              freeform: assessment == nil ? response : nil, failure: nil,
-                              modelIdentity: modelIdentity)
+            do {
+                let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs))
+                return makeResult(file, mode: mode, concepts: concepts,
+                                  descriptors: descriptors, assessment: assessment,
+                                  freeform: nil, failure: nil, modelIdentity: modelIdentity)
+            } catch {
+                return makeResult(file, mode: mode, concepts: concepts,
+                                  descriptors: descriptors, assessment: nil,
+                                  freeform: response,
+                                  failure: "Object assessment: \(error.localizedDescription)",
+                                  modelIdentity: modelIdentity)
+            }
         } catch is CancellationError {
             return makeResult(file, mode: mode, concepts: concepts,
                               descriptors: descriptors, assessment: nil,
@@ -253,7 +285,9 @@ final class RawCullObjectAnalysisFeature {
         } catch {
             return makeResult(file, mode: mode, concepts: concepts,
                               descriptors: descriptors, assessment: nil,
-                              freeform: nil, failure: error.localizedDescription,
+                              freeform: nil,
+                              failure: failureStage.map { "\($0): \(error.localizedDescription)" }
+                                  ?? error.localizedDescription,
                               modelIdentity: modelIdentity)
         }
     }
@@ -270,13 +304,14 @@ final class RawCullObjectAnalysisFeature {
             discoveryMode: mode, instances: descriptors,
             assessment: assessment, freeformResponse: freeform, failure: failure,
             sam3ModelIdentity: modelIdentity?.artifactIdentifier,
-            sam3Model: modelIdentity, qwenModelName: qwenName, timestamp: Date(),
+            sam3Model: modelIdentity, qwenModelName: qwenName,
+            sourceSize: file.size, sourceModified: file.dateModified, timestamp: Date(),
         )
     }
 
     private nonisolated static func analysisInstruction(ids: [String], criteria: String) -> String {
         """
-        Analyze only the numbered objects on this review board. Use visible evidence only.
+        This board shows one photograph: the top overview and the numbered crops below are repeated views of the same photo, not separate photographs. Analyze only the numbered objects. Use visible evidence only.
         Object IDs: \(ids.joined(separator: ", ")).
         Additional criteria: \(criteria)
         Return exactly one JSON object and no Markdown with these keys:
@@ -286,7 +321,26 @@ final class RawCullObjectAnalysisFeature {
         preferredObjectIDs (array of board IDs), confidence (0 to 1).
         visibility must be clear, partial, obscured, or uncertain.
         focusQuality must be sharp, soft, blurred, or uncertain.
-        Do not create objects that are not numbered on the board.
+        Include one entry for each board ID and use that exact ID. expression must be a string or null; all list fields must be arrays, using [] when empty. Keep lists short. Each object's description must use visible evidence from its matching numbered crop. Describe relationships only when supported by the overview. Do not invent extra objects, issues, or relationships.
         """
+    }
+
+    private func captureDiagnostic(_ response: String, file: FileItem, stage: String, tokenLimit: Int) {
+        guard let path = ProcessInfo.processInfo.environment["RAWCULL_OBJECT_CAPTURE_DIR"],
+              !path.isEmpty else { return }
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        let model = if case let .available(_, name) = qwenStatus { name } else { "unknown" }
+        let header = "file: \(file.name)\nfile ID: \(file.id)\nstage: \(stage)\nmodel: \(model)\nrequested token limit: \(tokenLimit)\nresponse characters: \(response.count)\n\n"
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                    attributes: [.posixPermissions: 0o700])
+            let permissions = try FileManager.default.attributesOfItem(atPath: directory.path)[.posixPermissions] as? NSNumber
+            guard let permissions, permissions.intValue & 0o077 == 0 else { return }
+            let file = directory.appendingPathComponent("object-\(stage)-\(UUID().uuidString).txt")
+            try (header + response).write(to: file, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        } catch {
+            // Diagnostic capture is optional and must not affect analysis.
+        }
     }
 }

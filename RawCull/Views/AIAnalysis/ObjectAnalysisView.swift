@@ -95,7 +95,7 @@ private struct ObjectAnalysisControls: View {
                     Button("Retry Failed") {
                         Task { await feature.retryFailed(files) }
                     }
-                    .disabled(!feature.canRun || !feature.results.contains { $0.failure != nil })
+                    .disabled(!feature.canRun || !feature.results.contains { !$0.isSuccessful })
                     Button("Clear Results", role: .destructive) { feature.clearResults() }
                         .disabled(feature.results.isEmpty)
                 }
@@ -144,12 +144,16 @@ private struct ObjectPhotoResultsTable: View {
             TableColumn("Concepts") { result in
                 Text(result.concepts.joined(separator: ", ")).lineLimit(1)
             }
-            TableColumn("Confidence") { result in
+            TableColumn("Qwen confidence") { result in
                 Text(result.assessment?.confidence.formatted(.percent.precision(.fractionLength(0))) ?? "—")
             }
             .width(90)
             TableColumn("Status") { result in
-                Text(result.failure == nil ? "Complete" : "Failed")
+                if result.needsAssessmentRetry {
+                    Text("Assessment needs retry")
+                } else {
+                    Text(result.failure == nil ? "Complete" : "Failed")
+                }
             }
         }
         .accessibilityLabel("Object analysis results")
@@ -189,11 +193,12 @@ private struct ObjectPhotoDetailView: View {
                         if let failure = result.failure {
                             Label(failure, systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(.orange)
-                        } else if result.instances.isEmpty {
+                        }
+                        if result.instances.isEmpty && result.failure == nil {
                             ContentUnavailableView("No Matching Objects",
                                                    systemImage: "square.dashed",
                                                    description: Text("Try a different concept or photograph."))
-                        } else {
+                        } else if !result.instances.isEmpty {
                             Text("Objects").font(.headline)
                             ForEach(result.instances) { object in
                                 Button {
@@ -206,12 +211,12 @@ private struct ObjectPhotoDetailView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                         Spacer()
-                                        Text(object.score.formatted(.percent.precision(.fractionLength(0))))
+                                        Text("SAM 3 mask: \(object.score.formatted(.percent.precision(.fractionLength(0))))")
                                     }
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Object \(object.id), \(object.concept)")
-                                .accessibilityValue("Confidence \(object.score.formatted(.percent))")
+                                .accessibilityValue("SAM 3 mask score \(object.score.formatted(.percent))")
                             }
                             if let selectedCrop {
                                 Image(decorative: selectedCrop, scale: 1)
@@ -222,7 +227,7 @@ private struct ObjectPhotoDetailView: View {
                             }
                             if let assessment = result.assessment {
                                 Text(assessment.imageSummary).font(.body)
-                                Text("Confidence: \(assessment.confidence.formatted(.percent))")
+                                Text("Qwen assessment confidence: \(assessment.confidence.formatted(.percent))")
                                     .font(.caption)
                                 if let object = assessment.objects.first(where: { $0.id == selectedObjectID }) {
                                     ObjectAssessmentDetail(object: object)
