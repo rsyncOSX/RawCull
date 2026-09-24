@@ -1,7 +1,7 @@
 # SAM 3 → Qwen Object Analysis Workplan
 
 Status: Objects implemented and under real-model validation in RawCull 3.2.6,
-updated September 24, 2026. RawCull pins
+updated September 24, 2026 after an eight-photo puffin run. RawCull pins
 PhotoAIKit revision `77cc1d84a5d98a485caa15be102c8a55eb3d7698`, which
 contains the additive instance API alongside the existing union mask. A
 four-photo muskox spike confirms that the tested Core AI runtime also returns
@@ -10,28 +10,36 @@ unproven. RawCull 3.2.4 is on the Mac App Store with CLIP, SAM 3, and Qwen
 available, and the maintainer reports repeated successful TestFlight builds.
 The 3.2.6 app and downloader extension both declare build 389. A complete
 RawCull Xcode test run on September 24 reports 466 passed and one skipped out
-of 467 tests; parameterized runs are counted separately in Xcode. A one-photo
-3.2.6 Objects test reached SAM 3 and Qwen, but its Qwen response fell back to
-free-form display rather than a validated structured assessment.
+of 467 tests; parameterized runs are counted separately in Xcode. The earlier
+one-photo muskox test reached SAM 3 and Qwen but fell back to free-form output.
+In the new eight-photo puffin run, Automatic failed on all eight photos at
+concept discovery. Specific Concepts with `bird` completed on all eight,
+showing one or two instances per photo, while Qwen's final assessment again
+appeared as free-form output.
 
 ## What is done and what is next
 
 **Done:** the Apple-hosted distribution path is in production for 3.2.4;
 Objects mode, the PhotoAIKit instance API, RawCull's object pipeline and UI,
 and their stubbed tests are implemented. The 3.2.6 suite passes apart from one
-skip. The September 24 manual Objects run found seven muskox candidates in one
-RAW photo and produced a Qwen response. The screenshots do not establish the
-identity of the installed model packs or a clean-install Objects result.
+skip. The manual `bird` run is useful evidence that the instance path works on
+the user's eight puffin photographs: each photo completed with one or two
+numbered birds, including photos with two visible subjects. This is a strong
+proof of the prompted-concept path on this sample, not a claim that every
+object category or every difficult instance is detected. The screenshots do
+not establish the identity of the installed model packs or a clean-install
+Objects result.
 
-**Next Objects step:** diagnose why the Qwen JSON was not accepted by the
-structured decoder, then verify that each numbered description is grounded in
-its corresponding crop. The screenshot shows repeated near-identical text for
-different IDs and a blank assessment-confidence column. Inspect whether the
-response was truncated at the current 1,024-token limit, omitted required
-fields, or failed another schema check; do not assume a cause from the
-screenshot alone. Check the seven mask outlines against the visible animals
-for fragments, duplicates, and missed subjects. Repeat on the manual matrix
-in section 12.5 before treating Objects as release quality.
+**Next Objects step:** make both Qwen boundaries reliable, in order. Automatic
+discovery currently fails on all eight puffin photos with “Qwen did not return
+valid object concepts”; this prevents SAM 3 from running. With the manual
+`bird` concept, the final response contains JSON-like text but is displayed as
+**Free-form Qwen response**, so no structured object findings or assessment
+confidence appear. The response also calls the review board a collage and may
+describe repeated views as separate photos. Diagnose the exact decoder failure
+for each boundary before changing prompts or token limits. Then make the
+numbered analysis refer to the single source photo and its object crops.
+Section 16.1 gives the ordered implementation and acceptance plan.
 
 **Remaining release evidence:** record a clean-install TestFlight Objects run
 with the Apple-hosted SAM 3 and Qwen packs, model removal during work, cache
@@ -1213,6 +1221,66 @@ For the Objects feature, apply the work in reviewable changes:
 Do not combine the PhotoAIKit API change, RawCull pipeline, and UI into one
 large commit. The additive package API and compatibility tests should land
 first so downstream failures are easier to isolate.
+
+### 16.1 Next plan after the eight-photo puffin test — September 24, 2026
+
+The observed failures are at two different Qwen boundaries. Keep the manual
+`bird` path available while fixing them. Do not weaken the SAM 3 instance
+contract or treat free-form prose as a validated object assessment.
+
+1. **Capture the actual failure shape.** Re-run one failing Automatic photo and
+   one manual photo with the packaged model. Record the Qwen response, finish
+   status if the runtime exposes it, token count or length, and a specific
+   validation failure for each stage. Keep raw responses in an explicit local
+   diagnostic capture, redacted or disabled in normal logs. Distinguish malformed
+   JSON, Markdown wrappers, extra prose, missing keys, wrong value types,
+   invalid IDs, and truncation. The current `try?` assessment decode hides
+   which check failed; the Automatic decoder reports one generic error.
+2. **Repair Automatic concept discovery first.** Test the captured responses
+   against the strict `concepts` schema. Make the prompt and parser agree on a
+   small, realistic output for Qwen3-VL-2B; use a deterministic JSON-envelope
+   extraction only for recoverable wrappers, then validate every concept with
+   `SegmentationConcept`. Do not silently guess concepts from unrelated prose.
+   If 384 output tokens prove insufficient, raise the limit based on measured
+   responses. Show a stage-specific, actionable error if discovery still fails.
+   Acceptance: Automatic returns `bird` or another useful visible whole-object
+   concept on the puffin set and reaches SAM 3, with no invented fallback list.
+3. **Repair the final assessment schema.** Start from the captured JSON-like
+   response and identify exactly why `ObjectPhotoAssessment` rejects it. Align
+   the requested keys, optional values, enum spellings, board IDs, and list caps
+   with the decoder. Check whether the 1,024-token cap cuts off responses on
+   one- and two-bird boards; adjust only after measuring. Add fixture tests
+   based on anonymized real response shapes, including valid JSON with wrappers,
+   partial JSON, omitted fields, extra objects, and wrong IDs. Preserve strict
+   ID and confidence validation. Acceptance: the eight manual `bird` results
+   produce structured per-object findings and a populated assessment-confidence
+   column, with free-form fallback reserved for genuinely invalid responses.
+4. **Ground the board interpretation.** Tell Qwen explicitly that the overview
+   and numbered crops are repeated views of *one photograph*, not a collage of
+   different photographs. Require each object entry to use its board number and
+   visible evidence from that crop; avoid claiming a relationship or issue that
+   the original image does not show. Inspect the one- and two-bird results for
+   swapped IDs, repeated generic descriptions, invented subjects, and crop or
+   outline mismatch. If the 2B model cannot reliably handle the full schema on
+   a dense board, reduce the response schema or board density and measure the
+   quality again before expanding it.
+5. **Make retry and status reflect assessment quality.** A free-form assessment
+   currently has `failure == nil`, so the photo is marked Complete and skipped
+   by both normal Analyze and Retry Failed. Distinguish “instances found,
+   assessment needs retry” from fully structured completion; allow retrying the
+   Qwen assessment without clearing a successful SAM 3 result. Label SAM 3 mask
+   scores separately from Qwen assessment confidence so a dash in the table
+   cannot be mistaken for missing segmentation confidence.
+6. **Run the release gate.** Repeat the eight-photo puffin run in both modes,
+   then the mixed-category, overlapping, tiny-subject, no-match, RAW/JPEG, and
+   model-removal cases in §12.5. Record counts, missed or duplicate instances,
+   structured-response rate, ID grounding, false visual claims, latency, and
+   peak memory. Complete the Objects-specific clean-install TestFlight and
+   cache-lifecycle checks before calling the mode release ready.
+
+The target is a useful structured result for each successfully segmented photo;
+an empty or invalid Qwen response must remain visible as an assessment problem,
+not silently turn into a successful photographic judgment.
 
 ## 17. Catalog AI coverage beyond CLIP and future models
 
