@@ -20,6 +20,7 @@ RawCull is a native macOS app for reviewing and culling RAW photographs. It comb
 | 🔎 | **Search by meaning** | Find photos with natural-language queries using local CLIP embeddings. |
 | 🧠 | **Deep Review** | Use SAM 3 to isolate the subject and compare detail where it matters. |
 | ✨ | **AI photo critique** | Ask Qwen3-VL to assess composition, exposure, visibility, expression, strengths, and problems. |
+| 🔢 | **Objects analysis** | Ask Qwen to suggest visible concepts, segment their instances with SAM 3, and assess a numbered review board. |
 | ⭐️ | **A complete culling flow** | Tag, reject, rate, filter, compare, and persist your decisions. |
 | 📦 | **Flexible export** | Export JPEG previews or copy selected RAW files with live rsync progress. |
 
@@ -34,6 +35,8 @@ RawCull's AI features run locally on the Mac. Model downloads and validation are
 | **DataComp CLIP** | Understands image/text similarity | Semantic search, visual similarity, burst grouping, and coarse subject labels |
 | **SAM 3** | Finds where a prompted subject is | Subject masks, AF-point checks, and detail-aware Deep Review |
 | **Qwen3-VL** | Describes and evaluates a photograph | Structured photo assessment against editable criteria |
+
+In **AI Analysis › Objects**, RawCull uses Qwen to identify photographically relevant concepts, SAM 3 to segment matching visible instances, and Qwen to assess those numbered subjects locally on your Mac. Specific concepts can be entered manually. Results describe matches for the requested concepts; they are not a guaranteed inventory of every object in the scene.
 
 CLIP image embeddings are computed once and reused for later searches. SAM 3 masks and compatible analysis artifacts can also be cached. Qwen assessments are advisory: RawCull validates their structure, but the photographer remains the final judge.
 
@@ -80,14 +83,14 @@ Remote dependencies are pinned in `Package.resolved`. The exact resolved version
 | `decodeencodegeneric` | `1.0.0` |
 | `eventsource` | `1.5.1` |
 | `parsersyncoutput` | `1.0.0` |
-| `photoaikit` | `4be7c0187848838ba9cebf19a678139262f53133` |
+| `photoaikit` | `77cc1d84a5d98a485caa15be102c8a55eb3d7698` |
 | `photoanalysiskit` | `1.3.1` |
 | `rawcullcore` | `1.1.2` |
 | `rawparserkit` | `1.3.0` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
 | `swift-asn1` | `1.7.3` |
-| `swift-collections` | `1.6.0` |
+| `swift-collections` | `1.7.0` |
 | `swift-crypto` | `4.5.2` |
 | `swift-huggingface` | `0.11.0` |
 | `swift-jinja` | `2.5.1` |

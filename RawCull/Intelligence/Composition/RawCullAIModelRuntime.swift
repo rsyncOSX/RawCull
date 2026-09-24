@@ -32,6 +32,9 @@ final class RawCullAIModelRuntime {
 
     let subjectMaskMemoryStore: SubjectMaskMemoryStore
     let subjectMaskDiskStore: SubjectMaskDiskStore?
+    let objectMaskMemoryStore: ObjectMaskMemoryStore
+    let objectMaskDiskStore: ObjectMaskDiskStore?
+    private(set) var objectSegmentation: ObjectSegmentationService?
     private(set) var subjectMaskRepository: SubjectMaskRepository
     private(set) var sam3Configuration: SubjectMaskRepositoryConfiguration
     private(set) var sam3Segmentation: SegmentationService
@@ -85,6 +88,12 @@ final class RawCullAIModelRuntime {
         let diskStoreResult = Self.makeSubjectMaskDiskStore(at: paths.subjectMaskDirectory)
         self.subjectMaskDiskStore = diskStoreResult.store
         self.subjectMaskStorageCapability = diskStoreResult.capability
+
+        self.objectMaskMemoryStore = ObjectMaskMemoryStore()
+        self.objectMaskDiskStore = try? ObjectMaskDiskStore(
+            cacheDirectory: paths.objectMaskDirectory,
+        )
+        self.objectSegmentation = nil
 
         var stores: [any SubjectMaskStoring] = [memoryStore]
         if let diskStore = diskStoreResult.store {
@@ -177,6 +186,7 @@ final class RawCullAIModelRuntime {
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async -> QwenModelStatus {
+        objectSegmentation = nil
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
         )
@@ -270,6 +280,18 @@ final class RawCullAIModelRuntime {
 
         segmentationProviders = [:]
         segmentationProviders[.sam3] = sam3.provider
+        if let provider = sam3.provider {
+            var objectStores: [any ObjectMaskStoring] = [objectMaskMemoryStore]
+            if let objectMaskDiskStore { objectStores.append(objectMaskDiskStore) }
+            objectSegmentation = try ObjectSegmentationService(
+                provider: provider,
+                stores: objectStores,
+                maxSide: inputMaxSide,
+                maximumInstanceCount: 8,
+            )
+        } else {
+            objectSegmentation = nil
+        }
         clipSimilarityProviders = [
             .dataComp: clipDataComp.provider,
             .openAI: clipOpenAI.provider

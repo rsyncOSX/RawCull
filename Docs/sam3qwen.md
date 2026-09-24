@@ -1,10 +1,11 @@
 # SAM 3 → Qwen Object Analysis Workplan
 
-Status: proposal, reevaluated against RawCull and the adjacent PhotoAIKit
-checkout on September 23, 2026. RawCull still has two AI Analysis modes;
-PhotoAIKit still exposes one union mask. A four-photo muskox spike now confirms
-that the tested Core AI runtime also returns separate instance segments, but
-release-quality instance handling remains unproven. The CLIP, SAM 3, and Qwen Apple-hosted packs are uploaded,
+Status: implementation in progress, updated September 24, 2026. RawCull pins
+PhotoAIKit revision `77cc1d84a5d98a485caa15be102c8a55eb3d7698`, which
+contains the additive instance API alongside the existing union mask. A
+four-photo muskox spike confirms that the tested Core AI runtime also returns
+separate instance segments, but release-quality instance handling remains
+unproven. The CLIP, SAM 3, and Qwen Apple-hosted packs are uploaded,
 processed, and ready for internal testing. A signed App Store build and
 clean-install TestFlight validation remain pending in `appleassets.md`.
 
@@ -24,12 +25,12 @@ broader culling value than requiring photographers to select images before
 Qwen can help, and it reuses an installed model. It must never delay initial
 catalog browsing or compete with interactive analysis.
 
-**Following feature update:** continue this document's **Objects** mode through
-the additive PhotoAIKit instance contract and a larger validation set. The
-four-photo Phase 0 spike supports that work: it separated six touching muskox
-in one image, while also showing why low-score fragments must be filtered. The
-current union-mask API cannot yet expose those instances to RawCull. The
-Objects work can proceed while Catalog AI Triage is being designed.
+**Following feature update:** validate this document's implemented **Objects**
+mode with the hosted SAM 3 and Qwen packs and a larger photo set. The four-photo
+Phase 0 spike separated six touching muskox in one image while showing why
+low-score fragments must be filtered. The additive PhotoAIKit instance API now
+exposes those masks to RawCull. Objects validation can proceed while Catalog AI
+Triage is being designed.
 
 These priorities are product recommendations, not evidence that Qwen batch
 throughput or SAM 3 instance output already meets release quality. Record the
@@ -120,7 +121,7 @@ The first Objects release should support:
 
 ## 3. Current implementation and constraints
 
-### 3.1 PhotoAIKit currently returns one union mask
+### 3.1 PhotoAIKit baseline before Phase 1
 
 The package at `../PhotoAIKit` currently exposes:
 
@@ -476,8 +477,7 @@ full package suite did not complete in this environment: an existing Vision
 feature-print test could not create a
 `CVPixelBufferPool` and the test process exited with signal 5. Production
 instance inference still needs a run against the hosted model pack and a
-broader image set. The local PhotoAIKit checkout has no configured Git remote,
-so the publish and RawCull pin steps remain pending.
+broader image set. RawCull now pins the published PhotoAIKit revision above.
 
 ## 7. Phase 2 — multi-instance cache
 
@@ -839,6 +839,26 @@ the observable feature. Keep only current-detail images in a bounded memory
 cache and reload masks from the object-mask store when necessary.
 
 ## 10. Phase 5 — composition and model lifecycle
+
+### Implementation checkpoint — September 24, 2026
+
+The copied RawCull checkout now uses the pinned PhotoAIKit instance API. It
+creates a separate `SAM3ObjectMasks` cache directory, holds object memory and
+disk stores, and installs `ObjectSegmentationService` for validated SAM 3.
+The shared Qwen actor has a general vision response API, a cancellable
+generation gate, and model-generation checks; the existing assessment method
+uses that API with its original prompt and 512-token cap.
+
+RawCull also has an application-owned Objects feature, strict concept and
+assessment decoders, mask-based cross-concept deduplication, a numbered
+review-board renderer, and a third AI Analysis mode. Focused model, Qwen,
+runtime, and stubbed pipeline tests pass. The full RawCull macOS test suite and
+a local build succeed. The combined
+SAM 3 → Qwen pipeline has not yet been validated with the hosted model packs
+or a broader photo set. The UI reloads cached masks for the selected photo,
+draws numbered contours, and shows a crop of the selected object. The pinned
+PhotoAIKit cache still needs the full Phase 2
+atomic replacement and lifecycle test matrix before release.
 
 ### 10.1 RawCullAIModelRuntime
 
@@ -1306,36 +1326,36 @@ newer or more capable on general benchmarks.
 - [x] Existing union-mask API remains compatible in focused tests.
 - [x] Object segmentation service and cache are implemented locally.
 - [ ] PhotoAIKit tests pass.
-- [ ] RawCull pins the released PhotoAIKit revision.
+- [x] RawCull pins PhotoAIKit revision `77cc1d84a5d98a485caa15be102c8a55eb3d7698`.
 
 ### RawCull pipeline
 
-- [ ] General Qwen response API exists.
-- [ ] Qwen inference is serialized across analysis modes.
-- [ ] Automatic and manual concept modes work.
-- [ ] Filtering and deduplication are deterministic.
-- [ ] Review boards preserve overview, detail, and ID mapping.
-- [ ] Structured object responses validate strictly.
-- [ ] Cancellation and stale-result suppression work at every stage.
-- [ ] Model removal/switching cannot publish stale results.
+- [x] General Qwen response API exists.
+- [x] Qwen inference is serialized across analysis modes.
+- [x] Automatic and manual concept modes work in stubbed tests.
+- [x] Filtering and deduplication are deterministic in unit tests.
+- [x] Review boards preserve overview, detail, and ID mapping in unit tests.
+- [x] Structured object responses validate strictly in unit tests.
+- [x] Cancellation and stale-result suppression work in stubbed tests.
+- [x] Model removal cannot publish a stale result in a stubbed test.
 
 ### UI
 
-- [ ] **Objects** is the third AI Analysis mode.
-- [ ] Selected and Tagged sources both work.
-- [ ] Availability and empty states are specific and actionable.
-- [ ] Progress reports the current semantic stage.
-- [ ] Results table and object detail remain responsive.
-- [ ] Object numbers do not rely on color alone.
+- [x] **Objects** is the third AI Analysis mode.
+- [x] Selected and Tagged sources are wired into the mode.
+- [x] Availability and empty states are specific and actionable.
+- [x] Progress reports the current semantic stage.
+- [ ] Results table and object detail remain responsive under real-model load.
+- [x] Object numbers do not rely on color alone.
 - [ ] Keyboard and accessibility behavior are verified.
 
 ### Verification
 
 - [ ] PhotoAIKit focused tests pass.
-- [ ] RawCull object-analysis tests pass.
-- [ ] Existing Qwen and Deep Review tests pass unchanged.
-- [ ] Runtime/composition identity tests pass.
-- [ ] Accessibility tests pass.
+- [x] RawCull object-analysis tests pass.
+- [x] Existing Qwen and Deep Review tests pass.
+- [x] Runtime/composition identity tests pass.
+- [x] Accessibility test suite passes; manual VoiceOver review remains pending.
 - [ ] Release build is profiled for memory and cancellation latency.
 - [ ] Clean-install manual validation succeeds with Apple-hosted model packs.
 - [ ] Documentation and App Review notes are updated.
