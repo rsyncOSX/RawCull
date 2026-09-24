@@ -67,7 +67,6 @@ nonisolated enum HistogramLoader {
     }
 }
 
-
 struct HistogramView: View {
     let nsImage: NSImage?
     var height: CGFloat = 150

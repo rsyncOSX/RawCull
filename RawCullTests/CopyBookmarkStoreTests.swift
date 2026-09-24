@@ -143,6 +143,6 @@ struct CopyBookmarkStoreTests {
 
     private func isolatedDefaults() throws -> (UserDefaults, String) {
         let suite = "RawCullCopyBookmarkStore-\(UUID().uuidString)"
-        return (try #require(UserDefaults(suiteName: suite)), suite)
+        return try (#require(UserDefaults(suiteName: suite)), suite)
     }
 }

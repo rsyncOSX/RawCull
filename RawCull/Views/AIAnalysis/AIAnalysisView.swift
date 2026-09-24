@@ -123,9 +123,15 @@ struct AIAnalysisView: View {
             }
         }
         .onChange(of: selectedTool) { _, newTool in
-            if newTool != .samCLIP { deepAIReviewController.cancel() }
-            if newTool != .qwen { qwenAnalysisFeature.cancel() }
-            if newTool != .objects { objectAnalysisFeature.cancel() }
+            if newTool != .samCLIP {
+                deepAIReviewController.cancel()
+            }
+            if newTool != .qwen {
+                qwenAnalysisFeature.cancel()
+            }
+            if newTool != .objects {
+                objectAnalysisFeature.cancel()
+            }
         }
         .onChange(of: inputSource) { _, _ in
             deepAIReviewController.cancel()

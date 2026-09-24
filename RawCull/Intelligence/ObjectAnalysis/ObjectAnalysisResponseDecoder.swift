@@ -14,10 +14,18 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         guard validList(value.relationships, cap: 8), validList(value.strengths, cap: 8),
               validList(value.problems, cap: 8) else { throw ObjectResponseIssue.invalidValue("photo lists") }
         let ids = value.objects.map(\.id)
-        for id in ids where ids.filter({ $0 == id }).count > 1 { throw ObjectResponseIssue.duplicateID(id) }
-        for id in ids where !boardIDs.contains(id) { throw ObjectResponseIssue.unknownID(id) }
-        for id in boardIDs.sorted() where !ids.contains(id) { throw ObjectResponseIssue.missingID(id) }
-        for id in value.preferredObjectIDs where !ids.contains(id) { throw ObjectResponseIssue.unknownID(id) }
+        for id in ids where ids.filter({ $0 == id }).count > 1 {
+            throw ObjectResponseIssue.duplicateID(id)
+        }
+        for id in ids where !boardIDs.contains(id) {
+            throw ObjectResponseIssue.unknownID(id)
+        }
+        for id in boardIDs.sorted() where !ids.contains(id) {
+            throw ObjectResponseIssue.missingID(id)
+        }
+        for id in value.preferredObjectIDs where !ids.contains(id) {
+            throw ObjectResponseIssue.unknownID(id)
+        }
         for id in value.preferredObjectIDs where value.preferredObjectIDs.filter({ $0 == id }).count > 1 {
             throw ObjectResponseIssue.duplicateID(id)
         }
@@ -26,7 +34,8 @@ nonisolated enum ObjectAnalysisResponseDecoder {
                   !object.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   validConfidence(object.confidence),
                   validList(object.obstructions, cap: 8), validList(object.strengths, cap: 8),
-                  validList(object.problems, cap: 8) else {
+                  validList(object.problems, cap: 8)
+            else {
                 throw ObjectResponseIssue.invalidValue("object \(object.id)")
             }
         }

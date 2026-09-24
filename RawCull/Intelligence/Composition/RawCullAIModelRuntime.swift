@@ -282,7 +282,9 @@ final class RawCullAIModelRuntime {
         segmentationProviders[.sam3] = sam3.provider
         if let provider = sam3.provider {
             var objectStores: [any ObjectMaskStoring] = [objectMaskMemoryStore]
-            if let objectMaskDiskStore { objectStores.append(objectMaskDiskStore) }
+            if let objectMaskDiskStore {
+                objectStores.append(objectMaskDiskStore)
+            }
             objectSegmentation = try ObjectSegmentationService(
                 provider: provider,
                 stores: objectStores,

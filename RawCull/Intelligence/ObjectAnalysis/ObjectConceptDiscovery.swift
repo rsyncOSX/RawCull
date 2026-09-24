@@ -4,8 +4,8 @@ import PhotoAIContracts
 nonisolated enum ObjectConceptDiscovery {
     static let maximumConcepts = 6
     static let instruction = """
-        Look at this one photograph. Return one short JSON object only, for example {"concepts":[{"query":"bird","displayName":"Bird","reason":"Visible subject"}]}. Use the key concepts with zero to six entries. Each entry needs query, displayName, and reason as short strings. Query must be a concrete visible object category in a short singular noun phrase that SAM 3 can locate. Prefer the main subject. Avoid scene adjectives, actions, relationships, abstract concepts, unseen objects, and redundant parent/child categories.
-        """
+    Look at this one photograph. Return one short JSON object only, for example {"concepts":[{"query":"bird","displayName":"Bird","reason":"Visible subject"}]}. Use the key concepts with zero to six entries. Each entry needs query, displayName, and reason as short strings. Query must be a concrete visible object category in a short singular noun phrase that SAM 3 can locate. Prefer the main subject. Avoid scene adjectives, actions, relationships, abstract concepts, unseen objects, and redundant parent/child categories.
+    """
 
     static func decode(_ response: String) throws -> [ObjectConceptSuggestion] {
         struct Payload: Decodable {
@@ -14,6 +14,7 @@ nonisolated enum ObjectConceptDiscovery {
                 let displayName: String
                 let reason: String
             }
+
             let concepts: [Entry]
         }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
@@ -25,7 +26,8 @@ nonisolated enum ObjectConceptDiscovery {
             guard let concept = try? SegmentationConcept(entry.query),
                   !entry.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   !entry.reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  entry.displayName.count <= 80, entry.reason.count <= 160 else {
+                  entry.displayName.count <= 80, entry.reason.count <= 160
+            else {
                 throw ObjectResponseIssue.invalidValue("concept")
             }
             guard seen.insert(concept.cacheIdentifier).inserted else { return nil }

@@ -31,12 +31,16 @@ nonisolated enum ObjectJSONEnvelope {
         var depth = 0
         var quoted = false
         var escaped = false
-        for index in start..<characters.count {
+        for index in start ..< characters.count {
             let character = characters[index]
             if quoted {
-                if escaped { escaped = false }
-                else if character == "\\" { escaped = true }
-                else if character == "\"" { quoted = false }
+                if escaped {
+                    escaped = false
+                } else if character == "\\" {
+                    escaped = true
+                } else if character == "\"" {
+                    quoted = false
+                }
             } else if character == "\"" {
                 quoted = true
             } else if character == "{" {
@@ -46,7 +50,7 @@ nonisolated enum ObjectJSONEnvelope {
                 if depth == 0 {
                     let suffix = String(characters[(index + 1)...])
                     guard !suffix.contains("{") else { throw ObjectResponseIssue.invalidJSON }
-                    return Data(String(characters[start...index]).utf8)
+                    return Data(String(characters[start ... index]).utf8)
                 }
             }
         }
@@ -55,18 +59,20 @@ nonisolated enum ObjectJSONEnvelope {
 
     static func decode<T: Decodable>(_ type: T.Type, from response: String) throws -> T {
         let data = try data(in: response)
-        do { return try JSONDecoder().decode(type, from: data) }
-        catch let error as DecodingError {
+        do { return try JSONDecoder().decode(type, from: data) } catch let error as DecodingError {
             switch error {
             case let .keyNotFound(key, context):
                 throw ObjectResponseIssue.invalidSchema((context.codingPath + [key]).map(\.stringValue).joined(separator: "."))
+
             case let .typeMismatch(_, context), let .valueNotFound(_, context):
                 throw ObjectResponseIssue.invalidSchema(context.codingPath.map(\.stringValue).joined(separator: "."))
+
             case let .dataCorrupted(context):
                 if !context.codingPath.isEmpty {
                     throw ObjectResponseIssue.invalidValue(context.codingPath.map(\.stringValue).joined(separator: "."))
                 }
                 throw ObjectResponseIssue.invalidJSON
+
             @unknown default: throw ObjectResponseIssue.invalidJSON
             }
         } catch { throw ObjectResponseIssue.invalidJSON }

@@ -17,7 +17,7 @@ struct ObjectAnalysisFeatureTests {
         let box = CGRect(x: 0.2, y: 0.2, width: 0.5, height: 0.5)
         let retained = ObjectInstanceDeduplicator.retain([
             .init(concept: bird, mask: mask, score: 0.9, normalizedBoundingBox: box),
-            .init(concept: animal, mask: mask, score: 0.8, normalizedBoundingBox: box),
+            .init(concept: animal, mask: mask, score: 0.8, normalizedBoundingBox: box)
         ])
         #expect(retained.count == 1)
         #expect(retained[0].descriptor.id == "1")
@@ -37,7 +37,7 @@ struct ObjectAnalysisFeatureTests {
             .init(concept: bird, mask: mask, score: 0.9,
                   normalizedBoundingBox: CGRect(x: 0.05, y: 0.2, width: 0.25, height: 0.5)),
             .init(concept: bird, mask: mask, score: 0.8,
-                  normalizedBoundingBox: CGRect(x: 0.7, y: 0.2, width: 0.25, height: 0.5)),
+                  normalizedBoundingBox: CGRect(x: 0.7, y: 0.2, width: 0.25, height: 0.5))
         ])
         #expect(separate.map(\.descriptor.id) == ["1", "2"])
     }
@@ -65,7 +65,7 @@ struct ObjectAnalysisFeatureTests {
         let image = try makeMask()
         let qwen = ObjectQwenStub(delayResponse: true)
         let service = try ObjectSegmentationService(
-            provider: ObjectSegmenterStub(mask: image), maxSide: 4_320,
+            provider: ObjectSegmenterStub(mask: image), maxSide: 4320,
         )
         let feature = RawCullObjectAnalysisFeature(
             inference: qwen, imageLoader: ObjectImageLoaderStub(image: image),
@@ -121,7 +121,7 @@ struct ObjectAnalysisFeatureTests {
         let segmenter = ObjectSegmenterStub(mask: image)
         let store = ObjectMaskMemoryStore()
         let service = try ObjectSegmentationService(provider: segmenter,
-                                                    stores: [store], maxSide: 4_320)
+                                                    stores: [store], maxSide: 4320)
         let feature = RawCullObjectAnalysisFeature(
             inference: qwen, imageLoader: ObjectImageLoaderStub(image: image),
             maskStores: [store],
@@ -153,7 +153,7 @@ struct ObjectAnalysisFeatureTests {
         let qwen = ObjectQwenStub(invalidFirstAssessment: true)
         let segmenter = ObjectSegmenterStub(mask: image)
         let store = ObjectMaskMemoryStore()
-        let service = try ObjectSegmentationService(provider: segmenter, stores: [store], maxSide: 4_320)
+        let service = try ObjectSegmentationService(provider: segmenter, stores: [store], maxSide: 4320)
         let feature = RawCullObjectAnalysisFeature(
             inference: qwen, imageLoader: ObjectImageLoaderStub(image: image), maskStores: [store],
         )
@@ -178,7 +178,7 @@ struct ObjectAnalysisFeatureTests {
 
     private func makeMask() throws -> CGImage {
         let width = 32, height = 32
-        let pixels = Data((0..<(width * height)).map { index in
+        let pixels = Data((0 ..< (width * height)).map { index in
             let x = index % width, y = index / width
             return (x >= 6 && x < 26 && y >= 6 && y < 26) ? UInt8(255) : UInt8(0)
         })
@@ -201,22 +201,36 @@ private actor ObjectQwenStub: QwenInferenceServing {
         self.delayResponse = delayResponse
         self.invalidFirstAssessment = invalidFirstAssessment
     }
-    func validate(url: URL) -> QwenModelStatus { .available(url: url, modelName: "Qwen Test") }
+
+    func validate(url: URL) -> QwenModelStatus {
+        .available(url: url, modelName: "Qwen Test")
+    }
+
     func respond(to _: QwenVisionRequest) async throws -> String {
         callCount += 1
         startWaiter?.resume()
         startWaiter = nil
-        if delayResponse { try await Task.sleep(for: .seconds(1)) }
-        if invalidFirstAssessment && callCount == 1 { return #"{"imageSummary":"Incomplete"}"# }
-        if callCount == 1 && !invalidFirstAssessment {
+        if delayResponse {
+            try await Task.sleep(for: .seconds(1))
+        }
+        if invalidFirstAssessment, callCount == 1 {
+            return #"{"imageSummary":"Incomplete"}"#
+        }
+        if callCount == 1, !invalidFirstAssessment {
             return #"{"concepts":[{"query":"bird","displayName":"Bird","reason":"Visible"},{"query":"animal","displayName":"Animal","reason":"Visible"}]}"#
         }
         return #"{"imageSummary":"One bird","objects":[{"id":"1","concept":"bird","description":"A bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#
     }
-    func assess(criteria _: String, image _: CGImage) -> QwenModelResponse { .freeform("unused") }
+
+    func assess(criteria _: String, image _: CGImage) -> QwenModelResponse {
+        .freeform("unused")
+    }
+
     func clear() {}
     func waitUntilCalled() async {
-        if callCount > 0 { return }
+        if callCount > 0 {
+            return
+        }
         await withCheckedContinuation { startWaiter = $0 }
     }
 }
@@ -226,7 +240,10 @@ private actor ObjectSegmenterStub: ObjectInstanceSegmenting {
     private(set) var callCount = 0
     let mask: CGImage
     let empty: Bool
-    init(mask: CGImage, empty: Bool = false) { self.mask = mask; self.empty = empty }
+    init(mask: CGImage, empty: Bool = false) {
+        self.mask = mask; self.empty = empty
+    }
+
     func segmentInstances(_ request: ObjectSegmentationRequest) -> ObjectSegmentationResult {
         callCount += 1
         let instance = ObjectMaskInstance(
@@ -243,11 +260,25 @@ private actor ObjectSegmenterStub: ObjectInstanceSegmenting {
 
 private struct ObjectImageLoaderStub: RawImageLoading {
     let image: CGImage
-    func fileMetadata(for _: URL) async -> RawImageFileMetadata? { nil }
-    func thumbnailCGImage(for _: URL, maxPixelSize _: Int) async -> CGImage? { image }
-    func thumbnailImage(for _: URL, maxPixelSize _: Int) async -> NSImage? { nil }
-    func previewCGImage(for _: URL) async -> CGImage? { image }
+    func fileMetadata(for _: URL) async -> RawImageFileMetadata? {
+        nil
+    }
+
+    func thumbnailCGImage(for _: URL, maxPixelSize _: Int) async -> CGImage? {
+        image
+    }
+
+    func thumbnailImage(for _: URL, maxPixelSize _: Int) async -> NSImage? {
+        nil
+    }
+
+    func previewCGImage(for _: URL) async -> CGImage? {
+        image
+    }
+
     func embeddedPreviewJPEGData(
-        for _: URL, matchingPixelWidth _: Int, height _: Int
-    ) async -> Data? { nil }
+        for _: URL, matchingPixelWidth _: Int, height _: Int,
+    ) async -> Data? {
+        nil
+    }
 }

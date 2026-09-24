@@ -407,7 +407,7 @@ struct CullingGridView<Header: View>: View {
             let analysis = viewModel.burstAnalysisResult(for: group.id)
             let shownFiles = BurstGroupFileOrderPolicy.orderedFiles(
                 in: group.files,
-                rankedFileIDs: analysis?.candidates.map(\.fileID) ?? []
+                rankedFileIDs: analysis?.candidates.map(\.fileID) ?? [],
             )
             guard !shownFiles.isEmpty else { return nil }
             return CullingGridVisibleBurstGroup(id: group.id, files: shownFiles)

@@ -72,7 +72,8 @@ struct ObjectAnalysisBoundaryTests {
         #expect(throws: ObjectResponseIssue.self) {
             try ObjectAnalysisResponseDecoder.decode(
                 response.replacingOccurrences(of: "\"visibility\":\"clear\"", with: "\"visibility\":\"hidden\""),
-                boardIDs: ["1"])
+                boardIDs: ["1"],
+            )
         }
         let extra = response.replacingOccurrences(of: "\"id\":\"1\"", with: "\"id\":\"3\"")
         #expect(throws: ObjectResponseIssue.unknownID("3")) {
@@ -90,12 +91,14 @@ struct ObjectAnalysisBoundaryTests {
         #expect(throws: ObjectResponseIssue.self) {
             try ObjectAnalysisResponseDecoder.decode(
                 observedShape.replacingOccurrences(of: "\"obstructions\":\"none\"", with: "\"obstructions\":3"),
-                boardIDs: ["1"])
+                boardIDs: ["1"],
+            )
         }
         #expect(throws: ObjectResponseIssue.self) {
             try ObjectAnalysisResponseDecoder.decode(
                 observedShape.replacingOccurrences(of: "\"preferredObjectIDs\":[\"1\"],", with: ""),
-                boardIDs: ["1"])
+                boardIDs: ["1"],
+            )
         }
     }
 
@@ -110,7 +113,8 @@ struct ObjectAnalysisBoundaryTests {
         #expect(throws: ObjectResponseIssue.self) {
             try ObjectAnalysisResponseDecoder.decode(
                 response.replacingOccurrences(of: "\"id\":1", with: "\"id\":1.5"),
-                boardIDs: ["1"])
+                boardIDs: ["1"],
+            )
         }
     }
 }
