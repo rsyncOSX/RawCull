@@ -1282,6 +1282,86 @@ The target is a useful structured result for each successfully segmented photo;
 an empty or invalid Qwen response must remain visible as an assessment problem,
 not silently turn into a successful photographic judgment.
 
+### 16.2 Next-session handoff — Qwen response reliability
+
+**Starting point.** Use the current 3.2.6 checkout and the same eight puffin
+photos from the September 24 run. Automatic failed at concept discovery on all
+eight; Specific Concepts with `bird` reached SAM 3 on all eight and returned
+one or two instances per photo, but the final Qwen text was shown as free-form.
+The automated RawCull suite passed 466 tests with one skip. These observations
+are the baseline, not a diagnosis of why either response failed validation.
+
+**Session goal.** Establish the exact failure at each Qwen boundary, fix the
+smallest validated cause, and demonstrate structured, correctly numbered
+results on the puffin set. If the real-model output exposes a wider model
+limitation, preserve the evidence and define the smallest follow-up experiment
+instead of treating a permissive parser or free-form result as success.
+
+1. **Reproduce and preserve evidence.** Start with one puffin photo in Automatic
+   and the same photo in Specific Concepts (`bird`); then use a two-bird photo
+   for the final assessment. Note the app build, Qwen and SAM 3 model identities,
+   input photo, mode, requested token cap, response length, and any available
+   finish reason. Capture the exact responses privately for this session only;
+   do not put photographs, full prompts, or raw responses in normal app logs or
+   the repository. Record whether each response is empty, truncated, wrapped
+   in Markdown, surrounded by prose, syntactically invalid JSON, or valid JSON
+   rejected by schema or semantic checks. Keep discovery and final-assessment
+   evidence separate.
+2. **Make validation failures inspectable.** Trace Automatic through
+   `ObjectConceptDiscovery.decode` and the final response through
+   `ObjectAnalysisResponseDecoder.decode`. The call in
+   `RawCullObjectAnalysisFeature.analyzeOne` currently uses `try?` for the final
+   decode, while both decoders collapse several failures into a generic error.
+   During diagnosis, expose a specific failure category in a local diagnostic
+   path: JSON syntax/envelope, missing or mistyped field, invalid enum or
+   confidence, list cap, duplicate or unknown board ID, or incomplete output.
+   Keep user-facing errors concise and avoid publishing response content.
+3. **Resolve discovery before changing the object pipeline.** Compare the
+   captured output with the required `concepts` entries (`query`, `displayName`,
+   `reason`) and the six-concept limit. Align the prompt and decoder to a schema
+   the packaged 2B model can actually produce. If a response has one complete
+   JSON object inside a deterministic wrapper, extract only that object and
+   still validate every field and `SegmentationConcept`. If the response is
+   cut off, measure its length before changing the 384-token limit. Confirm on
+   the eight photos that Automatic supplies useful visible concepts and reaches
+   SAM 3; record any photo that still fails and its exact reason.
+4. **Resolve the final assessment and board grounding.** Compare one- and
+   two-bird responses against `ObjectPhotoAssessment`, including every required
+   array, nullable `expression`, enum spelling, numeric confidence, and board
+   ID. Check whether 1,024 tokens are sufficient before raising that limit.
+   Clarify in the instruction that the overview and numbered crops repeat
+   views of one photograph. Require descriptions to refer to the matching
+   numbered crop and relationships to be supported by the overview. Inspect
+   the rendered board beside the source for ID swaps, wrong crops or outlines,
+   invented extra birds, and claims that treat the board as multiple photos.
+5. **Make incomplete assessments retryable.** A result with instances and
+   free-form Qwen text currently has `failure == nil`, so `isSuccessful`,
+   `filesNeedingAnalysis`, the table status, and **Retry Failed** treat it as
+   complete. Define an explicit assessment-needs-retry state and let retry
+   rerun Qwen using the valid segmentation result or cache when its source,
+   model, and processing keys still match. Keep a genuine no-match SAM 3 result
+   distinct from a Qwen decode failure. Label the per-instance SAM 3 score and
+   whole-photo Qwen confidence separately in the detail and table.
+6. **Verify in increasing scope.** Add decoder fixtures from anonymized shapes
+   actually observed in the captures, covering a valid wrapped object,
+   truncated JSON, missing fields, wrong types, invalid confidence, duplicate
+   IDs, and an ID absent from the board. Add a feature test for retrying an
+   assessment failure without incorrectly marking it complete. Run the focused
+   object-analysis tests, then the relevant Qwen and Deep Review regression
+   tests. Repeat real-model Automatic and manual `bird` runs on all eight
+   puffin photos and inspect both a one-bird and a two-bird detail view.
+
+**Record at session end:** a per-photo table with mode, discovered concepts,
+raw and retained SAM 3 instance counts, structured decode outcome, assessment
+confidence, ID-grounding notes, retry result, and stage timings. Record the
+model identity and app build with the table. The session succeeds when both
+modes reach useful segmentation where appropriate, every successfully
+segmented puffin photo yields a structured assessment with valid board IDs,
+and failed Qwen assessments remain visibly retryable. Any remaining failure
+should have a reproducible response shape, a named validation reason, and an
+owner for the next experiment. After this gate, continue with the broader
+subject matrix and TestFlight lifecycle work in §16.1 and §12.5.
+
 ## 17. Catalog AI coverage beyond CLIP and future models
 
 ### 17.1 Can AI run on all or most scanned images?
