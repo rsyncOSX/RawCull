@@ -456,6 +456,29 @@ Add focused Swift Testing coverage for:
 Commit and push PhotoAIKit, then update RawCull's pinned PhotoAIKit revision.
 Do not point RawCull at an uncommitted local package path for the final change.
 
+### 6.7 Implementation checkpoint — September 24, 2026
+
+The local `../PhotoAIKit` checkout now contains the additive concept, request,
+instance, result, and provider contracts. `CoreAISAM3Provider` shares one
+inference path between the existing union-mask operation and the new instance
+operation. Its production engine cap defaults to eight. The instance path
+keeps separate masks and scores, validates pixel boxes, measures a box from an
+invalid runtime box, discards empty masks, sorts deterministically, and resizes
+each mask. An independent object workflow and memory/disk stores use a cache
+key containing source file identity, concept, model artifact, input bound, and
+instance cap. Existing subject-mask storage remains separate.
+
+Focused object contract, cache, and service tests pass, as do the existing
+SAM 3 union-mask tests. An opt-in test of the new public instance API against
+the local release SAM 3 bundle and `_DSC7268_DxO.jpg` passed with at least two
+strong separate masks (first model load and inference: 28.7 seconds). The
+full package suite did not complete in this environment: an existing Vision
+feature-print test could not create a
+`CVPixelBufferPool` and the test process exited with signal 5. Production
+instance inference still needs a run against the hosted model pack and a
+broader image set. The local PhotoAIKit checkout has no configured Git remote,
+so the publish and RawCull pin steps remain pending.
+
 ## 7. Phase 2 — multi-instance cache
 
 ### 7.1 Separate cache contract
@@ -1277,11 +1300,11 @@ newer or more capable on general benchmarks.
 
 ### PhotoAIKit
 
-- [ ] Open-vocabulary concept contract exists.
-- [ ] Additive multi-instance provider contract exists.
-- [ ] SAM 3 preserves individual masks, scores, and boxes.
-- [ ] Existing union-mask API remains compatible.
-- [ ] Object segmentation service and cache are implemented.
+- [x] Open-vocabulary concept contract exists in the local PhotoAIKit checkout.
+- [x] Additive multi-instance provider contract exists locally.
+- [x] SAM 3 preserves individual masks, scores, and boxes locally.
+- [x] Existing union-mask API remains compatible in focused tests.
+- [x] Object segmentation service and cache are implemented locally.
 - [ ] PhotoAIKit tests pass.
 - [ ] RawCull pins the released PhotoAIKit revision.
 
