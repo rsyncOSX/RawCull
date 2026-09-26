@@ -237,7 +237,7 @@ private struct ObjectPhotoDetailView: View {
                                 if let summary = assessment.imageSummary {
                                     Text(summary).font(.body)
                                 }
-                                Text("Qwen assessment confidence: \(assessment.confidence.formatted(.percent))")
+                                Text("Qwen assessment confidence: \(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))")
                                     .font(.caption)
                                 if let object = assessment.objects.first(where: { $0.id == selectedObjectID }) {
                                     ObjectAssessmentDetail(object: object)

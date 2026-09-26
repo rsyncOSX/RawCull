@@ -42,6 +42,21 @@ struct ObjectAnalysisFeatureTests {
         #expect(separate.map(\.descriptor.id) == ["1", "2"])
     }
 
+    @Test func `Review board rejects an object whose numbered crop is unavailable`() throws {
+        let image = try makeMask()
+        let object = ObjectInstanceDeduplicator.Retained(
+            descriptor: ObjectInstanceDescriptor(
+                id: "1", concept: "bird", aliases: [], score: 0.9,
+                normalizedBoundingBox: CGRect(x: 2, y: 0.2, width: 0.1, height: 0.1),
+                sourceInstanceID: "1",
+            ),
+            mask: image,
+        )
+        #expect(throws: ObjectAnalysisError.reviewBoardUnavailable) {
+            try ObjectReviewBoardRenderer.render(image: image, objects: [object])
+        }
+    }
+
     @Test func `Grayscale instance mask becomes a transparent contour`() async throws {
         let mask = try makeMask()
         let outline = try #require(await ObjectMaskOutlineRenderer.outline(from: mask))

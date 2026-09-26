@@ -184,6 +184,7 @@ nonisolated enum ObjectAnalysisError: Error, LocalizedError, Equatable, Sendable
     case invalidConcept(String)
     case invalidAssessment
     case imageUnavailable
+    case reviewBoardUnavailable
     case segmentationUnavailable
     case noConcepts
 
@@ -193,6 +194,7 @@ nonisolated enum ObjectAnalysisError: Error, LocalizedError, Equatable, Sendable
         case let .invalidConcept(value): "Invalid concept: \(value)"
         case .invalidAssessment: "Qwen did not return a valid object assessment."
         case .imageUnavailable: "The selected photo could not be decoded."
+        case .reviewBoardUnavailable: "A numbered object crop could not be prepared. Retry the analysis."
         case .segmentationUnavailable: "SAM 3 object segmentation is unavailable."
         case .noConcepts: "No visible object concepts were found. Enter specific concepts to retry."
         }
