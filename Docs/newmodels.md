@@ -3,6 +3,22 @@
 Last reviewed against RawCull, Xcode 27 `ba-package` 2.0, and Apple's current
 Background Assets documentation on September 21, 2026.
 
+Objects public-test update, September 26, 2026: model-pack processing and
+download readiness are separate from the quality of the Objects feature. The
+current app uses managed DataComp CLIP, Meta SAM 3, and Qwen3-VL-2B-Instruct.
+For a test release of Objects, follow the exact-build TestFlight workflow in
+section 14 and the Objects-specific evidence and known issues in
+`Docs/sam3qwen.md` section 16.3. A successful model download, valid structured
+Qwen JSON, and Qwen's reported confidence do not establish visual accuracy.
+In `_DSC3031.ARW`, Qwen claimed a third puffin in its summary where the photo
+and retained SAM 3 instances show two; `_DSC3028.ARW` has an unresolved
+description/crop mapping report. Tell testers that Objects is advisory and
+collect the source image, selected concept mode, numbered object/crop,
+description, build, macOS version, and model-pack identity for each report.
+Clear Results before comparing Automatic with Specific Concepts or changing
+criteria on a photo already marked Complete; the analysis queue otherwise skips
+that result.
+
 This runbook describes the complete RawCull workflow for turning converted
 model files into an Apple-hosted Managed Background Assets archive (`.aar`),
 updating the application metadata, uploading the archive with `xcrun altool`,

@@ -1469,6 +1469,30 @@ lookup, and detail text before considering this mapping verified. This report
 does not establish whether the error originates in Qwen's board grounding or
 in the UI's object-to-crop association.
 
+#### Additional in-app observation and public-test decision — September 26, 2026
+
+In `_DSC3031.ARW`, the source photograph shows two puffins (one flying, one
+perched). SAM 3 retained two objects, and Qwen's relationship and selected
+object detail describe those two positions, but its image summary says a third
+puffin is on the ground. The structured response was marked Complete with 95%
+Qwen-reported confidence. This is a visual-grounding error in free text, not
+evidence of a third SAM 3 instance or a missing board ID. The detail panel
+shows only the currently selected object's assessment at one time.
+
+The maintainer intends to let users exercise Objects and report issues. Treat
+that as a monitored, advisory test release: state that counts reflect retained
+SAM 3 matches for the chosen concepts, Qwen descriptions and self-reported
+confidence can be wrong, and the photographer must verify both against the
+source. Keep the `_DSC3028.ARW` mapping issue and this invented-count example
+in the release notes and regression set. Do not mark the broader visual-quality
+and clean-install gates complete on the strength of the test release. Before
+distribution, verify the exact signed build and hosted model packs on a clean
+installation, confirm launch/analyze/cancel/remove/reinstall behavior, and
+record the build, model identities, macOS version, and memory observations.
+The final code review also changed review-board rendering to report an error
+when a numbered crop cannot be prepared, instead of silently omitting that
+crop while still sending its ID to Qwen.
+
 ## 17. Catalog AI coverage beyond CLIP and future models
 
 ### 17.1 Can AI run on all or most scanned images?

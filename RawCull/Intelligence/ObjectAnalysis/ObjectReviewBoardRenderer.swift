@@ -36,7 +36,9 @@ nonisolated enum ObjectReviewBoardRenderer {
             let cropRect = crop(for: object.descriptor.normalizedBoundingBox,
                                 width: image.width, height: image.height)
             guard let crop = image.cropping(to: cropRect),
-                  let maskCrop = object.mask.cropping(to: cropRect) else { continue }
+                  let maskCrop = object.mask.cropping(to: cropRect) else {
+                throw ObjectAnalysisError.reviewBoardUnavailable
+            }
             context.saveGState()
             context.clip(to: imagePanel)
             drawAspectFit(crop, in: imagePanel, context: context)
