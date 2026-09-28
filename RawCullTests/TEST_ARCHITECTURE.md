@@ -152,3 +152,12 @@ the suite name, tag, or test body.
   cancellation under stress.
 - `ThumbnailProviderTests.swift`: thumbnail request/cache behavior, cache config,
   and cached thumbnail cost.
+
+## Opt-in local Release integration
+
+`make releastest` runs the separate, hostless `RawCullReleaseTests` target and
+`ReleaseObjects` plan. This explicitly requested integration uses real ARW files
+from Downloads and installed Qwen/SAM 3 models, writes a Markdown report there,
+and remains outside all routine test plans. See
+[`RawCullReleaseTests/README.md`](../RawCullReleaseTests/README.md) for configuration
+and the distinction between pipeline validation and AI content accuracy.

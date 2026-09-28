@@ -146,6 +146,14 @@ make verify-downloaded-dmg \
   DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.5.dmg
 ```
 
+### Local AI Objects release test
+
+Run `make releastest` to analyze the ARW files directly in Downloads using installed
+Qwen and SAM 3 models, without launching RawCull's UI. A run report
+identified by UUID is written as `RawCull-AI-Objects-<UUID>.md` in Downloads.
+See [release integration instructions](RawCullReleaseTests/README.md) for model
+paths, overrides, and result semantics.
+
 ## License
 
 RawCull is available under the [MIT License](Licence.MD). The optional AI models retain their respective licences and attribution requirements; see [`ModelAssets/Notices`](ModelAssets/Notices).
