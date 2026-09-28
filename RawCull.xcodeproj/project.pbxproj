@@ -7,6 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		068827806CC45B0D9C34F205 /* CoreAIQwenBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B1426C305826C5000D8EBA /* CoreAIQwenBackend */; };
+		0FE4BD8BD6185D1FA071B65D /* PhotoAIWorkflows in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14268305826C5000D8EBA /* PhotoAIWorkflows */; };
+		1D3345C59C355555A427EA0D /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */; };
+		251D4043E6E051C0BF8ECC18 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1361E732BB50FC92CF2C46 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift */; };
+		2C04D7C91DB9545CA9351D56 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
+		40B36CB6690057B7AED10EB4 /* RawCull/Model/RawImageLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32CC8436F63575CB09CA971 /* RawCull/Model/RawImageLoading.swift */; };
+		41BD6DE9220253F4930A0DD4 /* RawCullReleaseTests/ReleaseRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2FEC91F6EF53EC96672DA1 /* RawCullReleaseTests/ReleaseRunnerTests.swift */; };
+		4C633DD0CCEA536E890EC349 /* PhotoAIContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14264305826C5000D8EBA /* PhotoAIContracts */; };
+		52EDBEBADC4F5F62BF6F6B22 /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8839A4095F2C511295F2D8EA /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift */; };
+		608D34C7718B59B2A74C6F33 /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0CFDF798B85E079DB98B8F /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift */; };
+		68E08410C10853148EB4340F /* RawCullReleaseTests/DownloadsObjectAnalysisTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A62EBA7E515A53B422515D /* RawCullReleaseTests/DownloadsObjectAnalysisTests.swift */; };
+		7A4416050E4152CBA6267E72 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68DE674C794B571FA17A81B3 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift */; };
+		7CEC30ED840E5C54A02018CA /* RawCull/Main/RawCullFileItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */; };
+		85049ED85D7E5E5DAFE48144 /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */; };
+		8CA2A0EE82115EA0AB644711 /* PhotoAIStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14266305826C5000D8EBA /* PhotoAIStorage */; };
+		9860B97411D050DD8B76322B /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14262305826C5000D8EBA /* CoreAISAM3Backend */; };
+		A17C0DC51FA15DBBB493778B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */; };
+		B8E0F46189E359069BA1920A /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */; };
+		CAABF5CFE28C55E795D5068A /* RawCullReleaseTests/ReleaseAnalysisReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF58DA5922852A0B055767B /* RawCullReleaseTests/ReleaseAnalysisReport.swift */; };
+		CBF341774CF25D73886DCEF1 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F727081687A550DA1228B0B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift */; };
+		E3288D906042585C957216A8 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
+		E90F071897685772A8A72EF5 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */; };
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
 		E952AA622F2E37170081987F /* ParseRsyncOutput in Frameworks */ = {isa = PBXBuildFile; productRef = E952AA612F2E37170081987F /* ParseRsyncOutput */; };
 		E95349D02FF9902900A4C0C3 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
@@ -60,6 +82,22 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Main/RawCullFileItem.swift; sourceTree = SOURCE_ROOT; };
+		17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift; sourceTree = SOURCE_ROOT; };
+		19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenGenerationGate.swift; sourceTree = SOURCE_ROOT; };
+		1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift; sourceTree = SOURCE_ROOT; };
+		290345BCEB35595499E463C0 /* RawCullReleaseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullReleaseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D1361E732BB50FC92CF2C46 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift; sourceTree = SOURCE_ROOT; };
+		5A2FEC91F6EF53EC96672DA1 /* RawCullReleaseTests/ReleaseRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseRunnerTests.swift; sourceTree = SOURCE_ROOT; };
+		68DE674C794B571FA17A81B3 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift; sourceTree = SOURCE_ROOT; };
+		7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift; sourceTree = SOURCE_ROOT; };
+		7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift; sourceTree = SOURCE_ROOT; };
+		8839A4095F2C511295F2D8EA /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift; sourceTree = SOURCE_ROOT; };
+		9F727081687A550DA1228B0B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift; sourceTree = SOURCE_ROOT; };
+		B6A62EBA7E515A53B422515D /* RawCullReleaseTests/DownloadsObjectAnalysisTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/DownloadsObjectAnalysisTests.swift; sourceTree = SOURCE_ROOT; };
+		CC0CFDF798B85E079DB98B8F /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift; sourceTree = SOURCE_ROOT; };
+		D32CC8436F63575CB09CA971 /* RawCull/Model/RawImageLoading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/RawImageLoading.swift; sourceTree = SOURCE_ROOT; };
+		DDF58DA5922852A0B055767B /* RawCullReleaseTests/ReleaseAnalysisReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseAnalysisReport.swift; sourceTree = SOURCE_ROOT; };
 		E90B07A22F1E58EA00A95D4A /* RawCull.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawCull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E95355DD2F33B70A006C2851 /* RawCullTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E97E975C2F210EAB001A4239 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -101,6 +139,20 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		6313EB06DA1B5FA5A9B81ED0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E3288D906042585C957216A8 /* RawParserKit in Frameworks */,
+				2C04D7C91DB9545CA9351D56 /* RawCullCore in Frameworks */,
+				9860B97411D050DD8B76322B /* CoreAISAM3Backend in Frameworks */,
+				068827806CC45B0D9C34F205 /* CoreAIQwenBackend in Frameworks */,
+				4C633DD0CCEA536E890EC349 /* PhotoAIContracts in Frameworks */,
+				8CA2A0EE82115EA0AB644711 /* PhotoAIStorage in Frameworks */,
+				0FE4BD8BD6185D1FA071B65D /* PhotoAIWorkflows in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E90B079F2F1E58EA00A95D4A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -141,13 +193,36 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2E6BA6183D605D99BE242558 /* RawCullReleaseTests */ = {
+			isa = PBXGroup;
+			children = (
+				0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */,
+				D32CC8436F63575CB09CA971 /* RawCull/Model/RawImageLoading.swift */,
+				17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */,
+				19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */,
+				4D1361E732BB50FC92CF2C46 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift */,
+				CC0CFDF798B85E079DB98B8F /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift */,
+				9F727081687A550DA1228B0B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift */,
+				7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */,
+				1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */,
+				68DE674C794B571FA17A81B3 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift */,
+				7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */,
+				8839A4095F2C511295F2D8EA /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift */,
+				B6A62EBA7E515A53B422515D /* RawCullReleaseTests/DownloadsObjectAnalysisTests.swift */,
+				DDF58DA5922852A0B055767B /* RawCullReleaseTests/ReleaseAnalysisReport.swift */,
+				5A2FEC91F6EF53EC96672DA1 /* RawCullReleaseTests/ReleaseRunnerTests.swift */,
+			);
+			name = RawCullReleaseTests;
+			sourceTree = "<group>";
+		};
 		E90B07992F1E58EA00A95D4A = {
 			isa = PBXGroup;
 			children = (
+				E90B07A42F1E58EA00A95D4A /* RawCull */,
+				2E6BA6183D605D99BE242558 /* RawCullReleaseTests */,
 				E97E975C2F210EAB001A4239 /* Assets.xcassets */,
 				E97E975D2F210EAB001A4239 /* RawCullicon.icon */,
 				E97E975E2F210EAB001A4239 /* RawCull.entitlements */,
-				E90B07A42F1E58EA00A95D4A /* RawCull */,
 				E95355DE2F33B70A006C2851 /* RawCullTests */,
 				E9D000062F34000000000006 /* RawCullModelDownloader */,
 				E9D000072F34000000000007 /* Frameworks */,
@@ -158,6 +233,7 @@
 		E90B07A32F1E58EA00A95D4A /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				290345BCEB35595499E463C0 /* RawCullReleaseTests.xctest */,
 				E90B07A22F1E58EA00A95D4A /* RawCull.app */,
 				E95355DD2F33B70A006C2851 /* RawCullTests.xctest */,
 				E9D000042F34000000000004 /* RawCullModelDownloader.appex */,
@@ -176,6 +252,32 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0898AAC86F1A5B3A83222B41 /* RawCullReleaseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0E9E12A103CB5161BB9360FE /* Build configuration list for PBXNativeTarget "RawCullReleaseTests" */;
+			buildPhases = (
+				EA08629073D756FE89F7DDD4 /* Sources */,
+				6313EB06DA1B5FA5A9B81ED0 /* Frameworks */,
+				609385A2E3955AA9BC65413F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RawCullReleaseTests;
+			packageProductDependencies = (
+				E95349CF2FF9902900A4C0C3 /* RawParserKit */,
+				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
+				E9B14262305826C5000D8EBA /* CoreAISAM3Backend */,
+				E9B1426C305826C5000D8EBA /* CoreAIQwenBackend */,
+				E9B14264305826C5000D8EBA /* PhotoAIContracts */,
+				E9B14266305826C5000D8EBA /* PhotoAIStorage */,
+				E9B14268305826C5000D8EBA /* PhotoAIWorkflows */,
+			);
+			productName = RawCullReleaseTests;
+			productReference = 290345BCEB35595499E463C0 /* RawCullReleaseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		E90B07A12F1E58EA00A95D4A /* RawCull */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E90B07AD2F1E58EB00A95D4A /* Build configuration list for PBXNativeTarget "RawCull" */;
@@ -307,6 +409,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				0898AAC86F1A5B3A83222B41 /* RawCullReleaseTests */,
 				E90B07A12F1E58EA00A95D4A /* RawCull */,
 				E95355DC2F33B70A006C2851 /* RawCullTests */,
 				E9D000092F34000000000009 /* RawCullModelDownloader */,
@@ -315,6 +418,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		609385A2E3955AA9BC65413F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E90B07A02F1E58EA00A95D4A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -362,6 +472,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EA08629073D756FE89F7DDD4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7CEC30ED840E5C54A02018CA /* RawCull/Main/RawCullFileItem.swift in Sources */,
+				40B36CB6690057B7AED10EB4 /* RawCull/Model/RawImageLoading.swift in Sources */,
+				B8E0F46189E359069BA1920A /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift in Sources */,
+				85049ED85D7E5E5DAFE48144 /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift in Sources */,
+				251D4043E6E051C0BF8ECC18 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift in Sources */,
+				608D34C7718B59B2A74C6F33 /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift in Sources */,
+				CBF341774CF25D73886DCEF1 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift in Sources */,
+				E90F071897685772A8A72EF5 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift in Sources */,
+				A17C0DC51FA15DBBB493778B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift in Sources */,
+				7A4416050E4152CBA6267E72 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift in Sources */,
+				1D3345C59C355555A427EA0D /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift in Sources */,
+				52EDBEBADC4F5F62BF6F6B22 /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift in Sources */,
+				68E08410C10853148EB4340F /* RawCullReleaseTests/DownloadsObjectAnalysisTests.swift in Sources */,
+				CAABF5CFE28C55E795D5068A /* RawCullReleaseTests/ReleaseAnalysisReport.swift in Sources */,
+				41BD6DE9220253F4930A0DD4 /* RawCullReleaseTests/ReleaseRunnerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -378,6 +510,44 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0BDBF3497F5F5C97A3B0DC72 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullReleaseTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "";
+			};
+			name = AppStore;
+		};
+		2D3BAB01F616531AB628850A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullReleaseTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "";
+			};
+			name = Release;
+		};
 		E90B07AB2F1E58EB00A95D4A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -904,9 +1074,38 @@
 			};
 			name = Release;
 		};
+		FD42ABBDF326531384EE876C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 93M47F4H9T;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCullReleaseTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0E9E12A103CB5161BB9360FE /* Build configuration list for PBXNativeTarget "RawCullReleaseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD42ABBDF326531384EE876C /* Debug */,
+				2D3BAB01F616531AB628850A /* Release */,
+				0BDBF3497F5F5C97A3B0DC72 /* AppStore */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E90B079D2F1E58EA00A95D4A /* Build configuration list for PBXProject "RawCull" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -28,6 +28,24 @@ build: clean archive sign-app notarize staple prepare-dmg hash-dmg open
 debug: clean archive-debug open-debug
 
 # Test targets
+# Opt-in, hostless Release integration against real Downloads ARW files.
+RELEASE_CATALOG ?= $(HOME)/Downloads
+RELEASE_MODELS ?= $(HOME)/ModelAssets/Release/Models
+RELEASE_QWEN ?= $(RELEASE_MODELS)/Qwen/qwen3_vl_2b
+RELEASE_SAM3 ?= $(RELEASE_MODELS)/SAM3
+RELEASE_TEST_DERIVED_DATA ?= $(PWD)/build/ReleaseObjectTests
+
+releastest:
+	TEST_RUNNER_RAWCULL_RELEASE_RUN=1 \
+	TEST_RUNNER_RAWCULL_RELEASE_DIRECTORY="$(RELEASE_CATALOG)" \
+	TEST_RUNNER_RAWCULL_RELEASE_QWEN="$(RELEASE_QWEN)" \
+	TEST_RUNNER_RAWCULL_RELEASE_SAM3="$(RELEASE_SAM3)" \
+	xcodebuild test -project RawCull.xcodeproj -scheme RawCullReleaseTests \
+		-destination 'platform=macOS,arch=arm64' -configuration Release \
+		-testPlan ReleaseObjects -parallel-testing-enabled NO -enableCodeCoverage NO \
+		-onlyUsePackageVersionsFromResolvedFile \
+		-derivedDataPath "$(RELEASE_TEST_DERIVED_DATA)"
+
 build-test-enumeration-verifier:
 	xcrun swiftc -module-cache-path $(TEST_ENUMERATION_MODULE_CACHE) \
 		Scripts/VerifyTestEnumeration.swift -o $(TEST_ENUMERATION_VERIFIER)
@@ -233,4 +251,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: releastest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

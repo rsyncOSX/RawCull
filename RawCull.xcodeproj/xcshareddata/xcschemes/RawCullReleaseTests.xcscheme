@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="2700" version="1.7">
+  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+    <BuildActionEntries>
+      <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="0898AAC86F1A5B3A83222B41" BuildableName="RawCullReleaseTests.xctest" BlueprintName="RawCullReleaseTests" ReferencedContainer="container:RawCull.xcodeproj"/>
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+  <TestAction buildConfiguration="Release" selectedDebuggerIdentifier="" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.PosixSpawn" shouldUseLaunchSchemeArgsEnv="NO">
+    <TestPlans><TestPlanReference reference="container:ReleaseObjects.xctestplan" default="YES"/></TestPlans>
+  </TestAction>
+  <AnalyzeAction buildConfiguration="Release"/>
+</Scheme>

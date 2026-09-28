@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    {
+      "id": "BC97DD4A-A994-403E-85FB-DBDE11E7B769",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:RawCull.xcodeproj",
+        "identifier": "0898AAC86F1A5B3A83222B41",
+        "name": "RawCullReleaseTests"
+      }
+    }
+  ],
+  "version": 1
+}
