@@ -29,17 +29,30 @@ struct ImageSourceToggleView: View {
 
 struct ImageSourceSelectorView: View {
     @Binding var selection: ImageSourceSelectionState
+    var imageURL: URL?
+    @State private var raw9SupportedURL: URL?
     var density: ImageOverlayControlDensity = .regular
 
     var body: some View {
         HStack(spacing: density == .compact ? 2 : 4) {
             sourceButton(.embeddedJPG, icon: "photo.stack", label: "JPG")
-            sourceButton(.developedRAW, icon: "camera.aperture", label: "RAW")
+            sourceButton(.developedRAW, icon: "camera.aperture", label: supportsRAW9 ? "RAW 9" : "RAW")
                 .disabled(!presentation.isDevelopedRAWAvailable)
         }
         .padding(density == .compact ? 3 : 5)
         .background(.regularMaterial, in: Capsule())
         .overlay { Capsule().strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+        .task(id: imageURL) {
+            raw9SupportedURL = nil
+            guard let imageURL else { return }
+            let supported = await RAW9Support.isSupported(for: imageURL)
+            guard !Task.isCancelled else { return }
+            raw9SupportedURL = supported ? imageURL : nil
+        }
+    }
+
+    private var supportsRAW9: Bool {
+        imageURL != nil && raw9SupportedURL == imageURL
     }
 
     private func sourceButton(
@@ -74,7 +87,14 @@ struct ImageSourceSelectorView: View {
         switch source {
         case .thumbnail: "Show thumbnail"
         case .embeddedJPG: "Show embedded JPG"
-        case .developedRAW: presentation.isDevelopedRAWAvailable ? "Develop and show full-size RAW JPEG" : "RAW development is not supported for this image"
+        case .developedRAW:
+            if !presentation.isDevelopedRAWAvailable {
+                "RAW development is not supported for this image"
+            } else if supportsRAW9 {
+                "Develop and show full-size RAW JPEG using RAW 9"
+            } else {
+                "Develop and show full-size RAW JPEG using the system decoder (RAW 9 unavailable)"
+            }
         }
     }
 
@@ -89,7 +109,7 @@ struct ImageSourceSelectorView: View {
         switch source {
         case .thumbnail: "Thumbnail image source"
         case .embeddedJPG: "Embedded JPEG image source"
-        case .developedRAW: "Developed RAW image source"
+        case .developedRAW: supportsRAW9 ? "Developed RAW 9 image source" : "Developed RAW image source"
         }
     }
 }

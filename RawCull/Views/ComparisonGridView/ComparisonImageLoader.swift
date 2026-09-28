@@ -44,7 +44,7 @@ enum ComparisonImageLoader {
             let amount = settings.thumbnailSharpenAmount
             let sharpened = await Task(priority: .userInitiated) { @concurrent () -> CGImage? in
                 guard !Task.isCancelled else { return nil }
-                guard let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount) else {
+                guard let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount, useRAW9: true) else {
                     return nil
                 }
                 guard !Task.isCancelled else { return nil }

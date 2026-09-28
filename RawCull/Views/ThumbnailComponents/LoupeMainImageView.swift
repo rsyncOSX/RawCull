@@ -176,6 +176,7 @@ struct LoupeMainImageView: View {
                                         get: { session.sourceSelection },
                                         set: { session.sourceSelection = $0 },
                                     ),
+                                    imageSourceURL: file?.url,
                                     scale: viewModel.scale,
                                     canZoomOut: viewModel.scale > ImageReviewViewportPolicy.loupe.minimumScale,
                                     canZoomIn: viewModel.scale < ImageReviewViewportPolicy.loupe.maximumScale,

@@ -35,7 +35,8 @@ actor FullSizeJPGDiskCache {
         let values = try? sourceURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
         let fileSize = values?.fileSize ?? -1
         let modificationTime = values?.contentModificationDate?.timeIntervalSince1970 ?? -1
-        let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue)"
+        // RAW 9 development must not reuse JPEGs produced by the previous decoder.
+        let variantKey = variant == .embeddedJPG ? "" : ":\(variant.rawValue):raw9"
         let data = Data(
             "\(Self.cacheKeyVersion):\(standardizedPath):\(fileSize):\(modificationTime)\(variantKey)".utf8,
         )

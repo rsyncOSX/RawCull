@@ -184,6 +184,10 @@ nonisolated struct RawCullPhotoAnalysisAdapter: Sendable {
     ) -> CGImage? {
         guard !Task.isCancelled, let rawFilter = CIRAWFilter(imageURL: url) else { return nil }
 
+        if let version = RAW9Support.preferredVersion(in: rawFilter.supportedDecoderVersions) {
+            rawFilter.decoderVersion = version
+        }
+
         rawFilter.sharpnessAmount = 0.0
         rawFilter.detailAmount = 0.6
         rawFilter.contrastAmount = 1.0
