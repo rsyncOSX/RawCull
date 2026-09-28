@@ -330,6 +330,7 @@ struct ZoomOverlayView: View {
                         showImageSourceToggle: true,
                         useThumbnailSource: useThumbnailSourceBinding,
                         imageSourceSelection: Binding(get: { sourceSelection }, set: { sourceSelection = $0 }),
+                        imageSourceURL: viewModel.selectedFile?.url,
                         scale: currentScale,
                         canZoomOut: currentScale > 0.5,
                         canZoomIn: currentScale < 5.0,

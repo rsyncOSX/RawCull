@@ -50,7 +50,7 @@ enum ZoomPreviewHandler {
                     let size = CGFloat(thumbnailSizePreview)
                     let amount = settings.thumbnailSharpenAmount
                     let sharpened = await Task.detached(priority: .userInitiated) { () -> CGImage? in
-                        guard let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount) else {
+                        guard let image = ThumbnailSharpener.sharpenedPreview(from: url, maxDimension: size, amount: amount, useRAW9: true) else {
                             return nil
                         }
                         return OrientationNormalizedImageLoader.applyingSourceOrientation(to: image, from: url)
@@ -135,7 +135,7 @@ enum ZoomPreviewHandler {
         }
 
         try Task.checkCancellation()
-        let jpegData = try await SonyRawFormat.createFullSizeJPEG(from: rawURL, quality: 1.0)
+        let jpegData = try await SonyRawFormat.createFullSizeJPEG(from: rawURL, quality: 1.0, useRAW9: true)
         try Task.checkCancellation()
 
         guard let image = OrientationNormalizedImageLoader.loadCGImage(from: jpegData) else {
