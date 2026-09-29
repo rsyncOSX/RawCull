@@ -24,7 +24,6 @@ struct RawCullMainView: View {
     @State private var nsImage: NSImage?
     // periphery:ignore
     @State private var showCandidateInspector = false
-    @State private var showsDetailedBurstComparison = false
 
     private var showsJPGExtractionProgressOverlay: Bool {
         viewModel.currentExtractAndSaveJPGsActor != nil && viewModel.mainViewMode != .loupe
@@ -177,7 +176,7 @@ struct RawCullMainView: View {
         }
         .onChange(of: viewModel.activeBurstComparisonGroupID) { oldGroupID, newGroupID in
             if oldGroupID != newGroupID {
-                showsDetailedBurstComparison = false
+                viewModel.showsDetailedBurstComparison = false
             }
         }
         .focusedSceneValue(\.extractJPGs, $viewModel.focusExtractJPGs)
@@ -386,11 +385,11 @@ struct RawCullMainView: View {
     @ViewBuilder
     private var comparisonGridSplit: some View {
         if let groupID = viewModel.activeBurstComparisonGroupID,
-           !showsDetailedBurstComparison {
+           !viewModel.showsDetailedBurstComparison {
             BurstCullingWorkspaceView(
                 viewModel: viewModel,
                 groupID: groupID,
-                onCompare: { showsDetailedBurstComparison = true },
+                onCompare: { viewModel.showsDetailedBurstComparison = true },
             )
             .navigationTitle((viewModel.selectedSource?.name ?? "Catalog") + " — Burst")
             .toolbar { toolbarContent }
