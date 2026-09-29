@@ -20,15 +20,15 @@ struct SharpnessControlsView: View {
         } label: {
             if viewModel.sharpnessModel.isScoring {
                 Label("Scoring…", systemImage: "scope")
-            } else if viewModel.sharpnessModel.scores.isEmpty {
-                Label("Score Sharpness", systemImage: "scope")
+            } else if viewModel.sharpnessModel.afPointScores.isEmpty {
+                Label("Score AF Sharpness", systemImage: "scope")
             } else {
                 Label("Re-score", systemImage: "scope")
             }
         }
         .font(.caption)
         .disabled(viewModel.sharpnessModel.isScoring || viewModel.sharpnessScoringTargetFiles.isEmpty)
-        .help("Calibrate the visual edge threshold, then score selected thumbnails, the active star filter, or the full catalog (\(viewModel.sharpnessScoringTargetDescription))")
+        .help("Measure detail around the recorded AF point for \(viewModel.sharpnessScoringTargetDescription). Photos without usable AF detail sort last.")
 
         // Cancel button — only visible while scoring
         if viewModel.sharpnessModel.isScoring {
@@ -43,17 +43,17 @@ struct SharpnessControlsView: View {
             .transition(.opacity.combined(with: .scale(scale: 0.9)))
         }
 
-        // Sort toggle — only visible once scores exist and not currently scoring
-        if !viewModel.sharpnessModel.scores.isEmpty, !viewModel.sharpnessModel.isScoring {
+        // Sort toggle — requires an actual AF measurement. Legacy combined scores cannot rank AF detail.
+        if !viewModel.sharpnessModel.afPointScores.isEmpty, !viewModel.sharpnessModel.isScoring {
             Toggle(isOn: $viewModel.sharpnessModel.sortBySharpness) {
-                Label("Sharpness", systemImage: "arrow.up.arrow.down")
+                Label("AF-point sharpness", systemImage: "arrow.up.arrow.down")
             }
             .toggleStyle(.button)
             .font(.caption)
             .help(
                 viewModel.sharpnessModel.sortBySharpness
-                    ? "Stop sorting by sharpness"
-                    : "Sort thumbnails sharpest-first",
+                    ? "Stop sorting by AF-point sharpness"
+                    : "Sort by detail at the AF point, strongest first. Unknown measurements sort last.",
             )
             .onChange(of: viewModel.sharpnessModel.sortBySharpness) { _, isEnabled in
                 if isEnabled {
@@ -65,6 +65,13 @@ struct SharpnessControlsView: View {
                     await viewModel.handleSharpnessSortingChange(isEnabled: isEnabled)
                 }
             }
+        }
+
+        if !viewModel.sharpnessModel.scores.isEmpty, !viewModel.sharpnessModel.isScoring {
+            Text("\(viewModel.sharpnessModel.afPointScores.count) AF measured")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .help("Photos without a recorded AF point or sufficient detail have an unknown AF sharpness measurement.")
         }
 
         Toggle(isOn: similaritySortingBinding) {

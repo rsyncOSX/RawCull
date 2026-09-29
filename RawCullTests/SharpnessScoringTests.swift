@@ -186,6 +186,90 @@ struct SharpnessScoringTests {
         #expect(decoded != current)
     }
 
+    @Test(.tags(.smoke))
+    func `AF ranking uses center detail without background or saliency fallback`() {
+        let breakdown = RawCull.SharpnessBreakdown(
+            finalScore: 0.95, globalScore: 1.0, subjectScore: 0.9,
+            afPointScore: 0.8, blurGateSigma: 0.03,
+            subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none,
+            focusEvidence: FocusEvidence(
+                winningRegion: .saliency, afCenterScore: 0.12, afNeighborhoodScore: 0.85,
+            ),
+        )
+        let center = CGPoint(x: 0.5, y: 0.5)
+        #expect(SharpnessScoringModel.afPointScore(from: breakdown, normalizedAFPoint: center) == 0.12)
+        #expect(SharpnessScoringModel.afPointScore(from: breakdown, normalizedAFPoint: nil) == nil)
+        #expect(SharpnessScoringModel.afPointScore(from: breakdown, normalizedAFPoint: CGPoint(x: -0.1, y: 0.5)) == nil)
+        #expect(SharpnessScoringModel.afPointScore(from: nil, normalizedAFPoint: center) == nil)
+    }
+
+    @Test(.tags(.smoke), arguments: [Float.zero, Float.nan, Float.infinity])
+    func `AF ranking treats absent detail and invalid measurements as unknown`(score: Float) {
+        let breakdown = RawCull.SharpnessBreakdown(
+            finalScore: 0.95, globalScore: 1, subjectScore: 0.9,
+            afPointScore: 0.8, blurGateSigma: 0.03,
+            subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none,
+            focusEvidence: FocusEvidence(winningRegion: .afCenter, afCenterScore: score),
+        )
+        #expect(SharpnessScoringModel.afPointScore(
+            from: breakdown, normalizedAFPoint: CGPoint(x: 0.5, y: 0.5),
+        ) == nil)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `AF sorting preserves ties and places unknown measurements last`() {
+        let model = SharpnessScoringModel()
+        let files = (0 ..< 5).map { _ in makeSharpnessTestFile() }
+        model.scores = [files[0].id: 1.0, files[3].id: 0.01]
+        model.afPointScores = [files[1].id: 0.3, files[2].id: 0.3, files[3].id: 0.7]
+        #expect(model.sortedByAFPointSharpness(files).map(\.id) == [
+            files[3].id, files[1].id, files[2].id, files[0].id, files[4].id
+        ])
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `legacy scores cannot enable AF sorting and AF measurements survive hydration`() {
+        let model = SharpnessScoringModel()
+        let file = makeSharpnessTestFile(afPoint: CGPoint(x: 0.5, y: 0.5))
+        model.applyPreloadedScores([file], preloadedScores: [file.id: 0.8], preloadedSaliency: [:])
+        #expect(model.scores[file.id] == 0.8)
+        #expect(model.afPointScores.isEmpty)
+        #expect(!model.sortBySharpness)
+        model.applyPreloadedScores(
+            [file], preloadedScores: [file.id: 0.8], preloadedSaliency: [:],
+            preloadedAFPointScores: [file.id: 0.2, UUID(): 0.9],
+        )
+        #expect(model.afPointScores == [file.id: 0.2])
+        #expect(model.sortBySharpness)
+        model.cancelScoring()
+        #expect(model.afPointScores.isEmpty)
+    }
+
+    @Test(.tags(.smoke))
+    @MainActor
+    func `batch AF scoring rejects sharp background around a textureless focus point`() async throws {
+        let sharpCenter = try #require(makeAFDetailTestImage(sharpCenter: true))
+        let sharpBackground = try #require(makeAFDetailTestImage(sharpCenter: false))
+        let focused = makeSharpnessTestFile(afPoint: CGPoint(x: 0.5, y: 0.5))
+        let background = makeSharpnessTestFile(afPoint: CGPoint(x: 0.5, y: 0.5))
+        let noAF = makeSharpnessTestFile()
+        let adapter = RawCullPhotoAnalysisAdapter(inputLoaderOverride: { file, _, _ in
+            PhotoAnalysisInput(
+                image: file.url == background.url ? sharpBackground : sharpCenter,
+                iso: file.iso, normalizedAFPoint: file.normalizedAFPoint,
+            )
+        })
+        let model = SharpnessScoringModel(analysisAdapterOverride: adapter)
+        await model.scoreFiles([background, noAF, focused])
+        #expect(try #require(model.afPointScores[focused.id]) > 0)
+        #expect(model.afPointScores[background.id] == nil)
+        #expect(model.afPointScores[noAF.id] == nil)
+        #expect(model.scores[background.id] != nil)
+        #expect(model.sortedByAFPointSharpness([background, noAF, focused]).first?.id == focused.id)
+    }
+
     @Test(.tags(.threadSafety), .timeLimit(.minutes(1)))
     @MainActor
     func `concurrent scoreFiles call awaits in flight scoring`() async throws {
@@ -238,7 +322,7 @@ struct SharpnessScoringTests {
 
 // MARK: - Numeric helper unit tests
 
-private func makeSharpnessTestFile() -> FileItem {
+private func makeSharpnessTestFile(afPoint: CGPoint? = nil) -> FileItem {
     let url = URL(fileURLWithPath: NSTemporaryDirectory())
         .appendingPathComponent("rawcull-sharpness-\(UUID().uuidString)")
         .appendingPathExtension("arw")
@@ -249,7 +333,7 @@ private func makeSharpnessTestFile() -> FileItem {
         size: 1,
         dateModified: Date(),
         exifData: nil,
-        afFocusNormalized: nil,
+        afFocusNormalized: afPoint,
     )
 }
 
@@ -588,4 +672,26 @@ struct ISOScalingTests {
         // stay well under 3.0 at ISO 6400.
         #expect(SharpnessMetrics.isoScalingFactor(iso: 6400) < 2.0)
     }
+}
+
+/// Two scenes with opposite locations of fine detail: a central textured target
+/// against a flat background, and a flat AF target against a textured background.
+private func makeAFDetailTestImage(sharpCenter: Bool) -> CGImage? {
+    let size = 512
+    guard let context = CGContext(
+        data: nil, width: size, height: size, bitsPerComponent: 8,
+        bytesPerRow: size * 4, space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+    ) else { return nil }
+    context.setFillColor(gray: 0.5, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+    let center = CGRect(x: 192, y: 192, width: 128, height: 128)
+    for y in stride(from: 0, to: size, by: 4) {
+        for x in stride(from: 0, to: size, by: 4) {
+            guard center.contains(CGPoint(x: x, y: y)) == sharpCenter else { continue }
+            context.setFillColor(gray: (x / 4 + y / 4).isMultiple(of: 2) ? 0.08 : 0.92, alpha: 1)
+            context.fill(CGRect(x: x, y: y, width: 4, height: 4))
+        }
+    }
+    return context.makeImage()
 }

@@ -9,7 +9,7 @@ import RawCullCore
 
 extension RawCullViewModel {
     /// Applies the current catalog ordering and, when sharpness sorting has
-    /// just been enabled, focuses its sharpest visible image. Selecting the
+    /// just been enabled, focuses the visible image with strongest AF-center detail. Selecting the
     /// first sorted image also lets thumbnail views reset their scroll position
     /// through their existing selection observers, matching similarity sorting.
     func handleSharpnessSortingChange(isEnabled: Bool) async {
@@ -124,6 +124,7 @@ extension RawCullViewModel {
                 scoringSignature: signature,
                 fileSize: file.size,
                 modificationDate: file.dateModified,
+                afPointScore: sharpnessModel.afPointScores[file.id],
             )
         }
         cullingModel.mergeScoringResults(results, in: catalog)
@@ -145,6 +146,11 @@ extension RawCullViewModel {
 
             if let score = fileRecord.sharpnessScore {
                 sharpnessModel.scores[file.id] = score
+            }
+
+            if let score = fileRecord.afPointSharpnessScore,
+               SharpnessScoringModel.hasValidAFPoint(file.afFocusNormalized), score.isFinite, score > 1e-6 {
+                sharpnessModel.afPointScores[file.id] = score
             }
 
             if let subjectLabel = fileRecord.saliencySubject {

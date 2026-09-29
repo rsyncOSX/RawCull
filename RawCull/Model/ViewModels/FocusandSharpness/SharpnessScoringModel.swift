@@ -22,6 +22,9 @@ final class SharpnessScoringModel {
     }
 
     private(set) var scoreRevision: Int = 0
+    /// AF-center measurements used exclusively for catalog/Grid View ordering.
+    var afPointScores: [UUID: Float] = [:]
+
     var saliencyInfo: [UUID: SaliencyInfo] = [:]
     var breakdowns: [UUID: SharpnessBreakdown] = [:]
     var isScoring: Bool = false
@@ -124,6 +127,7 @@ final class SharpnessScoringModel {
         isScoring = false
         isCalibratingSharpnessScoring = false
         scores = [:]
+        afPointScores = [:]
         saliencyInfo = [:]
         breakdowns = [:]
         scoringProgress = 0
@@ -230,6 +234,7 @@ final class SharpnessScoringModel {
         scoringTotal = files.count
         scoringEstimatedSeconds = 0
         scores = [:]
+        afPointScores = [:]
         saliencyInfo = [:]
         breakdowns = [:]
         scoringCompletionTimes = []
@@ -299,6 +304,13 @@ final class SharpnessScoringModel {
                 },
             )
 
+            self.afPointScores = Dictionary(uniqueKeysWithValues: files.compactMap { file in
+                Self.afPointScore(
+                    from: self.breakdowns[file.id],
+                    normalizedAFPoint: file.afFocusNormalized,
+                ).map { (file.id, $0) }
+            })
+
             self.sortBySharpness = true
             self.scoringProgress = 0
             self.scoringTotal = 0
@@ -309,6 +321,35 @@ final class SharpnessScoringModel {
 
         _scoringTask = workTask
         await workTask.value
+    }
+
+    /// Use the small AF-center region only. Wider regions can contain sharp
+    /// backgrounds or nearby feathers while the intended eye is soft. The
+    /// adaptive display mask is intentionally not used as a numeric threshold.
+    nonisolated static func afPointScore(
+        from breakdown: SharpnessBreakdown?,
+        normalizedAFPoint point: CGPoint?,
+    ) -> Float? {
+        guard hasValidAFPoint(point),
+              let score = breakdown?.focusEvidence?.afCenterScore,
+              score.isFinite, score > 1e-6
+        else { return nil }
+        return score
+    }
+
+    nonisolated static func hasValidAFPoint(_ point: CGPoint?) -> Bool {
+        guard let point else { return false }
+        return point.x.isFinite && point.y.isFinite
+            && (0 ... 1).contains(point.x) && (0 ... 1).contains(point.y)
+    }
+
+    /// Preserve the incoming catalog order for ties and unknown measurements.
+    func sortedByAFPointSharpness(_ files: [FileItem]) -> [FileItem] {
+        files.enumerated().sorted { lhs, rhs in
+            let left = afPointScores[lhs.element.id] ?? -1
+            let right = afPointScores[rhs.element.id] ?? -1
+            return left == right ? lhs.offset < rhs.offset : left > right
+        }.map(\.element)
     }
 
     private struct ScoringRequest: Equatable {
@@ -346,6 +387,7 @@ final class SharpnessScoringModel {
         _ files: [FileItem],
         preloadedScores: [UUID: Float],
         preloadedSaliency: [UUID: SaliencyInfo],
+        preloadedAFPointScores: [UUID: Float] = [:],
     ) {
         guard !files.isEmpty else {
             sortBySharpness = false
@@ -364,8 +406,12 @@ final class SharpnessScoringModel {
         scores = preloadedScores.filter { validIDs.contains($0.key) }
         saliencyInfo = preloadedSaliency.filter { validIDs.contains($0.key) }
         breakdowns = [:]
+        let validAFIDs = Set(files.filter { Self.hasValidAFPoint($0.afFocusNormalized) }.map(\.id))
+        afPointScores = preloadedAFPointScores.filter {
+            validAFIDs.contains($0.key) && $0.value.isFinite && $0.value > 1e-6
+        }
 
-        sortBySharpness = !scores.isEmpty
+        sortBySharpness = !afPointScores.isEmpty
         scoringProgress = 0
         scoringTotal = 0
         scoringEstimatedSeconds = 0
