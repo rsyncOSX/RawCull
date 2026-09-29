@@ -100,6 +100,43 @@ struct ReleaseSharpnessTest {
         #expect(content.contains("ISO unavailable (400 fallback)"))
     }
 
+    @Test func summaryDistinguishesRankingChangesFromLargerScores() {
+        let files = ["a.ARW", "b.ARW", "c.ARW"].map { URL(fileURLWithPath: "/tmp/" + $0) }
+        var report = ReleaseSharpnessReport(directory: URL(fileURLWithPath: "/tmp"), files: files)
+        for scenario in ReleaseSharpnessScenario.all {
+            for (index, file) in files.enumerated() {
+                var score = Float(3 - index)
+                if scenario.quality == .highPrecision { score *= 10 }
+                if scenario.quality == .fast { score = [2, 3, 1][index] }
+                if scenario.source == .rawDemosaic { score = [2, 2, 1][index] }
+                let breakdown = SharpnessBreakdown(
+                    finalScore: score, globalScore: 1, subjectScore: 1, afPointScore: nil,
+                    blurGateSigma: 0, subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none,
+                    focusEvidence: FocusEvidence(winningRegion: .saliency, saliencyCandidateCount: 1)
+                )
+                report.entries.append(.init(
+                    file: file, scenario: scenario, metadata: nil, breakdown: breakdown,
+                    error: nil, elapsed: 0
+                ))
+            }
+        }
+        report.finished = Date()
+        let summary = report.summary.joined(separator: "\n")
+        #expect(summary.contains("All 33 comparisons across 3 photos"))
+        #expect(summary.contains("High Precision quality | Same ordering, including ties"))
+        #expect(summary.contains("Fast quality | 1 reversed pair; 0 tie changes"))
+        #expect(summary.contains("RAW decoding | 0 reversed pairs; 1 tie change"))
+        #expect(summary.contains("AF sensitivity cannot be evaluated yet"))
+        #expect(summary.contains("not directly exercised by the baseline"))
+        #expect(summary.contains("A / B / tie / uncertain"))
+        #expect(summary.contains("photographic accuracy still needs your visual judgment"))
+        report.entries.removeLast()
+        let incomplete = report.summary.joined(separator: "\n")
+        #expect(incomplete.contains("run is incomplete or has failures"))
+        #expect(incomplete.contains("Finish the run and resolve failed comparisons first"))
+        #expect(incomplete.contains("Insufficient complete results"))
+    }
+
     @Test(arguments: [Float.nan, Float.infinity, -Float.infinity, -1])
     func rejectsInvalidScores(score: Float) {
         let breakdown = SharpnessBreakdown(

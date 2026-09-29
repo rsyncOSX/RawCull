@@ -88,6 +88,12 @@ The sharpness command uses the `ReleaseSharpness` plan and selects
 the renamed `ReleaseAIObjectsTest`, including its discovery/report contracts
 and real AI Objects run. Both use the same hostless Release target
 and catalog discovery. The sharpness run requires no Qwen or SAM 3 models.
+Every sharpness report opens with a plain-language results summary, ordering
+comparisons, the photos most affected by AF information, and a prioritized visual
+inspection worksheet. Its conclusion distinguishes valid software execution from
+photographic correctness and explains how to build human-ranked regression pairs.
+Incomplete runs do not claim a successful full-catalog evaluation.
+
 Its real-photo test is enabled by `RAWCULL_RELEASE_SHARPNESS_RUN=1`, forwarded
 by the Makefile. Without that flag the sharpness command runs only its report/numeric contracts.
 Running a plan manually without a suite filter runs both suites' contracts;
