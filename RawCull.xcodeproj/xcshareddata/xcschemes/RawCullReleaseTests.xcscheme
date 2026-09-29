@@ -8,7 +8,7 @@
     </BuildActionEntries>
   </BuildAction>
   <TestAction buildConfiguration="Release" selectedDebuggerIdentifier="" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.PosixSpawn" shouldUseLaunchSchemeArgsEnv="NO">
-    <TestPlans><TestPlanReference reference="container:ReleaseObjects.xctestplan" default="YES"/></TestPlans>
+    <TestPlans><TestPlanReference reference="container:ReleaseObjects.xctestplan" default="YES"/><TestPlanReference reference="container:ReleaseSharpness.xctestplan"/></TestPlans>
   </TestAction>
   <AnalyzeAction buildConfiguration="Release"/>
 </Scheme>
