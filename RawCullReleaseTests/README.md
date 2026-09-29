@@ -1,4 +1,4 @@
-# Local AI Objects release integration
+# Local release integration
 
 Run from the repository root:
 
@@ -67,10 +67,62 @@ xcodebuild test -project RawCull.xcodeproj -scheme RawCullReleaseTests \
   -configuration Release -destination 'platform=macOS,arch=arm64' \
   -testPlan ReleaseObjects -onlyUsePackageVersionsFromResolvedFile \
   -derivedDataPath build/ReleaseObjectTests \
-  -only-testing:RawCullReleaseTests/ReleaseRunnerTests
+  -only-testing:RawCullReleaseTests/ReleaseAIObjectsTest
 ```
 
 The real-photo test is enabled only when `RAWCULL_RELEASE_RUN=1` is present in the
 test runner environment. The Makefile passes this and the configured paths using
 Xcode's `TEST_RUNNER_` environment forwarding. Running the scheme manually without
 that flag runs the contract tests and skips model inference.
+
+## Sharpness scoring
+
+```sh
+make releasesharpnesstest
+# Optional: the same catalog override as the AI Objects run
+make releasesharpnesstest RELEASE_CATALOG="/path/to/photos"
+```
+
+The sharpness command uses the `ReleaseSharpness` plan and selects
+`ReleaseSharpnessTest`; the AI Objects command uses `ReleaseObjects` and selects
+the renamed `ReleaseAIObjectsTest`, including its discovery/report contracts
+and real AI Objects run. Both use the same hostless Release target
+and catalog discovery. The sharpness run requires no Qwen or SAM 3 models.
+Every sharpness report opens with a plain-language results summary, ordering
+comparisons, the photos most affected by AF information, and a prioritized visual
+inspection worksheet. Its conclusion distinguishes valid software execution from
+photographic correctness and explains how to build human-ranked regression pairs.
+Incomplete runs do not claim a successful full-catalog evaluation.
+
+Its real-photo test is enabled by `RAWCULL_RELEASE_SHARPNESS_RUN=1`, forwarded
+by the Makefile. Without that flag the sharpness command runs only its report/numeric contracts.
+Running a plan manually without a suite filter runs both suites' contracts;
+the independent opt-in flags control the real-photo tests.
+
+Sharpness compiles the production `RawCullPhotoAnalysisAdapter`, scoring options,
+RAW loader, and breakdown adapters into the target and uses the pinned
+PhotoAnalysisKit algorithm. Metadata supplies ISO (400 when unavailable), aperture,
+and actual AF position. Every ARW is analyzed sequentially in 11 scenarios:
+
+- All five presets at Balanced / 1024 px / Embedded Preview / metadata AF.
+- Wildlife and Landscape with AF removed, using the same decoding conditions.
+- Wildlife with Fast or High Precision quality, keeping 1024 px fixed.
+- Wildlife at 2048 px, keeping Balanced quality fixed.
+- Wildlife using RAW Demosaic, keeping Balanced / 1024 px fixed.
+
+Each run writes `RawCull-Sharpness-<UUID>.md` in the catalog before analysis,
+after each scenario, and at completion. The report includes configuration and
+algorithm identity, metadata, final/global/subject/broad AF scores, local patch
+scores, final/global ratios, blur sigma, saliency candidate counts, evidence
+confidence, selected saliency rectangles, configured silhouette penalty strengths, focus diagnostics,
+and timings. Optional evidence is shown as unavailable when the scalar facade
+does not supply it; mask-only evidence is not inferred. Failed and unprocessed comparisons are preserved. The command
+returns nonzero for failed, invalid, or incomplete scoring. Zero is a valid
+score and missing subject/AF evidence remains explicitly unavailable.
+
+These comparisons follow `Docs/sharpness-scoring-review-2026-09-28.md` and do
+not change production scoring or tune coefficients. Success verifies execution
+and numeric validity, not photographic ranking accuracy. Expert-ranked burst
+pairs are still needed to evaluate missing-subject fallback, sharp backgrounds,
+small subjects, high ISO, low contrast, motion blur, and silhouettes. ISO/aperture
+are recorded rather than varied, and no absolute Sharp/Soft labels are assigned.

@@ -4,9 +4,44 @@ import PhotoAIStorage
 import PhotoAIWorkflows
 import Testing
 
-/// Deliberately outside RawCullTests: real photos and real local models only.
-@Suite("Downloads AI Objects release integration")
-struct DownloadsObjectAnalysisTests {
+@Suite("AI Objects release integration")
+struct ReleaseAIObjectsTest {
+    @Test func discoversOnlyTopLevelRegularARWFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        for name in ["b.ARW", "a.arw", "other.jpg"] {
+            try Data().write(to: directory.appendingPathComponent(name))
+        }
+        let subdirectory = directory.appendingPathComponent("folder.ARW")
+        try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+        try Data().write(to: subdirectory.appendingPathComponent("nested.ARW"))
+        #expect(try ReleaseRunConfiguration.discoverARWFiles(in: directory).map(\.lastPathComponent) == ["a.arw", "b.ARW"])
+        try FileManager.default.removeItem(at: directory.appendingPathComponent("a.arw"))
+        try FileManager.default.removeItem(at: directory.appendingPathComponent("b.ARW"))
+        #expect(try ReleaseRunConfiguration.discoverARWFiles(in: directory).isEmpty)
+    }
+
+    @Test func reportPreservesFailuresAndUnprocessedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = directory.appendingPathComponent("a|b.ARW")
+        let second = directory.appendingPathComponent("pending.ARW")
+        var report = ReleaseAnalysisReport(directory: directory, files: [first, second])
+        report.entries = [.init(file: first, result: nil, error: "Decode failed", elapsed: 1)]
+        report.runError = "Model failure"
+        report.finished = Date()
+        let url = directory.appendingPathComponent("report.md")
+        try report.write(to: url)
+        let content = try String(contentsOf: url, encoding: .utf8)
+        #expect(content.contains("Status: Failed"))
+        #expect(content.contains("a\\|b.ARW | Failed"))
+        #expect(content.contains("pending.ARW | Not analyzed"))
+        #expect(content.contains("Decode failed"))
+        #expect(content.contains("Model failure"))
+    }
+
     @MainActor
     @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_RELEASE_RUN"] == "1"))
     func analyzeDownloads() async throws {
@@ -79,52 +114,5 @@ struct DownloadsObjectAnalysisTests {
         for entry in report.entries {
             #expect(entry.succeeded, "\(entry.file.lastPathComponent): \(entry.error ?? entry.result?.failure ?? "incomplete assessment") — see \(reportURL.path)")
         }
-    }
-}
-
-nonisolated enum ReleaseRunError: Error, LocalizedError {
-    case message(String)
-    var errorDescription: String? {
-        switch self { case let .message(text): text }
-    }
-}
-
-nonisolated struct ReleaseRunConfiguration {
-    let directory: URL
-    let qwenPath: String?
-    let samPath: String?
-    let modelRoots: [URL]
-
-    init(environment: [String: String]) {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        directory = URL(fileURLWithPath: environment["RAWCULL_RELEASE_DIRECTORY"] ?? home.appendingPathComponent("Downloads").path, isDirectory: true)
-        qwenPath = environment["RAWCULL_RELEASE_QWEN"].flatMap { $0.isEmpty ? nil : $0 }
-        samPath = environment["RAWCULL_RELEASE_SAM3"].flatMap { $0.isEmpty ? nil : $0 }
-        modelRoots = [
-            home.appendingPathComponent("ModelAssets/Release/Models"),
-            home.appendingPathComponent("Library/Application Support/RawCull/Models"),
-            home.appendingPathComponent("Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models"),
-        ]
-    }
-
-    static func discoverARWFiles(in directory: URL) throws -> [URL] {
-        try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
-            .filter { url in
-                guard url.pathExtension.lowercased() == "arw" else { return false }
-                return try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true
-            }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-    }
-
-    func modelURL(override: String?, relativePath: String, option: String) throws -> URL {
-        let candidates = override.map { [URL(fileURLWithPath: $0, isDirectory: true)] }
-            ?? modelRoots.map { $0.appendingPathComponent(relativePath, isDirectory: true) }
-        for url in candidates {
-            var isDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
-                return url
-            }
-        }
-        throw ReleaseRunError.message("Model bundle missing. Set \(option)=\"/path/to/model\" when invoking make releastest. Checked: \(candidates.map(\.path).joined(separator: ", "))")
     }
 }
