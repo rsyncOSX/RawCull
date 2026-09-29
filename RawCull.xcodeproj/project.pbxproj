@@ -11,7 +11,11 @@
 		0FE4BD8BD6185D1FA071B65D /* PhotoAIWorkflows in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14268305826C5000D8EBA /* PhotoAIWorkflows */; };
 		1D3345C59C355555A427EA0D /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */; };
 		251D4043E6E051C0BF8ECC18 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1361E732BB50FC92CF2C46 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift */; };
+		2760A8C0DA2244D599356231 /* RawCullReleaseTests/ReleaseSharpnessReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA02ADC7BEB4FD2B796AF98 /* RawCullReleaseTests/ReleaseSharpnessReport.swift */; };
+		27D0121F3E4942439A6A20BA /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */; };
 		2C04D7C91DB9545CA9351D56 /* RawCullCore in Frameworks */ = {isa = PBXBuildFile; productRef = E9634D6B2FD1D1A0009E567D /* RawCullCore */; };
+		330C361F670E440E8D867E5B /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F10870E85941988EEEB2CA /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift */; };
+		3BB2BC4AB8E84088AFE303B6 /* RawCullReleaseTests/ReleaseSharpnessTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D067A0B7244A3BAB8C0FF2 /* RawCullReleaseTests/ReleaseSharpnessTest.swift */; };
 		40B36CB6690057B7AED10EB4 /* RawCull/Model/RawImageLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32CC8436F63575CB09CA971 /* RawCull/Model/RawImageLoading.swift */; };
 		41BD6DE9220253F4930A0DD4 /* RawCullReleaseTests/ReleaseAIObjectsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2FEC91F6EF53EC96672DA1 /* RawCullReleaseTests/ReleaseAIObjectsTest.swift */; };
 		4C633DD0CCEA536E890EC349 /* PhotoAIContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14264305826C5000D8EBA /* PhotoAIContracts */; };
@@ -25,8 +29,11 @@
 		9860B97411D050DD8B76322B /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14262305826C5000D8EBA /* CoreAISAM3Backend */; };
 		A17C0DC51FA15DBBB493778B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */; };
 		B8E0F46189E359069BA1920A /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */; };
+		CA1E64CB5C0E4C648F3EDC20 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9825225305081A400231F61 /* PhotoAnalysisKit */; };
 		CAABF5CFE28C55E795D5068A /* RawCullReleaseTests/ReleaseAnalysisReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF58DA5922852A0B055767B /* RawCullReleaseTests/ReleaseAnalysisReport.swift */; };
 		CBF341774CF25D73886DCEF1 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F727081687A550DA1228B0B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift */; };
+		D40D8D416F3547AD9F54A552 /* RawCull/Extensions/extension+Thread+Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542BF2165015427F9BBB887E /* RawCull/Extensions/extension+Thread+Logger.swift */; };
+		D86EA6F4FF424AD6BDEBBD8D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C58BCCCC0574ACCB423176D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift */; };
 		E3288D906042585C957216A8 /* RawParserKit in Frameworks */ = {isa = PBXBuildFile; productRef = E95349CF2FF9902900A4C0C3 /* RawParserKit */; };
 		E90F071897685772A8A72EF5 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */; };
 		E92712B32F2CF57E00A681D0 /* RsyncArguments in Frameworks */ = {isa = PBXBuildFile; productRef = E92712B22F2CF57E00A681D0 /* RsyncArguments */; };
@@ -48,13 +55,6 @@
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
 		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		3BB2BC4AB8E84088AFE303B6 /* RawCullReleaseTests/ReleaseSharpnessTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D067A0B7244A3BAB8C0FF2 /* RawCullReleaseTests/ReleaseSharpnessTest.swift */; };
-		2760A8C0DA2244D599356231 /* RawCullReleaseTests/ReleaseSharpnessReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA02ADC7BEB4FD2B796AF98 /* RawCullReleaseTests/ReleaseSharpnessReport.swift */; };
-		27D0121F3E4942439A6A20BA /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */; };
-		330C361F670E440E8D867E5B /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F10870E85941988EEEB2CA /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift */; };
-		D86EA6F4FF424AD6BDEBBD8D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C58BCCCC0574ACCB423176D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift */; };
-		D40D8D416F3547AD9F54A552 /* RawCull/Extensions/extension+Thread+Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542BF2165015427F9BBB887E /* RawCull/Extensions/extension+Thread+Logger.swift */; };
-		CA1E64CB5C0E4C648F3EDC20 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9825225305081A400231F61 /* PhotoAnalysisKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,16 +94,21 @@
 		19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenGenerationGate.swift; sourceTree = SOURCE_ROOT; };
 		1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift; sourceTree = SOURCE_ROOT; };
 		290345BCEB35595499E463C0 /* RawCullReleaseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullReleaseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C58BCCCC0574ACCB423176D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift; sourceTree = SOURCE_ROOT; };
 		4D1361E732BB50FC92CF2C46 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift; sourceTree = SOURCE_ROOT; };
+		542BF2165015427F9BBB887E /* RawCull/Extensions/extension+Thread+Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCull/Extensions/extension+Thread+Logger.swift"; sourceTree = SOURCE_ROOT; };
 		5A2FEC91F6EF53EC96672DA1 /* RawCullReleaseTests/ReleaseAIObjectsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseAIObjectsTest.swift; sourceTree = SOURCE_ROOT; };
 		68DE674C794B571FA17A81B3 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift; sourceTree = SOURCE_ROOT; };
+		75F10870E85941988EEEB2CA /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift; sourceTree = SOURCE_ROOT; };
 		7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift; sourceTree = SOURCE_ROOT; };
 		7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift; sourceTree = SOURCE_ROOT; };
 		8839A4095F2C511295F2D8EA /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift; sourceTree = SOURCE_ROOT; };
+		89D067A0B7244A3BAB8C0FF2 /* RawCullReleaseTests/ReleaseSharpnessTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseSharpnessTest.swift; sourceTree = SOURCE_ROOT; };
 		9F727081687A550DA1228B0B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift; sourceTree = SOURCE_ROOT; };
 		B6A62EBA7E515A53B422515D /* RawCullReleaseTests/ReleaseRunConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseRunConfiguration.swift; sourceTree = SOURCE_ROOT; };
 		CC0CFDF798B85E079DB98B8F /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift; sourceTree = SOURCE_ROOT; };
 		D32CC8436F63575CB09CA971 /* RawCull/Model/RawImageLoading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/RawImageLoading.swift; sourceTree = SOURCE_ROOT; };
+		DAA02ADC7BEB4FD2B796AF98 /* RawCullReleaseTests/ReleaseSharpnessReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseSharpnessReport.swift; sourceTree = SOURCE_ROOT; };
 		DDF58DA5922852A0B055767B /* RawCullReleaseTests/ReleaseAnalysisReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseAnalysisReport.swift; sourceTree = SOURCE_ROOT; };
 		E90B07A22F1E58EA00A95D4A /* RawCull.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RawCull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E95355DD2F33B70A006C2851 /* RawCullTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,12 +117,7 @@
 		E97E975E2F210EAB001A4239 /* RawCull.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RawCull.entitlements; sourceTree = "<group>"; };
 		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
-		89D067A0B7244A3BAB8C0FF2 /* RawCullReleaseTests/ReleaseSharpnessTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCullReleaseTests/ReleaseSharpnessTest.swift"; sourceTree = SOURCE_ROOT; };
-		DAA02ADC7BEB4FD2B796AF98 /* RawCullReleaseTests/ReleaseSharpnessReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCullReleaseTests/ReleaseSharpnessReport.swift"; sourceTree = SOURCE_ROOT; };
-		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift"; sourceTree = SOURCE_ROOT; };
-		75F10870E85941988EEEB2CA /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift"; sourceTree = SOURCE_ROOT; };
-		4C58BCCCC0574ACCB423176D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift"; sourceTree = SOURCE_ROOT; };
-		542BF2165015427F9BBB887E /* RawCull/Extensions/extension+Thread+Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCull/Extensions/extension+Thread+Logger.swift"; sourceTree = SOURCE_ROOT; };
+		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -711,7 +711,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 393;
+				CURRENT_PROJECT_VERSION = 394;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -772,7 +772,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 393;
+				CURRENT_PROJECT_VERSION = 394;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -948,7 +948,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 393;
+				CURRENT_PROJECT_VERSION = 394;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -1006,7 +1006,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 393;
+				CURRENT_PROJECT_VERSION = 394;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -1040,7 +1040,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 393;
+				CURRENT_PROJECT_VERSION = 394;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -1074,7 +1074,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 393;
+				CURRENT_PROJECT_VERSION = 394;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
