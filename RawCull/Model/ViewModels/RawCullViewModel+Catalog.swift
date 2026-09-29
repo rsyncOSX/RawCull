@@ -160,6 +160,7 @@ extension RawCullViewModel {
             files,
             preloadedScores: sharpnessModel.scores,
             preloadedSaliency: sharpnessModel.saliencyInfo,
+            preloadedAFPointScores: sharpnessModel.afPointScores,
         )
 
         if !processedURLs.contains(url) {
@@ -334,9 +335,8 @@ extension RawCullViewModel {
         if ratingFilter != .all {
             result = result.filter { passesRatingFilter($0) }
         }
-        if sharpnessModel.sortBySharpness, !sharpnessModel.scores.isEmpty {
-            let scores = sharpnessModel.scores
-            result.sort { (scores[$0.id] ?? -1) > (scores[$1.id] ?? -1) }
+        if sharpnessModel.sortBySharpness {
+            result = sharpnessModel.sortedByAFPointSharpness(result)
         }
         return result
     }

@@ -1101,6 +1101,29 @@ struct SavedFilesJSONTests {
 @MainActor
 struct RawCullViewModelCullingTests {
     @Test
+    func `AF scores persist separately and legacy records remain unmeasured`() throws {
+        let model = CullingModel(saveDelayNanoseconds: 0, saveHandler: { _ in })
+        let catalog = URL(fileURLWithPath: "/tmp/af-persistence-\(UUID().uuidString)")
+        model.mergeScoringResults([
+            CullingScoringResult(fileName: "photo.ARW", score: 0.9, saliencySubject: nil, afPointScore: 0.2)
+        ], in: catalog)
+        let data = try JSONEncoder().encode(model.savedFiles)
+        let decoded = try JSONDecoder().decode([DecodeSavedFiles].self, from: data).map { SavedFiles($0) }
+        #expect(decoded.first?.filerecords?.first?.sharpnessScore == 0.9)
+        #expect(decoded.first?.filerecords?.first?.afPointSharpnessScore == 0.2)
+
+        // A fresh run with no AF evidence must remove any earlier AF measurement.
+        model.mergeScoringResults([
+            CullingScoringResult(fileName: "photo.ARW", score: 0.8, saliencySubject: nil)
+        ], in: catalog)
+        #expect(model.savedFiles.first?.filerecords?.first?.afPointSharpnessScore == nil)
+        let legacy = try JSONDecoder().decode(
+            DecodeFileRecord.self, from: Data(#"{"fileName":"old.ARW","sharpnessScore":0.9}"#.utf8),
+        )
+        #expect(legacy.afPointSharpnessScore == nil)
+    }
+
+    @Test
     func `rebuildRatingCache populates ratings and tagged filenames for selected catalog`() {
         let viewModel = makeRawCullViewModel()
         let catalog = ARWSourceCatalog(name: "Catalog", url: URL(fileURLWithPath: "/tmp/catalog-\(UUID().uuidString)"))
@@ -1189,18 +1212,16 @@ struct RawCullViewModelCullingTests {
     }
 
     @Test
-    func `enabling sharpness sorting selects sharpest visible file`() async {
+    func `enabling AF sharpness sorting selects strongest AF detail despite combined scores`() async {
         let viewModel = makeRawCullViewModel()
         let softest = makeCullingTestFile("A-softest.ARW")
         let sharpest = makeCullingTestFile("B-sharpest.ARW")
         let middle = makeCullingTestFile("C-middle.ARW")
         viewModel.files = [softest, sharpest, middle]
         viewModel.selectedFileID = softest.id
-        viewModel.sharpnessModel.scores = [
-            softest.id: 0.1,
-            sharpest.id: 0.9,
-            middle.id: 0.5
-        ]
+        // Deliberately reverse the combined scores: catalog order must follow AF detail.
+        viewModel.sharpnessModel.scores = [softest.id: 0.9, sharpest.id: 0.1, middle.id: 0.5]
+        viewModel.sharpnessModel.afPointScores = [softest.id: 0.1, sharpest.id: 0.9, middle.id: 0.5]
         viewModel.sharpnessModel.sortBySharpness = true
 
         await viewModel.handleSharpnessSortingChange(isEnabled: true)

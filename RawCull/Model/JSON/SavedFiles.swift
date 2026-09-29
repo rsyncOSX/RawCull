@@ -66,6 +66,7 @@ struct SavedFiles: Identifiable, Codable {
                 dateCopied: record.dateCopied,
                 rating: record.rating,
                 sharpnessScore: record.sharpnessScore,
+                afPointSharpnessScore: record.afPointSharpnessScore,
                 saliencySubject: record.saliencySubject,
                 sharpnessScoringSignature: record.sharpnessScoringSignature,
                 sharpnessFileSize: record.sharpnessFileSize,
@@ -100,6 +101,7 @@ struct FileRecord: Identifiable, Codable {
     var dateCopied: String?
     var rating: Int?
     var sharpnessScore: Float?
+    var afPointSharpnessScore: Float?
     var saliencySubject: String?
     var sharpnessScoringSignature: SharpnessScoringSignature?
     var sharpnessFileSize: Int64?
@@ -113,6 +115,7 @@ extension FileRecord: Equatable {
             lhs.dateCopied == rhs.dateCopied &&
             lhs.rating == rhs.rating &&
             lhs.sharpnessScore == rhs.sharpnessScore &&
+            lhs.afPointSharpnessScore == rhs.afPointSharpnessScore &&
             lhs.saliencySubject == rhs.saliencySubject &&
             lhs.sharpnessScoringSignature == rhs.sharpnessScoringSignature &&
             lhs.sharpnessFileSize == rhs.sharpnessFileSize &&

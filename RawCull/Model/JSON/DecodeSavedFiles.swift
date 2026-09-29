@@ -36,6 +36,7 @@ struct DecodeFileRecord: Codable {
     var dateCopied: String?
     var rating: Int?
     var sharpnessScore: Float?
+    var afPointSharpnessScore: Float?
     var saliencySubject: String?
     var sharpnessScoringSignature: SharpnessScoringSignature?
     var sharpnessFileSize: Int64?
@@ -47,6 +48,7 @@ struct DecodeFileRecord: Codable {
         case dateCopied
         case rating
         case sharpnessScore
+        case afPointSharpnessScore
         case saliencySubject
         case sharpnessScoringSignature
         case sharpnessFileSize
@@ -60,6 +62,7 @@ struct DecodeFileRecord: Codable {
         dateCopied = try values.decodeIfPresent(String.self, forKey: .dateCopied)
         rating = try values.decodeIfPresent(Int.self, forKey: .rating)
         sharpnessScore = try values.decodeIfPresent(Float.self, forKey: .sharpnessScore)
+        afPointSharpnessScore = try values.decodeIfPresent(Float.self, forKey: .afPointSharpnessScore)
         saliencySubject = try values.decodeIfPresent(String.self, forKey: .saliencySubject)
         sharpnessScoringSignature = try values.decodeIfPresent(SharpnessScoringSignature.self, forKey: .sharpnessScoringSignature)
         sharpnessFileSize = try values.decodeIfPresent(Int64.self, forKey: .sharpnessFileSize)
@@ -72,6 +75,7 @@ struct DecodeFileRecord: Codable {
         dateCopied = nil
         rating = nil
         sharpnessScore = nil
+        afPointSharpnessScore = nil
         saliencySubject = nil
         sharpnessScoringSignature = nil
         sharpnessFileSize = nil

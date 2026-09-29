@@ -10,6 +10,7 @@ struct CullingScoringResult {
     let scoringSignature: SharpnessScoringSignature?
     let fileSize: Int64?
     let modificationDate: Date?
+    let afPointScore: Float?
 
     init(
         fileName: String,
@@ -18,6 +19,7 @@ struct CullingScoringResult {
         scoringSignature: SharpnessScoringSignature? = nil,
         fileSize: Int64? = nil,
         modificationDate: Date? = nil,
+        afPointScore: Float? = nil,
     ) {
         self.fileName = fileName
         self.score = score
@@ -25,6 +27,7 @@ struct CullingScoringResult {
         self.scoringSignature = scoringSignature
         self.fileSize = fileSize
         self.modificationDate = modificationDate
+        self.afPointScore = afPointScore
     }
 }
 
@@ -191,6 +194,7 @@ final class CullingModel {
                 catalogIndex: catalogIndex,
                 fileName: result.fileName,
                 sharpnessScore: result.score,
+                afPointSharpnessScore: result.afPointScore,
                 saliencySubject: result.saliencySubject,
                 updateSaliencySubject: true,
                 scoringSignature: result.scoringSignature,
@@ -371,6 +375,7 @@ final class CullingModel {
         dateTagged: String? = nil,
         rating: Int? = nil,
         sharpnessScore: Float? = nil,
+        afPointSharpnessScore: Float? = nil,
         saliencySubject: String? = nil,
         updateSaliencySubject: Bool = false,
         scoringSignature: SharpnessScoringSignature? = nil,
@@ -383,6 +388,7 @@ final class CullingModel {
             }
             if let sharpnessScore {
                 savedFiles[catalogIndex].filerecords?[recordIndex].sharpnessScore = sharpnessScore
+                savedFiles[catalogIndex].filerecords?[recordIndex].afPointSharpnessScore = afPointSharpnessScore
             }
             if updateSaliencySubject {
                 savedFiles[catalogIndex].filerecords?[recordIndex].saliencySubject = saliencySubject
@@ -401,6 +407,7 @@ final class CullingModel {
             dateCopied: nil,
             rating: rating,
             sharpnessScore: sharpnessScore,
+            afPointSharpnessScore: afPointSharpnessScore,
             saliencySubject: saliencySubject,
             sharpnessScoringSignature: scoringSignature,
             sharpnessFileSize: scoringFileSize,
