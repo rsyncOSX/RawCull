@@ -122,6 +122,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Main content mode — drives which view fills the main window.
     var mainViewMode: MainViewMode = .loupe
+    var showsDetailedBurstComparison = false
     var comparisonFileIDs: [FileItem.ID] = []
     var showsBurstGroups: Bool {
         mainViewMode == .similarityGrid && similarityModel.burstModeActive
