@@ -10,6 +10,49 @@ import Testing
 
 @Suite("Object analysis feature", .tags(.smoke))
 struct ObjectAnalysisFeatureTests {
+    @Test func `AF point and highlighted focus edges map to the matching object`() throws {
+        let width = 32, height = 32
+        let maskData = Data((0 ..< width * height).map { index in
+            let x = index % width, y = index / width
+            return x < 16 && y < 16 ? UInt8(255) : UInt8(0)
+        })
+        let maskProvider = try #require(CGDataProvider(data: maskData as CFData))
+        let subject = try #require(CGImage(
+            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8,
+            bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+            provider: maskProvider, decode: nil, shouldInterpolate: false, intent: .defaultIntent,
+        ))
+        var overlayBytes = [UInt8](repeating: 0, count: width * height * 4)
+        for y in 0 ..< 16 {
+            for x in 0 ..< 16 {
+                let offset = (y * width + x) * 4
+                overlayBytes[offset] = 255
+                overlayBytes[offset + 3] = 255
+            }
+        }
+        let overlayProvider = try #require(CGDataProvider(data: Data(overlayBytes) as CFData))
+        let focusMap = try #require(CGImage(
+            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: overlayProvider, decode: nil, shouldInterpolate: false, intent: .defaultIntent,
+        ))
+        let inside = try #require(ObjectFocusSpatialMapper.measure(
+            objectMasks: ["1": subject], focusMap: focusMap,
+            autofocusPoint: CGPoint(x: 0.25, y: 0.25),
+        )["1"])
+        #expect(inside.autofocusInsideObject == true)
+        #expect(inside.focusMapNearAutofocus == true)
+        #expect(inside.focusMapShare == 1)
+        let outside = try #require(ObjectFocusSpatialMapper.measure(
+            objectMasks: ["1": subject], focusMap: nil,
+            autofocusPoint: CGPoint(x: 0.75, y: 0.75),
+        )["1"])
+        #expect(outside.autofocusInsideObject == false)
+        #expect(outside.focusMapShare == nil)
+    }
+
     @Test func `Near-identical cross-concept masks merge and retain alias`() throws {
         let mask = try makeMask()
         let bird = try SegmentationConcept("bird")

@@ -31,6 +31,95 @@ nonisolated enum ObjectFocusQuality: String, Codable, Equatable, Sendable {
     case sharp, soft, blurred, uncertain
 }
 
+nonisolated struct ObjectFocusSpatialEvidence: Equatable, Sendable {
+    let autofocusInsideObject: Bool?
+    /// Fraction of all highlighted focus-map pixels that lie inside this object.
+    let focusMapShare: Float?
+    let focusMapNearAutofocus: Bool?
+}
+
+/// Maps the camera AF location and the generated focus overlay onto SAM object masks.
+/// These are spatial observations, not a calibrated sharpness classification.
+nonisolated enum ObjectFocusSpatialMapper {
+    private static let side = 512
+
+    static func measure(
+        objectMasks: [String: CGImage],
+        focusMap: CGImage?,
+        autofocusPoint: CGPoint?,
+    ) -> [String: ObjectFocusSpatialEvidence] {
+        let focusPixels = focusMap.flatMap(rgbaPixels)
+        let highlightedCount = focusPixels.map { pixels in
+            stride(from: 3, to: pixels.count, by: 4).reduce(0) {
+                $0 + (pixels[$1] > 64 ? 1 : 0)
+            }
+        }
+        let point = autofocusPoint.flatMap { point -> (x: Int, y: Int)? in
+            guard point.x.isFinite, point.y.isFinite,
+                  (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else { return nil }
+            return (min(side - 1, Int(point.x * CGFloat(side))),
+                    min(side - 1, Int(point.y * CGFloat(side))))
+        }
+        let nearAutofocus = point.flatMap { point -> Bool? in
+            guard let focusPixels else { return nil }
+            let radius = 8
+            for y in max(0, point.y - radius) ... min(side - 1, point.y + radius) {
+                for x in max(0, point.x - radius) ... min(side - 1, point.x + radius) {
+                    if focusPixels[(y * side + x) * 4 + 3] > 64 { return true }
+                }
+            }
+            return false
+        }
+
+        var result: [String: ObjectFocusSpatialEvidence] = [:]
+        for (id, mask) in objectMasks {
+            guard let maskPixels = grayscalePixels(mask) else { continue }
+            let afInside = point.map { maskPixels[$0.y * side + $0.x] > 127 }
+            let share: Float? = if let focusPixels, let highlightedCount {
+                if highlightedCount == 0 {
+                    0
+                } else {
+                    Float((0 ..< side * side).reduce(0) { count, index in
+                        count + (maskPixels[index] > 127 && focusPixels[index * 4 + 3] > 64 ? 1 : 0)
+                    }) / Float(highlightedCount)
+                }
+            } else {
+                nil
+            }
+            result[id] = ObjectFocusSpatialEvidence(
+                autofocusInsideObject: afInside,
+                focusMapShare: share,
+                focusMapNearAutofocus: afInside == true ? nearAutofocus : nil,
+            )
+        }
+        return result
+    }
+
+    private static func grayscalePixels(_ image: CGImage) -> [UInt8]? {
+        var pixels = [UInt8](repeating: 0, count: side * side)
+        guard let context = CGContext(
+            data: &pixels, width: side, height: side, bitsPerComponent: 8,
+            bytesPerRow: side, space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGImageAlphaInfo.none.rawValue,
+        ) else { return nil }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        return pixels
+    }
+
+    private static func rgbaPixels(_ image: CGImage) -> [UInt8]? {
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        guard let context = CGContext(
+            data: &pixels, width: side, height: side, bitsPerComponent: 8,
+            bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+        ) else { return nil }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        return pixels
+    }
+}
+
 private nonisolated struct ObjectBoardID: Decodable {
     let value: String
 
