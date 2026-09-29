@@ -5,6 +5,8 @@ struct ObjectAnalysisView: View {
     @Bindable var feature: RawCullObjectAnalysisFeature
     let files: [FileItem]
     @Binding var selection: UUID?
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
 
     private var pendingFiles: [FileItem] {
         feature.filesNeedingAnalysis(from: files)
@@ -45,7 +47,8 @@ struct ObjectAnalysisView: View {
                         .frame(minWidth: 350, idealWidth: 480)
                     ObjectPhotoDetailView(result: selectedResult,
                                           file: files.first { $0.id == selectedResult?.fileID },
-                                          feature: feature)
+                                          feature: feature, focusMaskModel: focusMaskModel,
+                                          focusConfig: focusConfig)
                         .frame(minWidth: 350, idealWidth: 600)
                 }
             }
@@ -173,8 +176,13 @@ private struct ObjectPhotoDetailView: View {
     let result: ObjectPhotoAnalysisResult?
     let file: FileItem?
     let feature: RawCullObjectAnalysisFeature
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
     @State private var image: CGImage?
     @State private var outlines: [String: CGImage] = [:]
+    @State private var focusMap: CGImage?
+    @State private var autofocusPoint: CGPoint?
+    @State private var spatialEvidence: [String: ObjectFocusSpatialEvidence] = [:]
     @State private var selectedObjectID: String?
 
     private var selectedCrop: CGImage? {
@@ -196,7 +204,8 @@ private struct ObjectPhotoDetailView: View {
                         Text(result.fileName).font(.headline)
                         if let image {
                             ObjectOverviewImage(image: image, instances: result.instances,
-                                                outlines: outlines)
+                                                outlines: outlines, focusMap: focusMap,
+                                                autofocusPoint: autofocusPoint)
                                 .frame(height: 420)
                         }
                         if let failure = result.failure {
@@ -220,6 +229,14 @@ private struct ObjectPhotoDetailView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                         Spacer()
+                                        if let evidence = spatialEvidence[object.id] {
+                                            Text(evidence.autofocusInsideObject.map { $0 ? "AF inside" : "AF outside" } ?? "AF unavailable")
+                                                .foregroundStyle(.secondary)
+                                            if let share = evidence.focusMapShare {
+                                                Text("Focus map \(share.formatted(.percent.precision(.fractionLength(0))))")
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
                                         Text("SAM 3 mask: \(object.score.formatted(.percent.precision(.fractionLength(0))))")
                                     }
                                 }
@@ -241,6 +258,10 @@ private struct ObjectPhotoDetailView: View {
                                     .font(.caption)
                                 if let object = assessment.objects.first(where: { $0.id == selectedObjectID }) {
                                     ObjectAssessmentDetail(object: object)
+                                }
+                                if let selectedObjectID,
+                                   let evidence = spatialEvidence[selectedObjectID] {
+                                    ObjectFocusEvidenceDetail(evidence: evidence)
                                 }
                                 ForEach(assessment.relationships, id: \.self) { relationship in
                                     Text("Relationship: \(relationship)").font(.caption)
@@ -267,12 +288,33 @@ private struct ObjectPhotoDetailView: View {
         .task(id: result?.fileID) {
             selectedObjectID = result?.instances.first?.id
             outlines = [:]
+            focusMap = nil
+            autofocusPoint = nil
+            spatialEvidence = [:]
             image = if let file {
                 await RawParserKitImageLoader.shared.thumbnailCGImage(for: file.url, maxPixelSize: 2048)
             } else {
                 nil
             }
-            if let result, let file {
+            if let result, let file, let image {
+                let point: CGPoint?
+                if let recorded = file.afFocusNormalized {
+                    point = recorded
+                } else {
+                    point = await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
+                }
+                var config = focusConfig
+                config.iso = file.exifData?.isoValue ?? 400
+                config.apertureHint = FocusDetectorConfig.ApertureHint.from(
+                    aperture: file.exifData?.apertureValue,
+                )
+                let generated = await focusMaskModel.generateFocusMaskWithBreakdown(
+                    from: FocusMaskAnalysisResolutionPolicy.prepare(image),
+                    scale: 1.0, configOverride: config, afPoint: point,
+                    iso: file.exifData?.isoValue ?? 400,
+                    aperture: file.exifData?.apertureValue,
+                )
+                guard !Task.isCancelled else { return }
                 let masks = await feature.cachedMasks(for: result, file: file)
                 var rendered: [String: CGImage] = [:]
                 for (id, mask) in masks {
@@ -280,6 +322,12 @@ private struct ObjectPhotoDetailView: View {
                     rendered[id] = await ObjectMaskOutlineRenderer.outline(from: mask)
                 }
                 if !Task.isCancelled {
+                    autofocusPoint = point
+                    focusMap = generated.mask
+                    spatialEvidence = ObjectFocusSpatialMapper.measure(
+                        objectMasks: masks, focusMap: generated.mask,
+                        autofocusPoint: point,
+                    )
                     outlines = rendered
                 }
             }
@@ -291,6 +339,8 @@ private struct ObjectOverviewImage: View {
     let image: CGImage
     let instances: [ObjectInstanceDescriptor]
     let outlines: [String: CGImage]
+    let focusMap: CGImage?
+    let autofocusPoint: CGPoint?
 
     var body: some View {
         GeometryReader { geometry in
@@ -304,6 +354,13 @@ private struct ObjectOverviewImage: View {
                 .resizable()
                 .frame(width: drawnWidth, height: drawnHeight)
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            if let focusMap {
+                Image(decorative: focusMap, scale: 1)
+                    .resizable()
+                    .frame(width: drawnWidth, height: drawnHeight)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    .accessibilityHidden(true)
+            }
             ForEach(instances) { object in
                 let box = object.normalizedBoundingBox
                 if let outline = outlines[object.id] {
@@ -329,8 +386,17 @@ private struct ObjectOverviewImage: View {
                     .position(x: originX + box.minX * drawnWidth + 12,
                               y: originY + (1 - box.maxY) * drawnHeight + 12)
             }
+            if let autofocusPoint {
+                Circle()
+                    .stroke(.cyan, lineWidth: 3)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(.black.opacity(0.35)))
+                    .position(x: originX + autofocusPoint.x * drawnWidth,
+                              y: originY + autofocusPoint.y * drawnHeight)
+                    .accessibilityLabel("Camera autofocus point")
+            }
         }
-        .accessibilityLabel("Photograph with numbered object regions")
+        .accessibilityLabel("Photograph with numbered object regions, focus map, and camera autofocus point when available")
     }
 }
 
@@ -348,6 +414,28 @@ private struct ObjectAssessmentDetail: View {
             ForEach(object.obstructions, id: \.self) { Text("Obstruction: \($0)") }
             ForEach(object.strengths, id: \.self) { Text("Strength: \($0)") }
             ForEach(object.problems, id: \.self) { Text("Problem: \($0)") }
+        }
+    }
+}
+
+private struct ObjectFocusEvidenceDetail: View {
+    let evidence: ObjectFocusSpatialEvidence
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Measured focus locations").font(.headline)
+            Text("Camera AF point: \(evidence.autofocusInsideObject.map { $0 ? "inside this object" : "outside this object" } ?? "unavailable")")
+            if let share = evidence.focusMapShare {
+                Text("Highlighted focus-map edges on this object: \(share.formatted(.percent.precision(.fractionLength(0)))) of all highlighted edges")
+            } else {
+                Text("Focus map: unavailable")
+            }
+            if let near = evidence.focusMapNearAutofocus {
+                Text("Highlighted edges near AF point: \(near ? "yes" : "no")")
+            }
+            Text("These locations support focus review; overlap alone does not confirm sharpness.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }

@@ -94,6 +94,8 @@ struct AIAnalysisView: View {
                             feature: objectAnalysisFeature,
                             files: inputFiles,
                             selection: $viewModel.selectedFileID,
+                            focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
+                            focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
                         )
                     }
                 }
