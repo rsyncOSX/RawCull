@@ -6,6 +6,8 @@ struct DeepAIReviewSheetView: View {
     let groupSignature: BurstGroupSignature
     let files: [FileItem]
     @Binding var selection: UUID?
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
 
     private var result: DeepAIReviewResult? {
         controller.result(for: groupSignature)
@@ -41,6 +43,8 @@ struct DeepAIReviewSheetView: View {
                     groupSignature: groupSignature,
                 ),
                 selection: $selection,
+                focusMaskModel: focusMaskModel,
+                focusConfig: focusConfig,
             )
         }
         .padding(16)
@@ -132,6 +136,8 @@ private struct DeepAIReviewSheetContent: View {
     let completedCandidates: [DeepAIReviewCandidate]
     let state: DeepAIReviewPresentationState
     @Binding var selection: UUID?
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
 
     var body: some View {
         if completedCandidates.isEmpty {
@@ -158,6 +164,8 @@ private struct DeepAIReviewSheetContent: View {
                 files: completedFiles,
                 candidates: completedCandidates,
                 selection: $selection,
+                focusMaskModel: focusMaskModel,
+                focusConfig: focusConfig,
             )
         }
     }
@@ -275,6 +283,8 @@ private struct DeepAIReviewHistoryContent: View {
     let files: [FileItem]
     let candidates: [DeepAIReviewCandidate]
     @Binding var selection: UUID?
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
 
     private var selectedCandidate: DeepAIReviewCandidate? {
         selection.flatMap { id in
@@ -295,6 +305,8 @@ private struct DeepAIReviewHistoryContent: View {
                 controller: controller,
                 files: files,
                 candidate: selectedCandidate,
+                focusMaskModel: focusMaskModel,
+                focusConfig: focusConfig,
             )
             .frame(minWidth: 330, idealWidth: 420)
         }
@@ -310,7 +322,12 @@ private struct DeepAIReviewMaskPreview: View {
     let controller: DeepAIReviewController
     let files: [FileItem]
     let candidate: DeepAIReviewCandidate?
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
 
+    @State private var image: CGImage?
+    @State private var focusMap: CGImage?
+    @State private var autofocusPoint: CGPoint?
     @State private var maskOverlay: CGImage?
     @State private var isLoading = false
     @State private var isOrganicOutline = false
@@ -327,24 +344,18 @@ private struct DeepAIReviewMaskPreview: View {
 
     var body: some View {
         Group {
-            if let candidate, let file {
+            if let candidate, file != nil {
                 VStack(alignment: .leading, spacing: 8) {
                     ZStack {
-                        ThumbnailImageView(
-                            url: file.url,
-                            targetSize: 1200,
-                            style: .list,
-                            contentMode: .fit,
-                        )
-
-                        if let maskOverlay {
-                            Image(decorative: maskOverlay, scale: 1, orientation: .up)
-                                .resizable()
-                                .scaledToFit()
-                                .colorMultiply(.orange)
-                                .blendMode(.screen)
-                                .opacity(0.95)
-                                .accessibilityHidden(true)
+                        if let image {
+                            DeepAIReviewImageOverlay(
+                                image: image,
+                                focusMap: focusMap,
+                                maskOverlay: maskOverlay,
+                                autofocusPoint: autofocusPoint,
+                            )
+                        } else {
+                            ProgressView("Loading preview…")
                         }
 
                         if isLoading {
@@ -365,6 +376,9 @@ private struct DeepAIReviewMaskPreview: View {
                             .foregroundStyle(maskOverlay == nil ? Color.orange : Color.secondary)
                     }
                     .font(.caption)
+                    Text("Focus map and camera AF point shown when available")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Mask preview for \(candidate.fileName)")
@@ -376,6 +390,40 @@ private struct DeepAIReviewMaskPreview: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .task(id: file?.id) {
+            image = nil
+            focusMap = nil
+            autofocusPoint = nil
+            guard let file else { return }
+            let loadedImage = await RawParserKitImageLoader.shared.thumbnailCGImage(
+                for: file.url, maxPixelSize: 1200,
+            )
+            guard !Task.isCancelled, let loadedImage else { return }
+            image = loadedImage
+
+            let point: CGPoint?
+            if let recorded = file.afFocusNormalized {
+                point = recorded
+            } else {
+                point = await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
+            }
+            guard !Task.isCancelled else { return }
+            autofocusPoint = point
+
+            var config = focusConfig
+            config.iso = file.exifData?.isoValue ?? 400
+            config.apertureHint = FocusDetectorConfig.ApertureHint.from(
+                aperture: file.exifData?.apertureValue,
+            )
+            let generated = await focusMaskModel.generateFocusMaskWithBreakdown(
+                from: FocusMaskAnalysisResolutionPolicy.prepare(loadedImage),
+                scale: 1.0, configOverride: config, afPoint: point,
+                iso: file.exifData?.isoValue ?? 400,
+                aperture: file.exifData?.apertureValue,
+            )
+            guard !Task.isCancelled else { return }
+            focusMap = generated.mask
         }
         .task(id: loadIdentity) {
             maskOverlay = nil
@@ -418,6 +466,56 @@ private struct DeepAIReviewMaskPreview: View {
         } else {
             "Mask unavailable"
         }
+    }
+}
+
+private struct DeepAIReviewImageOverlay: View {
+    let image: CGImage
+    let focusMap: CGImage?
+    let maskOverlay: CGImage?
+    let autofocusPoint: CGPoint?
+
+    var body: some View {
+        GeometryReader { geometry in
+            let scale = min(geometry.size.width / CGFloat(image.width),
+                            geometry.size.height / CGFloat(image.height))
+            let width = CGFloat(image.width) * scale
+            let height = CGFloat(image.height) * scale
+            let originX = (geometry.size.width - width) / 2
+            let originY = (geometry.size.height - height) / 2
+
+            Image(decorative: image, scale: 1)
+                .resizable()
+                .frame(width: width, height: height)
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            if let focusMap {
+                Image(decorative: focusMap, scale: 1)
+                    .resizable()
+                    .frame(width: width, height: height)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    .accessibilityHidden(true)
+            }
+            if let maskOverlay {
+                Image(decorative: maskOverlay, scale: 1, orientation: .up)
+                    .resizable()
+                    .colorMultiply(.orange)
+                    .blendMode(.screen)
+                    .opacity(0.95)
+                    .frame(width: width, height: height)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    .accessibilityHidden(true)
+            }
+            if let autofocusPoint {
+                Circle()
+                    .stroke(.cyan, lineWidth: 3)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(.black.opacity(0.35)))
+                    .position(x: originX + autofocusPoint.x * width,
+                              y: originY + autofocusPoint.y * height)
+                    .accessibilityLabel("Camera autofocus point")
+            }
+        }
+        .accessibilityLabel("Photograph with subject mask, focus map, and camera autofocus point when available")
     }
 }
 
