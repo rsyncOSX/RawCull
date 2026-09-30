@@ -5,9 +5,133 @@ is implemented. RawCull 3.2.4 was released on the Mac App Store in September
 2026 with CLIP, SAM 3, and Qwen available through Apple-hosted asset packs.
 The maintainer reports several successful TestFlight builds and tests. RawCull
 is currently distributed through TestFlight and the Mac App Store; there is no
-local DMG release. The checkout has since advanced to version 3.2.6. Sections
+local DMG release. The checkout now declares version 3.2.8, build 398 (inspected September 30, 2026). Sections
 below retain the packaging and migration procedure as a reference, including
 historical steps that are already complete.
+
+## Maintainer guide: update and upload downloadable assets
+
+Updated September 30, 2026. Use this guide for the **next** asset update; the
+numbered sections below retain the original migration evidence and detailed
+commands. Historical “completed” labels do not satisfy a new release gate.
+See also [future release priorities](futurereleases.md).
+
+### Who does what
+
+Thomas Evensen is the project owner named in the existing release evidence.
+The owner, or a delegated maintainer with access to the model staging files,
+prepares the converted models, packaging manifests, notices, and repository
+changes. An authorized App Store Connect uploader delivers the archives. The
+release owner records the exact tested versions and submits them for review.
+One person can perform all three roles. Apple processes, reviews, and hosts the
+packs; RawCull downloads and activates them on the user's Mac.
+
+Upload access requires Account Holder, Admin, App Manager, or Developer;
+submission requires Account Holder, Admin, or App Manager. Confirm access to
+RawCull's app record before starting. See Apple's [upload instructions](https://developer.apple.com/help/app-store-connect/manage-asset-packs/upload-apple-hosted-asset-packs)
+and [submission instructions](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-apple-hosted-asset-packs).
+
+### Decide what kind of change you are releasing
+
+| Change | Required work |
+|---|---|
+| Replace weights or fix files for an existing supported model | Package a new version under the existing permanent pack ID; preserve the runtime contract and test compatibility with already released apps. |
+| Change model architecture, tensor names, tokenizer, preprocessing, directory layout, or output contract | Update and test PhotoAIKit/RawCull integration first. Use a new pack ID when older clients cannot safely consume the replacement. An app update is required for changed client behavior. |
+| Add a new optional model | Add runtime support, catalog entry and inclusion controls, resource resolution, licence handling, Settings presentation, provenance, packaging selectors, and tests. Uploading an archive alone does not make the model appear in RawCull. |
+| Change licence or attribution files only | Regenerate the archive and record new size/hash; update acceptance text and its hash when applicable. |
+| Change app code only | Reuse compatible known-good packs; an app release does not require repackaging unchanged models. |
+
+In App Store Connect, open **Apps → RawCull → General → Asset Packs**, find the
+pack ID, choose **Replace** for an existing released pack (or **Select Asset Pack
+Version** for the first release), select the tested version, then **Add for
+Review** and **Submit for Review** in the draft submission. An approved update
+becomes available to all App Store users and replaces the previous version.
+This makes older-client compatibility a release requirement. Apple permits an
+asset-only submission after the app is approved; a new app that requires a new
+pack should submit them together. See the submission instructions linked above.
+
+App version, Apple-assigned pack version, upstream revision, and archive SHA-256
+are distinct identifiers. Record all four. `requireLatestVersion: true` in
+`RawCullAIModelDownloadService.swift` requests the latest available version when
+ensuring availability; it is not a promise that every installed model updates
+immediately at app launch. Test both installed and newly downloaded models.
+
+### Repeatable update procedure
+
+1. **Start from known-good evidence.** Record the source commit, affected pack,
+   previous Apple version, upstream revision, conversion tool revision, and
+   intended app compatibility. Keep the old archive. Confirm RawCull's bundle
+   ID `no.blogspot.RawCull` and Apple ID `6759362764`.
+2. **Prepare the model outside the repository.** Existing staging is
+   `/Users/thomas/ModelAssets/Release`, with `Packaging/*.json` and `Output/*.aar`.
+   These are maintainer-local paths, not files supplied by this checkout.
+   Obtain the model from the recorded upstream revision and convert it with
+   the runtime's expected format. Preserve tensor interfaces, tokenizer files,
+   preprocessing, and required configuration. Perform actual inference before
+   packaging; a valid archive does not prove a working model.
+3. **Freeze the inputs.** Copy the applicable checked-in notice/licence set
+   from `ModelAssets/Notices/<model>` into staging. Update conversion metadata
+   and provenance. Keep final archive hashes in the external/repository record,
+   outside the frozen in-pack provenance to avoid a self-referential hash.
+4. **Evaluate and package only changed packs.** Follow sections 2–4. Inspect
+   every selected file, retain the expected `Models/...` destination, and keep
+   `macOS` / `onDemand`. Run `xcrun ba-package evaluate` before `package` using
+   the release Xcode tool. Record archive bytes and SHA-256 after packaging.
+5. **Update matching repository metadata.** Reconcile
+   `RawCull/Intelligence/ModelManagement/RawCullAIModelDownloadCatalog.swift`
+   (revision, sizes, archive hash, model version, paths, licence),
+   `ModelAssets/Notices/*/PROVENANCE.json`, notice checksums, and
+   `ModelAssets/manifest.template.json` where relevant. Update bundled
+   `RawCull/Resources/ModelLicences` text/hash if acceptance wording changes.
+   Keep `ModelAssets/README.md` and this release record consistent. Apple-hosted
+   production does not use the GitHub `Output/manifest.json`.
+6. **Verify locally.** Run `make verify-model-provenance`,
+   `PYTHONDONTWRITEBYTECODE=1 python3 Scripts/TestModelProvenance.py`,
+   `make verify-ai-import-boundary`, and relevant tests from section 17.
+   Run real-model search/similarity, segmentation, or Qwen assessment as
+   applicable. Inspect cache compatibility: changed embeddings or masks must
+   not reuse incompatible artifacts merely because the display name is the same.
+7. **Upload.** In Transporter, sign into the authorized account and deliver the
+   changed `.aar` using section 5. Confirm the existing pack ID and save logs.
+   An existing ID receives a new Apple-assigned version; never overwrite the
+   historical record for version 1. On failure, correct inputs, rebuild, and
+   remeasure before retrying. Keep credentials out of source and release logs.
+8. **Check processing and test.** In RawCull's App Store Connect asset packs,
+   record pack record ID, new version/version UUID, platform, processing state,
+   and beta state. Delivery success alone is insufficient. Test the exact
+   processed version through internal TestFlight using section 18, including
+   updating a Mac with the previous version installed and installing on a clean
+   Mac. Exercise cancellation, retry, removal, relaunch, offline inference,
+   licence acceptance, and model activation.
+9. **Submit and release.** Follow section 19 to select the tested versions for
+   review. If an app update is required, build the `AppStore` configuration
+   (`make archive-app-store`); its export target does not itself prove upload.
+   Confirm signing, entitlements, extension, and build numbers. Record review
+   and availability separately from processing. `make release-preflight`
+   requires a clean committed worktree; run it once the candidate is finalized.
+10. **Verify production and retain recovery evidence.** Download from the
+    released App Store app, run inference, and record the result. Preserve old
+    and new immutable archives, manifests, hashes, tool versions, source commit,
+    inference reports, processing/review evidence, and tested app/pack pairs.
+    Use section 20 for recovery; do not archive the permanent pack as rollback.
+
+### Evidence template for each new version
+
+Copy this table into the release record; leave unknown values explicitly pending.
+
+| Field | New release value |
+|---|---|
+| Prepared/uploaded/submitted by; dates | Pending |
+| App version/build and source commit; compatible older apps | Pending |
+| Pack ID; previous known-good Apple version | Pending |
+| Upstream revision; conversion tools/revisions; model tree fingerprint | Pending |
+| Packaging manifest hash; selected-file inventory; Xcode/ba-package version | Pending |
+| Archive filename; exact bytes; SHA-256; retained location | Pending |
+| Notices/licences and hashes; acceptance text change | Pending |
+| Apple record ID; assigned version; version UUID; delivery log | Pending |
+| Processing/platform; beta version/state; review/availability | Pending |
+| Clean install and previous-version update; inference/cancellation/removal results | Pending |
+| Recovery decision and responsible maintainer | Pending |
 
 ## Current implementation status
 
@@ -25,19 +149,20 @@ noted; the current project version is checked against the repository:
 | Downloader host/protocol selection | **Completed** | App Store builds select `.appleHosted` and `StoreDownloaderExtension`; ordinary Release builds retain `.selfHosted` and `ManagedDownloaderExtension`. Both configurations build successfully. |
 | Production model catalog | **Completed** | CLIP, SAM 3, and Qwen use the final pack IDs, model paths, archive sizes, and SHA-256 values. |
 | Managed Qwen runtime and Settings UI | **Completed** | Downloaded Qwen is validated and activated from the managed-location snapshot. The current application does not expose a custom-folder Qwen override. |
-| Repository manifest, provenance, and release documentation | **Partially completed** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, Apple record/version UUIDs, processing dates, and this evidence table are updated. The root `README.md` still describes the removed manual Qwen-folder workflow. |
-| Automated verification | **Completed for the 3.2.4 migration baseline** | Provenance verification, provenance mutation tests, the 222-test smoke suite, the complete `RawCullTests` target, App Store and Release builds, plist validation, and `git diff --check` passed. The tests were rerun on September 21, 2026; this does not assert that the current 3.2.6 checkout passes. |
+| Repository manifest, provenance, and release documentation | **Partially completed** | The manifest template, all three `PROVENANCE.json` files, `ModelAssets/README.md`, verification scripts, Apple record/version UUIDs, processing dates, and this evidence table are updated. The root `README.md` now describes managed local AI, but its Release section still documents the Developer ID/DMG path instead of the current App Store workflow. |
+| Automated verification | **Completed for the 3.2.4 migration baseline** | Provenance verification, provenance mutation tests, the 222-test smoke suite, the complete `RawCullTests` target, App Store and Release builds, plist validation, and `git diff --check` passed. The tests were rerun on September 21, 2026; this does not assert that the current 3.2.8 checkout passes. |
 | App Store Connect asset-pack records | **Completed** | Permanent records were created for `rawcull-clip-datacomp`, `rawcull-sam3`, and `rawcull-qwen3-vl-2b`. |
 | Upload pack versions to App Store Connect | **Completed** | Version 1 of CLIP, SAM 3, and Qwen uploaded with zero errors and zero warnings. All three report `COMPLETE` for `MAC_OS`. |
 | Internal beta asset releases | **Completed** | All three Apple-created internal beta releases report `READY_FOR_TESTING`. |
 | Released version | **Completed** | Version `3.2.4` is on the Mac App Store, with all three AI models available, per the maintainer's September 24 report. Build `383` below is the historical migration baseline. |
-| Current checkout | **Version 3.2.6, build 389** | The app and downloader extension declare the same marketing version and build number in Debug, Release, and AppStore. `ReleaseMetadataTests.swift` expects version `3.2.6` and matching build numbers. Its App Store release status is not established by this document. |
+| Current checkout | **Version 3.2.8, build 398** | Inspected September 30, 2026: app and downloader extension declare matching versions in Debug, Release, and AppStore. This is source metadata, not evidence of App Store availability or a new test run. |
 | Current RawCull test run | **Passed with one skip** | The maintainer's September 24 Xcode result screenshot shows 467 tests: 466 passed and one skipped, on a Mac mini with macOS 27.0. Xcode also shows 511 passed and one skipped at the parameterized-run level. The screenshot does not identify the skipped test. |
 | Signed App Store archive and upload | **Completed for 3.2.4** | Successful TestFlight builds and the App Store release establish that the distribution path has been exercised. |
 | TestFlight validation | **Operational** | The maintainer reports several successful builds and tests. The individual clean-install, cancellation, removal, and update cases in section 18 are not all separately documented here. |
 
-The previously noted 3.2.6 release-metadata mismatch has been corrected in
-source. Both targets now use build `389`, and the test expects version `3.2.6`.
+The historical 3.2.6 release-metadata mismatch was corrected at build `389`.
+The September 30 checkout has since advanced to 3.2.8, build `398`; historical
+test results below do not establish validation of this newer candidate.
 
 The repository provenance records `processing_status` as `succeeded` and the
 internal beta state as `ready-for-testing`. Any `not-submitted` review value in
@@ -71,7 +196,7 @@ count and SHA-256.
 
 The migration baseline used `MARKETING_VERSION = 3.2.4` and
 `CURRENT_PROJECT_VERSION = 383`. The current checkout declares marketing
-version `3.2.6` and build `389` for both app and extension. Inspect both
+version `3.2.8` and build `398` for both app and extension. Inspect both
 versions in each new archive.
 
 ### Distribution configuration — App Store path in use
@@ -682,8 +807,8 @@ Verify:
 ## 16. Version 3.2.4 project changes — historical release baseline
 
 The 3.2.4 migration baseline used `MARKETING_VERSION = 3.2.4` and
-`CURRENT_PROJECT_VERSION = 383`. The checkout now declares version 3.2.6,
-build 389, for both app and downloader extension.
+`CURRENT_PROJECT_VERSION = 383`. The checkout now declares version 3.2.8,
+build 398, for both app and downloader extension.
 For each new upload, confirm the intended version and build inside the signed
 archived app and embedded extension:
 
@@ -700,7 +825,7 @@ not produce a local DMG distribution artifact.
 The maintainer's September 24, 2026 Xcode result screenshot records a complete
 RawCull test run on macOS 27.0: 467 tests, 466 passed, one skipped. Xcode's
 device/configuration summary counts 511 passed and one skipped parameterized
-runs. This is the current suite result; the following commands remain the
+runs. This is historical suite evidence, not a test result for the September 30 checkout; the following commands remain the
 repeatable verification procedure for later builds.
 
 Run formatting and repository checks:
@@ -829,8 +954,12 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 - Do not replace bytes within an existing processed pack version.
 - Do not archive a pack as a routine rollback; archiving is destructive and its
   ID cannot be reused.
-- Keep the previous App Store pack version available until the replacement has
-  passed internal and external testing.
+- Complete internal and external testing before submitting the replacement.
+  Apple replaces the previous available version when the new version is approved;
+  keeping its local archive does not pin users to the previous server version.
+- For a bad released pack, prepare a compatible corrected pack or repackage the
+  retained known-good inputs as a new version and follow processing/review again.
+  Do not assume an instant server-side rollback to an older version is available.
 - Keep the last known-good App Store app and pack versions identifiable in the
   release record while validating a replacement.
 
@@ -857,9 +986,9 @@ See [Submitting Apple-hosted asset packs](https://developer.apple.com/help/app-s
 - [x] Update AI Settings and the download sheet.
 - [x] Update the manifest template, provenance schema and records, notices,
   verification scripts, and `ModelAssets` documentation.
-- [ ] Update the root README and release documentation; the root README still
-  describes the removed manual Qwen-folder workflow, and release documentation
-  should reflect the TestFlight/App Store-only workflow.
+- [ ] Update the root README and release documentation; the root README
+  still documents the Developer ID/DMG release path, and release documentation
+  should reflect the TestFlight/App Store workflow recorded here.
 - [x] Update and pass the focused model-download, Qwen, release-metadata, and
   accessibility-presentation tests.
 - [ ] Add the remaining Settings UI/accessibility coverage listed in section 15.
