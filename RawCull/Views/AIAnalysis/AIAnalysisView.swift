@@ -80,6 +80,8 @@ struct AIAnalysisView: View {
                             controller: deepAIReviewController,
                             files: inputFiles,
                             selection: $viewModel.selectedFileID,
+                            focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
+                            focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
                         )
 
                     case .qwen:

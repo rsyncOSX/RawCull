@@ -12,6 +12,8 @@ struct SAMCLIPAnalysisView: View {
     let controller: DeepAIReviewController
     let files: [FileItem]
     @Binding var selection: UUID?
+    let focusMaskModel: FocusMaskModel
+    let focusConfig: FocusDetectorConfig
 
     private var pendingFiles: [FileItem] {
         controller.filesNeedingAnalysis(from: files)
@@ -31,6 +33,8 @@ struct SAMCLIPAnalysisView: View {
                 groupSignature: signature,
                 files: runnableFiles,
                 selection: $selection,
+                focusMaskModel: focusMaskModel,
+                focusConfig: focusConfig,
             )
         } else {
             ContentUnavailableView(
