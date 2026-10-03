@@ -146,6 +146,32 @@ make verify-downloaded-dmg \
   DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.5.dmg
 ```
 
+### App Store Connect and TestFlight uploads
+
+Build, sign, and upload in one command:
+
+```bash
+./Scripts/release.sh internal   # Internal TestFlight testing only
+./Scripts/release.sh appstore   # TestFlight and eligible for App Store submission
+```
+
+The Makefile equivalents are `make upload-internal` and `make upload-app-store`.
+Sign in to your Apple Developer account in **Xcode Settings > Accounts** first.
+Both commands use the `AppStore` configuration, automatic signing, and pinned
+package versions. They preserve archives and export diagnostics under `build/releases/`.
+They do not submit for App Review or publish the app.
+
+Preview either command by adding `--dry-run`. Xcode manages upload build numbers
+by default. To specify one explicitly for both the app and its extension, use
+`BUILD_NUMBER=400 ./Scripts/release.sh appstore`; choose an unused build number.
+For API authentication, set `ASC_KEY_PATH` to your `.p8` file and also set
+`ASC_KEY_ID` and `ASC_ISSUER_ID`. Keep the key outside the repository.
+
+After Apple processes the upload, check the build in App Store Connect and assign
+it to an internal TestFlight group if automatic distribution is not enabled.
+An `internal` upload cannot be used for external TestFlight or App Store submission;
+use `appstore` if you want to submit that same tested build later.
+
 ### Local AI Objects release test
 
 Run `make releastest` to analyze the ARW files directly in Downloads using installed

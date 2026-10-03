@@ -137,6 +137,13 @@ archive-debug: clean
 		-exportPath $(BUILD_PATH)
 	echo "Debug build completed successfully"
 
+.PHONY: upload-internal upload-app-store
+upload-internal:
+	./Scripts/release.sh internal
+
+upload-app-store:
+	./Scripts/release.sh appstore
+
 archive-app-store: clean
 	echo "Archiving Apple-hosted App Store build..."
 	xcodebuild \
