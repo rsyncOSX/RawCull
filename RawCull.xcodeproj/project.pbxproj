@@ -711,7 +711,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 398;
+				CURRENT_PROJECT_VERSION = 399;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -737,7 +737,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 3.2.8;
+				MARKETING_VERSION = 3.2.9;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
@@ -772,7 +772,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 398;
+				CURRENT_PROJECT_VERSION = 399;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -798,7 +798,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 3.2.8;
+				MARKETING_VERSION = 3.2.9;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
@@ -948,7 +948,7 @@
 				CODE_SIGN_ENTITLEMENTS = RawCull.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 398;
+				CURRENT_PROJECT_VERSION = 399;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -974,7 +974,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 3.2.8;
+				MARKETING_VERSION = 3.2.9;
 				MTLLINKER_FLAGS = "-fcikernel";
 				MTL_COMPILER_FLAGS = "-fcikernel";
 				MTL_LANGUAGE_REVISION = Metal40;
@@ -1006,7 +1006,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 398;
+				CURRENT_PROJECT_VERSION = 399;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -1019,7 +1019,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 3.2.8;
+				MARKETING_VERSION = 3.2.9;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull.ModelDownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1040,7 +1040,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 398;
+				CURRENT_PROJECT_VERSION = 399;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -1053,7 +1053,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 3.2.8;
+				MARKETING_VERSION = 3.2.9;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull.ModelDownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1074,7 +1074,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = RawCullModelDownloader/RawCullModelDownloader.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 398;
+				CURRENT_PROJECT_VERSION = 399;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 93M47F4H9T;
 				ENABLE_APP_SANDBOX = YES;
@@ -1087,7 +1087,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 3.2.8;
+				MARKETING_VERSION = 3.2.9;
 				PRODUCT_BUNDLE_IDENTIFIER = no.blogspot.RawCull.ModelDownloader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1221,7 +1221,7 @@
 			repositoryURL = "https://github.com/rsyncOSX/PhotoAIKit.git";
 			requirement = {
 				kind = revision;
-				revision = 77cc1d84a5d98a485caa15be102c8a55eb3d7698;
+				revision = 648ea75a1c6bf511e03e879100dc149e4cccd022;
 			};
 		};
 		E9B609832F28FA3600704081 /* XCRemoteSwiftPackageReference "DecodeEncodeGeneric" */ = {
