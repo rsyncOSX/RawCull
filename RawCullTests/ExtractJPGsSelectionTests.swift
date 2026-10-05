@@ -42,6 +42,10 @@ struct ExtractJPGsSelectionTests {
         viewModel.selectedFileIDs = [second.id, third.id]
 
         #expect(viewModel.selectedFilesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
+        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["C.ARW", "B.ARW"])
+
+        viewModel.extractJPGSelectedOnly = false
+        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW", "B.ARW", "C.ARW"])
     }
 
     @Test
@@ -56,6 +60,7 @@ struct ExtractJPGsSelectionTests {
         viewModel.selectedFileIDs = []
 
         #expect(viewModel.selectedFilesForJPGExtraction.map(\.name) == ["A.ARW"])
+        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW"])
     }
 
     @Test
@@ -105,11 +110,18 @@ struct ExtractJPGsSelectionTests {
 
         viewModel.sources = [source]
         viewModel.selectedSource = source
+        viewModel.files = [makeExtractJPGTestFile("A.ARW")]
 
         viewModel.presentExtractJPGsSheet()
 
         #expect(viewModel.extractJPGDestination == source)
         #expect(viewModel.activeSheet == .extractJPGs)
+        #expect(!viewModel.extractJPGSelectedOnly)
+        #expect(viewModel.filesForJPGExtraction.map(\.name) == ["A.ARW"])
+
+        viewModel.selectedFileID = viewModel.files.first?.id
+        viewModel.presentExtractJPGsSheet()
+        #expect(viewModel.extractJPGSelectedOnly)
     }
 
     @Test

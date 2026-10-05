@@ -108,6 +108,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var focusCopyTaggedFiles: Bool = false
     var focusShowSavedFiles: Bool = false
     var extractJPGExportMode: ExtractJPGExportMode = .embeddedJPG
+    var extractJPGSelectedOnly = true
     var extractJPGDestination: ARWSourceCatalog?
 
     var showCopyARWFilesView: Bool = false

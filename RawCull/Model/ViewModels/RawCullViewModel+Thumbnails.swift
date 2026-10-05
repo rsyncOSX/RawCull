@@ -45,9 +45,14 @@ extension RawCullViewModel {
             .map { [$0] } ?? []
     }
 
+    var filesForJPGExtraction: [FileItem] {
+        extractJPGSelectedOnly ? selectedFilesForJPGExtraction : activeCatalogFiles
+    }
+
     func presentExtractJPGsSheet() {
         Logger.process.debugMessageOnly("RawCullViewModel.presentExtractJPGsSheet()")
         guard !sources.isEmpty else { return }
+        extractJPGSelectedOnly = !selectedFilesForJPGExtraction.isEmpty
         if extractJPGDestination == nil {
             extractJPGDestination = selectedSource ?? sources.first
         }
@@ -56,7 +61,7 @@ extension RawCullViewModel {
 
     func startSelectedJPGExtraction(destination: ARWSourceCatalog, exportMode: ExtractJPGExportMode) {
         Logger.process.debugMessageOnly("RawCullViewModel.startSelectedJPGExtraction()")
-        let exportFiles = selectedFilesForJPGExtraction
+        let exportFiles = filesForJPGExtraction
         guard currentScanAndExtractJPGsActor == nil,
               currentScanAndCreateThumbnailsActor == nil,
               currentExtractAndSaveJPGsActor == nil,

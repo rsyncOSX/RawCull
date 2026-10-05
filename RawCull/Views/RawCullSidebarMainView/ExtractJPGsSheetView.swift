@@ -7,7 +7,7 @@ struct ExtractJPGsSheetView: View {
     @State private var isChoosingDestination = false
 
     private var selectedFiles: [FileItem] {
-        viewModel.selectedFilesForJPGExtraction
+        viewModel.filesForJPGExtraction
     }
 
     private var destinationOptions: [ARWSourceCatalog] {
@@ -32,6 +32,14 @@ struct ExtractJPGsSheetView: View {
                 .font(.title2.weight(.semibold))
 
             Form {
+                Picker("Images", selection: $viewModel.extractJPGSelectedOnly) {
+                    if !viewModel.selectedFilesForJPGExtraction.isEmpty {
+                        Text("Selected images").tag(true)
+                    }
+                    Text("Complete catalog").tag(false)
+                }
+                .pickerStyle(.segmented)
+
                 Picker("Export", selection: $viewModel.extractJPGExportMode) {
                     ForEach(ExtractJPGExportMode.allCases) { mode in
                         Text(mode.label).tag(mode)
@@ -96,6 +104,9 @@ struct ExtractJPGsSheetView: View {
     }
 
     private var sourceSummary: String {
+        if !viewModel.extractJPGSelectedOnly {
+            return "Complete catalog"
+        }
         if viewModel.selectedFileIDs.isEmpty {
             return viewModel.selectedFile?.name ?? "No image selected"
         }
