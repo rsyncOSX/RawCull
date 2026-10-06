@@ -186,6 +186,15 @@ final class RawCullSimilarityFeature {
         model.hasCompleteSimilarityIndex(for: files)
     }
 
+    func indexedFileCount(for files: [FileItem], backend: RawCullSimilarityBackendKind) -> Int {
+        let backendName = switch backend {
+        case .clip: "clip"
+        case .vision: "vision"
+        case .other: model.backendDescriptor.backend
+        }
+        return files.count { model.embeddings[$0.id]?.descriptor.backend == backendName }
+    }
+
     func evidence(for fileID: UUID) -> RawCullSimilarityEvidence? {
         guard model.sortBySimilarity,
               model.backendDescriptor.backend == "clip",
