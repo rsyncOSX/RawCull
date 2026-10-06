@@ -37,7 +37,6 @@ func makeIsolatedCache(
     let cache = SharedMemoryCache(
         diskCache: DiskCacheManager(cacheDirectory: thumbnailDirectory),
         fullSizeJPGCache: FullSizeJPGDiskCache(cacheDirectory: fullSizeDirectory),
-        tracksEvictions: false,
     )
     await cache.resetForTesting(config: config)
     return cache
