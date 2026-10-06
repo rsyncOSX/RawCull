@@ -1,5 +1,7 @@
 # RawCull
 
+Current release: **3.2.9**.
+
 **Cull faster. Keep the sharpest frame. Keep your photos private.**
 
 [![macOS 27](https://img.shields.io/badge/macOS-27-000000?logo=apple)](https://www.apple.com/macos/)
@@ -79,20 +81,20 @@ Remote dependencies are pinned in `Package.resolved`. The exact resolved version
 
 | Package identity | Resolved pin |
 |---|---|
-| `coreai-models` | `475c585fdb0fe82a83c8f777f259e9414bd44c98` |
+| `coreai-models` | `52c84ba874b2c57adcede08a671ce96ed1b3f433` |
 | `decodeencodegeneric` | `1.0.0` |
 | `eventsource` | `1.5.1` |
 | `parsersyncoutput` | `1.0.0` |
-| `photoaikit` | `77cc1d84a5d98a485caa15be102c8a55eb3d7698` |
+| `photoaikit` | `648ea75a1c6bf511e03e879100dc149e4cccd022` |
 | `photoanalysiskit` | `1.3.1` |
 | `rawcullcore` | `1.1.2` |
-| `rawparserkit` | `1.3.0` |
+| `rawparserkit` | `1.3.1` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
 | `swift-asn1` | `1.7.3` |
-| `swift-collections` | `1.7.0` |
+| `swift-collections` | `1.7.1` |
 | `swift-crypto` | `4.5.2` |
-| `swift-huggingface` | `0.11.0` |
+| `swift-huggingface` | `0.12.0` |
 | `swift-jinja` | `2.5.1` |
 | `swift-transformers` | `1.3.4` |
 | `xgrammar` | `0.2.2` |
@@ -143,7 +145,7 @@ After publishing, verify the downloaded artifact against the generated SHA-256 f
 
 ```bash
 make verify-downloaded-dmg \
-  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.5.dmg
+  DOWNLOADED_DMG=/path/to/downloaded/RawCull.3.2.9.dmg
 ```
 
 ### App Store Connect and TestFlight uploads

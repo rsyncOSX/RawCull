@@ -6,7 +6,7 @@ import Testing
 @Suite("Release metadata", .tags(.smoke))
 struct ReleaseMetadataTests {
     @Test
-    func `app and extension metadata are aligned for version 3`() throws {
+    func `app and extension metadata are aligned for version 3.2.9`() throws {
         let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
         let appBlocks = buildSettingBlocks(
             in: project,
@@ -22,7 +22,7 @@ struct ReleaseMetadataTests {
         let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
         #expect(Int(buildNumber).map { $0 > 0 } == true)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.6")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.9")
             #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
@@ -100,7 +100,7 @@ struct ReleaseMetadataTests {
 
         let photoAIKitRows = tableRows.filter { row in
             row.contains("`photoaikit`")
-                && row.contains("`77cc1d84a5d98a485caa15be102c8a55eb3d7698`")
+                && row.contains("`648ea75a1c6bf511e03e879100dc149e4cccd022`")
         }
         #expect(photoAIKitRows.count == 1)
 
