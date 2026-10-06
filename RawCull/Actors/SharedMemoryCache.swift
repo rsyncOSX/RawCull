@@ -12,25 +12,13 @@ import os
 
 // import OSLog
 
-/// A thread-safe singleton wrapper around the shared NSCache.
-/// We use 'actor' to safely manage state (configuration, settings) across async contexts.
-/// We use 'nonisolated(unsafe)' for the NSCache because NSCache is internally thread-safe,
-/// allowing us to access it synchronously without actor hops.
+/// The actor owns configuration and pressure handling. Synchronous thumbnail
+/// access uses caches that serialize storage and accounting together.
 actor SharedMemoryCache {
     nonisolated static let shared = SharedMemoryCache()
 
     private let diskCache: DiskCacheManager
     private let fullSizeJPGCache: FullSizeJPGDiskCache
-    private let tracksEvictions: Bool
-    private let _gridCost = OSAllocatedUnfairLock(initialState: 0)
-    private let _gridCount = OSAllocatedUnfairLock(initialState: 0)
-    /// Manual count/cost tracking for the main `memoryCache`, mirroring the
-    /// grid-cache counters above. NSCache does not expose item count or current
-    /// total cost via its public API, so we maintain these alongside every
-    /// `setObject` / `removeAllObjects` / eviction-delegate call. Surfaced via
-    /// `getMemoryCacheCount()` / `getMemoryCacheCurrentCost()` for Settings.
-    private let _memCost = OSAllocatedUnfairLock(initialState: 0)
-    private let _memCount = OSAllocatedUnfairLock(initialState: 0)
 
     // MARK: - Memory pressure level
 
@@ -69,13 +57,8 @@ actor SharedMemoryCache {
 
     // MARK: - Non-Isolated State (Thread-Safe by design)
 
-    /// NSCache is thread-safe, so we bypass the actor's serialization for direct access.
-    /// This allows synchronous lookups: SharedMemoryCache.shared.object(...) (no await needed)
-    nonisolated(unsafe) let memoryCache = NSCache<NSString, CachedThumbnail>()
-
-    /// Dedicated in-memory-only cache for grid-size (≤500px) thumbnails.
-    /// Uses the same representation-aware identity as the persistent cache.
-    nonisolated(unsafe) let gridThumbnailCache = NSCache<NSString, CachedThumbnail>()
+    nonisolated let memoryCache = TrackedThumbnailCache()
+    nonisolated let gridThumbnailCache = TrackedThumbnailCache()
 
     /// Bytes per pixel used by `CachedThumbnail` to compute NSCache cost.
     /// Fixed at 4 (RGBA) — NSImage representations are always sRGB RGBA in
@@ -93,11 +76,9 @@ actor SharedMemoryCache {
     init(
         diskCache: DiskCacheManager? = nil,
         fullSizeJPGCache: FullSizeJPGDiskCache? = nil,
-        tracksEvictions: Bool = true,
     ) {
         self.diskCache = diskCache ?? DiskCacheManager()
         self.fullSizeJPGCache = fullSizeJPGCache ?? FullSizeJPGDiskCache()
-        self.tracksEvictions = tracksEvictions
         // Logger.process.debugMessageOnly("SharedMemoryCache: init() complete")
     }
 
@@ -229,10 +210,8 @@ actor SharedMemoryCache {
         // values; CachedThumbnail no longer adopts that protocol, so the setting
         // would be a no-op. Eviction is driven by totalCostLimit / countLimit and
         // the explicit `handleMemoryPressureEvent` handler.
-        memoryCache.delegate = tracksEvictions ? CacheDelegate.shared : nil
         gridThumbnailCache.totalCostLimit = config.gridTotalCostLimit
         gridThumbnailCache.countLimit = 3000
-        gridThumbnailCache.delegate = tracksEvictions ? CacheDelegate.shared : nil
         // let totalCostMB = config.totalCostLimit / (1024 * 1024)
 
         /*
@@ -309,13 +288,9 @@ actor SharedMemoryCache {
         case .critical:
             setCurrentPressureLevel(.critical)
             logMemoryPressure("CRITICAL: Memory pressure critical, clearing cache")
-            memoryCache.removeAllObjects()
+            removeAllObjects()
             memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB minimum
-            _memCost.withLock { $0 = 0 }
-            _memCount.withLock { $0 = 0 }
-            gridThumbnailCache.removeAllObjects()
-            _gridCost.withLock { $0 = 0 }
-            _gridCount.withLock { $0 = 0 }
+            removeAllGridObjects()
             Task {
                 await fileHandlers?.memorypressurewarning(true)
             }
@@ -336,33 +311,19 @@ actor SharedMemoryCache {
     }
 
     nonisolated func setObject(_ obj: CachedThumbnail, forKey key: ThumbnailCacheKey, cost: Int) {
-        let memoryKey = key.memoryCacheKey
-        if let existing = memoryCache.object(forKey: memoryKey) {
-            _memCost.withLock { $0 = max(0, $0 - existing.cost) }
-            _memCount.withLock { $0 = max(0, $0 - 1) }
-        }
-        memoryCache.setObject(obj, forKey: memoryKey, cost: cost)
-        _memCost.withLock { $0 += cost }
-        _memCount.withLock { $0 += 1 }
+        memoryCache.setObject(obj, forKey: key.memoryCacheKey, cost: cost)
     }
 
     nonisolated func removeAllObjects() {
         memoryCache.removeAllObjects()
-        _memCost.withLock { $0 = 0 }
-        _memCount.withLock { $0 = 0 }
     }
 
     nonisolated func getMemoryCacheCurrentCost() -> Int {
-        _memCost.withLock { $0 }
+        memoryCache.currentCost
     }
 
     nonisolated func getMemoryCacheCount() -> Int {
-        _memCount.withLock { $0 }
-    }
-
-    nonisolated func memEntryEvicted(cost: Int) {
-        _memCost.withLock { $0 = max(0, $0 - cost) }
-        _memCount.withLock { $0 = max(0, $0 - 1) }
+        memoryCache.currentCount
     }
 
     nonisolated func gridObject(forKey key: ThumbnailCacheKey) -> CachedThumbnail? {
@@ -370,33 +331,19 @@ actor SharedMemoryCache {
     }
 
     nonisolated func setGridObject(_ obj: CachedThumbnail, forKey key: ThumbnailCacheKey, cost: Int) {
-        let memoryKey = key.memoryCacheKey
-        if let existing = gridThumbnailCache.object(forKey: memoryKey) {
-            _gridCost.withLock { $0 = max(0, $0 - existing.cost) }
-            _gridCount.withLock { $0 = max(0, $0 - 1) }
-        }
-        gridThumbnailCache.setObject(obj, forKey: memoryKey, cost: cost)
-        _gridCost.withLock { $0 += cost }
-        _gridCount.withLock { $0 += 1 }
+        gridThumbnailCache.setObject(obj, forKey: key.memoryCacheKey, cost: cost)
     }
 
     nonisolated func removeAllGridObjects() {
         gridThumbnailCache.removeAllObjects()
-        _gridCost.withLock { $0 = 0 }
-        _gridCount.withLock { $0 = 0 }
     }
 
     nonisolated func getGridCacheCurrentCost() -> Int {
-        _gridCost.withLock { $0 }
+        gridThumbnailCache.currentCost
     }
 
     nonisolated func getGridCacheCount() -> Int {
-        _gridCount.withLock { $0 }
-    }
-
-    nonisolated func gridEntryEvicted(cost: Int) {
-        _gridCost.withLock { $0 = max(0, $0 - cost) }
-        _gridCount.withLock { $0 = max(0, $0 - 1) }
+        gridThumbnailCache.currentCount
     }
 
     func getDiskCacheSize() async -> Int {
@@ -421,11 +368,6 @@ actor SharedMemoryCache {
 
         await diskCache.pruneCache(maxAgeInDays: 0)
         await fullSizeJPGCache.pruneCache(maxAgeInDays: 0)
-
-        _memCost.withLock { $0 = 0 }
-        _memCount.withLock { $0 = 0 }
-        _gridCost.withLock { $0 = 0 }
-        _gridCount.withLock { $0 = 0 }
     }
 
     #if DEBUG

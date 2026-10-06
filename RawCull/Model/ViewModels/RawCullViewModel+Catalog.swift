@@ -15,18 +15,29 @@ extension RawCullViewModel {
         }
 
         let previousSource = currentSelectedSource
-        catalogTransitionTask?.cancel()
+        cancelCatalogTransition()
+        let generation = catalogTransitionGeneration
         catalogTransitionTask = Task {
-            guard await cullingModel.flushPersistence() else {
-                if selectedSource == source {
-                    selectedSource = previousSource
+            defer {
+                if catalogTransitionGeneration == generation {
+                    catalogTransitionTask = nil
                 }
+            }
+            let didFlush = await cullingModel.flushPersistence()
+            guard !Task.isCancelled, catalogTransitionGeneration == generation,
+                  selectedSource == source else { return }
+            guard didFlush else {
+                selectedSource = previousSource
                 return
             }
-            guard !Task.isCancelled, selectedSource == source else { return }
             beginCatalogLoad(for: source)
-            catalogTransitionTask = nil
         }
+    }
+
+    private func cancelCatalogTransition() {
+        catalogTransitionGeneration &+= 1
+        catalogTransitionTask?.cancel()
+        catalogTransitionTask = nil
     }
 
     private func beginCatalogLoad(for source: ARWSourceCatalog?) {
@@ -34,7 +45,7 @@ extension RawCullViewModel {
         selectedFileID = nil
         selectedFileIDs = []
 
-        cancelCatalogLoad()
+        cancelCurrentCatalogLoad()
         similarityCatalogGeneration &+= 1
         currentSelectedSource = source
         resetCatalogWorkingSet()
@@ -51,13 +62,22 @@ extension RawCullViewModel {
         }
 
         activeCatalogLoadURL = url
+        let access = RawCullCatalogAccess.shared.retainAccess(for: [url])
         catalogLoadTask = Task(priority: .background) {
+            defer { withExtendedLifetime(access) {} }
             await self.handleSourceChange(url: url)
         }
     }
 
     func cancelCatalogLoad() {
         Logger.process.debugMessageOnly("RawCullViewModel.cancelCatalogLoad()")
+        cancelCatalogTransition()
+        cancelCurrentCatalogLoad()
+    }
+
+    private func cancelCurrentCatalogLoad() {
+        sortGeneration &+= 1
+        isSorting = false
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
         similarityFeature.cancelHydration()
@@ -217,11 +237,24 @@ extension RawCullViewModel {
 
     func handleSortOrderChange() async {
         Logger.process.debugMessageOnly("RawCullViewModel.handleSortOrderChange()")
+        sortGeneration &+= 1
+        let generation = sortGeneration
+        let catalog = currentSimilarityCatalogSnapshot.identity
+        let source = selectedSource
+        let order = sortOrder
+        let text = searchText
         isSorting = true
-        let sorted = await ScanFiles.sortFiles(files, by: sortOrder, searchText: searchText)
+        defer {
+            if sortGeneration == generation {
+                isSorting = false
+            }
+        }
+        let sorted = await sortFiles(files, order, text)
+        guard !Task.isCancelled, sortGeneration == generation,
+              currentSimilarityCatalogSnapshot.identity == catalog,
+              selectedSource == source, sortOrder == order, searchText == text else { return }
         catalogDisplayCandidates = sorted
-        filteredFiles = applyFilters(to: catalogDisplayCandidates)
-        isSorting = false
+        filteredFiles = applyFilters(to: sorted)
     }
 
     /// Snapshot the current non-semantic catalog ordering and metadata

@@ -6,6 +6,30 @@ import Testing
 @MainActor
 struct RawCullViewModelSecurityScopeTests {
     @Test
+    func `Worker grant survives switching roots and releases exactly once`() async throws {
+        let model = makeRawCullViewModel()
+        let first = URL(filePath: "/tmp/grant-" + UUID().uuidString).standardizedFileURL
+        let second = URL(filePath: "/tmp/grant-" + UUID().uuidString).standardizedFileURL
+        var stops: [URL] = []
+        model.startSecurityScopedResource = { _ in true }
+        model.stopSecurityScopedResource = { stops.append($0) }
+        #expect(model.startSecurityScopedAccess(for: first))
+        let release = CatalogTestGate()
+        let worker = Task { [access = RawCullCatalogAccess.shared.retainAccess(for: [first])] in
+            await release.wait()
+            withExtendedLifetime(access) {}
+        }
+        #expect(model.startSecurityScopedAccess(for: second))
+        #expect(stops.isEmpty)
+        release.open()
+        await worker.value
+        #expect(stops == [first])
+        model.stopActiveSecurityScopedAccess()
+        model.stopActiveSecurityScopedAccess()
+        #expect(stops == [first, second])
+    }
+
+    @Test
     func `starting same active catalog does not duplicate security scoped access`() {
         let viewModel = makeRawCullViewModel()
         let url = URL(fileURLWithPath: "/tmp/rawcull-catalog-a", isDirectory: true)

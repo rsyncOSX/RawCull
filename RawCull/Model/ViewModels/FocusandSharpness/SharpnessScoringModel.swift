@@ -158,7 +158,9 @@ final class SharpnessScoringModel {
         }
         let calibrationConfig = effectiveFocusConfig
 
+        let access = RawCullCatalogAccess.shared.retainAccess(for: files.map(\.url))
         let task = Task { [weak self] in
+            defer { withExtendedLifetime(access) {} }
             guard let self, !Task.isCancelled else { return false }
             guard let result = await focusMaskModel.calibrateAndApplyFromBurstParallel(
                 files: fileEntries,
@@ -256,7 +258,9 @@ final class SharpnessScoringModel {
             )
         }
 
+        let access = RawCullCatalogAccess.shared.retainAccess(for: files.map(\.url))
         let workTask = Task {
+            defer { withExtendedLifetime(access) {} }
             defer {
                 if self.activeScoringGeneration == generation {
                     Logger.process.debugMessageOnly(

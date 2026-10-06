@@ -1,5 +1,10 @@
 # Local release integration
 
+Release baseline: **RawCull 3.2.9**, using the resolved `coreai-models` revision
+`52c84ba874b2c57adcede08a671ce96ed1b3f433`. Both release test plans use
+the project’s `Package.resolved`; the complete dependency pins are documented
+in the [main README](../README.md).
+
 Run from the repository root:
 
 ```sh

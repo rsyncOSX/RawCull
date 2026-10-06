@@ -34,11 +34,18 @@ nonisolated enum RawImageLoadingConstants {
     static let jpegExtension = RawParserKit.SupportedFileType.jpg.rawValue
 }
 
+/// Parser reads own their grant until completion. Cancelling a UI waiter may
+/// discard the result, but does not release access while native I/O is running.
 nonisolated struct RawParserKitImageLoader: RawImageLoading {
     static let shared = RawParserKitImageLoader()
 
     func fileMetadata(for url: URL) async -> RawImageFileMetadata? {
-        guard let metadata = await RawParserKit.RawImageLoader.shared.metadata(for: url) else { return nil }
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        let read = Task {
+            defer { withExtendedLifetime(access) {} }
+            return await RawParserKit.RawImageLoader.shared.metadata(for: url)
+        }
+        guard let metadata = await read.value, !Task.isCancelled else { return nil }
         let exifMetadata = ExifMetadata(
             shutterSpeed: metadata.exposure,
             exposureTimeSeconds: metadata.exposureTimeSeconds,
@@ -69,21 +76,33 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
     }
 
     func thumbnailCGImage(for url: URL, maxPixelSize: Int) async -> CGImage? {
-        await RawParserKit.RawImageLoader.shared.thumbnailCGImage(
-            for: url,
-            maxPixelSize: maxPixelSize,
-        )
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        let read = Task {
+            defer { withExtendedLifetime(access) {} }
+            return await RawParserKit.RawImageLoader.shared.thumbnailCGImage(for: url, maxPixelSize: maxPixelSize)
+        }
+        let image = await read.value
+        return Task.isCancelled ? nil : image
     }
 
     func thumbnailImage(for url: URL, maxPixelSize: Int) async -> NSImage? {
-        await RawParserKit.RawImageLoader.shared.thumbnail(
-            for: url,
-            maxPixelSize: maxPixelSize,
-        )
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        let read = Task {
+            defer { withExtendedLifetime(access) {} }
+            return await RawParserKit.RawImageLoader.shared.thumbnail(for: url, maxPixelSize: maxPixelSize)
+        }
+        let image = await read.value
+        return Task.isCancelled ? nil : image
     }
 
     func previewCGImage(for url: URL) async -> CGImage? {
-        await RawParserKit.RawImageLoader.shared.previewImage(for: url)
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        let read = Task {
+            defer { withExtendedLifetime(access) {} }
+            return await RawParserKit.RawImageLoader.shared.previewImage(for: url)
+        }
+        let image = await read.value
+        return Task.isCancelled ? nil : image
     }
 
     /// Returns the camera-authored JPEG bytes only when they match the preview
@@ -95,6 +114,8 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
         matchingPixelWidth pixelWidth: Int,
         height pixelHeight: Int,
     ) async -> Data? {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        defer { withExtendedLifetime(access) {} }
         guard !Task.isCancelled else { return nil }
 
         switch url.pathExtension.lowercased() {
@@ -172,10 +193,58 @@ nonisolated enum RAW9Support {
 
     @concurrent
     static func isSupported(for url: URL) async -> Bool {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        defer { withExtendedLifetime(access) {} }
         guard !Task.isCancelled, !SupportedFileType.isRenderedImage(url) else { return false }
         return autoreleasepool {
             guard let filter = CIRAWFilter(imageURL: url) else { return false }
             return preferredVersion(in: filter.supportedDecoderVersions) != nil
         }
+    }
+}
+
+/// A catalog grant is released only after the session and every worker let go.
+@MainActor
+final class RawCullCatalogGrant {
+    let url: URL
+    private let stopAccess: @MainActor (URL) -> Void
+
+    init(url: URL, stopAccess: @escaping @MainActor (URL) -> Void) {
+        self.url = url.standardizedFileURL
+        self.stopAccess = stopAccess
+    }
+
+    isolated deinit { stopAccess(url) }
+}
+
+/// Weak registration lets decoders find a root without extending session lifetime.
+/// Active batches retain their grants, allowing later files in the batch to load
+/// after catalog navigation releases the session's reference.
+@MainActor
+final class RawCullCatalogAccess {
+    static let shared = RawCullCatalogAccess()
+    private struct Registration {
+        weak var grant: RawCullCatalogGrant?
+    }
+
+    private var roots: [URL: Registration] = [:]
+
+    func register(_ grant: RawCullCatalogGrant) {
+        roots = roots.filter { $0.value.grant != nil }
+        roots[grant.url] = Registration(grant: grant)
+    }
+
+    func retainAccess(for urls: [URL]) -> [RawCullCatalogGrant] {
+        let grants = roots.values.compactMap(\.grant)
+        var retained: [URL: RawCullCatalogGrant] = [:]
+        for url in urls {
+            let path = url.standardizedFileURL.pathComponents
+            if let grant = grants.filter({ path.starts(with: $0.url.pathComponents) })
+                .max(by: { $0.url.pathComponents.count < $1.url.pathComponents.count })
+            {
+                retained[grant.url] = grant
+            }
+        }
+        return Array(retained.values)
     }
 }

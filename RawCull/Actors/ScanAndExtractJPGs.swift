@@ -49,7 +49,9 @@ actor ScanAndExtractJPGs {
         Logger.process.debugMessageOnly("ScanAndExtractJPGs.extractCatalogJPGs()")
         cancelExtraction()
 
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: urls)
         let task = Task<Int, Never> {
+            defer { withExtendedLifetime(access) {} }
             completedCount = 0
             processingTimes = []
             lastItemTime = nil

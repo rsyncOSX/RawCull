@@ -86,7 +86,9 @@ actor ExtractAndSaveJPGs {
         cancelExtractJPGSTask()
 
         if let filteredFilesURLs {
+            let access = await RawCullCatalogAccess.shared.retainAccess(for: filteredFilesURLs)
             let task = Task {
+                defer { withExtendedLifetime(access) {} }
                 successCount = 0
                 completedCount = 0
                 failures = []

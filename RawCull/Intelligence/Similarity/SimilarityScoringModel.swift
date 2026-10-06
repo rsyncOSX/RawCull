@@ -605,8 +605,10 @@ final class SimilarityScoringModel {
             thumbnailMaxPixelSize: thumbnailMaxPixelSize,
             pipelineVersion: Self.embeddingPipelineVersion,
         )
+        let access = RawCullCatalogAccess.shared.retainAccess(for: toIndex.map(\.url))
         let workTask = Task<SimilarityIndexingTaskResult, Never> {
             @concurrent [weak self] in
+            defer { withExtendedLifetime(access) {} }
             do {
                 let output = try await service.index(
                     sources: sources,

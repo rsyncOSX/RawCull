@@ -80,6 +80,12 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var searchText = ""
     var selectedFileID: FileItem.ID?
     var previouslySelectedFileID: FileItem.ID?
+    @ObservationIgnored var sortGeneration: UInt64 = 0
+    @ObservationIgnored var sortFiles: @MainActor (
+        [FileItem], FileItemSortDescriptor, String,
+    ) async -> [FileItem] = { files, order, text in
+        await ScanFiles.sortFiles(files, by: order, searchText: text)
+    }
     var sortOrder = FileItemSortDescriptor()
     var isShowingPicker = false
     var showsLoupeMetadataPanel = true
@@ -186,10 +192,11 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var isPreparingBurstCatalog = false
     @ObservationIgnored var burstCatalogPreparationGeneration = 0
 
-    /// Currently selected catalog for which startAccessingSecurityScopedResource()
-    /// has succeeded. Access is scoped to the active catalog, not every catalog
-    /// ever added to the sidebar.
-    @ObservationIgnored private var activeSecurityScopedURL: URL?
+    /// Workers retain this grant independently when the active session changes.
+    @ObservationIgnored private var activeSecurityScopedGrant: RawCullCatalogGrant?
+    private var activeSecurityScopedURL: URL? {
+        activeSecurityScopedGrant?.url
+    }
 
     @ObservationIgnored var startSecurityScopedResource: @MainActor (URL) -> Bool = {
         $0.startAccessingSecurityScopedResource()
@@ -229,6 +236,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
     @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
+    @ObservationIgnored var catalogTransitionGeneration: UInt64 = 0
     @ObservationIgnored var activeCatalogLoadURL: URL?
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
     /// Full name-sorted/search-filtered catalog projection before rating,
@@ -364,6 +372,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @discardableResult
     func startSecurityScopedAccess(for url: URL) -> Bool {
         Logger.process.debugMessageOnly("RawCullViewModel.startSecurityScopedAccess()")
+        let url = url.standardizedFileURL
         if activeSecurityScopedURL == url {
             return true
         }
@@ -374,19 +383,19 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
             return false
         }
 
-        activeSecurityScopedURL = url
+        let grant = RawCullCatalogGrant(url: url, stopAccess: stopSecurityScopedResource)
+        activeSecurityScopedGrant = grant
+        RawCullCatalogAccess.shared.register(grant)
         return true
     }
 
     func hasActiveSecurityScopedAccess(for url: URL) -> Bool {
-        activeSecurityScopedURL == url
+        activeSecurityScopedURL == url.standardizedFileURL
     }
 
     func stopActiveSecurityScopedAccess() {
         Logger.process.debugMessageOnly("RawCullViewModel.stopActiveSecurityScopedAccess()")
-        guard let url = activeSecurityScopedURL else { return }
-        stopSecurityScopedResource(url)
-        activeSecurityScopedURL = nil
+        activeSecurityScopedGrant = nil
     }
 
     isolated deinit {
