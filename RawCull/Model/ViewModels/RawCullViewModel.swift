@@ -82,7 +82,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     var previouslySelectedFileID: FileItem.ID?
     @ObservationIgnored var sortGeneration: UInt64 = 0
     @ObservationIgnored var sortFiles: @MainActor (
-        [FileItem], FileItemSortDescriptor, String
+        [FileItem], FileItemSortDescriptor, String,
     ) async -> [FileItem] = { files, order, text in
         await ScanFiles.sortFiles(files, by: order, searchText: text)
     }
@@ -194,7 +194,9 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
 
     /// Workers retain this grant independently when the active session changes.
     @ObservationIgnored private var activeSecurityScopedGrant: RawCullCatalogGrant?
-    private var activeSecurityScopedURL: URL? { activeSecurityScopedGrant?.url }
+    private var activeSecurityScopedURL: URL? {
+        activeSecurityScopedGrant?.url
+    }
 
     @ObservationIgnored var startSecurityScopedResource: @MainActor (URL) -> Bool = {
         $0.startAccessingSecurityScopedResource()

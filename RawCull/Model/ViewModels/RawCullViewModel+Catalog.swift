@@ -19,7 +19,9 @@ extension RawCullViewModel {
         let generation = catalogTransitionGeneration
         catalogTransitionTask = Task {
             defer {
-                if catalogTransitionGeneration == generation { catalogTransitionTask = nil }
+                if catalogTransitionGeneration == generation {
+                    catalogTransitionTask = nil
+                }
             }
             let didFlush = await cullingModel.flushPersistence()
             guard !Task.isCancelled, catalogTransitionGeneration == generation,
@@ -243,7 +245,9 @@ extension RawCullViewModel {
         let text = searchText
         isSorting = true
         defer {
-            if sortGeneration == generation { isSorting = false }
+            if sortGeneration == generation {
+                isSorting = false
+            }
         }
         let sorted = await sortFiles(files, order, text)
         guard !Task.isCancelled, sortGeneration == generation,

@@ -243,7 +243,7 @@ struct QwenFeatureTests {
                     started.open()
                 }
                 await release.wait()
-            })
+            }),
         )
         feature.updateModelStatus(.available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
         let files = [makeFile(name: folder + "/first.ARW"), makeFile(name: folder + "/second.ARW")]

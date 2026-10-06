@@ -226,6 +226,7 @@ final class RawCullCatalogAccess {
     private struct Registration {
         weak var grant: RawCullCatalogGrant?
     }
+
     private var roots: [URL: Registration] = [:]
 
     func register(_ grant: RawCullCatalogGrant) {
@@ -239,7 +240,8 @@ final class RawCullCatalogAccess {
         for url in urls {
             let path = url.standardizedFileURL.pathComponents
             if let grant = grants.filter({ path.starts(with: $0.url.pathComponents) })
-                .max(by: { $0.url.pathComponents.count < $1.url.pathComponents.count }) {
+                .max(by: { $0.url.pathComponents.count < $1.url.pathComponents.count })
+            {
                 retained[grant.url] = grant
             }
         }

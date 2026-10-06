@@ -17,8 +17,11 @@ struct CatalogConcurrencyTests {
         var calls = 0
         model.sortFiles = { files, _, _ in
             calls += 1
-            if calls == 1 { firstStarted.open(); await firstRelease.wait() }
-            else { secondStarted.open(); await secondRelease.wait() }
+            if calls == 1 {
+                firstStarted.open(); await firstRelease.wait()
+            } else {
+                secondStarted.open(); await secondRelease.wait()
+            }
             return files
         }
         model.files = [old]
@@ -53,7 +56,9 @@ struct CatalogConcurrencyTests {
         if switchCatalog {
             model.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
             model.similarityCatalogGeneration &+= 1
-        } else { task.cancel() }
+        } else {
+            task.cancel()
+        }
         release.open()
         await task.value
         #expect(model.filteredFiles.isEmpty)
@@ -70,8 +75,10 @@ struct CatalogConcurrencyTests {
             saveHandler: { _ in
                 await started.open()
                 await release.wait()
-                if fails { throw CocoaError(.fileWriteUnknown) }
-            }
+                if fails {
+                    throw CocoaError(.fileWriteUnknown)
+                }
+            },
         )
         let old = ARWSourceCatalog(name: "old", url: URL(filePath: "/tmp/old"))
         let new = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
@@ -101,14 +108,19 @@ final class CatalogTestGate {
     private var opened = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
     func wait() async {
-        if opened { return }
+        if opened {
+            return
+        }
         await withCheckedContinuation { waiters.append($0) }
     }
+
     func open() {
         opened = true
         let pending = waiters
         waiters.removeAll()
-        for waiter in pending { waiter.resume() }
+        for waiter in pending {
+            waiter.resume()
+        }
     }
 }
 
