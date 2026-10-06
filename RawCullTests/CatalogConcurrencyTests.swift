@@ -5,6 +5,61 @@ import Testing
 
 @MainActor
 struct CatalogConcurrencyTests {
+    @Test
+    func `Old sort cannot publish or finish a newer sort`() async {
+        let model = makeRawCullViewModel()
+        let firstStarted = CatalogTestGate()
+        let secondStarted = CatalogTestGate()
+        let firstRelease = CatalogTestGate()
+        let secondRelease = CatalogTestGate()
+        let old = catalogTestFile("old.arw")
+        let new = catalogTestFile("new.arw")
+        var calls = 0
+        model.sortFiles = { files, _, _ in
+            calls += 1
+            if calls == 1 { firstStarted.open(); await firstRelease.wait() }
+            else { secondStarted.open(); await secondRelease.wait() }
+            return files
+        }
+        model.files = [old]
+        let first = Task { await model.handleSortOrderChange() }
+        await firstStarted.wait()
+        model.files = [new]
+        let second = Task { await model.handleSortOrderChange() }
+        await secondStarted.wait()
+        firstRelease.open()
+        await first.value
+        #expect(model.filteredFiles.isEmpty)
+        #expect(model.isSorting)
+        secondRelease.open()
+        await second.value
+        #expect(model.filteredFiles.map(\.id) == [new.id])
+        #expect(!model.isSorting)
+    }
+
+    @Test(arguments: [false, true])
+    func `Cancelled or catalog-stale sort cannot publish`(switchCatalog: Bool) async {
+        let model = makeRawCullViewModel()
+        let started = CatalogTestGate()
+        let release = CatalogTestGate()
+        model.files = [catalogTestFile("old.arw")]
+        model.sortFiles = { files, _, _ in
+            started.open()
+            await release.wait()
+            return files
+        }
+        let task = Task { await model.handleSortOrderChange() }
+        await started.wait()
+        if switchCatalog {
+            model.selectedSource = ARWSourceCatalog(name: "new", url: URL(filePath: "/tmp/new"))
+            model.similarityCatalogGeneration &+= 1
+        } else { task.cancel() }
+        release.open()
+        await task.value
+        #expect(model.filteredFiles.isEmpty)
+        #expect(!model.isSorting)
+    }
+
     @Test(arguments: [false, true])
     func `Abort invalidates a pending transition even when persistence fails`(fails: Bool) async throws {
         let viewModel = makeRawCullViewModel()
@@ -55,4 +110,10 @@ final class CatalogTestGate {
         waiters.removeAll()
         for waiter in pending { waiter.resume() }
     }
+}
+
+@MainActor
+private func catalogTestFile(_ name: String) -> FileItem {
+    FileItem(url: URL(filePath: "/tmp/" + name), name: name, size: 1,
+             dateModified: Date(), exifData: nil, afFocusNormalized: nil)
 }
