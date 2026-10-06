@@ -98,7 +98,9 @@ extension RawCullViewModel {
         )
         currentExtractAndSaveJPGsActor = extract
 
+        let sourceAccess = RawCullCatalogAccess.shared.retainAccess(for: exportFiles.map(\.url))
         Task(priority: .background) {
+            defer { withExtendedLifetime(sourceAccess) {} }
             await extract.setFileHandlers(handlers)
             let result = await extract.extractAndSavejpgs()
 
@@ -145,7 +147,9 @@ extension RawCullViewModel {
         let actor = ScanAndExtractJPGs(urls: extractionFiles.map(\.url))
         currentScanAndExtractJPGsActor = actor
 
+        let access = RawCullCatalogAccess.shared.retainAccess(for: extractionFiles.map(\.url))
         jpgCacheWarmTask = Task(priority: .background) {
+            defer { withExtendedLifetime(access) {} }
             await actor.setFileHandlers(handlers)
             await actor.extractCatalogJPGs()
 

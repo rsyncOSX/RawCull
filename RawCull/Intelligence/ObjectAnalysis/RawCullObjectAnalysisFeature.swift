@@ -117,7 +117,9 @@ final class RawCullObjectAnalysisFeature {
         isRunning = true
         failureMessage = nil
         let feature = self
+        let access = RawCullCatalogAccess.shared.retainAccess(for: pending.map(\.url))
         let task = Task {
+            defer { withExtendedLifetime(access) {} }
             for (index, file) in pending.enumerated() {
                 guard !Task.isCancelled, feature.generation == runGeneration else { break }
                 feature.progress = ObjectAnalysisProgress(

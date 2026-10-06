@@ -220,6 +220,46 @@ struct QwenFeatureTests {
         #expect(await inference.assessmentCount() == 2)
     }
 
+    @MainActor
+    @Test
+    func `Batch retains catalog access for later files after navigation`() async throws {
+        let model = makeRawCullViewModel()
+        let folder = "qwen-grant-" + UUID().uuidString
+        let root = URL(filePath: "/tmp/" + folder).standardizedFileURL
+        let started = CatalogTestGate()
+        let release = CatalogTestGate()
+        var stops: [URL] = []
+        var reads = 0
+        model.startSecurityScopedResource = { _ in true }
+        model.stopSecurityScopedResource = { stops.append($0) }
+        #expect(model.startSecurityScopedAccess(for: root))
+        let feature = RawCullQwenAnalysisFeature(
+            inference: QwenInferenceStub(),
+            imageLoader: QwenImageLoaderStub(beforeRead: { url in
+                await MainActor.run {
+                    #expect(stops.isEmpty)
+                    #expect(RawCullCatalogAccess.shared.retainAccess(for: [url]).count == 1)
+                    reads += 1
+                    started.open()
+                }
+                await release.wait()
+            })
+        )
+        feature.updateModelStatus(.available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
+        let files = [makeFile(name: folder + "/first.ARW"), makeFile(name: folder + "/second.ARW")]
+        let task = Task { await feature.analyze(files) }
+        await started.wait()
+        model.stopActiveSecurityScopedAccess()
+        #expect(stops.isEmpty)
+        #expect(!model.hasActiveSecurityScopedAccess(for: root))
+        release.open()
+        await task.value
+        #expect(reads == 2)
+        #expect(feature.results.allSatisfy { $0.isSuccessful })
+        #expect(stops == [root])
+        #expect(RawCullCatalogAccess.shared.retainAccess(for: [root]).isEmpty)
+    }
+
     private func makeQwenBundle(
         tokenizer: String = "Qwen/Qwen3-4B",
         kind: String = "llm",
@@ -311,11 +351,13 @@ private actor QwenInferenceStub: QwenInferenceServing {
 }
 
 private struct QwenImageLoaderStub: RawImageLoading {
+    var beforeRead: @Sendable (URL) async -> Void = { _ in }
     func fileMetadata(for _: URL) async -> RawImageFileMetadata? {
         nil
     }
 
-    func thumbnailCGImage(for _: URL, maxPixelSize _: Int) async -> CGImage? {
+    func thumbnailCGImage(for url: URL, maxPixelSize _: Int) async -> CGImage? {
+        await beforeRead(url)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         return CGContext(
             data: nil,

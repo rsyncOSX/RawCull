@@ -60,7 +60,9 @@ extension RawCullViewModel {
         }
 
         activeCatalogLoadURL = url
+        let access = RawCullCatalogAccess.shared.retainAccess(for: [url])
         catalogLoadTask = Task(priority: .background) {
+            defer { withExtendedLifetime(access) {} }
             await self.handleSourceChange(url: url)
         }
     }

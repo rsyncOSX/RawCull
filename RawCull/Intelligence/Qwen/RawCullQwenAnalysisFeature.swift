@@ -63,7 +63,9 @@ final class RawCullQwenAnalysisFeature {
         isRunning = true
 
         let feature = self
+        let access = RawCullCatalogAccess.shared.retainAccess(for: pendingFiles.map(\.url))
         let task = Task {
+            defer { withExtendedLifetime(access) {} }
             var completed: [QwenPhotoAnalysisResult] = []
             for (index, file) in pendingFiles.enumerated() {
                 guard !Task.isCancelled, feature.generation == runGeneration else { break }

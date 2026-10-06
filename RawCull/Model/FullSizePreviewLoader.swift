@@ -28,6 +28,8 @@ nonisolated struct FullSizePreviewLoader: FullSizePreviewLoading {
     /// Keeps extraction and any fallback ImageIO JPEG recode off a UI caller's actor.
     @concurrent
     func loadEmbeddedPreview(for rawURL: URL) async -> CGImage? {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [rawURL])
+        defer { withExtendedLifetime(access) {} }
         let sidecarJPGURL = Self.sidecarJPEGURL(for: rawURL)
         let sidecarImage: CGImage? = await Task.detached(priority: .userInitiated) {
             guard FileManager.default.fileExists(atPath: sidecarJPGURL.path) else {

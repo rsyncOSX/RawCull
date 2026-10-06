@@ -286,7 +286,9 @@ final class DeepAIReviewFeature {
         )
 
         let feature = self
+        let access = RawCullCatalogAccess.shared.retainAccess(for: request.candidates.map(\.url))
         let task = Task {
+            defer { withExtendedLifetime(access) {} }
             do {
                 Logger.process.debugMessageOnly(
                     "DeepAIReviewFeature.start(): invoking the Deep Review service",

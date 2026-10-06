@@ -85,6 +85,7 @@ actor ScanAndCreateThumbnails {
 
     @discardableResult
     func preloadCatalog(at catalogURL: URL, targetSize: Int) async -> Int {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [catalogURL])
         Logger.process.debugMessageOnly("ScanAndCreateThumbnails.preloadCatalog()")
         await ensureReady()
         cancelPreload()
@@ -93,6 +94,7 @@ actor ScanAndCreateThumbnails {
         let gateID = await ThumbnailPreloadGate.shared.begin(catalogURL: catalogURL)
 
         let task = Task<Int, Never> {
+            defer { withExtendedLifetime(access) {} }
             successCount = 0
             completedCount = 0
             processingTimes = []
