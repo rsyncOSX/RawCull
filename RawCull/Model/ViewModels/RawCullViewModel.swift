@@ -229,6 +229,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     @ObservationIgnored var jpgCacheWarmTask: Task<Void, Never>?
     @ObservationIgnored var catalogLoadTask: Task<Void, Never>?
     @ObservationIgnored var catalogTransitionTask: Task<Void, Never>?
+    @ObservationIgnored var catalogTransitionGeneration: UInt64 = 0
     @ObservationIgnored var activeCatalogLoadURL: URL?
     @ObservationIgnored var similarityCatalogGeneration: UInt64 = 0
     /// Full name-sorted/search-filtered catalog projection before rating,

@@ -15,18 +15,27 @@ extension RawCullViewModel {
         }
 
         let previousSource = currentSelectedSource
-        catalogTransitionTask?.cancel()
+        cancelCatalogTransition()
+        let generation = catalogTransitionGeneration
         catalogTransitionTask = Task {
-            guard await cullingModel.flushPersistence() else {
-                if selectedSource == source {
-                    selectedSource = previousSource
-                }
+            defer {
+                if catalogTransitionGeneration == generation { catalogTransitionTask = nil }
+            }
+            let didFlush = await cullingModel.flushPersistence()
+            guard !Task.isCancelled, catalogTransitionGeneration == generation,
+                  selectedSource == source else { return }
+            guard didFlush else {
+                selectedSource = previousSource
                 return
             }
-            guard !Task.isCancelled, selectedSource == source else { return }
             beginCatalogLoad(for: source)
-            catalogTransitionTask = nil
         }
+    }
+
+    private func cancelCatalogTransition() {
+        catalogTransitionGeneration &+= 1
+        catalogTransitionTask?.cancel()
+        catalogTransitionTask = nil
     }
 
     private func beginCatalogLoad(for source: ARWSourceCatalog?) {
@@ -34,7 +43,7 @@ extension RawCullViewModel {
         selectedFileID = nil
         selectedFileIDs = []
 
-        cancelCatalogLoad()
+        cancelCurrentCatalogLoad()
         similarityCatalogGeneration &+= 1
         currentSelectedSource = source
         resetCatalogWorkingSet()
@@ -58,6 +67,11 @@ extension RawCullViewModel {
 
     func cancelCatalogLoad() {
         Logger.process.debugMessageOnly("RawCullViewModel.cancelCatalogLoad()")
+        cancelCatalogTransition()
+        cancelCurrentCatalogLoad()
+    }
+
+    private func cancelCurrentCatalogLoad() {
         catalogLoadTask?.cancel()
         catalogLoadTask = nil
         similarityFeature.cancelHydration()
