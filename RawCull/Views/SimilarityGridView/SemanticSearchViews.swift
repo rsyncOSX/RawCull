@@ -244,7 +244,9 @@ private struct SemanticSearchActivityStatusView: View {
     var body: some View {
         switch activity {
         case .idle:
-            coverageStatus
+            if !coverage.isComplete {
+                coverageStatus
+            }
 
         case let .indexing(completed, total, phase):
             Label("Catalog setup continues in Burst Groups below.", systemImage: "arrow.down.circle")
@@ -281,20 +283,12 @@ private struct SemanticSearchActivityStatusView: View {
 
     private var coverageStatus: some View {
         HStack(spacing: 6) {
-            Image(
-                systemName: coverage.isComplete
-                    ? "checkmark.circle.fill"
-                    : "exclamationmark.circle",
-            )
-            .foregroundStyle(
-                coverage.isComplete ? .green : .orange,
-            )
+            Image(systemName: "exclamationmark.circle")
+            .foregroundStyle(.orange)
             .accessibilityHidden(true)
 
             if coverage.catalogFileCount == 0 {
                 Text("Open a catalog to index images for semantic search.")
-            } else if coverage.excludedFileCount == 0 {
-                Text("All catalog images have compatible CLIP artifacts.")
             } else {
                 Text(
                     "\(coverage.excludedFileCount) catalog images are not yet searchable.",
