@@ -1,0 +1,11 @@
+{
+  "estimatedWorkingBytes" : 1920000000,
+  "initialProcessHighWaterBytes" : 326516736,
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "physicalMemoryBytes" : 19327352832,
+  "processHighWaterBytes" : 1001422848,
+  "retainedImageBytes" : 107182080,
+  "scope" : "Synthetic full raster, test host and fixture allocation included; no models or RAW demosaic",
+  "sourceHeight" : 4000,
+  "sourceWidth" : 6000
+}

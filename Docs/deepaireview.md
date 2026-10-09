@@ -1,7 +1,7 @@
 # Combined Deep AI Review implementation plan
 
 Date: 9 October 2026  
-Status: phase 1 completed on 9 October 2026; phase 2 is next. Combined Review feature delivery is planned in phase 4.
+Status: phases 1–2 completed on 9 October 2026; phase 3 is next. Combined Review feature delivery is planned in phase 4.
 
 ## 1. Objective and guiding decision
 
@@ -371,7 +371,7 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 
 ### Phase 2 — build the source and coordinate foundation
 
-**Dependencies: phase 1 geometry gate. Milestone: reproducible source-space crops.**
+**Status: complete, 9 October 2026. Dependencies: phase 1 geometry gate. Milestone: reproducible source-space crops.**
 
 1. Introduce a review source service independent of grid thumbnails, returning normalized orientation, source identity/fidelity, dimensions, color/render policy, and coordinate transforms.
 2. Reuse preview/RAW decoding; keep technical and appearance renders distinct, with explicit unsupported RAW fallback. Verify ICC, gamut, HDR, and orientation fixtures. Record technical sharpening/noise settings.
@@ -379,6 +379,9 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 4. Add deterministic round-trip, bounds, aspect-ratio, source-fidelity, and policy-isolation checks. Measure one full-source working set before admitting large RAWs.
 
 **Exit gate:** crops originate from the best declared source, intended pixels survive verified preprocessing, and every coordinate round trip passes. No synthesis or quality claims yet.
+
+**Delivered:** an independent immutable review-source service, embedded-only camera preview extraction, separately identified appearance/technical RAW recipes, sRGB/SDR normalization, source admission guards, all-eight-orientation transforms, mask/overview mapping, source crops with padding/clipping and stable IDs, effective encoder scale/coverage traces, and lossless input retention hooks. Twelve deterministic source contracts pass, including actual pinned Qwen/CLIP preprocessing, ICC pixel conversion, HDR source loading, cancellation, and explicit RAW fallback. `make test-smoke` passes with 270 enumerated identifiers (269 passed, one expected opt-in skip). The [source-contract decision](combined-review-source-contract.md) records geometry sign-off, measured 24 MP working-set evidence, and remaining RAW-format/resource qualification limits. Cross-render camera-preview-to-RAW registration remains explicitly unavailable; larger RAWs are rejected by default until measured. Phase 3 may proceed with these declared source contracts.
+
 
 ### Phase 3 — define run, evidence, storage, and budgets
 
