@@ -73,6 +73,17 @@ Trace one diagnostic request through decoding, crop extraction, app preparation,
 
 Inspect aspect-ratio handling with a synthetic image containing a circle, corner markers, and a regular grid. Test landscape, portrait, square, and extreme aspect ratios. Determine whether the selected bundle expects stretch, center crop, or padding. Do not replace that strategy casually: model conversion and training assumptions may matter.
 
+Add an equivalent CLIP descriptor at its provider boundary: model/asset fingerprint and runtime version, actual encoder dimensions and tensor layout, resize/crop/pad geometry, channel order, color conversion and normalization, embedding dimensions and normalization, and text tokenizer/truncation limits. Record vision patch/token counts where exposed; otherwise mark them unknown (CLIP has no Qwen-style generation context/output budget). Trace overview and crop inputs through the actual CLIP preprocessor using the same geometry fixtures, inspect compiled input descriptors, and verify finite, repeatable embeddings. Persist the descriptor with CLIP evidence.
+
+**Owner and gate:** the engineer implementing provider/runtime diagnostics owns Phase A; the source/crop implementer reviews the evidence. Record the model fingerprints, dependency revision, fixture outputs, and reviewer decision in a diagnostic report. Phase B source/crop implementation cannot begin until this checklist passes:
+
+- Qwen and CLIP metadata agree with observed encoder inputs and compiled descriptors.
+- Orientation and all four aspect-ratio fixtures have recorded, reproducible transforms.
+- One-image Qwen behavior and bounded context/output handling are verified.
+- Unsupported or unknown capabilities are explicitly recorded; required geometry cannot be unknown. A missing CLIP provider requires a signed-off degraded mode that disables CLIP evidence.
+
+Independent decoder inspection and fixture preparation may proceed while this gate is pending. Re-run the affected checks after model or preprocessing changes.
+
 Acceptance: the app can state exactly what dimensions the encoder receives for the selected model and show which original pixels survived preprocessing. Unknown capabilities must remain explicit.
 
 ## 5. Phase B: create a consistent, high-quality source
@@ -90,6 +101,18 @@ Use separate, recorded render policies for technical detail and photographic app
 
 - Technical detail: controlled RAW processing; avoid added sharpening that would bias the measurement. Preserve existing scoring behavior initially and document its parameters.
 - Appearance: a consistent, color-managed display render used for composition/exposure critique.
+
+Select policies explicitly per request; never mutate a shared render in place. Cache keys include the policy and its parameters. Use this stage matrix:
+
+| Stage | Render policy | Rule |
+| --- | --- | --- |
+| 1: source preparation | Both as needed | Produce separately identified sources with one coordinate system |
+| 2: Qwen overview | Appearance | Composition, exposure, and discovery |
+| 3: SAM masks | Appearance | Map masks to source before technical measurements |
+| 4: measured detail / CLIP | Technical / appearance respectively | CLIP overview and matching crops use consistent appearance preprocessing |
+| 5: Qwen crops | Appearance by default; technical for detail questions | Label render and purpose; technical crops cannot establish appearance/exposure claims |
+| 6: follow-up | Policy matching the question | A changed render is new evidence, not a replacement of earlier evidence |
+| 7–8: synthesis/comparison | Existing evidence; appearance overview/board if required | Compare detail only across compatible technical renders |
 
 Keep both linked to the same source coordinates. Do not silently compare a camera-rendered image against an unrelated RAW render. Exposure assessment of a rendered preview does not establish recoverable RAW highlight/shadow latitude; use RAW-specific evidence before making recovery claims.
 
@@ -114,6 +137,8 @@ Build a deterministic region hierarchy:
 | Overlapping tiles | Inspect large subjects without shrinking away detail | Deterministic source-space tiles under a bounded budget |
 
 SAM 3 subject/head prompts do not guarantee precise eye localization. Do not infer an eye coordinate from a whole-head mask. A validated localization provider or a user region is needed for reliable eye-specific claims.
+
+When reliable eye localization fails, skip automatic eye crops and record `eyeLocalizationUnavailable`. Continue with a verified head crop, then a whole-subject crop if the head is unavailable; include the AF neighborhood only if its mapping is valid. Do not block the run waiting for manual input. Offer a manual detail region for a later follow-up/rerun; user regions take priority within the same budget. A manual region establishes location, not an eye identity or sharpness finding. Without usable eye evidence, abstain from eye-specific comparisons. Fallback crops replace the unavailable planned crop and do not increase the crop allowance.
 
 Crop from the original review source, never from the overview or existing object board. Use approximately 10–20% context padding as an initial tunable setting; retain unclipped geometry and record edge clipping. Prefer shapes compatible with the encoder's verified input strategy. Avoid distorting a narrow subject or allowing a center crop to remove it.
 
@@ -145,7 +170,7 @@ Segment verified concepts, deduplicate instances using the existing object infra
 
 For usable regions, reuse existing subject focus scoring for broad/local/fine detail and AF inclusion. Measure source detail separately from rendered board edges. If reusing the scorer requires new region-level inputs, extract a reusable service rather than copying algorithms.
 
-Use CLIP for candidate-image similarity, semantic relevance to the stated goal, and supported subject/crop matching. Inspect CLIP preprocessing too: it has its own input dimensions and cannot be assumed to retain full source detail. CLIP similarity is not a calibrated photographic-quality score or a probability that a claim is true.
+Use CLIP for candidate-image similarity, semantic relevance to the stated goal, and supported subject/crop matching. Use the verified Phase A CLIP descriptor and preprocessing trace; its own encoder dimensions cannot be assumed to retain full source detail. CLIP similarity is not a calibrated photographic-quality score or a probability that a claim is true.
 
 Compare technical scores only under compatible decode/render/scale settings. Record normalization and penalties. Do not average unrelated aesthetic, similarity, mask, and sharpness scores into an unexplained number.
 
@@ -157,7 +182,7 @@ Use task-specific output schemas. Do not force eye/expression questions on lands
 
 ### Stage 6 — reconcile evidence and targeted follow-up
 
-Give Qwen validated measurements and its independent observations, clearly identified by evidence source. Ask it to explain agreement and disagreement. Example: apparent sharpness from a high-contrast feather edge does not establish that the eye is sharp.
+Give Qwen validated measurements and its independent observations, clearly identified by evidence source. Attach the corresponding appearance overview to reconciliation and per-image synthesis requests to satisfy the current image-required runtime; supplied typed evidence remains authoritative for detail claims. Ask it to explain agreement and disagreement. Example: apparent sharpness from a high-contrast feather edge does not establish that the eye is sharp.
 
 A disagreement can trigger a fresh, tighter crop or a different source render within the budget. Repeating the same image and prompt is not independent verification. Keep unresolved contradictions visible. Mask uncertainty should propagate into subject-specific measurements and conclusions.
 
@@ -171,9 +196,9 @@ Validate references and reject unsupported IDs. Distinguish measured values, mod
 
 Determine whether images are comparable using scene/subject evidence, time/burst metadata where available, CLIP similarity, and user intent. Present unrelated photographs as individual reviews unless the user explicitly requests a broader comparison.
 
-Initially compare typed per-image evidence in application logic and supply a bounded evidence summary to Qwen with an overview or a labeled comparison board. The inspected runtime requires an image and selects only one attachment, so a text-only synthesis request or true multi-image request needs a deliberate runtime extension. A comparison board is for composition/relationships, not the authoritative source of fine-detail findings.
+Initially compare typed per-image evidence in application logic and supply a bounded evidence summary to Qwen with one app-rendered comparison board as the single `CGImage`. Build a deterministic 2048 × 2048 appearance board, ordered by stable image ID: two columns for 2–4 images, four for 5–8, with enough rows for all images. Reserve a 48-pixel header per cell for its image ID; aspect-fit the full frame into the remaining area with neutral padding, without cropping or stretching. Record each cell transform and mark labels as annotations in the prompt. For one image use its appearance overview. Validate all image/evidence references; board resolution is an initial layout choice, subject to the verified encoder preprocessing and evaluation. The inspected runtime requires an image and selects only one attachment, so a text-only synthesis request or true multi-image request needs a deliberate runtime extension. A comparison board is for composition/relationships, not the authoritative source of fine-detail findings.
 
-For difficult near-ties, use limited pairwise comparisons with matched subject crops prepared at comparable scales. Cap pair counts; eight images already imply 28 all-pairs comparisons. Prefer a shortlist or goal-specific comparisons while retaining reports for every image.
+For difficult near-ties, use limited pairwise comparisons with matched subject crops prepared at comparable scales. Use one side-by-side board per pair, with matched appearance crops and cited technical measurements; this remains one image attachment. Cap pair requests at 0/2/4 for Standard/Deep/Exhaustive respectively, including retries. Select pairs deterministically from goal-specific near-ties, record omitted pairs, and abstain if the cap leaves a tie unresolved; eight images already imply 28 all-pairs comparisons. Prefer a shortlist or goal-specific comparisons while retaining reports for every image.
 
 Return separate technical and aesthetic tradeoffs, explicit tie/abstention states, and reasons for the chosen recommendation. Changing the goal may change the recommendation without requiring all visual evidence to be recomputed.
 
@@ -210,7 +235,11 @@ Compatibility keys must include:
 
 File UUID alone is insufficient. Model name alone is insufficient. Changing criteria should invalidate goal-specific assessment/synthesis while retaining compatible source renders, masks, and technical measurements. Changing encoder preprocessing must invalidate affected visual observations.
 
+Use an envelope with integer `schemaVersion` (initially 1), artifact kind, producer pipeline version, and compatibility keys. Increment schema version for incompatible storage changes; version prompts, response schemas, preprocessing, and scoring independently. Decode through explicit version-specific types (for example `CombinedReviewRunV1`) and tested V1→V2 migrations. Migrations may preserve facts and geometry but must not fabricate missing evidence or mark stale results compatible. Unsupported future schemas are read-only/unavailable to this build. Retain older artifacts until explicit cleanup or normal bounded-cache eviction; never overwrite the only old copy during migration. A prompt/pipeline change invalidates affected stages and their descendants rather than migrating old observations into new ones.
+
 Commit completed stage artifacts atomically and persist a run manifest. Cancellation stops new work but retains valid completed evidence. Resume only after compatibility checks; retry failed stages without regenerating everything. Preserve partial reports with an explicit incomplete status.
+
+Track each image/region work item as pending, running, completed, failed, cancelled, or skipped-with-reason, with dependency IDs. On cancellation, discard unfinished output and stop enqueueing work; completed atomic items survive. Resume revalidates access, compatibility, and dependencies, returns interrupted items to pending, and runs missing prerequisites first. Stage 5 requires completed crop/source/identity preparation for that region, but deliberately does not require Stage 4 measurements because its observations are independent. Stage 6 requires terminal Stage 4 and Stage 5 outcomes (completed or explicitly unavailable); missing measurements permit an explicitly degraded report, never an implied measurement. Stage 8 waits for a terminal per-image report or explicit failure for every accepted image. Thus cancellation during Stage 4 can retain completed Stage 5 observations, but reconciliation cannot consume an unfinished measurement. Changed dependencies invalidate descendants even when those descendants previously completed.
 
 Store derived images under a bounded cache with cleanup controls. Persist compact evidence by default; retain exact inputs when needed for reproducibility under an explicit storage policy. Respect catalog access and avoid exposing source paths in unnecessary diagnostic output.
 
@@ -224,11 +253,13 @@ Initial budgets below are tunable starting points, not accuracy or speed promise
 | Deep | One overview plus up to eight crops/tiles | Up to two additional evidence requests | RAW detail where useful and supported |
 | Exhaustive | One overview plus up to sixteen crops/tiles | Up to four additional evidence requests | Best source; user regions and bounded tiling |
 
-These counts exclude synthesis and selection-wide comparison requests; display total estimated calls including those stages. Count SAM concept calls separately. Permit configurable budgets for powerful machines without implying that unrestricted calls improve reliability.
+Apply fixed selection-wide crop caps of 16/32/64 and follow-up caps of 0/8/16 for Standard/Deep/Exhaustive. For N accepted images, the initial crop limit is min(N × per-image cap, selection cap); follow-ups use the same rule. Allocate one prioritized crop per image before additional crops, then deterministic rounds across images. Always reserve one overview and one per-image synthesis per image; reserve any admitted reconciliation and selection-synthesis requests before optional crop work. Stage 6 gets at most one reconciliation request per image when both measurement and observation evidence exist. Stage 8 gets one selection synthesis for N > 1 plus the pair caps above. Total Qwen attempts, including retries, therefore cannot exceed 3N + crop limit + follow-up limit + (1 + pair cap when N > 1). For eight Deep images this is at most 67 attempts (24 + 32 + 8 + 1 + 2), rather than 64 initial crops alone. Context summaries must also fit the verified token budget; prune optional evidence by priority and disclose omissions.
+
+Reserve mandatory coverage before optional work. Every request attempt consumes its category allowance; failures do not unlock unlimited retries. On overflow, omit lowest-priority optional regions, disclose coverage, and retain every image report. If mandatory work cannot fit configured limits, ask for an increased budget or smaller selection before starting. Selections above eight require an explicit expanded coverage/budget plan. Count SAM concept calls separately with a starting cap of four per image (including fallback/retry attempts); additional calls require a recorded budget change. Count CLIP inputs separately with at most one overview plus each admitted region per image. Display total estimated calls including synthesis and comparison stages. Count SAM concept calls separately. Permit configurable budgets for powerful machines without implying that unrestricted calls improve reliability.
 
 Start with sequential inference, one source/detail working set, and bounded decode/scoring concurrency. Release full source buffers, masks, crop images, and response contexts once their consumers finish. Where region decoding is unavailable, decode a full source once under a budget and reuse it rather than decoding for every crop.
 
-Estimate memory using actual pixel formats and buffers: an 8000 × 6000 RGBA8 buffer is about 192 MB in decimal units; float intermediates, RAW decode buffers, masks, model weights, and generation caches add more. Unified memory is shared with the system.
+Estimate memory using actual pixel formats and buffers: an 8000 × 6000 RGBA8 buffer is about 192 MB in decimal units; float intermediates, RAW decode buffers, masks, model weights, and generation caches add more. For the same 48-megapixel source, a packed 16-bit single-channel RAW plane is about 96 MB, RGBA16F is 384 MB, and RGBA32F is 768 MB. An illustrative simultaneously live RAW plane + two RGBA16F processing buffers + RGBA8 output totals 1,056 MB before decoder scratch space, masks, model weights, and caches. Two RGBA32F intermediates instead raise that example to 1,824 MB. These are allocation examples, not CIRAWFilter guarantees: compressed files, decoder tiling, retained textures, and temporary copies change the peak. Inspect actual allocations and reserve headroom; do not admit a source solely from compressed file size. Unified memory is shared with the system.
 
 Qwen currently retains its loaded model, and SAM 3 also retains loaded resources. Sequential calls do not guarantee that only one model is resident. Audit actual unload/reload APIs; introduce a measured residency policy where supported. Account for reload cost when deciding whether to group model stages across images or finish one image at a time.
 
@@ -250,7 +281,7 @@ Keep crop-first review available regardless of outcome. A larger whole-image enc
 
 ## 12. Validation and acceptance criteria
 
-Create a consented, reusable photographic evaluation set with human annotations. Include sharp backgrounds/soft subjects, tiny distant subjects, motion blur, noisy RAWs, multiple similar animals/people, partial occlusion, closed eyes, portrait orientation, low-resolution previews, unsupported RAWs, and unrelated selections.
+Follow the proposed [Combined Review evaluation specification](deepaireview-evaluation.md) for set size, annotations, reviewers, and metric definitions. Create a consented, reusable photographic evaluation set with human annotations. Include sharp backgrounds/soft subjects, tiny distant subjects, motion blur, noisy RAWs, multiple similar animals/people, partial occlusion, closed eyes, portrait orientation, low-resolution previews, unsupported RAWs, and unrelated selections.
 
 Evaluate three baselines on the same model and source policies:
 
@@ -279,7 +310,7 @@ Release criteria: demonstrable improvement over existing views on difficult deta
 
 ### Milestone 1 — input diagnostics and source/crop foundation
 
-Deliver capability inspection, actual encoder-input diagnostics, consistent source decoding, coordinate mapping, and manual/automatic crop extraction. Validate geometry and fidelity before connecting synthesis.
+Deliver capability inspection, actual encoder-input diagnostics, consistent source decoding, coordinate mapping, and manual/automatic crop extraction. Validate geometry and fidelity before connecting synthesis. Record Phase A sign-off before Phase B implementation; approve the storage-version contract and evaluation specification before implementing persisted evidence or quality scoring.
 
 ### Milestone 2 — useful single-image combined review
 
@@ -307,7 +338,7 @@ Investigate alternate encoder shapes/bundles and true multi-image support separa
 - How should users assign priority among multiple subjects or aesthetic versus technical criteria?
 - Does a stronger supported Qwen bundle improve crop reasoning enough to justify its memory/latency cost?
 
-Resolve these through inspection and measured probes; they do not prevent documenting or building the crop-first baseline.
+Resolve these through inspection and measured probes; they do not prevent documenting the crop-first baseline. Required input geometry blocks Phase B until the section 4 gate passes; optional capabilities may remain unknown under an explicit degraded mode.
 
 ## 15. References
 
