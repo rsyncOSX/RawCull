@@ -33,6 +33,7 @@ is_allowed_import() {
     file=$2
 
     case "$module:$file" in
+        CoreAICLIPBackend:RawCull/Intelligence/Composition/CLIPInputCapabilities.swift) return 0 ;;
         CoreAICLIPBackend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         CoreAISAM3Backend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;
         CoreAIEfficientSAMBackend:RawCull/Intelligence/Composition/RawCullAIModelRuntime.swift) return 0 ;;

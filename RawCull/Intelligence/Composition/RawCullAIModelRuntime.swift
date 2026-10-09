@@ -149,6 +149,13 @@ final class RawCullAIModelRuntime {
         )
     }
 
+    /// Declared CLIP contracts; compiled tensor and fixture verification remains pending.
+    func clipInputCapabilities() -> [RawCullCLIPModel: RawCullCLIPInputCapabilities] {
+        clipSimilarityProviders.mapValues { provider in
+            RawCullCLIPInputCapabilities(provider: provider)
+        }
+    }
+
     func capabilities() -> RawCullAICapabilities {
         capabilitySnapshot
     }

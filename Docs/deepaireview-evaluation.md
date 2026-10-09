@@ -38,3 +38,14 @@ Report incorrect sharp/soft claims / judgeable region claims, missed material ob
 ## Qualification decision
 
 Before held-out evaluation, the evaluation owner and implementation reviewer must record numerical tolerances for error, unsupported claims, ranking agreement, usefulness, latency, and peak memory from development baselines. No numerical release thresholds are asserted before those baselines exist. Require zero invalid evidence references and coordinate/identity contract violations in deterministic tests, plus measured improvement on difficult-detail cases without exceeding the recorded error tolerances. Held-out failures require documented fixes and a new untouched qualification split when tuning would otherwise reuse test labels.
+
+
+## Input-contract prerequisite
+
+Phase 1's synthetic geometry and runtime probes are recorded separately in
+[the input-contract report](combined-review-input-contract.md). Their success
+qualifies the recorded model inputs for source/crop implementation; it is not a
+photographic quality baseline, annotation result, or release qualification.
+Re-run affected probes when assets, dependency revisions, or preprocessing change.
+The dataset, independent annotation, development thresholds, and held-out decision
+above remain required for phase 7.

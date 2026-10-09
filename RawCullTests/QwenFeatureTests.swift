@@ -25,11 +25,52 @@ struct QwenFeatureTests {
         let runtime = QwenInferenceRuntime()
         let status = await runtime.validate(url: URL(fileURLWithPath: bundlePath))
         #expect(status.isAvailable)
+        let capabilities = try #require(await runtime.inputCapabilities())
+        #expect(capabilities.maximumContextTokens > 0)
+        #expect(capabilities.maximumResponseTokens == 4096)
+        #expect(capabilities.imagesPerRequest == 1)
+        // Declared metadata must never be presented as observed geometry.
+        #expect(!capabilities.encoderGeometryVerified)
         let response = try await runtime.respond(to: QwenVisionRequest(
             instruction: "Describe the main visible subject in one short sentence.",
             image: image, maximumResponseTokens: 96,
         ))
         #expect(!response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    @Test
+    func `Input capabilities are absent before validation and after clear`() async throws {
+        let runtime = QwenInferenceRuntime()
+        #expect(await runtime.inputCapabilities() == nil)
+        await runtime.clear()
+        #expect(await runtime.inputCapabilities() == nil)
+        let bundle = try makeQwenBundle(kind: "vlm")
+        defer { try? FileManager.default.removeItem(at: bundle) }
+        let metadataURL = bundle.appendingPathComponent("metadata.json")
+        let original = try Data(contentsOf: metadataURL)
+        let document = try #require(JSONSerialization.jsonObject(with: original) as? [String: Any])
+        for invalidVision in [
+            ["image_size": 0, "patch_size": 14, "image_token_count": 256, "image_token_id": 151655],
+            ["image_size": 448, "patch_size": 14, "image_token_count": 256,
+             "image_token_id": 151655, "image_std": [0, 1, 1]],
+            ["image_size": 448, "patch_size": 14, "image_token_count": 256,
+             "image_token_id": 151655, "image_mean": [0, 1]]
+        ] as [[String: Any]] {
+            var invalid = document
+            invalid["vision"] = invalidVision
+            try JSONSerialization.data(withJSONObject: invalid).write(to: metadataURL)
+            #expect(await runtime.validate(url: bundle).isAvailable)
+            let capabilities = try #require(await runtime.inputCapabilities())
+            #expect(capabilities.configuredEncoderSide == nil)
+            #expect(capabilities.geometryInspectionFailure != nil)
+        }
+        try original.write(to: metadataURL)
+        #expect(await runtime.validate(url: bundle).isAvailable)
+        #expect(await runtime.inputCapabilities()?.configuredEncoderSide == 448)
+        await runtime.clear()
+        #expect(await runtime.inputCapabilities() == nil)
+        _ = await runtime.validate(url: URL(fileURLWithPath: "/nonexistent/rawcull-qwen"))
+        #expect(await runtime.inputCapabilities() == nil)
     }
 
     @Test
@@ -173,7 +214,19 @@ struct QwenFeatureTests {
         let bundle = try makeQwenBundle(kind: "vlm")
         defer { try? FileManager.default.removeItem(at: bundle) }
 
-        let status = await QwenInferenceRuntime().validate(url: bundle)
+        let runtime = QwenInferenceRuntime()
+        let status = await runtime.validate(url: bundle)
+        let serving: any QwenInferenceServing = runtime
+        let capabilities = try #require(await serving.inputCapabilities())
+        #expect(await runtime.inputCapabilities() == capabilities)
+        #expect(capabilities.configuredEncoderSide == 448)
+        #expect(capabilities.configuredImageStrategy == "stretch")
+        #expect(capabilities.configuredImageTokens == 256)
+        #expect(capabilities.maximumContextTokens == 40960)
+        #expect(capabilities.metadataSHA256?.count == 64)
+        #expect(capabilities.imageMean?.count == 3)
+        #expect(capabilities.geometryInspectionFailure == nil)
+        #expect(!capabilities.encoderGeometryVerified)
 
         guard case let .available(url, modelName) = status else {
             Issue.record("Expected the Qwen model bundle to validate, got \(status)")

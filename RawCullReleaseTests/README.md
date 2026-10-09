@@ -1,7 +1,7 @@
 # Local release integration
 
 Release baseline: **RawCull 3.2.9**, using the resolved `coreai-models` revision
-`52c84ba874b2c57adcede08a671ce96ed1b3f433`. Both release test plans use
+`1953c4f90ba0214c1abc7bebcb9be5107e329a46`. Both release test plans use
 the project’s `Package.resolved`; the complete dependency pins are documented
 in the [main README](../README.md).
 
@@ -131,3 +131,43 @@ and numeric validity, not photographic ranking accuracy. Expert-ranked burst
 pairs are still needed to evaluate missing-subject fallback, sharp backgrounds,
 small subjects, high ISO, low contrast, motion blur, and silhouettes. ISO/aperture
 are recorded rather than varied, and no absolute Sharp/Soft labels are assigned.
+
+## Combined Review input-contract probes
+
+`make combinedinputstest` runs phase 1 diagnostics in the same hostless target,
+using **Debug** so the probe can call PhotoAIKit's exact internal CLIP
+preprocessor through `@testable import`. It uses the project's pinned package
+sources without copying or modifying them. The probe is compiled only in Debug;
+the existing Release Objects and Sharpness commands retain their behavior.
+
+The opt-in run requires installed Qwen, OpenAI CLIP, and DataComp CLIP bundles:
+
+```sh
+make combinedinputstest \
+  INPUT_PROBE_MODELS="$HOME/ModelAssets/Release/Models" \
+  INPUT_PROBE_OUTPUT="/tmp/rawcull-combined-input-probe"
+```
+
+The model root contains `Qwen/qwen3_vl_2b`, `CLIP-OpenAI`, and `CLIP-DataComp`.
+No photographs are required. The probe generates a grid, cyan circle, and four
+colored corner markers in landscape, portrait, square, and extreme aspect ratios,
+plus all eight EXIF orientations. It checks the actual preprocessors, compiled
+input descriptors, Qwen projected image tokens, overview and source-crop paths,
+finite/repeatable normalized CLIP embeddings, CLIP text truncation, and Qwen
+single-image generation and context/output boundaries.
+
+The output includes `input-contract.json` and denormalized PNG input previews.
+The JSON records dependency revisions, source coordinates, effective scale,
+normalization, compiled scalar types, Float32 preprocessing hashes, Float16 bound
+input hashes where applicable, content fingerprints, model responses, and explicit
+unknowns. It is written atomically with incomplete/failed/passed status. The
+Float16 conversion matters: CLIP's Float32 preprocessor output is not its bound
+encoder tensor. PNGs are viewing aids; use the deterministic probe and recorded
+scalar hashes to reproduce numeric inputs.
+
+The only default test in this suite verifies synthetic orientation handling.
+Model inference runs only with `RAWCULL_INPUT_PROBE_RUN=1`, forwarded by the
+Makefile. The suite is outside the app's ordinary unit and smoke plans. A passed
+input contract establishes geometry and runtime behavior for these exact assets;
+it does not establish photographic accuracy or qualify alternate encoder shapes.
+See [the phase 1 diagnostic decision](../Docs/combined-review-input-contract.md).

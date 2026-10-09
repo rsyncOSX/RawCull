@@ -55,6 +55,11 @@
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
 		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C05162DB50EC488FAE726E38 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */; };
+		671C58BD2B4F4EBF9915E122 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */; };
+		B1D19E3522CA43C5BE096CAC /* RawCullReleaseTests/CombinedReviewInputProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */; };
+		96B270CE63C34CC4B703A8FC /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */; };
+		A34FFBEF2CB04EA7BA54CB3B /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +123,10 @@
 		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
 		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift; sourceTree = SOURCE_ROOT; };
+		2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenInputCapabilities.swift; sourceTree = SOURCE_ROOT; };
+		72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputFixtures.swift; sourceTree = SOURCE_ROOT; };
+		01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputProbe.swift; sourceTree = SOURCE_ROOT; };
+		395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Composition/CLIPInputCapabilities.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -159,6 +168,7 @@
 				E3288D906042585C957216A8 /* RawParserKit in Frameworks */,
 				2C04D7C91DB9545CA9351D56 /* RawCullCore in Frameworks */,
 				9860B97411D050DD8B76322B /* CoreAISAM3Backend in Frameworks */,
+				96B270CE63C34CC4B703A8FC /* CoreAICLIPBackend in Frameworks */,
 				068827806CC45B0D9C34F205 /* CoreAIQwenBackend in Frameworks */,
 				4C633DD0CCEA536E890EC349 /* PhotoAIContracts in Frameworks */,
 				8CA2A0EE82115EA0AB644711 /* PhotoAIStorage in Frameworks */,
@@ -230,6 +240,10 @@
 				75F10870E85941988EEEB2CA /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift */,
 				FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */,
 				DAA02ADC7BEB4FD2B796AF98 /* RawCullReleaseTests/ReleaseSharpnessReport.swift */,
+				2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */,
+				72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */,
+				01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */,
+				395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */,
 				89D067A0B7244A3BAB8C0FF2 /* RawCullReleaseTests/ReleaseSharpnessTest.swift */,
 			);
 			name = RawCullReleaseTests;
@@ -290,6 +304,7 @@
 				E95349CF2FF9902900A4C0C3 /* RawParserKit */,
 				E9634D6B2FD1D1A0009E567D /* RawCullCore */,
 				E9B14262305826C5000D8EBA /* CoreAISAM3Backend */,
+				E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */,
 				E9B1426C305826C5000D8EBA /* CoreAIQwenBackend */,
 				E9B14264305826C5000D8EBA /* PhotoAIContracts */,
 				E9B14266305826C5000D8EBA /* PhotoAIStorage */,
@@ -517,6 +532,10 @@
 				330C361F670E440E8D867E5B /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift in Sources */,
 				27D0121F3E4942439A6A20BA /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift in Sources */,
 				2760A8C0DA2244D599356231 /* RawCullReleaseTests/ReleaseSharpnessReport.swift in Sources */,
+				C05162DB50EC488FAE726E38 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift in Sources */,
+				671C58BD2B4F4EBF9915E122 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift in Sources */,
+				B1D19E3522CA43C5BE096CAC /* RawCullReleaseTests/CombinedReviewInputProbe.swift in Sources */,
+				A34FFBEF2CB04EA7BA54CB3B /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift in Sources */,
 				3BB2BC4AB8E84088AFE303B6 /* RawCullReleaseTests/ReleaseSharpnessTest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
