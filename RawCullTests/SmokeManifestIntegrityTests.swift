@@ -54,6 +54,7 @@ RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
 RawCullTests/ReviewImageSourceTests
+RawCullTests/ReviewRunContractTests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests
 RawCullTests/ThumbnailKeyActionTests
@@ -110,6 +111,7 @@ private let expectedTaggedSuites: Set<String> = [
     "RawCullSimilarityFeatureTests",
     "ReleaseMetadataTests",
     "ReviewImageSourceTests",
+    "ReviewRunContractTests",
     "SharpnessScoringTests",
     "ThumbnailKeyActionTests",
     "TypedAIPersistenceMatrixTests",

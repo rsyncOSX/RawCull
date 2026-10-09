@@ -1,7 +1,7 @@
 # Combined Deep AI Review implementation plan
 
 Date: 9 October 2026  
-Status: phases 1–2 completed on 9 October 2026; phase 3 is next. Combined Review feature delivery is planned in phase 4.
+Status: phases 1–3 completed on 9 October 2026; phase 4 is next. Combined Review feature delivery is planned in phase 4.
 
 ## 1. Objective and guiding decision
 
@@ -385,7 +385,7 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 
 ### Phase 3 — define run, evidence, storage, and budgets
 
-**Dependencies: phases 1–2. Milestone: resumable, bounded run contract.**
+**Status: complete, 9 October 2026. Dependencies: phases 1–2. Milestone: resumable, bounded run contract.**
 
 1. Define immutable selection/criteria/model/render snapshots and typed image, subject, region, observation, measurement, limitation, and report IDs. Include evidence provenance and unknown/unavailable states.
 2. Implement the section 9 V1 envelope, stage compatibility keys, atomic artifacts/run manifests, bounded derived-image cache, unsupported-version handling, and migration policy. Review the storage contract and evaluation protocol before persisted evidence/scoring work.
@@ -394,6 +394,9 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 5. Test cancellation/resume, source/model/prompt/render changes, future schemas, atomic partial results, budget overflow, and complete accepted-image coverage without real models.
 
 **Exit gate:** cancellation preserves only completed compatible evidence; resumed work respects dependencies and fixed budgets; no accepted image disappears.
+
+**Delivered:** immutable file/model/settings/retention snapshots; typed evidence IDs and source/subject/region/measurement/observation/report records; V1 envelopes and atomic stage/manifest persistence; bounded exact-input caching with explicit eviction; dependency validation, cancellation, compatibility-driven restore and transitive invalidation; fixed per-image and selection-wide Qwen/SAM/CLIP budgets and recorded amendments. The [storage-contract review](combined-review-storage-contract.md) records the V1/migration and evaluation-protocol decision. Eight deterministic run/storage contracts pass; `make test-smoke` passed with 278 enumerated identifiers (277 passed, one expected opt-in skip), followed by the final targeted guards passing. Whitespace, formatting and AI import-boundary checks pass. Commit this milestone before phase 4 implementation.
+
 
 ### Phase 4 — deliver single-image Combined Review
 

@@ -21,14 +21,19 @@
 		4C633DD0CCEA536E890EC349 /* PhotoAIContracts in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14264305826C5000D8EBA /* PhotoAIContracts */; };
 		52EDBEBADC4F5F62BF6F6B22 /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8839A4095F2C511295F2D8EA /* RawCull/Intelligence/ObjectAnalysis/ObjectReviewBoardRenderer.swift */; };
 		608D34C7718B59B2A74C6F33 /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0CFDF798B85E079DB98B8F /* RawCull/Intelligence/ObjectAnalysis/RawCullObjectAnalysisFeature.swift */; };
+		671C58BD2B4F4EBF9915E122 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */; };
 		68E08410C10853148EB4340F /* RawCullReleaseTests/ReleaseRunConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A62EBA7E515A53B422515D /* RawCullReleaseTests/ReleaseRunConfiguration.swift */; };
 		7A4416050E4152CBA6267E72 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68DE674C794B571FA17A81B3 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift */; };
 		7CEC30ED840E5C54A02018CA /* RawCull/Main/RawCullFileItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */; };
 		85049ED85D7E5E5DAFE48144 /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */; };
 		8CA2A0EE82115EA0AB644711 /* PhotoAIStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14266305826C5000D8EBA /* PhotoAIStorage */; };
+		96B270CE63C34CC4B703A8FC /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */; };
 		9860B97411D050DD8B76322B /* CoreAISAM3Backend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B14262305826C5000D8EBA /* CoreAISAM3Backend */; };
 		A17C0DC51FA15DBBB493778B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */; };
+		A34FFBEF2CB04EA7BA54CB3B /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */; };
+		B1D19E3522CA43C5BE096CAC /* RawCullReleaseTests/CombinedReviewInputProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */; };
 		B8E0F46189E359069BA1920A /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */; };
+		C05162DB50EC488FAE726E38 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */; };
 		CA1E64CB5C0E4C648F3EDC20 /* PhotoAnalysisKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9825225305081A400231F61 /* PhotoAnalysisKit */; };
 		CAABF5CFE28C55E795D5068A /* RawCullReleaseTests/ReleaseAnalysisReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF58DA5922852A0B055767B /* RawCullReleaseTests/ReleaseAnalysisReport.swift */; };
 		CBF341774CF25D73886DCEF1 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F727081687A550DA1228B0B /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisModels.swift */; };
@@ -55,11 +60,6 @@
 		E9C5897D2F2CA0AC00D8B063 /* RsyncProcessStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = E9C5897C2F2CA0AC00D8B063 /* RsyncProcessStreaming */; };
 		E9D000012F34000000000001 /* BackgroundAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9D000052F34000000000005 /* BackgroundAssets.framework */; };
 		E9D000022F34000000000002 /* RawCullModelDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = E9D000042F34000000000004 /* RawCullModelDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C05162DB50EC488FAE726E38 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */; };
-		671C58BD2B4F4EBF9915E122 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */; };
-		B1D19E3522CA43C5BE096CAC /* RawCullReleaseTests/CombinedReviewInputProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */; };
-		96B270CE63C34CC4B703A8FC /* CoreAICLIPBackend in Frameworks */ = {isa = PBXBuildFile; productRef = E9B1425E305826C5000D8EBA /* CoreAICLIPBackend */; };
-		A34FFBEF2CB04EA7BA54CB3B /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,16 +94,20 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputProbe.swift; sourceTree = SOURCE_ROOT; };
 		0E6FF43559915952B538B7D0 /* RawCull/Main/RawCullFileItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Main/RawCullFileItem.swift; sourceTree = SOURCE_ROOT; };
 		17E23528BA0657D9A99EE686 /* RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenInferenceRuntime.swift; sourceTree = SOURCE_ROOT; };
 		19F7A2431CC95A6C8E0DD37E /* RawCull/Intelligence/Qwen/QwenGenerationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenGenerationGate.swift; sourceTree = SOURCE_ROOT; };
 		1A292E18BB5B5D0E8BD1A447 /* RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectAnalysisResponseDecoder.swift; sourceTree = SOURCE_ROOT; };
 		290345BCEB35595499E463C0 /* RawCullReleaseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RawCullReleaseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenInputCapabilities.swift; sourceTree = SOURCE_ROOT; };
+		395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Composition/CLIPInputCapabilities.swift; sourceTree = SOURCE_ROOT; };
 		4C58BCCCC0574ACCB423176D /* RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/FocusMaskTypes.swift; sourceTree = SOURCE_ROOT; };
 		4D1361E732BB50FC92CF2C46 /* RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenPhotoAssessment.swift; sourceTree = SOURCE_ROOT; };
 		542BF2165015427F9BBB887E /* RawCull/Extensions/extension+Thread+Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RawCull/Extensions/extension+Thread+Logger.swift"; sourceTree = SOURCE_ROOT; };
 		5A2FEC91F6EF53EC96672DA1 /* RawCullReleaseTests/ReleaseAIObjectsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/ReleaseAIObjectsTest.swift; sourceTree = SOURCE_ROOT; };
 		68DE674C794B571FA17A81B3 /* RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectJSONEnvelope.swift; sourceTree = SOURCE_ROOT; };
+		72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputFixtures.swift; sourceTree = SOURCE_ROOT; };
 		75F10870E85941988EEEB2CA /* RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/SharpnessScoringOptions.swift; sourceTree = SOURCE_ROOT; };
 		7BDD685E2CE15603998A2D54 /* RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectConceptDiscovery.swift; sourceTree = SOURCE_ROOT; };
 		7BDE79C0E17D5065AEE1D1A0 /* RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/ObjectAnalysis/ObjectInstanceDeduplicator.swift; sourceTree = SOURCE_ROOT; };
@@ -123,10 +127,6 @@
 		E9D000042F34000000000004 /* RawCullModelDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = RawCullModelDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9D000052F34000000000005 /* BackgroundAssets.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundAssets.framework; path = System/Library/Frameworks/BackgroundAssets.framework; sourceTree = SDKROOT; };
 		FCADB8A3F7744C9CBB4057FD /* RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Model/ViewModels/FocusandSharpness/RawCullPhotoAnalysisAdapter.swift; sourceTree = SOURCE_ROOT; };
-		2948F536188B449C838B76F6 /* RawCull/Intelligence/Qwen/QwenInputCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Qwen/QwenInputCapabilities.swift; sourceTree = SOURCE_ROOT; };
-		72F5DA36DC7C43389CA93BA4 /* RawCullReleaseTests/CombinedReviewInputFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputFixtures.swift; sourceTree = SOURCE_ROOT; };
-		01D3129BB360421AB940979A /* RawCullReleaseTests/CombinedReviewInputProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCullReleaseTests/CombinedReviewInputProbe.swift; sourceTree = SOURCE_ROOT; };
-		395C90D3ACA6470386A598EB /* RawCull/Intelligence/Composition/CLIPInputCapabilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawCull/Intelligence/Composition/CLIPInputCapabilities.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
