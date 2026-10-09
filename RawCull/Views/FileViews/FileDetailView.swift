@@ -73,7 +73,7 @@ struct FileDetailView: View {
                     .foregroundStyle(.primary.opacity(0.85))
                     .padding(.bottom, 7)
 
-                Text("Select a photo to begin culling.")
+                Text("Select a catalog of RAW-files to begin culling.")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.secondary.opacity(0.7))
             }
