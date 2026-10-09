@@ -1,7 +1,7 @@
 # Combined Deep AI Review implementation plan
 
 Date: 9 October 2026  
-Status: phases 1–3 completed on 9 October 2026; phase 4 is next. Combined Review feature delivery is planned in phase 4.
+Status: phases 1–4 completed on 9 October 2026; phase 5 is next. Single-image Combined Review is implemented; selection comparison and photographic qualification remain later milestones.
 
 ## 1. Objective and guiding decision
 
@@ -400,7 +400,7 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 
 ### Phase 4 — deliver single-image Combined Review
 
-**Dependencies: phases 1–3. Milestone: usable single-image review with evidence inspection.**
+**Status: complete, 9 October 2026. Dependencies: phases 1–3. Milestone: usable single-image review with evidence inspection.**
 
 1. Add an independently owned Combined Review feature and fourth AI Analysis view, with criteria, source, depth, progress, start/cancel/resume, and preserved results. Define shared inference arbitration and catalog/model replacement cancellation explicitly.
 2. Connect independent overview/discovery, existing SAM instance deduplication, subject IDs/mask quality, and deterministic crop planning. Prioritize user regions, verified head/subject regions, and valid AF mapping. Skip unavailable eyes with recorded fallback; never infer eyes from head masks.
@@ -409,6 +409,9 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 5. Provide inspectable locations/masks, exact inputs under retention policy, and explicit partial/degraded reports. Exercise integration with fake providers and opt-in real models.
 
 **Exit gate:** one image produces a grounded report, absent evidence prompts abstention, malformed output is a stage failure, and navigation/cancellation preserve valid results. No automatic rating, rejection, deletion, or editing.
+
+**Delivered:** a stable application-owned fourth AI Analysis workflow with frozen single-image settings, bounded overview/discovery, uncached SAM instance segmentation and existing deduplication, contained head candidates with explicit eye abstention, deterministic user/head/subject/fallback crops, reused technical focus measurements, separately recorded CLIP relevance/configuration/geometry, independent unannotated Qwen crop requests, terminal-evidence reconciliation and validated grounded reports. The view preserves results, shows coverage/limitations, and provides crop locations, masks and exact-input inspection. Cancellation retains completed artifacts and spent attempts; compatible resume revalidates files, renders, models and versions. Shared inference admission waits for cancelled sibling workers and model replacement waits for the combined worker to end. The [single-image contract](combined-review-single-image.md) records scope and limitations. Nine new integration contracts and one sibling-arbitration regression pass; `make test-smoke` passed with 288 unique identifiers and one expected opt-in skip, followed by targeted cancellation checks passing. An installed-Qwen geometry-fixture probe produced an accepted crop observation and grounded report in 33.958 seconds. Formatting, whitespace, lint error checks and AI import-boundary checks pass. Phase 3 was committed as `ee89f0b` before this implementation began. Phase 5 may proceed; phase 7 photographic qualification is still required.
+
 
 ### Phase 5 — deliver small-selection comparison
 

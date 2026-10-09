@@ -4,6 +4,7 @@ struct AIAnalysisView: View {
     @Bindable var viewModel: RawCullViewModel
     @Bindable var qwenAnalysisFeature: RawCullQwenAnalysisFeature
     @Bindable var objectAnalysisFeature: RawCullObjectAnalysisFeature
+    let combinedReviewFeature: CombinedReviewFeature
     let deepAIReviewController: DeepAIReviewController
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
@@ -20,6 +21,9 @@ struct AIAnalysisView: View {
 
         case .qwen:
             !qwenAnalysisFeature.results.isEmpty
+
+        case .combined:
+            combinedReviewFeature.result != nil || combinedReviewFeature.manifest != nil || combinedReviewFeature.isRunning
 
         case .objects:
             !objectAnalysisFeature.results.isEmpty
@@ -41,7 +45,7 @@ struct AIAnalysisView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(maxWidth: 480)
+                    .frame(maxWidth: 620)
                     .accessibilityLabel("Analysis mode")
 
                     Picker("Source", selection: $inputSource) {
@@ -74,6 +78,9 @@ struct AIAnalysisView: View {
                     )
                 } else {
                     switch selectedTool {
+                    case .combined:
+                        CombinedReviewView(feature: combinedReviewFeature, files: inputFiles)
+
                     case .samCLIP:
                         SAMCLIPAnalysisView(
                             viewModel: viewModel,
@@ -83,6 +90,7 @@ struct AIAnalysisView: View {
                             focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
                             focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
                         )
+                        .disabled(combinedReviewFeature.lease.isHeld)
 
                     case .qwen:
                         QwenAnalysisView(
@@ -90,6 +98,7 @@ struct AIAnalysisView: View {
                             files: inputFiles,
                             selection: $viewModel.selectedFileID,
                         )
+                        .disabled(combinedReviewFeature.lease.isHeld)
 
                     case .objects:
                         ObjectAnalysisView(
@@ -99,6 +108,7 @@ struct AIAnalysisView: View {
                             focusMaskModel: viewModel.sharpnessModel.focusMaskModel,
                             focusConfig: viewModel.sharpnessModel.effectiveFocusConfig,
                         )
+                        .disabled(combinedReviewFeature.lease.isHeld)
                     }
                 }
             }
@@ -162,6 +172,7 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
     case samCLIP
     case qwen
     case objects
+    case combined
 
     var id: String {
         rawValue
@@ -172,6 +183,7 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         case .samCLIP: "SAM 3 + CLIP"
         case .qwen: "Qwen Vision"
         case .objects: "Objects"
+        case .combined: "Combined Review"
         }
     }
 
@@ -180,6 +192,7 @@ private enum AIAnalysisTool: String, CaseIterable, Identifiable {
         case .samCLIP: "sparkle.magnifyingglass"
         case .qwen: "text.bubble"
         case .objects: "square.3.layers.3d"
+        case .combined: "viewfinder"
         }
     }
 }

@@ -18,7 +18,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 278
+SMOKE_EXPECTED_TESTS = 288
 PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build
@@ -90,6 +90,11 @@ verify-smoke-manifest: build-test-enumeration-verifier
 test-smoke: verify-smoke-manifest
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO \
 		-only-testing @$(SMOKE_TEST_MANIFEST)
+
+# Opt-in single-image structured workflow; caller supplies installed assets/image.
+combinedreviewtest:
+	xcodebuild test $(XCODE_TEST_FLAGS) -enableCodeCoverage NO \
+		-only-testing:RawCullTests/CombinedReviewRealModelTests
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
@@ -286,4 +291,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: combinedreviewtest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

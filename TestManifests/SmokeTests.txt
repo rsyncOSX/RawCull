@@ -29,6 +29,7 @@ RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
 RawCullTests/ReviewImageSourceTests
 RawCullTests/ReviewRunContractTests
+RawCullTests/CombinedReviewFeatureTests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests
 RawCullTests/ThumbnailKeyActionTests

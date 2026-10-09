@@ -14,6 +14,7 @@ final class RawCullQwenAnalysisFeature {
 
     @ObservationIgnored private let inference: any QwenInferenceServing
     @ObservationIgnored private let imageLoader: any RawImageLoading
+    @ObservationIgnored private var drainingTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
 
@@ -50,7 +51,7 @@ final class RawCullQwenAnalysisFeature {
     func analyze(_ files: [FileItem]) async {
         let criteria = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let pendingFiles = filesNeedingAnalysis(from: files)
-        guard canRun, !criteria.isEmpty, !pendingFiles.isEmpty else { return }
+        guard !CombinedReviewLease.shared.isHeld, canRun, !criteria.isEmpty, !pendingFiles.isEmpty else { return }
 
         generation &+= 1
         let runGeneration = generation
@@ -142,6 +143,7 @@ final class RawCullQwenAnalysisFeature {
         } onCancel: {
             task.cancel()
         }
+        drainingTasks.removeAll { $0 == task }
     }
 
     private func appendResults(_ newResults: [QwenPhotoAnalysisResult]) {
@@ -150,9 +152,20 @@ final class RawCullQwenAnalysisFeature {
         results.append(contentsOf: newResults)
     }
 
+    func cancelAndWait() async {
+        cancel()
+        let draining = drainingTasks
+        drainingTasks = []
+        for worker in draining {
+            await worker.value
+        }
+    }
+
     func cancel() {
         generation &+= 1
-        task?.cancel()
+        if let task {
+            drainingTasks.append(task); task.cancel()
+        }
         task = nil
         progress = nil
         isRunning = false

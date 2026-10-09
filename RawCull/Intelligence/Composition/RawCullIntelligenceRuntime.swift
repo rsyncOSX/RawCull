@@ -59,6 +59,7 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
     let deepAIReviewController: DeepAIReviewController
     let qwenAnalysisFeature: RawCullQwenAnalysisFeature
     let objectAnalysisFeature: RawCullObjectAnalysisFeature
+    let combinedReviewFeature: CombinedReviewFeature
     let settingsModel: RawCullAISettingsModel
     let modelDownloadsModel: RawCullAIModelDownloadsModel
     private(set) var lastAppliedConfigurationIdentity:
@@ -82,6 +83,21 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.qwenAnalysisFeature = qwenAnalysisFeature
         self.objectAnalysisFeature = objectAnalysisFeature
             ?? RawCullObjectAnalysisFeature(inference: modelRuntime.qwenInference)
+        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature] in
+            guard let modelRuntime, let qwenAnalysisFeature, case let .available(url, _) = qwenAnalysisFeature.modelStatus else { throw ReviewRunError.modelUnavailable }
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+            let identity = try String(decoding: encoder.encode(modelRuntime.sam3Configuration.modelIdentity), as: UTF8.self)
+            return try CombinedReviewLiveBackend(qwen: modelRuntime.qwenInference, qwenURL: url,
+                                                 segmentation: modelRuntime.combinedSegmentationService(), samIdentity: identity,
+                                                 clipProvider: modelRuntime.clipSimilarityProviders[.dataComp] ?? modelRuntime.clipSimilarityProviders[.openAI],
+                                                 clipURL: modelRuntime.clipSimilarityModelLocations[.dataComp] ?? modelRuntime.clipSimilarityModelLocations[.openAI])
+        }
+        let objectFeature = self.objectAnalysisFeature
+        combinedReviewFeature.beforeStart = { [weak qwenAnalysisFeature, weak objectFeature, weak deepAIReviewController] in
+            await qwenAnalysisFeature?.cancelAndWait()
+            await objectFeature?.cancelAndWait()
+            await deepAIReviewController?.cancelAndWait()
+        }
         self.settingsModel = settingsModel
         self.modelDownloadsModel = settingsModel.modelDownloadsModel
         similarityFeature.bindApplicationContext(applicationContext)
@@ -138,14 +154,16 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
 
         if previousIdentity?.similarityBackend != incomingIdentity.similarityBackend
             || previousIdentity?.similarityArtifactBackends
-            != incomingIdentity.similarityArtifactBackends {
+            != incomingIdentity.similarityArtifactBackends
+        {
             similarityFeature.replaceSimilarityService(configuration.similarity.service)
         }
 
         if previousIdentity?.semanticSearchCapability
             != incomingIdentity.semanticSearchCapability
             || previousIdentity?.semanticSearchBackend
-            != incomingIdentity.semanticSearchBackend {
+            != incomingIdentity.semanticSearchBackend
+        {
             similarityFeature.replaceSemanticSearchConfiguration(
                 capability: configuration.semanticSearch.capability,
                 service: configuration.semanticSearch.service,

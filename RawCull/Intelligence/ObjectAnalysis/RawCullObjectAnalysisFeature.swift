@@ -28,13 +28,15 @@ final class RawCullObjectAnalysisFeature {
     @ObservationIgnored private let imageLoader: any RawImageLoading
     @ObservationIgnored private var segmentation: ObjectSegmentationService?
     @ObservationIgnored private var qwenStatus: QwenModelStatus = .notConfigured
+    @ObservationIgnored private var drainingTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private let maskStores: [any ObjectMaskStoring]
 
     init(inference: any QwenInferenceServing,
          imageLoader: any RawImageLoading = RawParserKitImageLoader.shared,
-         maskStores: [any ObjectMaskStoring] = []) {
+         maskStores: [any ObjectMaskStoring] = [])
+    {
         self.inference = inference
         self.imageLoader = imageLoader
         self.maskStores = maskStores
@@ -45,7 +47,8 @@ final class RawCullObjectAnalysisFeature {
     }
 
     func cachedMasks(for result: ObjectPhotoAnalysisResult,
-                     file: FileItem) async -> [String: CGImage] {
+                     file: FileItem) async -> [String: CGImage]
+    {
         guard let model = result.sam3Model else { return [:] }
         let source = AIImageSource(id: file.id, url: file.url, displayName: file.name)
         let identity = await Task { @concurrent in
@@ -98,7 +101,7 @@ final class RawCullObjectAnalysisFeature {
     }
 
     func analyze(_ files: [FileItem]) async {
-        guard canRun, let segmentation else { return }
+        guard !CombinedReviewLease.shared.isHeld, canRun, let segmentation else { return }
         let pending = filesNeedingAnalysis(from: files)
         guard !pending.isEmpty else { return }
         let mode = discoveryMode
@@ -145,6 +148,7 @@ final class RawCullObjectAnalysisFeature {
         } onCancel: {
             task.cancel()
         }
+        drainingTasks.removeAll { $0 == task }
     }
 
     func retryFailed(_ files: [FileItem]) async {
@@ -158,9 +162,20 @@ final class RawCullObjectAnalysisFeature {
         failureMessage = nil
     }
 
+    func cancelAndWait() async {
+        cancel()
+        let draining = drainingTasks
+        drainingTasks = []
+        for worker in draining {
+            await worker.value
+        }
+    }
+
     func cancel() {
         generation &+= 1
-        task?.cancel()
+        if let task {
+            drainingTasks.append(task); task.cancel()
+        }
         task = nil
         progress = nil
         isRunning = false

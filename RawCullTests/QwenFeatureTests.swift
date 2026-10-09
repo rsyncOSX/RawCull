@@ -20,7 +20,7 @@ struct QwenFeatureTests {
         let image = try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1024
+            kCGImageSourceThumbnailMaxPixelSize: 1024,
         ] as CFDictionary))
         let runtime = QwenInferenceRuntime()
         let status = await runtime.validate(url: URL(fileURLWithPath: bundlePath))
@@ -50,11 +50,11 @@ struct QwenFeatureTests {
         let original = try Data(contentsOf: metadataURL)
         let document = try #require(JSONSerialization.jsonObject(with: original) as? [String: Any])
         for invalidVision in [
-            ["image_size": 0, "patch_size": 14, "image_token_count": 256, "image_token_id": 151655],
+            ["image_size": 0, "patch_size": 14, "image_token_count": 256, "image_token_id": 151_655],
             ["image_size": 448, "patch_size": 14, "image_token_count": 256,
-             "image_token_id": 151655, "image_std": [0, 1, 1]],
+             "image_token_id": 151_655, "image_std": [0, 1, 1]],
             ["image_size": 448, "patch_size": 14, "image_token_count": 256,
-             "image_token_id": 151655, "image_mean": [0, 1]]
+             "image_token_id": 151_655, "image_mean": [0, 1]],
         ] as [[String: Any]] {
             var invalid = document
             invalid["vision"] = invalidVision
@@ -275,7 +275,7 @@ struct QwenFeatureTests {
 
     @MainActor
     @Test
-    func `Batch retains catalog access for later files after navigation`() async throws {
+    func `Batch retains catalog access for later files after navigation`() async {
         let model = makeRawCullViewModel()
         let folder = "qwen-grant-" + UUID().uuidString
         let root = URL(filePath: "/tmp/" + folder).standardizedFileURL
@@ -360,6 +360,29 @@ struct QwenFeatureTests {
         return root
     }
 
+    @Test @MainActor
+    func `arbitration waits for workers cancelled before the combined run`() async throws {
+        let gate = QwenDrainProbe()
+        let feature = RawCullQwenAnalysisFeature(inference: QwenInferenceStub(), imageLoader: QwenImageLoaderStub(beforeRead: { _ in await gate.park() }))
+        feature.updateModelStatus(.available(url: URL(fileURLWithPath: "/tmp/model"), modelName: "Test"))
+        let analysis = Task { await feature.analyze([makeFile(name: "draining.jpg")]) }
+        for _ in 0 ..< 200 {
+            if await gate.entered {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(await gate.entered)
+        feature.cancel()
+        var finished = false
+        let drain = Task { await feature.cancelAndWait(); finished = true }
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(!finished)
+        await gate.release()
+        await drain.value; await analysis.value
+        #expect(finished)
+    }
+
     private func makeFile(name: String) -> FileItem {
         FileItem(
             id: UUID(),
@@ -437,5 +460,17 @@ private struct QwenImageLoaderStub: RawImageLoading {
         height _: Int,
     ) async -> Data? {
         nil
+    }
+}
+
+private actor QwenDrainProbe {
+    var entered = false
+    private var continuation: CheckedContinuation<Void, Never>?
+    func park() async {
+        await withCheckedContinuation { entered = true; continuation = $0 }
+    }
+
+    func release() {
+        continuation?.resume(); continuation = nil
     }
 }

@@ -32,6 +32,15 @@ actor ReviewArtifactStore {
         try write(envelope, to: manifestURL(manifest.snapshot.id))
     }
 
+    func latestManifest() throws -> CombinedReviewRunV1? {
+        let directory = root.appendingPathComponent("runs")
+        guard FileManager.default.fileExists(atPath: directory.path) else { return nil }
+        let urls = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
+        let ordered = try urls.map { try ($0, $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast) }.sorted { $0.1 > $1.1 }
+        guard let url = ordered.first?.0, let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) else { return nil }
+        return try loadManifest(id)
+    }
+
     func loadManifest(_ id: UUID) throws -> CombinedReviewRunV1 {
         let data = try readHeader(at: manifestURL(id), kind: "run")
         let envelope = try JSONDecoder().decode(ReviewStorageEnvelopeV1<CombinedReviewRunV1>.self, from: data)

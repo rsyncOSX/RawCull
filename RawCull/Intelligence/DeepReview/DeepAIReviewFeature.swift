@@ -187,6 +187,7 @@ final class DeepAIReviewFeature {
 
     @ObservationIgnored private var service: (any DeepAIReviewServicing)?
     @ObservationIgnored private var maskLoader: (any DeepAIReviewMaskLoading)?
+    @ObservationIgnored private var drainingTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
 
@@ -249,6 +250,7 @@ final class DeepAIReviewFeature {
     }
 
     func start(_ request: DeepAIReviewRequest) async {
+        guard !CombinedReviewLease.shared.isHeld else { return }
         Logger.process.debugMessageOnly(
             "DeepAIReviewFeature.start(): starting group \(request.groupID) with \(request.candidates.count) candidates",
         )
@@ -339,8 +341,18 @@ final class DeepAIReviewFeature {
         } onCancel: {
             task.cancel()
         }
+        drainingTasks.removeAll { $0 == task }
         if generation == runGeneration {
             self.task = nil
+        }
+    }
+
+    func cancelAndWait() async {
+        cancel()
+        let draining = drainingTasks
+        drainingTasks = []
+        for worker in draining {
+            await worker.value
         }
     }
 
@@ -350,7 +362,9 @@ final class DeepAIReviewFeature {
         )
         let activeGroupID = state.activeGroupID
         generation &+= 1
-        task?.cancel()
+        if let task {
+            drainingTasks.append(task); task.cancel()
+        }
         task = nil
         if state.isRunning, let activeGroupID {
             state = .cancelled(groupID: activeGroupID)
@@ -478,7 +492,7 @@ nonisolated struct RawCullDeepReviewImageDecoder: DeepAIReviewImageDecoding, Sen
             try Task.checkCancellation()
             let context = CIContext(options: [
                 .cacheIntermediates: false,
-                .workingColorSpace: NSNull()
+                .workingColorSpace: NSNull(),
             ])
             guard let result = context.createCGImage(image, from: image.extent) else {
                 throw DeepAIReviewCandidateIssue.imageDecodeFailed

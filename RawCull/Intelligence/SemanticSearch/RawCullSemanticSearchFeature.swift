@@ -152,6 +152,7 @@ final class RawCullSemanticSearchFeature {
     /// Rank only the admitted files that already have compatible cached CLIP
     /// artifacts. Image indexing and source decoding are intentionally absent.
     func search(for query: String) async {
+        guard !CombinedReviewLease.shared.isHeld else { return }
         Logger.process.debugMessageOnly("RawCullSemanticSearchFeature.search()")
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             await clear()

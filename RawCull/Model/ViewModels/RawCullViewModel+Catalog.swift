@@ -76,6 +76,7 @@ extension RawCullViewModel {
     }
 
     private func cancelCurrentCatalogLoad() {
+        CombinedReviewLease.shared.invalidate()
         sortGeneration &+= 1
         isSorting = false
         catalogLoadTask?.cancel()

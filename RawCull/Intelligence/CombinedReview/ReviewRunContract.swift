@@ -74,6 +74,12 @@ nonisolated enum ReviewInputRetentionPolicy: String, Codable, Sendable {
     case compact, exactInputs
 }
 
+nonisolated struct ReviewUserRegion: Codable, Equatable, Sendable {
+    let imageID: ReviewImageID
+    let normalizedRect: CGRect
+    let purpose: String
+}
+
 nonisolated struct ReviewRunSnapshot: Codable, Equatable, Sendable {
     let id: UUID
     let files: [ReviewFileSnapshot]
@@ -88,8 +94,13 @@ nonisolated struct ReviewRunSnapshot: Codable, Equatable, Sendable {
     let pipelineVersion: String
     let created: Date
     let expandedSelectionPlan: String?
+    var userRegions: [ReviewUserRegion]? = nil
 
     func validate() throws {
+        for region in userRegions ?? [] {
+            guard files.contains(where: { $0.id == region.imageID }), region.normalizedRect.isFiniteReviewRect,
+                  CGRect(x: 0, y: 0, width: 1, height: 1).contains(region.normalizedRect), !region.purpose.isEmpty else { throw ReviewRunError.invalidSnapshot }
+        }
         guard !files.isEmpty, files.count <= 8 || !(expandedSelectionPlan?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
               Set(files.map(\.id)).count == files.count,
               Set(files.map(\.fileID)).count == files.count,
@@ -140,6 +151,11 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
             if key == "qwen" {
                 fields["responseTokens"] = String(snapshot.responseTokens)
             }
+        }
+        if stage == .identity || stage.goalDependent {
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+            fields["userRegions"] = try Self.digest(String(decoding: encoder.encode(snapshot.userRegions), as: UTF8.self))
+            fields["depth"] = snapshot.depth.rawValue
         }
         return Self(fields: fields)
     }
