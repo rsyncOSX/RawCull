@@ -297,11 +297,10 @@ private struct ObjectPhotoDetailView: View {
                 nil
             }
             if let result, let file, let image {
-                let point: CGPoint?
-                if let recorded = file.afFocusNormalized {
-                    point = recorded
+                let point: CGPoint? = if let recorded = file.afFocusNormalized {
+                    recorded
                 } else {
-                    point = await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
+                    await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
                 }
                 var config = focusConfig
                 config.iso = file.exifData?.isoValue ?? 400

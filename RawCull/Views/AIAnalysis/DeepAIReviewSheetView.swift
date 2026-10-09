@@ -402,11 +402,10 @@ private struct DeepAIReviewMaskPreview: View {
             guard !Task.isCancelled, let loadedImage else { return }
             image = loadedImage
 
-            let point: CGPoint?
-            if let recorded = file.afFocusNormalized {
-                point = recorded
+            let point: CGPoint? = if let recorded = file.afFocusNormalized {
+                recorded
             } else {
-                point = await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
+                await RawParserKitImageLoader.shared.fileMetadata(for: file.url)?.focusPoint
             }
             guard !Task.isCancelled else { return }
             autofocusPoint = point

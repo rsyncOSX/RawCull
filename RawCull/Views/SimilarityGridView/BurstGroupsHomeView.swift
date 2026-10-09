@@ -498,14 +498,26 @@ private struct BurstDataStatusRow: View {
     var isUsed = true
     var isOptional = false
 
-    private var isComplete: Bool { total > 0 && count >= total }
+    private var isComplete: Bool {
+        total > 0 && count >= total
+    }
 
     private var status: String {
-        if !isUsed { return "Not used" }
-        if isRunning { return "Preparing · \(count)/\(total)" }
-        if total == 0 { return "No photos" }
-        if isComplete { return "Ready · \(count)/\(total)" }
-        if count > 0 { return "Partial · \(count)/\(total)" }
+        if !isUsed {
+            return "Not used"
+        }
+        if isRunning {
+            return "Preparing · \(count)/\(total)"
+        }
+        if total == 0 {
+            return "No photos"
+        }
+        if isComplete {
+            return "Ready · \(count)/\(total)"
+        }
+        if !isEmpty {
+            return "Partial · \(count)/\(total)"
+        }
         return isOptional ? "Not available" : "Needed"
     }
 

@@ -29,6 +29,7 @@ nonisolated struct ReviewEmbeddedPreviewLoader: ReviewEmbeddedPreviewLoading {
                     }
                 }
             }
+
         case "nef":
             if let locations = NikonMakerNoteParser.embeddedJPEGLocations(from: url) {
                 for location in [locations.preview, locations.ifd1JPEG].compactMap(\.self) {
@@ -38,6 +39,7 @@ nonisolated struct ReviewEmbeddedPreviewLoader: ReviewEmbeddedPreviewLoading {
                     }
                 }
             }
+
         default: break
         }
         let sized = candidates.compactMap { data -> (Data, Int, Int)? in
@@ -72,7 +74,7 @@ nonisolated struct ReviewEmbeddedPreviewLoader: ReviewEmbeddedPreviewLoading {
             kCGImageSourceCreateThumbnailFromImageAlways: false,
             kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(pixelWidth, pixelHeight),
+            kCGImageSourceThumbnailMaxPixelSize: max(pixelWidth, pixelHeight)
         ] as CFDictionary) else { return nil }
         let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value ?? 1
         let encoded = orientation >= 5 ? CGSize(width: image.height, height: image.width) : CGSize(width: image.width, height: image.height)

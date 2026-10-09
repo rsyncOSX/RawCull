@@ -186,8 +186,12 @@ nonisolated struct RawParserKitImageLoader: RawImageLoading {
 /// Checks the installed decoder's capabilities without rendering sensor data.
 nonisolated enum RAW9Support {
     static func preferredVersion(in versions: [CIRAWDecoderVersion]) -> CIRAWDecoderVersion? {
-        if versions.contains(.version9) { return .version9 }
-        if versions.contains(.version9DNG) { return .version9DNG }
+        if versions.contains(.version9) {
+            return .version9
+        }
+        if versions.contains(.version9DNG) {
+            return .version9DNG
+        }
         return nil
     }
 
@@ -240,8 +244,7 @@ final class RawCullCatalogAccess {
         for url in urls {
             let path = url.standardizedFileURL.pathComponents
             if let grant = grants.filter({ path.starts(with: $0.url.pathComponents) })
-                .max(by: { $0.url.pathComponents.count < $1.url.pathComponents.count })
-            {
+                .max(by: { $0.url.pathComponents.count < $1.url.pathComponents.count }) {
                 retained[grant.url] = grant
             }
         }

@@ -12,8 +12,7 @@ nonisolated enum ObjectInstanceDeduplicator {
         let sourceInstanceID: String
 
         init(concept: SegmentationConcept, mask: CGImage, score: Float,
-             normalizedBoundingBox: CGRect, sourceInstanceID: String = "0")
-        {
+             normalizedBoundingBox: CGRect, sourceInstanceID: String = "0") {
             self.concept = concept
             self.mask = mask
             self.score = score
@@ -32,8 +31,7 @@ nonisolated enum ObjectInstanceDeduplicator {
     }
 
     static func retain(_ candidates: [Candidate], maximumCount: Int = 8,
-                       minimumScore: Float = 0.5) -> [Retained]
-    {
+                       minimumScore: Float = 0.5) -> [Retained] {
         struct Work {
             let candidate: Candidate
             let pixels: [UInt8]
@@ -76,8 +74,7 @@ nonisolated enum ObjectInstanceDeduplicator {
             }) {
                 let alias = candidate.candidate.concept.query
                 if alias != retained[index].candidate.concept.query,
-                   !retained[index].aliases.contains(alias)
-                {
+                   !retained[index].aliases.contains(alias) {
                     retained[index].aliases.append(alias)
                 }
             } else {

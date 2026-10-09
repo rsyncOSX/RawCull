@@ -55,8 +55,7 @@ nonisolated struct ReviewImageSource: Sendable {
     }
 
     func region(rect: CGRect, padding: CGFloat = 0.15, purpose: String,
-                encoder: ReviewEncoderGeometry) throws -> ReviewRegion
-    {
+                encoder: ReviewEncoderGeometry) throws -> ReviewRegion {
         try ReviewRegion.make(sourceID: metadata.identity, space: metadata.sourceSpace,
                               rect: rect, padding: padding, purpose: purpose, encoder: encoder)
     }
@@ -140,7 +139,7 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: max(pixelWidth, pixelHeight),
-                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceShouldCacheImmediately: true
             ] as CFDictionary) else { throw ReviewImageError.decodeFailed }
             decoded = image
             fidelity = .fullRaster
@@ -151,8 +150,7 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
             var rawEstimate: Int?
             if request.preference == .rawDetail, let filter = CIRAWFilter(imageURL: request.url),
                filter.nativeSize.width.isFinite, filter.nativeSize.height.isFinite,
-               filter.nativeSize.width > 0, filter.nativeSize.height > 0
-            {
+               filter.nativeSize.width > 0, filter.nativeSize.height > 0 {
                 filter.scaleFactor = 1
                 filter.isDraftModeEnabled = false
                 filter.extendedDynamicRangeAmount = 0

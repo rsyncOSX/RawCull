@@ -131,15 +131,15 @@ final class RawCullAIModelRuntime {
         self.activeSegmentationModelIdentity = nil
         self.capabilitySnapshot = RawCullAICapabilities(
             segmentationModels: [
-                .sam3: .checking(expectedLocations: sam3CandidateURLs),
+                .sam3: .checking(expectedLocations: sam3CandidateURLs)
             ],
             clipModels: [
                 .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
-                .openAI: .checking(expectedLocations: clipOpenAICandidateURLs),
+                .openAI: .checking(expectedLocations: clipOpenAICandidateURLs)
             ],
             semanticSearchByCLIPModel: [
                 .dataComp: .checking(expectedLocations: clipDataCompCandidateURLs),
-                .openAI: .checking(expectedLocations: clipOpenAICandidateURLs),
+                .openAI: .checking(expectedLocations: clipOpenAICandidateURLs)
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: diskStoreResult.capability,
@@ -311,11 +311,11 @@ final class RawCullAIModelRuntime {
         }
         clipSimilarityProviders = [
             .dataComp: clipDataComp.provider,
-            .openAI: clipOpenAI.provider,
+            .openAI: clipOpenAI.provider
         ].compactMapValues(\.self)
         clipSimilarityModelLocations = [
             .dataComp: clipDataComp.capability.resource?.bundleURL,
-            .openAI: clipOpenAI.capability.resource?.bundleURL,
+            .openAI: clipOpenAI.capability.resource?.bundleURL
         ].compactMapValues(\.self)
 
         let sam3Status = Self.capabilityStatus(
@@ -333,7 +333,7 @@ final class RawCullAIModelRuntime {
         let segmentationStatuses: [
             RawCullSegmentationModel: RawCullAICapabilityStatus
         ] = [
-            .sam3: sam3Status,
+            .sam3: sam3Status
         ]
         let selectedSegmentationStatus = segmentationStatuses[
             selectedSegmentationModel,
@@ -344,7 +344,7 @@ final class RawCullAIModelRuntime {
             segmentationModels: segmentationStatuses,
             clipModels: [
                 .dataComp: clipDataCompStatus,
-                .openAI: clipOpenAIStatus,
+                .openAI: clipOpenAIStatus
             ],
             semanticSearchByCLIPModel: [
                 .dataComp: Self.semanticSearchCapabilityStatus(
@@ -354,7 +354,7 @@ final class RawCullAIModelRuntime {
                 .openAI: Self.semanticSearchCapabilityStatus(
                     clipStatus: clipOpenAIStatus,
                     provider: clipOpenAI.provider,
-                ),
+                )
             ],
             visionFeaturePrint: .available(location: nil),
             subjectMaskStorage: subjectMaskStorageCapability,

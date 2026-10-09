@@ -73,6 +73,7 @@ nonisolated struct ReviewEncoderGeometry: Equatable, Sendable {
                                       scaleX: CGFloat(width) / crop.width,
                                       scaleY: CGFloat(height) / crop.height,
                                       encoderSize: CGSize(width: width, height: height))
+
         case .shortestSideCenterCrop:
             // Match the pinned CLIP processor: integer resize followed by integer center crop.
             guard width == height else { throw ReviewImageError.invalidGeometry }
@@ -126,8 +127,7 @@ nonisolated struct ReviewRegion: Sendable {
 
     static func make(sourceID: String, space: ReviewCoordinateSpace, rect: CGRect,
                      padding: CGFloat = 0.15, purpose: String,
-                     encoder: ReviewEncoderGeometry) throws -> Self
-    {
+                     encoder: ReviewEncoderGeometry) throws -> Self {
         guard rect.isFiniteReviewRect, padding.isFinite, padding >= 0, padding <= 1,
               space.bounds.contains(rect), !purpose.isEmpty
         else {

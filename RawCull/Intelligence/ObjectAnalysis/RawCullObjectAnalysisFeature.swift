@@ -35,8 +35,7 @@ final class RawCullObjectAnalysisFeature {
 
     init(inference: any QwenInferenceServing,
          imageLoader: any RawImageLoading = RawParserKitImageLoader.shared,
-         maskStores: [any ObjectMaskStoring] = [])
-    {
+         maskStores: [any ObjectMaskStoring] = []) {
         self.inference = inference
         self.imageLoader = imageLoader
         self.maskStores = maskStores
@@ -47,8 +46,7 @@ final class RawCullObjectAnalysisFeature {
     }
 
     func cachedMasks(for result: ObjectPhotoAnalysisResult,
-                     file: FileItem) async -> [String: CGImage]
-    {
+                     file: FileItem) async -> [String: CGImage] {
         guard let model = result.sam3Model else { return [:] }
         let source = AIImageSource(id: file.id, url: file.url, displayName: file.name)
         let identity = await Task { @concurrent in

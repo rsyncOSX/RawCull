@@ -41,8 +41,7 @@ final class CombinedReviewFeature {
 
     init(store: ReviewArtifactStore = ReviewArtifactStore(), sourceLoader: any ReviewImageSourceLoading = ReviewImageSourceService(),
          scorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(), lease: CombinedReviewLease = .shared,
-         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing)
-    {
+         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing) {
         self.store = store; self.sourceLoader = sourceLoader; self.scorer = scorer; self.lease = lease; self.backendFactory = backendFactory
     }
 
@@ -81,8 +80,7 @@ final class CombinedReviewFeature {
                     manifest = try Self.initialManifest(snapshot)
                     try await store.saveManifest(currentManifest())
                     try await execute(backend)
-                } catch is CancellationError { await persistCancellation(); progress = "Cancelled — completed evidence retained" }
-                catch { failureMessage = String(describing: error); progress = "Review stopped"; await persistCancellation() }
+                } catch is CancellationError { await persistCancellation(); progress = "Cancelled — completed evidence retained" } catch { failureMessage = String(describing: error); progress = "Review stopped"; await persistCancellation() }
             }
             task = worker
             await worker.value
@@ -120,8 +118,7 @@ final class CombinedReviewFeature {
                     var restored = saved; restored.restore(expected: expected, validArtifacts: valid, retryFailed: false)
                     manifest = restored
                     try await execute(backend)
-                } catch is CancellationError { await persistCancellation(); progress = "Cancelled — completed evidence retained" }
-                catch { failureMessage = "Resume unavailable: \(error). Rerun with current settings."; await persistCancellation() }
+                } catch is CancellationError { await persistCancellation(); progress = "Cancelled — completed evidence retained" } catch { failureMessage = "Resume unavailable: \(error). Rerun with current settings."; await persistCancellation() }
             }
             task = worker; await worker.value
         } catch { isRunning = false; lease.release(id); failureMessage = String(describing: error) }

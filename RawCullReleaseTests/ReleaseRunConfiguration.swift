@@ -21,7 +21,7 @@ nonisolated struct ReleaseRunConfiguration {
         modelRoots = [
             home.appendingPathComponent("ModelAssets/Release/Models"),
             home.appendingPathComponent("Library/Application Support/RawCull/Models"),
-            home.appendingPathComponent("Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models"),
+            home.appendingPathComponent("Library/Containers/no.blogspot.RawCull/Data/Library/Application Support/RawCull/Models")
         ]
     }
 

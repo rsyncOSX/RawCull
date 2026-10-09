@@ -306,8 +306,7 @@ struct ReviewImageSourceTests {
     }
 
     private func fixture(width: Int, height: Int, orientation: Int = 1, customColors: [[UInt8]]? = nil,
-                         colorSpace: CGColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!) throws -> URL
-    {
+                         colorSpace: CGColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!) throws -> URL {
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         let fixtureColors = customColors ?? colors
         for row in 0 ..< height {

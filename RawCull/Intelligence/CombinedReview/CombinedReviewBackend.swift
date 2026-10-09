@@ -13,7 +13,7 @@ nonisolated struct CombinedReviewCLIPResult: Codable, Sendable {
     let relevance: Float
     let embedding: [Float]
     let model: ReviewModelSnapshot
-    var geometry: CombinedReviewCLIPGeometry? = nil
+    var geometry: CombinedReviewCLIPGeometry?
 }
 
 nonisolated protocol CombinedReviewBackendServing: Sendable {

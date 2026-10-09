@@ -20,7 +20,7 @@ struct QwenFeatureTests {
         let image = try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 1024,
+            kCGImageSourceThumbnailMaxPixelSize: 1024
         ] as CFDictionary))
         let runtime = QwenInferenceRuntime()
         let status = await runtime.validate(url: URL(fileURLWithPath: bundlePath))
@@ -54,7 +54,7 @@ struct QwenFeatureTests {
             ["image_size": 448, "patch_size": 14, "image_token_count": 256,
              "image_token_id": 151_655, "image_std": [0, 1, 1]],
             ["image_size": 448, "patch_size": 14, "image_token_count": 256,
-             "image_token_id": 151_655, "image_mean": [0, 1]],
+             "image_token_id": 151_655, "image_mean": [0, 1]]
         ] as [[String: Any]] {
             var invalid = document
             invalid["vision"] = invalidVision

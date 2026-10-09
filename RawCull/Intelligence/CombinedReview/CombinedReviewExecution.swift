@@ -17,8 +17,7 @@ nonisolated struct CombinedReviewContext: Sendable {
 
 extension CombinedReviewFeature {
     func perform<Value: Codable & Sendable>(_ id: ReviewWorkID, category: ReviewAttemptCategory? = nil,
-                                            operation: () async throws -> Value) async throws -> Value?
-    {
+                                            operation: () async throws -> Value) async throws -> Value? {
         try Task.checkCancellation()
         guard let item = manifest?.work.first(where: { $0.id == id }) else { throw ReviewRunError.invalidDependency }
         if item.state == .completed, let key = item.artifactKey {
@@ -40,8 +39,7 @@ extension CombinedReviewFeature {
             try await store.commit(.init(workID: id, compatibility: item.compatibility, payload: payload, created: Date()), manifest: completed)
             manifest = completed
             return value
-        } catch is CancellationError { throw CancellationError() }
-        catch {
+        } catch is CancellationError { throw CancellationError() } catch {
             try Task.checkCancellation()
             if manifest?.work.first(where: { $0.id == id })?.state == .running {
                 try manifest?.finish(id, state: .failed, reason: String(describing: error))
@@ -247,8 +245,7 @@ extension CombinedReviewFeature {
     }
 
     func inspect(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext, plan: CombinedReviewPlan,
-                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID]
-    {
+                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID] {
         let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
         let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
         guard let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference) else { throw ReviewRunError.invalidSnapshot }
@@ -259,8 +256,7 @@ extension CombinedReviewFeature {
                 technical = try await sourceLoader.load(.init(url: file.url, preference: preference, policy: .technical)); if let technical {
                     _ = try source.mapSourceRect(source.metadata.sourceSpace.bounds, to: technical)
                 }
-            } catch is CancellationError { throw CancellationError() }
-            catch { technical = nil; limitation("Technical render alignment unavailable: \(error)") }
+            } catch is CancellationError { throw CancellationError() } catch { technical = nil; limitation("Technical render alignment unavailable: \(error)") }
         }
         var terminalIDs: [ReviewWorkID] = [overviewID, identityID] + segmentIDs
         for subject in plan.subjects {

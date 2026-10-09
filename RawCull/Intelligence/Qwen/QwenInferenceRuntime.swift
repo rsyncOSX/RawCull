@@ -149,7 +149,9 @@ actor QwenInferenceRuntime: QwenInferenceServing {
         return content
     }
 
-    func inputCapabilities() async -> QwenInputCapabilities? { capabilities }
+    func inputCapabilities() async -> QwenInputCapabilities? {
+        capabilities
+    }
 
     func clear() {
         activeGeneration?.cancel()
@@ -223,7 +225,9 @@ nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
     }
 }
 
-// Test providers and alternate backends may not expose input diagnostics.
+/// Test providers and alternate backends may not expose input diagnostics.
 nonisolated extension QwenInferenceServing {
-    func inputCapabilities() async -> QwenInputCapabilities? { nil }
+    func inputCapabilities() async -> QwenInputCapabilities? {
+        nil
+    }
 }

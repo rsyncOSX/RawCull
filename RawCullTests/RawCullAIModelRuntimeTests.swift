@@ -113,7 +113,7 @@ struct RawCullAIModelRuntimeTests {
         // compiled models. Exercise installation, snapshot identity, and removal.
         let bundle = root.appendingPathComponent("clip-contract")
         try FileManager.default.createDirectory(at: bundle.appendingPathComponent("tokenizer"),
-            withIntermediateDirectories: true)
+                                                withIntermediateDirectories: true)
         try Data([1]).write(to: bundle.appendingPathComponent("clip.aimodel"))
         try Data("{}".utf8).write(to: bundle.appendingPathComponent("tokenizer/tokenizer.json"))
         let metadata = ModelBundleMetadata(
@@ -122,10 +122,12 @@ struct RawCullAIModelRuntimeTests {
             preprocessing: ModelImagePreprocessingMetadata(
                 version: "fixture-v1", width: 256, height: 256,
                 resize: "shortest-side", crop: "center", interpolation: "bicubic",
-                mean: [0.4, 0.5, 0.6], standardDeviation: [0.2, 0.3, 0.4]),
+                mean: [0.4, 0.5, 0.6], standardDeviation: [0.2, 0.3, 0.4],
+            ),
             tokenizer: ModelTokenizerMetadata(version: "fixture-tokenizer", type: "clip-bpe",
-                contextLength: 77, paddingTokenID: 0),
-            normalizationVersion: "l2-v1", configurationVersion: "fixture-config")
+                                              contextLength: 77, paddingTokenID: 0),
+            normalizationVersion: "l2-v1", configurationVersion: "fixture-config",
+        )
         try JSONEncoder().encode(metadata).write(to: bundle.appendingPathComponent("metadata.json"))
         _ = await modelRuntime.applyManagedModelLocations([.clipDataComp: bundle])
         _ = try await modelRuntime.refreshCapabilities()
@@ -140,7 +142,8 @@ struct RawCullAIModelRuntimeTests {
         #expect(input.tensorLayout == "NCHW" && input.channelOrder == "RGB")
         #expect(!input.encoderGeometryVerified)
         #expect(input.modelFingerprint == modelRuntime.similarityService(
-            prefersCLIP: true, clipModel: .dataComp).backendDescriptor.modelFingerprint)
+            prefersCLIP: true, clipModel: .dataComp,
+        ).backendDescriptor.modelFingerprint)
         _ = await modelRuntime.applyManagedModelLocations([:])
         _ = try await modelRuntime.refreshCapabilities()
         #expect(modelRuntime.clipInputCapabilities().isEmpty)

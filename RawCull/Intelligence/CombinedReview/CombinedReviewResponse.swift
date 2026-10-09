@@ -43,8 +43,7 @@ nonisolated enum CombinedReviewResponse {
     }
 
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
-                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport
-    {
+                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport {
         struct Payload: Decodable { let claims: [ReviewClaim] }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
         guard payload.claims.count <= 6 else { throw ReviewRunError.invalidEvidence }
