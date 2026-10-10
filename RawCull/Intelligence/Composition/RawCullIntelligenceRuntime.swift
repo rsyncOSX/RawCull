@@ -83,7 +83,8 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         self.qwenAnalysisFeature = qwenAnalysisFeature
         self.objectAnalysisFeature = objectAnalysisFeature
             ?? RawCullObjectAnalysisFeature(inference: modelRuntime.qwenInference)
-        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature] in
+        combinedReviewFeature = CombinedReviewFeature { [weak modelRuntime, weak qwenAnalysisFeature, weak settingsModel] in
+            guard settingsModel?.combinedReviewEnabled == true else { throw CancellationError() }
             guard let modelRuntime, let qwenAnalysisFeature, case let .available(url, _) = qwenAnalysisFeature.modelStatus else { throw ReviewRunError.modelUnavailable }
             let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
             let identity = try String(decoding: encoder.encode(modelRuntime.sam3Configuration.modelIdentity), as: UTF8.self)
@@ -100,6 +101,9 @@ final class RawCullIntelligenceRuntime: RawCullIntelligenceConfigurationApplying
         }
         self.settingsModel = settingsModel
         self.modelDownloadsModel = settingsModel.modelDownloadsModel
+        settingsModel.onCombinedReviewDisabled = { [weak combinedReviewFeature] in
+            combinedReviewFeature?.cancel()
+        }
         similarityFeature.bindApplicationContext(applicationContext)
 
         assert(

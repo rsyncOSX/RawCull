@@ -130,6 +130,7 @@ struct RawCullApp: App {
                 qwenAnalysisFeature: intelligenceRuntime.qwenAnalysisFeature,
                 objectAnalysisFeature: intelligenceRuntime.objectAnalysisFeature,
                 combinedReviewFeature: intelligenceRuntime.combinedReviewFeature,
+                aiSettingsModel: intelligenceRuntime.settingsModel,
             )
             .background(.windowBackground)
             .environment(gridThumbnailViewModel)

@@ -13,6 +13,7 @@ struct RawCullMainView: View {
     let qwenAnalysisFeature: RawCullQwenAnalysisFeature
     let objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
+    let aiSettingsModel: RawCullAISettingsModel
 
     @State private var memoryWarningOpacity: Double = 0.3
     @State private var dismissedMemoryPressureWarning = false
@@ -433,6 +434,7 @@ struct RawCullMainView: View {
             qwenAnalysisFeature: qwenAnalysisFeature,
             objectAnalysisFeature: objectAnalysisFeature,
             combinedReviewFeature: combinedReviewFeature,
+            combinedReviewEnabled: aiSettingsModel.combinedReviewEnabled,
             deepAIReviewController: deepAIReviewController,
         )
         .navigationTitle("AI Analysis")

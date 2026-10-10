@@ -6,6 +6,7 @@ import Foundation
 /// not expose PhotoAIKit providers, repositories, or the composition root.
 @Observable @MainActor
 final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
+    static let combinedReviewEnabledPreferenceKey = "RawCullAI.combinedReviewEnabled"
     static let useCLIPPreferenceKey = "RawCullAI.useCLIPForSimilarity"
     static let selectedCLIPModelPreferenceKey = "RawCullAI.selectedCLIPModel"
     static let selectedSegmentationModelPreferenceKey =
@@ -19,6 +20,17 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
         expectedLocations: [],
     )
     let modelDownloadsModel: RawCullAIModelDownloadsModel
+
+    var combinedReviewEnabled: Bool {
+        didSet {
+            userDefaults.set(combinedReviewEnabled, forKey: Self.combinedReviewEnabledPreferenceKey)
+            if !combinedReviewEnabled {
+                onCombinedReviewDisabled?()
+            }
+        }
+    }
+
+    @ObservationIgnored var onCombinedReviewDisabled: (@MainActor () -> Void)?
 
     var useCLIPForSimilarity: Bool {
         get { prefersCLIPForSimilarity }
@@ -76,6 +88,8 @@ final class RawCullAISettingsModel: RawCullAIManagedModelLocationsApplying {
     ) {
         self.modelRuntime = modelRuntime
         self.userDefaults = userDefaults
+        self.combinedReviewEnabled = userDefaults.object(forKey: Self.combinedReviewEnabledPreferenceKey) == nil
+            ? true : userDefaults.bool(forKey: Self.combinedReviewEnabledPreferenceKey)
         self.qwenAnalysisFeature = qwenAnalysisFeature
             ?? RawCullQwenAnalysisFeature(
                 inference: modelRuntime.qwenInference,

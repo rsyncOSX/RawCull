@@ -5,17 +5,26 @@ struct AIAnalysisView: View {
     @Bindable var qwenAnalysisFeature: RawCullQwenAnalysisFeature
     @Bindable var objectAnalysisFeature: RawCullObjectAnalysisFeature
     let combinedReviewFeature: CombinedReviewFeature
+    let combinedReviewEnabled: Bool
     let deepAIReviewController: DeepAIReviewController
 
     @State private var inputSource = AIAnalysisInputSource.gridSelection
     @State private var selectedTool = AIAnalysisTool.samCLIP
+
+    private var availableTools: [AIAnalysisTool] {
+        AIAnalysisTool.allCases.filter { combinedReviewEnabled || $0 != .combined }
+    }
+
+    private var activeTool: AIAnalysisTool {
+        selectedTool == .combined && !combinedReviewEnabled ? .samCLIP : selectedTool
+    }
 
     private var inputFiles: [FileItem] {
         viewModel.aiAnalysisFiles(for: inputSource)
     }
 
     private var hasStoredResults: Bool {
-        switch selectedTool {
+        switch activeTool {
         case .samCLIP:
             !deepAIReviewController.completedCandidates.isEmpty
 
@@ -37,8 +46,11 @@ struct AIAnalysisView: View {
                 AIAnalysisHeader()
 
                 HStack(spacing: 16) {
-                    Picker("Analysis Tool", selection: $selectedTool) {
-                        ForEach(AIAnalysisTool.allCases) { tool in
+                    Picker("Analysis Tool", selection: Binding(
+                        get: { activeTool },
+                        set: { selectedTool = $0 },
+                    )) {
+                        ForEach(availableTools) { tool in
                             Label(tool.title, systemImage: tool.systemImage)
                                 .tag(tool)
                         }
@@ -77,7 +89,7 @@ struct AIAnalysisView: View {
                         description: Text(emptyDescription),
                     )
                 } else {
-                    switch selectedTool {
+                    switch activeTool {
                     case .combined:
                         CombinedReviewView(feature: combinedReviewFeature, files: inputFiles)
 
@@ -134,6 +146,11 @@ struct AIAnalysisView: View {
             let availableIDs = Set(inputFiles.map(\.id))
             if viewModel.selectedFileID.map(availableIDs.contains) != true {
                 viewModel.selectedFileID = inputFiles.first?.id
+            }
+        }
+        .onChange(of: combinedReviewEnabled) { _, enabled in
+            if !enabled, selectedTool == .combined {
+                selectedTool = .samCLIP
             }
         }
         .onChange(of: selectedTool) { _, newTool in
