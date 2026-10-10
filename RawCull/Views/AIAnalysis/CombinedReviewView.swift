@@ -19,6 +19,9 @@ struct CombinedReviewView: View {
                 if let error = feature.failureMessage {
                     Text(error).foregroundStyle(.red).textSelection(.enabled)
                 }
+                if !feature.taskHistory.isEmpty {
+                    CombinedReviewTaskHistory(runs: feature.taskHistory, activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil)
+                }
                 if let result = feature.result {
                     evidence(result)
                 } else {
@@ -198,5 +201,89 @@ private struct CombinedReviewLocations: View {
                 Text("Preview input unavailable under current retention.")
             }
         }.task(id: inputKey) { image = await feature.exactInput(inputKey) }
+    }
+}
+
+private struct CombinedReviewTaskHistory: View {
+    let runs: [CombinedReviewRunV1]
+    let activeRunID: UUID?
+    @State private var expandedRuns: Set<UUID> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Task history").font(.headline)
+            ForEach(runs, id: \.snapshot.id) { run in
+                DisclosureGroup(isExpanded: Binding(
+                    get: { expandedRuns.contains(run.snapshot.id) },
+                    set: { expanded in
+                        if expanded {
+                            expandedRuns.insert(run.snapshot.id)
+                        } else {
+                            expandedRuns.remove(run.snapshot.id)
+                        }
+                    },
+                )) {
+                    Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
+                        GridRow {
+                            Text("Task").fontWeight(.semibold)
+                            Text("Status").fontWeight(.semibold)
+                            Text("Attempts").fontWeight(.semibold)
+                            Text("Details").fontWeight(.semibold)
+                        }
+                        Divider().gridCellColumns(4)
+                        ForEach(run.work, id: \.id) { item in
+                            GridRow(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(title(item.stage))
+                                    Text(item.id.rawValue.components(separatedBy: ":").dropFirst().joined(separator: ":"))
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 5) {
+                                    if item.state == .running, run.snapshot.id == activeRunID {
+                                        ProgressView().controlSize(.mini)
+                                    }
+                                    Text(item.state == .running && run.snapshot.id != activeRunID ? "Interrupted" : item.state.rawValue.capitalized)
+                                }
+                                Text(item.attempts.formatted()).monospacedDigit()
+                                Text(item.reason ?? "—").foregroundStyle(.secondary).textSelection(.enabled)
+                            }
+                        }
+                    }
+                    .font(.caption)
+                    .padding(.top, 8)
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(run.snapshot.files.first?.displayName ?? "Review")
+                        Text(run.snapshot.created.formatted(date: .abbreviated, time: .standard))
+                            .font(.caption).foregroundStyle(.secondary)
+                        let completed = run.work.filter { $0.state == .completed }.count
+                        Text("\(completed) of \(run.work.count) tasks completed")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.quaternary, in: .rect(cornerRadius: 8))
+        .onChange(of: runs.first?.snapshot.id, initial: true) { _, id in
+            if let id {
+                expandedRuns.insert(id)
+            }
+        }
+    }
+
+    private func title(_ stage: ReviewStage) -> String {
+        switch stage {
+        case .source: "Prepare image"
+        case .overview: "Overview analysis"
+        case .identity: "Identify subjects"
+        case .segmentation: "Subject masks"
+        case .clip: "CLIP relevance"
+        case .measurement: "Measure subject detail"
+        case .cropObservation: "Inspect crop"
+        case .reconciliation: "Reconcile evidence"
+        case .report: "Generate report"
+        case .comparison: "Compare images"
+        }
     }
 }

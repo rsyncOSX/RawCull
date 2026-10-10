@@ -29,6 +29,12 @@ final class CombinedReviewFeature {
     var progress = "Ready"
     private(set) var failureMessage: String?
     var result: CombinedReviewResult?
+    private(set) var savedHistory: [CombinedReviewRunV1] = []
+    var taskHistory: [CombinedReviewRunV1] {
+        let previous = savedHistory.filter { $0.snapshot.id != manifest?.snapshot.id }
+        return manifest.map { [$0] + previous } ?? previous
+    }
+
     var manifest: CombinedReviewRunV1?
     @ObservationIgnored let store: ReviewArtifactStore
     @ObservationIgnored let sourceLoader: any ReviewImageSourceLoading
@@ -41,7 +47,8 @@ final class CombinedReviewFeature {
 
     init(store: ReviewArtifactStore = ReviewArtifactStore(), sourceLoader: any ReviewImageSourceLoading = ReviewImageSourceService(),
          scorer: any SubjectMaskFocusScoring = SubjectMaskFocusScorer(), lease: CombinedReviewLease = .shared,
-         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing) {
+         backendFactory: @escaping @MainActor () throws -> any CombinedReviewBackendServing)
+    {
         self.store = store; self.sourceLoader = sourceLoader; self.scorer = scorer; self.lease = lease; self.backendFactory = backendFactory
     }
 
@@ -77,6 +84,11 @@ final class CombinedReviewFeature {
                                                      responseTokens: 768, pipelineVersion: "combined-v1", created: Date(), expandedSelectionPlan: nil,
                                                      userRegions: requestedRegion.map { [.init(imageID: files[0].id, normalizedRect: $0, purpose: "User region; location only")] })
                     try snapshot.validate()
+                    if let previous = manifest {
+                        savedHistory.removeAll { $0.snapshot.id == previous.snapshot.id }
+                        savedHistory.insert(previous, at: 0)
+                    }
+                    result = nil
                     manifest = try Self.initialManifest(snapshot)
                     try await store.saveManifest(currentManifest())
                     try await execute(backend)
@@ -90,6 +102,7 @@ final class CombinedReviewFeature {
     func restoreStoredRun() async {
         guard manifest == nil, !isRunning else { return }
         do {
+            savedHistory = try await store.historyManifests()
             if let saved = try await store.latestManifest() {
                 manifest = saved
                 progress = saved.cancelled ? "Saved run available to resume" : "Saved evidence available"

@@ -41,6 +41,17 @@ actor ReviewArtifactStore {
         return try loadManifest(id)
     }
 
+    func historyManifests() throws -> [CombinedReviewRunV1] {
+        let directory = root.appendingPathComponent("runs")
+        guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .compactMap { url in
+                guard let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) else { return nil }
+                return try? loadManifest(id)
+            }
+            .sorted { $0.snapshot.created > $1.snapshot.created }
+    }
+
     func loadManifest(_ id: UUID) throws -> CombinedReviewRunV1 {
         let data = try readHeader(at: manifestURL(id), kind: "run")
         let envelope = try JSONDecoder().decode(ReviewStorageEnvelopeV1<CombinedReviewRunV1>.self, from: data)
