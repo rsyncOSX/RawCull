@@ -29,7 +29,16 @@ struct BurstGroupsHomeView: View {
                             indexSimilarity: indexSimilarity,
                         )
 
-                        nextUpCard
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: 16) {
+                                nextUpCard.frame(minWidth: 680)
+                                reviewDataCard.frame(width: 290)
+                            }
+                            VStack(spacing: 16) {
+                                nextUpCard
+                                reviewDataCard
+                            }
+                        }
 
                         Text("Your queue")
                             .font(.headline)
@@ -61,10 +70,21 @@ struct BurstGroupsHomeView: View {
             groupCount: burstGroupCount,
             controlsAreBusy: controlsAreBusy,
             catalogPreparation: catalogPreparationPresentation,
-            dataStatus: burstDataStatus,
             analyzeBursts: analyzeBursts,
             openNeedsReview: { showResults(.needsReview) },
         )
+    }
+
+    private var reviewDataCard: some View {
+        burstDataStatus
+            .padding(24)
+            .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+            .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(.separator.opacity(0.65), lineWidth: 1)
+            }
+            .accessibilityElement(children: .contain)
     }
 
     private var queueCards: some View {
@@ -142,7 +162,7 @@ struct BurstGroupsHomeView: View {
                 isRunning: similarityFeature.isGrouping || viewModel.burstAnalysisProgress.isRunning,
             )
         }
-        .frame(width: 230, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -367,14 +387,13 @@ private struct BurstGroupsHomeHeader: View {
     }
 }
 
-private struct BurstNextUpCard<DataStatus: View>: View {
+private struct BurstNextUpCard: View {
     let resultsAreAvailable: Bool
     let fileCount: Int
     let completedCount: Int
     let groupCount: Int
     let controlsAreBusy: Bool
     let catalogPreparation: BurstCatalogPreparationPresentation
-    let dataStatus: DataStatus
     let analyzeBursts: () -> Void
     let openNeedsReview: () -> Void
 
@@ -384,75 +403,20 @@ private struct BurstNextUpCard<DataStatus: View>: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 28) {
-                Image(systemName: resultsAreAvailable ? "photo.stack.fill" : "photo.on.rectangle.angled")
-                    .font(.system(size: 48, weight: .light))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 112)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(title)
-                        .font(.title2.weight(.bold))
-                    Text(detail)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(spacing: 10) {
-                        Label("\(fileCount) photos", systemImage: "clock")
-                        Text("·")
-
-                        ZStack(alignment: .leading) {
-                            Text(resultsAreAvailable ? "Ready to review" : "About a minute")
-                                .opacity(catalogPreparation.isRunning ? 0 : 1)
-                                .accessibilityHidden(catalogPreparation.isRunning)
-
-                            HStack(spacing: 6) {
-                                ProgressView(
-                                    value: catalogPreparation.overallCompletionFraction,
-                                )
-                                .frame(width: 48)
-
-                                Text(catalogPreparationStatus)
-                                    .lineLimit(1)
-                            }
-                            .opacity(catalogPreparation.isRunning ? 1 : 0)
-                            .accessibilityHidden(!catalogPreparation.isRunning)
-                        }
-                        .frame(width: 190, alignment: .leading)
-                    }
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
-                    HStack(spacing: 14) {
-                        Button(action: resultsAreAvailable ? openNeedsReview : analyzeBursts) {
-                            Label(
-                                resultsAreAvailable ? "Open Review Queue" : "Find Burst Groups",
-                                systemImage: resultsAreAvailable ? "arrow.right" : "waveform.path.ecg",
-                            )
-                            .frame(minWidth: 250)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(controlsAreBusy || fileCount == 0)
-                    }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 24) {
+                    actionContent.frame(minWidth: 380, maxWidth: .infinity, alignment: .leading)
+                    progressRing
                 }
-
-                Spacer(minLength: 24)
-
-                dataStatus
-
-                Spacer(minLength: 0)
-
-                BurstReviewProgressRing(
-                    completedCount: completedCount,
-                    totalCount: resultsAreAvailable ? groupCount : fileCount,
-                )
-                .padding(.trailing, 28)
+                VStack(alignment: .leading, spacing: 24) {
+                    actionContent
+                    progressRing.frame(maxWidth: .infinity)
+                }
             }
+            .frame(maxWidth: .infinity, minHeight: 220, alignment: .leading)
         }
         .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
         .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 14))
         .overlay {
             RoundedRectangle(cornerRadius: 14)
@@ -461,15 +425,90 @@ private struct BurstNextUpCard<DataStatus: View>: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var title: String {
-        resultsAreAvailable ? "Continue reviewing your bursts" : "Start by finding burst groups"
+    private var actionContent: some View {
+        HStack(spacing: 20) {
+            Image(systemName: resultsAreAvailable ? "photo.stack.fill" : "photo.on.rectangle.angled")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary)
+                .frame(width: 64)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                // Both states participate in layout so completion only changes the text.
+                ZStack(alignment: .leading) {
+                    Text("Start by finding burst groups")
+                        .opacity(resultsAreAvailable ? 0 : 1)
+                        .accessibilityHidden(resultsAreAvailable)
+                    Text("Continue reviewing your bursts")
+                        .opacity(resultsAreAvailable ? 1 : 0)
+                        .accessibilityHidden(!resultsAreAvailable)
+                }
+                .font(.title2.weight(.bold))
+                .fixedSize(horizontal: false, vertical: true)
+
+                ZStack(alignment: .leading) {
+                    Text("We’ll cluster visually similar photos so you can compare them side by side.")
+                        .opacity(resultsAreAvailable ? 0 : 1)
+                        .accessibilityHidden(resultsAreAvailable)
+                    Text("Compare each sequence side by side and keep the strongest frames.")
+                        .opacity(resultsAreAvailable ? 1 : 0)
+                        .accessibilityHidden(!resultsAreAvailable)
+                }
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        Label("\(fileCount) photos", systemImage: "clock")
+                        Text("·")
+                        preparationStatus
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("\(fileCount) photos", systemImage: "clock")
+                        preparationStatus
+                    }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+                Button(action: resultsAreAvailable ? openNeedsReview : analyzeBursts) {
+                    Label(
+                        resultsAreAvailable ? "Open Review Queue" : "Find Burst Groups",
+                        systemImage: resultsAreAvailable ? "arrow.right" : "waveform.path.ecg",
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(controlsAreBusy || fileCount == 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
-    private var detail: String {
-        if resultsAreAvailable {
-            return "Compare each sequence side by side and keep the strongest frames."
+    private var preparationStatus: some View {
+        ZStack(alignment: .leading) {
+            Text(resultsAreAvailable ? "Ready to review" : "About a minute")
+                .opacity(catalogPreparation.isRunning ? 0 : 1)
+                .accessibilityHidden(catalogPreparation.isRunning)
+            HStack(spacing: 6) {
+                ProgressView(value: catalogPreparation.overallCompletionFraction)
+                    .frame(width: 48)
+                Text(catalogPreparationStatus).lineLimit(1)
+            }
+            .opacity(catalogPreparation.isRunning ? 1 : 0)
+            .accessibilityHidden(!catalogPreparation.isRunning)
         }
-        return "We’ll cluster visually similar photos so you can compare them side by side."
+        .frame(width: 190, alignment: .leading)
+    }
+
+    private var progressRing: some View {
+        BurstReviewProgressRing(
+            completedCount: completedCount,
+            totalCount: resultsAreAvailable ? groupCount : fileCount,
+        )
+        .padding(8)
     }
 
     private var catalogPreparationStatus: LocalizedStringResource {
