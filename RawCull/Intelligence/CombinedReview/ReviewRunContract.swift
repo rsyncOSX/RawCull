@@ -26,33 +26,33 @@ typealias ReviewWorkID = ReviewID<ReviewWorkKind>
 nonisolated enum ReviewDepth: String, Codable, CaseIterable, Sendable {
     case standard, deep, exhaustive
     var cropsPerImage: Int {
-        switch self { case .standard: 3; 
-case .deep: 8; 
-case .exhaustive: 16 }
+        switch self { case .standard: 3
+        case .deep: 8
+        case .exhaustive: 16 }
     }
 
     var selectionCrops: Int {
-        switch self { case .standard: 16; 
-case .deep: 32; 
-case .exhaustive: 64 }
+        switch self { case .standard: 16
+        case .deep: 32
+        case .exhaustive: 64 }
     }
 
     var followupsPerImage: Int {
-        switch self { case .standard: 0; 
-case .deep: 2; 
-case .exhaustive: 4 }
+        switch self { case .standard: 0
+        case .deep: 2
+        case .exhaustive: 4 }
     }
 
     var selectionFollowups: Int {
-        switch self { case .standard: 0; 
-case .deep: 8; 
-case .exhaustive: 16 }
+        switch self { case .standard: 0
+        case .deep: 8
+        case .exhaustive: 16 }
     }
 
     var pairCap: Int {
-        switch self { case .standard: 0; 
-case .deep: 2; 
-case .exhaustive: 4 }
+        switch self { case .standard: 0
+        case .deep: 2
+        case .exhaustive: 4 }
     }
 }
 
@@ -92,7 +92,7 @@ nonisolated struct ReviewUserRegion: Codable, Equatable, Sendable {
 
 /// A pipeline contract may intentionally retain unchanged stage schemas.
 nonisolated enum ReviewPipelineContract {
-    static let version = "combined-v1"
+    static let version = "combined-v2"
     static let renderVersion = "review-srgb-v1"
     static let stageVersions = Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map {
         ($0, [.cropObservation, .reconciliation, .report].contains($0) ? "combined-v2" : "combined-v1")
@@ -157,11 +157,15 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
     }
 
     static func make(snapshot: ReviewRunSnapshot, image: ReviewFileSnapshot, stage: ReviewStage,
-                     sourceRender: String = "", region: String = "") throws -> Self {
+                     sourceRender: String = "", region: String = "") throws -> Self
+    {
         var fields = ["file": image.fingerprint, "render": snapshot.renderVersion,
                       "sourcePreference": snapshot.sourcePreference, "sourceRender": sourceRender,
                       "pipeline": snapshot.pipelineVersion, "stage": stage.rawValue,
                       "stageVersion": snapshot.stageVersions[stage] ?? "unversioned", "region": region]
+        if stage == .comparison {
+            fields["selection"] = snapshot.files.sorted { $0.id.rawValue < $1.id.rawValue }.map { $0.id.rawValue + ":" + $0.fingerprint }.joined(separator: "|")
+        }
         if stage.goalDependent {
             fields["criteria"] = snapshot.criteria
         }

@@ -18,7 +18,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 291
+SMOKE_EXPECTED_TESTS = 306
 PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build
@@ -95,6 +95,14 @@ test-smoke: verify-smoke-manifest
 combinedreviewtest:
 	xcodebuild test $(XCODE_TEST_FLAGS) -enableCodeCoverage NO \
 		-only-testing:RawCullTests/CombinedReviewRealModelTests
+
+# Opt-in six-file Sony source/crop probe and bounded selection comparison.
+combinedselectiontest:
+	TEST_RUNNER_RAWCULL_COMBINED_SELECTION_RUN=1 \
+	TEST_RUNNER_RAWCULL_COMBINED_SELECTION_DIRECTORY="$(RELEASE_CATALOG)" \
+	TEST_RUNNER_RAWCULL_COMBINED_REVIEW_QWEN="$(RELEASE_QWEN)" \
+	xcodebuild test $(XCODE_TEST_FLAGS) -enableCodeCoverage NO \
+		-parallel-testing-enabled NO -only-testing:RawCullTests/CombinedReviewRealModelTests
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
@@ -291,4 +299,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: combinedreviewtest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: combinedreviewtest combinedselectiontest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

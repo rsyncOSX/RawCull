@@ -30,7 +30,7 @@ final class CombinedReviewFeature {
     private(set) var isCheckingParameters = false
     private(set) var sourceAvailability: ReviewSourceAvailability?
     private(set) var resumeDisabledReason: String? = "Checking saved settings…"
-    private(set) var parameterStatus = "Select one image to check available settings."
+    private(set) var parameterStatus = "Select 1–8 images to check available settings."
     @ObservationIgnored private var parameterRevision = 0
     private var checkedSelection: [ReviewSelectedFile] = []
 
@@ -60,7 +60,12 @@ final class CombinedReviewFeature {
         resumeDisabledReason = "Checking saved settings…"
         do {
             try await ReviewCatalogSession.revalidate(saved.snapshot.files)
-            let availability = try await sourceLoader.availability(for: saved.snapshot.files[0].url)
+            var availability = ReviewSourceAvailability()
+            for file in saved.snapshot.files {
+                let value = try await sourceLoader.availability(for: file.url)
+                availability.previewDisabledReason = availability.previewDisabledReason ?? value.previewDisabledReason
+                availability.rawDisabledReason = availability.rawDisabledReason ?? value.rawDisabledReason
+            }
             guard !Task.isCancelled, manifest?.snapshot.id == id else { return }
             if let preference = ReviewSourcePreference(rawValue: saved.snapshot.sourcePreference) {
                 resumeDisabledReason = availability.reason(for: preference).map { $0 + " Rerun with current settings instead." }
@@ -79,9 +84,9 @@ final class CombinedReviewFeature {
         let revision = parameterRevision
         sourceAvailability = nil
         checkedSelection = []
-        guard selected.count == 1 else {
+        guard !selected.isEmpty, selected.count <= 8 else {
             isCheckingParameters = false
-            parameterStatus = "Review settings disabled: select exactly one image."
+            parameterStatus = "Review settings disabled: select 1–8 images. Larger selections require an expanded coverage plan and a separate run."
             return
         }
         isCheckingParameters = true
@@ -92,7 +97,12 @@ final class CombinedReviewFeature {
             }
         }
         do {
-            let availability = try await sourceLoader.availability(for: selected[0].url)
+            var availability = ReviewSourceAvailability()
+            for file in selected {
+                let value = try await sourceLoader.availability(for: file.url)
+                availability.previewDisabledReason = availability.previewDisabledReason ?? value.previewDisabledReason
+                availability.rawDisabledReason = availability.rawDisabledReason ?? value.rawDisabledReason
+            }
             guard !Task.isCancelled, !isRunning, revision == parameterRevision else { return }
             sourceAvailability = availability
             checkedSelection = selected
@@ -125,6 +135,18 @@ final class CombinedReviewFeature {
     var progress = "Ready"
     private(set) var failureMessage: String?
     var result: CombinedReviewResult?
+    var results: [CombinedReviewResult] = []
+    var displayedResults: [CombinedReviewResult] {
+        if let result, !results.contains(where: { $0.file.id == result.file.id }) {
+            return results + [result]
+        }
+        return results
+    }
+
+    var selectionReport: ReviewSelectionReport?
+    var comparisonInputReference: String?
+    @ObservationIgnored var activeFile: ReviewFileSnapshot?
+    @ObservationIgnored var cropAllowance = 0
     private(set) var savedHistory: [CombinedReviewRunV1] = []
     var taskHistory: [CombinedReviewRunV1] {
         let previous = savedHistory.filter { $0.snapshot.id != manifest?.snapshot.id }
@@ -161,7 +183,7 @@ final class CombinedReviewFeature {
             lease.invalidateOwner = { [weak self] in self?.cancel() }
             let backend = try backendFactory()
             let selectedDepth = depth, selectedPreference = sourcePreference, retention = retainInputs
-            let requestedRegion = userRegion
+            let requestedRegion = selected.count == 1 ? userRegion : nil
             let worker = Task { [weak self] in
                 guard let self else { return }
                 defer { isRunning = false; task = nil; catalogSession = nil; lease.release(id) }
@@ -182,7 +204,7 @@ final class CombinedReviewFeature {
                         savedHistory.removeAll { $0.snapshot.id == previous.snapshot.id }
                         savedHistory.insert(previous, at: 0)
                     }
-                    result = nil
+                    result = nil; results = []; selectionReport = nil
                     manifest = try Self.initialManifest(snapshot)
                     try await store.saveManifest(currentManifest())
                     try await execute(backend)
@@ -260,7 +282,7 @@ final class CombinedReviewFeature {
         defer { lease.release(reservation) }
         storageRevision += 1
         try await store.clearAll()
-        result = nil
+        result = nil; results = []; selectionReport = nil; comparisonInputReference = nil
         manifest = nil
         savedHistory = []
         userRegion = nil
@@ -289,15 +311,25 @@ final class CombinedReviewFeature {
     }
 
     static func initialManifest(_ snapshot: ReviewRunSnapshot) throws -> CombinedReviewRunV1 {
-        let file = snapshot.files[0]
-        let source = workID(file.id, "source"), overview = workID(file.id, "overview"), identity = workID(file.id, "identity")
-        func item(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], terminal: Bool = false) throws -> ReviewWorkItem {
-            try .init(id: workID(file.id, name), imageID: file.id, stage: stage,
-                      dependencies: parents.map { .init(id: $0, allowsUnavailable: terminal) },
-                      compatibility: ReviewCompatibility.make(snapshot: snapshot, image: file, stage: stage))
+        var work: [ReviewWorkItem] = []
+        for file in snapshot.files {
+            let source = workID(file.id, "source"), overview = workID(file.id, "overview"), identity = workID(file.id, "identity")
+            func item(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], terminal: Bool = false) throws -> ReviewWorkItem {
+                try .init(id: workID(file.id, name), imageID: file.id, stage: stage,
+                          dependencies: parents.map { .init(id: $0, allowsUnavailable: terminal) },
+                          compatibility: ReviewCompatibility.make(snapshot: snapshot, image: file, stage: stage))
+            }
+            try work.append(contentsOf: [item("source", stage: .source, parents: []),
+                                         item("overview", stage: .overview, parents: [source]),
+                                         item("identity", stage: .identity, parents: [source, overview], terminal: true),
+                                         item("report", stage: .report, parents: [identity, overview], terminal: true)])
         }
-        return try CombinedReviewRunV1(snapshot: snapshot, work: [item("source", stage: .source, parents: []),
-                                                                  item("overview", stage: .overview, parents: [source]), item("identity", stage: .identity, parents: [source, overview], terminal: true),
-                                                                  item("report", stage: .report, parents: [identity, overview], terminal: true)], budget: ReviewBudget(depth: snapshot.depth, images: 1))
+        if snapshot.files.count > 1 {
+            let file = snapshot.files[0]
+            try work.append(.init(id: workID(file.id, "selection"), imageID: file.id, stage: .comparison,
+                                  dependencies: snapshot.files.map { .init(id: workID($0.id, "report"), allowsUnavailable: true) },
+                                  compatibility: ReviewCompatibility.make(snapshot: snapshot, image: file, stage: .comparison)))
+        }
+        return try CombinedReviewRunV1(snapshot: snapshot, work: work, budget: ReviewBudget(depth: snapshot.depth, images: snapshot.files.count))
     }
 }

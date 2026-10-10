@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -13,6 +14,13 @@ nonisolated struct CombinedReviewContext: Sendable {
     let source: ReviewImageSource
     let qwen: ReviewModelSnapshot
     let overview: CombinedReviewOverview?
+}
+
+nonisolated struct CombinedReviewPair: Sendable {
+    let left: CombinedReviewResult
+    let right: CombinedReviewResult
+    let leftRegion: ReviewRegionRecord
+    let rightRegion: ReviewRegionRecord
 }
 
 extension CombinedReviewFeature {
@@ -54,7 +62,9 @@ extension CombinedReviewFeature {
     }
 
     func addWork(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], source: String, region: String = "") throws -> ReviewWorkID {
-        let run = try currentManifest(), file = run.snapshot.files[0], id = Self.workID(file.id, name)
+        let run = try currentManifest()
+        guard let file = activeFile else { throw ReviewRunError.invalidSnapshot }
+        let id = Self.workID(file.id, name)
         if let existing = run.work.first(where: { $0.id == id }) {
             let expected = try ReviewCompatibility.make(snapshot: run.snapshot, image: file, stage: stage,
                                                         sourceRender: source, region: region)
@@ -90,14 +100,50 @@ extension CombinedReviewFeature {
     }
 
     func execute(_ backend: any CombinedReviewBackendServing) async throws {
-        let context = try await prepare(backend)
-        let (plan, masks, segments) = try await plan(backend, context: context)
-        let terminal = try await inspect(backend, context: context, plan: plan, masks: masks, segmentIDs: segments)
-        try await finish(backend, context: context, plan: plan, terminalIDs: terminal)
+        let snapshot = try currentManifest().snapshot
+        results = []; selectionReport = nil; comparisonInputReference = nil
+        let order = snapshot.files.sorted { $0.id.rawValue < $1.id.rawValue }
+        let allocation = ReviewBudget.cropAllocation(images: order.map(\.id), counts: Dictionary(uniqueKeysWithValues: order.map { ($0.id, snapshot.depth.cropsPerImage) }), depth: snapshot.depth)
+        for file in order {
+            try Task.checkCancellation()
+            activeFile = file
+            cropAllowance = allocation.filter { $0 == file.id }.count
+            result = .init(file: file)
+            do {
+                let context = try await prepare(backend)
+                let (plan, masks, segments) = try await plan(backend, context: context)
+                let terminal = try await inspect(backend, context: context, plan: plan, masks: masks, segmentIDs: segments)
+                try await finish(backend, context: context, plan: plan, terminalIDs: terminal)
+            } catch is CancellationError { throw CancellationError() } catch {
+                if snapshot.files.count == 1 {
+                    throw error
+                }
+                limitation("Image review unavailable: \(error)")
+                result?.failures[Self.workID(file.id, "source").rawValue] = String(describing: error)
+                for item in manifest?.work ?? [] where item.imageID == file.id && item.stage != .comparison {
+                    if item.state == .pending {
+                        try manifest?.skip(item.id, reason: "Image preparation failed: \(error)")
+                    }
+                    if item.state == .running {
+                        try manifest?.finish(item.id, state: .failed, reason: "Image preparation failed: \(error)")
+                    }
+                }
+                try await store.saveManifest(currentManifest())
+            }
+            if let result {
+                results.append(result)
+            }
+        }
+        activeFile = nil
+        if snapshot.files.count > 1 {
+            try await compare(backend)
+        }
+        progress = results.contains { $0.report?.incomplete != false } ? "Complete with limitations" : "Complete"
     }
 
     func prepare(_ backend: any CombinedReviewBackendServing) async throws -> CombinedReviewContext {
-        let run = try currentManifest(), snapshot = run.snapshot, file = snapshot.files[0]
+        let run = try currentManifest(), snapshot = run.snapshot
+        guard let file = activeFile else { throw ReviewRunError.invalidSnapshot }
         guard let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference), let qwen = snapshot.models["qwen"] else { throw ReviewRunError.invalidSnapshot }
         result = .init(file: file)
         progress = "Loading full review source"
@@ -224,7 +270,7 @@ extension CombinedReviewFeature {
             for (index, proposal) in proposed.enumerated() {
                 let region = try source.region(rect: proposal.0, purpose: proposal.1, encoder: geometry)
                 let id = ReviewRegionID(rawValue: region.id)
-                if index >= snapshot.depth.cropsPerImage {
+                if index >= cropAllowance {
                     omitted.append(id); continue
                 }
                 let input = try await retain(source.crop(region))
@@ -334,8 +380,7 @@ extension CombinedReviewFeature {
     }
 
     func finish(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext, plan: CombinedReviewPlan, terminalIDs initialIDs: [ReviewWorkID]) async throws {
-        let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
-        let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
+        let file = context.file, source = context.source, qwen = context.qwen
         var terminalIDs = initialIDs
         for (id, reason) in result?.failures ?? [:] {
             limitation("Stage \(id) unavailable: \(reason)")
@@ -471,5 +516,179 @@ extension CombinedReviewFeature {
             }
         }
         return report
+    }
+}
+
+extension CombinedReviewFeature {
+    /// Draw directly into a fixed-size bitmap: no screen scale, cropping, or stretching.
+    static func comparisonBoard(_ images: [(ReviewImageID, CGImage)]) throws -> (CGImage, [ReviewBoardCell]) {
+        guard (2 ... 8).contains(images.count), Set(images.map(\.0)).count == images.count,
+              let context = CGContext(data: nil, width: 2048, height: 2048, bitsPerComponent: 8, bytesPerRow: 8192,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw ReviewRunError.invalidEvidence }
+        context.setFillColor(CGColor(gray: 0.18, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 2048, height: 2048))
+        let columns = images.count <= 4 ? 2 : 4, rows = (images.count + columns - 1) / columns
+        let width = CGFloat(2048) / CGFloat(columns), height = CGFloat(2048) / CGFloat(rows)
+        var cells: [ReviewBoardCell] = []
+        for (index, entry) in images.sorted(by: { $0.0.rawValue < $1.0.rawValue }).enumerated() {
+            let left = CGFloat(index % columns) * width, top = CGFloat(index / columns) * height
+            let scale = min(width / CGFloat(entry.1.width), (height - 48) / CGFloat(entry.1.height))
+            let rect = CGRect(x: left + (width - CGFloat(entry.1.width) * scale) / 2,
+                              y: top + 48 + (height - 48 - CGFloat(entry.1.height) * scale) / 2,
+                              width: CGFloat(entry.1.width) * scale, height: CGFloat(entry.1.height) * scale)
+            context.draw(entry.1, in: CGRect(x: rect.minX, y: 2048 - rect.maxY, width: rect.width, height: rect.height))
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+            (entry.0.rawValue as NSString).draw(in: CGRect(x: left + 8, y: 2048 - top - 40, width: width - 16, height: 32),
+                                                withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 16, weight: .medium), .foregroundColor: NSColor.white])
+            NSGraphicsContext.restoreGraphicsState()
+            cells.append(.init(imageID: entry.0, rect: rect, sourceWidth: entry.1.width, sourceHeight: entry.1.height))
+        }
+        guard let board = context.makeImage() else { throw ReviewRunError.invalidEvidence }
+        return (board, cells)
+    }
+
+    func comparisonPrompt(_ values: [CombinedReviewResult], model: ReviewModelSnapshot, pair: Bool = false) throws -> (text: String, pruned: Bool) {
+        let snapshot = try currentManifest().snapshot
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let schema = """
+        Compare for goal: \(snapshot.criteria). Board labels are image IDs/annotations. \(pair ? "Matched candidate crops; individual identity unverified." : "Full-frame appearance board; no fine-detail evidence.")
+        Require shared scene AND subject evidence; generic concepts do not establish identity. Unrelated/missing/conflicting evidence: abstain. Technical detail requires compatible fidelity/scale and cited crop observations from EACH image. CLIP is not quality. No eye/RAW recovery/identity claims. Suggestions are untested.
+        JSON only: {"comparability":"insufficient","decision":"abstain","preferred":[],"reason":"Different scenes; retain individual reports.","claims":[]}
+        comparability=comparable/unrelated/insufficient; decision=preferred/tie/abstain; preferred=image IDs (1/2+/0). Reason: ONE sentence, max 200 chars; never enumerate photographs there.
+        At most 3 claims: {"imageIDs":["ID"],"claim":{"text":"strength/weakness/tradeoff","type":"composition","evidence":[{"kind":"observation","id":"ID"}],"uncertainty":"limits","contradictions":[]}}. Each named image must contribute evidence. Types: composition/exposure/visibility/detail/suggestion. Unresolved ties stay ties. Rows are excerpts; omitted evidence cannot support claims.
+        """
+        func mandatoryRows(excerptLimit: Int) throws -> [String] {
+            var rows: [String] = []
+            for value in values {
+                let observation = value.observations.first(where: { $0.regionID == nil && $0.availability == .available })
+                    ?? value.observations.first(where: { $0.availability == .available && !$0.provenance.workID.rawValue.contains(":reconcile") })
+                guard let observation else { throw ReviewRunError.invalidEvidence }
+                let reference = try String(decoding: encoder.encode(ReviewEvidenceReference(kind: .observation, id: observation.id.rawValue)), as: UTF8.self)
+                rows.append("\(value.file.id.rawValue) \(value.source?.fidelity ?? "unavailable") missing=\(value.report?.incomplete != false) \(reference) \(observation.text.prefix(excerptLimit)) [excerpt; limits: \(observation.uncertainty.prefix(excerptLimit / 2))]")
+            }
+            return rows
+        }
+        var prompt = "", excerptLimit = 80
+        for limit in [80, 60, 40, 20] {
+            let candidate = try schema + "\n" + mandatoryRows(excerptLimit: limit).joined(separator: "\n")
+            if (try? CombinedReviewResponse.admitted(candidate, model: model, outputTokens: snapshot.responseTokens)) != nil {
+                prompt = candidate; excerptLimit = limit; break
+            }
+        }
+        guard !prompt.isEmpty else { throw ReviewRunError.invalidEvidence }
+        var pruned = values.contains { value in
+            value.observations.contains { $0.text.count > excerptLimit || $0.uncertainty.count > excerptLimit / 2 }
+        }
+        let crops = values.map { $0.observations.filter { $0.regionID != nil && $0.availability == .available } }
+        for round in 0 ..< (crops.map(\.count).max() ?? 0) {
+            for (index, observations) in crops.enumerated() where round < observations.count {
+                let observation = observations[round]
+                let row = try values[index].file.id.rawValue + " " + String(decoding: encoder.encode(ReviewEvidenceReference(kind: .observation, id: observation.id.rawValue)), as: UTF8.self) + " " + observation.text + " Limits: " + observation.uncertainty
+                if (try? CombinedReviewResponse.admitted(prompt + "\n" + row, model: model, outputTokens: snapshot.responseTokens)) != nil {
+                    prompt += "\n" + row
+                } else {
+                    pruned = true
+                }
+            }
+        }
+        for value in values {
+            for measurement in value.measurements where measurement.availability == .available {
+                let reference = try String(decoding: encoder.encode(ReviewEvidenceReference(kind: .measurement, id: measurement.id.rawValue)), as: UTF8.self)
+                let row = try value.file.id.rawValue + " " + reference + " technical; uncalibrated " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)
+                if (try? CombinedReviewResponse.admitted(prompt + "\n" + row, model: model, outputTokens: snapshot.responseTokens)) != nil {
+                    prompt += "\n" + row
+                } else {
+                    pruned = true
+                }
+            }
+        }
+        return try (CombinedReviewResponse.admitted(prompt, model: model, outputTokens: snapshot.responseTokens), pruned)
+    }
+
+    static func validatePromptReferences(_ report: ReviewSelectionReport, prompt: String) throws {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        for reference in report.claims.flatMap({ $0.claim.evidence + $0.claim.contradictions }) {
+            guard try prompt.contains(String(decoding: encoder.encode(reference), as: UTF8.self)) else { throw ReviewRunError.invalidEvidence }
+        }
+    }
+
+    func compare(_ backend: any CombinedReviewBackendServing) async throws {
+        let snapshot = try currentManifest().snapshot
+        guard let qwen = snapshot.models["qwen"], let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference) else { throw ReviewRunError.invalidSnapshot }
+        let id = Self.workID(snapshot.files[0].id, "selection")
+        progress = "Comparing completed image evidence"
+        let report: ReviewSelectionReport? = try await perform(id, category: .comparison) {
+            guard results.allSatisfy({ $0.source != nil && $0.observations.contains { $0.availability == .available } }) else {
+                return ReviewSelectionReport(comparability: .insufficient, decision: .abstain, preferred: [], claims: [], reason: "At least one image lacks source or validated observation evidence. Individual outcomes are retained.")
+            }
+            var images: [(ReviewImageID, CGImage)] = []
+            for value in results {
+                // Load one source at a time; retain only the small overview for the board.
+                let source = try await sourceLoader.load(.init(url: value.file.url, preference: preference, policy: .appearance))
+                guard source.metadata.identity == value.source?.sourceIdentity else { throw ReviewRunError.incompatible }
+                images.append((value.file.id, source.overview))
+            }
+            let (board, cells) = try Self.comparisonBoard(images)
+            let input = await retain(board)
+            comparisonInputReference = input
+            let prompt = try comparisonPrompt(results, model: qwen)
+            let response = try await backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens)
+            var report = try ReviewSelectionReport.decode(response)
+            try report.validate(results: results)
+            try Self.validatePromptReferences(report, prompt: prompt.text)
+            report.cells = cells; report.inputReference = input; report.contextPruned = prompt.pruned
+            report.omittedPairs = results.count * (results.count - 1) / 2
+            return report
+        }
+        selectionReport = report ?? .init(comparability: .insufficient, decision: .abstain, preferred: [], claims: [], reason: "Comparison failed validation or exceeded context. Individual reports remain available.")
+        comparisonInputReference = selectionReport?.inputReference ?? comparisonInputReference
+        try await comparePairs(backend, model: qwen, preference: preference)
+    }
+
+    func comparePairs(_ backend: any CombinedReviewBackendServing, model: ReviewModelSnapshot, preference: ReviewSourcePreference) async throws {
+        guard let report = selectionReport, report.comparability == .comparable, report.decision == .tie else { return }
+        let snapshot = try currentManifest().snapshot
+        let candidates = results.filter { report.preferred.contains($0.file.id) }.sorted { $0.file.id.rawValue < $1.file.id.rawValue }
+        var eligible: [CombinedReviewPair] = []
+        for (index, left) in candidates.enumerated() {
+            for right in candidates.dropFirst(index + 1) {
+                // No automatic matching of multiple similar subjects. Same concept is a candidate, never proof of identity.
+                guard left.subjects.count == 1, right.subjects.count == 1, left.subjects[0].concept == right.subjects[0].concept,
+                      let leftRegion = left.regions.first(where: { $0.subjectID == left.subjects[0].id }),
+                      let rightRegion = right.regions.first(where: { $0.subjectID == right.subjects[0].id }),
+                      leftRegion.fidelity == rightRegion.fidelity, leftRegion.policy == rightRegion.policy,
+                      abs(leftRegion.scaleX / rightRegion.scaleX - 1) <= 0.1, abs(leftRegion.scaleY / rightRegion.scaleY - 1) <= 0.1,
+                      leftRegion.intendedRegionRetained, rightRegion.intendedRegionRetained else { continue }
+                eligible.append(.init(left: left, right: right, leftRegion: leftRegion, rightRegion: rightRegion))
+            }
+        }
+        for pair in eligible.prefix(snapshot.depth.pairCap) {
+            let left = pair.left, right = pair.right, leftRegion = pair.leftRegion, rightRegion = pair.rightRegion
+            let workID = Self.workID(snapshot.files[0].id, "pair:" + left.file.id.rawValue + ":" + right.file.id.rawValue)
+            if manifest?.work.contains(where: { $0.id == workID }) != true {
+                try manifest?.work.append(.init(id: workID, imageID: snapshot.files[0].id, stage: .comparison,
+                                                dependencies: [.init(id: Self.workID(snapshot.files[0].id, "selection"), allowsUnavailable: false)],
+                                                compatibility: ReviewCompatibility.make(snapshot: snapshot, image: snapshot.files[0], stage: .comparison, region: leftRegion.id.rawValue + ":" + rightRegion.id.rawValue)))
+            }
+            let value: ReviewSelectionReport? = try await perform(workID, category: .comparison) {
+                var crops: [(ReviewImageID, CGImage)] = []
+                for (value, region) in [(left, leftRegion), (right, rightRegion)] {
+                    let source = try await sourceLoader.load(.init(url: value.file.url, preference: preference, policy: .appearance))
+                    guard source.metadata.identity == region.sourceIdentity, let crop = source.image.cropping(to: region.sourceRect) else { throw ReviewRunError.incompatible }
+                    crops.append((value.file.id, crop))
+                }
+                let (board, cells) = try Self.comparisonBoard(crops)
+                let prompt = try comparisonPrompt([left, right], model: model, pair: true)
+                var value = try await ReviewSelectionReport.decode(backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens))
+                try value.validate(results: [left, right]); try Self.validatePromptReferences(value, prompt: prompt.text); value.cells = cells; value.inputReference = await retain(board); value.contextPruned = prompt.pruned
+                return value
+            }
+            if let value {
+                selectionReport?.pairReports.append(value)
+            }
+        }
+        let completedPairs = selectionReport?.pairReports.count ?? 0
+        selectionReport?.omittedPairs = max(0, report.omittedPairs - completedPairs)
+        // Pair suggestions remain explicit tradeoffs. They cannot silently resolve a selection-wide tie.
     }
 }

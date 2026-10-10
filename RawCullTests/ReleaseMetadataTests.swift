@@ -6,7 +6,7 @@ import Testing
 @Suite("Release metadata", .tags(.smoke))
 struct ReleaseMetadataTests {
     @Test
-    func `app and extension metadata are aligned for version 3.2.9`() throws {
+    func `app and extension metadata are aligned for version 3.3.0`() throws {
         let project = try repositoryText("RawCull.xcodeproj/project.pbxproj")
         let appBlocks = buildSettingBlocks(
             in: project,
@@ -22,7 +22,7 @@ struct ReleaseMetadataTests {
         let buildNumber = try #require(appBlocks.first.flatMap { buildSetting("CURRENT_PROJECT_VERSION", in: $0) })
         #expect(Int(buildNumber).map { $0 > 0 } == true)
         for block in appBlocks + extensionBlocks {
-            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.2.9")
+            #expect(buildSetting("MARKETING_VERSION", in: block) == "3.3.0")
             #expect(buildSetting("CURRENT_PROJECT_VERSION", in: block) == buildNumber)
             #expect(buildSetting("MACOSX_DEPLOYMENT_TARGET", in: block) == "27.0")
             #expect(buildSetting("ENABLE_APP_SANDBOX", in: block) == "YES")
@@ -119,7 +119,7 @@ struct ReleaseMetadataTests {
         let expectedDestinations = [
             "rawcull-clip-datacomp": "Models/CLIP-DataComp",
             "rawcull-sam3": "Models/SAM3",
-            "rawcull-qwen3-vl-2b": "Models/Qwen/qwen3_vl_2b"
+            "rawcull-qwen3-vl-2b": "Models/Qwen/qwen3_vl_2b",
         ]
         var actualDestinations: [String: String] = [:]
         for assetPack in manifest.assetPacks {
@@ -160,7 +160,7 @@ struct ReleaseMetadataTests {
     }
 
     @Test
-    func `Background Assets metadata is complete`() throws {
+    func `background assets metadata is complete`() throws {
         let appInfo = try propertyList("RawCull-Info.plist")
         let initialRestrictions = try #require(
             appInfo["BAInitialDownloadRestrictions"] as? [String: Any],
@@ -220,7 +220,7 @@ struct ReleaseMetadataTests {
             "OpenCLIP-DataComp-MIT.txt": "6e355cc8399a572ed3db329d178a1188400fbbaed4397c28bd5b5fbac2696986",
             "OpenAI-CLIP-Tokenizer-MIT.txt": "893951b3bf94db8df1b13e05da5cdeb499400960e4d44a3962a8b33ed0b4f28e",
             "SAM3-SAM-License-2025-11-19.txt": "b08db9d32c687054e99cbd41eb1dad19c76936dfb9e2b58e186a01204d8be9ab",
-            "Qwen3-VL-Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+            "Qwen3-VL-Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
         ]
         for (filename, expectedHash) in bundledLicenceHashes {
             let data = try repositoryData("RawCull/Resources/ModelLicences/\(filename)")
