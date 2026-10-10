@@ -209,6 +209,10 @@ final class DeepAIReviewController {
         await feature.start(request)
     }
 
+    func cancelAndWait() async {
+        await feature.cancelAndWait()
+    }
+
     func cancel() {
         Logger.process.debugMessageOnly("DeepAIReviewController.cancel()")
         feature.cancel()

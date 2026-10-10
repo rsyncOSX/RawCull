@@ -309,6 +309,7 @@ final class RawCullSimilarityFeature {
     }
 
     func index(_ request: RawCullSimilarityIndexRequest) async {
+        guard !CombinedReviewLease.shared.isHeld else { return }
         Logger.process.debugMessageOnly("RawCullSimilarityFeature.index()")
         await model.hydrateArtifacts(request.files)
         guard requestIsCurrent(request.catalogIdentity) else { return }

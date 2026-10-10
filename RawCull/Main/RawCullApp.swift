@@ -129,6 +129,8 @@ struct RawCullApp: App {
                 deepAIReviewController: intelligenceRuntime.deepAIReviewController,
                 qwenAnalysisFeature: intelligenceRuntime.qwenAnalysisFeature,
                 objectAnalysisFeature: intelligenceRuntime.objectAnalysisFeature,
+                combinedReviewFeature: intelligenceRuntime.combinedReviewFeature,
+                aiSettingsModel: intelligenceRuntime.settingsModel,
             )
             .background(.windowBackground)
             .environment(gridThumbnailViewModel)
@@ -153,7 +155,7 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel)
+            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .environment(viewModel)
         }
 

@@ -43,13 +43,13 @@ nonisolated struct ReleaseSharpnessReport {
             "- Finished: \(finished?.ISO8601Format() ?? "Pending")",
             "- Catalog: \(Self.text(directory.path))",
             "- Build configuration: Release; hostless runner; fresh scores without production caches",
-            "- Files: \(files.count); scenarios per file: \(scenarios.count); completed: \(entries.count)/\(expectedCount); failed: \(entries.filter { !$0.succeeded }.count)",
+            "- Files: \(files.count); scenarios per file: \(scenarios.count); completed: \(entries.count)/\(expectedCount); failed: \(entries.filter { !$0.succeeded }.count)"
         ]
         lines += summary
         lines += [
             "", "## How the measurements were made", "", "Baseline: Wildlife / Balanced / 1024 px / Embedded Preview / metadata AF. Each comparison changes one input. Metadata AF uses the real point when available; absent AF is not fabricated. AF-removed comparisons use the same source, size, ISO, aperture, and scoring configuration. Auto preserves the birdsInFlight base configuration.",
             "", "Scores are relative detail measurements, not absolute focus quality. Zero scores and unavailable subject/AF evidence are valid. Success checks completion and finite nonnegative numeric output. This catalog has no expert ranking labels, so this run cannot prove ranking accuracy, diagnose sharp-background mistakes, or prove High Precision is better. Missing evidence, fallback suppression, AF sensitivity, and source/scale/quality changes require photographic review (see Docs/sharpness-scoring-review-2026-09-28.md). ISO and aperture are observed, not manipulated. Focus diagnostics use broad saliency/AF evidence, not the blended subject score. The scalar facade may leave confidence and mask-only diagnostics unavailable; no mask is rendered.",
-            "", "## Algorithm and configurations", "",
+            "", "## Algorithm and configurations", ""
         ]
         for scenario in scenarios {
             let descriptor = PhotoAnalyzer.sharpnessDescriptor(for: scenario.configuration)
@@ -58,7 +58,9 @@ nonisolated struct ReleaseSharpnessReport {
             let identity = (try? encoder.encode(descriptor)).flatMap { String(data: $0, encoding: .utf8) } ?? "unavailable"
             lines += ["- \(Self.text(scenario.name)): `\(identity)`"]
         }
-        if let runError { lines += ["", "## Run error", "", Self.text(runError)] }
+        if let runError {
+            lines += ["", "## Run error", "", Self.text(runError)]
+        }
         for file in files {
             let metadata = entries.first { $0.file == file }?.metadata
             let exif = metadata?.exifMetadata
@@ -103,7 +105,9 @@ nonisolated struct ReleaseSharpnessReport {
             for (index, entry) in ranked.enumerated() {
                 lines.append("\(index + 1). \(Self.text(entry.file.lastPathComponent)): \(Self.number(entry.breakdown?.finalScore))")
             }
-            if ranked.isEmpty { lines.append("No valid scores available.") }
+            if ranked.isEmpty {
+                lines.append("No valid scores available.")
+            }
         }
         return lines.joined(separator: "\n") + "\n"
     }
@@ -134,7 +138,9 @@ nonisolated struct ReleaseSharpnessReport {
         var reviewFiles: [URL] = []
         var reviewReasons: [URL: [String]] = [:]
         func prioritize(_ file: URL, reason: String) {
-            if reviewReasons[file] == nil { reviewFiles.append(file) }
+            if reviewReasons[file] == nil {
+                reviewFiles.append(file)
+            }
             reviewReasons[file, default: []].append(reason)
         }
 
@@ -170,11 +176,12 @@ nonisolated struct ReleaseSharpnessReport {
             ("Fast quality", .init(photoType: .birdsWildlife, quality: .fast)),
             ("2048 px analysis size", .init(photoType: .birdsWildlife, pixelSize: 2048)),
             ("RAW decoding", .init(photoType: .birdsWildlife, source: .rawDemosaic)),
-            ("AF information removed", .init(photoType: .birdsWildlife, useAF: false)),
+            ("AF information removed", .init(photoType: .birdsWildlife, useAF: false))
         ]
         for comparison in comparisons {
             guard files.count >= 2, ranked.count == files.count,
-                  rankedEntries(for: comparison.scenario).count == files.count else {
+                  rankedEntries(for: comparison.scenario).count == files.count
+            else {
                 lines.append("| \(comparison.label) | Insufficient complete results | Wait for valid results for all photos; at least two photos are needed. |")
                 continue
             }
@@ -185,11 +192,15 @@ nonisolated struct ReleaseSharpnessReport {
                     guard let a = left.breakdown?.finalScore, let b = right.breakdown?.finalScore,
                           let c = validEntry(for: left.file, scenario: comparison.scenario)?.breakdown?.finalScore,
                           let d = validEntry(for: right.file, scenario: comparison.scenario)?.breakdown?.finalScore else { continue }
-                    if (a > b && c < d) || (a < b && c > d) { reversed.append((left.file, right.file)) }
-                    if (a == b) != (c == d) { tieChanges += 1 }
+                    if (a > b && c < d) || (a < b && c > d) {
+                        reversed.append((left.file, right.file))
+                    }
+                    if (a == b) != (c == d) {
+                        tieChanges += 1
+                    }
                 }
             }
-            if reversed.isEmpty && tieChanges == 0 {
+            if reversed.isEmpty, tieChanges == 0 {
                 lines.append("| \(comparison.label) | Same ordering, including ties | No evidence of better photo selection from this ordering alone. |")
             } else {
                 let examples = reversed.prefix(3).map { "\(Self.text($0.0.lastPathComponent)) / \(Self.text($0.1.lastPathComponent))" }.joined(separator: "; ")
@@ -206,7 +217,7 @@ nonisolated struct ReleaseSharpnessReport {
         let knownEvidence = ranked.compactMap { $0.breakdown?.focusEvidence?.saliencyCandidateCount }
         let missingCandidates = knownEvidence.filter { $0 == 0 }.count
         lines += ["", "### What this catalog does not establish", ""]
-        if knownEvidence.count == files.count && !files.isEmpty && missingCandidates == 0 {
+        if knownEvidence.count == files.count, !files.isEmpty, missingCandidates == 0 {
             lines.append("Every baseline photo had at least one detected subject candidate. The review's missing-subject fallback concern is **not directly exercised by the baseline in this catalog**. A detected candidate can still identify the wrong subject.")
         } else {
             lines.append("\(missingCandidates) baseline photos had no detected subject candidates; candidate counts are available for \(knownEvidence.count)/\(files.count) photos. Missing localization is not proof of blur: inspect those photos before treating a low score as softness.")
@@ -216,8 +227,12 @@ nonisolated struct ReleaseSharpnessReport {
         }
         lines += ["", "The run has no human sharpness labels. It cannot measure agreement with a photographer or establish reliability for sharp backgrounds, small subjects, low contrast, motion blur, silhouettes, or high ISO merely because processing passed."]
 
-        if let lowest = ranked.last { prioritize(lowest.file, reason: "Lowest available baseline score. Check whether the intended subject is actually soft.") }
-        if let highest = ranked.first { prioritize(highest.file, reason: "Highest available baseline score. Check that detail belongs to the intended subject.") }
+        if let lowest = ranked.last {
+            prioritize(lowest.file, reason: "Lowest available baseline score. Check whether the intended subject is actually soft.")
+        }
+        if let highest = ranked.first {
+            prioritize(highest.file, reason: "Highest available baseline score. Check that detail belongs to the intended subject.")
+        }
         lines += ["", "## Visual check: start here", "",
                   "Use your RAW viewer or RawCull to inspect the original files. This report contains measurements, not image crops. Start with these photos; the list is ordered by review priority.", "",
                   "| Photo | Why inspect it | Your visual judgment |",
@@ -225,7 +240,9 @@ nonisolated struct ReleaseSharpnessReport {
         for file in reviewFiles.prefix(8) {
             lines.append("| \(Self.text(file.lastPathComponent)) | \(reviewReasons[file, default: []].joined(separator: " ")) | Sharp / soft / uncertain; subject or eye checked: ___ |")
         }
-        if reviewFiles.isEmpty { lines.append("| No valid review candidates yet | Resolve missing or failed analysis first. | — |") }
+        if reviewFiles.isEmpty {
+            lines.append("| No valid review candidates yet | Resolve missing or failed analysis first. | — |")
+        }
         lines += ["",
                   "1. Select two photos from the same burst or scene. Hide their scores before comparing them.",
                   "2. View matching subject crops at 100% zoom, with the same RAW rendering and sharpening settings. For birds, inspect the eye, head, and feather detail. Check background detail separately.",
@@ -261,5 +278,8 @@ nonisolated struct ReleaseSharpnessReport {
     private static func number(_ value: Float?) -> String {
         value.map { String(format: "%.6f", $0) } ?? "unavailable"
     }
-    private static func text(_ value: String) -> String { ReleaseAnalysisReport.text(value) }
+
+    private static func text(_ value: String) -> String {
+        ReleaseAnalysisReport.text(value)
+    }
 }

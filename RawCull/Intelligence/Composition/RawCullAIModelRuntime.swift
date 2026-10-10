@@ -149,6 +149,13 @@ final class RawCullAIModelRuntime {
         )
     }
 
+    /// Declared CLIP contracts; compiled tensor and fixture verification remains pending.
+    func clipInputCapabilities() -> [RawCullCLIPModel: RawCullCLIPInputCapabilities] {
+        clipSimilarityProviders.mapValues { provider in
+            RawCullCLIPInputCapabilities(provider: provider)
+        }
+    }
+
     func capabilities() -> RawCullAICapabilities {
         capabilitySnapshot
     }
@@ -166,6 +173,7 @@ final class RawCullAIModelRuntime {
 
     func setSelectedSegmentationModel(_ model: RawCullSegmentationModel) {
         guard selectedSegmentationModel != model else { return }
+        CombinedReviewLease.shared.invalidate()
         selectedSegmentationModel = model
         let status = capabilitySnapshot.segmentationModelStatus(for: model)
         capabilitySnapshot = RawCullAICapabilities(
@@ -186,6 +194,7 @@ final class RawCullAIModelRuntime {
     func applyManagedModelLocations(
         _ locations: [RawCullAIModelDownloadID: URL],
     ) async -> QwenModelStatus {
+        await CombinedReviewLease.shared.invalidateAndWait()
         objectSegmentation = nil
         await sam3ModelResourceManager.setManagedCandidateURL(
             RawCullAIModelInclusion.includeSAM3 ? locations[.sam3] : nil,
@@ -267,7 +276,13 @@ final class RawCullAIModelRuntime {
     /// Refresh model resources outside the main actor and reuse validated
     /// providers while their candidate bundle metadata remains unchanged.
     @discardableResult
+    func combinedSegmentationService() throws -> ObjectSegmentationService? {
+        guard let provider = segmentationProviders[.sam3] as? any ObjectInstanceSegmenting else { return nil }
+        return try ObjectSegmentationService(provider: provider, stores: [], maxSide: inputMaxSide, maximumInstanceCount: 8)
+    }
+
     func refreshCapabilities() async throws -> RawCullAICapabilities {
+        await CombinedReviewLease.shared.invalidateAndWait()
         async let sam3Load = sam3ModelResourceManager.load()
         async let clipDataCompLoad = clipDataCompModelResourceManager.load()
         async let clipOpenAILoad = clipOpenAIModelResourceManager.load()

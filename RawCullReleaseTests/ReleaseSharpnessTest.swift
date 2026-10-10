@@ -5,7 +5,7 @@ import Testing
 @Suite("Sharpness release integration")
 struct ReleaseSharpnessTest {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_RELEASE_SHARPNESS_RUN"] == "1"))
-    func analyzeCatalog() async throws {
+    func `analyze catalog`() async throws {
         let config = ReleaseRunConfiguration(environment: ProcessInfo.processInfo.environment)
         let files = try ReleaseRunConfiguration.discoverARWFiles(in: config.directory)
         try #require(!files.isEmpty, "No regular ARW files found in \(config.directory.path)")
@@ -32,26 +32,27 @@ struct ReleaseSharpnessTest {
                                 url: url,
                                 iso: metadata?.exifMetadata.isoValue ?? 400,
                                 aperture: metadata?.exifMetadata.apertureValue,
-                                normalizedAFPoint: scenario.useAF ? metadata?.focusPoint : nil
-                            )
+                                normalizedAFPoint: scenario.useAF ? metadata?.focusPoint : nil,
+                            ),
                         )
                         let results = await adapter.analyzeBatch(
                             requests: [request], configuration: scenario.configuration,
                             maximumPixelSize: scenario.pixelSize, source: scenario.source,
-                            maximumConcurrentTasks: 1
+                            maximumConcurrentTasks: 1,
                         )
                         guard let results, results.count == 1, let result = results.first,
-                              result.id == url, let breakdown = result.breakdown else {
+                              result.id == url, let breakdown = result.breakdown
+                        else {
                             throw ReleaseRunError.message("Decode or scoring failed to return one matching breakdown")
                         }
                         report.entries.append(.init(
                             file: url, scenario: scenario, metadata: metadata, breakdown: breakdown,
-                            error: nil, elapsed: Date().timeIntervalSince(started)
+                            error: nil, elapsed: Date().timeIntervalSince(started),
                         ))
                     } catch {
                         report.entries.append(.init(
                             file: url, scenario: scenario, metadata: metadata, breakdown: nil,
-                            error: error.localizedDescription, elapsed: Date().timeIntervalSince(started)
+                            error: error.localizedDescription, elapsed: Date().timeIntervalSince(started),
                         ))
                     }
                     // Persist each comparison, including failures, before continuing.
@@ -74,21 +75,21 @@ struct ReleaseSharpnessTest {
         }
     }
 
-    @Test func reportPreservesFailuresMissingEvidenceAndPendingComparisons() throws {
+    @Test func `report preserves failures missing evidence and pending comparisons`() {
         let file = URL(fileURLWithPath: "/tmp/a|b.ARW")
         let scenario = ReleaseSharpnessScenario.all[0]
         var report = ReleaseSharpnessReport(directory: file.deletingLastPathComponent(), files: [file])
         let breakdown = SharpnessBreakdown(
             finalScore: 0, globalScore: 1, subjectScore: nil, afPointScore: nil,
-            blurGateSigma: 0, subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none
+            blurGateSigma: 0, subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none,
         )
         let entry = ReleaseSharpnessReport.Entry(
-            file: file, scenario: scenario, metadata: nil, breakdown: breakdown, error: nil, elapsed: 1
+            file: file, scenario: scenario, metadata: nil, breakdown: breakdown, error: nil, elapsed: 1,
         )
         #expect(entry.succeeded, "Zero scores and unavailable evidence are legitimate outcomes")
         report.entries = [entry, .init(
             file: file, scenario: ReleaseSharpnessScenario.all[1], metadata: nil,
-            breakdown: nil, error: "Decode failed", elapsed: 1
+            breakdown: nil, error: "Decode failed", elapsed: 1,
         )]
         report.finished = Date()
         let content = report.markdown
@@ -100,23 +101,29 @@ struct ReleaseSharpnessTest {
         #expect(content.contains("ISO unavailable (400 fallback)"))
     }
 
-    @Test func summaryDistinguishesRankingChangesFromLargerScores() {
+    @Test func `summary distinguishes ranking changes from larger scores`() {
         let files = ["a.ARW", "b.ARW", "c.ARW"].map { URL(fileURLWithPath: "/tmp/" + $0) }
         var report = ReleaseSharpnessReport(directory: URL(fileURLWithPath: "/tmp"), files: files)
         for scenario in ReleaseSharpnessScenario.all {
             for (index, file) in files.enumerated() {
                 var score = Float(3 - index)
-                if scenario.quality == .highPrecision { score *= 10 }
-                if scenario.quality == .fast { score = [2, 3, 1][index] }
-                if scenario.source == .rawDemosaic { score = [2, 2, 1][index] }
+                if scenario.quality == .highPrecision {
+                    score *= 10
+                }
+                if scenario.quality == .fast {
+                    score = [2, 3, 1][index]
+                }
+                if scenario.source == .rawDemosaic {
+                    score = [2, 2, 1][index]
+                }
                 let breakdown = SharpnessBreakdown(
                     finalScore: score, globalScore: 1, subjectScore: 1, afPointScore: nil,
                     blurGateSigma: 0, subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none,
-                    focusEvidence: FocusEvidence(winningRegion: .saliency, saliencyCandidateCount: 1)
+                    focusEvidence: FocusEvidence(winningRegion: .saliency, saliencyCandidateCount: 1),
                 )
                 report.entries.append(.init(
                     file: file, scenario: scenario, metadata: nil, breakdown: breakdown,
-                    error: nil, elapsed: 0
+                    error: nil, elapsed: 0,
                 ))
             }
         }
@@ -138,14 +145,14 @@ struct ReleaseSharpnessTest {
     }
 
     @Test(arguments: [Float.nan, Float.infinity, -Float.infinity, -1])
-    func rejectsInvalidScores(score: Float) {
+    func `rejects invalid scores`(score: Float) {
         let breakdown = SharpnessBreakdown(
             finalScore: score, globalScore: 1, subjectScore: nil, afPointScore: nil,
-            blurGateSigma: 0, subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none
+            blurGateSigma: 0, subjectLabel: nil, subjectConfidence: nil, focusFailureKind: .none,
         )
         let entry = ReleaseSharpnessReport.Entry(
             file: URL(fileURLWithPath: "/tmp/photo.ARW"), scenario: ReleaseSharpnessScenario.all[0],
-            metadata: nil, breakdown: breakdown, error: nil, elapsed: 0
+            metadata: nil, breakdown: breakdown, error: nil, elapsed: 0,
         )
         #expect(!entry.succeeded)
     }
@@ -174,7 +181,7 @@ nonisolated struct ReleaseSharpnessScenario {
             Self(photoType: .birdsWildlife, quality: .fast),
             Self(photoType: .birdsWildlife, quality: .highPrecision),
             Self(photoType: .birdsWildlife, pixelSize: 2048),
-            Self(photoType: .birdsWildlife, source: .rawDemosaic),
+            Self(photoType: .birdsWildlife, source: .rawDemosaic)
         ]
     }
 }

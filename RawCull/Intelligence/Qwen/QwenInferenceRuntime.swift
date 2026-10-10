@@ -22,6 +22,7 @@ nonisolated enum QwenModelStatus: Equatable, Sendable {
 }
 
 nonisolated protocol QwenInferenceServing: AnyObject, Sendable {
+    func inputCapabilities() async -> QwenInputCapabilities?
     func validate(url: URL) async -> QwenModelStatus
     func respond(to request: QwenVisionRequest) async throws -> String
     func assess(criteria: String, image: CGImage) async throws -> QwenModelResponse
@@ -37,6 +38,7 @@ nonisolated struct QwenVisionRequest: Sendable {
 actor QwenInferenceRuntime: QwenInferenceServing {
     private var provider: CoreAIQwenProvider?
     private var model: CoreAIVisionLanguageModel?
+    private var capabilities: QwenInputCapabilities?
     private var modelGeneration: UInt64 = 0
     private let generationGate = QwenGenerationGate()
     private var activeGeneration: Task<String, Error>?
@@ -56,6 +58,7 @@ actor QwenInferenceRuntime: QwenInferenceServing {
                         reason: QwenModelError.visionModelRequired.localizedDescription,
                     )
                 }
+                capabilities = QwenInputCapabilities.inspect(provider: provider, bundleURL: resource.bundleURL)
                 self.provider = provider
                 model = nil
                 return .available(
@@ -146,6 +149,10 @@ actor QwenInferenceRuntime: QwenInferenceServing {
         return content
     }
 
+    func inputCapabilities() async -> QwenInputCapabilities? {
+        capabilities
+    }
+
     func clear() {
         activeGeneration?.cancel()
         modelGeneration &+= 1
@@ -178,6 +185,7 @@ actor QwenInferenceRuntime: QwenInferenceServing {
     private func resetModel() {
         model = nil
         provider = nil
+        capabilities = nil
     }
 
     private static func message(for error: Error) -> String {
@@ -214,5 +222,12 @@ nonisolated enum QwenModelError: Error, LocalizedError, Sendable {
         case .invalidTokenLimit:
             "The requested Qwen response length is outside the supported range."
         }
+    }
+}
+
+/// Test providers and alternate backends may not expose input diagnostics.
+nonisolated extension QwenInferenceServing {
+    func inputCapabilities() async -> QwenInputCapabilities? {
+        nil
     }
 }

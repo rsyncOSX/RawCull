@@ -21,18 +21,23 @@ struct AboutRawCullView: View {
             switch viewModel.mainViewMode {
             case .loupe:
                 .loupe
+
             case .grid:
                 .browse(title: "Grid View", context: "Catalog thumbnail grid.")
+
             case .similarityGrid:
                 .browse(title: "Similarity Grid", context: "Photos grouped or sorted by similarity.")
+
             case .ratedGrid:
                 .browse(title: "Rated Grid", context: "Thumbnail grid filtered by photo rating.")
+
             case .aiAnalysis:
                 .browse(
                     title: "AI Analysis",
                     context: "Photos in the AI analysis workspace.",
                     navigationKeys: ["←", "→"],
                 )
+
             case .comparisonGrid:
                 .manualComparison
             }

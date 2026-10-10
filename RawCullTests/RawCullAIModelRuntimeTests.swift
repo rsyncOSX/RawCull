@@ -50,6 +50,7 @@ struct RawCullAIModelRuntimeTests {
         let paths = isolatedPaths(root: root)
         let modelRuntime = RawCullAIModelRuntime(paths: paths)
         let initialCapabilities = modelRuntime.capabilities()
+        #expect(modelRuntime.clipInputCapabilities().isEmpty)
 
         #expect(initialCapabilities.segmentationModelStatus(for: .sam3) == .checking(
             expectedLocations: [],
@@ -69,6 +70,7 @@ struct RawCullAIModelRuntimeTests {
         ))
 
         let capabilities = try await modelRuntime.refreshCapabilities()
+        #expect(modelRuntime.clipInputCapabilities().isEmpty)
 
         #expect(capabilities.segmentationModelStatus(for: .sam3) == .missing(
             expectedLocations: [],
@@ -106,6 +108,45 @@ struct RawCullAIModelRuntimeTests {
         #expect(FileManager.default.fileExists(atPath: paths.subjectMaskDirectory.path))
         #expect(FileManager.default.fileExists(atPath: paths.objectMaskDirectory.path))
         #expect(modelRuntime.objectSegmentation == nil)
+
+        // A provider's declared input contract is available without loading
+        // compiled models. Exercise installation, snapshot identity, and removal.
+        let bundle = root.appendingPathComponent("clip-contract")
+        try FileManager.default.createDirectory(at: bundle.appendingPathComponent("tokenizer"),
+                                                withIntermediateDirectories: true)
+        try Data([1]).write(to: bundle.appendingPathComponent("clip.aimodel"))
+        try Data("{}".utf8).write(to: bundle.appendingPathComponent("tokenizer/tokenizer.json"))
+        let metadata = ModelBundleMetadata(
+            name: "fixture", family: "clip", embeddingDimensions: 512,
+            assets: ["main": "clip.aimodel"], assetFingerprints: nil,
+            preprocessing: ModelImagePreprocessingMetadata(
+                version: "fixture-v1", width: 256, height: 256,
+                resize: "shortest-side", crop: "center", interpolation: "bicubic",
+                mean: [0.4, 0.5, 0.6], standardDeviation: [0.2, 0.3, 0.4],
+            ),
+            tokenizer: ModelTokenizerMetadata(version: "fixture-tokenizer", type: "clip-bpe",
+                                              contextLength: 77, paddingTokenID: 0),
+            normalizationVersion: "l2-v1", configurationVersion: "fixture-config",
+        )
+        try JSONEncoder().encode(metadata).write(to: bundle.appendingPathComponent("metadata.json"))
+        _ = await modelRuntime.applyManagedModelLocations([.clipDataComp: bundle])
+        _ = try await modelRuntime.refreshCapabilities()
+        let input = try #require(modelRuntime.clipInputCapabilities()[.dataComp])
+        #expect(input.configuredWidth == 256 && input.configuredHeight == 256)
+        #expect(input.crop == "center" && input.resize == "shortest-side")
+        #expect(input.mean == [0.4, 0.5, 0.6])
+        #expect(input.standardDeviation == [0.2, 0.3, 0.4])
+        #expect(input.configuredEmbeddingDimensions == 512)
+        #expect(input.tokenizerContextLength == 77 && input.tokenizerPaddingTokenID == 0)
+        #expect(input.configurationVersion == "fixture-config")
+        #expect(input.tensorLayout == "NCHW" && input.channelOrder == "RGB")
+        #expect(!input.encoderGeometryVerified)
+        #expect(input.modelFingerprint == modelRuntime.similarityService(
+            prefersCLIP: true, clipModel: .dataComp,
+        ).backendDescriptor.modelFingerprint)
+        _ = await modelRuntime.applyManagedModelLocations([:])
+        _ = try await modelRuntime.refreshCapabilities()
+        #expect(modelRuntime.clipInputCapabilities().isEmpty)
     }
 
     @Test

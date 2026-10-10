@@ -21,6 +21,10 @@ nonisolated enum ObjectInstanceDeduplicator {
         }
     }
 
+    static func candidate(concept: String, mask: CGImage, score: Float, bounds: CGRect, id: String) throws -> Candidate {
+        try .init(concept: SegmentationConcept(concept), mask: mask, score: score, normalizedBoundingBox: bounds, sourceInstanceID: id)
+    }
+
     struct Retained: Sendable {
         let descriptor: ObjectInstanceDescriptor
         let mask: CGImage

@@ -19,6 +19,9 @@ opt_in_rules:
   - unused_declaration
   - weak_delegate
 
+empty_count:
+  only_after_dot: true
+
 line_length: 135
 type_body_length: 320
 function_body_length: 80

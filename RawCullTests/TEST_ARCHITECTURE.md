@@ -17,7 +17,7 @@ Xcode 27 does not expose Swift Testing tags as a command-line selector, so the
 checked-in response files are the selection authority. `make test-smoke` and
 `make test-performance` enumerate their response files before execution. The
 enumeration verifier rejects duplicate identifiers and count changes; the
-current baselines are 206 unique smoke identifiers and 2 unique performance
+current baselines are 291 unique smoke identifiers and 2 unique performance
 identifiers. `SmokeManifestIntegrityTests` also rejects selector edits and any
 source `.smoke` declaration whose containing suite is absent from the manifest.
 An intentional addition, removal, or rename therefore requires one reviewable
@@ -161,3 +161,19 @@ from Downloads and installed Qwen/SAM 3 models, writes a Markdown report there,
 and remains outside all routine test plans. See
 [`RawCullReleaseTests/README.md`](../RawCullReleaseTests/README.md) for configuration
 and the distinction between pipeline validation and AI content accuracy.
+
+
+## Combined Review phase 1 verification — 2026-10-09
+
+The unchanged smoke selectors enumerate 258 unique test identifiers under Xcode
+27.0. The earlier Makefile count of 227 was stale (257 existing identifiers plus
+one new Qwen input-capability lifecycle test). Enumeration was checked for
+duplicates and selector membership before refreshing the count. Capability tests
+use temporary synthetic bundles and cover metadata defaults, invalid geometry,
+normalization, model replacement/removal, and unknown-versus-verified inputs.
+
+`make combinedinputstest` separately opts into real installed-model probes in the
+hostless Debug target. It uses synthetic geometry fixtures, calls the pinned
+preprocessors through testability, and saves reproducible model/transform reports;
+ordinary tests neither load nor download these models. See
+[the input-contract decision](../Docs/combined-review-input-contract.md).

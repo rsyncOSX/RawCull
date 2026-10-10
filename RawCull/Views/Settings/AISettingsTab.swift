@@ -8,6 +8,15 @@ struct AISettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                SettingsCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Enable Combined Review", isOn: $model.combinedReviewEnabled)
+                            .toggleStyle(.switch)
+                        Text("Show Combined Review in AI Analysis. Turning it off cancels an active review and keeps saved results.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 AIModelSettingsCard(
                     model: model,
                 )

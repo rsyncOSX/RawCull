@@ -284,8 +284,8 @@ private struct SemanticSearchActivityStatusView: View {
     private var coverageStatus: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.circle")
-            .foregroundStyle(.orange)
-            .accessibilityHidden(true)
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
 
             if coverage.catalogFileCount == 0 {
                 Text("Open a catalog to index images for semantic search.")

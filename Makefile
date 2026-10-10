@@ -18,7 +18,7 @@ SMOKE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-smoke-enumeration.XXXXXX)
 PERFORMANCE_ENUMERATION := $(shell mktemp -u /tmp/rawcull-performance-enumeration.XXXXXX)
 TEST_ENUMERATION_VERIFIER = /tmp/rawcull-verify-test-enumeration
 TEST_ENUMERATION_MODULE_CACHE = /tmp/rawcull-test-enumeration-module-cache
-SMOKE_EXPECTED_TESTS = 227
+SMOKE_EXPECTED_TESTS = 291
 PERFORMANCE_EXPECTED_TESTS = 2
 
 # Default target is release build
@@ -47,6 +47,22 @@ releaseaiobjectstest:
 		-onlyUsePackageVersionsFromResolvedFile \
 		-derivedDataPath "$(RELEASE_TEST_DERIVED_DATA)"
 
+# Opt-in input-contract probes use Debug for dependency testability; the same
+# pinned preprocessors and compiled model assets are exercised without an app host.
+INPUT_PROBE_MODELS ?= $(HOME)/ModelAssets/Release/Models
+INPUT_PROBE_OUTPUT ?= /tmp/rawcull-combined-input-probe
+
+combinedinputstest:
+	TEST_RUNNER_RAWCULL_INPUT_PROBE_RUN=1 \
+	TEST_RUNNER_RAWCULL_INPUT_PROBE_MODELS="$(INPUT_PROBE_MODELS)" \
+	TEST_RUNNER_RAWCULL_INPUT_PROBE_OUTPUT="$(INPUT_PROBE_OUTPUT)" \
+	TEST_RUNNER_RAWCULL_INPUT_PROBE_REPOSITORY="$(PWD)" \
+	xcodebuild test -project RawCull.xcodeproj -scheme RawCullReleaseTests \
+		-destination 'platform=macOS,arch=arm64' -configuration Debug \
+		-testPlan ReleaseObjects -only-testing:RawCullReleaseTests/CombinedReviewInputProbe \
+		-parallel-testing-enabled NO -enableCodeCoverage NO \
+		-onlyUsePackageVersionsFromResolvedFile
+
 # Sharpness comparisons use the same catalog, without loading Qwen or SAM 3 models.
 releasesharpnesstest:
 	TEST_RUNNER_RAWCULL_RELEASE_SHARPNESS_RUN=1 \
@@ -74,6 +90,11 @@ verify-smoke-manifest: build-test-enumeration-verifier
 test-smoke: verify-smoke-manifest
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan Smoke -enableCodeCoverage NO \
 		-only-testing @$(SMOKE_TEST_MANIFEST)
+
+# Opt-in single-image structured workflow; caller supplies installed assets/image.
+combinedreviewtest:
+	xcodebuild test $(XCODE_TEST_FLAGS) -enableCodeCoverage NO \
+		-only-testing:RawCullTests/CombinedReviewRealModelTests
 
 test-full:
 	xcodebuild test $(XCODE_TEST_FLAGS) -testPlan RawCull -enableThreadSanitizer YES
@@ -270,4 +291,4 @@ open-debug:
 	open $(PWD)
 	echo "Debug build complete - app is at: $(APP_PATH)"
 
-.PHONY: releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug
+.PHONY: combinedreviewtest releastest releasesharpnesstest verify-model-provenance build debug build-test-enumeration-verifier verify-smoke-manifest test-smoke test-full verify-performance-manifest test-performance verify-ai-import-boundary release-preflight archive archive-debug archive-app-store sign-app notarize staple prepare-dmg hash-dmg verify-downloaded-dmg clean check history check-cert open open-debug

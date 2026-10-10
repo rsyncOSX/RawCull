@@ -1,7 +1,7 @@
 # Combined Deep AI Review implementation plan
 
 Date: 9 October 2026  
-Status: proposed implementation; no application behavior changed by this document.
+Status: phases 1–4 completed on 9 October 2026; phase 5 is next. Single-image Combined Review is implemented; selection comparison and photographic qualification remain later milestones.
 
 ## 1. Objective and guiding decision
 
@@ -346,3 +346,113 @@ Resolve these through inspection and measured probes; they do not prevent docume
 - Core AI dependency paths listed in section 2 must be checked against the revision selected by the project when implementing changes; local DerivedData paths are not stable project references.
 - [Official Qwen3-VL repository and inference guidance](https://github.com/QwenLM/Qwen3-VL): upstream capabilities and image handling; not a guarantee of converted Core AI behavior.
 - [CLIP research paper](https://cdn.openai.com/papers/Learning_Transferable_Visual_Models_From_Natural_Language_Supervision.pdf): image/text embedding role; similarity must not be presented as calibrated photographic quality.
+
+
+## 16. Numbered implementation plan and milestone tracking
+
+This is the executable delivery plan. Each numbered phase is a milestone; sections 4–12 define its technical requirements and the companion evaluation specification defines qualification. The earlier lettered phases remain design references; this numbered sequence supersedes section 13 for implementation tracking. Complete each exit gate before starting dependent implementation. No phase is complete merely because code builds.
+
+### Phase 1 — establish the model input contract
+
+**Status: complete, 9 October 2026. Dependencies: none. Milestone: verified Qwen and CLIP input diagnostics.**
+
+1. Inspect the pinned PhotoAIKit and Core AI providers, runtime preprocessing, metadata defaults, and attachment handling. Record dependency revisions from Package.resolved with the diagnostic report.
+2. Expose read-only Qwen identity, compression, configured vision dimensions/strategy/image tokens, context capacity, single-image request contract, and response bounds through `QwenInferenceServing`. Expose validated CLIP preprocessing/tokenizer configuration through `RawCullAIModelRuntime`, paired with its existing backend fingerprint. Missing metadata remains unknown with a diagnostic reason; it must not break the existing Qwen workflow.
+3. Separate declared settings from observed encoder inputs. A provider identifier is not a verified content hash; compiled shape support, runtime version, total context accounting, and observed geometry require additional evidence.
+4. Add landscape, portrait, square, extreme-ratio, and orientation fixtures with circles, corner markers, and grids. Capture decode dimensions, actual preprocess transforms, tensor descriptors, and encoder dimensions for Qwen and CLIP. Check repeatable finite CLIP embeddings and Qwen single-image/context/output boundaries using opt-in real-model probes.
+5. Save a reproducible diagnostic report containing model fingerprints, dependency revisions, fixture outputs, unknowns, and the section 4 gate decision. Obtain the implementation/source reviewer decision; degraded CLIP operation requires an explicitly recorded decision.
+
+**Exit gate:** all section 4 checks pass for the selected models. Required geometry cannot remain unknown. Tests must not download models. Phase 2 remains gated until observed geometry is verified.
+
+**Delivered:** read-only Qwen and CLIP capability snapshots, Qwen configuration hashing and safe unknown geometry handling, model lifecycle tests, and the opt-in `make combinedinputstest` hostless diagnostic runner. Eleven synthetic fixtures verify all eight orientations and four aspect-ratio categories against the exact pinned preprocessors and compiled inputs. Actual Qwen overview/crop encoding, single-image generation, image/context/output token accounting, CLIP finite/repeatable embeddings, source crops, Float16 binding, and tokenizer truncation passed. The [input-contract decision](combined-review-input-contract.md) records content fingerprints, dependency revisions, retained fixture previews, unknowns, and the engineering source-contract review. The geometry gate passes for the three recorded installed bundles; revalidate changed models/preprocessing. `make test-smoke` passed with 258 enumerated identifiers (257 passed; one opt-in model test skipped), and hostless Release contracts passed. Commit this milestone before beginning phase 2.
+
+
+**Inspected dependency baseline:** `coreai-models` at `1953c4f90ba0214c1abc7bebcb9be5107e329a46`; `photoaikit` at `7f9adfcd69661c6bae4a640c16a4056dfc7393df`. These revisions identify source inspection, not successful real-model verification.
+
+### Phase 2 — build the source and coordinate foundation
+
+**Status: complete, 9 October 2026. Dependencies: phase 1 geometry gate. Milestone: reproducible source-space crops.**
+
+1. Introduce a review source service independent of grid thumbnails, returning normalized orientation, source identity/fidelity, dimensions, color/render policy, and coordinate transforms.
+2. Reuse preview/RAW decoding; keep technical and appearance renders distinct, with explicit unsupported RAW fallback. Verify ICC, gamut, HDR, and orientation fixtures. Record technical sharpening/noise settings.
+3. Implement source-space crop extraction, padding/clipping, mask/overview mapping, stable region IDs, effective encoder scale, and lossless exact-input retention hooks.
+4. Add deterministic round-trip, bounds, aspect-ratio, source-fidelity, and policy-isolation checks. Measure one full-source working set before admitting large RAWs.
+
+**Exit gate:** crops originate from the best declared source, intended pixels survive verified preprocessing, and every coordinate round trip passes. No synthesis or quality claims yet.
+
+**Delivered:** an independent immutable review-source service, embedded-only camera preview extraction, separately identified appearance/technical RAW recipes, sRGB/SDR normalization, source admission guards, all-eight-orientation transforms, mask/overview mapping, source crops with padding/clipping and stable IDs, effective encoder scale/coverage traces, and lossless input retention hooks. Twelve deterministic source contracts pass, including actual pinned Qwen/CLIP preprocessing, ICC pixel conversion, HDR source loading, cancellation, and explicit RAW fallback. `make test-smoke` passes with 270 enumerated identifiers (269 passed, one expected opt-in skip). The [source-contract decision](combined-review-source-contract.md) records geometry sign-off, measured 24 MP working-set evidence, and remaining RAW-format/resource qualification limits. Cross-render camera-preview-to-RAW registration remains explicitly unavailable; larger RAWs are rejected by default until measured. Phase 3 may proceed with these declared source contracts.
+
+
+### Phase 3 — define run, evidence, storage, and budgets
+
+**Status: complete, 9 October 2026. Dependencies: phases 1–2. Milestone: resumable, bounded run contract.**
+
+1. Define immutable selection/criteria/model/render snapshots and typed image, subject, region, observation, measurement, limitation, and report IDs. Include evidence provenance and unknown/unavailable states.
+2. Implement the section 9 V1 envelope, stage compatibility keys, atomic artifacts/run manifests, bounded derived-image cache, unsupported-version handling, and migration policy. Review the storage contract and evaluation protocol before persisted evidence/scoring work.
+3. Model pending/running/completed/failed/cancelled/skipped work with dependencies. Implement invalidation propagation, interrupted-item reset, retry accounting, and compatibility-checked resume.
+4. Implement section 10 coverage-first budgets for Qwen, SAM, CLIP, reconciliation, and comparison. Reserve mandatory work; every failed attempt consumes allowance. Snapshot all accepted files and retain catalog access.
+5. Test cancellation/resume, source/model/prompt/render changes, future schemas, atomic partial results, budget overflow, and complete accepted-image coverage without real models.
+
+**Exit gate:** cancellation preserves only completed compatible evidence; resumed work respects dependencies and fixed budgets; no accepted image disappears.
+
+**Delivered:** immutable file/model/settings/retention snapshots; typed evidence IDs and source/subject/region/measurement/observation/report records; V1 envelopes and atomic stage/manifest persistence; bounded exact-input caching with explicit eviction; dependency validation, cancellation, compatibility-driven restore and transitive invalidation; fixed per-image and selection-wide Qwen/SAM/CLIP budgets and recorded amendments. The [storage-contract review](combined-review-storage-contract.md) records the V1/migration and evaluation-protocol decision. Eight deterministic run/storage contracts pass; `make test-smoke` passed with 278 enumerated identifiers (277 passed, one expected opt-in skip), followed by the final targeted guards passing. Whitespace, formatting and AI import-boundary checks pass. Commit this milestone before phase 4 implementation.
+
+
+### Phase 4 — deliver single-image Combined Review
+
+**Status: complete, 9 October 2026. Dependencies: phases 1–3. Milestone: usable single-image review with evidence inspection.**
+
+1. Add an independently owned Combined Review feature and fourth AI Analysis view, with criteria, source, depth, progress, start/cancel/resume, and preserved results. Define shared inference arbitration and catalog/model replacement cancellation explicitly.
+2. Connect independent overview/discovery, existing SAM instance deduplication, subject IDs/mask quality, and deterministic crop planning. Prioritize user regions, verified head/subject regions, and valid AF mapping. Skip unavailable eyes with recorded fallback; never infer eyes from head masks.
+3. Extract reusable technical measurement services where necessary; do not duplicate focus algorithms. Add CLIP relevance/matching with recorded configuration, without presenting similarity as quality or probability.
+4. Run independent unannotated Qwen crop requests, validate structured schemas/evidence IDs, reconcile only terminal measurement/observation outcomes, and produce a per-image report with coverage and uncertainty.
+5. Provide inspectable locations/masks, exact inputs under retention policy, and explicit partial/degraded reports. Exercise integration with fake providers and opt-in real models.
+
+**Exit gate:** one image produces a grounded report, absent evidence prompts abstention, malformed output is a stage failure, and navigation/cancellation preserve valid results. No automatic rating, rejection, deletion, or editing.
+
+**Delivered:** a stable application-owned fourth AI Analysis workflow with frozen single-image settings, bounded overview/discovery, uncached SAM instance segmentation and existing deduplication, contained head candidates with explicit eye abstention, deterministic user/head/subject/fallback crops, reused technical focus measurements, separately recorded CLIP relevance/configuration/geometry, independent unannotated Qwen crop requests, terminal-evidence reconciliation and validated grounded reports. The view preserves results, shows coverage/limitations, and provides crop locations, masks and exact-input inspection. Cancellation retains completed artifacts and spent attempts; compatible resume revalidates files, renders, models and versions. Shared inference admission waits for cancelled sibling workers and model replacement waits for the combined worker to end. The [single-image contract](combined-review-single-image.md) records scope and limitations. Nine new integration contracts and one sibling-arbitration regression pass; `make test-smoke` passed with 288 unique identifiers and one expected opt-in skip, followed by targeted cancellation checks passing. An installed-Qwen geometry-fixture probe produced an accepted crop observation and grounded report in 33.958 seconds. Formatting, whitespace, lint error checks and AI import-boundary checks pass. Phase 3 was committed as `ee89f0b` before this implementation began. Phase 5 may proceed; phase 7 photographic qualification is still required.
+
+
+### Phase 5 — deliver small-selection comparison
+
+**Dependencies: phase 4. Milestone: complete 2–8 image review and goal-based tradeoffs.**
+
+1. Run all accepted images under selection-wide budgets, with deterministic fair crop allocation and per-image terminal outcomes before selection synthesis.
+2. Detect comparability using subject/scene evidence and compatible technical render/scale settings. Handle unrelated images, ties, conflicting criteria, and insufficient evidence explicitly.
+3. Implement bounded pair comparisons using the section 7 contract, stable image/subject references, and validated selection reports. Keep CLIP scores separate from photographic judgments.
+4. Show per-image strengths/weaknesses and comparisons with evidence links. Require an explicit expanded coverage plan for selections above eight.
+5. Test unrelated groups, missing stages, subject identity swaps, ties, resume after selection changes, and mandatory synthesis reservation.
+
+**Exit gate:** every image has a report or explicit failure; unrelated selections are not forced into a ranking; all comparison claims reference compatible evidence.
+
+### Phase 6 — add adaptive depth and measured resource control
+
+**Dependencies: phase 5. Milestone: predictable Standard, Deep, and Exhaustive execution.**
+
+1. Add deduplicated overlapping tiles, bounded question-driven follow-ups, manual region reruns, and effective-scale warnings using section 6 priorities.
+2. Enforce profile and selection caps, context-pruning disclosure, separately counted backend attempts, and immutable recorded budget changes.
+3. Measure cold/warm timings, peak allocations, working-set release, memory pressure response, and supported model unload/reload. Tune on smaller and high-memory Apple Silicon systems.
+4. Add measured progress estimates and storage cleanup controls. Record any chosen fidelity/profile change rather than silently applying one.
+
+**Exit gate:** all profiles stay within admitted budgets and measured memory limits, cancellation remains responsive, and optional work never displaces mandatory image coverage.
+
+### Phase 7 — qualify the crop-first feature
+
+**Dependencies: phases 4–6; dataset preparation may begin earlier. Milestone: documented release decision.**
+
+1. Execute `deepaireview-evaluation.md`: 120 consented images/30 groups, isolated development/held-out split, independent dual annotations, adjudication, and versioned JSONL provenance.
+2. Run whole-image Qwen, Objects board, and Combined Review with frozen settings; evaluate Standard and Deep separately, including failures/degraded runs and repeated generations when nondeterministic.
+3. Record development-derived numerical thresholds before held-out access. Measure unsupported/contradicted claims, detail errors, obstructions, identity errors, rankings, abstention, unrelated forced rankings, usefulness, latency, and memory with denominators/uncertainty.
+4. Verify all section 12 deterministic contracts and evidence inspection. Publish results and a go/no-go decision; failed held-out tuning requires a new untouched split.
+
+**Exit gate:** demonstrated difficult-detail improvement, zero deterministic identity/coordinate/evidence-reference violations, and all frozen quality/resource tolerances met. Dataset consent and reviewer decisions are real external prerequisites, not simulated test results.
+
+### Phase 8 — investigate larger encoder and multi-image capabilities
+
+**Dependencies: qualified crop-first baseline. Milestone: evidence-backed capability decision.**
+
+1. Inspect converted tensors/projectors/positions/tokens and runtime attachment support. Evaluate alternate shapes/bundles only through the entire supported inference path.
+2. Compare detail, quality, latency, and memory against identical crop-first cases. Version preprocessing/compatibility keys for any supported extension.
+3. Ship only verified improvements and rerun affected qualification checks. Record an unsupported/no-change outcome as a valid research milestone.
+
+**Exit gate:** each enabled capability has reproducible end-to-end evidence; crop-first review remains available. Editing `vision.image_size` alone never qualifies a capability.

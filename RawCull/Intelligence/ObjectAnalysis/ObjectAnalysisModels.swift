@@ -65,7 +65,9 @@ nonisolated enum ObjectFocusSpatialMapper {
             let radius = 8
             for y in max(0, point.y - radius) ... min(side - 1, point.y + radius) {
                 for x in max(0, point.x - radius) ... min(side - 1, point.x + radius) {
-                    if focusPixels[(y * side + x) * 4 + 3] > 64 { return true }
+                    if focusPixels[(y * side + x) * 4 + 3] > 64 {
+                        return true
+                    }
                 }
             }
             return false

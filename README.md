@@ -81,20 +81,20 @@ Remote dependencies are pinned in `Package.resolved`. The exact resolved version
 
 | Package identity | Resolved pin |
 |---|---|
-| `coreai-models` | `52c84ba874b2c57adcede08a671ce96ed1b3f433` |
+| `coreai-models` | `1953c4f90ba0214c1abc7bebcb9be5107e329a46` |
 | `decodeencodegeneric` | `1.0.0` |
 | `eventsource` | `1.5.1` |
 | `parsersyncoutput` | `1.0.0` |
-| `photoaikit` | `648ea75a1c6bf511e03e879100dc149e4cccd022` |
+| `photoaikit` | `7f9adfcd69661c6bae4a640c16a4056dfc7393df` |
 | `photoanalysiskit` | `1.3.1` |
 | `rawcullcore` | `1.1.2` |
 | `rawparserkit` | `1.3.1` |
 | `rsyncarguments` | `1.0.0` |
 | `rsyncprocessstreaming` | `1.0.0` |
 | `swift-asn1` | `1.7.3` |
-| `swift-collections` | `1.7.1` |
+| `swift-collections` | `1.7.2` |
 | `swift-crypto` | `4.5.2` |
-| `swift-huggingface` | `0.12.0` |
+| `swift-huggingface` | `0.13.0` |
 | `swift-jinja` | `2.5.1` |
 | `swift-transformers` | `1.3.4` |
 | `xgrammar` | `0.2.2` |

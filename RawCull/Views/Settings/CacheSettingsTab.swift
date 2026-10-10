@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 
 struct CacheSettingsTab: View {
+    let combinedReviewFeature: CombinedReviewFeature
+    @State private var combinedReviewSize = 0
+    @State private var purgeError: String?
     private var settingsManager: SettingsViewModel {
         SettingsViewModel.shared
     }
@@ -64,6 +67,21 @@ struct CacheSettingsTab: View {
                     cachePendingPurge: $cachePendingPurge,
                     showPurgeConfirmation: $showPurgeConfirmation,
                 )
+
+                SettingsCard {
+                    DiskCacheRow(
+                        kind: .combinedReviews,
+                        icon: "sparkles.rectangle.stack",
+                        size: formatBytes(combinedReviewSize),
+                        detail: "Saved reviews, analysis results, masks and retained input images",
+                        path: displayPath(combinedReviewFeature.store.root),
+                        isLoading: isLoadingDiskCaches,
+                        isPurging: purgingCache == .combinedReviews,
+                        isPurgeInProgress: purgingCache != nil || combinedReviewFeature.lease.isHeld,
+                        cachePendingPurge: $cachePendingPurge,
+                        showPurgeConfirmation: $showPurgeConfirmation,
+                    )
+                }
             }
         }
         .confirmationDialog(
@@ -80,6 +98,16 @@ struct CacheSettingsTab: View {
             }
         } message: {
             Text(cachePendingPurge?.confirmationMessage ?? "The cache will be rebuilt as needed.")
+        }
+        .alert("Could not clear Combined Reviews", isPresented: Binding(
+            get: { purgeError != nil }, set: { if !$0 { purgeError = nil } }
+        )) {
+            Button("OK") { purgeError = nil }
+        } message: {
+            Text(purgeError ?? "")
+        }
+        .onChange(of: combinedReviewFeature.isRunning) { _, running in
+            if !running { Task { await refreshDiskCacheUsage() } }
         }
         .task {
             await SharedMemoryCache.shared.refreshConfig()
@@ -127,6 +155,7 @@ struct CacheSettingsTab: View {
         currentSimilarityArtifactCacheCount = similarityArtifacts.entryCount
         currentBurstAnalysisCacheSize = burstAnalysis.size
         currentBurstAnalysisCacheCount = burstAnalysis.fileCount
+        combinedReviewSize = (try? await combinedReviewFeature.store.usage()) ?? 0
         isLoadingDiskCaches = false
     }
 
@@ -147,6 +176,10 @@ struct CacheSettingsTab: View {
 
             case .burstAnalysis:
                 await BurstAnalysisCache.shared.clear()
+
+            case .combinedReviews:
+                do { try await combinedReviewFeature.clearAllReviews() }
+                catch { purgeError = error.localizedDescription }
             }
 
             await refreshDiskCacheUsage()
@@ -180,6 +213,7 @@ private enum DiskCacheKind: Hashable, Identifiable {
     case fullSizeJPGs
     case similarityArtifacts
     case burstAnalysis
+    case combinedReviews
 
     var id: Self {
         self
@@ -191,6 +225,7 @@ private enum DiskCacheKind: Hashable, Identifiable {
         case .fullSizeJPGs: "Full-size JPG Cache"
         case .similarityArtifacts: "Similarity Artifact Cache"
         case .burstAnalysis: "Burst Group Cache"
+        case .combinedReviews: "Combined Reviews"
         }
     }
 
@@ -207,6 +242,9 @@ private enum DiskCacheKind: Hashable, Identifiable {
 
         case .burstAnalysis:
             "Saved burst groups and analysis results for all catalogs will be deleted and analyzed again when needed."
+
+        case .combinedReviews:
+            "All saved Combined Reviews, analysis results, masks and retained input images will be permanently deleted. Review history will be cleared. Original photos and downloaded AI models will be kept."
         }
     }
 }

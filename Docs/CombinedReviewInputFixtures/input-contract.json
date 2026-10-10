@@ -1,0 +1,3203 @@
+{
+  "dependencies" : {
+    "originHash" : "c55207f0bd1e4d5132126acbd7b5b712d329db40919e5a0cd6e8806cb4a587c0",
+    "pins" : [
+      {
+        "identity" : "coreai-models",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/apple\/coreai-models.git",
+        "state" : {
+          "revision" : "1953c4f90ba0214c1abc7bebcb9be5107e329a46"
+        }
+      },
+      {
+        "identity" : "decodeencodegeneric",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/DecodeEncodeGeneric.git",
+        "state" : {
+          "revision" : "b5ecbbbe1b244191efec1532a979f6ae342d6617",
+          "version" : "1.0.0"
+        }
+      },
+      {
+        "identity" : "eventsource",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/mattt\/EventSource.git",
+        "state" : {
+          "revision" : "86b5096ac59ab46e66bd1f6377c604bc1dab0bc2",
+          "version" : "1.5.1"
+        }
+      },
+      {
+        "identity" : "parsersyncoutput",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/ParseRsyncOutput",
+        "state" : {
+          "revision" : "e079e0c9d34bf07f7f2a4312b40feea79ae14847",
+          "version" : "1.0.0"
+        }
+      },
+      {
+        "identity" : "photoaikit",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/PhotoAIKit.git",
+        "state" : {
+          "revision" : "7f9adfcd69661c6bae4a640c16a4056dfc7393df"
+        }
+      },
+      {
+        "identity" : "photoanalysiskit",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/PhotoAnalysisKit.git",
+        "state" : {
+          "revision" : "2a1466e04d821fa2628d6985296643e0d0c7e465",
+          "version" : "1.3.1"
+        }
+      },
+      {
+        "identity" : "rawcullcore",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/RawCullCore.git",
+        "state" : {
+          "revision" : "d25a51e65ad32a82bf82f86fa0ec07d6e14498e9",
+          "version" : "1.1.2"
+        }
+      },
+      {
+        "identity" : "rawparserkit",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/RawParserKit",
+        "state" : {
+          "revision" : "f0e5b02a10294798afd86781da5d6510e146a7ba",
+          "version" : "1.3.1"
+        }
+      },
+      {
+        "identity" : "rsyncarguments",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/RsyncArguments",
+        "state" : {
+          "revision" : "0ff6518136c208dfbecc1a918f045048ca79853d",
+          "version" : "1.0.0"
+        }
+      },
+      {
+        "identity" : "rsyncprocessstreaming",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/rsyncOSX\/RsyncProcessStreaming",
+        "state" : {
+          "revision" : "dd86f012b352888fd146e0b6e103740dc237f740",
+          "version" : "1.0.0"
+        }
+      },
+      {
+        "identity" : "swift-asn1",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/apple\/swift-asn1.git",
+        "state" : {
+          "revision" : "3b6410f7dee09eb33cdd26260c5fd47fda19b0e2",
+          "version" : "1.7.3"
+        }
+      },
+      {
+        "identity" : "swift-collections",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/apple\/swift-collections.git",
+        "state" : {
+          "revision" : "3b69cedbaa49957e97c092ae400bb57602ef941f",
+          "version" : "1.7.2"
+        }
+      },
+      {
+        "identity" : "swift-crypto",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/apple\/swift-crypto.git",
+        "state" : {
+          "revision" : "da9d28d69ebe3894b18376c8f2395c2f37b8448f",
+          "version" : "4.5.2"
+        }
+      },
+      {
+        "identity" : "swift-huggingface",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/huggingface\/swift-huggingface.git",
+        "state" : {
+          "revision" : "f0a0cb43cb1b402d2bbf6fb10d8981328c449c48",
+          "version" : "0.13.0"
+        }
+      },
+      {
+        "identity" : "swift-jinja",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/huggingface\/swift-jinja.git",
+        "state" : {
+          "revision" : "4588064a20f3fc093c95f2f7d3359999bf30cae5",
+          "version" : "2.5.1"
+        }
+      },
+      {
+        "identity" : "swift-transformers",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/huggingface\/swift-transformers",
+        "state" : {
+          "revision" : "c21fdcde390313a6d98d8e33a346f2c3486c3ab0",
+          "version" : "1.3.4"
+        }
+      },
+      {
+        "identity" : "xgrammar",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/mlc-ai\/xgrammar",
+        "state" : {
+          "revision" : "4d145cc13d878c751ebeed36af1c013074be76bc",
+          "version" : "0.2.2"
+        }
+      },
+      {
+        "identity" : "yyjson",
+        "kind" : "remoteSourceControl",
+        "location" : "https:\/\/github.com\/ibireme\/yyjson.git",
+        "state" : {
+          "revision" : "8b4a38dc994a110abaec8a400615567bd996105f",
+          "version" : "0.12.0"
+        }
+      }
+    ],
+    "version" : 3
+  },
+  "failure" : null,
+  "fingerprintAlgorithm" : "bundle-tree-sha256-v1: sorted relative UTF8 path + NUL + file SHA256 hex + LF",
+  "hardwareArchitecture" : "arm64",
+  "models" : [
+    {
+      "attachmentContract" : "RawCull supplies one CGImage; pinned executor selects the first image attachment",
+      "bundleContentSHA256" : "8b575d2b2a499c2ea697deb7f878eee7afdc79818c95d9e304eb7809242d19f7",
+      "channelOrder" : "RGB",
+      "colorSpace" : "sRGB",
+      "compiledInputName" : "pixel_values",
+      "compiledInputScalar" : "float32",
+      "compiledInputShape" : [
+        1,
+        3,
+        448,
+        448
+      ],
+      "contextPolicy" : "native clamp: min(requested, max(0, context - expanded prompt tokens))",
+      "declaredCapabilities" : {
+        "configuredEncoderSide" : 448,
+        "configuredImageStrategy" : "stretch",
+        "configuredImageTokens" : 196,
+        "configuredPatchSize" : 16,
+        "encoderGeometryVerified" : false,
+        "imageMean" : [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "imagesPerRequest" : 1,
+        "imageStandardDeviation" : [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "maximumContextTokens" : 4096,
+        "maximumResponseTokens" : 4096,
+        "metadataSHA256" : "2700bbe2e66e1c7ae281d7bdc0ad47e99670ef1a8141e71a76f15015635c402e",
+        "modelIdentifier" : "qwen:qwen3_vl_2b::qwen3_vl_2b.aimodel:0.2:file-metadata-v1:3441467847:1789489954.7850118",
+        "modelName" : "qwen3_vl_2b",
+        "rescaleFactor" : 1
+      },
+      "exhaustedContextOutcome" : "Session ended without producing a response.",
+      "exhaustedContextProcessedTokens" : 0,
+      "fixtures" : [
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.49777777777777776,
+            0.7466666666666667
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-landscape.png",
+          "exifOrientation" : 1,
+          "fixture" : "landscape",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "8b85c139984f83c12151e8d9e37cdcbb52cd9fb3ce107d537c2da77ea1fe2629",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-landscape.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a79d6210609884b7b4a30e412b586ac429d4ad15b7452a29140bcb60539b8933",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.7466666666666667,
+            0.49777777777777776
+          ],
+          "encodedSourceDimensions" : [
+            600,
+            900
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-portrait.png",
+          "exifOrientation" : 1,
+          "fixture" : "portrait",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "79ab7981faa271f7e285d9fa1f6988f241a7785cfa478b9f1f25f5c6afb2e38b",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-portrait.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a79d6210609884b7b4a30e412b586ac429d4ad15b7452a29140bcb60539b8933",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            600
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.7466666666666667,
+            0.7466666666666667
+          ],
+          "encodedSourceDimensions" : [
+            600,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-square.png",
+          "exifOrientation" : 1,
+          "fixture" : "square",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "0449339e3754b2b2457c4a9835e488626f04e945064c1982643c4d010de4d022",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-square.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a79d6210609884b7b4a30e412b586ac429d4ad15b7452a29140bcb60539b8933",
+            "sourceRectangle" : [
+              150,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            1800,
+            180
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.24888888888888888,
+            2.4888888888888889
+          ],
+          "encodedSourceDimensions" : [
+            1800,
+            180
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-extreme.png",
+          "exifOrientation" : 1,
+          "fixture" : "extreme",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            1800,
+            180
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "fda393841bb691b1e26025482bb98ac2680e841d75826d4f52184272af6ea47c",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            1800,
+            180
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            1800,
+            180
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              90,
+              90
+            ],
+            "effectiveScale" : [
+              4.9777777777777779,
+              4.9777777777777779
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-extreme.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "62236a011be2c8c85b0a4e4f8561282c73cb0b30a58aa2e90652b0abd1122d8a",
+            "sourceRectangle" : [
+              855,
+              45,
+              90,
+              90
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.49777777777777776,
+            0.7466666666666667
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-2.png",
+          "exifOrientation" : 2,
+          "fixture" : "orientation-2",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "4a609a15d35f8710664a10b76af428be576a1249e02a191c9d6a5073f7b62b6c",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-2.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "bd9152255c5936e33e1ce02a8a93b700f4f5a31cd3496c8b73beab4b0e36400e",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.49777777777777776,
+            0.7466666666666667
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-3.png",
+          "exifOrientation" : 3,
+          "fixture" : "orientation-3",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "a530eda29b53b4fe2feb6d2d21180823778176711435156edba6718dcbfe07cb",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-3.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "c2653baf11162f343669b715cb42fe77c22c5e28f8df350f7c79e679c1ba8c42",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.49777777777777776,
+            0.7466666666666667
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-4.png",
+          "exifOrientation" : 4,
+          "fixture" : "orientation-4",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "7c0604e4c29d1a1279605cd67cd1f856a4f3e9185bb434fc04445eb5c5b92524",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-4.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b2b907e6065ac81717e37d8c89a596cb0cadaf1de197b5052bf929d70f1e28ec",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.7466666666666667,
+            0.49777777777777776
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-5.png",
+          "exifOrientation" : 5,
+          "fixture" : "orientation-5",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "db7bf1d5b8770c193f25db226dcbab8f60912164f7b54c7b2ffbfda9a9911565",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-5.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a79d6210609884b7b4a30e412b586ac429d4ad15b7452a29140bcb60539b8933",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.7466666666666667,
+            0.49777777777777776
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-6.png",
+          "exifOrientation" : 6,
+          "fixture" : "orientation-6",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "46c3776539fb304b63a9eb8b6deda72380e244e58c2e9ed2fb0fe6d162daac73",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-6.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "bd9152255c5936e33e1ce02a8a93b700f4f5a31cd3496c8b73beab4b0e36400e",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.7466666666666667,
+            0.49777777777777776
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-7.png",
+          "exifOrientation" : 7,
+          "fixture" : "orientation-7",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "f631b7e779d30d6f523d1231ec44364d72f4864f78aa00efeefbb55d28d90c2d",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-7.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "c2653baf11162f343669b715cb42fe77c22c5e28f8df350f7c79e679c1ba8c42",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.7466666666666667,
+            0.49777777777777776
+          ],
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            448,
+            448
+          ],
+          "exactInputPreview" : "qwen-orientation-8.png",
+          "exifOrientation" : 8,
+          "fixture" : "orientation-8",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "0033f223c7520e4eb2a06c11130c2866816fdf384dc84fea7729ea8b6b69bc20",
+          "projectedEmbeddingShape" : [
+            1,
+            196,
+            2048
+          ],
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            448,
+            448
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              1.4933333333333334,
+              1.4933333333333334
+            ],
+            "encoderDimensions" : [
+              448,
+              448
+            ],
+            "exactInputPreview" : "qwen-detail-orientation-8.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b2b907e6065ac81717e37d8c89a596cb0cadaf1de197b5052bf929d70f1e28ec",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        }
+      ],
+      "name" : "Qwen",
+      "shortRequestImageTokens" : 196,
+      "shortRequestInputTokens" : 212,
+      "shortRequestInstructionAndTemplateTokens" : 16,
+      "shortRequestOutputTokens" : 16,
+      "shortRequestProcessedTokens" : 227,
+      "singleImageResponse" : "The image contains a dark gray grid background with several geometric shapes. The key visible",
+      "tensorLayout" : "NCHW",
+      "unknowns" : [
+        "alternate encoder shapes",
+        "compression when absent from metadata"
+      ],
+      "visionFunction" : "main"
+    },
+    {
+      "backend" : {
+        "backend" : "clip",
+        "configurationVersion" : "coreai-clip-dual-encoder-v2",
+        "modelFingerprint" : "clip:clip-vit-base-patch32_float16_static:openai\/clip-vit-base-patch32:clip-vit-base-patch32_float16_static.aimodel:0.4:directory-tree-sha256-v1:24a20d7c5c88da2afe3ed81dca0ddf223450dd6afd1f3aff34be7acfc48f4914",
+        "normalizationVersion" : "l2-v1",
+        "preprocessingVersion" : "clip-srgb-shortest-center-bicubic-224-chw-v3:photoaikit-pillow-bicubic-v1",
+        "representation" : "normalized-float-vector-json-v1"
+      },
+      "bundleContentSHA256" : "ac42a2db447f60cd0d0e3e8a31e6dec2ca29f85e6637e84f8fee44bf19ce91d1",
+      "channelOrder" : "RGB",
+      "colorSpace" : "sRGB",
+      "compiledImageScalar" : "float16",
+      "compiledImageShape" : [
+        1,
+        3,
+        224,
+        224
+      ],
+      "compiledTextScalar" : "int32",
+      "compiledTextShape" : [
+        1,
+        77
+      ],
+      "declaredCapabilities" : {
+        "channelOrder" : "RGB",
+        "colorSpace" : "sRGB",
+        "configurationVersion" : "coreai-clip-dual-encoder-v2",
+        "configuredEmbeddingDimensions" : 512,
+        "configuredHeight" : 224,
+        "configuredWidth" : 224,
+        "crop" : "center",
+        "encoderGeometryVerified" : false,
+        "interpolation" : "bicubic",
+        "mean" : [
+          0.48145466999999997,
+          0.4578275,
+          0.40821072000000003
+        ],
+        "modelFingerprint" : "clip:clip-vit-base-patch32_float16_static:openai\/clip-vit-base-patch32:clip-vit-base-patch32_float16_static.aimodel:0.4:directory-tree-sha256-v1:24a20d7c5c88da2afe3ed81dca0ddf223450dd6afd1f3aff34be7acfc48f4914",
+        "normalizationVersion" : "l2-v1",
+        "preprocessingVersion" : "clip-srgb-shortest-center-bicubic-224-chw-v3:photoaikit-pillow-bicubic-v1",
+        "resize" : "shortest-side",
+        "standardDeviation" : [
+          0.26862954999999999,
+          0.2613026,
+          0.2757771
+        ],
+        "tensorLayout" : "NCHW",
+        "tokenizerContextLength" : 77,
+        "tokenizerPaddingTokenID" : 49407,
+        "tokenizerType" : "clip-bpe",
+        "tokenizerVersion" : "clip-bpe-tokenizer-v1"
+      },
+      "embeddingDimensions" : 512,
+      "fixtures" : [
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "ef1a6e9c2062894b4e4eaa791b5ff5451da0231e47e174fc38f15df52632c430",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999973021000721,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-landscape.png",
+          "exifOrientation" : 1,
+          "fixture" : "landscape",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "6a870f8485d0bf632801172830fe2741994083ae3481e87f3ccd98cb6973efc0",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            56,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            336,
+            224
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "b862aef909ac9b1d865f534a3fc415ac55e13f7578f177387fe73d8160da8423",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-landscape.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a289b75334d9de580dfd6b71a3a16f631f8ede36638909c27ff727dc47d83d22",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "b10ecdb23cab841b87dc5c35c773fa732b5b0c43d9d0be31846f467a5a92bf93",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999964935211083,
+          "encodedSourceDimensions" : [
+            600,
+            900
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-portrait.png",
+          "exifOrientation" : 1,
+          "fixture" : "portrait",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "c955e8bac079df6f987665646eaf6c303974fe0f32b0622dffa0d4b5d68505bb",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            56
+          ],
+          "runtimeResizedDimensions" : [
+            224,
+            336
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "b862aef909ac9b1d865f534a3fc415ac55e13f7578f177387fe73d8160da8423",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-portrait.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a289b75334d9de580dfd6b71a3a16f631f8ede36638909c27ff727dc47d83d22",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "ce2ecd2ee5b5235a78dfa9ef3d3b791bc915c3807e76e9536b784fe099d08a2e",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999960646852137,
+          "encodedSourceDimensions" : [
+            600,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-square.png",
+          "exifOrientation" : 1,
+          "fixture" : "square",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "d7f7f4ca847835bc69514de1f84674329f34aab2b7383a28270fbd3fe5b3d90d",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            224,
+            224
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "b862aef909ac9b1d865f534a3fc415ac55e13f7578f177387fe73d8160da8423",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-square.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a289b75334d9de580dfd6b71a3a16f631f8ede36638909c27ff727dc47d83d22",
+            "sourceRectangle" : [
+              150,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            1800,
+            180
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "ea44cdd13217f1088f9d529246dc6709f69f88d1ca688cc90c541beada3b6562",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            1.2444444444444445,
+            1.2444444444444445
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999975277731468,
+          "encodedSourceDimensions" : [
+            1800,
+            180
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-extreme.png",
+          "exifOrientation" : 1,
+          "fixture" : "extreme",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            1800,
+            180
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "be1313b2721e47e6003c705f3eb25f6f6534ef9934bf1ab7c922728428626bf5",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            810,
+            0,
+            180,
+            180
+          ],
+          "runtimeCropOrigin" : [
+            1008,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            2240,
+            224
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            1800,
+            180
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "9ddda77f4d117f55cfdbe1fd025a31eab7ce825735461ff4bc5ea1ce7a966682",
+            "cropDimensions" : [
+              90,
+              90
+            ],
+            "effectiveScale" : [
+              2.4888888888888889,
+              2.4888888888888889
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-extreme.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "464343ee4dbf281e1c3691daada2e952dd66691e833d8acf16c5884a692f8d30",
+            "sourceRectangle" : [
+              855,
+              45,
+              90,
+              90
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "b03ad7d49016b592fcc3cb6a32054f70d04b59aa0c9a49349e6b4932430f46d9",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999962958207955,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-2.png",
+          "exifOrientation" : 2,
+          "fixture" : "orientation-2",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "1e4bdd5a9f3d20dbba8e5ae233dd9c2d8038393784f90f55841b416b81655b36",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            56,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            336,
+            224
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "22f0d80bbb4328a42c684c763aecd10951c971ba8fb9c77f562000fdecedde6f",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-2.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "d2b48a3fdc04f35dcd388c09e6e96e7662c5fa9398ef5ce675aaebb01b73267b",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "23776e845d369adfb9b23c5e4b36f73103a3fdd4b582e9d4f0aaf8da95a01a62",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 1.0000001341540465,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-3.png",
+          "exifOrientation" : 3,
+          "fixture" : "orientation-3",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "7440cb7c5709e53b1410dde85802c6fe6134f23c889040df6733c19ae66743fd",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            56,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            336,
+            224
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "9ed7a1743a156abe8bf9d70cd9d5648ecfcbe648e33165882a00d0f4f1aec188",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-3.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "c1e2668fa432c17f8772f20267d5d7684bf93d2d8cccdffa630eed813e86bd27",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "2d743c004fb3950f9d837162ebf63215eaab861a4b0ef319323f3987ec971222",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999977375654592,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-4.png",
+          "exifOrientation" : 4,
+          "fixture" : "orientation-4",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "bc8925a9ed959b5ae717aa1456a932a43a21ee8473dff83857de9ac8835163ef",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            56,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            336,
+            224
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "4a9459dc9661ac04b0193f6e4a5602de3ea538f3428a4aede4e02ced98c6b797",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-4.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "9e0d119a48a395e46f75825a0fe9844081472b09f9f4bc08b1592a649e7a4696",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "b10ecdb23cab841b87dc5c35c773fa732b5b0c43d9d0be31846f467a5a92bf93",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999964935211083,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-5.png",
+          "exifOrientation" : 5,
+          "fixture" : "orientation-5",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "c955e8bac079df6f987665646eaf6c303974fe0f32b0622dffa0d4b5d68505bb",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            56
+          ],
+          "runtimeResizedDimensions" : [
+            224,
+            336
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "b862aef909ac9b1d865f534a3fc415ac55e13f7578f177387fe73d8160da8423",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-5.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "a289b75334d9de580dfd6b71a3a16f631f8ede36638909c27ff727dc47d83d22",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "bdc41cddc40201704f72f96390750750df0fd52d468a87bc0df1110f1bb75a94",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999987453416739,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-6.png",
+          "exifOrientation" : 6,
+          "fixture" : "orientation-6",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "23510996523986da0cab3ce5446c2878bc8bf0d313d017a46e112e42d7907d47",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            56
+          ],
+          "runtimeResizedDimensions" : [
+            224,
+            336
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "22f0d80bbb4328a42c684c763aecd10951c971ba8fb9c77f562000fdecedde6f",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-6.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "d2b48a3fdc04f35dcd388c09e6e96e7662c5fa9398ef5ce675aaebb01b73267b",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "93b3dd1874c864cc18d9d20196425b85a5ba51c87f1863816689f7f3e93c88b8",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999988958423836,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-7.png",
+          "exifOrientation" : 7,
+          "fixture" : "orientation-7",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "d8a669876a5acd85e8b01058ce6570dff89b63192bd3065271d6f1bf6e9d6e40",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            56
+          ],
+          "runtimeResizedDimensions" : [
+            224,
+            336
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "9ed7a1743a156abe8bf9d70cd9d5648ecfcbe648e33165882a00d0f4f1aec188",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-7.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "c1e2668fa432c17f8772f20267d5d7684bf93d2d8cccdffa630eed813e86bd27",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "8c71e818ad50d46ddbb578a1b9c578fe34888a5f3bd9b4347e2b276daa9890a9",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.37333333333333335,
+            0.37333333333333335
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 1.0000000354505294,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            224,
+            224
+          ],
+          "exactInputPreview" : "CLIP-OpenAI-orientation-8.png",
+          "exifOrientation" : 8,
+          "fixture" : "orientation-8",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "7cbd4ad31edfee2f5d02c614d54aeabb0385a9de01bd1b6702c07aec97552912",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            56
+          ],
+          "runtimeResizedDimensions" : [
+            224,
+            336
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "4a9459dc9661ac04b0193f6e4a5602de3ea538f3428a4aede4e02ced98c6b797",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.7466666666666667,
+              0.7466666666666667
+            ],
+            "encoderDimensions" : [
+              224,
+              224
+            ],
+            "exactInputPreview" : "CLIP-OpenAI-detail-orientation-8.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "9e0d119a48a395e46f75825a0fe9844081472b09f9f4bc08b1592a649e7a4696",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        }
+      ],
+      "longTextEmbeddingFinite" : true,
+      "name" : "CLIP-OpenAI",
+      "normalizationVersion" : "l2-v1",
+      "preprocessing" : {
+        "crop" : "center",
+        "height" : 224,
+        "interpolation" : "bicubic",
+        "mean" : [
+          0.48145466999999997,
+          0.4578275,
+          0.40821072000000003
+        ],
+        "resize" : "shortest-side",
+        "standard_deviation" : [
+          0.26862954999999999,
+          0.2613026,
+          0.2757771
+        ],
+        "version" : "clip-srgb-shortest-center-bicubic-224-chw-v3",
+        "width" : 224
+      },
+      "preprocessorScalar" : "float32; converted to compiled input scalar before binding",
+      "tensorLayout" : "NCHW",
+      "textOverflowPolicy" : "prefix truncation to context length; final slot is EOT",
+      "tokenizer" : {
+        "context_length" : 77,
+        "padding_token_id" : 49407,
+        "type" : "clip-bpe",
+        "version" : "clip-bpe-tokenizer-v1"
+      },
+      "unknowns" : [
+        "vision patch\/token count is not exposed by the provider",
+        "alternate encoder shapes"
+      ]
+    },
+    {
+      "backend" : {
+        "backend" : "clip",
+        "configurationVersion" : "coreai-clip-dual-encoder-v2",
+        "modelFingerprint" : "clip:ViT-B-32-256-datacomp_s34b_b86k_float16_static:mlfoundations\/open_clip:ViT-B-32-256-datacomp_s34b_b86k_float16_static.aimodel:0.4:directory-tree-sha256-v1:6a3639a2049b8a4ea23fe04c3083e199a4f505433f7c8bd0748b3c8d4fcb1572",
+        "normalizationVersion" : "l2-v1",
+        "preprocessingVersion" : "clip-srgb-shortest-center-bicubic-256-chw-v3:photoaikit-pillow-bicubic-v1",
+        "representation" : "normalized-float-vector-json-v1"
+      },
+      "bundleContentSHA256" : "796848121936bde228b1cc14471baae1ba7c12d1beaee30cff7bf1bae847c6a5",
+      "channelOrder" : "RGB",
+      "colorSpace" : "sRGB",
+      "compiledImageScalar" : "float16",
+      "compiledImageShape" : [
+        1,
+        3,
+        256,
+        256
+      ],
+      "compiledTextScalar" : "int32",
+      "compiledTextShape" : [
+        1,
+        77
+      ],
+      "declaredCapabilities" : {
+        "channelOrder" : "RGB",
+        "colorSpace" : "sRGB",
+        "configurationVersion" : "coreai-clip-dual-encoder-v2",
+        "configuredEmbeddingDimensions" : 512,
+        "configuredHeight" : 256,
+        "configuredWidth" : 256,
+        "crop" : "center",
+        "encoderGeometryVerified" : false,
+        "interpolation" : "bicubic",
+        "mean" : [
+          0.48145466999999997,
+          0.4578275,
+          0.40821072000000003
+        ],
+        "modelFingerprint" : "clip:ViT-B-32-256-datacomp_s34b_b86k_float16_static:mlfoundations\/open_clip:ViT-B-32-256-datacomp_s34b_b86k_float16_static.aimodel:0.4:directory-tree-sha256-v1:6a3639a2049b8a4ea23fe04c3083e199a4f505433f7c8bd0748b3c8d4fcb1572",
+        "normalizationVersion" : "l2-v1",
+        "preprocessingVersion" : "clip-srgb-shortest-center-bicubic-256-chw-v3:photoaikit-pillow-bicubic-v1",
+        "resize" : "shortest-side",
+        "standardDeviation" : [
+          0.26862954999999999,
+          0.2613026,
+          0.2757771
+        ],
+        "tensorLayout" : "NCHW",
+        "tokenizerContextLength" : 77,
+        "tokenizerPaddingTokenID" : 0,
+        "tokenizerType" : "clip-bpe",
+        "tokenizerVersion" : "clip-bpe-tokenizer-v1"
+      },
+      "embeddingDimensions" : 512,
+      "fixtures" : [
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "db4dd1708f0ef70430f22f0b490d4f3e461e616ec8acbf6142fb0d39a3838ec0",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999984786241447,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-landscape.png",
+          "exifOrientation" : 1,
+          "fixture" : "landscape",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "c89c45b20e3f242175bc829be488e13e446e9a2c9840fa0ce92bd4d5d86be473",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            64,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            384,
+            256
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "e2e0a43faa848b39870e26502a00b38477a306dadaa503a223b7b05667311504",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-landscape.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "285ea8ea521d53b3f47b83da02d04df993bba218a020733cacba473fbcd741de",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "c834fc2785404b456e77a307e57d17e7a5bbd006c884112dcbe509f495f200db",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999974171239248,
+          "encodedSourceDimensions" : [
+            600,
+            900
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-portrait.png",
+          "exifOrientation" : 1,
+          "fixture" : "portrait",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "11a12a70c67d5836fbecd8798a162fff18621ad66ae26b6642ff3b75b40195c5",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            64
+          ],
+          "runtimeResizedDimensions" : [
+            256,
+            384
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "e2e0a43faa848b39870e26502a00b38477a306dadaa503a223b7b05667311504",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-portrait.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "285ea8ea521d53b3f47b83da02d04df993bba218a020733cacba473fbcd741de",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "25d61eb2c57c72039cdfbc18a62493e9cb5df685be76acb1b0f9067bc004bf91",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999981537509819,
+          "encodedSourceDimensions" : [
+            600,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-square.png",
+          "exifOrientation" : 1,
+          "fixture" : "square",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "cc1020981a21f184c9d099fa66e566cc1e6380a76c5c59fcb529da7304021877",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            256,
+            256
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "e2e0a43faa848b39870e26502a00b38477a306dadaa503a223b7b05667311504",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-square.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "285ea8ea521d53b3f47b83da02d04df993bba218a020733cacba473fbcd741de",
+            "sourceRectangle" : [
+              150,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            1800,
+            180
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "d14f448662d2c8e248b9096012ccb7a5202ed19cc092b1cdb7bc5e961d3edc33",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            1.4222222222222223,
+            1.4222222222222223
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999991775237473,
+          "encodedSourceDimensions" : [
+            1800,
+            180
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-extreme.png",
+          "exifOrientation" : 1,
+          "fixture" : "extreme",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            1800,
+            180
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "7d2e60caecc018906b639957a3346346d9ceb2b06d23cde6bb294e78620ac63d",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            810,
+            0,
+            180,
+            180
+          ],
+          "runtimeCropOrigin" : [
+            1152,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            2560,
+            256
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            1800,
+            180
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "d5725aa94b41300d63d0a7c037767d195c73a1393411e988a9326ec7d34066b7",
+            "cropDimensions" : [
+              90,
+              90
+            ],
+            "effectiveScale" : [
+              2.8444444444444446,
+              2.8444444444444446
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-extreme.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b742f97ae0f8634def796ebd66dceeae4e3e796e55e5c9b64d5506bf8c1f3361",
+            "sourceRectangle" : [
+              855,
+              45,
+              90,
+              90
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "8625df4b5898586c38ed4cac9d11add170ca778ab1e7828d1db49c9b3022e2ac",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 1.0000000685028092,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-2.png",
+          "exifOrientation" : 2,
+          "fixture" : "orientation-2",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "667a26886937f7fa8381a9ee02c3321482330c93c7813335ce420fd8ebc96663",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            64,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            384,
+            256
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "8d34cee5cc12284d88f9bdac079cdb7d7ed3d25d17559ee040501a4aee542b99",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-2.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b3bffd5d960ceb9d9a13afa10e4133a999648e38ad92f80acb3d766b0c0925c9",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "4c749580486d40134d6e94b76b5ff152a9026d95d2bbba2ce2d7c052367dae99",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999997329342227,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-3.png",
+          "exifOrientation" : 3,
+          "fixture" : "orientation-3",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "140e3507fa0e9d88649d0a5eaeee55cd2a9b9b27fdd5428cdcc2cc4d7ff575cc",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            64,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            384,
+            256
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "ecf5a1a7bbfeadca85beaeb5bf18ae7ab0675c9ae7cac9da4de4eccbb3d3ca75",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-3.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "31dedb914601f2a5af80bf9e8efa39ea4c0cccad26c45ec31002bf05f9d47b31",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            900,
+            600
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "ea97b69be36b9bdd3437f9474b7cdf3094d03a1b431dd7e6721a5606ecd4534b",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999985067638286,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-4.png",
+          "exifOrientation" : 4,
+          "fixture" : "orientation-4",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            900,
+            600
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "9740a6c9e5f51139d1a0f8ca338887dc8c38a506aada720e7afcc43a2490d842",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            150,
+            0,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            64,
+            0
+          ],
+          "runtimeResizedDimensions" : [
+            384,
+            256
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            900,
+            600
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "e330fcfe3c94a7efb653a41d1eae8d6e5faa3c1ced3ad55acebb1f5cd801950f",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-4.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b4d5c33385d6fd05a15191f2d6514a1b3b09007033ddf0d9bd84d6e89646d898",
+            "sourceRectangle" : [
+              300,
+              150,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "c834fc2785404b456e77a307e57d17e7a5bbd006c884112dcbe509f495f200db",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999974171239248,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-5.png",
+          "exifOrientation" : 5,
+          "fixture" : "orientation-5",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "11a12a70c67d5836fbecd8798a162fff18621ad66ae26b6642ff3b75b40195c5",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            64
+          ],
+          "runtimeResizedDimensions" : [
+            256,
+            384
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "e2e0a43faa848b39870e26502a00b38477a306dadaa503a223b7b05667311504",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-5.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "285ea8ea521d53b3f47b83da02d04df993bba218a020733cacba473fbcd741de",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "dbfac778b1aa941787c7f0a01f98738904d925bdea44a8871be40706d239181f",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.9999996812758194,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-6.png",
+          "exifOrientation" : 6,
+          "fixture" : "orientation-6",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "e668c07dae0e540141f7093dc399c98021cb4c7310d87bf9c2c23e74a6c8b42a",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            64
+          ],
+          "runtimeResizedDimensions" : [
+            256,
+            384
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "8d34cee5cc12284d88f9bdac079cdb7d7ed3d25d17559ee040501a4aee542b99",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-6.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b3bffd5d960ceb9d9a13afa10e4133a999648e38ad92f80acb3d766b0c0925c9",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "929bcc5f22d6ec5b3c934a99aa645564d2caa611a2918e54d2ffb2e369463a5e",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999979100304159,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-7.png",
+          "exifOrientation" : 7,
+          "fixture" : "orientation-7",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "5363c6fa351c6eca25e0fb9015b9332d6e5bc6e578d0b4f845b19b6be667dee0",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            64
+          ],
+          "runtimeResizedDimensions" : [
+            256,
+            384
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "ecf5a1a7bbfeadca85beaeb5bf18ae7ab0675c9ae7cac9da4de4eccbb3d3ca75",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-7.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "31dedb914601f2a5af80bf9e8efa39ea4c0cccad26c45ec31002bf05f9d47b31",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        },
+        {
+          "appPreparedDimensions" : [
+            600,
+            900
+          ],
+          "boundTensorScalar" : "float16",
+          "boundTensorSHA256" : "6fe6b1161e1c4ecaef7b2a6c8fe747d0b5e9e3433f469b8c34f48c36ddc81854",
+          "coordinateOrigin" : "top-left in orientation-normalized source",
+          "effectiveScale" : [
+            0.42666666666666669,
+            0.42666666666666669
+          ],
+          "embeddingDimensions" : 512,
+          "embeddingL2Norm" : 0.99999988339740131,
+          "encodedSourceDimensions" : [
+            900,
+            600
+          ],
+          "encoderDimensions" : [
+            256,
+            256
+          ],
+          "exactInputPreview" : "CLIP-DataComp-orientation-8.png",
+          "exifOrientation" : 8,
+          "fixture" : "orientation-8",
+          "geometryEvidence" : "exact preprocessor tensor: corner identity and circle dimensions asserted",
+          "normalizedSourceDimensions" : [
+            600,
+            900
+          ],
+          "padding" : [
+            0,
+            0
+          ],
+          "preprocessedFloatSHA256" : "79ac4d18c36ee2e7f255f1e905b27089e68ac5fcb299e4e2b62a517b4c090605",
+          "repeatMaximumAbsoluteDifference" : 0,
+          "retainedSourceRectangle" : [
+            0,
+            150,
+            600,
+            600
+          ],
+          "runtimeCropOrigin" : [
+            0,
+            64
+          ],
+          "runtimeResizedDimensions" : [
+            256,
+            384
+          ],
+          "sourceCropRectangle" : [
+            0,
+            0,
+            600,
+            900
+          ],
+          "sourceRegionProbe" : {
+            "boundTensorScalar" : "float16",
+            "boundTensorSHA256" : "e330fcfe3c94a7efb653a41d1eae8d6e5faa3c1ced3ad55acebb1f5cd801950f",
+            "cropDimensions" : [
+              300,
+              300
+            ],
+            "effectiveScale" : [
+              0.85333333333333339,
+              0.85333333333333339
+            ],
+            "encoderDimensions" : [
+              256,
+              256
+            ],
+            "exactInputPreview" : "CLIP-DataComp-detail-orientation-8.png",
+            "padding" : [
+              0,
+              0
+            ],
+            "preprocessedFloatSHA256" : "b4d5c33385d6fd05a15191f2d6514a1b3b09007033ddf0d9bd84d6e89646d898",
+            "sourceRectangle" : [
+              150,
+              300,
+              300,
+              300
+            ]
+          }
+        }
+      ],
+      "longTextEmbeddingFinite" : true,
+      "name" : "CLIP-DataComp",
+      "normalizationVersion" : "l2-v1",
+      "preprocessing" : {
+        "crop" : "center",
+        "height" : 256,
+        "interpolation" : "bicubic",
+        "mean" : [
+          0.48145466999999997,
+          0.4578275,
+          0.40821072000000003
+        ],
+        "resize" : "shortest-side",
+        "standard_deviation" : [
+          0.26862954999999999,
+          0.2613026,
+          0.2757771
+        ],
+        "version" : "clip-srgb-shortest-center-bicubic-256-chw-v3",
+        "width" : 256
+      },
+      "preprocessorScalar" : "float32; converted to compiled input scalar before binding",
+      "tensorLayout" : "NCHW",
+      "textOverflowPolicy" : "prefix truncation to context length; final slot is EOT",
+      "tokenizer" : {
+        "context_length" : 77,
+        "padding_token_id" : 0,
+        "type" : "clip-bpe",
+        "version" : "clip-bpe-tokenizer-v1"
+      },
+      "unknowns" : [
+        "vision patch\/token count is not exposed by the provider",
+        "alternate encoder shapes"
+      ]
+    }
+  ],
+  "operatingSystem" : "Version 27.0.1 (Build 26A434)",
+  "physicalMemoryBytes" : 19327352832,
+  "previewPolicy" : "PNG previews denormalize the bound tensor into sRGB; typed tensor hashes retain numeric identity. Regenerate numeric inputs with this probe.",
+  "processorCount" : 11,
+  "schemaVersion" : 1,
+  "scope" : "installed local bundles and pinned runtime; no alternate shapes are qualified",
+  "status" : "passed"
+}

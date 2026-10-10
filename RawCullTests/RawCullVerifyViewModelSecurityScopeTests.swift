@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct RawCullViewModelSecurityScopeTests {
     @Test
-    func `Worker grant survives switching roots and releases exactly once`() async throws {
+    func `Worker grant survives switching roots and releases exactly once`() async {
         let model = makeRawCullViewModel()
         let first = URL(filePath: "/tmp/grant-" + UUID().uuidString).standardizedFileURL
         let second = URL(filePath: "/tmp/grant-" + UUID().uuidString).standardizedFileURL

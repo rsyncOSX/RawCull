@@ -11,7 +11,9 @@ nonisolated struct ReleaseAnalysisReport {
             guard error == nil, let result, result.isSuccessful, !result.concepts.isEmpty,
                   result.sam3ModelIdentity != nil else { return false }
             // No retained objects is a valid production outcome. Assessment is then inapplicable.
-            if result.instances.isEmpty { return result.assessment == nil }
+            if result.instances.isEmpty {
+                return result.assessment == nil
+            }
             guard let assessment = result.assessment else { return false }
             return Set(assessment.objects.map(\.id)) == Set(result.instances.map(\.id))
         }
@@ -46,9 +48,11 @@ nonisolated struct ReleaseAnalysisReport {
             "- SAM 3 identity: \(Self.text(samIdentity ?? "Not validated"))",
             "- SAM 3 bundle: \(Self.text(samPath ?? "Not resolved"))",
             "- Files: \(files.count); completed: \(entries.count); passed: \(entries.filter(\.succeeded).count); failed: \(entries.filter { !$0.succeeded }.count)",
-            "", "The pipeline decodes each ARW preview, discovers concepts with Qwen, segments them with SAM 3, deduplicates instances, prepares a numbered crop board, and assesses retained objects with Qwen. Zero retained objects is reported explicitly; crop preparation and assessment are then inapplicable. This test checks completion and structured output, not the factual accuracy of AI descriptions.", "",
+            "", "The pipeline decodes each ARW preview, discovers concepts with Qwen, segments them with SAM 3, deduplicates instances, prepares a numbered crop board, and assesses retained objects with Qwen. Zero retained objects is reported explicitly; crop preparation and assessment are then inapplicable. This test checks completion and structured output, not the factual accuracy of AI descriptions.", ""
         ]
-        if let runError { lines += ["## Run error", "", Self.text(runError), ""] }
+        if let runError {
+            lines += ["## Run error", "", Self.text(runError), ""]
+        }
         lines += ["## File summary", "", "| File | Status | Concepts | Objects | Seconds |", "| --- | --- | --- | ---: | ---: |"]
         for file in files {
             if let entry = entries.first(where: { $0.file == file }) {
@@ -59,11 +63,17 @@ nonisolated struct ReleaseAnalysisReport {
         }
         for entry in entries {
             lines += ["", "## \(Self.text(entry.file.lastPathComponent))", "", "- Status: \(entry.succeeded ? "Passed" : "Failed")", "- Total seconds: \(Self.seconds(entry.elapsed))"]
-            if let error = entry.error { lines += ["- Error: \(Self.text(error))"] }
+            if let error = entry.error {
+                lines += ["- Error: \(Self.text(error))"]
+            }
             guard let result = entry.result else { continue }
             lines += ["- Source bytes: \(result.sourceSize); modified: \(result.sourceModified.ISO8601Format())", "- Concepts: \(Self.list(result.concepts))", "- Raw instances: \(result.rawInstanceCount); retained instances: \(result.instances.count)", "- Stage seconds: discovery \(Self.seconds(result.timings.conceptDiscoverySeconds)), segmentation \(Self.seconds(result.timings.segmentationSeconds)), board \(Self.seconds(result.timings.boardRenderingSeconds)), assessment \(Self.seconds(result.timings.assessmentSeconds))"]
-            if let failure = result.failure { lines.append("- Error: \(Self.text(failure))") }
-            if result.instances.isEmpty { lines.append("- No retained objects; board and assessment inapplicable.") }
+            if let failure = result.failure {
+                lines.append("- Error: \(Self.text(failure))")
+            }
+            if result.instances.isEmpty {
+                lines.append("- No retained objects; board and assessment inapplicable.")
+            }
             for instance in result.instances {
                 let box = instance.normalizedBoundingBox
                 lines += ["", "### Object \(Self.text(instance.id)): \(Self.text(instance.concept))", "", "- SAM score: \(instance.score)", "- Aliases: \(Self.list(instance.aliases))", "- Normalized bounding box (bottom-left origin): x=\(box.minX), y=\(box.minY), width=\(box.width), height=\(box.height)"]
@@ -74,14 +84,25 @@ nonisolated struct ReleaseAnalysisReport {
             if let assessment = result.assessment {
                 lines += ["", "### Photo assessment", "", "- Summary: \(Self.text(assessment.imageSummary ?? "Not provided"))", "- Relationships: \(Self.list(assessment.relationships))", "- Strengths: \(Self.list(assessment.strengths))", "- Problems: \(Self.list(assessment.problems))", "- Preferred object IDs: \(Self.list(assessment.preferredObjectIDs))", "- Confidence: \(assessment.confidence)"]
             }
-            if let raw = result.freeformResponse { lines += ["", "### Unparsed Qwen assessment", "", Self.text(raw)] }
+            if let raw = result.freeformResponse {
+                lines += ["", "### Unparsed Qwen assessment", "", Self.text(raw)]
+            }
         }
         return lines.joined(separator: "\n") + "\n"
     }
 
-    private var passed: Bool { runError == nil && entries.count == files.count && !files.isEmpty && entries.allSatisfy(\.succeeded) }
-    private static func seconds(_ value: Double) -> String { String(format: "%.2f", value) }
-    private static func list(_ values: [String]) -> String { values.isEmpty ? "None" : values.map(text).joined(separator: "; ") }
+    private var passed: Bool {
+        runError == nil && entries.count == files.count && !files.isEmpty && entries.allSatisfy(\.succeeded)
+    }
+
+    private static func seconds(_ value: Double) -> String {
+        String(format: "%.2f", value)
+    }
+
+    private static func list(_ values: [String]) -> String {
+        values.isEmpty ? "None" : values.map(text).joined(separator: "; ")
+    }
+
     static func text(_ value: String) -> String {
         var value = value.replacingOccurrences(of: "\r\n", with: " ").replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " ")
         for character in ["\\", "`", "*", "_", "[", "]", "<", ">", "#", "|"] {

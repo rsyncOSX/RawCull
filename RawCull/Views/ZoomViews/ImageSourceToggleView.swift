@@ -87,6 +87,7 @@ struct ImageSourceSelectorView: View {
         switch source {
         case .thumbnail: "Show thumbnail"
         case .embeddedJPG: "Show embedded JPG"
+
         case .developedRAW:
             if !presentation.isDevelopedRAWAvailable {
                 "RAW development is not supported for this image"

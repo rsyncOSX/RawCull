@@ -6,7 +6,7 @@ import Testing
 
 @Suite("AI Objects release integration")
 struct ReleaseAIObjectsTest {
-    @Test func discoversOnlyTopLevelRegularARWFiles() throws {
+    @Test func `discovers only top level regular ARW files`() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -22,7 +22,7 @@ struct ReleaseAIObjectsTest {
         #expect(try ReleaseRunConfiguration.discoverARWFiles(in: directory).isEmpty)
     }
 
-    @Test func reportPreservesFailuresAndUnprocessedFiles() throws {
+    @Test func `report preserves failures and unprocessed files`() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -44,12 +44,12 @@ struct ReleaseAIObjectsTest {
 
     @MainActor
     @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_RELEASE_RUN"] == "1"))
-    func analyzeDownloads() async throws {
+    func `analyze downloads`() async throws {
         let config = ReleaseRunConfiguration(environment: ProcessInfo.processInfo.environment)
         let files = try ReleaseRunConfiguration.discoverARWFiles(in: config.directory)
         try #require(!files.isEmpty, "No regular ARW files found in \(config.directory.path)")
         let reportURL = config.directory.appendingPathComponent(
-            "RawCull-AI-Objects-\(UUID().uuidString).md"
+            "RawCull-AI-Objects-\(UUID().uuidString).md",
         )
         var report = ReleaseAnalysisReport(directory: config.directory, files: files)
         // Verify report access before spending time loading models or running inference.
@@ -67,7 +67,9 @@ struct ReleaseAIObjectsTest {
             }
             let provider = try CoreAISAM3Provider(modelBundleURL: samURL)
             report.samIdentity = provider.modelIdentity.artifactIdentifier
-            if case let .available(_, name) = qwenStatus { report.qwenName = name }
+            if case let .available(_, name) = qwenStatus {
+                report.qwenName = name
+            }
             for (index, url) in files.enumerated() {
                 try Task.checkCancellation()
                 print("AI Objects [\(index + 1)/\(files.count)]: \(url.lastPathComponent)")
@@ -81,7 +83,7 @@ struct ReleaseAIObjectsTest {
                         id: UUID(), url: url, name: url.lastPathComponent,
                         size: (attributes[.size] as? NSNumber)?.int64Value ?? 0,
                         dateModified: (attributes[.modificationDate] as? Date) ?? .distantPast,
-                        exifData: nil, afFocusNormalized: nil
+                        exifData: nil, afFocusNormalized: nil,
                     )
                     // Each photo gets fresh masks and results; no production disk cache is used.
                     let store = ObjectMaskMemoryStore()
@@ -91,7 +93,8 @@ struct ReleaseAIObjectsTest {
                     guard feature.canRun else { throw ReleaseRunError.message("AI Objects pipeline is not ready") }
                     await feature.analyze([file])
                     guard feature.results.count == 1, let result = feature.results.first,
-                          result.fileID == file.id else {
+                          result.fileID == file.id
+                    else {
                         throw ReleaseRunError.message("Pipeline did not return exactly one matching result")
                     }
                     report.entries.append(.init(file: url, result: result, error: nil, elapsed: Date().timeIntervalSince(started)))

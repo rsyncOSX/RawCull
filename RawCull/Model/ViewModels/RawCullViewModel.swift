@@ -86,6 +86,7 @@ final class RawCullViewModel: DeepAIReviewApplicationContext {
     ) async -> [FileItem] = { files, order, text in
         await ScanFiles.sortFiles(files, by: order, searchText: text)
     }
+
     var sortOrder = FileItemSortDescriptor()
     var isShowingPicker = false
     var showsLoupeMetadataPanel = true
