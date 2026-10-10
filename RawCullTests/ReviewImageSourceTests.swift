@@ -223,6 +223,29 @@ struct ReviewImageSourceTests {
         }
     }
 
+    @Test(arguments: 1 ... 8)
+    func `bounded preview fallback preserves orientation`(_ orientation: Int) throws {
+        let url = try fixture(width: 120, height: 80, orientation: orientation)
+        defer { try? FileManager.default.removeItem(at: url) }
+        var request = ReviewSourceRequest(url: url, preference: .highQualityPreview, policy: .appearance)
+        request.maximumSourcePixels = 2400
+        let input = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let preview = try #require(try ReviewEmbeddedPreviewLoader.decode(input, width: 120, height: 80,
+                                                                      orientation: UInt32(orientation), request: request, embeddedOnly: false))
+        #expect(preview.originalEncodedSize == CGSize(width: 120, height: 80))
+        #expect(preview.image.width * preview.image.height <= 2400)
+        let transform = try ReviewOrientationTransform(width: Int(preview.encodedSize.width), height: Int(preview.encodedSize.height), orientation: UInt32(orientation))
+        #expect(transform.normalizedSpace == ReviewCoordinateSpace(image: preview.image))
+        #expect(try ReviewImageSourceService.admit(width: preview.image.width, height: preview.image.height, request: request) <= request.maximumEstimatedWorkingBytes)
+    }
+
+    @Test
+    func `large Sony source receives a bounded preview`() throws {
+        let request = ReviewSourceRequest(url: URL(filePath: "/unused"), preference: .highQualityPreview, policy: .appearance)
+        #expect(try ReviewImageSourceService.previewMaximumDimension(width: 9984, height: 6656, request: request) == 4096)
+        #expect(try ReviewImageSourceService.previewMaximumDimension(width: 6000, height: 4000, request: request) == 6000)
+    }
+
     @Test
     func `memory admission rejects before decode`() throws {
         let request = ReviewSourceRequest(url: URL(filePath: "/unused"), preference: .rawDetail, policy: .technical)
@@ -306,7 +329,8 @@ struct ReviewImageSourceTests {
     }
 
     private func fixture(width: Int, height: Int, orientation: Int = 1, customColors: [[UInt8]]? = nil,
-                         colorSpace: CGColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!) throws -> URL {
+                         colorSpace: CGColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!) throws -> URL
+    {
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         let fixtureColors = customColors ?? colors
         for row in 0 ..< height {

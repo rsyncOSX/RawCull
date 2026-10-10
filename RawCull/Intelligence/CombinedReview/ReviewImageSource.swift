@@ -55,7 +55,8 @@ nonisolated struct ReviewImageSource: Sendable {
     }
 
     func region(rect: CGRect, padding: CGFloat = 0.15, purpose: String,
-                encoder: ReviewEncoderGeometry) throws -> ReviewRegion {
+                encoder: ReviewEncoderGeometry) throws -> ReviewRegion
+    {
         try ReviewRegion.make(sourceID: metadata.identity, space: metadata.sourceSpace,
                               rect: rect, padding: padding, purpose: purpose, encoder: encoder)
     }
@@ -139,7 +140,7 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: max(pixelWidth, pixelHeight),
-                kCGImageSourceShouldCacheImmediately: true
+                kCGImageSourceShouldCacheImmediately: true,
             ] as CFDictionary) else { throw ReviewImageError.decodeFailed }
             decoded = image
             fidelity = .fullRaster
@@ -150,7 +151,8 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
             var rawEstimate: Int?
             if request.preference == .rawDetail, let filter = CIRAWFilter(imageURL: request.url),
                filter.nativeSize.width.isFinite, filter.nativeSize.height.isFinite,
-               filter.nativeSize.width > 0, filter.nativeSize.height > 0 {
+               filter.nativeSize.width > 0, filter.nativeSize.height > 0
+            {
                 filter.scaleFactor = 1
                 filter.isDraftModeEnabled = false
                 filter.extendedDynamicRangeAmount = 0
@@ -209,6 +211,10 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
                 encodedSize = preview.encodedSize
                 orientation = preview.orientation
                 estimatedBytes = try Self.admit(width: decoded.width, height: decoded.height, request: request)
+                if let original = preview.originalEncodedSize {
+                    limitations.append("Preview reduced from \(Int(original.width))×\(Int(original.height)) to \(Int(encodedSize.width))×\(Int(encodedSize.height)) to fit the review memory budget; fine-detail evidence is limited")
+                    settings["resolutionFallback"] = "bounded-preview-v1"
+                }
                 fidelity = .embeddedCameraPreview
                 settings = ["renderVersion": "review-srgb-v1", "decoderOS": ProcessInfo.processInfo.operatingSystemVersionString, "policy": request.policy.rawValue,
                             "processing": "Camera authored; sharpening/noise/exposure unknown",
@@ -240,6 +246,18 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
                                                                 inputColorSpace: inputColorSpace, outputColorSpace: "sRGB", renderSettings: settings,
                                                                 limitations: limitations, estimatedWorkingBytes: estimatedBytes,
                                                                 retainedImageBytes: decoded.bytesPerRow * decoded.height + overview.bytesPerRow * overview.height))
+    }
+
+    static func previewMaximumDimension(width: Int, height: Int, request: ReviewSourceRequest) throws -> Int {
+        guard width > 0, height > 0 else { throw ReviewImageError.invalidGeometry }
+        if (try? admit(width: width, height: height, request: request)) != nil {
+            return max(width, height)
+        }
+        let allowedPixels = min(request.maximumSourcePixels, request.maximumEstimatedWorkingBytes / 80)
+        guard allowedPixels > 0 else { throw ReviewImageError.memoryAdmissionDenied }
+        // Leave headroom for thumbnail rounding, and cap fallback previews at 4096 pixels.
+        let scale = min(1, sqrt(Double(allowedPixels) / (Double(width) * Double(height))))
+        return max(1, min(4096, Int((Double(max(width, height)) * scale).rounded(.down))))
     }
 
     static func admit(width: Int, height: Int, request: ReviewSourceRequest) throws -> Int {

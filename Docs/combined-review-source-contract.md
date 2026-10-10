@@ -124,9 +124,12 @@ Export it with `xcrun xcresulttool export attachments --path <result.xcresult>
 
 The default admission limits are 24 million source pixels and 2,000,000,000 estimated
 working bytes. The conservative estimate is 80 bytes per source pixel, with overflow
-checks before allocation. Sources exceeding a limit fail before full decode; they are
-not resized to fit. Callers may only raise limits after measuring their workload and
-reserving headroom for retained renders and models.
+checks before allocation. Full raster and RAW demosaic sources exceeding a limit fail before full decode.
+Embedded camera previews use an ImageIO thumbnail fallback bounded by the admission
+budget and a 4096-pixel longest edge. Reduced previews retain orientation-normalized
+coordinates and record original/decoded dimensions and reduced fine-detail evidence
+in the report limitations. Full-size limits remain unchanged. Callers may only raise
+limits after measuring their workload and reserving headroom for retained renders and models.
 
 The [smoke-run measurement](CombinedReviewSourceFixtures/full-source-memory-smoke.json)
 records a 6000 × 4000 full raster, a 2048-pixel overview, a source crop, and lossless

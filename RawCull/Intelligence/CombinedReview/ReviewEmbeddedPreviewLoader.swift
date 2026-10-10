@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreImage
 import Foundation
 import ImageIO
 import RawParserKit
@@ -7,6 +8,7 @@ nonisolated struct ReviewEmbeddedPreview: Sendable {
     let image: CGImage
     let encodedSize: CGSize
     let orientation: UInt32
+    var originalEncodedSize: CGSize?
 }
 
 nonisolated protocol ReviewEmbeddedPreviewLoading: Sendable {
@@ -51,16 +53,13 @@ nonisolated struct ReviewEmbeddedPreviewLoader: ReviewEmbeddedPreviewLoading {
             return (data, pixelWidth, pixelHeight)
         }.sorted { Double($0.1) * Double($0.2) > Double($1.1) * Double($1.2) }
         for (data, pixelWidth, pixelHeight) in sized {
-            // Do not silently choose a smaller source to fit the budget.
-            _ = try ReviewImageSourceService.admit(width: pixelWidth, height: pixelHeight, request: request)
-            try Task.checkCancellation()
-            if let image = OrientationNormalizedImageLoader.loadEmbeddedPreview(from: data, sourceURL: url) {
-                let source = CGImageSourceCreateWithData(data as CFData, nil)!
-                let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
-                let rawSource = CGImageSourceCreateWithURL(url as CFURL, nil)
-                let rawProperties = rawSource.flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] } ?? [:]
-                let orientation = ((properties[kCGImagePropertyOrientation] ?? rawProperties[kCGImagePropertyOrientation]) as? NSNumber)?.uint32Value ?? 1
-                return ReviewEmbeddedPreview(image: image, encodedSize: CGSize(width: pixelWidth, height: pixelHeight), orientation: orientation)
+            guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { continue }
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
+            let rawSource = CGImageSourceCreateWithURL(url as CFURL, nil)
+            let rawProperties = rawSource.flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] } ?? [:]
+            let orientation = ((properties[kCGImagePropertyOrientation] ?? rawProperties[kCGImagePropertyOrientation]) as? NSNumber)?.uint32Value ?? 1
+            if let preview = try Self.decode(source, width: pixelWidth, height: pixelHeight, orientation: orientation, request: request, embeddedOnly: false) {
+                return preview
             }
         }
         // ImageIO embedded-only fallback. Never generate a RAW thumbnail or
@@ -69,15 +68,29 @@ nonisolated struct ReviewEmbeddedPreviewLoader: ReviewEmbeddedPreviewLoading {
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let pixelWidth = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
               let pixelHeight = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue else { return nil }
-        _ = try ReviewImageSourceService.admit(width: pixelWidth, height: pixelHeight, request: request)
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-            kCGImageSourceCreateThumbnailFromImageAlways: false,
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(pixelWidth, pixelHeight)
-        ] as CFDictionary) else { return nil }
         let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value ?? 1
-        let encoded = orientation >= 5 ? CGSize(width: image.height, height: image.width) : CGSize(width: image.width, height: image.height)
-        return ReviewEmbeddedPreview(image: image, encodedSize: encoded, orientation: orientation)
+        return try Self.decode(source, width: pixelWidth, height: pixelHeight, orientation: orientation, request: request, embeddedOnly: true)
+    }
+
+    /// Decode without orientation first so RAW metadata can supply missing JPEG orientation.
+    static func decode(_ source: CGImageSource, width: Int, height: Int, orientation: UInt32,
+                       request: ReviewSourceRequest, embeddedOnly: Bool) throws -> ReviewEmbeddedPreview?
+    {
+        let maximumDimension = try ReviewImageSourceService.previewMaximumDimension(width: width, height: height, request: request)
+        try Task.checkCancellation()
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: !embeddedOnly,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+            kCGImageSourceCreateThumbnailWithTransform: false,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maximumDimension,
+        ] as CFDictionary) else { return nil }
+        _ = try ReviewImageSourceService.admit(width: image.width, height: image.height, request: request)
+        let encoded = CGSize(width: image.width, height: image.height)
+        let oriented = CIImage(cgImage: image).oriented(forExifOrientation: Int32(orientation))
+        guard let normalized = ReviewImageSourceService.render(oriented, extent: oriented.extent) else { return nil }
+        let original = CGSize(width: width, height: height)
+        return ReviewEmbeddedPreview(image: normalized, encodedSize: encoded, orientation: orientation,
+                                     originalEncodedSize: encoded == original ? nil : original)
     }
 }
