@@ -115,3 +115,41 @@ fixture with an accepted crop observation and a nonempty grounded report
 (33.958 seconds on this host). The model content fingerprint and preprocessing
 were admitted through the phase 1 registry. This result verifies the single-image
 workflow, not photographic quality or resource qualification.
+
+## Large Sony ARW investigation — 10 October 2026
+
+The supplied `_DSC8318.ARW` reports a 9984 × 6656 native source (66,453,504
+pixels). Full RAW detail is refused by the unchanged 24-million-pixel / 2-GB
+estimated-working-set guards: its 80-byte-per-pixel estimate is 5,316,280,320
+bytes. High-quality preview decodes a bounded 4096 × 2731 camera preview with
+explicit resolution and processing limitations. Changing the source picker
+requires a new rerun; Resume retains the saved source preference. Source errors
+now explain that recovery, and a stopped Resume updates its progress state.
+
+A full installed-model reproduction exposed an unsupported sharp-eye crop claim
+and a report that copied the schema's literal placeholder ID. Crop requests now
+focus on surface texture and illumination. Report/reconciliation requests use
+short, request-local evidence aliases and a correctly typed example derived from
+available evidence. Accepted aliases resolve to the original provenance IDs;
+unknown aliases, invalid fields, unsupported eye/recovery text and ungrounded
+detail claims still fail closed. Included references are tracked structurally,
+not inferred from substrings of generated prose. Final synthesis consumes original
+overview/crop observations and measurements directly; reconciliation remains
+inspectable but is not fed back as independent evidence.
+
+Consuming prompt stages (crop observation, reconciliation, report) are versioned
+`combined-v2`; storage envelopes and source/render contracts remain V1. Older
+prompt snapshots require a rerun and their artifacts are preserved.
+
+The installed-model probe optionally accepts `RAWCULL_COMBINED_REVIEW_SAM3` and
+`RAWCULL_COMBINED_REVIEW_CLIP`, alongside the existing Qwen/image options. It
+attaches `combined-review-probe.json` with source/region records, stages, failures,
+and raw model requests/responses. It uses isolated temporary storage.
+
+The final supplied-ARW run with Qwen, SAM 3 and DataComp CLIP passed: 11 completed
+work items, no stage failures, three validated report claims, one inspected region,
+and no uninspected regions. The model probe took 137.122 seconds on this host.
+The combined source/run/feature/model test invocation passed all 50 invocations;
+the smoke inventory verified 291 identifiers. Formatting, lint error, import
+boundary and whitespace checks passed. This verifies this workflow, not full-size
+RAW decoding, photographic accuracy, or general resource/performance qualification.

@@ -17,7 +17,8 @@ nonisolated struct CombinedReviewContext: Sendable {
 
 extension CombinedReviewFeature {
     func perform<Value: Codable & Sendable>(_ id: ReviewWorkID, category: ReviewAttemptCategory? = nil,
-                                            operation: () async throws -> Value) async throws -> Value? {
+                                            operation: () async throws -> Value) async throws -> Value?
+    {
         try Task.checkCancellation()
         guard let item = manifest?.work.first(where: { $0.id == id }) else { throw ReviewRunError.invalidDependency }
         if item.state == .completed, let key = item.artifactKey {
@@ -245,7 +246,8 @@ extension CombinedReviewFeature {
     }
 
     func inspect(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext, plan: CombinedReviewPlan,
-                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID] {
+                 masks initialMasks: [ReviewSubjectID: CGImage], segmentIDs: [ReviewWorkID]) async throws -> [ReviewWorkID]
+    {
         let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
         let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
         guard let preference = ReviewSourcePreference(rawValue: snapshot.sourcePreference) else { throw ReviewRunError.invalidSnapshot }
@@ -300,11 +302,14 @@ extension CombinedReviewFeature {
             terminalIDs.append(id)
             let inspection: CombinedReviewInspection? = try await perform(id, category: .crop) {
                 let prompt = """
-                Inspect this unannotated source crop independently for: \(snapshot.criteria).
+                Inspect only surface texture, light/dark areas and framing in this unannotated crop.
+                User criteria: \(snapshot.criteria).
                 Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
                 Return JSON only {"regionID":"\(region.id.rawValue)","observations":"visible detail, at most 500 characters","uncertainty":"limits, at most 200 characters","insufficientEvidence":false}.
-                Abstain on unseen detail. Eye identity/localization is unverified; never claim eye sharpness.
-                Do not claim RAW recovery, edited results, or calibrated quality scores. Do not assume other passes agree.
+                Write one short sentence about texture and illumination in observations. Ignore anatomy, body parts, gaze and species.
+                Put any anatomical limitations in uncertainty only. Observations must not discuss sharpness of individual body parts.
+                If these restrictions leave no supported observation, set insufficientEvidence to true.
+                Do not identify a species or claim edited results or calibrated quality. Do not assume other passes agree.
                 """
                 return try await CombinedReviewResponse.inspection(backend.respond(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, tokens: snapshot.responseTokens), regionID: region.id.rawValue)
             }
@@ -382,40 +387,54 @@ extension CombinedReviewFeature {
     func synthesize(_ backend: any CombinedReviewBackendServing, source: ReviewImageSource, qwen: ReviewModelSnapshot, plan: CombinedReviewPlan, reconciliation: Bool = false) async throws -> ReviewImageReport {
         guard let value = result, let snapshot = manifest?.snapshot else { throw ReviewRunError.invalidSnapshot }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        var rows: [String] = [], allowed: Set<ReviewEvidenceReference> = []
-        for observation in value.observations where observation.availability == .available {
-            let ref = ReviewEvidenceReference(kind: .observation, id: observation.id.rawValue)
+        var rows: [(reference: ReviewEvidenceReference, text: String)] = []
+        var aliases: [ReviewEvidenceReference: ReviewEvidenceReference] = [:]
+        // Reconciliation is inspectable reasoning, not another independent evidence source.
+        // Feeding its prose and nested provenance IDs back in bloats context and confuses the schema.
+        for observation in value.observations where observation.availability == .available && observation.provenance.workID != Self.workID(value.file.id, "reconcile") {
+            let ref = ReviewEvidenceReference(kind: .observation, id: "o\(aliases.count + 1)")
             let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + " " + observation.text + " Uncertainty: " + observation.uncertainty
-            rows.append(row); allowed.insert(ref)
+            rows.append((ref, row)); aliases[ref] = .init(kind: .observation, id: observation.id.rawValue)
         }
         for measurement in value.measurements {
-            let ref = ReviewEvidenceReference(kind: .measurement, id: measurement.id.rawValue)
-            try rows.append(String(decoding: encoder.encode(ref), as: UTF8.self) + " " + String(decoding: encoder.encode(measurement.values), as: UTF8.self))
-            allowed.insert(ref)
+            let ref = ReviewEvidenceReference(kind: .measurement, id: "m\(aliases.count + 1)")
+            try rows.append((ref, String(decoding: encoder.encode(ref), as: UTF8.self) + " " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)))
+            aliases[ref] = .init(kind: .measurement, id: measurement.id.rawValue)
         }
+        guard let exampleRow = rows.reversed().first(where: { $0.reference.kind == .observation }) ?? rows.last else { throw ReviewRunError.invalidEvidence }
+        let exampleObservation = value.observations.first { $0.id.rawValue == aliases[exampleRow.reference]?.id }
+        let example = ReviewClaim(text: exampleObservation.map { String($0.text.prefix(400)) } ?? "A render-dependent subject-detail measurement is available.",
+                                  type: exampleObservation == nil ? "detail" : "composition", evidence: [exampleRow.reference],
+                                  uncertainty: exampleObservation.map { String($0.uncertainty.prefix(200)) } ?? "The metric has no calibrated sharpness threshold.", contradictions: [])
+        let exampleJSON = try String(decoding: encoder.encode(["claims": [example]]), as: UTF8.self)
         let schema = """
         \(reconciliation ? "Reconcile completed independent crop observations and terminal measured evidence, noting conflicts or abstaining." : "Synthesize the per-image report.")
         Review this photograph for: \(snapshot.criteria). Use only supplied evidence references.
-        Return JSON only {"claims":[{"text":"grounded claim","type":"composition","evidence":[{"kind":"observation","id":"exact ID"}],"uncertainty":"limits","contradictions":[]}]}.
+        Return JSON only, using this exact structure and field types. This example is drawn from supplied evidence:
+        \(exampleJSON)
+        Write at most three descriptive claims. evidence and contradictions are arrays of kind/id objects; uncertainty is a string.
+        Use only supplied short IDs with their matching kind. Never invent references.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB.
         Available: \(value.measurements.count) measurements; \(value.observations.filter { $0.regionID != nil && $0.availability == .available }.count) crop observations. Failed stages: \(value.failures.count).
-        Subject/eye/AF conclusions abstain when localization or measurement is missing.
-        At most 6 claims; types: composition, exposure, visibility, detail, suggestion.
-        Missing stages require abstention. Head masks do not localize eyes: no eye detail claims.
+        Restrict claim text to composition, lighting, subject visibility and visible texture. Put anatomical limitations in uncertainty only.
+        Allowed types: composition, exposure, visibility, detail, suggestion. Lighting uses exposure, not a new type.
+        Missing stages require abstention. Do not mention eyes, iris, gaze or recovery in claim text.
         No RAW recovery or probability/quality claims from CLIP; detail requires a crop observation or measurement.
         Suggestions are untested hypotheses. Same-model agreement is not independent confirmation.
         Detail measurements are render-dependent, uncalibrated metrics, not sharp/blur labels.
         """
         // Keep crop observations ahead of overview; disclose any omitted optional evidence.
         var selected: [String] = []
-        for row in rows.reversed() {
-            if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row]).joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
-                selected.append(row)
+        var included: Set<ReviewEvidenceReference> = []
+        let orderedRows = [exampleRow] + rows.reversed().filter { $0.reference != exampleRow.reference }
+        for row in orderedRows {
+            if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row.text]).joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
+                selected.append(row.text)
+                included.insert(row.reference)
             } else {
                 limitation("Some optional evidence was omitted to stay within the verified model context.")
             }
         }
-        let included = Set(allowed.filter { ref in selected.contains { $0.contains("\"id\":\"" + ref.id + "\"") } })
         let inspected = value.observations.filter { $0.regionID != nil && $0.availability == .available }.compactMap(\.regionID)
         let missing = plan.regions.map(\.id).filter { !inspected.contains($0) } + plan.uninspected
         if included.isEmpty {
@@ -423,8 +442,19 @@ extension CombinedReviewFeature {
         }
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)
         let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
-        let report = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
-                                                       uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
+        let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
+                                                          uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
+        // Aliases exist only inside this request. Persist the real, validated provenance IDs.
+        let claims = try generated.claims.map { claim in
+            func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
+                guard included.contains(reference), let stored = aliases[reference] else { throw ReviewRunError.invalidEvidence }
+                return stored
+            }
+            return try ReviewClaim(text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
+                                   uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
+        }
+        let report = ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: claims, limitations: generated.limitations,
+                                       incomplete: generated.incomplete, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
         for claim in report.claims {
             guard ["composition", "exposure", "visibility", "detail", "suggestion"].contains(claim.type) else { throw ReviewRunError.invalidEvidence }
             if claim.type == "detail" {

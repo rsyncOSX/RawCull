@@ -38,6 +38,11 @@ struct CombinedReviewFeatureTests {
         #expect(result.measurements.first?.provenance.renderPolicy == "technical")
         #expect(result.observations.filter { $0.regionID != nil }.allSatisfy { $0.provenance.renderPolicy == "appearance" })
         #expect(feature.manifest?.work.filter { $0.stage == .report }.allSatisfy { $0.state == .completed } == true)
+        let evidenceIDs = Set(result.observations.map { $0.id.rawValue } + result.measurements.map { $0.id.rawValue })
+        let report = try #require(result.report)
+        #expect(report.claims.flatMap(\.evidence).allSatisfy { evidenceIDs.contains($0.id) })
+        #expect(report.claims.flatMap(\.evidence).allSatisfy { !$0.id.hasPrefix("o") && !$0.id.hasPrefix("m") })
+        #expect(report.claims.flatMap(\.evidence).allSatisfy { !$0.id.contains(":reconcile") })
     }
 
     @Test @MainActor func `malformed crop output is a failure and cannot become detail`() async throws {
@@ -135,6 +140,34 @@ struct CombinedReviewFeatureTests {
         lease.release(id); #expect(!lease.isHeld)
     }
 
+    @Test @MainActor func `source refusal explains preview rerun and resume keeps saved source`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend()
+        let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
+                                            sourceLoader: ReviewPreviewOnlySource(), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.sourcePreference = .rawDetail
+        await feature.analyze([fixture.file])
+        let refusedRun = try #require(feature.manifest)
+        #expect(feature.failureMessage?.contains("High-quality preview") == true)
+        #expect(feature.failureMessage?.contains("Rerun with current settings") == true)
+        #expect(await backend.responses == 0)
+        #expect(!feature.isRunning && !feature.lease.isHeld)
+
+        feature.sourcePreference = .highQualityPreview
+        await feature.resume()
+        #expect(feature.manifest?.snapshot.sourcePreference == ReviewSourcePreference.rawDetail.rawValue)
+        #expect(feature.failureMessage?.contains("Resume keeps the saved source setting") == true)
+        #expect(feature.progress == "Resume stopped — rerun with current settings")
+        #expect(await backend.responses == 0)
+
+        await feature.analyze([fixture.file])
+        #expect(feature.manifest?.snapshot.id != refusedRun.snapshot.id)
+        #expect(feature.manifest?.snapshot.sourcePreference == ReviewSourcePreference.highQualityPreview.rawValue)
+        #expect(feature.result?.report?.claims.isEmpty == false)
+        #expect(feature.failureMessage == nil)
+        #expect(!feature.isRunning && !feature.lease.isHeld)
+    }
+
     private struct Fixture { let root: URL; let file: ReviewSelectedFile }
     private func fixture() throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -151,6 +184,13 @@ struct CombinedReviewFeatureTests {
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {
         CombinedReviewFeature(store: ReviewArtifactStore(root: fixture.root.appendingPathComponent("store")),
                               scorer: ReviewFakeScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+    }
+}
+
+private nonisolated struct ReviewPreviewOnlySource: ReviewImageSourceLoading {
+    func load(_ request: ReviewSourceRequest) async throws -> ReviewImageSource {
+        guard request.preference == .highQualityPreview else { throw ReviewImageError.memoryAdmissionDenied }
+        return try await ReviewImageSourceService().load(request)
     }
 }
 
