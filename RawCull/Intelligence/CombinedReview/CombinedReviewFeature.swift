@@ -27,6 +27,101 @@ final class CombinedReviewFeature {
     var retainInputs = true
     var userRegion: CGRect?
     private(set) var isRunning = false
+    private(set) var isCheckingParameters = false
+    private(set) var sourceAvailability: ReviewSourceAvailability?
+    private(set) var resumeDisabledReason: String? = "Checking saved settings…"
+    private(set) var parameterStatus = "Select one image to check available settings."
+    @ObservationIgnored private var parameterRevision = 0
+    private var checkedSelection: [ReviewSelectedFile] = []
+
+    var criteriaStatus: String? {
+        let goal = criteria.trimmingCharacters(in: .whitespacesAndNewlines)
+        if goal.isEmpty {
+            return "Start disabled: enter review criteria."
+        }
+        if goal.utf8.count > 512 {
+            return "Start disabled: review criteria must fit within 512 UTF-8 bytes."
+        }
+        return nil
+    }
+
+    var canStartReview: Bool {
+        !isRunning && !isCheckingParameters && criteriaStatus == nil &&
+            sourceAvailability.map { $0.reason(for: sourcePreference) == nil } == true
+    }
+
+    func canStartReview(for selected: [ReviewSelectedFile]) -> Bool {
+        canStartReview && checkedSelection == selected
+    }
+
+    func prepareResumeParameters() async {
+        guard !isRunning, let saved = manifest else { return }
+        let id = saved.snapshot.id
+        resumeDisabledReason = "Checking saved settings…"
+        do {
+            try await ReviewCatalogSession.revalidate(saved.snapshot.files)
+            let availability = try await sourceLoader.availability(for: saved.snapshot.files[0].url)
+            guard !Task.isCancelled, manifest?.snapshot.id == id else { return }
+            if let preference = ReviewSourcePreference(rawValue: saved.snapshot.sourcePreference) {
+                resumeDisabledReason = availability.reason(for: preference).map { $0 + " Rerun with current settings instead." }
+            } else {
+                resumeDisabledReason = "The saved source setting is unsupported. Rerun with current settings."
+            }
+        } catch {
+            guard manifest?.snapshot.id == id else { return }
+            resumeDisabledReason = "The saved image changed or is unavailable. Rerun with current settings."
+        }
+    }
+
+    func prepareParameters(_ selected: [ReviewSelectedFile]) async {
+        guard !isRunning else { return }
+        parameterRevision += 1
+        let revision = parameterRevision
+        sourceAvailability = nil
+        checkedSelection = []
+        guard selected.count == 1 else {
+            isCheckingParameters = false
+            parameterStatus = "Review settings disabled: select exactly one image."
+            return
+        }
+        isCheckingParameters = true
+        parameterStatus = "Checking available image sources…"
+        defer {
+            if revision == parameterRevision {
+                isCheckingParameters = false
+            }
+        }
+        do {
+            let availability = try await sourceLoader.availability(for: selected[0].url)
+            guard !Task.isCancelled, !isRunning, revision == parameterRevision else { return }
+            sourceAvailability = availability
+            checkedSelection = selected
+            if availability.reason(for: sourcePreference) != nil {
+                if availability.previewDisabledReason == nil {
+                    sourcePreference = .highQualityPreview
+                } else if availability.rawDisabledReason == nil {
+                    sourcePreference = .rawDetail
+                }
+            }
+            var messages: [String] = []
+            if let reason = availability.rawDisabledReason {
+                messages.append("RAW detail disabled: " + reason)
+            }
+            if let reason = availability.previewDisabledReason {
+                messages.append("High-quality preview disabled: " + reason)
+            }
+            if availability.reason(for: sourcePreference) == nil {
+                messages.append(sourcePreference == .rawDetail ? "RAW detail available." : "High-quality preview available.")
+            } else {
+                messages.append("Start disabled: no supported image source is available.")
+            }
+            parameterStatus = messages.isEmpty ? "All review settings available." : messages.joined(separator: " ")
+        } catch {
+            guard revision == parameterRevision else { return }
+            parameterStatus = "Review settings disabled: the selected image could not be checked."
+        }
+    }
+
     var progress = "Ready"
     private(set) var failureMessage: String?
     var result: CombinedReviewResult?
@@ -56,12 +151,9 @@ final class CombinedReviewFeature {
 
     func analyze(_ selected: [ReviewSelectedFile]) async {
         guard !isRunning else { return }
-        guard selected.count == 1 else {
-            failureMessage = "Combined Review currently accepts one image. Selection comparison arrives in phase 5."
-            return
-        }
+        await prepareParameters(selected)
+        guard canStartReview(for: selected) else { return }
         let goal = criteria.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !goal.isEmpty, goal.utf8.count <= 512 else { failureMessage = "Enter criteria up to 512 UTF-8 bytes."; return }
         let id = UUID()
         do {
             try lease.acquire(id)
@@ -118,6 +210,8 @@ final class CombinedReviewFeature {
 
     func resume() async {
         guard !isRunning, let saved = manifest else { return }
+        await prepareResumeParameters()
+        guard !isRunning, resumeDisabledReason == nil, manifest?.snapshot.id == saved.snapshot.id else { return }
         let id = saved.snapshot.id
         do {
             try lease.acquire(id); isRunning = true; failureMessage = nil

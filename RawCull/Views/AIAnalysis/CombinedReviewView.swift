@@ -32,6 +32,12 @@ struct CombinedReviewView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task { await feature.restoreStoredRun() }
+        .task(id: "\(files.map { "\($0.id)-\($0.url.absoluteString)" })-\(feature.isRunning)") {
+            await feature.prepareParameters(files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name) })
+        }
+        .task(id: "\(feature.manifest?.snapshot.id.uuidString ?? "none")-\(feature.isRunning)") {
+            await feature.prepareResumeParameters()
+        }
         .sheet(isPresented: $showInput) {
             VStack(spacing: 12) {
                 Text("Exact unannotated model input").font(.headline)
@@ -55,19 +61,28 @@ struct CombinedReviewView: View {
                 }.frame(width: 190)
                 Picker("Source", selection: $feature.sourcePreference) {
                     Text("High-quality preview").tag(ReviewSourcePreference.highQualityPreview)
+                        .disabled(feature.sourceAvailability?.previewDisabledReason != nil)
                     Text("RAW detail").tag(ReviewSourcePreference.rawDetail)
+                        .disabled(feature.sourceAvailability?.rawDisabledReason != nil)
                 }.frame(width: 280)
                 Toggle("Retain exact inputs", isOn: $feature.retainInputs)
-            }.disabled(feature.isRunning)
-            Text("Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. RAW detail requires supported decoding and admitted source size. Deeper tiling arrives later.")
+            }.disabled(feature.isRunning || feature.isCheckingParameters || feature.sourceAvailability == nil)
+            if feature.manifest != nil, let reason = feature.resumeDisabledReason {
+                Text("Resume saved run disabled: " + reason).font(.caption).foregroundStyle(.secondary)
+            }
+            Text(feature.parameterStatus).font(.caption).foregroundStyle(.secondary)
+            if let status = feature.criteriaStatus {
+                Text(status).font(.caption).foregroundStyle(.secondary)
+            }
+            Text("Up to \(feature.depth.cropsPerImage) crops; up to \(feature.depth.cropsPerImage + 3) Qwen passes. Crop counts are upper limits; available regions depend on the image.")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button(feature.manifest == nil ? "Start review" : "Rerun with current settings") {
                     let selection = files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name) }
                     Task { await feature.analyze(selection) }
-                }.disabled(feature.isRunning || files.count != 1)
+                }.disabled(!feature.canStartReview(for: files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name) }))
                 Button("Cancel") { feature.cancel() }.disabled(!feature.isRunning)
-                Button("Resume saved run") { Task { await feature.resume() } }.disabled(feature.isRunning || feature.manifest == nil)
+                Button("Resume saved run") { Task { await feature.resume() } }.disabled(feature.isRunning || feature.manifest == nil || feature.resumeDisabledReason != nil)
                 Button("Clear retained inputs") { Task { await feature.clearRetainedInputs() } }.disabled(feature.isRunning)
                 if feature.userRegion != nil {
                     Button("Clear chosen region") { feature.userRegion = nil }.disabled(feature.isRunning)

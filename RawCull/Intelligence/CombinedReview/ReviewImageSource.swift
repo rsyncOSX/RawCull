@@ -98,6 +98,22 @@ nonisolated struct ReviewImageSource: Sendable {
 
 nonisolated protocol ReviewImageSourceLoading: Sendable {
     func load(_ request: ReviewSourceRequest) async throws -> ReviewImageSource
+    func availability(for url: URL) async throws -> ReviewSourceAvailability
+}
+
+nonisolated struct ReviewSourceAvailability: Equatable, Sendable {
+    var previewDisabledReason: String?
+    var rawDisabledReason: String?
+
+    func reason(for preference: ReviewSourcePreference) -> String? {
+        preference == .rawDetail ? rawDisabledReason : previewDisabledReason
+    }
+}
+
+extension ReviewImageSourceLoading {
+    nonisolated func availability(for _: URL) async throws -> ReviewSourceAvailability {
+        ReviewSourceAvailability()
+    }
 }
 
 nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
@@ -105,6 +121,61 @@ nonisolated struct ReviewImageSourceService: ReviewImageSourceLoading {
 
     init(previewLoader: any ReviewEmbeddedPreviewLoading = ReviewEmbeddedPreviewLoader()) {
         self.previewLoader = previewLoader
+    }
+
+    /// Inspect metadata and bounded embedded previews without rendering full RAW pixels.
+    @concurrent
+    func availability(for url: URL) async throws -> ReviewSourceAvailability {
+        let access = await RawCullCatalogAccess.shared.retainAccess(for: [url])
+        defer { withExtendedLifetime(access) {} }
+        try Task.checkCancellation()
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            return .init(previewDisabledReason: "The selected image is unavailable.", rawDisabledReason: "The selected image is unavailable.")
+        }
+        let request = ReviewSourceRequest(url: url, preference: .highQualityPreview, policy: .appearance)
+        let rendered = SupportedFileType.isRenderedImage(url) || ["heic", "heif"].contains(url.pathExtension.lowercased())
+        if rendered {
+            let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+            let properties = source.flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] }
+            let width = (properties?[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
+            let height = (properties?[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
+            return Self.rasterAvailability(width: width, height: height, request: request)
+        }
+        var availability = ReviewSourceAvailability()
+        if let filter = CIRAWFilter(imageURL: url) {
+            let size = filter.nativeSize
+            if !size.width.isFinite || !size.height.isFinite || size.width <= 0 || size.height <= 0 ||
+                size.width >= CGFloat(Int.max) || size.height >= CGFloat(Int.max)
+            {
+                availability.rawDisabledReason = "RAW decoding does not provide valid image dimensions."
+            } else if (try? Self.admit(width: Int(size.width), height: Int(size.height), request: request)) == nil {
+                availability.rawDisabledReason = "The full-resolution RAW exceeds Combined Review’s memory limit."
+            }
+        } else {
+            availability.rawDisabledReason = "RAW decoding is unavailable for this image on this Mac."
+        }
+        do {
+            if try previewLoader.load(request) == nil {
+                availability.previewDisabledReason = "No usable embedded preview is available."
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            availability.previewDisabledReason = "The embedded preview cannot be prepared within the review limits."
+        }
+        try Task.checkCancellation()
+        return availability
+    }
+
+    static func rasterAvailability(width: Int, height: Int, request: ReviewSourceRequest) -> ReviewSourceAvailability {
+        let reason: String? = if width <= 0 || height <= 0 {
+            "Image dimensions are unavailable."
+        } else if (try? admit(width: width, height: height, request: request)) == nil {
+            "The full-resolution image exceeds Combined Review’s memory limit."
+        } else {
+            nil
+        }
+        return .init(previewDisabledReason: reason, rawDisabledReason: "RAW detail requires a RAW image.")
     }
 
     @concurrent

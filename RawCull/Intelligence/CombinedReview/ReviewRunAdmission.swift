@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct ReviewSelectedFile: Sendable {
+nonisolated struct ReviewSelectedFile: Equatable, Sendable {
     let id: UUID
     let url: URL
     let name: String

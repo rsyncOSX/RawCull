@@ -104,7 +104,8 @@ struct CombinedReviewFeatureTests {
         #expect(restored.result?.report != nil)
         try Data("changed".utf8).write(to: fixture.file.url)
         await restored.resume()
-        #expect(restored.failureMessage?.contains("Resume unavailable") == true)
+        #expect(restored.resumeDisabledReason != nil)
+        #expect(restored.failureMessage == nil)
         #expect(await backend.responses == calls)
     }
 
@@ -215,6 +216,41 @@ struct CombinedReviewFeatureTests {
         let image = try #require(context.makeImage())
         try ReviewImageSource.pngData(for: image).write(to: url)
         return .init(root: root, file: .init(id: UUID(), url: url, name: "fixture.png"))
+    }
+
+    @Test @MainActor func `preflight replaces incompatible RAW setting before creating a run`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let feature = makeFeature(fixture, backend: ReviewFakeBackend())
+        feature.sourcePreference = .rawDetail
+        await feature.prepareParameters([fixture.file])
+        #expect(feature.sourcePreference == .highQualityPreview)
+        #expect(feature.sourceAvailability?.rawDisabledReason != nil)
+        #expect(feature.parameterStatus.contains("RAW detail disabled"))
+        #expect(feature.canStartReview)
+        #expect(!feature.canStartReview(for: []))
+        #expect(feature.manifest == nil)
+        #expect(feature.failureMessage == nil)
+        await feature.analyze([fixture.file])
+        #expect(feature.manifest?.snapshot.sourcePreference == ReviewSourcePreference.highQualityPreview.rawValue)
+        #expect(feature.result?.report != nil)
+    }
+
+    @Test @MainActor func `invalid criteria and selection are preparation status rather than review errors`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let feature = makeFeature(fixture, backend: ReviewFakeBackend())
+        await feature.prepareParameters([fixture.file])
+        feature.criteria = " "
+        #expect(!feature.canStartReview)
+        #expect(feature.criteriaStatus != nil)
+        await feature.analyze([fixture.file])
+        #expect(feature.failureMessage == nil)
+        #expect(feature.manifest == nil)
+        feature.criteria = String(repeating: "ø", count: 257)
+        #expect(feature.criteriaStatus != nil)
+        await feature.prepareParameters([])
+        #expect(feature.sourceAvailability == nil)
+        #expect(!feature.canStartReview)
+        #expect(feature.parameterStatus.contains("select exactly one"))
     }
 
     @MainActor private func makeFeature(_ fixture: Fixture, backend: ReviewFakeBackend) -> CombinedReviewFeature {

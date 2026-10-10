@@ -14,6 +14,15 @@ import UniformTypeIdentifiers
 
 @Suite("Combined Review source and coordinates", .tags(.smoke))
 struct ReviewImageSourceTests {
+    @Test(arguments: [(6000, 4000, false), (6001, 4000, true), (0, 4000, true), (Int.max, 2, true)])
+    func `source availability uses the same admission boundary as execution`(_ width: Int, _ height: Int, _ disabled: Bool) {
+        let request = ReviewSourceRequest(url: URL(fileURLWithPath: "/tmp/image.jpg"), preference: .highQualityPreview, policy: .appearance)
+        let availability = ReviewImageSourceService.rasterAvailability(width: width, height: height, request: request)
+        #expect((availability.previewDisabledReason != nil) == disabled)
+        #expect(availability.rawDisabledReason != nil)
+        #expect(((try? ReviewImageSourceService.admit(width: width, height: height, request: request)) == nil) == disabled)
+    }
+
     @Test(arguments: 1 ... 8)
     func `orientation and source crops`(_ orientation: Int) async throws {
         let url = try fixture(width: 120, height: 80, orientation: orientation)
@@ -231,7 +240,7 @@ struct ReviewImageSourceTests {
         request.maximumSourcePixels = 2400
         let input = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
         let preview = try #require(try ReviewEmbeddedPreviewLoader.decode(input, width: 120, height: 80,
-                                                                      orientation: UInt32(orientation), request: request, embeddedOnly: false))
+                                                                          orientation: UInt32(orientation), request: request, embeddedOnly: false))
         #expect(preview.originalEncodedSize == CGSize(width: 120, height: 80))
         #expect(preview.image.width * preview.image.height <= 2400)
         let transform = try ReviewOrientationTransform(width: Int(preview.encodedSize.width), height: Int(preview.encodedSize.height), orientation: UInt32(orientation))
