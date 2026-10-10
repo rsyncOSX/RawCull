@@ -515,7 +515,7 @@ private struct BurstDataStatusRow: View {
         if isComplete {
             return "Ready · \(count)/\(total)"
         }
-        if !isEmpty {
+        if count > 0 {
             return "Partial · \(count)/\(total)"
         }
         return isOptional ? "Not available" : "Needed"
