@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     let aiSettingsModel: RawCullAISettingsModel
+    let combinedReviewFeature: CombinedReviewFeature
 
     @State private var settingsLoaded = false
 
@@ -17,7 +18,7 @@ struct SettingsView: View {
             if settingsLoaded {
                 TabView {
                     Tab("Cache", systemImage: "memorychip.fill") {
-                        CacheSettingsTab()
+                        CacheSettingsTab(combinedReviewFeature: combinedReviewFeature)
                     }
 
                     Tab("Thumbnails", systemImage: "photo.fill") {

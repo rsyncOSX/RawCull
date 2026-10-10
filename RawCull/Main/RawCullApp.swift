@@ -154,7 +154,7 @@ struct RawCullApp: App {
         }
 
         Settings {
-            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel)
+            SettingsView(aiSettingsModel: intelligenceRuntime.settingsModel, combinedReviewFeature: intelligenceRuntime.combinedReviewFeature)
                 .environment(viewModel)
         }
 

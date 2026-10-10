@@ -168,6 +168,42 @@ struct CombinedReviewFeatureTests {
         #expect(!feature.isRunning && !feature.lease.isHeld)
     }
 
+    @Test @MainActor func `complete cleanup removes review storage and history and allows a fresh run`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let feature = makeFeature(fixture, backend: ReviewFakeBackend())
+        await feature.analyze([fixture.file])
+        let previous = try #require(feature.manifest?.snapshot.id)
+        #expect(try await feature.store.usage() > 0)
+        try await feature.clearAllReviews()
+        #expect(feature.result == nil)
+        #expect(feature.manifest == nil)
+        #expect(feature.taskHistory.isEmpty)
+        #expect(feature.failureMessage == nil)
+        #expect(!feature.lease.isHeld)
+        #expect(!FileManager.default.fileExists(atPath: feature.store.root.path))
+        #expect(FileManager.default.fileExists(atPath: fixture.file.url.path))
+        await feature.restoreStoredRun()
+        #expect(feature.manifest == nil)
+        try await feature.clearAllReviews()
+        #expect(try await feature.store.usage() == 0)
+        await feature.analyze([fixture.file])
+        #expect(feature.manifest?.snapshot.id != previous)
+        #expect(feature.result?.report != nil)
+    }
+
+    @Test @MainActor func `cleanup refuses an active review reservation without deleting files`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let feature = makeFeature(fixture, backend: ReviewFakeBackend())
+        await feature.analyze([fixture.file])
+        let reservation = UUID()
+        try feature.lease.acquire(reservation)
+        defer { feature.lease.release(reservation) }
+        await #expect(throws: ReviewRunError.self) { try await feature.clearAllReviews() }
+        #expect(feature.manifest != nil)
+        #expect(try await feature.store.usage() > 0)
+        #expect(feature.lease.owner == reservation)
+    }
+
     private struct Fixture { let root: URL; let file: ReviewSelectedFile }
     private func fixture() throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -45,6 +45,7 @@ final class CombinedReviewFeature {
     @ObservationIgnored let lease: CombinedReviewLease
     @ObservationIgnored let backendFactory: @MainActor () throws -> any CombinedReviewBackendServing
     @ObservationIgnored var beforeStart: (@MainActor () async -> Void)?
+    @ObservationIgnored private var storageRevision = 0
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var catalogSession: ReviewCatalogSession?
 
@@ -103,10 +104,14 @@ final class CombinedReviewFeature {
     }
 
     func restoreStoredRun() async {
-        guard manifest == nil, !isRunning else { return }
+        guard manifest == nil, !isRunning, !lease.isHeld else { return }
+        let revision = storageRevision
         do {
-            savedHistory = try await store.historyManifests()
-            if let saved = try await store.latestManifest() {
+            let history = try await store.historyManifests()
+            let saved = try await store.latestManifest()
+            guard revision == storageRevision, manifest == nil, !lease.isHeld else { return }
+            savedHistory = history
+            if let saved {
                 manifest = saved
                 progress = saved.cancelled ? "Saved run available to resume" : "Saved evidence available"
             }
@@ -153,6 +158,21 @@ final class CombinedReviewFeature {
     func exactInput(_ key: String) async -> CGImage? {
         guard let bytes = try? await store.input(key) else { return nil }
         return OrientationNormalizedImageLoader.loadCGImage(from: bytes)
+    }
+
+    func clearAllReviews() async throws {
+        guard !isRunning else { throw ReviewRunError.invalidTransition }
+        let reservation = UUID()
+        try lease.acquire(reservation)
+        defer { lease.release(reservation) }
+        storageRevision += 1
+        try await store.clearAll()
+        result = nil
+        manifest = nil
+        savedHistory = []
+        userRegion = nil
+        failureMessage = nil
+        progress = "Ready"
     }
 
     func clearRetainedInputs() async {
