@@ -1,6 +1,7 @@
 import CoreAICLIPBackend
 import CoreAISAM3Backend
 import CoreGraphics
+import CoreImage
 import Foundation
 import PhotoAIWorkflows
 @testable import RawCull
@@ -53,6 +54,72 @@ struct CombinedReviewRealModelTests {
         for observation in result.observations {
             #expect(observation.availability != .unavailable)
         }
+        await runtime.clear()
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_COMBINED_SELECTION_RUN"] == "1"))
+    @MainActor func `six real Sony sources retain terminal reports and a bounded comparison`() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let directory = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_SELECTION_DIRECTORY"]))
+        let urls = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).filter { $0.pathExtension.lowercased() == "arw" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        try #require(urls.count == 6)
+        let modelURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_QWEN"]))
+        let runtime = QwenInferenceRuntime()
+        let status = await runtime.validate(url: modelURL)
+        try #require(status.isAvailable)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("CombinedSelectionProbe-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let backend = ReviewRecordingBackend(live: CombinedReviewLiveBackend(qwen: runtime, qwenURL: modelURL, segmentation: nil, samIdentity: nil, clipProvider: nil, clipURL: nil))
+        let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: root), lease: CombinedReviewLease(), backendFactory: { backend })
+        var sourceChecks: [[String: String]] = []
+        for url in urls {
+            let loader = ReviewImageSourceService()
+            let availability = try await loader.availability(for: url)
+            var row = ["file": url.lastPathComponent, "rawAdmission": availability.rawDisabledReason ?? "available", "previewAdmission": availability.previewDisabledReason ?? "available"]
+            if availability.rawDisabledReason == nil {
+                do {
+                    let source = try await loader.load(.init(url: url, preference: .rawDetail, policy: .appearance))
+                    row["rawDimensions"] = "\(source.image.width)x\(source.image.height)"
+                    row["rawOrientation"] = String(source.metadata.originalOrientation)
+                    let technical = try await loader.load(.init(url: url, preference: .rawDetail, policy: .technical))
+                    let rect = CGRect(x: 100, y: 100, width: 512, height: 512)
+                    _ = try source.mapSourceRect(rect, to: technical)
+                    let region = try source.region(rect: rect, padding: 0, purpose: "RAW crop probe", encoder: .init(width: 448, height: 448, strategy: .stretch))
+                    let crop = try source.crop(region)
+                    row["rawCrop"] = "\(crop.width)x\(crop.height)"
+                    row["technicalAlignment"] = "passed"
+                } catch { row["rawDecodeFailure"] = String(describing: error) }
+            }
+            if let filter = CIRAWFilter(imageURL: url) {
+                row["nativeDimensions"] = "\(Int(filter.nativeSize.width))x\(Int(filter.nativeSize.height))"
+            }
+            sourceChecks.append(row)
+        }
+        await feature.analyze(urls.map { .init(id: UUID(), url: $0, name: $0.lastPathComponent) })
+        let run = try #require(feature.manifest)
+        let report = try #require(feature.selectionReport)
+        struct Diagnostic: Encodable {
+            let run: CombinedReviewRunV1
+            let sourceChecks: [[String: String]]
+            let sources: [ReviewSourceRecord]
+            let reports: [ReviewImageReport]
+            let selection: ReviewSelectionReport
+            let responses: [ReviewProbeResponse]
+        }
+        let diagnostic = await Diagnostic(run: run, sourceChecks: sourceChecks, sources: feature.results.compactMap(\.source), reports: feature.results.compactMap(\.report), selection: report, responses: backend.responses)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let bytes = try encoder.encode(diagnostic)
+        Attachment.record(String(decoding: bytes, as: UTF8.self), named: "combined-selection-arw-probe.json")
+        try bytes.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("combined-selection-arw-probe.json"), options: .atomic)
+        #expect(feature.results.count == 6)
+        #expect(feature.results.allSatisfy { $0.report != nil || !$0.failures.isEmpty })
+        #expect(run.work.filter { $0.stage == .report }.allSatisfy { $0.state.terminal })
+        #expect(run.budget.attempts[.overview] == 6)
+        #expect(run.budget.attempts[.crop, default: 0] <= 16)
+        #expect(run.budget.attempts[.comparison] == 1)
+        #expect(await backend.responses.contains { $0.instruction.contains("Compare for goal:") })
+        #expect(report.cells.count == 6 || run.work.contains { $0.stage == .comparison && $0.state == .failed })
+        #expect(report.decision == .abstain) // No SAM/CLIP: incomplete technical evidence cannot support a winner.
         await runtime.clear()
     }
 }

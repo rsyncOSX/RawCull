@@ -146,8 +146,12 @@ image bytes, and no concurrent test cases. Its high-water increase is 576,847,87
 bytes; it still includes TIFF fixture creation and the application host, so it must
 not be presented as a CIRAWFilter allocation guarantee. The test passed.
 
-Real camera-file/RAW-format qualification, HEIF gain-map-specific behavior, decoder
-GPU/unified-memory peaks, and operation with resident Qwen/SAM models remain unmeasured.
+A [six-file Sony ARW probe](CombinedReviewSourceFixtures/phase5-arw-smoke.json) now
+records two eligible 6000 × 4000 RAW decodes, source crops and technical alignment,
+four 8640 × 5760 full-RAW admission refusals, and bounded preview review for all six.
+This is a narrow local source check, not camera-format-wide qualification.
+Wider RAW-format qualification, HEIF gain-map-specific behavior, decoder GPU/unified-memory
+peaks, and operation with resident Qwen/SAM models remain unmeasured.
 The deterministic RAW fallback fixture is not a real RAW demosaic validation. Larger
 RAWs remain rejected by default; raising the cap or advertising camera-format support
 requires real-file probes. Phase 6 still owns measured system-wide resource policy.

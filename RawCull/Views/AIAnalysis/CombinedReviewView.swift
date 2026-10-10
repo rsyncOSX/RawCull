@@ -22,10 +22,35 @@ struct CombinedReviewView: View {
                 if !feature.taskHistory.isEmpty {
                     CombinedReviewTaskHistory(runs: feature.taskHistory, activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil)
                 }
-                if let result = feature.result {
+                if let selection = feature.selectionReport {
+                    Text("Selection comparison").font(.title3)
+                    Text(selection.comparability.rawValue.capitalized + " · " + selection.decision.rawValue.capitalized).font(.headline)
+                    Text(selection.reason).textSelection(.enabled)
+                    if !selection.preferred.isEmpty {
+                        Text("Shortlist: " + feature.results.filter { selection.preferred.contains($0.file.id) }.map { $0.file.displayName }.joined(separator: ", "))
+                    }
+                    Button("Inspect comparison board") { inspect(feature.comparisonInputReference) }
+                    if selection.contextPruned {
+                        Text("Evidence summaries were shortened to fit the model context. Full observations remain below.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    comparisonClaims(selection)
+                    ForEach(selection.pairReports, id: \.id) { pair in
+                        DisclosureGroup("Pair tradeoff · " + pair.decision.rawValue) {
+                            Text(pair.reason)
+                            comparisonClaims(pair)
+                            Button("Inspect matched crop board") { inspect(pair.inputReference) }
+                        }
+                    }
+                    Text("\(selection.omittedPairs) pairs uninspected; unresolved ties remain ties.").font(.caption)
+                }
+                if !feature.displayedResults.isEmpty {
+                    ForEach(feature.displayedResults, id: \.file.id) { value in
+                        DisclosureGroup(value.file.displayName) { evidence(value) }
+                    }
+                } else if let result = feature.result {
                     evidence(result)
                 } else {
-                    Text("Select one image for a local review. Completed evidence stays available when you leave this view.").foregroundStyle(.secondary)
+                    Text("Select 1–8 images for a local review and comparison. Completed evidence stays available when you leave this view.").foregroundStyle(.secondary)
                 }
             }
             .padding(20)
@@ -88,8 +113,8 @@ struct CombinedReviewView: View {
                     Button("Clear chosen region") { feature.userRegion = nil }.disabled(feature.isRunning)
                 }
             }
-            if files.count != 1 {
-                Text("Single-image review: select exactly one image. Comparison is planned for phase 5.").font(.caption)
+            if files.isEmpty || files.count > 8 {
+                Text("Select 1–8 images. Larger selections require an explicit expanded coverage plan; split this selection into smaller runs.").font(.caption)
             }
         }
     }
@@ -102,8 +127,13 @@ struct CombinedReviewView: View {
         Button("Inspect overview input") { inspect(result.overviewInputReference) }
         if let key = result.overviewInputReference {
             CombinedReviewLocations(inputKey: key, feature: feature, regions: result.regions, source: result.source,
-                                    masks: showMasks ? maskImages : [:]) { feature.userRegion = $0 }
-                .frame(height: 330)
+                                    masks: showMasks ? maskImages : [:])
+            {
+                if files.count == 1 {
+                    feature.userRegion = $0
+                }
+            }
+            .frame(height: 330)
             Text("Drag across the preview to choose a region for the next rerun. A chosen location does not prove subject or eye identity.").font(.caption)
         }
         Toggle("Show available subject masks", isOn: $showMasks)
@@ -156,6 +186,24 @@ struct CombinedReviewView: View {
             ForEach(result.limitations, id: \.id) { Text($0.reason).font(.caption).textSelection(.enabled) }
             if let report = result.report {
                 Text("\(report.inspectedRegions.count) inspected regions; \(report.uninspectedRegions.count) uninspected.")
+            }
+        }
+    }
+
+    private func comparisonClaims(_ report: ReviewSelectionReport) -> some View {
+        ForEach(report.claims, id: \.id) { entry in
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.claim.type.capitalized + ": " + entry.claim.text).textSelection(.enabled)
+                Text(entry.claim.uncertainty).font(.caption).foregroundStyle(.secondary)
+                if !entry.claim.contradictions.isEmpty {
+                    Text("Conflicting evidence: " + entry.claim.contradictions.map(\.id).joined(separator: ", ")).font(.caption)
+                }
+                ForEach(entry.claim.evidence, id: \.self) { reference in
+                    if let value = feature.results.first(where: { $0.observations.contains { $0.id.rawValue == reference.id } || $0.measurements.contains { $0.id.rawValue == reference.id } }) {
+                        let input = value.observations.first { $0.id.rawValue == reference.id }?.provenance.inputReference
+                        Button("Evidence · " + value.file.displayName + " · " + reference.id) { inspect(input) }.font(.caption)
+                    }
+                }
             }
         }
     }

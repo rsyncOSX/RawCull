@@ -1,0 +1,163 @@
+{
+  "date": "2026-10-10",
+  "scope": "Local six-file Sony ARW engineering probe; no human photographic annotations or release-quality qualification.",
+  "durationSeconds": 123.673,
+  "configuration": {
+    "depth": "standard",
+    "selectionSource": "highQualityPreview",
+    "qwenEncoder": [
+      448,
+      448
+    ],
+    "qwenContextTokens": 4096,
+    "samEnabled": false,
+    "clipEnabled": false
+  },
+  "admissionLimits": {
+    "sourcePixels": 24000000,
+    "estimatedWorkingBytes": 2000000000,
+    "measuredMemoryPeak": null
+  },
+  "files": [
+    {
+      "file": "DSC00113.ARW",
+      "nativeDimensions": "6000x4000",
+      "previewAdmission": "available",
+      "rawAdmission": "available",
+      "rawCrop": "512x512",
+      "rawDimensions": "6000x4000",
+      "rawOrientation": "1",
+      "technicalAlignment": "passed",
+      "reviewSource": {
+        "fidelity": "embeddedCameraPreview",
+        "width": 1616,
+        "height": 1080,
+        "orientation": 1,
+        "policy": "appearance"
+      },
+      "report": {
+        "acceptedClaims": 2,
+        "incomplete": true
+      }
+    },
+    {
+      "file": "DSC00639.ARW",
+      "nativeDimensions": "6000x4000",
+      "previewAdmission": "available",
+      "rawAdmission": "available",
+      "rawCrop": "512x512",
+      "rawDimensions": "6000x4000",
+      "rawOrientation": "1",
+      "technicalAlignment": "passed",
+      "reviewSource": {
+        "fidelity": "embeddedCameraPreview",
+        "width": 1616,
+        "height": 1080,
+        "orientation": 1,
+        "policy": "appearance"
+      },
+      "report": {
+        "acceptedClaims": 1,
+        "incomplete": true
+      }
+    },
+    {
+      "file": "DSC02022.ARW",
+      "nativeDimensions": "8640x5760",
+      "previewAdmission": "available",
+      "rawAdmission": "The full-resolution RAW exceeds Combined Review\u2019s memory limit.",
+      "reviewSource": {
+        "fidelity": "embeddedCameraPreview",
+        "width": 4096,
+        "height": 2731,
+        "orientation": 1,
+        "policy": "appearance"
+      },
+      "report": {
+        "acceptedClaims": 2,
+        "incomplete": true
+      }
+    },
+    {
+      "file": "DSC05921.ARW",
+      "nativeDimensions": "8640x5760",
+      "previewAdmission": "available",
+      "rawAdmission": "The full-resolution RAW exceeds Combined Review\u2019s memory limit.",
+      "reviewSource": {
+        "fidelity": "embeddedCameraPreview",
+        "width": 4096,
+        "height": 2731,
+        "orientation": 1,
+        "policy": "appearance"
+      },
+      "report": {
+        "acceptedClaims": 2,
+        "incomplete": true
+      }
+    },
+    {
+      "file": "DSC09214.ARW",
+      "nativeDimensions": "8640x5760",
+      "previewAdmission": "available",
+      "rawAdmission": "The full-resolution RAW exceeds Combined Review\u2019s memory limit.",
+      "reviewSource": {
+        "fidelity": "embeddedCameraPreview",
+        "width": 4096,
+        "height": 2731,
+        "orientation": 1,
+        "policy": "appearance"
+      },
+      "report": {
+        "acceptedClaims": 2,
+        "incomplete": true
+      }
+    },
+    {
+      "file": "_DSC6564.ARW",
+      "nativeDimensions": "8640x5760",
+      "previewAdmission": "available",
+      "rawAdmission": "The full-resolution RAW exceeds Combined Review\u2019s memory limit.",
+      "reviewSource": {
+        "fidelity": "embeddedCameraPreview",
+        "width": 4096,
+        "height": 2731,
+        "orientation": 1,
+        "policy": "appearance"
+      },
+      "report": {
+        "acceptedClaims": 2,
+        "incomplete": true
+      }
+    }
+  ],
+  "attempts": {
+    "crop": 6,
+    "report": 6,
+    "overview": 6,
+    "comparison": 1
+  },
+  "recordedModelResponses": 19,
+  "selection": {
+    "comparability": "unrelated",
+    "decision": "abstain",
+    "reason": "Different scenes; retain individual reports.",
+    "acceptedClaims": 0,
+    "boardCells": 6,
+    "contextPruned": true
+  },
+  "rejectedStages": [
+    {
+      "stage": "overview",
+      "reason": "invalidEvidence",
+      "file": "DSC00639.ARW"
+    }
+  ],
+  "limitations": [
+    "All review reports remain partial without SAM/CLIP technical evidence.",
+    "One overlong overview response was rejected; independent crop evidence remained available.",
+    "The unrelated classification is the model output, not a human ground-truth label.",
+    "Four 8640x5760 RAW sources were refused before full-resolution decode; bounded previews were used.",
+    "Resident SAM/CLIP, camera-format coverage, RAW recovery and system-wide memory peaks remain unqualified."
+  ],
+  "reproduce": "make combinedselectiontest; six ARWs in RELEASE_CATALOG and an installed Qwen bundle at RELEASE_QWEN; export the xcresult JSON attachment for complete local diagnostics."
+}

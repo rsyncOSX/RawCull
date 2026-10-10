@@ -1,7 +1,7 @@
 # Combined Deep AI Review implementation plan
 
 Date: 9 October 2026  
-Status: phases 1–4 completed on 9 October 2026; phase 5 is next. Single-image Combined Review is implemented; selection comparison and photographic qualification remain later milestones.
+Status: phases 1–4 completed on 9 October 2026; phase 5 completed on 10 October 2026. Small-selection comparison is implemented; phase 6 is next and phase 7 photographic qualification remains outstanding.
 
 ## 1. Objective and guiding decision
 
@@ -424,6 +424,12 @@ This is the executable delivery plan. Each numbered phase is a milestone; sectio
 5. Test unrelated groups, missing stages, subject identity swaps, ties, resume after selection changes, and mandatory synthesis reservation.
 
 **Exit gate:** every image has a report or explicit failure; unrelated selections are not forced into a ranking; all comparison claims reference compatible evidence.
+
+**Delivered:** frozen 1–8 image runs, deterministic fair crop allowances, terminal per-image reports/failures, reserved selection synthesis, a stable-ID 2048 × 2048 full-frame comparison board with persisted transforms, bounded evidence summaries with pruning disclosure, validated comparability/preference/tie/abstention, and capped matched-crop pair tradeoffs. Claims must cite compatible evidence from every named image; recommendations cover the complete selection and unresolved cited contradictions prevent a preference. Multi-subject identity ambiguity, incompatible detail scales, missing stages and unrelated groups abstain. The view shows every image's evidence, current partial progress, comparison evidence links, board inspection and omitted pairs. Selection fingerprints participate in compatibility; restored comparisons/pairs consume no new inference and changed saved files refuse resume. The [selection contract](combined-review-selection-contract.md) records scope and limitations; larger selections currently require a separately designed coverage plan and smaller runs.
+
+`make test-smoke` passes with 306 unique identifiers and one expected opt-in skip, including selection coverage, unrelated/missing-stage handling, identity/reference swaps, fair budgets, board geometry, changed-selection compatibility, completed-run restoration and capped Deep ties. Final targeted conflict/coverage and release-metadata guards are verified separately. The smoke run exposed a stale 3.2.9 release assertion; it now matches the project's existing 3.3.0 app/extension configurations. Formatting, whitespace, lint error checks and AI import-boundary checks pass.
+
+The [six-file Sony ARW probe](CombinedReviewSourceFixtures/phase5-arw-smoke.json) passed in 123.673 seconds: two 6000 × 4000 RAW decodes with 512 × 512 source crops and appearance/technical alignment; four 8640 × 5760 RAWs refused under the existing memory admission limit; bounded preview review for all six. Installed Qwen made 19 requests (six overview, six crop, six report and one comparison), produced six partial reports and an accepted unrelated/abstain selection report. One overview exceeded response limits and remained an explicit failed stage. The probe deliberately omitted SAM/CLIP; it does not qualify photographic accuracy or concurrent model memory. The ARW binaries remain outside Git. Phase 6 may proceed; phase 7's independent human photographic qualification remains required.
 
 ### Phase 6 — add adaptive depth and measured resource control
 
