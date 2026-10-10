@@ -59,6 +59,19 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
         }
     }
 
+    /// Rebuild static contract fields; dynamic source/region identities are checked
+    /// against the regenerated execution plan before their artifacts are consumed.
+    func expectedCompatibility() throws -> [ReviewWorkID: ReviewCompatibility] {
+        try Dictionary(uniqueKeysWithValues: work.map { item in
+            guard let file = snapshot.files.first(where: { $0.id == item.imageID }),
+                  snapshot.stageVersions[item.stage] != nil else { throw ReviewRunError.incompatible }
+            return (item.id, try ReviewCompatibility.make(
+                snapshot: snapshot, image: file, stage: item.stage,
+                sourceRender: item.compatibility.fields["sourceRender"] ?? "",
+                region: item.compatibility.fields["region"] ?? ""))
+        })
+    }
+
     func ready(_ item: ReviewWorkItem) -> Bool {
         !cancelled && item.state == .pending && item.dependencies.allSatisfy { dependency in
             guard let parent = work.first(where: { $0.id == dependency.id }) else { return false }

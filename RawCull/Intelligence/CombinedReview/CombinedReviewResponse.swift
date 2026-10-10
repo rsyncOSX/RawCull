@@ -35,8 +35,8 @@ nonisolated enum CombinedReviewResponse {
 
     static func inspection(_ response: String, regionID: String) throws -> CombinedReviewInspection {
         let value = try ObjectJSONEnvelope.decode(CombinedReviewInspection.self, from: response)
-        let lower = value.observations.lowercased()
-        guard !lower.contains("eye"), !lower.contains("iris"), !lower.contains("recover"), value.regionID == regionID else { throw ReviewRunError.invalidEvidence }
+        let forbidden = containsForbiddenClaimDomain(value.observations)
+        guard !forbidden, value.regionID == regionID else { throw ReviewRunError.invalidEvidence }
         try validateText(value.observations, maximum: 500)
         try validateText(value.uncertainty, maximum: 200)
         return value
@@ -50,9 +50,8 @@ nonisolated enum CombinedReviewResponse {
         for claim in payload.claims {
             try validateText(claim.text, maximum: 400)
             try claim.validate(allowed: allowed)
-            let lower = claim.text.lowercased()
-            guard !lower.contains("eye"), !lower.contains("iris"),
-                  !lower.contains("recover"), !claim.type.isEmpty, claim.uncertainty.count <= 200 else { throw ReviewRunError.invalidEvidence }
+            let forbidden = containsForbiddenClaimDomain(claim.text)
+            guard !forbidden, !claim.type.isEmpty, claim.uncertainty.count <= 200 else { throw ReviewRunError.invalidEvidence }
         }
         return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: payload.claims,
                      limitations: limitations, incomplete: incomplete || payload.claims.isEmpty, inspectedRegions: regions, uninspectedRegions: uninspected)
@@ -64,6 +63,14 @@ nonisolated enum CombinedReviewResponse {
         guard let context = model.contextTokens, let image = model.imageTokens,
               instruction.utf8.count + image + outputTokens + 256 <= context else { throw ReviewRunError.invalidEvidence }
         return instruction
+    }
+
+    /// Claim text remains outside these domains. Limitations belong in uncertainty
+    /// or the report's explicit limitations, where the same words are allowed.
+    private static func containsForbiddenClaimDomain(_ text: String) -> Bool {
+        let words = Set(text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+        return !words.isDisjoint(with: ["eye", "eyes", "iris", "irises", "gaze",
+                                       "recover", "recovers", "recovered", "recovering", "recoverable", "recovery"])
     }
 
     private static func validateText(_ text: String, maximum: Int) throws {

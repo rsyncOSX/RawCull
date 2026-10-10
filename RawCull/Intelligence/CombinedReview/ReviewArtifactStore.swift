@@ -35,10 +35,8 @@ actor ReviewArtifactStore {
     func latestManifest() throws -> CombinedReviewRunV1? {
         let directory = root.appendingPathComponent("runs")
         guard FileManager.default.fileExists(atPath: directory.path) else { return nil }
-        let urls = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
-        let ordered = try urls.map { try ($0, $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast) }.sorted { $0.1 > $1.1 }
-        guard let url = ordered.first?.0, let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) else { return nil }
-        return try loadManifest(id)
+        // Creation order survives copies, restores and later writes to older runs.
+        return try historyManifests().first
     }
 
     func historyManifests() throws -> [CombinedReviewRunV1] {
@@ -49,13 +47,16 @@ actor ReviewArtifactStore {
                 guard let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) else { return nil }
                 return try? loadManifest(id)
             }
-            .sorted { $0.snapshot.created > $1.snapshot.created }
+            .sorted {
+                if $0.snapshot.created != $1.snapshot.created { return $0.snapshot.created > $1.snapshot.created }
+                return $0.snapshot.id.uuidString > $1.snapshot.id.uuidString
+            }
     }
 
     func loadManifest(_ id: UUID) throws -> CombinedReviewRunV1 {
         let data = try readHeader(at: manifestURL(id), kind: "run")
         let envelope = try JSONDecoder().decode(ReviewStorageEnvelopeV1<CombinedReviewRunV1>.self, from: data)
-        guard envelope.producerPipelineVersion == envelope.value.snapshot.pipelineVersion else { throw ReviewRunError.corrupt }
+        guard envelope.value.snapshot.id == id, envelope.producerPipelineVersion == envelope.value.snapshot.pipelineVersion else { throw ReviewRunError.corrupt }
         try envelope.value.validate()
         return envelope.value
     }
@@ -153,6 +154,8 @@ actor ReviewArtifactStore {
     }
 
     private func write(_ envelope: ReviewStorageEnvelopeV1<some Any>, to url: URL) throws {
+        guard envelope.schemaVersion == 1, ["run", "stage"].contains(envelope.kind),
+              !envelope.producerPipelineVersion.isEmpty else { throw ReviewRunError.corrupt }
         if FileManager.default.fileExists(atPath: url.path) {
             _ = try readHeader(at: url, kind: envelope.kind)
         }

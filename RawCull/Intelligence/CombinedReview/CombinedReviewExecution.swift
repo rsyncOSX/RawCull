@@ -55,7 +55,10 @@ extension CombinedReviewFeature {
 
     func addWork(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], source: String, region: String = "") throws -> ReviewWorkID {
         let run = try currentManifest(), file = run.snapshot.files[0], id = Self.workID(file.id, name)
-        if run.work.contains(where: { $0.id == id }) {
+        if let existing = run.work.first(where: { $0.id == id }) {
+            let expected = try ReviewCompatibility.make(snapshot: run.snapshot, image: file, stage: stage,
+                                                        sourceRender: source, region: region)
+            guard existing.stage == stage, existing.compatibility == expected else { throw ReviewRunError.incompatible }
             return id
         }
         try manifest?.work.append(.init(id: id, imageID: file.id, stage: stage,

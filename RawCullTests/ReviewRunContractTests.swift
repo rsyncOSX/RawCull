@@ -139,6 +139,49 @@ struct ReviewRunContractTests {
         .init(rawValue: name)
     }
 
+    @Test func `resume rebuilds compatibility instead of trusting saved fields`() throws {
+        var run = try manifest()
+        let expected = try run.expectedCompatibility()
+        run.work[0].compatibility = .init(fields: ["pipeline": "tampered", "model": "stale"])
+        let rebuilt = try run.expectedCompatibility()
+        #expect(rebuilt == expected)
+        run.restore(expected: rebuilt, validArtifacts: [])
+        #expect(run.work[0].compatibility == expected[run.work[0].id])
+    }
+
+    @Test func `latest run ignores filesystem modification dates and breaks creation ties`() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ReviewArtifactStore(root: root)
+        let first = try manifest()
+        let data = try JSONEncoder().encode(first)
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var snap = try #require(object["snapshot"] as? [String: Any])
+        let otherID = UUID()
+        snap["id"] = otherID.uuidString
+        object["snapshot"] = snap
+        let second = try JSONDecoder().decode(CombinedReviewRunV1.self, from: JSONSerialization.data(withJSONObject: object))
+        try await store.saveManifest(first)
+        try await store.saveManifest(second)
+        let expectedID = max(first.snapshot.id.uuidString, second.snapshot.id.uuidString)
+        let olderID = min(first.snapshot.id.uuidString, second.snapshot.id.uuidString)
+        try FileManager.default.setAttributes([.modificationDate: Date.distantFuture],
+            ofItemAtPath: root.appendingPathComponent("runs/\(olderID).json").path)
+        #expect(try await store.latestManifest()?.snapshot.id.uuidString == expectedID)
+    }
+
+    @Test func `word boundaries permit ordinary observations and uncertainty limitations`() throws {
+        let response = #"""
+        {"regionID":"r","observations":"An eyelet and an iris-shaped pattern are visible.","uncertainty":"Eye detail and RAW recovery cannot be assessed.","insufficientEvidence":false}
+        """#
+        // Anatomical terms in claim text are still rejected.
+        #expect(throws: ReviewRunError.self) { try CombinedReviewResponse.inspection(response, regionID: "r") }
+        let safe = response.replacingOccurrences(of: "iris-shaped", with: "circular")
+        #expect(try CombinedReviewResponse.inspection(safe, regionID: "r").observations.contains("eyelet"))
+        let unsafe = safe.replacingOccurrences(of: "eyelet", with: "eye")
+        #expect(throws: ReviewRunError.self) { try CombinedReviewResponse.inspection(unsafe, regionID: "r") }
+    }
+
     private func snapshot(criteria: String = "Detail", model: String = "model", count: Int = 1) -> ReviewRunSnapshot {
         ReviewRunSnapshot(id: UUID(), files: (0 ..< count).map { .init(id: .init(rawValue: String($0)), fileID: UUID(), url: URL(filePath: "/fixture/\($0)"), displayName: "Fixture", fingerprint: String($0)) },
                           criteria: criteria, depth: .standard, sourcePreference: "highQualityPreview", retentionPolicy: .exactInputs, renderVersion: "render-v1",

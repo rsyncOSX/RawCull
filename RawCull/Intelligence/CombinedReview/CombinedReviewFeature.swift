@@ -20,9 +20,7 @@ nonisolated struct CombinedReviewResult: Sendable {
 
 @Observable @MainActor
 final class CombinedReviewFeature {
-    static let stageVersions = Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map {
-        ($0, [.cropObservation, .reconciliation, .report].contains($0) ? "combined-v2" : "combined-v1")
-    })
+    static let stageVersions = ReviewPipelineContract.stageVersions
     var criteria = "Describe composition, exposure, subject visibility and technical detail."
     var depth: ReviewDepth = .standard
     var sourcePreference: ReviewSourcePreference = .highQualityPreview
@@ -83,9 +81,9 @@ final class CombinedReviewFeature {
                     try Task.checkCancellation()
                     let snapshot = ReviewRunSnapshot(id: id, files: files, criteria: goal, depth: selectedDepth,
                                                      sourcePreference: selectedPreference.rawValue, retentionPolicy: retention ? .exactInputs : .compact,
-                                                     renderVersion: "review-srgb-v1", models: models,
+                                                     renderVersion: ReviewPipelineContract.renderVersion, models: models,
                                                      stageVersions: Self.stageVersions,
-                                                     responseTokens: 768, pipelineVersion: "combined-v1", created: Date(), expandedSelectionPlan: nil,
+                                                     responseTokens: 768, pipelineVersion: ReviewPipelineContract.version, created: Date(), expandedSelectionPlan: nil,
                                                      userRegions: requestedRegion.map { [.init(imageID: files[0].id, normalizedRect: $0, purpose: "User region; location only")] })
                     try snapshot.validate()
                     if let previous = manifest {
@@ -133,8 +131,9 @@ final class CombinedReviewFeature {
                     catalogSession = ReviewCatalogSession(urls: saved.snapshot.files.map(\.url))
                     try await ReviewCatalogSession.revalidate(saved.snapshot.files)
                     guard try await backend.models() == saved.snapshot.models else { throw ReviewRunError.incompatible }
-                    guard saved.snapshot.pipelineVersion == "combined-v1", saved.snapshot.renderVersion == "review-srgb-v1", saved.snapshot.stageVersions == Self.stageVersions else { throw ReviewRunError.incompatible }
-                    let expected = Dictionary(uniqueKeysWithValues: saved.work.map { ($0.id, $0.compatibility) })
+                    try ReviewPipelineContract.validate(saved.snapshot)
+                    try saved.validate()
+                    let expected = try saved.expectedCompatibility()
                     let valid = await store.validArtifactKeys(for: saved)
                     var restored = saved; restored.restore(expected: expected, validArtifacts: valid, retryFailed: false)
                     manifest = restored
