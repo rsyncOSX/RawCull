@@ -9,6 +9,12 @@ nonisolated struct ReviewSynthesisGrounding {
         let regionID: ReviewRegionID?
         let crop: Bool
         let measurement: Bool
+
+        /// Prompt eligibility follows the same structural boundary as validation.
+        var subjectDetailSupported: Bool { crop && subjectID != nil && regionID != nil && !measurement }
+        var claimTypes: String {
+            measurement ? "none" : "composition,exposure,visibility" + (subjectDetailSupported ? ",detail" : "")
+        }
     }
 
     func support(_ reference: ReviewEvidenceReference) throws -> Support {
