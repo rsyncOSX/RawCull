@@ -211,6 +211,7 @@ extension CombinedReviewFeature {
         }
         result?.overview = overview
         if let overview {
+            for note in overview.validationNotes ?? [] { limitation(note) }
             let origin = try provenance(overviewID, source: source, input: overviewInput)
             result?.observations.append(.init(id: .init(rawValue: file.id.rawValue + ":overview"), regionID: nil,
                                               text: overview.observations, uncertainty: overview.uncertainty, availability: .available,
@@ -571,43 +572,47 @@ extension CombinedReviewFeature {
         for observation in value.observations where observation.availability == .available && observation.provenance.workID != Self.workID(value.file.id, "reconcile") {
             let stored = ReviewEvidenceReference(kind: .observation, id: observation.id.rawValue)
             let support = try grounding.support(stored)
-            let scope = " subject=\(support.subjectID?.rawValue ?? "none") region=\(support.regionID?.rawValue ?? "whole-frame") targetSupported=\(support.crop)"
+            let subjectLabel = support.subjectID.flatMap { id in value.subjects.firstIndex(where: { $0.id == id }).map { "s\($0 + 1)" } } ?? "none"
+            let regionLabel = support.regionID.flatMap { id in value.regions.firstIndex(where: { $0.id == id }).map { "r\($0 + 1)" } } ?? "whole-frame"
+            let scope = " subject=\(subjectLabel) region=\(regionLabel) targetSupported=\(support.crop) subjectDetailSupported=\(support.crop && support.subjectID != nil)"
             let ref = ReviewEvidenceReference(kind: .observation, id: "o\(aliases.count + 1)")
             let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + scope + " " + observation.text + " Uncertainty: " + observation.uncertainty
             rows.append((ref, row)); aliases[ref] = .init(kind: .observation, id: observation.id.rawValue)
         }
-        for measurement in value.measurements where measurement.hasCurrentMaskSemantics {
-            let ref = ReviewEvidenceReference(kind: .measurement, id: "m\(aliases.count + 1)")
-            _ = try grounding.support(.init(kind: .measurement, id: measurement.id.rawValue))
-            try rows.append((ref, String(decoding: encoder.encode(ref), as: UTF8.self) + " subject=\(measurement.subjectID.rawValue) metric available; deterministic presentation only."))
-            aliases[ref] = .init(kind: .measurement, id: measurement.id.rawValue)
+        // Metrics are displayed deterministically. They cannot independently support generated prose,
+        // and must never displace the primary subject or overview in the model context.
+        guard !rows.isEmpty else { throw ReviewValidationIssue(.grounding, "synthesis.availableEvidence") }
+        func priority(_ row: (reference: ReviewEvidenceReference, text: String)) -> Int {
+            guard let stored = aliases[row.reference], let support = try? grounding.support(stored) else { return 4 }
+            if let subject = support.subjectID {
+                let rank = value.subjects.first(where: { $0.id == subject })?.relevance?.rank ?? 2
+                return rank < 2 ? 0 : rank == 2 ? 1 : 3
+            }
+            return support.regionID == nil ? 2 : 4
         }
-        guard let exampleRow = rows.reversed().first(where: { $0.reference.kind == .observation }) ?? rows.last else { throw ReviewValidationIssue(.grounding, "synthesis.availableEvidence") }
-        let exampleObservation = value.observations.first { $0.id.rawValue == aliases[exampleRow.reference]?.id }
-        let example = ReviewClaim(text: exampleObservation.map { String($0.text.prefix(400)) } ?? "A render-dependent subject-detail measurement is available.",
-                                  type: exampleObservation == nil ? "detail" : "composition", evidence: [exampleRow.reference],
-                                  uncertainty: exampleObservation.map { String($0.uncertainty.prefix(200)) } ?? "The metric has no calibrated sharpness threshold.", contradictions: [])
-        let exampleJSON = try String(decoding: encoder.encode(["claims": [example]]), as: UTF8.self)
+        let orderedRows = rows.enumerated().sorted { left, right in
+            let l = priority(left.element), r = priority(right.element)
+            return l == r ? left.offset < right.offset : l < r
+        }.map(\.element)
         let schema = """
-        \(reconciliation ? "Reconcile completed independent crop observations and terminal measured evidence, noting conflicts or abstaining." : "Synthesize the per-image report.")
-        Review this photograph for: \(snapshot.criteria). Use only supplied evidence references.
-        Return JSON only, using this exact structure and field types. This example is drawn from supplied evidence:
-        \(exampleJSON)
-        Write at most four descriptive claims. Cover composition, exposure, visibility and detail when supported; otherwise abstain for that criterion. evidence and contradictions are arrays of kind/id objects; uncertainty is a string.
-        Use only supplied short IDs with their matching kind. Never invent references.
-        Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB.
-        Available: \(value.measurements.count) measurements; \(value.observations.filter { $0.regionID != nil && $0.availability == .available }.count) crop observations. Failed stages: \(value.failures.count).
-        Restrict claim text to composition, lighting, subject visibility, visible texture and observed behavior. Behavior uses visibility. Put anatomical limitations in uncertainty only.
-        Allowed types: composition, exposure, visibility, detail, suggestion. Lighting uses exposure, not a new type.
-        Missing stages require abstention. Do not mention eyes, iris, gaze or recovery in claim text.
-        No RAW recovery or probability/quality claims from CLIP. Detail requires one targetSupported crop region, with at most one subject. Measurements alone cannot support photographic claims. Never transcribe metric values. Preserve observation conflicts in contradictions and uncertainty.
-        Suggestions are untested hypotheses. Same-model agreement is not independent confirmation.
-        Detail measurements are render-dependent, uncalibrated metrics, not sharp/blur labels.
+        \(reconciliation ? "Reconcile independent observations; abstain when unsupported." : "Synthesize the per-image report.")
+        Goal: \(snapshot.criteria)
+        JSON only: {"claims":[]}. At most four claims, one per supported criterion.
+        Claim fields: text (string, max 400 characters), type, evidence, uncertainty (string, max 200), contradictions.
+        Types: composition, exposure, visibility, detail, suggestion. Lighting uses exposure; behavior uses visibility.
+        evidence and contradictions are arrays of {"kind":"observation","id":"supplied short ID"}. Omit subjectID and regionID.
+        Describe only supplied observations: composition, lighting, visibility, texture or behavior. Missing support requires abstention.
+        Detail needs subjectDetailSupported=true and one registered subject/crop. No subject detail from subject=none.
+        Focus/sharp/blur wording needs targetSupported=true and one registered subject, including background descriptions.
+        Otherwise put focus limitations in uncertainty. No eyes/iris/gaze/recovery in text, invented anatomy, metric numbers or calibrated quality.
+        contradictions=[] unless observations disagree. Different subjects/textures alone are not conflicts.
+        Detail conflicts stay within the same subject; scene conflicts may span subjects in this image.
+        Suggestions are untested. Same-model agreement is not independent confirmation. Preserve evidence limitations.
+        Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
-        // Keep crop observations ahead of overview; disclose any omitted optional evidence.
+        // Preserve subject observations and overview before contextual crops; disclose omissions.
         var selected: [String] = []
         var included: Set<ReviewEvidenceReference> = []
-        let orderedRows = [exampleRow] + rows.reversed().filter { $0.reference != exampleRow.reference }
         for row in orderedRows {
             if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row.text]).joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
                 selected.append(row.text)
@@ -625,17 +630,16 @@ extension CombinedReviewFeature {
         let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
         return try CombinedReviewResponse.validated(text) { text in
             let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
-                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
-            // Aliases exist only inside this request. Persist the real, validated provenance IDs.
-            let claims = try generated.claims.map { claim in
+                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty) { claim in
                 func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
                     guard included.contains(reference), let stored = aliases[reference] else { throw ReviewValidationIssue(.unknownID, "synthesis.aliasResolution", field: "claims.evidence") }
                     return stored
                 }
-                return try ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
-                                       uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
+                let resolved = try ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
+                                               uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
+                return try grounding.validate(resolved)
             }
-            let qualified = try claims.map(grounding.validate)
+            let qualified = generated.claims
             let missingCriteria = ["composition", "exposure", "visibility", "detail"].filter { criterion in
                 !qualified.contains { $0.type == criterion }
             }

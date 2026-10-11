@@ -53,7 +53,8 @@ nonisolated struct ReviewSynthesisGrounding {
             guard regions == [region] else { throw ReviewValidationIssue(.ownership, "synthesis.claimRegion", field: "claims.regionID") }
         }
         guard Set(claim.evidence).isDisjoint(with: claim.contradictions) else { throw ReviewValidationIssue(.grounding, "synthesis.selfContradiction", field: "claims.contradictions") }
-        if !subjects.isEmpty {
+        let subjectScoped = claim.subjectID != nil || claim.type == "detail"
+        if subjectScoped, !subjects.isEmpty {
             guard conflicts.allSatisfy({ support in support.subjectID.map(subjects.contains) ?? true }) else { throw ReviewValidationIssue(.ownership, "synthesis.contradictionSubject", field: "claims.contradictions") }
         }
         // Measurements establish only deterministic metric summaries, not model-written photographic claims.
@@ -64,13 +65,15 @@ nonisolated struct ReviewSynthesisGrounding {
             }
         }
         if claim.type == "detail" {
-            guard subjects.count <= 1, regions.count == 1, supported.contains(where: \.crop) else { throw ReviewValidationIssue(.grounding, "synthesis.targetCropRequired", field: "claims.evidence") }
+            guard subjects.count == 1, regions.count == 1, supported.contains(where: \.crop) else { throw ReviewValidationIssue(.grounding, "synthesis.targetCropRequired", field: "claims.evidence") }
             guard !claim.text.contains(where: \.isNumber) else { throw ReviewValidationIssue(.grounding, "synthesis.numericPresentationIsDeterministic", field: "claims.text") }
         }
         try validateFocusScope(claim, supported: supported, subjects: subjects)
         var qualified = claim
-        qualified.subjectID = claim.subjectID ?? (subjects.count == 1 ? subjects.first : nil)
-        qualified.regionID = claim.regionID ?? (regions.count == 1 ? regions.first : nil)
+        let scopedSubjects = subjects.union(conflicts.compactMap(\.subjectID))
+        let scopedRegions = regions.union(conflicts.compactMap(\.regionID))
+        qualified.subjectID = claim.subjectID ?? (scopedSubjects.count == 1 ? scopedSubjects.first : nil)
+        qualified.regionID = claim.regionID ?? (scopedRegions.count == 1 ? scopedRegions.first : nil)
         return qualified
     }
 

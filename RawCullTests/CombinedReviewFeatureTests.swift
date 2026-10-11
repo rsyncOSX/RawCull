@@ -7,6 +7,22 @@ import Testing
 
 @Suite("Single-image Combined Review", .tags(.smoke))
 struct CombinedReviewFeatureTests {
+    @Test @MainActor func `synthesis preserves crop and overview evidence without metric references or copied examples`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true)
+        let feature = makeFeature(fixture, backend: backend)
+        await feature.analyze([fixture.file])
+        let prompts = await backend.synthesisInstructions
+        #expect(!prompts.isEmpty)
+        for prompt in prompts {
+            let rows = prompt.split(separator: "\n").filter { $0.hasPrefix(#"{"id":"#) }
+            #expect(rows.contains { $0.contains("targetSupported=true") && !$0.contains("subject=none") })
+            #expect(rows.contains { $0.contains("region=whole-frame") })
+            #expect(!prompt.contains(#""kind":"measurement""#))
+            #expect(!prompt.contains("example is drawn"))
+        }
+    }
+
     @Test @MainActor func `degraded review keeps crops grounded and inspectable`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         let backend = ReviewFakeBackend()
@@ -79,7 +95,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : ReviewPipelineContract.version))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : stage == .comparison ? "combined-v7" : "combined-v9"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -557,6 +573,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     var cropContinuation: CheckedContinuation<Void, Never>?
     var cropStarted = false
     var responses = 0
+    var synthesisInstructions: [String] = []
     init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0) {
         self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding
     }
@@ -609,6 +626,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
             return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture in crop\",\"uncertainty\":\"Eye identity unknown\",\"insufficientEvidence\":false,\"targetIdentified\":true}"
         }
+        synthesisInstructions.append(instruction)
         let reference = instruction.split(separator: "\n").compactMap { line -> ReviewEvidenceReference? in
             guard let end = line.firstIndex(of: "}") else { return nil }
             return try? JSONDecoder().decode(ReviewEvidenceReference.self, from: Data(line[...end].utf8))

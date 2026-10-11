@@ -5,6 +5,98 @@ import Testing
 
 @Suite("Bounded review diagnostics", .tags(.smoke))
 struct ReviewDiagnosticsTests {
+    @Test func `eleven recorded discovery failures preserve bounded core evidence without inventing locations`() throws {
+        struct Fixture: Decodable { let run: String; let file: String; let response: String }
+        struct Original: Decodable { let observations: String; let uncertainty: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtures = try JSONDecoder().decode([Fixture].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/overview-responses-v8.json")))
+        #expect(fixtures.count == 11)
+        for fixture in fixtures {
+            let original = try JSONDecoder().decode(Original.self, from: Data(fixture.response.utf8))
+            let value = try CombinedReviewResponse.overview(fixture.response)
+            #expect(value.observations == original.observations, "\(fixture.run) \(fixture.file)")
+            #expect(value.uncertainty == original.uncertainty)
+            #expect(!value.concepts.isEmpty)
+            #expect(value.primarySubjects?.allSatisfy { value.concepts.contains($0.concept) && $0.location == nil } == true)
+            #expect(value.contextualConcepts?.allSatisfy(value.concepts.contains) == true)
+        }
+    }
+
+    @Test func `ambiguous aliases and invalid optional points abstain while oversized core text still fails`() throws {
+        let response = #"{"observations":"Two subjects","uncertainty":"Limited","concepts":[{"query":"first bird","displayName":"Bird","reason":"Visible"},{"query":"second bird","displayName":"Bird","reason":"Visible"}],"primarySubjects":[{"concept":"Bird","reason":"Main"},{"concept":"first bird","reason":"Main","location":{"x":100,"y":200}}],"contextualConcepts":["unseen"]}"#
+        let value = try CombinedReviewResponse.overview(response)
+        #expect(value.primarySubjects?.count == 1)
+        #expect(value.primarySubjects?.first?.concept == "first bird")
+        #expect(value.primarySubjects?.first?.location == nil)
+        #expect(value.contextualConcepts?.isEmpty == true)
+        #expect(value.validationNotes?.count == 3)
+        #expect(throws: ReviewValidationIssue.self) {
+            try CombinedReviewResponse.overview(response.replacingOccurrences(of: "Limited", with: String(repeating: "x", count: 501)))
+        }
+        let restored = try JSONDecoder().decode(CombinedReviewOverview.self, from: JSONEncoder().encode(value))
+        #expect(restored.validationNotes == value.validationNotes)
+    }
+
+    @Test func `scene conflicts span registered subjects but subject detail conflicts remain local`() throws {
+        let value = groundedResult(), grounding = ReviewSynthesisGrounding(result: groundedResult())
+        let claim = ReviewClaim(text: "Foreground and context disagree", type: "composition", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Conflict", contradictions: [.init(kind: .observation, id: "crop-b")])
+        let qualified = try grounding.validate(claim)
+        #expect(qualified.subjectID == nil)
+        #expect(qualified.regionID == nil)
+        let detail = ReviewClaim(text: claim.text, type: "detail", evidence: claim.evidence, uncertainty: claim.uncertainty, contradictions: claim.contradictions)
+        #expect(throws: ReviewValidationIssue.self) { try grounding.validate(detail) }
+        var response = ""
+        for (alias, criterion) in [("lighting", "exposure"), ("subject visibility", "visibility"), ("behavior", "visibility")] {
+            let generated = ReviewClaim(text: "Soft illumination", type: alias, evidence: claim.evidence, uncertainty: "Limited", contradictions: [])
+            response = String(decoding: try JSONEncoder().encode(["claims": [generated]]), as: UTF8.self)
+            let report = try CombinedReviewResponse.report(response, imageID: value.file.id, allowed: Set(claim.evidence), limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
+            #expect(report.claims.first?.type == criterion)
+        }
+        let unknown = response.replacingOccurrences(of: "behavior", with: "quality")
+        #expect(throws: ReviewValidationIssue.self) {
+            try CombinedReviewResponse.report(unknown, imageID: value.file.id, allowed: Set(claim.evidence), limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
+        }
+    }
+
+    @Test func `fallback target flag alone cannot establish subject detail`() throws {
+        var value = groundedResult()
+        let data = try JSONEncoder().encode(value.regions[0])
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object.removeValue(forKey: "subjectID")
+        value.regions[0] = try JSONDecoder().decode(ReviewRegionRecord.self, from: JSONSerialization.data(withJSONObject: object))
+        let claim = ReviewClaim(text: "Visible animal fur", type: "detail", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+        #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
+    }
+
+    @Test func `overview rejects copied instructions and discards undiscovered optional context`() throws {
+        let copied = #"{"observations":"visible composition, exposure, subjects, obstructions; at most 500 characters","uncertainty":"Limited","concepts":[{"query":"deer","displayName":"Deer","reason":"Visible"}],"contextualConcepts":[]}"#
+        #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.overview(copied) }
+        let valid = copied.replacingOccurrences(of: "visible composition, exposure, subjects, obstructions; at most 500 characters", with: "Deer beside a tree")
+        #expect(try CombinedReviewResponse.overview(valid).concepts == ["deer"])
+        let recovered = try CombinedReviewResponse.overview(valid.replacingOccurrences(of: #""contextualConcepts":[]"#, with: #""contextualConcepts":["flower"]"#))
+        #expect(recovered.concepts == ["deer"])
+        #expect(recovered.contextualConcepts?.isEmpty == true)
+        #expect(recovered.validationNotes?.contains { $0.contains("overview.discoveredContextualConcept") } == true)
+    }
+
+    @Test func `partial synthesis retains valid observations and reports rejected claims`() throws {
+        let value = groundedResult()
+        let grounding = ReviewSynthesisGrounding(result: value)
+        let good = ReviewClaim(text: "Visible texture", type: "detail", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+        let bad = ReviewClaim(text: "Flower texture", type: "detail", evidence: [.init(kind: .measurement, id: "metric-a")], uncertainty: "Limited", contradictions: [])
+        let text = String(decoding: try JSONEncoder().encode(["claims": [good, bad]]), as: UTF8.self)
+        let allowed = Set(good.evidence + bad.evidence)
+        let report = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
+        #expect(report.claims.count == 1)
+        #expect(report.claims.first?.subjectID?.rawValue == "a")
+        #expect(report.incomplete)
+        #expect(report.limitations.contains { $0.reason.contains("synthesis.observationRequired") })
+        let rejected = String(decoding: try JSONEncoder().encode(["claims": [bad]]), as: UTF8.self)
+        #expect(throws: ReviewValidationIssue.self) {
+            try CombinedReviewResponse.report(rejected, imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: grounding.validate)
+        }
+    }
+
     @Test func `rejections preserve the failing decoder or guard without copying untrusted text`() throws {
         let crop = #"{"regionID":"region","observations":"Texture visible","uncertainty":"Limited","insufficientEvidence":false}"#
         let cases: [(String, ReviewValidationCode, String)] = [
@@ -117,7 +209,7 @@ struct ReviewDiagnosticsTests {
         }
         var overview = result("overview")
         let original = overview.observations[0]
-        let origin = ReviewEvidenceProvenance(workID: original.provenance.workID, imageID: overview.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": "combined-v6"]), modelIdentity: nil, inputReference: nil)
+        let origin = ReviewEvidenceProvenance(workID: original.provenance.workID, imageID: overview.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.overview]!]), modelIdentity: nil, inputReference: nil)
         overview.observations[0] = .init(id: original.id, regionID: nil, text: "Whole scene in focus", uncertainty: "Limited", availability: .available, provenance: origin)
         let focus = ReviewClaim(text: "Whole scene in focus", type: "composition", evidence: [.init(kind: .observation, id: original.id.rawValue)], uncertainty: "Limited", contradictions: [])
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: overview).validate(focus) }
@@ -166,7 +258,7 @@ struct ReviewDiagnosticsTests {
         let imageID = ReviewImageID(rawValue: id)
         var value = CombinedReviewResult(file: .init(id: imageID, fileID: UUID(), url: URL(filePath: "/fixture"), displayName: "Fixture", fingerprint: id))
         value.observations = [.init(id: .init(rawValue: id + "-observation"), regionID: nil, text: "Visible composition", uncertainty: "Limited", availability: .available,
-                                    provenance: .init(workID: .init(rawValue: "overview"), imageID: imageID, sourceIdentity: id, renderPolicy: "appearance", compatibility: .init(fields: [:]), modelIdentity: nil, inputReference: nil))]
+                                    provenance: .init(workID: .init(rawValue: "overview"), imageID: imageID, sourceIdentity: id, renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.overview]!]), modelIdentity: nil, inputReference: nil))]
         return value
     }
 }

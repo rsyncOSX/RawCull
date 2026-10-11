@@ -1,6 +1,8 @@
 import Foundation
+import PhotoAIContracts
 
 nonisolated struct CombinedReviewOverview: Codable, Sendable {
+    var validationNotes: [String]? = nil
     var primarySubjects: [ReviewPrimarySubjectCue]? = nil
     var contextualConcepts: [String]? = nil
     let observations: String
@@ -18,34 +20,88 @@ nonisolated struct CombinedReviewInspection: Codable, Sendable {
 
 nonisolated enum CombinedReviewResponse {
     static let overviewInstruction = """
-    Inspect this single photograph independently. Return JSON only:
-    {"observations":"visible composition, exposure, subjects, obstructions; at most 500 characters",
-    "uncertainty":"limits; at most 200 characters",
-    "concepts":[{"query":"bird","displayName":"Bird","reason":"visible subject"}]}.
-    Optionally include "primarySubjects":[{"concept":"bird","location":{"x":0.5,"y":0.5},"reason":"main photographic subject"}]
-    and "contextualConcepts":["flower"]. Locations are normalized top-left points inside visible main subjects.
-    Leave primarySubjects empty when importance or location is uncertain; multiple nominations may be equally important.
-    Use at most 3 concrete subject concepts. Do not invent unseen features, eye detail,
-    RAW recovery or quality scores. A proposed subject is a candidate for segmentation.
+    Inspect this photograph. Return JSON only with observations, uncertainty, concepts, primarySubjects and contextualConcepts.
+    observations: one concise sentence about composition, lighting, visible subjects and obstructions (maximum 500 characters).
+    uncertainty: one brief sentence about actual evidence limitations (maximum 500 characters; aim for 100).
+    concepts: at most 3 objects, each with query, displayName and reason strings. Reasons maximum 500 characters; displayName maximum 80.
+    query must be a short singular object noun phrase, preferably 1 to 3 words. Do not use actions, counts, scene descriptions or relationships as queries.
+    primarySubjects: at most 3 objects with concept and reason (maximum 120 characters). Use exact query strings, never displayName.
+    Omit location. Spatial priority is unverified without a correctly registered mask.
+    contextualConcepts: at most 3 exact query strings for supporting objects already in concepts.
+    Leave optional arrays empty when unsupported. Multiple nominations may be equally important.
+    Do not copy these instructions into observations or uncertainty. Do not invent unseen features, eye detail, RAW recovery or quality scores.
     """
 
     static func overview(_ response: String) throws -> CombinedReviewOverview {
-        struct Payload: Decodable { let observations: String; let uncertainty: String; let primarySubjects: [ReviewPrimarySubjectCue]?; let contextualConcepts: [String]? }
+        struct Payload: Decodable {
+            struct Concept: Decodable { let query: String; let displayName: String; let reason: String }
+            let observations: String
+            let uncertainty: String
+            let concepts: [Concept]
+            let primarySubjects: [ReviewPrimarySubjectCue]?
+            let contextualConcepts: [String]?
+        }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
         try validateText(payload.observations, maximum: 500, field: "observations")
-        try validateText(payload.uncertainty, maximum: 200, field: "uncertainty")
-        let concepts = try ObjectConceptDiscovery.decode(response)
-        guard concepts.count <= 3 else { throw ReviewValidationIssue(.responseLength, "overview.conceptCount", field: "concepts") }
-        let queries = concepts.map { $0.concept.query }
-        guard (payload.primarySubjects?.count ?? 0) <= 3, (payload.contextualConcepts?.count ?? 0) <= 3 else { throw ReviewValidationIssue(.responseLength, "overview.priorityCount", field: "primarySubjects") }
-        for cue in payload.primarySubjects ?? [] {
-            guard queries.contains(cue.concept), !cue.reason.isEmpty, cue.reason.count <= 120 else { throw ReviewValidationIssue(.grounding, "overview.discoveredPrimaryConcept", field: "primarySubjects") }
-            if let point = cue.location {
-                guard point.x.isFinite, point.y.isFinite, (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else { throw ReviewValidationIssue(.geometry, "overview.normalizedPrimaryLocation", field: "primarySubjects.location") }
-            }
+        try validateText(payload.uncertainty, maximum: 500, field: "uncertainty")
+        guard !payload.observations.lowercased().contains("at most 500 characters"),
+              !payload.observations.lowercased().contains("maximum 500 characters"),
+              !payload.uncertainty.lowercased().contains("at most 200 characters"),
+              !payload.uncertainty.lowercased().contains("maximum 200 characters"),
+              !payload.uncertainty.lowercased().contains("maximum 500 characters") else {
+            throw ReviewValidationIssue(.grounding, "overview.copiedInstruction", field: "observations")
         }
-        guard (payload.contextualConcepts ?? []).allSatisfy(queries.contains) else { throw ReviewValidationIssue(.grounding, "overview.discoveredContextualConcept", field: "contextualConcepts") }
-        return .init(primarySubjects: payload.primarySubjects, contextualConcepts: payload.contextualConcepts, observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
+        guard payload.concepts.count <= 3 else { throw ReviewValidationIssue(.responseLength, "overview.conceptCount", field: "concepts") }
+        var queries: [String] = []
+        var names: [String: Set<String>] = [:]
+        var notes: [String] = []
+        func key(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        for entry in payload.concepts {
+            let query = try SegmentationConcept(entry.query).query
+            try validateText(entry.displayName, maximum: 80, field: "concepts.displayName")
+            try validateText(entry.reason, maximum: 500, field: "concepts.reason")
+            // Actions are observations, not SAM object queries. Do not invent replacement objects.
+            if ["motion", "flight", "lighting"].contains(key(query)) {
+                notes.append("overview.objectQuery: discarded abstract action or lighting concept")
+                continue
+            }
+            if !queries.contains(where: { key($0) == key(query) }) { queries.append(query) }
+            let canonical = queries.first { key($0) == key(query) }!
+            names[key(entry.displayName), default: []].insert(canonical)
+        }
+        func resolve(_ text: String) -> String? {
+            if let query = queries.first(where: { key($0) == key(text) }) { return query }
+            guard let matches = names[key(text)], matches.count == 1 else { return nil }
+            notes.append("overview.conceptAlias: resolved unique display name to its discovered query")
+            return matches.first
+        }
+        var primary: [ReviewPrimarySubjectCue] = []
+        for cue in payload.primarySubjects ?? [] {
+            guard let query = resolve(cue.concept), !cue.reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, cue.reason.count <= 120 else {
+                notes.append("overview.discoveredPrimaryConcept: discarded unsupported or oversized optional nomination")
+                continue
+            }
+            var point = cue.location
+            if let location = point, !location.x.isFinite || !location.y.isFinite || !(0 ... 1).contains(location.x) || !(0 ... 1).contains(location.y) {
+                point = nil
+                notes.append("overview.normalizedPrimaryLocation: discarded invalid point; instance location is unverified")
+            }
+            guard primary.count < 3 else {
+                notes.append("overview.priorityCount: omitted optional nominations beyond the three-cue limit")
+                continue
+            }
+            primary.append(.init(concept: query, location: point, reason: cue.reason))
+        }
+        var contextual: [String] = []
+        for concept in payload.contextualConcepts ?? [] {
+            guard let query = resolve(concept) else {
+                notes.append("overview.discoveredContextualConcept: discarded undiscovered or ambiguous optional context")
+                continue
+            }
+            if !contextual.contains(query) { contextual.append(query) }
+        }
+        return .init(validationNotes: Array(Set(notes)).sorted(), primarySubjects: primary, contextualConcepts: contextual,
+                     observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
     }
 
     static func inspection(_ response: String, regionID: String) throws -> CombinedReviewInspection {
@@ -60,22 +116,39 @@ nonisolated enum CombinedReviewResponse {
     }
 
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
-                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport
+                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool, qualify: ((ReviewClaim) throws -> ReviewClaim)? = nil) throws -> ReviewImageReport
     {
         struct Payload: Decodable { let claims: [ReviewClaim] }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
         guard payload.claims.count <= 6 else { throw ReviewValidationIssue(.responseLength, "report.claimCount", field: "claims") }
-        for claim in payload.claims {
-            try validateText(claim.text, maximum: 400, field: "claims.text")
-            guard !claim.evidence.isEmpty else { throw ReviewValidationIssue(.grounding, "report.evidenceRequired", field: "claims.evidence") }
-            guard Set(claim.evidence + claim.contradictions).isSubset(of: allowed) else { throw ReviewValidationIssue(.unknownID, "report.requestLocalReference", field: "claims.evidence") }
-            let forbidden = containsForbiddenClaimDomain(claim.text)
-            guard !forbidden else { throw ReviewValidationIssue(.unsupportedDomain, "report.supportedDomain", field: "claims.text") }
-            guard !claim.type.isEmpty else { throw ReviewValidationIssue(.schema, "report.claimTypeRequired", field: "claims.type") }
-            guard claim.uncertainty.count <= 200 else { throw ReviewValidationIssue(.responseLength, "report.uncertaintyLength", field: "claims.uncertainty") }
+        var accepted: [ReviewClaim] = []
+        var rejected: [ReviewLimitation] = []
+        var firstIssue: ReviewValidationIssue?
+        for (index, claim) in payload.claims.enumerated() {
+            do {
+                try validateText(claim.text, maximum: 400, field: "claims.text")
+                guard !claim.evidence.isEmpty else { throw ReviewValidationIssue(.grounding, "report.evidenceRequired", field: "claims.evidence") }
+                guard Set(claim.evidence + claim.contradictions).isSubset(of: allowed) else { throw ReviewValidationIssue(.unknownID, "report.requestLocalReference", field: "claims.evidence") }
+                let forbidden = containsForbiddenClaimDomain(claim.text)
+                guard !forbidden else { throw ReviewValidationIssue(.unsupportedDomain, "report.supportedDomain", field: "claims.text") }
+                guard !claim.type.isEmpty else { throw ReviewValidationIssue(.schema, "report.claimTypeRequired", field: "claims.type") }
+                guard claim.uncertainty.count <= 200 else { throw ReviewValidationIssue(.responseLength, "report.uncertaintyLength", field: "claims.uncertainty") }
+                // These exact aliases are documented criterion names, not new claim domains.
+                let type = ["lighting": "exposure", "subject visibility": "visibility", "behavior": "visibility"][claim.type] ?? claim.type
+                let canonical = type != claim.type ? ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text,
+                                                                       type: type, evidence: claim.evidence, uncertainty: claim.uncertainty, contradictions: claim.contradictions) : claim
+                accepted.append(try qualify?(canonical) ?? canonical)
+            } catch {
+                guard qualify != nil else { throw error }
+                let issue = ReviewValidationIssue.classify(error)
+                firstIssue = firstIssue ?? issue
+                rejected.append(.init(id: .init(rawValue: imageID.rawValue + ":rejected-claim:\(index)"),
+                                      reason: "Generated claim \(index + 1) rejected: \(issue.code.rawValue): \(issue.check)", relatedEvidence: []))
+            }
         }
-        return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: payload.claims,
-                     limitations: limitations, incomplete: incomplete || payload.claims.isEmpty, inspectedRegions: regions, uninspectedRegions: uninspected)
+        if accepted.isEmpty, let firstIssue { throw firstIssue }
+        return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: accepted,
+                     limitations: limitations + rejected, incomplete: incomplete || accepted.isEmpty || !rejected.isEmpty, inspectedRegions: regions, uninspectedRegions: uninspected)
     }
 
     /// A UTF-8 byte bound is conservative for the pinned byte-level tokenizer;
