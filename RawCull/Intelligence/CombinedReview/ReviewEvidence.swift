@@ -30,6 +30,13 @@ nonisolated struct ReviewObservation: Codable, Sendable {
 }
 
 nonisolated struct ReviewMeasurement: Codable, Sendable {
+    var scorerVersion: String? = nil
+    var maskContract: SubjectMaskContract? = nil
+    var foregroundBounds: CGRect? = nil
+    var hasCurrentMaskSemantics: Bool {
+        availability == .available && scorerVersion == SubjectMaskFocusScorer.semanticsVersion
+            && maskContract?.version == SubjectMaskContract.version
+    }
     let id: ReviewMeasurementID
     let subjectID: ReviewSubjectID
     let values: [String: Double]
@@ -90,6 +97,7 @@ nonisolated struct ReviewSourceRecord: Codable, Sendable {
 }
 
 nonisolated struct ReviewSubjectRecord: Codable, Sendable {
+    var maskContract: SubjectMaskContract? = nil
     let id: ReviewSubjectID
     let imageID: ReviewImageID
     let concept: String
@@ -183,7 +191,7 @@ nonisolated struct ReviewSelectionReport: Codable, Sendable {
         }) else { throw ReviewRunError.invalidEvidence }
         let evidence = Dictionary(uniqueKeysWithValues: results.map { value in
             (value.file.id, Set(value.observations.filter { $0.availability == .available && !$0.provenance.workID.rawValue.contains(":reconcile") }.map { ReviewEvidenceReference(kind: .observation, id: $0.id.rawValue) }
-                    + value.measurements.filter { $0.availability == .available }.map { ReviewEvidenceReference(kind: .measurement, id: $0.id.rawValue) }))
+                    + value.measurements.filter { $0.hasCurrentMaskSemantics }.map { ReviewEvidenceReference(kind: .measurement, id: $0.id.rawValue) }))
         })
         for entry in claims {
             let referenced = Set(entry.imageIDs)

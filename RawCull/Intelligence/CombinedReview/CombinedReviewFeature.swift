@@ -57,6 +57,10 @@ final class CombinedReviewFeature {
     func prepareResumeParameters() async {
         guard !isRunning, let saved = manifest else { return }
         let id = saved.snapshot.id
+        guard (try? ReviewPipelineContract.validate(saved.snapshot)) != nil else {
+            resumeDisabledReason = "Saved mask/scorer semantics are incompatible. Historical evidence remains inspectable. Rerun with current settings."
+            return
+        }
         resumeDisabledReason = "Checking saved settings…"
         do {
             try await ReviewCatalogSession.revalidate(saved.snapshot.files)

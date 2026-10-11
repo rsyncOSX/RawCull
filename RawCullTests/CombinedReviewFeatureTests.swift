@@ -46,6 +46,70 @@ struct CombinedReviewFeatureTests {
         #expect(report.claims.flatMap(\.evidence).allSatisfy { !$0.id.contains(":reconcile") })
     }
 
+    @Test @MainActor func `real scorer metadata survives restore and stale semantics cannot resume`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true)
+        let store = ReviewArtifactStore(root: fixture.root.appendingPathComponent("store"))
+        let feature = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        await feature.analyze([fixture.file])
+        let measurement = try #require(feature.result?.measurements.first)
+        #expect(measurement.hasCurrentMaskSemantics)
+        #expect(measurement.values["foregroundPixelCount"] != nil)
+        #expect(measurement.provenance.compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
+        let encoded = try JSONEncoder().encode(measurement)
+        var legacyFields = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacyFields.removeValue(forKey: "scorerVersion")
+        legacyFields.removeValue(forKey: "maskContract")
+        let unqualified = try JSONDecoder().decode(ReviewMeasurement.self, from: JSONSerialization.data(withJSONObject: legacyFields))
+        #expect(unqualified.scorerVersion == nil)
+        #expect(!unqualified.hasCurrentMaskSemantics)
+        let provenance = measurement.provenance
+        var staleResult = try #require(feature.result)
+        staleResult.measurements = [unqualified]
+        let selection = ReviewSelectionReport(comparability: .comparable, decision: .abstain, preferred: [],
+                                              claims: [.init(imageIDs: [staleResult.file.id], claim: .init(text: "Uncalibrated detail", type: "detail",
+                                              evidence: [.init(kind: .measurement, id: measurement.id.rawValue)], uncertainty: "render dependent", contradictions: []))], reason: "Insufficient comparison")
+        #expect(throws: ReviewRunError.self) { try selection.validate(results: [staleResult]) }
+        #expect(provenance.compatibility.fields["maskContract"] == SubjectMaskContract.version)
+        let currentSnapshot = try #require(feature.manifest?.snapshot)
+        for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
+            let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
+            #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
+            #expect(currentSnapshot.stageVersions[stage] == "combined-v3")
+        }
+
+        let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        await restored.restoreStoredRun()
+        await restored.resume()
+        #expect(restored.result?.measurements.first?.scorerVersion == measurement.scorerVersion)
+        #expect(restored.result?.measurements.first?.maskContract == measurement.maskContract)
+        #expect(restored.result?.measurements.first?.values == measurement.values)
+
+        let current = try #require(feature.manifest)
+        let snapshot = current.snapshot
+        let legacySnapshot = ReviewRunSnapshot(id: UUID(), files: snapshot.files, criteria: snapshot.criteria, depth: snapshot.depth,
+                                              sourcePreference: snapshot.sourcePreference, retentionPolicy: snapshot.retentionPolicy,
+                                              renderVersion: snapshot.renderVersion, models: snapshot.models,
+                                              stageVersions: Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map { ($0, "combined-v1") }),
+                                              responseTokens: snapshot.responseTokens, pipelineVersion: "combined-v2",
+                                              created: snapshot.created.addingTimeInterval(1), expandedSelectionPlan: nil)
+        let legacy = try CombinedReviewRunV1(snapshot: legacySnapshot, work: current.work, budget: current.budget)
+        try await store.saveManifest(legacy)
+        #expect(try await store.loadManifest(legacySnapshot.id).snapshot.pipelineVersion == "combined-v2")
+        let historical = makeFeature(fixture, backend: backend)
+        await historical.restoreStoredRun()
+        let calls = await backend.responses
+        await historical.resume()
+        #expect(historical.resumeDisabledReason?.contains("semantics are incompatible") == true)
+        #expect(historical.manifest?.snapshot.id == legacySnapshot.id)
+        #expect(await backend.responses == calls)
+        await historical.analyze([fixture.file])
+        #expect(historical.manifest?.snapshot.id != legacySnapshot.id)
+        #expect(historical.result?.measurements.first?.hasCurrentMaskSemantics == true)
+        #expect(historical.manifest?.snapshot.pipelineVersion == ReviewPipelineContract.version)
+        #expect(try await store.loadManifest(legacySnapshot.id).snapshot.pipelineVersion == "combined-v2")
+    }
+
     @Test @MainActor func `malformed crop output is a failure and cannot become detail`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         let feature = makeFeature(fixture, backend: ReviewFakeBackend(invalidCrop: true))
@@ -516,7 +580,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
 
 private nonisolated struct ReviewFakeScorer: SubjectMaskFocusScoring {
     func score(image _: CGImage, subjectMask _: CGImage, normalizedAFPoint _: CGPoint?) async throws -> SubjectMaskFocusEvidence? {
-        .init(finalScore: 0.5, broadSubjectScore: 0.4, localDetailScore: 0.5, fineDetailScore: 0.6, maskCoverage: 0.25,
+        .init(scorerVersion: SubjectMaskFocusScorer.semanticsVersion, finalScore: 0.5, broadSubjectScore: 0.4, localDetailScore: 0.5, fineDetailScore: 0.6, maskCoverage: 0.25,
               autofocusInsideMask: nil, usableLocalPatch: true, backgroundDominancePenaltyApplied: false)
     }
 }

@@ -203,7 +203,7 @@ extension CombinedReviewFeature {
                         let maskKey = await retain(candidate.mask, force: true)
                         let subjectID = ReviewSubjectID(rawValue: file.id.rawValue + ":subject:" + String(index) + ":" + candidate.descriptor.id)
                         masks[subjectID] = candidate.mask
-                        values.append(.init(id: subjectID, imageID: file.id, concept: concept,
+                        values.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), id: subjectID, imageID: file.id, concept: concept,
                                             normalizedBounds: candidate.descriptor.normalizedBoundingBox, maskConfidence: candidate.descriptor.score,
                                             aliases: candidate.descriptor.aliases, maskInputReference: maskKey, availability: .available))
                     }
@@ -238,7 +238,7 @@ extension CombinedReviewFeature {
                     // Association requires a small, contained head candidate; ambiguous overlaps abstain.
                     let parents = subjects.filter { $0.normalizedBounds.contains(bounds) && bounds.width * bounds.height < $0.normalizedBounds.width * $0.normalizedBounds.height * 0.6 }
                     guard parents.count == 1, let parent = parents.first else { continue }
-                    await records.append(.init(id: parent.id, imageID: file.id, concept: "Head candidate within " + parent.concept,
+                    await records.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), id: parent.id, imageID: file.id, concept: "Head candidate within " + parent.concept,
                                                normalizedBounds: bounds, maskConfidence: candidate.descriptor.score, aliases: [],
                                                maskInputReference: retain(candidate.mask, force: true), availability: .available))
                 }
@@ -318,9 +318,26 @@ extension CombinedReviewFeature {
                     masks[subject.id] = await exactInput(key)
                 }
                 guard let technical, let mask = masks[subject.id],
-                      mask.width == technical.image.width, mask.height == technical.image.height else { throw ReviewRunError.invalidEvidence }
+                      mask.width == technical.image.width, mask.height == technical.image.height,
+                      let contract = subject.maskContract else { throw SubjectMaskDecodingError.unsafeRegistration }
+                try contract.validate(mask: mask, sourceIdentity: source.metadata.identity)
                 guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: nil) else { throw ReviewRunError.invalidEvidence }
                 var values = ["subjectDetail": Double(measured.finalScore), "fineDetail": Double(measured.fineDetailScore), "maskCoverage": Double(measured.maskCoverage)]
+                guard measured.scorerVersion == SubjectMaskFocusScorer.semanticsVersion else { throw ReviewRunError.incompatible }
+                if let count = measured.foregroundCount { values["foregroundPixelCount"] = Double(count) }
+                if let count = measured.totalPixelCount { values["totalPixelCount"] = Double(count) }
+                if let count = measured.usableForegroundCount { values["usableForegroundPixelCount"] = Double(count) }
+                if let count = measured.interiorPixelCount { values["interiorPixelCount"] = Double(count) }
+                if let border = measured.borderPixels { values["excludedBorderPixels"] = Double(border) }
+                if let foreground = measured.foregroundCount, let total = measured.totalPixelCount, total > 0 {
+                    values["foregroundCoverage"] = Double(foreground) / Double(total)
+                }
+                if let usable = measured.usableForegroundCount, let interior = measured.interiorPixelCount, interior > 0 {
+                    values["usableInteriorCoverage"] = Double(usable) / Double(interior)
+                }
+                if measured.suspectNearFullOccupancy == true {
+                    limitation("Subject mask covers at least 95% of the raster; subject specificity is uncertain. This is not calibrated focus evidence.")
+                }
                 if let broad = measured.broadSubjectScore {
                     values["broadDetail"] = Double(broad)
                 }
@@ -328,10 +345,11 @@ extension CombinedReviewFeature {
                     values["localDetail"] = Double(local)
                 }
                 guard values.values.allSatisfy(\.isFinite) else { throw ReviewRunError.invalidEvidence }
-                return try .init(id: .init(rawValue: id.rawValue), subjectID: subject.id, values: values, availability: .available,
+                return try .init(scorerVersion: measured.scorerVersion, maskContract: contract, foregroundBounds: measured.foregroundBounds, id: .init(rawValue: id.rawValue), subjectID: subject.id, values: values, availability: .available,
                                  reason: "Render-dependent detail metric; no calibrated sharp/blur threshold or eye claim", provenance: provenance(id, source: technical))
             }
             if let measurement {
+                guard measurement.hasCurrentMaskSemantics else { throw ReviewRunError.incompatible }
                 result?.measurements.append(measurement)
             }
         }
@@ -444,7 +462,7 @@ extension CombinedReviewFeature {
             let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + " " + observation.text + " Uncertainty: " + observation.uncertainty
             rows.append((ref, row)); aliases[ref] = .init(kind: .observation, id: observation.id.rawValue)
         }
-        for measurement in value.measurements {
+        for measurement in value.measurements where measurement.hasCurrentMaskSemantics {
             let ref = ReviewEvidenceReference(kind: .measurement, id: "m\(aliases.count + 1)")
             try rows.append((ref, String(decoding: encoder.encode(ref), as: UTF8.self) + " " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)))
             aliases[ref] = .init(kind: .measurement, id: measurement.id.rawValue)
@@ -592,7 +610,7 @@ extension CombinedReviewFeature {
             }
         }
         for value in values {
-            for measurement in value.measurements where measurement.availability == .available {
+            for measurement in value.measurements where measurement.hasCurrentMaskSemantics {
                 let reference = try String(decoding: encoder.encode(ReviewEvidenceReference(kind: .measurement, id: measurement.id.rawValue)), as: UTF8.self)
                 let row = try value.file.id.rawValue + " " + reference + " technical; uncalibrated " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)
                 if (try? CombinedReviewResponse.admitted(prompt + "\n" + row, model: model, outputTokens: snapshot.responseTokens)) != nil {
