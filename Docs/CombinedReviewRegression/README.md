@@ -43,3 +43,15 @@ xcodebuild test -project RawCull.xcodeproj -scheme RawCull -destination 'platfor
 ```
 
 Result: 60 tests / 81 executions passed, zero failures, skipped tests or expected failures. The former F1 known issue is removed. Baseline inventory tests: 2 passed. `git diff --check`: clean. Installed model probes were not run. These are engineering regression results, not a six-image accuracy assessment or phase-6 resource qualification.
+
+## Phase 3 — registered bounds and qualified regions
+
+Crops now use decoded foreground bounds in the normalized source raster. Producer bounds remain in `registered-foreground-v1` metadata with maximum edge disagreement in source pixels. A one-pixel tolerance reflects integer rasterization; any larger disagreement is visible as a warning, not a silent origin correction or an anatomical rejection. Masks with unavailable encoding, empty support or mismatched source dimensions abstain explicitly. No blanket vertical flip is applied.
+
+Registration records preserve source identity, foreground bounds, transform declaration and source-edge contact. Whole-subject crops retain foreground fractions for both crop and declared encoder geometry. Source-edge contact records possible existing truncation separately from avoidable crop/encoder loss. Matched technical pairs require full retained subject support. Head-query outputs have no independent anatomical verifier, so contained candidates are labelled generic regions with unverified anatomy. Whole-subject regions precede generic candidates; no region implies verified eyes.
+
+Appearance/technical alignment additionally requires equal encoded dimensions, original orientation and matching declared decoder/geometric settings (including lens correction, scale and resolution fallback), alongside existing file/fidelity/source-space/orientation checks. Dimensions alone cannot pass. This checks declared provenance, not independent pixel correspondence.
+
+Pipeline `combined-v4` invalidates runs under earlier registration semantics. Tests cover asymmetric edge foreground across all eight EXIF orientations, nonsquare sources, actual crop content registration, clipped padding, stretch/center-crop retention, fractional pixel-center retention and existing source/mismatch controls. Baseline deer/mallard/sparrow/rabbit visual controls remain pending: the export, retained masks and independent annotations are still unavailable. Generic labelling is an explicit unsupported-anatomy outcome, not a claim that F2 photographic accuracy has been demonstrated.
+
+Phase-3 verification: the phase-2 macOS command plus `-only-testing:RawCullTests/ReviewMaskRegistrationTests` (excluding unrelated DeepAIReviewFeatureTests) passed, including all eight EXIF registration cases and existing storage, budget, resume, source and selection checks. `git diff --check` passed. Real-model and historical F2 visual gates remain pending.

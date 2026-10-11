@@ -98,6 +98,7 @@ nonisolated struct ReviewSourceRecord: Codable, Sendable {
 
 nonisolated struct ReviewSubjectRecord: Codable, Sendable {
     var maskContract: SubjectMaskContract? = nil
+    var registration: ReviewMaskRegistration? = nil
     let id: ReviewSubjectID
     let imageID: ReviewImageID
     let concept: String
@@ -109,6 +110,7 @@ nonisolated struct ReviewSubjectRecord: Codable, Sendable {
 }
 
 nonisolated struct ReviewRegionRecord: Codable, Sendable {
+    var support: ReviewCropSupport? = nil
     let id: ReviewRegionID
     let imageID: ReviewImageID
     let subjectID: ReviewSubjectID?
@@ -218,7 +220,7 @@ nonisolated struct ReviewSelectionReport: Codable, Sendable {
                         entry.claim.evidence.contains(.init(kind: .observation, id: observation.id.rawValue)) && observation.regionID != nil
                     }
                     for observation in used {
-                        guard let region = value.regions.first(where: { $0.id == observation.regionID }), region.intendedRegionRetained else { throw ReviewRunError.invalidEvidence }
+                        guard let region = value.regions.first(where: { $0.id == observation.regionID }), region.intendedRegionRetained, region.subjectID == nil || region.support?.qualifiesWholeSubject == true else { throw ReviewRunError.invalidEvidence }
                         regions.append(region)
                     }
                 }

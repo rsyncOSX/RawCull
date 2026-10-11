@@ -92,10 +92,10 @@ nonisolated struct ReviewUserRegion: Codable, Equatable, Sendable {
 
 /// A pipeline contract may intentionally retain unchanged stage schemas.
 nonisolated enum ReviewPipelineContract {
-    static let version = "combined-v3"
+    static let version = "combined-v4"
     static let renderVersion = "review-srgb-v1"
     static let stageVersions = Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map {
-        ($0, [.segmentation, .identity, .measurement, .reconciliation, .report, .comparison].contains($0) ? "combined-v3" : ($0 == .cropObservation ? "combined-v2" : "combined-v1"))
+        ($0, [.segmentation, .identity, .measurement, .reconciliation, .report, .comparison].contains($0) ? "combined-v4" : ($0 == .cropObservation ? "combined-v2" : "combined-v1"))
     })
 
     static func validate(_ snapshot: ReviewRunSnapshot) throws {
@@ -164,6 +164,7 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
                       "pipeline": snapshot.pipelineVersion, "stage": stage.rawValue,
                       "stageVersion": snapshot.stageVersions[stage] ?? "unversioned", "region": region]
         if snapshot.pipelineVersion == ReviewPipelineContract.version, [.segmentation, .identity, .measurement, .reconciliation, .report, .comparison].contains(stage) {
+            fields["registration"] = ReviewMaskRegistration.version
             fields["maskContract"] = SubjectMaskContract.version
             fields["scorerSemantics"] = SubjectMaskFocusScorer.semanticsVersion
         }

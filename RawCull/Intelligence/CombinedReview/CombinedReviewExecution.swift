@@ -183,6 +183,14 @@ extension CombinedReviewFeature {
         return .init(snapshot: snapshot, file: file, source: source, qwen: qwen, overview: overview)
     }
 
+    func registeredCandidates(_ candidates: [ObjectInstanceDeduplicator.Candidate], source: ReviewImageSource) throws -> [ObjectInstanceDeduplicator.Candidate] {
+        try candidates.map { candidate in
+            let registration = try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidate.normalizedBoundingBox)
+            return try ObjectInstanceDeduplicator.candidate(concept: candidate.concept.query, mask: candidate.mask, score: candidate.score,
+                                                           bounds: registration.normalizedBounds(width: source.image.width, height: source.image.height), id: candidate.sourceInstanceID)
+        }
+    }
+
     func plan(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext) async throws -> (CombinedReviewPlan, [ReviewSubjectID: CGImage], [ReviewWorkID]) {
         let snapshot = context.snapshot, file = context.file, source = context.source, qwen = context.qwen
         let sourceID = Self.workID(file.id, "source"), overviewID = Self.workID(file.id, "overview"), identityID = Self.workID(file.id, "identity")
@@ -197,13 +205,13 @@ extension CombinedReviewFeature {
                 segmentIDs.append(id)
                 let records: [ReviewSubjectRecord]? = try await perform(id, category: .sam) {
                     let candidates = try await backend.segment(image: source.image, file: file, concept: concept)
-                    let retained = ObjectInstanceDeduplicator.retain(candidates, maximumCount: 8)
+                    let retained = ObjectInstanceDeduplicator.retain(try registeredCandidates(candidates, source: source), maximumCount: 8)
                     var values: [ReviewSubjectRecord] = []
                     for candidate in retained {
                         let maskKey = await retain(candidate.mask, force: true)
                         let subjectID = ReviewSubjectID(rawValue: file.id.rawValue + ":subject:" + String(index) + ":" + candidate.descriptor.id)
                         masks[subjectID] = candidate.mask
-                        values.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), id: subjectID, imageID: file.id, concept: concept,
+                        values.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), registration: try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidates.first { $0.sourceInstanceID == candidate.descriptor.sourceInstanceID }?.normalizedBoundingBox ?? candidate.descriptor.normalizedBoundingBox), id: subjectID, imageID: file.id, concept: concept,
                                             normalizedBounds: candidate.descriptor.normalizedBoundingBox, maskConfidence: candidate.descriptor.score,
                                             aliases: candidate.descriptor.aliases, maskInputReference: maskKey, availability: .available))
                     }
@@ -233,12 +241,12 @@ extension CombinedReviewFeature {
             let values: [ReviewSubjectRecord]? = try await perform(headID, category: .sam) {
                 let candidates = try await backend.segment(image: source.image, file: file, concept: "head")
                 var records: [ReviewSubjectRecord] = []
-                for candidate in ObjectInstanceDeduplicator.retain(candidates, maximumCount: 8) {
+                for candidate in ObjectInstanceDeduplicator.retain(try registeredCandidates(candidates, source: source), maximumCount: 8) {
                     let bounds = candidate.descriptor.normalizedBoundingBox
                     // Association requires a small, contained head candidate; ambiguous overlaps abstain.
                     let parents = subjects.filter { $0.normalizedBounds.contains(bounds) && bounds.width * bounds.height < $0.normalizedBounds.width * $0.normalizedBounds.height * 0.6 }
                     guard parents.count == 1, let parent = parents.first else { continue }
-                    await records.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), id: parent.id, imageID: file.id, concept: "Head candidate within " + parent.concept,
+                    await records.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), registration: try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidates.first { $0.sourceInstanceID == candidate.descriptor.sourceInstanceID }?.normalizedBoundingBox ?? bounds), id: parent.id, imageID: file.id, concept: "Generic candidate region within " + parent.concept,
                                                normalizedBounds: bounds, maskConfidence: candidate.descriptor.score, aliases: [],
                                                maskInputReference: retain(candidate.mask, force: true), availability: .available))
                 }
@@ -246,8 +254,10 @@ extension CombinedReviewFeature {
             }
             heads = values ?? []
         }
-        if heads.isEmpty {
-            limitation("No unambiguous contained head candidate; whole-subject regions are the detail fallback.")
+        limitation("Anatomy is unverified. SAM head queries and containment alone do not establish a head or eyes; retained candidates are generic regions.")
+        for subject in subjects + heads {
+            if let warning = subject.registration?.warning { limitation(subject.id.rawValue + ": " + warning) }
+            if subject.registration?.touchesSourceEdge == true { limitation(subject.id.rawValue + ": foreground touches the source edge; visibility may be partial.") }
         }
         // The identity plan persists deterministic crop decisions independently of later measurements.
         replaceDependencies(identityID, with: [sourceID, overviewID] + segmentIDs)
@@ -256,11 +266,11 @@ extension CombinedReviewFeature {
             for manual in snapshot.userRegions ?? [] where manual.imageID == file.id {
                 try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: manual.normalizedRect), manual.purpose, nil))
             }
-            for head in heads {
-                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: head.normalizedBounds), head.concept + "; eyes unverified", head.id))
-            }
             for subject in subjects {
-                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: subject.normalizedBounds), "Subject: \(subject.concept)", subject.id))
+                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: subject.normalizedBounds), "Registered foreground: \(subject.concept); identity unverified", subject.id))
+            }
+            for head in heads {
+                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: head.normalizedBounds), head.concept + "; anatomy unverified", head.id))
             }
             if proposed.isEmpty {
                 proposed.append((source.metadata.sourceSpace.bounds, "Whole-frame fallback; no verified subject", nil))
@@ -274,7 +284,16 @@ extension CombinedReviewFeature {
                     omitted.append(id); continue
                 }
                 let input = try await retain(source.crop(region))
-                records.append(.init(id: id, imageID: file.id, subjectID: proposal.2, sourceIdentity: source.metadata.identity, purpose: proposal.1,
+                var support: ReviewCropSupport?
+                if let subjectID = proposal.2, let mask = masks[subjectID] {
+                    let foreground = try SubjectMaskForeground.decode(mask, width: source.image.width, height: source.image.height)
+                    support = .init(registrationVersion: ReviewMaskRegistration.version,
+                                    subjectForegroundRetained: ReviewMaskRegistration.retainedFraction(foreground, in: region.sourceRect),
+                                    encoderForegroundRetained: ReviewMaskRegistration.retainedFraction(foreground, in: region.encoder.retainedSourceRect),
+                                    sourceEdgeContact: subjects.first { $0.id == subjectID }?.registration?.touchesSourceEdge ?? false,
+                                    anatomicalSupport: "unverified; foreground retention is not semantic identity")
+                }
+                records.append(.init(support: support, id: id, imageID: file.id, subjectID: proposal.2, sourceIdentity: source.metadata.identity, purpose: proposal.1,
                                      requestedRect: region.requestedRect, paddedRect: region.paddedRect, sourceRect: region.sourceRect,
                                      retainedSourceRect: region.encoder.retainedSourceRect, encoderSize: region.encoder.encoderSize,
                                      scaleX: Double(region.encoder.scaleX), scaleY: Double(region.encoder.scaleY), edgeClipped: region.edgeClipped,
@@ -676,7 +695,8 @@ extension CombinedReviewFeature {
                       let rightRegion = right.regions.first(where: { $0.subjectID == right.subjects[0].id }),
                       leftRegion.fidelity == rightRegion.fidelity, leftRegion.policy == rightRegion.policy,
                       abs(leftRegion.scaleX / rightRegion.scaleX - 1) <= 0.1, abs(leftRegion.scaleY / rightRegion.scaleY - 1) <= 0.1,
-                      leftRegion.intendedRegionRetained, rightRegion.intendedRegionRetained else { continue }
+                      leftRegion.intendedRegionRetained, rightRegion.intendedRegionRetained,
+                      leftRegion.support?.qualifiesWholeSubject == true, rightRegion.support?.qualifiesWholeSubject == true else { continue }
                 eligible.append(.init(left: left, right: right, leftRegion: leftRegion, rightRegion: rightRegion))
             }
         }

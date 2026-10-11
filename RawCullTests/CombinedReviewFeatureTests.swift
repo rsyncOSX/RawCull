@@ -36,6 +36,9 @@ struct CombinedReviewFeatureTests {
         #expect(result.subjects.count == 1)
         #expect(result.measurements.count == 1)
         #expect(result.regions.count >= 1)
+        #expect(result.subjects.first?.registration?.foregroundBounds == CGRect(x: 32, y: 24, width: 64, height: 48))
+        #expect(result.regions.first?.support?.qualifiesWholeSubject == true)
+        #expect(result.regions.allSatisfy { !$0.purpose.contains("Head candidate") })
         #expect(result.measurements.first?.provenance.renderPolicy == "technical")
         #expect(result.observations.filter { $0.regionID != nil }.allSatisfy { $0.provenance.renderPolicy == "appearance" })
         #expect(feature.manifest?.work.filter { $0.stage == .report }.allSatisfy { $0.state == .completed } == true)
@@ -75,7 +78,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == "combined-v3")
+            #expect(currentSnapshot.stageVersions[stage] == ReviewPipelineContract.version)
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
