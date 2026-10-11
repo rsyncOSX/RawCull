@@ -603,7 +603,7 @@ extension CombinedReviewFeature {
         Use exact types: composition, exposure, visibility, detail. Lighting uses exposure; texture uses detail; behavior uses visibility.
         evidence and contradictions are arrays of {"kind":"observation","id":"supplied short ID"}. Omit subjectID and regionID.
         Use supplied observations only. Cover all four types when supported; abstain otherwise. Rows list eligible types.
-        Detail: cite exactly ONE ID with subjectDetailSupported=true; describe that crop's subject texture only. Never combine crops/subjects. Without an eligible row omit detail.
+        Detail: cite exactly ONE observation reference object with subjectDetailSupported=true; describe that crop's subject texture only. Never combine crops/subjects. Without an eligible row omit detail.
         Focus/sharp/blur text requires targetSupported=true and exactly one registered subject, even for background descriptions. In composition/exposure/visibility move focus limitations to uncertainty instead.
         No eyes/iris/gaze/recovery, invented anatomy, metric numbers or calibrated quality in text. Keep uncertainty brief; preserve limitations.
         contradictions=[] unless observations disagree, not merely different subjects/textures. Detail conflicts must share its subject; scene conflicts may span subjects.

@@ -140,14 +140,14 @@ nonisolated enum CombinedReviewResponse {
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
                        limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool, qualify: ((ReviewClaim) throws -> ReviewClaim)? = nil) throws -> ReviewImageReport
     {
-        struct Payload: Decodable { let claims: [ReviewClaim] }
-        let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
+        let payload = try ObjectJSONEnvelope.decode(ReviewSynthesisPayload.self, from: response)
         guard payload.claims.count <= 6 else { throw ReviewValidationIssue(.responseLength, "report.claimCount", field: "claims") }
         var accepted: [ReviewClaim] = []
         var rejected: [ReviewLimitation] = []
         var firstIssue: ReviewValidationIssue?
-        for (index, claim) in payload.claims.enumerated() {
+        for (index, payloadClaim) in payload.claims.enumerated() {
             do {
+                let claim = try payloadClaim.resolve(allowed: allowed)
                 try validateText(claim.text, maximum: 400, field: "claims.text")
                 guard !claim.evidence.isEmpty else { throw ReviewValidationIssue(.grounding, "report.evidenceRequired", field: "claims.evidence") }
                 guard Set(claim.evidence + claim.contradictions).isSubset(of: allowed) else { throw ReviewValidationIssue(.unknownID, "report.requestLocalReference", field: "claims.evidence") }

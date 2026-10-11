@@ -320,6 +320,21 @@ struct ReviewDiagnosticsTests {
         #expect(accepted.claims.first?.subjectID?.rawValue == "a")
         #expect(!accepted.incomplete)
         #expect(throws: ReviewValidationIssue.self) { try report(["crop-a", "crop-b"]) }
+
+        // Real Qwen sometimes emits short IDs instead of reference objects.
+        let shorthand = #"{"claims":[{"text":"Visible feather texture","type":"texture","evidence":["crop-a"],"uncertainty":"Limited","contradictions":[]}]}"#
+        func decode(_ response: String, allowed: Set<ReviewEvidenceReference>? = nil) throws -> ReviewImageReport {
+            try CombinedReviewResponse.report(response, imageID: value.file.id, allowed: allowed ?? references, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: ReviewSynthesisGrounding(result: value).validate)
+        }
+        let normalized = try decode(shorthand)
+        #expect(normalized.claims.first?.evidence == [.init(kind: .observation, id: "crop-a")])
+        #expect(normalized.claims.first?.subjectID?.rawValue == "a")
+        #expect(throws: ReviewValidationIssue.self) { try decode(shorthand.replacingOccurrences(of: "crop-a", with: "unknown")) }
+        #expect(throws: ReviewValidationIssue.self) { try decode(shorthand, allowed: references.union([.init(kind: .measurement, id: "crop-a")])) }
+        #expect(throws: ReviewValidationIssue.self) { try decode(shorthand, allowed: [.init(kind: .measurement, id: "crop-a")]) }
+        #expect(throws: (any Error).self) { try decode(shorthand.replacingOccurrences(of: #""contradictions":[]"#, with: #""contradictions":null"#)) }
+        // Persisted claims retain the strict schema, without request-local aliases.
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(ReviewClaim.self, from: Data(#"{"text":"Texture","type":"detail","evidence":["crop-a"],"uncertainty":"Limited"}"#.utf8)) }
     }
 
     @Test func `prompt eligibility excludes unidentified crops and measurements from detail`() throws {
