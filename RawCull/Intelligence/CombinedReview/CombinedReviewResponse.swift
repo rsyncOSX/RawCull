@@ -9,6 +9,7 @@ nonisolated struct CombinedReviewOverview: Codable, Sendable {
 }
 
 nonisolated struct CombinedReviewInspection: Codable, Sendable {
+    var targetIdentified: Bool? = nil
     let regionID: String
     let observations: String
     let uncertainty: String
@@ -54,11 +55,13 @@ nonisolated enum CombinedReviewResponse {
         guard value.regionID == regionID else { throw ReviewValidationIssue(.unknownID, "crop.expectedRegionID", field: "regionID", reference: .init(kind: .region, id: regionID)) }
         try validateText(value.observations, maximum: 500, field: "observations")
         try validateText(value.uncertainty, maximum: 200, field: "uncertainty")
+        guard !(value.insufficientEvidence && value.targetIdentified == true) else { throw ReviewValidationIssue(.grounding, "crop.targetSupportConsistency", field: "targetIdentified") }
         return value
     }
 
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
-                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport {
+                       limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport
+    {
         struct Payload: Decodable { let claims: [ReviewClaim] }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
         guard payload.claims.count <= 6 else { throw ReviewValidationIssue(.responseLength, "report.claimCount", field: "claims") }
@@ -88,7 +91,7 @@ nonisolated enum CombinedReviewResponse {
     private static func containsForbiddenClaimDomain(_ text: String) -> Bool {
         let words = Set(text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
         return !words.isDisjoint(with: ["eye", "eyes", "iris", "irises", "gaze",
-                                       "recover", "recovers", "recovered", "recovering", "recoverable", "recovery"])
+                                        "recover", "recovers", "recovered", "recovering", "recoverable", "recovery"])
     }
 
     private static func validateText(_ text: String, maximum: Int, field: String) throws {

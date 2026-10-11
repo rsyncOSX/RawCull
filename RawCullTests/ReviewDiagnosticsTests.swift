@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 @testable import RawCull
 import Testing
@@ -11,7 +12,7 @@ struct ReviewDiagnosticsTests {
             ("{}", .schema, "schema.requiredFieldOrType"),
             (crop.replacingOccurrences(of: #""region""#, with: #""wrong""#), .unknownID, "crop.expectedRegionID"),
             (crop.replacingOccurrences(of: "Texture visible", with: "Sharp eye detail"), .unsupportedDomain, "crop.supportedDomain"),
-            (crop.replacingOccurrences(of: "Texture visible", with: String(repeating: "x", count: 501)), .responseLength, "text.characterAllowance")
+            (crop.replacingOccurrences(of: "Texture visible", with: String(repeating: "x", count: 501)), .responseLength, "text.characterAllowance"),
         ]
         for (text, code, check) in cases {
             do {
@@ -22,11 +23,15 @@ struct ReviewDiagnosticsTests {
                 #expect(error.issue.check == check)
                 #expect(error.response == text)
                 #expect(!error.issue.check.contains("Sharp eye detail"))
-                if code == .schema { #expect(error.issue.fieldPath == "regionID") }
+                if code == .schema {
+                    #expect(error.issue.fieldPath == "regionID")
+                }
             }
         }
         let schema = ReviewValidationIssue.classify(ObjectResponseIssue.invalidSchema("claims.private/path/secret.text"))
         #expect(schema.fieldPath == "claims.text")
+        #expect(ReviewValidationIssue.classify(ObjectResponseIssue.invalidSchema("targetIdentified")).fieldPath == "targetIdentified")
+        #expect(ReviewValidationIssue.classify(ObjectResponseIssue.invalidSchema("claims.subjectID")).fieldPath == "claims.subjectID")
     }
 
     @Test func `grounding ownership runtime mask geometry budget and timeout remain distinct`() throws {
@@ -73,11 +78,95 @@ struct ReviewDiagnosticsTests {
         await #expect(throws: (any Error).self) { try await store.rejectedResponse(key) }
     }
 
+    @Test func `synthesis resolves one subject and rejects swapped or unrelated support`() throws {
+        let value = groundedResult()
+        let grounding = ReviewSynthesisGrounding(result: value)
+        let reference = ReviewEvidenceReference(kind: .observation, id: "crop-a")
+        let claim = ReviewClaim(text: "Visible textured surface", type: "detail", evidence: [reference], uncertainty: "Render-dependent", contradictions: [])
+        let qualified = try grounding.validate(claim)
+        #expect(qualified.subjectID?.rawValue == "a")
+        #expect(qualified.regionID?.rawValue == "region-a")
+        var swapped = claim
+        swapped.subjectID = .init(rawValue: "b")
+        #expect(throws: ReviewValidationIssue.self) { try grounding.validate(swapped) }
+        swapped = claim; swapped.regionID = .init(rawValue: "region-b")
+        #expect(throws: ReviewValidationIssue.self) { try grounding.validate(swapped) }
+        let conflict = ReviewClaim(text: claim.text, type: claim.type, evidence: [reference], uncertainty: "Conflict", contradictions: [.init(kind: .observation, id: "crop-b")])
+        #expect(throws: ReviewValidationIssue.self) { try grounding.validate(conflict) }
+        let mixed = ReviewClaim(text: claim.text, type: claim.type, evidence: [reference, .init(kind: .measurement, id: "metric-b")], uncertainty: "Limited", contradictions: [])
+        #expect(throws: ReviewValidationIssue.self) { try grounding.validate(mixed) }
+        var otherImage = value
+        let origin = ReviewEvidenceProvenance(workID: .init(rawValue: "crop"), imageID: .init(rawValue: "other"), sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": "combined-v7"]), modelIdentity: nil, inputReference: nil)
+        otherImage.observations[0] = .init(targetIdentified: true, id: .init(rawValue: "crop-a"), regionID: .init(rawValue: "region-a"), text: "Texture", uncertainty: "Limited", availability: .available, provenance: origin)
+        #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: otherImage).validate(claim) }
+    }
+
+    @Test func `absent unknown and unregistered crop targets cannot establish detail`() throws {
+        for target in [Optional(true), Optional(false), nil] {
+            var value = groundedResult()
+            let original = value.observations[0]
+            value.observations[0] = .init(targetIdentified: target, id: original.id, regionID: original.regionID, text: original.text, uncertainty: original.uncertainty, availability: .available, provenance: original.provenance)
+            let claim = ReviewClaim(text: "Visible texture", type: "detail", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+            if target == true {
+                _ = try ReviewSynthesisGrounding(result: value).validate(claim)
+            } else {
+                #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
+            }
+            value.subjects[0].registration = nil
+            #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
+        }
+        var overview = result("overview")
+        let original = overview.observations[0]
+        let origin = ReviewEvidenceProvenance(workID: original.provenance.workID, imageID: overview.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": "combined-v6"]), modelIdentity: nil, inputReference: nil)
+        overview.observations[0] = .init(id: original.id, regionID: nil, text: "Whole scene in focus", uncertainty: "Limited", availability: .available, provenance: origin)
+        let focus = ReviewClaim(text: "Whole scene in focus", type: "composition", evidence: [.init(kind: .observation, id: original.id.rawValue)], uncertainty: "Limited", contradictions: [])
+        #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: overview).validate(focus) }
+        let contradictory = #"{"regionID":"r","observations":"No target visible","uncertainty":"Limited","insufficientEvidence":true,"targetIdentified":true}"#
+        #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.inspection(contradictory, regionID: "r") }
+    }
+
+    @Test func `numeric summaries preserve distinct subject values and stale evidence abstains`() throws {
+        var value = groundedResult()
+        let lookup = ReviewSynthesisGrounding(result: value)
+        let first = try lookup.measurementSummary(value.measurements[0])
+        let second = try lookup.measurementSummary(value.measurements[1])
+        #expect(first.contains("Subject a"))
+        #expect(first.contains("detail=0.125"))
+        #expect(!first.contains("detail=0.875"))
+        #expect(second.contains("Subject b"))
+        #expect(second.contains("detail=0.875"))
+        let metricOnly = ReviewClaim(text: "Visible behavior", type: "composition", evidence: [.init(kind: .measurement, id: "metric-a")], uncertainty: "Limited", contradictions: [])
+        #expect(throws: ReviewValidationIssue.self) { try lookup.validate(metricOnly) }
+        let transcription = ReviewClaim(text: "Subject detail is 0.875", type: "detail", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+        #expect(throws: ReviewValidationIssue.self) { try lookup.validate(transcription) }
+        value.measurements[0].scorerVersion = nil
+        #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).measurementSummary(value.measurements[0]) }
+        let restored = try JSONDecoder().decode(ReviewClaim.self, from: JSONEncoder().encode(lookup.validate(.init(text: "Visible texture", type: "detail", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: []))))
+        #expect(restored.subjectID?.rawValue == "a")
+    }
+
+    private func groundedResult() -> CombinedReviewResult {
+        var value = result("image")
+        value.observations = []
+        for (id, metric) in [("a", 0.125), ("b", 0.875)] {
+            let subjectID = ReviewSubjectID(rawValue: id)
+            let regionID = ReviewRegionID(rawValue: "region-" + id)
+            let rect = CGRect(x: 0, y: 0, width: 10, height: 10)
+            let registration = ReviewMaskRegistration(version: ReviewMaskRegistration.version, sourceIdentity: "source", producerBounds: rect, foregroundBounds: rect, maximumBoundsDisagreementPixels: 0, tolerancePixels: 1, touchesSourceEdge: false, transform: "identity")
+            value.subjects.append(.init(registration: registration, id: subjectID, imageID: value.file.id, concept: "bird", normalizedBounds: rect, maskConfidence: 1, aliases: [], maskInputReference: nil, availability: .available))
+            value.regions.append(.init(id: regionID, imageID: value.file.id, subjectID: subjectID, sourceIdentity: "source", purpose: "Subject", requestedRect: rect, paddedRect: rect, sourceRect: rect, retainedSourceRect: rect, encoderSize: rect.size, scaleX: 1, scaleY: 1, edgeClipped: false, intendedRegionRetained: true, fidelity: "preview", policy: "appearance", inputReference: nil))
+            let provenance = ReviewEvidenceProvenance(workID: .init(rawValue: "crop-" + id), imageID: value.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": "combined-v7"]), modelIdentity: nil, inputReference: nil)
+            value.observations.append(.init(targetIdentified: true, id: .init(rawValue: "crop-" + id), regionID: regionID, text: "Visible texture", uncertainty: "Limited", availability: .available, provenance: provenance))
+            value.measurements.append(.init(scorerVersion: SubjectMaskFocusScorer.semanticsVersion, maskContract: .init(version: SubjectMaskContract.version, channel: .grayscaleIntensity, width: 10, height: 10, sourceIdentity: "source", origin: "top-left-source-raster", polarity: "white-or-opaque-foreground", threshold: 16, interpolation: "none-no-resize"), id: .init(rawValue: "metric-" + id), subjectID: subjectID, values: ["detail": metric], availability: .available, reason: nil, provenance: provenance))
+        }
+        return value
+    }
+
     private func result(_ id: String) -> CombinedReviewResult {
         let imageID = ReviewImageID(rawValue: id)
         var value = CombinedReviewResult(file: .init(id: imageID, fileID: UUID(), url: URL(filePath: "/fixture"), displayName: "Fixture", fingerprint: id))
         value.observations = [.init(id: .init(rawValue: id + "-observation"), regionID: nil, text: "Visible composition", uncertainty: "Limited", availability: .available,
-                                   provenance: .init(workID: .init(rawValue: "overview"), imageID: imageID, sourceIdentity: id, renderPolicy: "appearance", compatibility: .init(fields: [:]), modelIdentity: nil, inputReference: nil))]
+                                    provenance: .init(workID: .init(rawValue: "overview"), imageID: imageID, sourceIdentity: id, renderPolicy: "appearance", compatibility: .init(fields: [:]), modelIdentity: nil, inputReference: nil))]
         return value
     }
 }

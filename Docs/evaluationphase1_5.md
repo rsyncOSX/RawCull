@@ -323,3 +323,35 @@ Also close the phase 1 audit follow-ups: reconcile CLIP's `encoderGeometryVerifi
 Run focused unit/integration suites and the relevant existing Combined Review source, storage, budget, resume and selection checks. Run installed-model probes separately and identify asset/model prerequisites. Document test commands, configuration and results when implementation occurs. This documentation-only review does not rerun those suites.
 
 **Completion boundary:** F1–F5 have explicit regression evidence; stale semantics cannot qualify new results; known crops are correctly registered or abstain; accepted claims retain subject scope and limitations; failures are diagnosable; original unrelated selection stays conservative; comparable-scene behavior is demonstrated. General photographic qualification still requires phase 7 independent labels, and resource qualification still requires phase 6 measurements.
+
+## Delivery step 6 — grounded synthesis implementation (11 October 2026)
+
+Delivery step 6 now has a typed post-alias evidence lookup, persisted subject/region
+claim scope, structured crop-target support and deterministic numeric presentation.
+A detail claim requires a positively supported crop with registered ownership;
+measurement-only support, subject/region swaps, unrelated subject contradictions,
+legacy mask semantics and numeric detail transcription fail closed. Focus wording
+also requires a registered subject crop regardless of the model's chosen claim type;
+this is a supplementary guard, not a semantic accuracy guarantee. Missing composition,
+exposure, visibility and detail claim coverage is explicit. Failed synthesis retains
+its charged terminal failure and unsynthesized evidence-only summary.
+
+The pipeline is `combined-v7`; crop-observation, reconciliation, report and comparison
+consumer versions changed. Historical artifacts remain readable, but old snapshots
+require a new run. See the [synthesis contract](combined-review-synthesis-contract.md)
+for compatibility, support rules and verification evidence.
+
+The installed Qwen synthetic fixture probe accepted a scoped composition claim and
+abstained from detail for an unidentified target. It also preserved an overview
+validation failure. Visual review found an accepted circle/oval source-geometry
+error, recorded in the [probe evidence](CombinedReviewRegression/step6-synthesis-probe.json).
+This is direct evidence that valid ownership and structured support do not establish
+visual truth. Independent wildlife annotations, the frozen six-image rerun and
+comparable-scene qualification remain outstanding under delivery step 7; the original
+phase 6 resource milestone and phase 7 photographic qualification are unchanged.
+
+Final engineering verification: `make test-smoke` passed with 325 unique identifiers,
+377 passing invocations and one expected opt-in skip. The smoke selectors now include
+all four remediation regression suites previously missing from the manifest. Installed
+Qwen probe, formatting/whitespace and AI import-boundary checks passed; the same three
+pre-existing SwiftLint complexity errors remain recorded in the synthesis contract.

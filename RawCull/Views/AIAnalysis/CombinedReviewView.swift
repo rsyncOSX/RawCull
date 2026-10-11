@@ -129,8 +129,7 @@ struct CombinedReviewView: View {
         }
         Button("Inspect overview input") { inspect(result.overviewInputReference) }
         if let key = result.overviewInputReference {
-            CombinedReviewLocations(inputKey: key, feature: feature, regions: result.regions, source: result.source)
-            {
+            CombinedReviewLocations(inputKey: key, feature: feature, regions: result.regions, source: result.source) {
                 if files.count == 1 {
                     feature.userRegion = $0
                 }
@@ -149,10 +148,19 @@ struct CombinedReviewView: View {
             ForEach(Array(report.claims.enumerated()), id: \.offset) { _, claim in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(claim.text).textSelection(.enabled)
+                    if let subject = claim.subjectID {
+                        Text("Subject: " + subject.rawValue).font(.caption2).textSelection(.enabled)
+                    }
+                    if let region = claim.regionID {
+                        Text("Region: " + region.rawValue).font(.caption2).textSelection(.enabled)
+                    }
                     Text(claim.uncertainty).font(.caption).foregroundStyle(.secondary)
                     Text("Evidence: " + claim.evidence.map(\.id).joined(separator: ", ")).font(.caption2).textSelection(.enabled)
                 }
             }
+        }
+        if let report = result.report {
+            ForEach(report.limitations, id: \.id) { Text($0.reason).font(.caption).textSelection(.enabled) }
         }
         if let summary = result.evidenceOnlySummary {
             DisclosureGroup(summary.label) {
@@ -185,7 +193,11 @@ struct CombinedReviewView: View {
         }
         ForEach(result.measurements, id: \.id) { measurement in
             DisclosureGroup("Measured subject detail") {
-                ForEach(measurement.values.keys.sorted(), id: \.self) { key in Text("\(key): \(measurement.values[key, default: 0].formatted(.number.precision(.fractionLength(3))))") }
+                if let summary = try? ReviewSynthesisGrounding(result: result).measurementSummary(measurement) {
+                    Text(summary).textSelection(.enabled)
+                } else {
+                    Text("Measurement is unqualified for current synthesis; retained for historical inspection.")
+                }
                 Text("Scorer: " + (measurement.scorerVersion ?? "unknown; historical measurement is unqualified")).font(.caption)
                 Text("Subject: " + measurement.subjectID.rawValue).font(.caption2).textSelection(.enabled)
                 Text(measurement.reason ?? "").font(.caption)
@@ -318,7 +330,9 @@ private struct CombinedReviewTaskHistory: View {
                                 Text(item.attempts.formatted()).monospacedDigit()
                                 VStack(alignment: .leading) {
                                     Text(item.reason ?? "—").foregroundStyle(.secondary).textSelection(.enabled)
-                                    if let diagnostic = item.diagnostic { CombinedReviewDiagnosticView(feature: feature, diagnostic: diagnostic) }
+                                    if let diagnostic = item.diagnostic {
+                                        CombinedReviewDiagnosticView(feature: feature, diagnostic: diagnostic)
+                                    }
                                 }
                             }
                         }
