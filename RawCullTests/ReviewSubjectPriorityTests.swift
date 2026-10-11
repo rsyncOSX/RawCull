@@ -38,8 +38,12 @@ struct ReviewSubjectPriorityTests {
         let value = try CombinedReviewResponse.overview(response)
         #expect(value.primarySubjects?.first?.location?.x == 0.7)
         #expect(value.contextualConcepts == ["flower"])
-        #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(response.replacingOccurrences(of: "0.7", with: "1.7")) }
-        #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(response.replacingOccurrences(of: #""concept":"rabbit""#, with: #""concept":"deer""#)) }
+        let invalidPoint = try CombinedReviewResponse.overview(response.replacingOccurrences(of: "0.7", with: "1.7"))
+        #expect(invalidPoint.primarySubjects?.first?.location == nil)
+        #expect(invalidPoint.validationNotes?.isEmpty == false)
+        let unknown = try CombinedReviewResponse.overview(response.replacingOccurrences(of: #""concept":"rabbit""#, with: #""concept":"deer""#))
+        #expect(unknown.primarySubjects?.isEmpty == true)
+        #expect(unknown.concepts == ["rabbit", "flower"])
     }
 
     @Test func `overlay leaves background transparent and maps all source coordinates at different sizes`() throws {
