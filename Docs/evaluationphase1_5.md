@@ -176,3 +176,150 @@ These observations describe the supplied appearances; they do not assign calibra
 ## Qualification decision
 
 This sample supports bounded orchestration, source disclosure, inspectable retained inputs, failure isolation and conservative unrelated-selection handling. It exposes an important gap between valid evidence IDs and valid photographic evidence. Technical subject-detail claims from this run should be treated as unreliable until F1/F2 are corrected and rerun. The accepted selection abstention is appropriate; no winner or quality ranking is justified. The report is an engineering and photographic evaluation of this export, not general camera/model qualification or proof that phases 1–5 meet every product-quality gate.
+
+## Detailed remediation plan — review of the supplied proposal
+
+Plan review date: 11 October 2026. This section reviews the supplied eight-phase proposal against F1–F5 and the current repository. It defines future implementation and qualification work; it does not change the historical findings above or claim that fixes or tests have been completed.
+
+### Review conclusions and required adjustments
+
+The proposal's representation-first approach is sound. Explicit mask semantics, versioned evidence, registered crops, grounded synthesis and bounded diagnostics address the central failures. Proceed with these corrections, subject to the following refinements:
+
+- **Reproduce F1 before declaring the runtime cause proven.** The retained grayscale masks and alpha-reading implementation strongly support the diagnosis. A deterministic test plus the installed SAM/retention/scorer path must establish exactly where interpretation changes.
+- **Extend existing geometry and inspection infrastructure.** `ReviewImageGeometry.swift` already defines top-left normalized coordinates, orientation transforms, region clipping and encoder traces. `ReviewRegionRecord` already stores requested, padded, clipped and retained rectangles. `CombinedReviewView.swift` already offers subject masks, source inspection and exact crops. Audit and connect these paths rather than introduce competing coordinate helpers or duplicate metadata.
+- **Use the existing compatibility contract as the invalidation authority.** `ReviewPipelineContract`, `ReviewCompatibility` and `ReviewArtifactStore` already version and check stage artifacts. A scorer version is useful provenance, but checking an optional field during synthesis alone cannot prevent stale reconciliation or comparison reuse.
+- **Distinguish storage representation from foreground interpretation.** Grayscale and alpha identify channels; binary describes value semantics and is not necessarily a third independent channel encoding. Specify channel, threshold, value range and resampling explicitly. Do not guess from an opaque alpha channel.
+- **Do not reject valid edge cases by an arbitrary occupancy range.** Large subjects can fill the frame and true subjects can touch image edges. High occupancy should produce a traceable diagnostic or limitation; distinguish a declared whole-frame fallback from verified subject evidence. Empty or uninterpretable masks must abstain.
+- **Do not prescribe a blanket vertical flip.** F2 could involve producer bounds, mask raster orientation, source mapping or anatomical association. The correctly located rabbit crop is a required positive control.
+- **Add F5 explicitly.** Registration fixes alone do not ensure the rabbit takes priority over flowers or the principal mallard receives a useful crop. Main-subject coverage and omission reasons need their own work package.
+- **Treat prose grounding as a bounded guarantee.** Valid IDs, subject ownership and claim types can be enforced deterministically. They do not prove visual truth or anatomical plausibility. Semantic acceptance still requires image inspection and independent evaluation; a list of forbidden generic phrases is insufficient.
+- **Build tests with each change.** Regression work is a prerequisite and an acceptance gate for each package, not the last phase after implementation.
+
+Correct the proposed acceptance statement “identical masks produce different scores when the subject location differs”: the deterministic control is **the same image with different masks over deliberately different textures**. Identical image/mask/parameters should produce repeatable results. Real masks over equally textured areas need not produce different scores.
+
+### A. Freeze the baseline and reproduce the failures
+
+**Scope:** establish repeatable evidence before changing semantics.
+
+1. Keep run `88E32164-72C2-4943-A55C-F6D2B1AAAE13`, its stage envelopes and retained PNGs immutable. Create a separate fixture manifest recording available files, hashes, image/subject/region IDs, source dimensions and model/runtime/preprocessing identities.
+2. Confirm availability and permission to retain the six evaluation appearances and masks as local integration fixtures. Do not assume the export or proprietary photographs are committed test assets. Use small synthetic fixtures for routine CI; document local asset requirements for real-image probes.
+3. Add a synthetic image with a smooth area and a textured area, paired with disjoint grayscale masks. Exercise the real `SubjectMaskFocusScorer`, not the fake scorer used by feature tests. Record the current erroneous coverage and equal results as the reproduction.
+4. Trace one installed SAM output through candidate creation, PNG retention, reload and scorer input. Record dimensions, channel/alpha metadata, foreground count and bounds at each boundary.
+5. Annotate expected source-space subject extents for deer/fawns, primary mallard and both sparrows. Include the rabbit head as a positive control. Keep annotations separate from model-generated bounds.
+
+**Gate:** the F1 regression fails for the observed reason, and F2 has an inspectable source/mask/crop trace. If reproduction differs from the hypothesis, update the diagnosis before choosing the repair.
+
+### B. Correct mask decoding and version the resulting evidence
+
+**Primary files:** `SubjectMaskFocusScorer.swift`, `ReviewEvidence.swift`, `CombinedReviewExecution.swift`, mask producer/retention adapters, `ReviewRunContract.swift`, `ReviewArtifactStore.swift`.
+
+1. Define an explicit mask contract at the producer boundary: foreground channel, polarity, threshold/value semantics, raster origin and source registration. Carry it through retained input metadata and subject evidence. Unsupported or missing semantics must remain unknown rather than silently default to alpha.
+2. Separate foreground decoding from image color conversion. Decode grayscale intensity for grayscale masks and actual alpha for alpha masks; define how binary values are stored. Respect row stride, bit depth, alpha layout and mask dimensions. Specify interpolation separately for soft masks and categorical masks.
+3. Use the same decoded foreground for score support, AF membership and foreground bounds. Distinguish total foreground coverage from the scorer's usable interior-pixel coverage; retain the denominator and border policy so the original 98.78% pattern is explainable.
+4. Report empty masks, insufficient usable pixels, unsupported encoding and unsafe registration explicitly. Treat unexpected near-full occupancy as suspect evidence with a documented policy, rather than a universal anatomical rejection. Whole-frame fallback must not establish subject-specific focus.
+5. Persist a scorer semantics version with measurements and their compatibility inputs. Keep the metrics described as render-dependent and uncalibrated. A new version does not establish a sharp/blur threshold.
+6. Update stage versions and dependency compatibility for all affected consumers, including reconciliation, image report and selection/pair comparison. If registered bounds change, invalidate identity/region and crop stages too. Verify the actual dependency graph rather than assuming parent changes propagate.
+7. Preserve old artifacts for historical inspection. Under the current exact snapshot validation, prefer an explicit incompatible-resume explanation and a new run with current settings; do not promise selective recomputation unless it is deliberately implemented and tested. Legacy missing scorer versions are unqualified, not current by default.
+
+**Verification:** grayscale and alpha equivalents select the same support; empty/sparse/full masks behave explicitly; disjoint smooth/textured masks produce different metrics; save/reload preserves interpretation; identical inputs remain repeatable. Feature tests must prove stale artifacts never enter a new qualified report or comparison and that old runs remain inspectable.
+
+**Gate:** the installed-path reproduction passes with foreground-derived coverage, and the corrected six-image run cannot consume F1 measurements or their dependent reports.
+
+### C. Repair registration and qualify crop labels
+
+**Primary files:** `ReviewImageGeometry.swift`, `ReviewImageSource.swift`, segmentation/candidate bounds producers, `CombinedReviewExecution.swift`, `ReviewEvidence.swift`.
+
+1. Audit the producer and consumer conventions at each boundary: SAM raster and bounds, normalized appearance source, technical source, Core Graphics rendering/cropping, retained PNG and encoder input. Extend `ReviewCoordinateSpace` and `ReviewOrientationTransform` where needed; prohibit local ad hoc flips.
+2. Compute foreground bounds using the registered decoded mask. Compare them with producer bounds and the requested region. Record disagreement with units and a documented tolerance derived from rasterization/resampling. Inspect F2 examples before setting a rejection threshold.
+3. Confirm appearance-to-technical alignment independently of equal dimensions. The current measurement path requires matching mask/technical dimensions; dimensions alone do not establish content registration. Abstain when alignment cannot be established, and avoid an undocumented resize to make dimensions match.
+4. Reuse existing requested/padded/source/retained rectangle fields. Add only missing registration provenance, transform identifiers and foreground-retention diagnostics. Track true source-edge truncation separately from avoidable crop or encoder truncation.
+5. Qualify whole-subject crops by registered foreground retention. Qualify head candidates by supported anatomical evidence and parent association, beyond the existing containment/relative-area guard. An uncertain candidate becomes a generic region or is omitted with a reason; it never implies verified eyes.
+6. Preserve legitimate partial-subject observations with a visibility limitation. Do not claim “no clipping” when the animal is already cut off by the source frame.
+
+**Verification:** asymmetric synthetic masks at every frame edge, all eight EXIF orientations, nonsquare sources, fractional bounds, clipped padding, stretch and center-crop retention, and appearance/technical mismatch. Inspect deer torso/background errors, mallard truncation and sparrow face clipping against annotations; rabbit must remain correctly registered.
+
+**Gate:** every named regression has aligned source/mask/bounds/crop evidence, or an explicit unsupported-geometry outcome. Correct rectangle arithmetic alone cannot pass this gate.
+
+### D. Extend inspection and correct crop priority
+
+**Primary files:** `CombinedReviewView.swift`, `CombinedReviewExecution.swift`, `ReviewEvidence.swift`, `ReviewBudget.swift` as needed.
+
+1. Extend the existing source/mask UI with selectable subject and region IDs, foreground tint/outline, requested/padded/clipped/encoder-retained rectangles, origin/dimensions and registration warnings. Ensure black mask background does not obscure the photograph.
+2. Show exact retained crop beside the source overlay and declared encoder geometry. Clearly distinguish an actual retained/preprocessed artifact from a geometry simulation; do not label a reconstruction as model input.
+3. Display scorer version, measurement availability, clipping and validation diagnostics beside relevant evidence. Keep overlays an inspection aid, not photographic corroboration.
+4. Make main-subject relevance explicit, with provenance and uncertainty. Do not substitute SAM confidence or discovery order for photographic importance. Allow ambiguous primary-subject assignments to remain visible.
+5. Within existing caps and reservations, prioritize one valid main-subject region per image before extra anatomy and contextual objects. Preserve fallback when no subject can be verified. Document the policy for multiple equally important subjects.
+6. Record omission reasons separately: budget/depth policy, geometry failure, ambiguous anatomy, contextual priority and unavailable input. Retain unused reserved capacity in accounting.
+
+**Verification:** rabbit versus flowers, primary mallard versus secondary birds, ambiguous multi-subject scenes and no-subject fallback. Check allocation fairness across images and immutable budgets; visually inspect overlay alignment at different view sizes.
+
+**Gate:** all six images have inspectable coverage or an explained limitation; priority never promotes an invalid crop solely to satisfy coverage.
+
+### E. Ground synthesis and provide useful partial outcomes
+
+**Primary files:** `CombinedReviewExecution.swift`, `CombinedReviewResponse.swift`, `ReviewEvidence.swift`, `CombinedReviewView.swift`.
+
+1. Build a typed evidence lookup that resolves image, subject, region, observation, measurement and source ownership. Validate references after request-local aliases are mapped back to persisted IDs. Make subject scope explicit in prompt rows and persisted claims where needed.
+2. Require each detail claim to use available evidence for its stated subject and registered region. Measurement-only support cannot establish behavior, composition, anatomy or calibrated focus. Unavailable, stale or omitted evidence cannot support a claim.
+3. Generate numeric summaries deterministically from measurement ID and subject ID. Remove model transcription of numeric vectors. Use distinct fixture values to catch the DSC09214 `0:7`/`0:6` substitution that equal F1 values concealed.
+4. Preserve overview/crop disagreement with evidence references and uncertainty. Validate contradiction ownership and relevance where structurally possible; do not treat any valid referenced ID as proof of a real contradiction.
+5. Align structured insufficiency with supported evidence. A crop reporting no identifiable target cannot establish subject detail; retain its observation as a limitation or negative finding. Add structured support fields rather than depend only on phrase matching.
+6. Cover composition, exposure, visibility and detail when supported; explicitly mark absent coverage. Keep unsupported whole-scene focus/visibility claims out of qualified synthesis. Behavioral details such as rabbit eating a flower must come from supported observations, not annotations injected as answers.
+7. When synthesis fails, display a deterministic evidence-only summary of completed observations, available measurements and limitations, explicitly labelled as unsynthesized. Preserve the failed report outcome; fallback is not successful model synthesis. Do not weaken validators or add uncharged retries.
+
+**Verification:** foreground/rear sparrow separation, overlapping deer, mallard selective focus, insufficient deer crop, subject/value swaps, unknown IDs, cross-image references, incompatible claim types, conflicting observations and failed synthesis. Combine deterministic rejection tests with visual review of accepted prose; neither substitutes for the other.
+
+**Gate:** accepted claims have correct evidence ownership and supported scope, failed synthesis remains useful and explicit, and photographic accuracy is assessed separately from schema success.
+
+### F. Persist bounded failure diagnostics
+
+**Primary files:** `CombinedReviewResponse.swift`, `CombinedReviewExecution.swift`, `ReviewRunManifest.swift`, `ReviewArtifactStore.swift`, `ReviewEvidence.swift`, inspection/export UI.
+
+1. Add a typed diagnostic payload retaining stage/work ID, stable validation code, compact reason, field path and relevant evidence reference. Distinguish JSON/schema, unknown ID/ownership, unsupported domain, response length, grounding, mask decoding and geometry failures. Keep runtime timeout, cancellation and budget outcomes distinct from validation errors.
+2. Capture diagnostics at the failing guard or decoder boundary before errors collapse to `invalidEvidence`. Preserve the existing terminal status/error contract where appropriate; a new enum alone does not make an exported failure reconstructable.
+3. Define separate diagnostic retention settings: compact metadata by default; bounded rejected text only when explicitly enabled. Specify per-response byte cap, per-run cumulative cap, truncation marker, export behavior and cleanup policy before implementation.
+4. Store rejected payloads outside accepted evidence. Treat them as untrusted inspection data, never as findings or instructions. Avoid leaking unrelated file paths or sensitive content into compact reasons.
+5. Persist failure metadata atomically with terminal work outcomes. Keep charged-attempt accounting, later-image continuation, cancellation behavior and compatible restore intact.
+
+**Verification:** exercise each diagnostic class, export/reload, truncation and cumulative caps, default absence of raw text, cleanup and continuation after failure. New runs must reveal exact rejection checks; historical rejected responses cannot be reconstructed retroactively.
+
+**Gate:** an exported rejection can be explained without repeating inference, within declared retention limits.
+
+### G. Make comparison qualification meaningful
+
+**Primary files:** selection/pair paths in `CombinedReviewExecution.swift`, `ReviewSelectionReport` in `ReviewEvidence.swift`, `combined-review-selection.md`, comparison tests and local model probes.
+
+1. Extend existing comparability/decision/reason fields with structured supporting reasons and omitted-pair records. Separate unrelated scenes, insufficient evidence, depth policy, exhausted allowance, invalid scale and failed pair work. Do not turn Standard's zero pair requests into failures.
+2. Record which evidence was excluded by context pruning and why, within bounded metadata. An omitted item cannot support a comparison claim.
+3. Retain current evidence ownership, source fidelity and matched-scale checks. Add scorer-version and registration qualification to technical comparisons. The overview board remains coarse scene evidence, not subtle focus evidence.
+4. Use comparable burst/near-tie fixtures, a deliberate blur difference, exposure changes and ambiguous multi-subject priorities. Define human expectations per criterion; exposure variation need not imply a universal winner.
+5. Exercise Standard abstention and Deep/Exhaustive matched pairs under actual caps. Check tie/abstain/preferred reasoning, independent per-image outcomes, pair charging and compatible restore.
+
+**Gate:** the original unrelated six-image set still abstains appropriately; comparable fixtures yield supported tradeoffs or explained abstention. Do not force a ranking to demonstrate usefulness.
+
+### Delivery sequence and release evidence
+
+Deliver reviewable changes in this order, with regression coverage in each change:
+
+| Step | Deliverable | Prerequisite / completion evidence |
+|---|---|---|
+| 1 | Immutable fixture manifest and F1/F2 reproduction | Saved-path trace; failing synthetic scorer regression; annotated geometry controls |
+| 2 | Mask contract, corrected scoring and compatibility/version policy | Correct foreground support; legacy-read/new-run isolation; downstream stale-artifact tests |
+| 3 | Registered bounds and qualified crop labels | Edge/orientation tests; deer, mallard, sparrow and rabbit visual controls |
+| 4 | Inspection extensions and subject-priority policy | Aligned overlays; main-subject coverage and omission/budget tests |
+| 5 | Typed diagnostics and evidence-only fallback | Exported guard-specific failures; bounded retention and restore checks |
+| 6 | Subject-grounded synthesis and deterministic numeric presentation | Ownership/value-swap tests; accepted-prose photographic review |
+| 7 | Frozen six-image rerun and comparison fixture runs | Artifact-by-artifact comparison; meaningful comparable-scene evidence |
+| 8 | Phase 6 resource and phase 7 independent qualification | Separate performance results and independent photographic labels |
+
+Diagnostics can progress alongside representation work, but grounded technical synthesis depends on corrected scoring and geometry. Resource work may continue independently; it does not qualify defective photographic evidence.
+
+For the six-image rerun, create a new run and keep baseline settings unchanged wherever compatible: files, criteria, depth, appearance preference, retention, render policy and pinned model/runtime/preprocessing. Record every intentional version or setting difference. Retain all six terminal image outcomes, budgets, exact inputs, overlay evidence, omission reasons and diagnostics. A valid explicit failure is preferable to invented evidence; six successful reports are not a substitute for accuracy.
+
+Publish a compact before/after evidence table per image: mask foreground and usable coverage, scorer version, subject ownership, source/mask registration, crop/anatomy support, criteria coverage, accepted inaccurate claims, failures and diagnostic codes. Scores need not all differ; they must be traceable to their actual masks and image content. Count unknown or unavailable evidence separately from correct findings.
+
+Also close the phase 1 audit follow-ups: reconcile CLIP's `encoderGeometryVerified: false` with observed installed-input verification, and document or strengthen SAM's noncryptographic identity. Retain these limitations until verified; do not erase them because F1/F2 are fixed.
+
+Run focused unit/integration suites and the relevant existing Combined Review source, storage, budget, resume and selection checks. Run installed-model probes separately and identify asset/model prerequisites. Document test commands, configuration and results when implementation occurs. This documentation-only review does not rerun those suites.
+
+**Completion boundary:** F1–F5 have explicit regression evidence; stale semantics cannot qualify new results; known crops are correctly registered or abstain; accepted claims retain subject scope and limitations; failures are diagnosable; original unrelated selection stays conservative; comparable-scene behavior is demonstrated. General photographic qualification still requires phase 7 independent labels, and resource qualification still requires phase 6 measurements.
