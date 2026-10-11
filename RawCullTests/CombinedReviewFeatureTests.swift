@@ -72,14 +72,14 @@ struct CombinedReviewFeatureTests {
         staleResult.measurements = [unqualified]
         let selection = ReviewSelectionReport(comparability: .comparable, decision: .abstain, preferred: [],
                                               claims: [.init(imageIDs: [staleResult.file.id], claim: .init(text: "Uncalibrated detail", type: "detail",
-                                              evidence: [.init(kind: .measurement, id: measurement.id.rawValue)], uncertainty: "render dependent", contradictions: []))], reason: "Insufficient comparison")
+                                                                                                           evidence: [.init(kind: .measurement, id: measurement.id.rawValue)], uncertainty: "render dependent", contradictions: []))], reason: "Insufficient comparison")
         #expect(throws: ReviewValidationIssue.self) { try selection.validate(results: [staleResult]) }
         #expect(provenance.compatibility.fields["maskContract"] == SubjectMaskContract.version)
         let currentSnapshot = try #require(feature.manifest?.snapshot)
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == ReviewPipelineContract.version)
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : ReviewPipelineContract.version))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -92,11 +92,11 @@ struct CombinedReviewFeatureTests {
         let current = try #require(feature.manifest)
         let snapshot = current.snapshot
         let legacySnapshot = ReviewRunSnapshot(id: UUID(), files: snapshot.files, criteria: snapshot.criteria, depth: snapshot.depth,
-                                              sourcePreference: snapshot.sourcePreference, retentionPolicy: snapshot.retentionPolicy,
-                                              renderVersion: snapshot.renderVersion, models: snapshot.models,
-                                              stageVersions: Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map { ($0, "combined-v1") }),
-                                              responseTokens: snapshot.responseTokens, pipelineVersion: "combined-v2",
-                                              created: snapshot.created.addingTimeInterval(1), expandedSelectionPlan: nil)
+                                               sourcePreference: snapshot.sourcePreference, retentionPolicy: snapshot.retentionPolicy,
+                                               renderVersion: snapshot.renderVersion, models: snapshot.models,
+                                               stageVersions: Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map { ($0, "combined-v1") }),
+                                               responseTokens: snapshot.responseTokens, pipelineVersion: "combined-v2",
+                                               created: snapshot.created.addingTimeInterval(1), expandedSelectionPlan: nil)
         let legacy = CombinedReviewRunV1(snapshot: legacySnapshot, work: current.work, budget: current.budget)
         try await store.saveManifest(legacy)
         #expect(try await store.loadManifest(legacySnapshot.id).snapshot.pipelineVersion == "combined-v2")
@@ -243,7 +243,7 @@ struct CombinedReviewFeatureTests {
     }
 
     @Test func `structured responses reject changed IDs and unsupported eye detail`() throws {
-        #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection("{\"regionID\":\"other\",\"observations\":\"visible\",\"uncertainty\":\"limited\",\"insufficientEvidence\":false}", regionID: "expected") }
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection("{\"regionID\":\"other\",\"observations\":\"visible\",\"uncertainty\":\"limited\",\"insufficientEvidence\":false,\"targetIdentified\":true}", regionID: "expected") }
         let ref = ReviewEvidenceReference(kind: .observation, id: "known")
         let response = "{\"claims\":[{\"text\":\"Sharp eye detail\",\"type\":\"detail\",\"evidence\":[{\"kind\":\"observation\",\"id\":\"known\"}],\"uncertainty\":\"limited\",\"contradictions\":[]}]}"
         #expect(throws: (any Error).self) { try CombinedReviewResponse.report(response, imageID: .init(rawValue: "image"), allowed: [ref], limitations: [], regions: [], uninspected: [], incomplete: true) }
@@ -607,15 +607,17 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
                 return "not JSON" + String(repeating: " ", count: rejectionPadding)
             }
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
-            return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture in crop\",\"uncertainty\":\"Eye identity unknown\",\"insufficientEvidence\":false}"
+            return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture in crop\",\"uncertainty\":\"Eye identity unknown\",\"insufficientEvidence\":false,\"targetIdentified\":true}"
         }
         let reference = instruction.split(separator: "\n").compactMap { line -> ReviewEvidenceReference? in
             guard let end = line.firstIndex(of: "}") else { return nil }
             return try? JSONDecoder().decode(ReviewEvidenceReference.self, from: Data(line[...end].utf8))
         }.first { $0.kind == .observation }
         let ref = invalidReport ? ReviewEvidenceReference(kind: .observation, id: "invented") : reference ?? .init(kind: .observation, id: "missing")
-        let claim = ReviewClaim(text: "Visible subject has texture", type: "composition", evidence: [ref], uncertainty: "Eye detail is unverified", contradictions: [])
-        return try String(decoding: JSONEncoder().encode(["claims": [claim]]), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
+        let claims = ["composition", "exposure", "visibility", "detail"].map {
+            ReviewClaim(text: "Visible subject has texture", type: $0, evidence: [ref], uncertainty: "Eye detail is unverified", contradictions: [])
+        }
+        return try String(decoding: JSONEncoder().encode(["claims": claims]), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
     }
 
     func segment(image: CGImage, file _: ReviewFileSnapshot, concept: String) throws -> [ObjectInstanceDeduplicator.Candidate] {

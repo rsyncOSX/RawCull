@@ -21,6 +21,7 @@ nonisolated struct ReviewEvidenceProvenance: Codable, Equatable, Sendable {
 }
 
 nonisolated struct ReviewObservation: Codable, Sendable {
+    var targetIdentified: Bool? = nil
     let id: ReviewObservationID
     let regionID: ReviewRegionID?
     let text: String
@@ -37,6 +38,7 @@ nonisolated struct ReviewMeasurement: Codable, Sendable {
         availability == .available && scorerVersion == SubjectMaskFocusScorer.semanticsVersion
             && maskContract?.version == SubjectMaskContract.version
     }
+
     let id: ReviewMeasurementID
     let subjectID: ReviewSubjectID
     let values: [String: Double]
@@ -52,6 +54,8 @@ nonisolated struct ReviewLimitation: Codable, Sendable {
 }
 
 nonisolated struct ReviewClaim: Codable, Sendable {
+    var subjectID: ReviewSubjectID? = nil
+    var regionID: ReviewRegionID? = nil
     let text: String
     let type: String
     let evidence: [ReviewEvidenceReference]

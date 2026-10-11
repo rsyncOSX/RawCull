@@ -53,11 +53,15 @@ RawCullTests/RawCullSemanticSearchTests
 RawCullTests/RawCullSemanticSearchUITests
 RawCullTests/RawCullSimilarityFeatureTests
 RawCullTests/ReleaseMetadataTests
+RawCullTests/ReviewDiagnosticsTests
 RawCullTests/ReviewImageSourceTests
+RawCullTests/ReviewMaskRegistrationTests
+RawCullTests/ReviewSubjectPriorityTests
 RawCullTests/ReviewRunContractTests
 RawCullTests/CombinedReviewFeatureTests
 RawCullTests/SharpnessScoringTests
 RawCullTests/SmokeManifestIntegrityTests
+RawCullTests/SubjectMaskFocusRegressionTests
 RawCullTests/ThumbnailKeyActionTests
 RawCullTests/TypedAIPersistenceMatrixTests
 RawCullTests/ZoomOverlayKeyActionTests
@@ -111,15 +115,19 @@ private let expectedTaggedSuites: Set<String> = [
     "RawCullSemanticSearchUITests",
     "RawCullSimilarityFeatureTests",
     "ReleaseMetadataTests",
+    "ReviewDiagnosticsTests",
     "ReviewImageSourceTests",
+    "ReviewMaskRegistrationTests",
+    "ReviewSubjectPriorityTests",
     "ReviewRunContractTests",
     "CombinedReviewFeatureTests",
     "SharpnessScoringTests",
+    "SubjectMaskFocusRegressionTests",
     "ThumbnailKeyActionTests",
     "TypedAIPersistenceMatrixTests",
     "ZoomOverlayKeyActionTests",
     "ZoomOverlayNavigationContextTests",
-    "ZoomViewportMathTests"
+    "ZoomViewportMathTests",
 ]
 
 private func smokeManifestSelectors() throws -> [String] {
@@ -171,7 +179,8 @@ private func sourceSuitesTaggedForSmoke() throws -> Set<String> {
                     if activeAttribute == .suite, isSmoke {
                         pendingTaggedSuite = true
                     } else if activeAttribute == .test, isSmoke,
-                              let currentTopLevelStruct {
+                              let currentTopLevelStruct
+                    {
                         taggedSuites.insert(currentTopLevelStruct)
                     }
                     attributeKind = nil
