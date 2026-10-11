@@ -57,6 +57,78 @@ struct CombinedReviewRealModelTests {
         await runtime.clear()
     }
 
+    /// Full local regression; artifacts survive failure for inspection. Never uses the app's store.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_COMBINED_SIX_RUN"] == "1"))
+    @MainActor func `six selected ARWs complete full model review with criterion coverage`() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let directory = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_SELECTION_DIRECTORY"]))
+        let root = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_SIX_OUTPUT"]))
+        try #require(!FileManager.default.fileExists(atPath: root.path))
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let selectedNames = try #require(environment["RAWCULL_COMBINED_SIX_NAMES"])
+        let names = try JSONDecoder().decode([String].self, from: Data(selectedNames.utf8))
+        try #require(names.count == 6 && Set(names).count == 6)
+        try #require(names.allSatisfy { URL(fileURLWithPath: $0).lastPathComponent == $0 && $0.lowercased().hasSuffix(".arw") })
+        let frozen = environment["RAWCULL_COMBINED_SIX_FROZEN"] == "1"
+        let urls = names.map { directory.appendingPathComponent($0) }
+        for url in urls { try #require(FileManager.default.fileExists(atPath: url.path)) }
+        let modelURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_QWEN"]))
+        let samURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_SAM3"]))
+        let clipURL = try URL(fileURLWithPath: #require(environment["RAWCULL_COMBINED_REVIEW_CLIP"]))
+        let runtime = QwenInferenceRuntime()
+        try #require(await runtime.validate(url: modelURL).isAvailable)
+        let segmentation = try ObjectSegmentationService(provider: CoreAISAM3Provider(modelBundleURL: samURL), stores: [], maxSide: 4320, maximumInstanceCount: 8)
+        let clip = try CoreAICLIPProvider(modelBundleURL: clipURL)
+        let backend = ReviewRecordingBackend(live: CombinedReviewLiveBackend(qwen: runtime, qwenURL: modelURL,
+                                                                             segmentation: segmentation, samIdentity: samURL.path,
+                                                                             clipProvider: clip, clipURL: clipURL))
+        let feature = CombinedReviewFeature(store: ReviewArtifactStore(root: root), lease: CombinedReviewLease(), backendFactory: { backend })
+        feature.retainInputs = true
+        feature.retainRejectedResponses = true
+        await feature.analyze(urls.map { .init(id: UUID(), url: $0, name: $0.lastPathComponent) })
+        await runtime.clear()
+        let run = try #require(feature.manifest)
+        struct Diagnostic: Encodable {
+            let run: CombinedReviewRunV1
+            let reports: [ReviewImageReport]
+            let selection: ReviewSelectionReport?
+            let responses: [ReviewProbeResponse]
+        }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let diagnostic = await Diagnostic(run: run, reports: feature.results.compactMap(\.report),
+                                          selection: feature.selectionReport, responses: backend.responses)
+        try encoder.encode(diagnostic).write(to: root.appendingPathComponent("diagnostic.json"), options: .atomic)
+        #expect(feature.results.count == 6)
+        #expect(run.work.allSatisfy { $0.state.terminal })
+        #expect(run.work.allSatisfy { $0.state == .completed })
+        for (category, attempts) in run.budget.attempts {
+            #expect(attempts <= run.budget.limits[category, default: 0])
+        }
+        for result in feature.results {
+            #expect(result.overview != nil, "Discovery: \(result.file.displayName)")
+            if frozen { #expect(!result.subjects.isEmpty, "Subject coverage: \(result.file.displayName)") }
+            #expect(!result.clip.isEmpty)
+            if frozen || !result.subjects.isEmpty {
+                #expect(result.measurements.contains { $0.hasCurrentMaskSemantics })
+                #expect(result.regions.contains { $0.subjectID != nil && $0.support?.subjectForegroundRetained == 1 })
+            }
+            if let report = result.report {
+                #expect(Set(report.claims.map(\.type)).isSuperset(of: ["composition", "exposure", "visibility", "detail"]),
+                        "Criterion coverage: \(result.file.displayName)")
+            } else { Issue.record("Missing synthesized report: \(result.file.displayName)") }
+            for measurement in result.measurements where measurement.availability == .available {
+                #expect(measurement.hasCurrentMaskSemantics)
+                #expect(measurement.values.values.allSatisfy { $0.isFinite })
+            }
+        }
+        let selection = try #require(feature.selectionReport)
+        #expect(selection.cells.count == 6)
+        if frozen {
+            #expect(selection.decision == .abstain)
+            #expect(selection.preferred.isEmpty)
+        }
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["RAWCULL_COMBINED_SELECTION_RUN"] == "1"))
     @MainActor func `six real Sony sources retain terminal reports and a bounded comparison`() async throws {
         let environment = ProcessInfo.processInfo.environment
