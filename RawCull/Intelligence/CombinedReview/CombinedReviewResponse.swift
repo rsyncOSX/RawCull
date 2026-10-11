@@ -140,14 +140,14 @@ nonisolated enum CombinedReviewResponse {
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
                        limitations: [ReviewLimitation], regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool, qualify: ((ReviewClaim) throws -> ReviewClaim)? = nil) throws -> ReviewImageReport
     {
-        struct Payload: Decodable { let claims: [ReviewClaim] }
-        let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
+        let payload = try ObjectJSONEnvelope.decode(ReviewSynthesisPayload.self, from: response)
         guard payload.claims.count <= 6 else { throw ReviewValidationIssue(.responseLength, "report.claimCount", field: "claims") }
         var accepted: [ReviewClaim] = []
         var rejected: [ReviewLimitation] = []
         var firstIssue: ReviewValidationIssue?
-        for (index, claim) in payload.claims.enumerated() {
+        for (index, payloadClaim) in payload.claims.enumerated() {
             do {
+                let claim = try payloadClaim.resolve(allowed: allowed)
                 try validateText(claim.text, maximum: 400, field: "claims.text")
                 guard !claim.evidence.isEmpty else { throw ReviewValidationIssue(.grounding, "report.evidenceRequired", field: "claims.evidence") }
                 guard Set(claim.evidence + claim.contradictions).isSubset(of: allowed) else { throw ReviewValidationIssue(.unknownID, "report.requestLocalReference", field: "claims.evidence") }
@@ -156,7 +156,7 @@ nonisolated enum CombinedReviewResponse {
                 guard !claim.type.isEmpty else { throw ReviewValidationIssue(.schema, "report.claimTypeRequired", field: "claims.type") }
                 guard claim.uncertainty.count <= 200 else { throw ReviewValidationIssue(.responseLength, "report.uncertaintyLength", field: "claims.uncertainty") }
                 // These exact aliases are documented criterion names, not new claim domains.
-                let type = ["lighting": "exposure", "subject visibility": "visibility", "behavior": "visibility"][claim.type] ?? claim.type
+                let type = ["lighting": "exposure", "subject visibility": "visibility", "behavior": "visibility", "texture": "detail"][claim.type] ?? claim.type
                 let canonical = type != claim.type ? ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text,
                                                                        type: type, evidence: claim.evidence, uncertainty: claim.uncertainty, contradictions: claim.contradictions) : claim
                 accepted.append(try qualify?(canonical) ?? canonical)

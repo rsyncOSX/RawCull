@@ -258,7 +258,7 @@ struct ReviewDiagnosticsTests {
         let mixed = ReviewClaim(text: claim.text, type: claim.type, evidence: [reference, .init(kind: .measurement, id: "metric-b")], uncertainty: "Limited", contradictions: [])
         #expect(throws: ReviewValidationIssue.self) { try grounding.validate(mixed) }
         var otherImage = value
-        let origin = ReviewEvidenceProvenance(workID: .init(rawValue: "crop"), imageID: .init(rawValue: "other"), sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": "combined-v7"]), modelIdentity: nil, inputReference: nil)
+        let origin = ReviewEvidenceProvenance(workID: .init(rawValue: "crop"), imageID: .init(rawValue: "other"), sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.cropObservation]!]), modelIdentity: nil, inputReference: nil)
         otherImage.observations[0] = .init(targetIdentified: true, id: .init(rawValue: "crop-a"), regionID: .init(rawValue: "region-a"), text: "Texture", uncertainty: "Limited", availability: .available, provenance: origin)
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: otherImage).validate(claim) }
     }
@@ -307,6 +307,50 @@ struct ReviewDiagnosticsTests {
         #expect(restored.subjectID?.rawValue == "a")
     }
 
+    @Test func `texture alias still requires one qualified subject crop`() throws {
+        let value = groundedResult()
+        let references: Set<ReviewEvidenceReference> = [.init(kind: .observation, id: "crop-a"), .init(kind: .observation, id: "crop-b")]
+        func report(_ ids: [String]) throws -> ReviewImageReport {
+            let claim = ReviewClaim(text: "Visible feather texture", type: "texture", evidence: ids.map { .init(kind: .observation, id: $0) }, uncertainty: "Limited", contradictions: [])
+            let data = try JSONEncoder().encode(["claims": [claim]])
+            return try CombinedReviewResponse.report(String(decoding: data, as: UTF8.self), imageID: value.file.id, allowed: references, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: ReviewSynthesisGrounding(result: value).validate)
+        }
+        let accepted = try report(["crop-a"])
+        #expect(accepted.claims.first?.type == "detail")
+        #expect(accepted.claims.first?.subjectID?.rawValue == "a")
+        #expect(!accepted.incomplete)
+        #expect(throws: ReviewValidationIssue.self) { try report(["crop-a", "crop-b"]) }
+
+        // Real Qwen sometimes emits short IDs instead of reference objects.
+        let shorthand = #"{"claims":[{"text":"Visible feather texture","type":"texture","evidence":["crop-a"],"uncertainty":"Limited","contradictions":[]}]}"#
+        func decode(_ response: String, allowed: Set<ReviewEvidenceReference>? = nil) throws -> ReviewImageReport {
+            try CombinedReviewResponse.report(response, imageID: value.file.id, allowed: allowed ?? references, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: ReviewSynthesisGrounding(result: value).validate)
+        }
+        let normalized = try decode(shorthand)
+        #expect(normalized.claims.first?.evidence == [.init(kind: .observation, id: "crop-a")])
+        #expect(normalized.claims.first?.subjectID?.rawValue == "a")
+        #expect(throws: ReviewValidationIssue.self) { try decode(shorthand.replacingOccurrences(of: "crop-a", with: "unknown")) }
+        #expect(throws: ReviewValidationIssue.self) { try decode(shorthand, allowed: references.union([.init(kind: .measurement, id: "crop-a")])) }
+        #expect(throws: ReviewValidationIssue.self) { try decode(shorthand, allowed: [.init(kind: .measurement, id: "crop-a")]) }
+        #expect(throws: (any Error).self) { try decode(shorthand.replacingOccurrences(of: #""contradictions":[]"#, with: #""contradictions":null"#)) }
+        // Persisted claims retain the strict schema, without request-local aliases.
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(ReviewClaim.self, from: Data(#"{"text":"Texture","type":"detail","evidence":["crop-a"],"uncertainty":"Limited"}"#.utf8)) }
+    }
+
+    @Test func `prompt eligibility excludes unidentified crops and measurements from detail`() throws {
+        var value = groundedResult()
+        let original = value.observations[0]
+        for target in [Optional(true), Optional(false), nil] {
+            value.observations[0] = .init(targetIdentified: target, id: original.id, regionID: original.regionID, text: original.text, uncertainty: original.uncertainty, availability: original.availability, provenance: original.provenance)
+            let support = try ReviewSynthesisGrounding(result: value).support(.init(kind: .observation, id: "crop-a"))
+            #expect(support.subjectDetailSupported == (target == true))
+            #expect(support.claimTypes.contains("detail") == (target == true))
+        }
+        let metric = try ReviewSynthesisGrounding(result: value).support(.init(kind: .measurement, id: "metric-a"))
+        #expect(metric.claimTypes == "none")
+        #expect(!metric.subjectDetailSupported)
+    }
+
     private func groundedResult() -> CombinedReviewResult {
         var value = result("image")
         value.observations = []
@@ -317,7 +361,7 @@ struct ReviewDiagnosticsTests {
             let registration = ReviewMaskRegistration(version: ReviewMaskRegistration.version, sourceIdentity: "source", producerBounds: rect, foregroundBounds: rect, maximumBoundsDisagreementPixels: 0, tolerancePixels: 1, touchesSourceEdge: false, transform: "identity")
             value.subjects.append(.init(registration: registration, id: subjectID, imageID: value.file.id, concept: "bird", normalizedBounds: rect, maskConfidence: 1, aliases: [], maskInputReference: nil, availability: .available))
             value.regions.append(.init(id: regionID, imageID: value.file.id, subjectID: subjectID, sourceIdentity: "source", purpose: "Subject", requestedRect: rect, paddedRect: rect, sourceRect: rect, retainedSourceRect: rect, encoderSize: rect.size, scaleX: 1, scaleY: 1, edgeClipped: false, intendedRegionRetained: true, fidelity: "preview", policy: "appearance", inputReference: nil))
-            let provenance = ReviewEvidenceProvenance(workID: .init(rawValue: "crop-" + id), imageID: value.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": "combined-v7"]), modelIdentity: nil, inputReference: nil)
+            let provenance = ReviewEvidenceProvenance(workID: .init(rawValue: "crop-" + id), imageID: value.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.cropObservation]!]), modelIdentity: nil, inputReference: nil)
             value.observations.append(.init(targetIdentified: true, id: .init(rawValue: "crop-" + id), regionID: regionID, text: "Visible texture", uncertainty: "Limited", availability: .available, provenance: provenance))
             value.measurements.append(.init(scorerVersion: SubjectMaskFocusScorer.semanticsVersion, maskContract: .init(version: SubjectMaskContract.version, channel: .grayscaleIntensity, width: 10, height: 10, sourceIdentity: "source", origin: "top-left-source-raster", polarity: "white-or-opaque-foreground", threshold: 16, interpolation: "none-no-resize"), id: .init(rawValue: "metric-" + id), subjectID: subjectID, values: ["detail": metric], availability: .available, reason: nil, provenance: provenance))
         }

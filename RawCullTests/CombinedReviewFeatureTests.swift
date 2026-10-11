@@ -36,7 +36,8 @@ struct CombinedReviewFeatureTests {
         for prompt in prompts {
             let rows = prompt.split(separator: "\n").filter { $0.hasPrefix(#"{"id":"#) }
             #expect(rows.contains { $0.contains("targetSupported=true") && !$0.contains("subject=none") })
-            #expect(rows.contains { $0.contains("region=whole-frame") })
+            #expect(rows.contains { $0.contains("region=whole-frame") && $0.contains("types=composition,exposure,visibility") && !$0.contains("types=composition,exposure,visibility,detail") })
+            #expect(rows.contains { $0.contains("subjectDetailSupported=true") && $0.contains("types=composition,exposure,visibility,detail") })
             #expect(!prompt.contains(#""kind":"measurement""#))
             #expect(!prompt.contains("example is drawn"))
         }
@@ -114,7 +115,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v10"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v11"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
