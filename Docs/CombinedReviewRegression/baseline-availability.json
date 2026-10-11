@@ -1,0 +1,45 @@
+{
+  "annotationsStatus": "pending independent source-space annotation; model bounds are not ground truth",
+  "baselineRunID": "88E32164-72C2-4943-A55C-F6D2B1AAAE13",
+  "exportAvailable": false,
+  "files": [],
+  "localSources": [
+    {
+      "available": true,
+      "bytes": 24746752,
+      "name": "DSC00113.ARW",
+      "sha256": "61c23828b43ba5c222014f9296a1c92a6ca2f5e5e89065f196b0e369f4d070dc"
+    },
+    {
+      "available": true,
+      "bytes": 24726272,
+      "name": "DSC00639.ARW",
+      "sha256": "712517329f69e07b47461ee5b1463d9aca421fb57c6efc800bd47c2d83ec91c7"
+    },
+    {
+      "available": true,
+      "bytes": 57134336,
+      "name": "DSC02022.ARW",
+      "sha256": "0190f962f7bbdad8b40eb95ba5b75d7118a9876ad0d238e7427c30b4c9120258"
+    },
+    {
+      "available": true,
+      "bytes": 57462016,
+      "name": "DSC05921.ARW",
+      "sha256": "23a7ad42233872181753d49f124c30bccf96123e8cad84b7513e993b7625efc4"
+    },
+    {
+      "available": true,
+      "bytes": 57478400,
+      "name": "DSC09214.ARW",
+      "sha256": "75ed00443541f7b34034a9a2df046717a28d7bbcaf633ca671069bc5227f1472"
+    },
+    {
+      "available": true,
+      "bytes": 52916224,
+      "name": "_DSC6564.ARW",
+      "sha256": "94ca89c12febe59a32d108cb0b74a36acdb05da662fa8bb3f0869fec190429fe"
+    }
+  ],
+  "schemaVersion": 1
+}
