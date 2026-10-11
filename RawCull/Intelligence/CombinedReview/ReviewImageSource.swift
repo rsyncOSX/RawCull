@@ -76,12 +76,21 @@ nonisolated struct ReviewImageSource: Sendable {
         guard metadata.fileIdentity == other.metadata.fileIdentity,
               metadata.fidelity == other.metadata.fidelity,
               metadata.orientationTransform == other.metadata.orientationTransform,
-              metadata.sourceSpace == other.metadata.sourceSpace
+              metadata.sourceSpace == other.metadata.sourceSpace,
+              metadata.encodedSize == other.metadata.encodedSize,
+              metadata.originalOrientation == other.metadata.originalOrientation,
+              Self.registrationSettings(metadata.renderSettings) == Self.registrationSettings(other.metadata.renderSettings)
         else {
             throw ReviewImageError.unsupportedAlignment
         }
         guard metadata.sourceSpace.bounds.contains(rect) else { throw ReviewImageError.invalidGeometry }
         return rect
+    }
+
+    private static func registrationSettings(_ settings: [String: String]) -> [String: String] {
+        // Policy and photometric adjustment may differ; decode and geometric transforms must agree.
+        let keys = ["renderVersion", "decoderOS", "decoder", "resolutionFallback", "lensCorrection", "orientation", "scaleFactor", "HDR", "output"]
+        return settings.filter { keys.contains($0.key) }
     }
 
     /// Lossless caller-controlled retention hook; no cache or retention policy is implied.

@@ -36,6 +36,10 @@ struct CombinedReviewFeatureTests {
         #expect(result.subjects.count == 1)
         #expect(result.measurements.count == 1)
         #expect(result.regions.count >= 1)
+        #expect(result.subjects.first?.registration?.foregroundBounds == CGRect(x: 32, y: 24, width: 64, height: 48))
+        #expect(result.regions.first?.support?.qualifiesWholeSubject == true)
+        #expect(result.regions.allSatisfy { !$0.purpose.contains("Head candidate") })
+        #expect(result.omissions.contains { $0.reason == .ambiguousAnatomy })
         #expect(result.measurements.first?.provenance.renderPolicy == "technical")
         #expect(result.observations.filter { $0.regionID != nil }.allSatisfy { $0.provenance.renderPolicy == "appearance" })
         #expect(feature.manifest?.work.filter { $0.stage == .report }.allSatisfy { $0.state == .completed } == true)
@@ -44,6 +48,121 @@ struct CombinedReviewFeatureTests {
         #expect(report.claims.flatMap(\.evidence).allSatisfy { evidenceIDs.contains($0.id) })
         #expect(report.claims.flatMap(\.evidence).allSatisfy { !$0.id.hasPrefix("o") && !$0.id.hasPrefix("m") })
         #expect(report.claims.flatMap(\.evidence).allSatisfy { !$0.id.contains(":reconcile") })
+    }
+
+    @Test @MainActor func `real scorer metadata survives restore and stale semantics cannot resume`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true)
+        let store = ReviewArtifactStore(root: fixture.root.appendingPathComponent("store"))
+        let feature = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        await feature.analyze([fixture.file])
+        let measurement = try #require(feature.result?.measurements.first)
+        #expect(measurement.hasCurrentMaskSemantics)
+        #expect(measurement.values["foregroundPixelCount"] != nil)
+        #expect(measurement.provenance.compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
+        let encoded = try JSONEncoder().encode(measurement)
+        var legacyFields = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacyFields.removeValue(forKey: "scorerVersion")
+        legacyFields.removeValue(forKey: "maskContract")
+        let unqualified = try JSONDecoder().decode(ReviewMeasurement.self, from: JSONSerialization.data(withJSONObject: legacyFields))
+        #expect(unqualified.scorerVersion == nil)
+        #expect(!unqualified.hasCurrentMaskSemantics)
+        let provenance = measurement.provenance
+        var staleResult = try #require(feature.result)
+        staleResult.measurements = [unqualified]
+        let selection = ReviewSelectionReport(comparability: .comparable, decision: .abstain, preferred: [],
+                                              claims: [.init(imageIDs: [staleResult.file.id], claim: .init(text: "Uncalibrated detail", type: "detail",
+                                              evidence: [.init(kind: .measurement, id: measurement.id.rawValue)], uncertainty: "render dependent", contradictions: []))], reason: "Insufficient comparison")
+        #expect(throws: ReviewValidationIssue.self) { try selection.validate(results: [staleResult]) }
+        #expect(provenance.compatibility.fields["maskContract"] == SubjectMaskContract.version)
+        let currentSnapshot = try #require(feature.manifest?.snapshot)
+        for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
+            let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
+            #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
+            #expect(currentSnapshot.stageVersions[stage] == ReviewPipelineContract.version)
+        }
+
+        let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
+        await restored.restoreStoredRun()
+        await restored.resume()
+        #expect(restored.result?.measurements.first?.scorerVersion == measurement.scorerVersion)
+        #expect(restored.result?.measurements.first?.maskContract == measurement.maskContract)
+        #expect(restored.result?.measurements.first?.values == measurement.values)
+
+        let current = try #require(feature.manifest)
+        let snapshot = current.snapshot
+        let legacySnapshot = ReviewRunSnapshot(id: UUID(), files: snapshot.files, criteria: snapshot.criteria, depth: snapshot.depth,
+                                              sourcePreference: snapshot.sourcePreference, retentionPolicy: snapshot.retentionPolicy,
+                                              renderVersion: snapshot.renderVersion, models: snapshot.models,
+                                              stageVersions: Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map { ($0, "combined-v1") }),
+                                              responseTokens: snapshot.responseTokens, pipelineVersion: "combined-v2",
+                                              created: snapshot.created.addingTimeInterval(1), expandedSelectionPlan: nil)
+        let legacy = CombinedReviewRunV1(snapshot: legacySnapshot, work: current.work, budget: current.budget)
+        try await store.saveManifest(legacy)
+        #expect(try await store.loadManifest(legacySnapshot.id).snapshot.pipelineVersion == "combined-v2")
+        let historical = makeFeature(fixture, backend: backend)
+        await historical.restoreStoredRun()
+        let calls = await backend.responses
+        await historical.resume()
+        #expect(historical.resumeDisabledReason?.contains("semantics are incompatible") == true)
+        #expect(historical.manifest?.snapshot.id == legacySnapshot.id)
+        #expect(await backend.responses == calls)
+        await historical.analyze([fixture.file])
+        #expect(historical.manifest?.snapshot.id != legacySnapshot.id)
+        #expect(historical.result?.measurements.first?.hasCurrentMaskSemantics == true)
+        #expect(historical.manifest?.snapshot.pipelineVersion == ReviewPipelineContract.version)
+        #expect(try await store.loadManifest(legacySnapshot.id).snapshot.pipelineVersion == "combined-v2")
+    }
+
+    @Test(arguments: [false, true]) @MainActor func `diagnostics and unsynthesized summaries survive export restore within per-run caps`(retainRaw: Bool) async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(invalidCrop: true, invalidReport: true, rejectionPadding: 6000)
+        let store = ReviewArtifactStore(root: fixture.root.appendingPathComponent("store"))
+        let feature = makeFeature(fixture, backend: backend)
+        feature.retainRejectedResponses = retainRaw
+        var files = [fixture.file]
+        for index in 1 ... 7 {
+            let url = fixture.root.appendingPathComponent("diagnostic-\(index).png")
+            try FileManager.default.copyItem(at: fixture.file.url, to: url)
+            files.append(.init(id: UUID(), url: url, name: url.lastPathComponent))
+        }
+        await feature.analyze(files)
+        let run = try #require(feature.manifest)
+        #expect(feature.results.count == 8)
+        #expect(feature.results.allSatisfy { $0.report?.claims.isEmpty == true && $0.evidenceOnlySummary?.rows.isEmpty == false })
+        #expect(run.work.filter { $0.stage == .report }.allSatisfy { $0.state == .failed })
+        #expect(run.budget.attempts[.report] == 8)
+        #expect(run.evidenceOnlySummaries?.count == 8)
+        let diagnostics = run.work.compactMap(\.diagnostic)
+        #expect(diagnostics.count == 16)
+        #expect(diagnostics.filter { $0.stage == .report }.allSatisfy { $0.code == .unknownID && $0.check == "report.requestLocalReference" })
+        #expect(diagnostics.filter { $0.stage == .cropObservation }.allSatisfy { $0.code == .json })
+        #expect(diagnostics.allSatisfy { !$0.compactReason.contains("invented") })
+        #expect(diagnostics.allSatisfy { $0.retainedResponseBytes <= ReviewDiagnosticLimits.perResponseBytes })
+        let loaded = try await store.loadManifest(run.snapshot.id)
+        #expect(loaded.work.compactMap(\.diagnostic).count == diagnostics.count)
+        #expect(loaded.evidenceOnlySummaries?.count == 8)
+        if retainRaw {
+            #expect(run.retainedDiagnosticBytes == ReviewDiagnosticLimits.perRunBytes)
+            #expect(diagnostics.reduce(0) { $0 + $1.retainedResponseBytes } == ReviewDiagnosticLimits.perRunBytes)
+            #expect(diagnostics.allSatisfy { $0.responseTruncated })
+            let key = try #require(diagnostics.compactMap(\.rejectedResponseKey).first)
+            #expect(try await store.rejectedResponse(key).text.utf8.count <= 4096)
+            try await store.clearRejectedResponses()
+            await #expect(throws: (any Error).self) { try await store.rejectedResponse(key) }
+            #expect(try await store.loadManifest(run.snapshot.id).work.compactMap(\.diagnostic).count == diagnostics.count)
+        } else {
+            #expect(diagnostics.allSatisfy { $0.rejectedResponseKey == nil && $0.retainedResponseBytes == 0 })
+            #expect(!FileManager.default.fileExists(atPath: store.root.appendingPathComponent("rejected").path))
+        }
+        let calls = await backend.responses
+        let restored = makeFeature(fixture, backend: backend)
+        await restored.restoreStoredRun(); await restored.resume()
+        #expect(await backend.responses == calls)
+        #expect(restored.manifest?.budget.attempts[.report] == 8)
+        #expect(restored.manifest?.retainedDiagnosticBytes == run.retainedDiagnosticBytes)
+        #expect(restored.results.allSatisfy { $0.evidenceOnlySummary?.label == "Evidence-only summary — unsynthesized" })
+        #expect(restored.selectionReport?.decision == .abstain)
     }
 
     @Test @MainActor func `malformed crop output is a failure and cannot become detail`() async throws {
@@ -128,7 +247,7 @@ struct CombinedReviewFeatureTests {
         let ref = ReviewEvidenceReference(kind: .observation, id: "known")
         let response = "{\"claims\":[{\"text\":\"Sharp eye detail\",\"type\":\"detail\",\"evidence\":[{\"kind\":\"observation\",\"id\":\"known\"}],\"uncertainty\":\"limited\",\"contradictions\":[]}]}"
         #expect(throws: (any Error).self) { try CombinedReviewResponse.report(response, imageID: .init(rawValue: "image"), allowed: [ref], limitations: [], regions: [], uninspected: [], incomplete: true) }
-        #expect(throws: ReviewRunError.self) { try CombinedReviewResponse.admitted(String(repeating: "x", count: 4096), model: ReviewFakeBackend.qwen, outputTokens: 768) }
+        #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.admitted(String(repeating: "x", count: 4096), model: ReviewFakeBackend.qwen, outputTokens: 768) }
     }
 
     @Test @MainActor func `lease stays reserved until worker acknowledges invalidation`() throws {
@@ -277,16 +396,16 @@ struct CombinedReviewFeatureTests {
         try tie.validate(results: values)
         let conflicted = ReviewSelectionReport(comparability: .comparable, decision: .preferred, preferred: [left.file.id],
                                                claims: [.init(imageIDs: [left.file.id, right.file.id], claim: .init(text: "Composition preference", type: "composition", evidence: [leftRef, rightRef], uncertainty: "Conflicting criteria", contradictions: [rightRef]))], reason: "Unresolved conflict")
-        #expect(throws: ReviewRunError.self) { try conflicted.validate(results: values) }
+        #expect(throws: ReviewValidationIssue.self) { try conflicted.validate(results: values) }
         let uncovered = ReviewSelectionReport(comparability: .comparable, decision: .preferred, preferred: [left.file.id],
                                               claims: [.init(imageIDs: [left.file.id], claim: .init(text: "Centered composition", type: "composition", evidence: [leftRef], uncertainty: "No evidence for the other image", contradictions: []))], reason: "Preference without comparison coverage")
-        #expect(throws: ReviewRunError.self) { try uncovered.validate(results: values) }
+        #expect(throws: ReviewValidationIssue.self) { try uncovered.validate(results: values) }
         let swapped = ReviewSelectionReport(comparability: .comparable, decision: .preferred, preferred: [right.file.id], claims: [.init(imageIDs: [right.file.id], claim: .init(text: "Centered subject", type: "composition", evidence: [leftRef], uncertainty: "limited", contradictions: []))], reason: "Preference")
-        #expect(throws: ReviewRunError.self) { try swapped.validate(results: values) }
+        #expect(throws: (any Error).self) { try swapped.validate(results: values) }
         var missing = values; missing[1].report = nil
-        #expect(throws: ReviewRunError.self) { try tie.validate(results: missing) }
+        #expect(throws: ReviewValidationIssue.self) { try tie.validate(results: missing) }
         let unrelated = ReviewSelectionReport(comparability: .unrelated, decision: .preferred, preferred: [left.file.id], claims: [], reason: "Different scenes")
-        #expect(throws: ReviewRunError.self) { try unrelated.validate(results: values) }
+        #expect(throws: ReviewValidationIssue.self) { try unrelated.validate(results: values) }
     }
 
     @Test @MainActor func `eight image comparison preserves mandatory context coverage`() async throws {
@@ -433,12 +552,13 @@ private nonisolated struct ReviewPreviewOnlySource: ReviewImageSourceLoading {
 private actor ReviewFakeBackend: CombinedReviewBackendServing {
     nonisolated static let qwen = ReviewModelSnapshot(identity: "fake", runtimeVersion: "test", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)
     let hasSAM: Bool, hasCLIP: Bool, comparisonTie: Bool, invalidCrop: Bool, invalidReport: Bool
+    let rejectionPadding: Int
     var delayCrop: Bool
     var cropContinuation: CheckedContinuation<Void, Never>?
     var cropStarted = false
     var responses = 0
-    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false) {
-        self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop
+    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0) {
+        self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding
     }
 
     func stopDelay() {
@@ -484,7 +604,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
                 try await Task.sleep(for: .seconds(30))
             }
             if invalidCrop {
-                return "not JSON"
+                return "not JSON" + String(repeating: " ", count: rejectionPadding)
             }
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
             return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture in crop\",\"uncertainty\":\"Eye identity unknown\",\"insufficientEvidence\":false}"
@@ -495,7 +615,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
         }.first { $0.kind == .observation }
         let ref = invalidReport ? ReviewEvidenceReference(kind: .observation, id: "invented") : reference ?? .init(kind: .observation, id: "missing")
         let claim = ReviewClaim(text: "Visible subject has texture", type: "composition", evidence: [ref], uncertainty: "Eye detail is unverified", contradictions: [])
-        return try String(decoding: JSONEncoder().encode(["claims": [claim]]), as: UTF8.self)
+        return try String(decoding: JSONEncoder().encode(["claims": [claim]]), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
     }
 
     func segment(image: CGImage, file _: ReviewFileSnapshot, concept: String) throws -> [ObjectInstanceDeduplicator.Candidate] {
@@ -516,7 +636,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
 
 private nonisolated struct ReviewFakeScorer: SubjectMaskFocusScoring {
     func score(image _: CGImage, subjectMask _: CGImage, normalizedAFPoint _: CGPoint?) async throws -> SubjectMaskFocusEvidence? {
-        .init(finalScore: 0.5, broadSubjectScore: 0.4, localDetailScore: 0.5, fineDetailScore: 0.6, maskCoverage: 0.25,
+        .init(scorerVersion: SubjectMaskFocusScorer.semanticsVersion, finalScore: 0.5, broadSubjectScore: 0.4, localDetailScore: 0.5, fineDetailScore: 0.6, maskCoverage: 0.25,
               autofocusInsideMask: nil, usableLocalPatch: true, backgroundDominancePenaltyApplied: false)
     }
 }

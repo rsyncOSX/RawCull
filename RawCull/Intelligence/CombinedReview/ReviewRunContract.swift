@@ -92,10 +92,10 @@ nonisolated struct ReviewUserRegion: Codable, Equatable, Sendable {
 
 /// A pipeline contract may intentionally retain unchanged stage schemas.
 nonisolated enum ReviewPipelineContract {
-    static let version = "combined-v2"
+    static let version = "combined-v6"
     static let renderVersion = "review-srgb-v1"
     static let stageVersions = Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map {
-        ($0, [.cropObservation, .reconciliation, .report].contains($0) ? "combined-v2" : "combined-v1")
+        ($0, [.overview, .segmentation, .identity, .measurement, .reconciliation, .report, .comparison].contains($0) ? "combined-v6" : ($0 == .cropObservation ? "combined-v2" : "combined-v1"))
     })
 
     static func validate(_ snapshot: ReviewRunSnapshot) throws {
@@ -105,6 +105,7 @@ nonisolated enum ReviewPipelineContract {
 }
 
 nonisolated struct ReviewRunSnapshot: Codable, Equatable, Sendable {
+    var diagnosticRetention: ReviewDiagnosticRetention? = nil
     let id: UUID
     let files: [ReviewFileSnapshot]
     let criteria: String
@@ -163,6 +164,12 @@ nonisolated struct ReviewCompatibility: Codable, Equatable, Sendable {
                       "sourcePreference": snapshot.sourcePreference, "sourceRender": sourceRender,
                       "pipeline": snapshot.pipelineVersion, "stage": stage.rawValue,
                       "stageVersion": snapshot.stageVersions[stage] ?? "unversioned", "region": region]
+        if snapshot.pipelineVersion == ReviewPipelineContract.version, [.segmentation, .identity, .measurement, .reconciliation, .report, .comparison].contains(stage) {
+            fields["subjectPriority"] = ReviewSubjectPriority.version
+            fields["registration"] = ReviewMaskRegistration.version
+            fields["maskContract"] = SubjectMaskContract.version
+            fields["scorerSemantics"] = SubjectMaskFocusScorer.semanticsVersion
+        }
         if stage == .comparison {
             fields["selection"] = snapshot.files.sorted { $0.id.rawValue < $1.id.rawValue }.map { $0.id.rawValue + ":" + $0.fingerprint }.joined(separator: "|")
         }

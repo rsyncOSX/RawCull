@@ -3,9 +3,15 @@ import CoreGraphics
 import Foundation
 
 nonisolated struct CombinedReviewPlan: Codable, Sendable {
+    var omissions: [ReviewRegionOmission]? = nil
     let subjects: [ReviewSubjectRecord]
     let regions: [ReviewRegionRecord]
     let uninspected: [ReviewRegionID]
+}
+
+nonisolated struct CombinedReviewHeadCandidates: Codable, Sendable {
+    let records: [ReviewSubjectRecord]
+    let omissions: [ReviewRegionOmission]
 }
 
 nonisolated struct CombinedReviewContext: Sendable {
@@ -50,15 +56,39 @@ extension CombinedReviewFeature {
             return value
         } catch is CancellationError { throw CancellationError() } catch {
             try Task.checkCancellation()
+            let diagnostic = await failureDiagnostic(error, item: item)
+            try Task.checkCancellation()
             if manifest?.work.first(where: { $0.id == id })?.state == .running {
-                try manifest?.finish(id, state: .failed, reason: String(describing: error))
+                try manifest?.finish(id, state: .failed, reason: diagnostic.compactReason)
             } else {
-                try manifest?.skip(id, reason: String(describing: error))
+                try manifest?.skip(id, reason: diagnostic.compactReason)
             }
-            result?.failures[id.rawValue] = String(describing: error)
+            if let index = manifest?.work.firstIndex(where: { $0.id == id }) { manifest?.work[index].diagnostic = diagnostic }
+            result?.failures[id.rawValue] = diagnostic.compactReason
             try await store.saveManifest(currentManifest())
             return nil
         }
+    }
+
+    func failureDiagnostic(_ error: any Error, item: ReviewWorkItem) async -> ReviewFailureDiagnostic {
+        let issue = ReviewValidationIssue.classify(error)
+        var diagnostic = ReviewFailureDiagnostic(stage: item.stage, workID: item.id, code: issue.code,
+                                                 check: issue.check, fieldPath: issue.fieldPath, evidenceReference: issue.evidenceReference)
+        if let rejection = error as? ReviewResponseRejection,
+           let snapshot = manifest?.snapshot, snapshot.diagnosticRetention == .boundedRejectedText {
+            let used = manifest?.retainedDiagnosticBytes ?? 0
+            let cap = min(ReviewDiagnosticLimits.perResponseBytes, max(0, ReviewDiagnosticLimits.perRunBytes - used))
+            let bounded = ReviewDiagnosticLimits.bounded(rejection.response, maximumBytes: cap)
+            diagnostic.responseTruncated = bounded.truncated
+            if !bounded.text.isEmpty {
+                do {
+                    diagnostic.rejectedResponseKey = try await store.retainRejectedResponse(.init(runID: snapshot.id, workID: item.id, text: bounded.text, truncated: bounded.truncated))
+                    diagnostic.retainedResponseBytes = bounded.text.utf8.count
+                    manifest?.retainedDiagnosticBytes = used + diagnostic.retainedResponseBytes
+                } catch { diagnostic.retentionUnavailable = true }
+            }
+        }
+        return diagnostic
     }
 
     func addWork(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], source: String, region: String = "") throws -> ReviewWorkID {
@@ -115,20 +145,17 @@ extension CombinedReviewFeature {
                 let terminal = try await inspect(backend, context: context, plan: plan, masks: masks, segmentIDs: segments)
                 try await finish(backend, context: context, plan: plan, terminalIDs: terminal)
             } catch is CancellationError { throw CancellationError() } catch {
-                if snapshot.files.count == 1 {
-                    throw error
-                }
-                limitation("Image review unavailable: \(error)")
-                result?.failures[Self.workID(file.id, "source").rawValue] = String(describing: error)
-                for item in manifest?.work ?? [] where item.imageID == file.id && item.stage != .comparison {
-                    if item.state == .pending {
-                        try manifest?.skip(item.id, reason: "Image preparation failed: \(error)")
-                    }
-                    if item.state == .running {
-                        try manifest?.finish(item.id, state: .failed, reason: "Image preparation failed: \(error)")
-                    }
+                for item in manifest?.work ?? [] where item.imageID == file.id && (item.state == .pending || item.state == .running) {
+                    let diagnostic = await failureDiagnostic(error, item: item)
+                    try Task.checkCancellation()
+                    if item.state == .running { try manifest?.finish(item.id, state: .failed, reason: diagnostic.compactReason) }
+                    else { try manifest?.skip(item.id, reason: diagnostic.compactReason) }
+                    if let index = manifest?.work.firstIndex(where: { $0.id == item.id }) { manifest?.work[index].diagnostic = diagnostic }
                 }
                 try await store.saveManifest(currentManifest())
+                if snapshot.files.count == 1 { throw error }
+                limitation("Image review unavailable: " + ReviewValidationIssue.classify(error).check)
+                result?.failures[Self.workID(file.id, "source").rawValue] = ReviewValidationIssue.classify(error).check
             }
             if let result {
                 results.append(result)
@@ -169,7 +196,8 @@ extension CombinedReviewFeature {
         progress = "Independent overview and subject discovery"
         let overview: CombinedReviewOverview? = try await perform(overviewID, category: .overview) {
             let prompt = try CombinedReviewResponse.admitted(CombinedReviewResponse.overviewInstruction, model: qwen, outputTokens: snapshot.responseTokens)
-            return try await CombinedReviewResponse.overview(backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens))
+            let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
+            return try CombinedReviewResponse.validated(text) { try CombinedReviewResponse.overview($0) }
         }
         result?.overview = overview
         if let overview {
@@ -181,6 +209,14 @@ extension CombinedReviewFeature {
             limitation("Overview/discovery unavailable; crop observations remain independent.")
         }
         return .init(snapshot: snapshot, file: file, source: source, qwen: qwen, overview: overview)
+    }
+
+    func registeredCandidates(_ candidates: [ObjectInstanceDeduplicator.Candidate], source: ReviewImageSource) throws -> [ObjectInstanceDeduplicator.Candidate] {
+        try candidates.map { candidate in
+            let registration = try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidate.normalizedBoundingBox)
+            return try ObjectInstanceDeduplicator.candidate(concept: candidate.concept.query, mask: candidate.mask, score: candidate.score,
+                                                           bounds: registration.normalizedBounds(width: source.image.width, height: source.image.height), id: candidate.sourceInstanceID)
+        }
     }
 
     func plan(_ backend: any CombinedReviewBackendServing, context: CombinedReviewContext) async throws -> (CombinedReviewPlan, [ReviewSubjectID: CGImage], [ReviewWorkID]) {
@@ -197,13 +233,13 @@ extension CombinedReviewFeature {
                 segmentIDs.append(id)
                 let records: [ReviewSubjectRecord]? = try await perform(id, category: .sam) {
                     let candidates = try await backend.segment(image: source.image, file: file, concept: concept)
-                    let retained = ObjectInstanceDeduplicator.retain(candidates, maximumCount: 8)
+                    let retained = ObjectInstanceDeduplicator.retain(try registeredCandidates(candidates, source: source), maximumCount: 8)
                     var values: [ReviewSubjectRecord] = []
                     for candidate in retained {
                         let maskKey = await retain(candidate.mask, force: true)
                         let subjectID = ReviewSubjectID(rawValue: file.id.rawValue + ":subject:" + String(index) + ":" + candidate.descriptor.id)
                         masks[subjectID] = candidate.mask
-                        values.append(.init(id: subjectID, imageID: file.id, concept: concept,
+                        values.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), registration: try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidates.first { $0.sourceInstanceID == candidate.descriptor.sourceInstanceID }?.normalizedBoundingBox ?? candidate.descriptor.normalizedBoundingBox), id: subjectID, imageID: file.id, concept: concept,
                                             normalizedBounds: candidate.descriptor.normalizedBoundingBox, maskConfidence: candidate.descriptor.score,
                                             aliases: candidate.descriptor.aliases, maskInputReference: maskKey, availability: .available))
                     }
@@ -226,65 +262,99 @@ extension CombinedReviewFeature {
         }
         let retainedIDs = Set(ObjectInstanceDeduplicator.retain(allCandidates, maximumCount: 8).map(\.descriptor.sourceInstanceID))
         subjects = subjects.filter { retainedIDs.contains($0.id.rawValue) }
+        subjects = try ReviewSubjectPriority.assign(subjects, cues: overview?.primarySubjects ?? [], contextual: overview?.contextualConcepts ?? [], masks: masks, provenance: overviewID.rawValue)
+        if !subjects.isEmpty, !subjects.contains(where: { $0.relevance?.role == .primaryCandidate }) {
+            limitation("Main-subject priority is ambiguous or unassigned; whole foreground regions share priority in stable ID order.")
+        }
         var heads: [ReviewSubjectRecord] = []
+        var headOmissions: [ReviewRegionOmission] = []
         if snapshot.models["sam"] != nil, !subjects.isEmpty {
             let headID = try addWork("segment:head", stage: .segmentation, parents: [sourceID, overviewID], source: source.metadata.identity, region: "head")
             segmentIDs.append(headID)
-            let values: [ReviewSubjectRecord]? = try await perform(headID, category: .sam) {
+            let values: CombinedReviewHeadCandidates? = try await perform(headID, category: .sam) {
                 let candidates = try await backend.segment(image: source.image, file: file, concept: "head")
-                var records: [ReviewSubjectRecord] = []
-                for candidate in ObjectInstanceDeduplicator.retain(candidates, maximumCount: 8) {
+                var records: [ReviewSubjectRecord] = [], omissions: [ReviewRegionOmission] = []
+                for candidate in ObjectInstanceDeduplicator.retain(try registeredCandidates(candidates, source: source), maximumCount: 8) {
                     let bounds = candidate.descriptor.normalizedBoundingBox
                     // Association requires a small, contained head candidate; ambiguous overlaps abstain.
                     let parents = subjects.filter { $0.normalizedBounds.contains(bounds) && bounds.width * bounds.height < $0.normalizedBounds.width * $0.normalizedBounds.height * 0.6 }
-                    guard parents.count == 1, let parent = parents.first else { continue }
-                    await records.append(.init(id: parent.id, imageID: file.id, concept: "Head candidate within " + parent.concept,
+                    guard parents.count == 1, let parent = parents.first else {
+                        omissions.append(.init(regionID: .init(rawValue: ReviewCompatibility.digest(headID.rawValue + ":" + candidate.descriptor.sourceInstanceID)), subjectID: nil,
+                                               reason: .ambiguousAnatomy, detail: "Head-query foreground has no unique parent association; no anatomical label is qualified"))
+                        continue
+                    }
+                    await records.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), registration: try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidates.first { $0.sourceInstanceID == candidate.descriptor.sourceInstanceID }?.normalizedBoundingBox ?? bounds), id: parent.id, imageID: file.id, concept: "Generic candidate region within " + parent.concept,
                                                normalizedBounds: bounds, maskConfidence: candidate.descriptor.score, aliases: [],
                                                maskInputReference: retain(candidate.mask, force: true), availability: .available))
                 }
-                return records
+                return .init(records: records, omissions: omissions)
             }
-            heads = values ?? []
+            heads = values?.records ?? []; headOmissions = values?.omissions ?? []
         }
-        if heads.isEmpty {
-            limitation("No unambiguous contained head candidate; whole-subject regions are the detail fallback.")
+        limitation("Anatomy is unverified. SAM head queries and containment alone do not establish a head or eyes; retained candidates are generic regions.")
+        for subject in subjects + heads {
+            if let warning = subject.registration?.warning { limitation(subject.id.rawValue + ": " + warning) }
+            if subject.registration?.touchesSourceEdge == true { limitation(subject.id.rawValue + ": foreground touches the source edge; visibility may be partial.") }
         }
         // The identity plan persists deterministic crop decisions independently of later measurements.
         replaceDependencies(identityID, with: [sourceID, overviewID] + segmentIDs)
         let plan: CombinedReviewPlan? = try await perform(identityID) {
             var proposed: [(CGRect, String, ReviewSubjectID?)] = []
+            for subject in subjects {
+                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: subject.normalizedBounds), "Registered foreground: \(subject.concept); identity unverified", subject.id))
+            }
             for manual in snapshot.userRegions ?? [] where manual.imageID == file.id {
                 try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: manual.normalizedRect), manual.purpose, nil))
             }
             for head in heads {
-                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: head.normalizedBounds), head.concept + "; eyes unverified", head.id))
-            }
-            for subject in subjects {
-                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: subject.normalizedBounds), "Subject: \(subject.concept)", subject.id))
+                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: head.normalizedBounds), head.concept + "; anatomy unverified", head.id))
             }
             if proposed.isEmpty {
                 proposed.append((source.metadata.sourceSpace.bounds, "Whole-frame fallback; no verified subject", nil))
             }
             let geometry = ReviewEncoderGeometry(width: qwen.encoderWidth, height: qwen.encoderHeight, strategy: .stretch)
-            var records: [ReviewRegionRecord] = [], omitted: [ReviewRegionID] = []
-            for (index, proposal) in proposed.enumerated() {
-                let region = try source.region(rect: proposal.0, purpose: proposal.1, encoder: geometry)
-                let id = ReviewRegionID(rawValue: region.id)
-                if index >= cropAllowance {
-                    omitted.append(id); continue
+            var records: [ReviewRegionRecord] = [], omitted: [ReviewRegionID] = [], omissions: [ReviewRegionOmission] = headOmissions
+            for proposal in proposed {
+                let region: ReviewRegion
+                do { region = try source.region(rect: proposal.0, purpose: proposal.1, encoder: geometry) } catch {
+                    let id = ReviewRegionID(rawValue: ReviewCompatibility.digest(source.metadata.identity + proposal.1 + String(describing: proposal.0)))
+                    omitted.append(id); omissions.append(.init(regionID: id, subjectID: proposal.2, reason: .geometryFailure, detail: "Invalid registered source rectangle; region omitted"))
+                    continue
                 }
-                let input = try await retain(source.crop(region))
-                records.append(.init(id: id, imageID: file.id, subjectID: proposal.2, sourceIdentity: source.metadata.identity, purpose: proposal.1,
+                let id = ReviewRegionID(rawValue: region.id)
+                if records.count >= cropAllowance {
+                    omitted.append(id)
+                    let contextual = subjects.first { $0.id == proposal.2 }?.relevance?.role == .contextual
+                    omissions.append(.init(regionID: id, subjectID: proposal.2, reason: contextual ? .contextualPriority : .budgetDepthPolicy,
+                                           detail: contextual ? "Contextual region follows main-subject coverage within immutable crop caps" : "Depth/allocation cap; generic anatomy follows whole-subject coverage"))
+                    continue
+                }
+                let crop: CGImage
+                do { crop = try source.crop(region) } catch {
+                    omitted.append(id); omissions.append(.init(regionID: id, subjectID: proposal.2, reason: .unavailableInput, detail: "Registered crop input unavailable"))
+                    continue
+                }
+                let input = await retain(crop)
+                var support: ReviewCropSupport?
+                if let subjectID = proposal.2, let mask = masks[subjectID] {
+                    let foreground = try SubjectMaskForeground.decode(mask, width: source.image.width, height: source.image.height)
+                    support = .init(registrationVersion: ReviewMaskRegistration.version,
+                                    subjectForegroundRetained: ReviewMaskRegistration.retainedFraction(foreground, in: region.sourceRect),
+                                    encoderForegroundRetained: ReviewMaskRegistration.retainedFraction(foreground, in: region.encoder.retainedSourceRect),
+                                    sourceEdgeContact: subjects.first { $0.id == subjectID }?.registration?.touchesSourceEdge ?? false,
+                                    anatomicalSupport: "unverified; foreground retention is not semantic identity")
+                }
+                records.append(.init(support: support, id: id, imageID: file.id, subjectID: proposal.2, sourceIdentity: source.metadata.identity, purpose: proposal.1,
                                      requestedRect: region.requestedRect, paddedRect: region.paddedRect, sourceRect: region.sourceRect,
                                      retainedSourceRect: region.encoder.retainedSourceRect, encoderSize: region.encoder.encoderSize,
                                      scaleX: Double(region.encoder.scaleX), scaleY: Double(region.encoder.scaleY), edgeClipped: region.edgeClipped,
                                      intendedRegionRetained: region.intendedRegionRetained, fidelity: source.metadata.fidelity.rawValue,
                                      policy: source.metadata.policy.rawValue, inputReference: input))
             }
-            return .init(subjects: subjects, regions: records, uninspected: omitted)
+            return .init(omissions: omissions, subjects: subjects, regions: records, uninspected: omitted)
         }
         guard let plan else { throw ReviewRunError.invalidEvidence }
-        result?.subjects = plan.subjects; result?.regions = plan.regions
+        result?.subjects = plan.subjects; result?.regions = plan.regions; result?.omissions = plan.omissions ?? []
         if !plan.uninspected.isEmpty {
             limitation("\(plan.uninspected.count) candidate regions were outside the chosen crop budget.")
         }
@@ -318,20 +388,38 @@ extension CombinedReviewFeature {
                     masks[subject.id] = await exactInput(key)
                 }
                 guard let technical, let mask = masks[subject.id],
-                      mask.width == technical.image.width, mask.height == technical.image.height else { throw ReviewRunError.invalidEvidence }
-                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: nil) else { throw ReviewRunError.invalidEvidence }
+                      mask.width == technical.image.width, mask.height == technical.image.height,
+                      let contract = subject.maskContract else { throw SubjectMaskDecodingError.unsafeRegistration }
+                try contract.validate(mask: mask, sourceIdentity: source.metadata.identity)
+                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: nil) else { throw ReviewValidationIssue(.maskDecoding, "measurement.availableScore", field: "subjectMask") }
                 var values = ["subjectDetail": Double(measured.finalScore), "fineDetail": Double(measured.fineDetailScore), "maskCoverage": Double(measured.maskCoverage)]
+                guard measured.scorerVersion == SubjectMaskFocusScorer.semanticsVersion else { throw ReviewRunError.incompatible }
+                if let count = measured.foregroundCount { values["foregroundPixelCount"] = Double(count) }
+                if let count = measured.totalPixelCount { values["totalPixelCount"] = Double(count) }
+                if let count = measured.usableForegroundCount { values["usableForegroundPixelCount"] = Double(count) }
+                if let count = measured.interiorPixelCount { values["interiorPixelCount"] = Double(count) }
+                if let border = measured.borderPixels { values["excludedBorderPixels"] = Double(border) }
+                if let foreground = measured.foregroundCount, let total = measured.totalPixelCount, total > 0 {
+                    values["foregroundCoverage"] = Double(foreground) / Double(total)
+                }
+                if let usable = measured.usableForegroundCount, let interior = measured.interiorPixelCount, interior > 0 {
+                    values["usableInteriorCoverage"] = Double(usable) / Double(interior)
+                }
+                if measured.suspectNearFullOccupancy == true {
+                    limitation("Subject mask covers at least 95% of the raster; subject specificity is uncertain. This is not calibrated focus evidence.")
+                }
                 if let broad = measured.broadSubjectScore {
                     values["broadDetail"] = Double(broad)
                 }
                 if let local = measured.localDetailScore {
                     values["localDetail"] = Double(local)
                 }
-                guard values.values.allSatisfy(\.isFinite) else { throw ReviewRunError.invalidEvidence }
-                return try .init(id: .init(rawValue: id.rawValue), subjectID: subject.id, values: values, availability: .available,
+                guard values.values.allSatisfy(\.isFinite) else { throw ReviewValidationIssue(.maskDecoding, "measurement.finiteValues", field: "values") }
+                return try .init(scorerVersion: measured.scorerVersion, maskContract: contract, foregroundBounds: measured.foregroundBounds, id: .init(rawValue: id.rawValue), subjectID: subject.id, values: values, availability: .available,
                                  reason: "Render-dependent detail metric; no calibrated sharp/blur threshold or eye claim", provenance: provenance(id, source: technical))
             }
             if let measurement {
+                guard measurement.hasCurrentMaskSemantics else { throw ReviewRunError.incompatible }
                 result?.measurements.append(measurement)
             }
         }
@@ -360,7 +448,8 @@ extension CombinedReviewFeature {
                 If these restrictions leave no supported observation, set insufficientEvidence to true.
                 Do not identify a species or claim edited results or calibrated quality. Do not assume other passes agree.
                 """
-                return try await CombinedReviewResponse.inspection(backend.respond(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, tokens: snapshot.responseTokens), regionID: region.id.rawValue)
+                let text = try await backend.respond(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, tokens: snapshot.responseTokens)
+                return try CombinedReviewResponse.validated(text) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue) }
             }
             if let inspection {
                 let origin = try provenance(id, source: source, input: region.inputReference)
@@ -416,9 +505,18 @@ extension CombinedReviewFeature {
             result?.report = report
         } else {
             limitation("Report synthesis failed validation; completed observations remain available. No generated claim is accepted.")
+            let summary = result.map(ReviewEvidenceOnlySummary.make)
+            result?.evidenceOnlySummary = summary
+            if let summary {
+                if manifest?.evidenceOnlySummaries == nil { manifest?.evidenceOnlySummaries = [:] }
+                manifest?.evidenceOnlySummaries?[file.id.rawValue] = summary
+            }
+            let inspected = result?.observations.filter { $0.regionID != nil && $0.availability == .available }.compactMap(\.regionID) ?? []
+            let missing = plan.regions.map(\.id).filter { !inspected.contains($0) } + plan.uninspected
             let fallback = ReviewImageReport(id: .init(rawValue: file.id.rawValue + ":report"), imageID: file.id, claims: [], limitations: result?.limitations ?? [], incomplete: true,
-                                             inspectedRegions: result?.observations.compactMap(\.regionID) ?? [], uninspectedRegions: plan.regions.map(\.id) + plan.uninspected)
+                                             inspectedRegions: inspected, uninspectedRegions: missing)
             result?.report = fallback
+            try await store.saveManifest(currentManifest())
         }
         try await store.saveManifest(currentManifest())
         progress = result?.report?.incomplete == true ? "Complete with limitations" : "Complete"
@@ -444,12 +542,12 @@ extension CombinedReviewFeature {
             let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + " " + observation.text + " Uncertainty: " + observation.uncertainty
             rows.append((ref, row)); aliases[ref] = .init(kind: .observation, id: observation.id.rawValue)
         }
-        for measurement in value.measurements {
+        for measurement in value.measurements where measurement.hasCurrentMaskSemantics {
             let ref = ReviewEvidenceReference(kind: .measurement, id: "m\(aliases.count + 1)")
             try rows.append((ref, String(decoding: encoder.encode(ref), as: UTF8.self) + " " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)))
             aliases[ref] = .init(kind: .measurement, id: measurement.id.rawValue)
         }
-        guard let exampleRow = rows.reversed().first(where: { $0.reference.kind == .observation }) ?? rows.last else { throw ReviewRunError.invalidEvidence }
+        guard let exampleRow = rows.reversed().first(where: { $0.reference.kind == .observation }) ?? rows.last else { throw ReviewValidationIssue(.grounding, "synthesis.availableEvidence") }
         let exampleObservation = value.observations.first { $0.id.rawValue == aliases[exampleRow.reference]?.id }
         let example = ReviewClaim(text: exampleObservation.map { String($0.text.prefix(400)) } ?? "A render-dependent subject-detail measurement is available.",
                                   type: exampleObservation == nil ? "detail" : "composition", evidence: [exampleRow.reference],
@@ -486,36 +584,38 @@ extension CombinedReviewFeature {
         let inspected = value.observations.filter { $0.regionID != nil && $0.availability == .available }.compactMap(\.regionID)
         let missing = plan.regions.map(\.id).filter { !inspected.contains($0) } + plan.uninspected
         if included.isEmpty {
-            throw ReviewRunError.invalidEvidence
+            throw ReviewValidationIssue(.grounding, "synthesis.includedEvidence")
         }
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)
         let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
-        let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
-                                                          uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
-        // Aliases exist only inside this request. Persist the real, validated provenance IDs.
-        let claims = try generated.claims.map { claim in
-            func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
-                guard included.contains(reference), let stored = aliases[reference] else { throw ReviewRunError.invalidEvidence }
-                return stored
+        return try CombinedReviewResponse.validated(text) { text in
+            let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
+                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
+            // Aliases exist only inside this request. Persist the real, validated provenance IDs.
+            let claims = try generated.claims.map { claim in
+                func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
+                    guard included.contains(reference), let stored = aliases[reference] else { throw ReviewValidationIssue(.unknownID, "synthesis.aliasResolution", field: "claims.evidence") }
+                    return stored
+                }
+                return try ReviewClaim(text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
+                                       uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
             }
-            return try ReviewClaim(text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
-                                   uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
-        }
-        let report = ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: claims, limitations: generated.limitations,
-                                       incomplete: generated.incomplete, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
-        for claim in report.claims {
-            guard ["composition", "exposure", "visibility", "detail", "suggestion"].contains(claim.type) else { throw ReviewRunError.invalidEvidence }
-            if claim.type == "detail" {
-                let detailIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue } + value.measurements.map { $0.id.rawValue })
-                guard claim.evidence.contains(where: { detailIDs.contains($0.id) }) else { throw ReviewRunError.invalidEvidence }
-                let lower = claim.text.lowercased()
-                if ["sharp", "blur", "soft", "focus"].contains(where: lower.contains) {
-                    let cropIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue })
-                    guard claim.evidence.contains(where: { $0.kind == .observation && cropIDs.contains($0.id) }) else { throw ReviewRunError.invalidEvidence }
+            let report = ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: claims, limitations: generated.limitations,
+                                           incomplete: generated.incomplete, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
+            for claim in report.claims {
+                guard ["composition", "exposure", "visibility", "detail", "suggestion"].contains(claim.type) else { throw ReviewValidationIssue(.unsupportedDomain, "synthesis.claimType", field: "claims.type") }
+                if claim.type == "detail" {
+                    let detailIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue } + value.measurements.map { $0.id.rawValue })
+                    guard claim.evidence.contains(where: { detailIDs.contains($0.id) }) else { throw ReviewValidationIssue(.grounding, "synthesis.detailSupport", field: "claims.evidence") }
+                    let lower = claim.text.lowercased()
+                    if ["sharp", "blur", "soft", "focus"].contains(where: lower.contains) {
+                        let cropIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue })
+                        guard claim.evidence.contains(where: { $0.kind == .observation && cropIDs.contains($0.id) }) else { throw ReviewValidationIssue(.grounding, "synthesis.focusNeedsCrop", field: "claims.evidence") }
+                    }
                 }
             }
+            return report
         }
-        return report
     }
 }
 
@@ -562,7 +662,7 @@ extension CombinedReviewFeature {
             for value in values {
                 let observation = value.observations.first(where: { $0.regionID == nil && $0.availability == .available })
                     ?? value.observations.first(where: { $0.availability == .available && !$0.provenance.workID.rawValue.contains(":reconcile") })
-                guard let observation else { throw ReviewRunError.invalidEvidence }
+                guard let observation else { throw ReviewValidationIssue(.grounding, "comparison.independentObservation") }
                 let reference = try String(decoding: encoder.encode(ReviewEvidenceReference(kind: .observation, id: observation.id.rawValue)), as: UTF8.self)
                 rows.append("\(value.file.id.rawValue) \(value.source?.fidelity ?? "unavailable") missing=\(value.report?.incomplete != false) \(reference) \(observation.text.prefix(excerptLimit)) [excerpt; limits: \(observation.uncertainty.prefix(excerptLimit / 2))]")
             }
@@ -575,7 +675,7 @@ extension CombinedReviewFeature {
                 prompt = candidate; excerptLimit = limit; break
             }
         }
-        guard !prompt.isEmpty else { throw ReviewRunError.invalidEvidence }
+        guard !prompt.isEmpty else { throw ReviewValidationIssue(.responseLength, "comparison.mandatoryPromptFits") }
         var pruned = values.contains { value in
             value.observations.contains { $0.text.count > excerptLimit || $0.uncertainty.count > excerptLimit / 2 }
         }
@@ -592,7 +692,7 @@ extension CombinedReviewFeature {
             }
         }
         for value in values {
-            for measurement in value.measurements where measurement.availability == .available {
+            for measurement in value.measurements where measurement.hasCurrentMaskSemantics {
                 let reference = try String(decoding: encoder.encode(ReviewEvidenceReference(kind: .measurement, id: measurement.id.rawValue)), as: UTF8.self)
                 let row = try value.file.id.rawValue + " " + reference + " technical; uncalibrated " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)
                 if (try? CombinedReviewResponse.admitted(prompt + "\n" + row, model: model, outputTokens: snapshot.responseTokens)) != nil {
@@ -608,7 +708,7 @@ extension CombinedReviewFeature {
     static func validatePromptReferences(_ report: ReviewSelectionReport, prompt: String) throws {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         for reference in report.claims.flatMap({ $0.claim.evidence + $0.claim.contradictions }) {
-            guard try prompt.contains(String(decoding: encoder.encode(reference), as: UTF8.self)) else { throw ReviewRunError.invalidEvidence }
+            guard try prompt.contains(String(decoding: encoder.encode(reference), as: UTF8.self)) else { throw ReviewValidationIssue(.grounding, "comparison.referenceIncludedInPrompt", field: "claims.evidence") }
         }
     }
 
@@ -633,9 +733,12 @@ extension CombinedReviewFeature {
             comparisonInputReference = input
             let prompt = try comparisonPrompt(results, model: qwen)
             let response = try await backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens)
-            var report = try ReviewSelectionReport.decode(response)
-            try report.validate(results: results)
-            try Self.validatePromptReferences(report, prompt: prompt.text)
+            var report = try CombinedReviewResponse.validated(response) { response in
+                let report = try ReviewSelectionReport.decode(response)
+                try report.validate(results: results)
+                try Self.validatePromptReferences(report, prompt: prompt.text)
+                return report
+            }
             report.cells = cells; report.inputReference = input; report.contextPruned = prompt.pruned
             report.omittedPairs = results.count * (results.count - 1) / 2
             return report
@@ -658,7 +761,8 @@ extension CombinedReviewFeature {
                       let rightRegion = right.regions.first(where: { $0.subjectID == right.subjects[0].id }),
                       leftRegion.fidelity == rightRegion.fidelity, leftRegion.policy == rightRegion.policy,
                       abs(leftRegion.scaleX / rightRegion.scaleX - 1) <= 0.1, abs(leftRegion.scaleY / rightRegion.scaleY - 1) <= 0.1,
-                      leftRegion.intendedRegionRetained, rightRegion.intendedRegionRetained else { continue }
+                      leftRegion.intendedRegionRetained, rightRegion.intendedRegionRetained,
+                      leftRegion.support?.qualifiesWholeSubject == true, rightRegion.support?.qualifiesWholeSubject == true else { continue }
                 eligible.append(.init(left: left, right: right, leftRegion: leftRegion, rightRegion: rightRegion))
             }
         }
@@ -679,8 +783,13 @@ extension CombinedReviewFeature {
                 }
                 let (board, cells) = try Self.comparisonBoard(crops)
                 let prompt = try comparisonPrompt([left, right], model: model, pair: true)
-                var value = try await ReviewSelectionReport.decode(backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens))
-                try value.validate(results: [left, right]); try Self.validatePromptReferences(value, prompt: prompt.text); value.cells = cells; value.inputReference = await retain(board); value.contextPruned = prompt.pruned
+                let response = try await backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens)
+                var value = try CombinedReviewResponse.validated(response) { response in
+                    let value = try ReviewSelectionReport.decode(response)
+                    try value.validate(results: [left, right]); try Self.validatePromptReferences(value, prompt: prompt.text)
+                    return value
+                }
+                value.cells = cells; value.inputReference = await retain(board); value.contextPruned = prompt.pruned
                 return value
             }
             if let value {

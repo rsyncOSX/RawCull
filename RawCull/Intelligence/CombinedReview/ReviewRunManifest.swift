@@ -23,6 +23,7 @@ nonisolated struct ReviewWorkItem: Codable, Sendable {
     var state: ReviewWorkState = .pending
     var attempts = 0
     var reason: String?
+    var diagnostic: ReviewFailureDiagnostic? = nil
     var artifactKey: String?
 }
 
@@ -31,6 +32,8 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
     var work: [ReviewWorkItem]
     var budget: ReviewBudget
     var cancelled = false
+    var retainedDiagnosticBytes: Int? = nil
+    var evidenceOnlySummaries: [String: ReviewEvidenceOnlySummary]? = nil
 
     func validate() throws {
         try snapshot.validate()
@@ -53,7 +56,17 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
             visiting.remove(item.id)
             visited.insert(item.id)
         }
+        let retained = retainedDiagnosticBytes ?? 0
+        guard work.compactMap(\.diagnostic).allSatisfy({ $0.retainedResponseBytes >= 0 && $0.retainedResponseBytes <= ReviewDiagnosticLimits.perResponseBytes }) else { throw ReviewRunError.invalidSnapshot }
+        let diagnosticBytes = work.compactMap(\.diagnostic).reduce(0) { $0 + $1.retainedResponseBytes }
+        guard retained >= 0, retained <= ReviewDiagnosticLimits.perRunBytes, diagnosticBytes <= retained else { throw ReviewRunError.invalidSnapshot }
         for item in work {
+            if let diagnostic = item.diagnostic {
+                guard diagnostic.workID == item.id, diagnostic.stage == item.stage,
+                      diagnostic.check.count <= 120, (diagnostic.fieldPath?.count ?? 0) <= 120,
+                      diagnostic.retainedResponseBytes >= 0, diagnostic.retainedResponseBytes <= ReviewDiagnosticLimits.perResponseBytes,
+                      diagnostic.rejectedResponseKey == nil || snapshot.diagnosticRetention == .boundedRejectedText else { throw ReviewRunError.invalidSnapshot }
+            }
             guard images.contains(item.imageID) else { throw ReviewRunError.invalidSnapshot }
             try visit(item)
         }
@@ -97,7 +110,7 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
         }
         work[index].state = .running
         work[index].attempts += 1
-        work[index].reason = nil
+        work[index].reason = nil; work[index].diagnostic = nil
     }
 
     mutating func finish(_ id: ReviewWorkID, state: ReviewWorkState, reason: String? = nil, artifactKey: String? = nil) throws {
@@ -121,6 +134,7 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
         for index in work.indices where work[index].state == .running || work[index].state == .pending {
             work[index].state = .cancelled
             work[index].reason = "Run cancelled; unfinished output discarded"
+            work[index].diagnostic = .init(stage: work[index].stage, workID: work[index].id, code: .cancellation, check: "execution.cancelled", fieldPath: nil, evidenceReference: nil)
             work[index].artifactKey = nil
         }
     }
@@ -148,7 +162,7 @@ nonisolated struct CombinedReviewRunV1: Codable, Sendable {
             if invalid.contains(item.id) || item.state == .running || item.state == .cancelled || (retryFailed && item.state == .failed) {
                 work[index].state = .pending
                 work[index].artifactKey = nil
-                work[index].reason = nil
+                work[index].reason = nil; work[index].diagnostic = nil
             }
             if let compatibility = expected[item.id] {
                 work[index].compatibility = compatibility
