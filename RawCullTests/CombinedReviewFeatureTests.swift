@@ -7,6 +7,25 @@ import Testing
 
 @Suite("Single-image Combined Review", .tags(.smoke))
 struct CombinedReviewFeatureTests {
+    @Test @MainActor func `malformed optional discovery reaches segmentation with persisted limitations and one charged attempt`() async throws {
+        struct Response: Decodable { let file: String; let stage: String; let response: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let responses = try JSONDecoder().decode([Response].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/schema-responses-v9.json")))
+        let response = try #require(responses.first { $0.file == "DSC05921.ARW" && $0.stage == "overview" })
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true, overviewResponse: response.response)
+        let feature = makeFeature(fixture, backend: backend)
+        await feature.analyze([fixture.file])
+        let result = try #require(feature.result)
+        #expect(result.overview != nil)
+        #expect(result.overview?.primarySubjects?.isEmpty == true)
+        #expect(!result.subjects.isEmpty)
+        #expect(!result.measurements.isEmpty)
+        #expect(feature.manifest?.work.contains { $0.stage == .overview && $0.state == .completed } == true)
+        #expect(feature.manifest?.budget.attempts[.overview] == 1)
+        #expect(result.report?.limitations.contains { $0.reason.contains("overview.optionalSchema") } == true)
+    }
+
     @Test @MainActor func `synthesis preserves crop and overview evidence without metric references or copied examples`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         let backend = ReviewFakeBackend(hasSAM: true)
@@ -95,7 +114,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : stage == .comparison ? "combined-v7" : "combined-v9"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v10"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -569,13 +588,14 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     nonisolated static let qwen = ReviewModelSnapshot(identity: "fake", runtimeVersion: "test", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)
     let hasSAM: Bool, hasCLIP: Bool, comparisonTie: Bool, invalidCrop: Bool, invalidReport: Bool
     let rejectionPadding: Int
+    let overviewResponse: String?
     var delayCrop: Bool
     var cropContinuation: CheckedContinuation<Void, Never>?
     var cropStarted = false
     var responses = 0
     var synthesisInstructions: [String] = []
-    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0) {
-        self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding
+    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil) {
+        self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding; self.overviewResponse = overviewResponse
     }
 
     func stopDelay() {
@@ -613,6 +633,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             return "{\"comparability\":\"unrelated\",\"decision\":\"abstain\",\"preferred\":[],\"reason\":\"Different scenes; retain individual reviews\",\"claims\":[]}"
         }
         if instruction.contains("concepts") {
+            if let overviewResponse { return overviewResponse }
             return "{\"observations\":\"Centered visible subject\",\"uncertainty\":\"Overview lacks fine detail\",\"concepts\":[{\"query\":\"bird\",\"displayName\":\"Bird\",\"reason\":\"Visible subject\"}]}"
         }
         if let line = instruction.split(separator: "\n").first(where: { $0.contains("Region ID:") }) {

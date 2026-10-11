@@ -62,9 +62,27 @@ nonisolated struct ReviewClaim: Codable, Sendable {
     let uncertainty: String
     let contradictions: [ReviewEvidenceReference]
 
+    private enum CodingKeys: String, CodingKey {
+        case subjectID, regionID, text, type, evidence, uncertainty, contradictions
+    }
+
     func validate(allowed: Set<ReviewEvidenceReference>) throws {
         guard !text.isEmpty, !evidence.isEmpty,
               Set(evidence + contradictions).isSubset(of: allowed) else { throw ReviewRunError.invalidEvidence }
+    }
+}
+
+extension ReviewClaim {
+    nonisolated init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        subjectID = try container.decodeIfPresent(ReviewSubjectID.self, forKey: .subjectID)
+        regionID = try container.decodeIfPresent(ReviewRegionID.self, forKey: .regionID)
+        text = try container.decode(String.self, forKey: .text)
+        type = try container.decode(String.self, forKey: .type)
+        evidence = try container.decode([ReviewEvidenceReference].self, forKey: .evidence)
+        uncertainty = try container.decode(String.self, forKey: .uncertainty)
+        // Absence asserts no conflict. Present null, malformed arrays and references remain errors.
+        contradictions = container.contains(.contradictions) ? try container.decode([ReviewEvidenceReference].self, forKey: .contradictions) : []
     }
 }
 

@@ -20,15 +20,12 @@ nonisolated struct CombinedReviewInspection: Codable, Sendable {
 
 nonisolated enum CombinedReviewResponse {
     static let overviewInstruction = """
-    Inspect this photograph. Return JSON only with observations, uncertainty, concepts, primarySubjects and contextualConcepts.
+    Inspect this photograph. Return JSON only with three fields: observations, uncertainty, concepts.
     observations: one concise sentence about composition, lighting, visible subjects and obstructions (maximum 500 characters).
     uncertainty: one brief sentence about actual evidence limitations (maximum 500 characters; aim for 100).
     concepts: at most 3 objects, each with query, displayName and reason strings. Reasons maximum 500 characters; displayName maximum 80.
-    query must be a short singular object noun phrase, preferably 1 to 3 words. Do not use actions, counts, scene descriptions or relationships as queries.
-    primarySubjects: at most 3 objects with concept and reason (maximum 120 characters). Use exact query strings, never displayName.
-    Omit location. Spatial priority is unverified without a correctly registered mask.
-    contextualConcepts: at most 3 exact query strings for supporting objects already in concepts.
-    Leave optional arrays empty when unsupported. Multiple nominations may be equally important.
+    query must be a short singular object noun phrase, preferably 1 to 3 words. Prefer visible subjects.
+    Do not use actions, counts, scene descriptions or relationships as queries.
     Do not copy these instructions into observations or uncertainty. Do not invent unseen features, eye detail, RAW recovery or quality scores.
     """
 
@@ -40,6 +37,31 @@ nonisolated enum CombinedReviewResponse {
             let concepts: [Concept]
             let primarySubjects: [ReviewPrimarySubjectCue]?
             let contextualConcepts: [String]?
+            let decodingNotes: [String]
+
+            private enum CodingKeys: String, CodingKey {
+                case observations, uncertainty, concepts, primarySubjects, contextualConcepts
+            }
+
+            init(from decoder: any Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                // Core discovery remains strict. Optional hints cannot prevent its decoding.
+                observations = try container.decode(String.self, forKey: .observations)
+                uncertainty = try container.decode(String.self, forKey: .uncertainty)
+                concepts = try container.decode([Concept].self, forKey: .concepts)
+                var notes: [String] = []
+                func hints<Value: Decodable>(_ type: Value.Type, key: CodingKeys) -> [Value]? {
+                    do {
+                        return try container.decodeIfPresent([Value].self, forKey: key)
+                    } catch {
+                        notes.append("overview.optionalSchema: discarded malformed \(key.rawValue); priority metadata unavailable")
+                        return nil
+                    }
+                }
+                primarySubjects = hints(ReviewPrimarySubjectCue.self, key: .primarySubjects)
+                contextualConcepts = hints(String.self, key: .contextualConcepts)
+                decodingNotes = notes
+            }
         }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
         try validateText(payload.observations, maximum: 500, field: "observations")
@@ -54,7 +76,7 @@ nonisolated enum CombinedReviewResponse {
         guard payload.concepts.count <= 3 else { throw ReviewValidationIssue(.responseLength, "overview.conceptCount", field: "concepts") }
         var queries: [String] = []
         var names: [String: Set<String>] = [:]
-        var notes: [String] = []
+        var notes = payload.decodingNotes
         func key(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
         for entry in payload.concepts {
             let query = try SegmentationConcept(entry.query).query

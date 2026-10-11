@@ -5,6 +5,76 @@ import Testing
 
 @Suite("Bounded review diagnostics", .tags(.smoke))
 struct ReviewDiagnosticsTests {
+    @Test func `twelve recorded optional schema failures retain core discovery without inventing priority`() throws {
+        struct Fixture: Decodable { let stage: String; let response: String }
+        struct Core: Decodable { let observations: String; let uncertainty: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtures = try JSONDecoder().decode([Fixture].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/schema-responses-v9.json")))
+        let overviews = fixtures.filter { $0.stage == "overview" }
+        #expect(overviews.count == 12)
+        for fixture in overviews {
+            let core = try JSONDecoder().decode(Core.self, from: Data(fixture.response.utf8))
+            let value = try CombinedReviewResponse.overview(fixture.response)
+            #expect(value.observations == core.observations)
+            #expect(value.uncertainty == core.uncertainty)
+            #expect(!value.concepts.isEmpty)
+            #expect(value.validationNotes?.contains { $0.contains("overview.optionalSchema") } == true)
+            #expect(value.primarySubjects?.allSatisfy { value.concepts.contains($0.concept) && $0.location == nil } == true)
+            #expect(value.contextualConcepts?.allSatisfy(value.concepts.contains) == true)
+            let encoded = try JSONEncoder().encode(value)
+            #expect(try JSONDecoder().decode(CombinedReviewOverview.self, from: encoded).validationNotes == value.validationNotes)
+        }
+    }
+
+    @Test func `optional shapes are isolated independently while malformed core still fails`() throws {
+        let core = #"{"observations":"Bird on fence","uncertainty":"Limited","concepts":[{"query":"bird","displayName":"Bird","reason":"Visible"}]"#
+        let validPrimary = #""primarySubjects":[{"concept":"bird","reason":"Main"}]"#
+        let validContext = #""contextualConcepts":["bird"]"#
+        for shape in [#"["bird"]"#, #"["bird",{"concept":"bird","reason":"Main"}]"#, "42", #"{"concept":"bird"}"#, #"[{"concept":"bird","location":{"x":"bad","y":0.5}}]"#] {
+            let value = try CombinedReviewResponse.overview(core + ",\"primarySubjects\":" + shape + "," + validContext + "}")
+            #expect(value.primarySubjects?.isEmpty == true)
+            #expect(value.contextualConcepts == ["bird"])
+            #expect(value.validationNotes?.contains { $0.contains("malformed primarySubjects") } == true)
+        }
+        for shape in [#"[{"query":"bird"}]"#, #"["bird",{"query":"bird"}]"#, "false", #""bird""#] {
+            let value = try CombinedReviewResponse.overview(core + "," + validPrimary + ",\"contextualConcepts\":" + shape + "}")
+            #expect(value.primarySubjects?.first?.concept == "bird")
+            #expect(value.contextualConcepts?.isEmpty == true)
+            #expect(value.validationNotes?.contains { $0.contains("malformed contextualConcepts") } == true)
+        }
+        for suffix in ["}", #", "primarySubjects":null, "contextualConcepts":null}"#, #", "primarySubjects":[], "contextualConcepts":[]}"#] {
+            #expect(try CombinedReviewResponse.overview(core + suffix).validationNotes?.isEmpty == true)
+        }
+        let badOptional = core + #", "primarySubjects":["bird"]}"#
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(badOptional.replacingOccurrences(of: #""observations":"Bird on fence""#, with: #""observations":42"#)) }
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(badOptional.replacingOccurrences(of: "Limited", with: String(repeating: "x", count: 501))) }
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.overview(badOptional.replacingOccurrences(of: #""query":"bird""#, with: #""query":null"#)) }
+    }
+
+    @Test func `recorded fox report defaults only absent contradictions and retains supported lighting`() throws {
+        struct Fixture: Decodable { let stage: String; let response: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtures = try JSONDecoder().decode([Fixture].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/schema-responses-v9.json")))
+        let fox = try #require(fixtures.first { $0.stage == "report" })
+        var value = result("fox")
+        let original = value.observations[0]
+        value.observations[0] = .init(id: .init(rawValue: "o1"), regionID: nil, text: original.text, uncertainty: original.uncertainty, availability: original.availability, provenance: original.provenance)
+        let allowed: Set<ReviewEvidenceReference> = [.init(kind: .observation, id: "o1")]
+        let report = try CombinedReviewResponse.report(fox.response, imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: true, qualify: ReviewSynthesisGrounding(result: value).validate)
+        #expect(report.claims.count == 1)
+        #expect(report.claims.first?.type == "exposure")
+        #expect(report.claims.first?.contradictions.isEmpty == true)
+        #expect(report.limitations.count == 3)
+        let claim = #"{"text":"Soft light","type":"exposure","evidence":[{"kind":"observation","id":"o1"}],"uncertainty":"Limited""#
+        for malformed in ["null", "42", #""none""#, "[{}]"] {
+            #expect(throws: (any Error).self) { try JSONDecoder().decode(ReviewClaim.self, from: Data((claim + ",\"contradictions\":" + malformed + "}").utf8)) }
+        }
+        let unknown = claim + #", "contradictions":[{"kind":"observation","id":"unknown"}]}"#
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.report(#"{"claims":["# + unknown + "]}", imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: true) }
+        let roundtrip = try JSONDecoder().decode(ReviewClaim.self, from: JSONEncoder().encode(report.claims[0]))
+        #expect(roundtrip.contradictions.isEmpty)
+    }
+
     @Test func `eleven recorded discovery failures preserve bounded core evidence without inventing locations`() throws {
         struct Fixture: Decodable { let run: String; let file: String; let response: String }
         struct Original: Decodable { let observations: String; let uncertainty: String }
