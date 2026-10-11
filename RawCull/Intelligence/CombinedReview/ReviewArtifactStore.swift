@@ -117,6 +117,30 @@ actor ReviewArtifactStore {
         return data
     }
 
+    /// Stored apart from accepted stage evidence. Compact metadata in the manifest is authoritative.
+    func retainRejectedResponse(_ response: ReviewRejectedResponse) throws -> String {
+        guard response.text.utf8.count <= ReviewDiagnosticLimits.perResponseBytes else { throw ReviewRunError.storageLimit }
+        let key = ReviewCompatibility.digest(response.runID.uuidString + "|" + response.workID.rawValue)
+        let envelope = ReviewStorageEnvelopeV1(schemaVersion: 1, kind: "rejectedResponse", producerPipelineVersion: ReviewPipelineContract.version,
+                                               compatibility: .init(fields: ["run": response.runID.uuidString]), value: response)
+        try write(envelope, to: root.appendingPathComponent("rejected/\(key).json"))
+        return key
+    }
+
+    func rejectedResponse(_ key: String) throws -> ReviewRejectedResponse {
+        guard isKey(key) else { throw ReviewRunError.corrupt }
+        let data = try readHeader(at: root.appendingPathComponent("rejected/\(key).json"), kind: "rejectedResponse")
+        let value = try JSONDecoder().decode(ReviewStorageEnvelopeV1<ReviewRejectedResponse>.self, from: data).value
+        guard value.text.utf8.count <= ReviewDiagnosticLimits.perResponseBytes,
+              key == ReviewCompatibility.digest(value.runID.uuidString + "|" + value.workID.rawValue) else { throw ReviewRunError.corrupt }
+        return value
+    }
+
+    func clearRejectedResponses() throws {
+        let directory = root.appendingPathComponent("rejected")
+        if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
+    }
+
     func usage() throws -> Int {
         guard FileManager.default.fileExists(atPath: root.path) else { return 0 }
         guard let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
@@ -154,7 +178,7 @@ actor ReviewArtifactStore {
     }
 
     private func write(_ envelope: ReviewStorageEnvelopeV1<some Any>, to url: URL) throws {
-        guard envelope.schemaVersion == 1, ["run", "stage"].contains(envelope.kind),
+        guard envelope.schemaVersion == 1, ["run", "stage", "rejectedResponse"].contains(envelope.kind),
               !envelope.producerPipelineVersion.isEmpty else { throw ReviewRunError.corrupt }
         if FileManager.default.fileExists(atPath: url.path) {
             _ = try readHeader(at: url, kind: envelope.kind)

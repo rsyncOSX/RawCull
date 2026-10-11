@@ -175,11 +175,11 @@ struct ReviewRunContractTests {
         {"regionID":"r","observations":"An eyelet and an iris-shaped pattern are visible.","uncertainty":"Eye detail and RAW recovery cannot be assessed.","insufficientEvidence":false}
         """#
         // Anatomical terms in claim text are still rejected.
-        #expect(throws: ReviewRunError.self) { try CombinedReviewResponse.inspection(response, regionID: "r") }
+        #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.inspection(response, regionID: "r") }
         let safe = response.replacingOccurrences(of: "iris-shaped", with: "circular")
         #expect(try CombinedReviewResponse.inspection(safe, regionID: "r").observations.contains("eyelet"))
         let unsafe = safe.replacingOccurrences(of: "eyelet", with: "eye")
-        #expect(throws: ReviewRunError.self) { try CombinedReviewResponse.inspection(unsafe, regionID: "r") }
+        #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.inspection(unsafe, regionID: "r") }
     }
 
     private func snapshot(criteria: String = "Detail", model: String = "model", count: Int = 1) -> ReviewRunSnapshot {

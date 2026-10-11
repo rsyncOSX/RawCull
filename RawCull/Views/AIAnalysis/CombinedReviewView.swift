@@ -18,7 +18,7 @@ struct CombinedReviewView: View {
                     Text(error).foregroundStyle(.red).textSelection(.enabled)
                 }
                 if !feature.taskHistory.isEmpty {
-                    CombinedReviewTaskHistory(runs: feature.taskHistory, activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil)
+                    CombinedReviewTaskHistory(feature: feature, runs: feature.taskHistory, activeRunID: feature.isRunning ? feature.manifest?.snapshot.id : nil)
                 }
                 if let selection = feature.selectionReport {
                     Text("Selection comparison").font(.title3)
@@ -88,8 +88,12 @@ struct CombinedReviewView: View {
                     Text("RAW detail").tag(ReviewSourcePreference.rawDetail)
                         .disabled(feature.sourceAvailability?.rawDisabledReason != nil)
                 }.frame(width: 280)
-                Toggle("Retain exact inputs", isOn: $feature.retainInputs)
             }.disabled(feature.isRunning || feature.isCheckingParameters || feature.sourceAvailability == nil)
+            HStack {
+                Toggle("Retain exact inputs", isOn: $feature.retainInputs)
+                Toggle("Retain bounded rejected responses", isOn: $feature.retainRejectedResponses)
+                    .help("Off by default. Retains up to 4 KB per rejected response and 32 KB per run, outside accepted evidence.")
+            }.disabled(feature.isRunning)
             if feature.manifest != nil, let reason = feature.resumeDisabledReason {
                 Text("Resume saved run disabled: " + reason).font(.caption).foregroundStyle(.secondary)
             }
@@ -106,6 +110,7 @@ struct CombinedReviewView: View {
                 }.disabled(!feature.canStartReview(for: files.map { ReviewSelectedFile(id: $0.id, url: $0.url, name: $0.name) }))
                 Button("Cancel") { feature.cancel() }.disabled(!feature.isRunning)
                 Button("Resume saved run") { Task { await feature.resume() } }.disabled(feature.isRunning || feature.manifest == nil || feature.resumeDisabledReason != nil)
+                Button("Clear rejected responses") { Task { await feature.clearRejectedResponses() } }.disabled(feature.isRunning)
                 Button("Clear retained inputs") { Task { await feature.clearRetainedInputs() } }.disabled(feature.isRunning)
                 if feature.userRegion != nil {
                     Button("Clear chosen region") { feature.userRegion = nil }.disabled(feature.isRunning)
@@ -147,6 +152,18 @@ struct CombinedReviewView: View {
                     Text(claim.uncertainty).font(.caption).foregroundStyle(.secondary)
                     Text("Evidence: " + claim.evidence.map(\.id).joined(separator: ", ")).font(.caption2).textSelection(.enabled)
                 }
+            }
+        }
+        if let summary = result.evidenceOnlySummary {
+            DisclosureGroup(summary.label) {
+                Text("Completed independent evidence only; model synthesis failed. This summary does not resolve conflicts or infer new findings.").font(.caption)
+                ForEach(summary.rows, id: \.reference) { row in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(row.text).textSelection(.enabled)
+                        Text(row.reference.id + " · " + row.availability.rawValue).font(.caption2).textSelection(.enabled)
+                    }
+                }
+                ForEach(summary.limitations, id: \.self) { Text($0).font(.caption) }
             }
         }
         ForEach(result.observations, id: \.id) { observation in
@@ -258,6 +275,7 @@ private struct CombinedReviewLocations: View {
 }
 
 private struct CombinedReviewTaskHistory: View {
+    let feature: CombinedReviewFeature
     let runs: [CombinedReviewRunV1]
     let activeRunID: UUID?
     @State private var expandedRuns: Set<UUID> = []
@@ -298,7 +316,10 @@ private struct CombinedReviewTaskHistory: View {
                                     Text(item.state == .running && run.snapshot.id != activeRunID ? "Interrupted" : item.state.rawValue.capitalized)
                                 }
                                 Text(item.attempts.formatted()).monospacedDigit()
-                                Text(item.reason ?? "—").foregroundStyle(.secondary).textSelection(.enabled)
+                                VStack(alignment: .leading) {
+                                    Text(item.reason ?? "—").foregroundStyle(.secondary).textSelection(.enabled)
+                                    if let diagnostic = item.diagnostic { CombinedReviewDiagnosticView(feature: feature, diagnostic: diagnostic) }
+                                }
                             }
                         }
                     }

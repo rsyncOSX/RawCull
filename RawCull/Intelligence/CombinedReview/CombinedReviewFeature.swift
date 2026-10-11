@@ -16,6 +16,7 @@ nonisolated struct CombinedReviewResult: Sendable {
     var report: ReviewImageReport?
     var limitations: [ReviewLimitation] = []
     var failures: [String: String] = [:]
+    var evidenceOnlySummary: ReviewEvidenceOnlySummary?
     var overviewInputReference: String?
 }
 
@@ -26,6 +27,7 @@ final class CombinedReviewFeature {
     var depth: ReviewDepth = .standard
     var sourcePreference: ReviewSourcePreference = .highQualityPreview
     var retainInputs = true
+    var retainRejectedResponses = false
     var userRegion: CGRect?
     private(set) var isRunning = false
     private(set) var isCheckingParameters = false
@@ -188,6 +190,7 @@ final class CombinedReviewFeature {
             lease.invalidateOwner = { [weak self] in self?.cancel() }
             let backend = try backendFactory()
             let selectedDepth = depth, selectedPreference = sourcePreference, retention = retainInputs
+            let diagnosticRetention: ReviewDiagnosticRetention = retainRejectedResponses ? .boundedRejectedText : .compact
             let requestedRegion = selected.count == 1 ? userRegion : nil
             let worker = Task { [weak self] in
                 guard let self else { return }
@@ -198,7 +201,7 @@ final class CombinedReviewFeature {
                     catalogSession = ReviewCatalogSession(urls: files.map(\.url))
                     let models = try await backend.models()
                     try Task.checkCancellation()
-                    let snapshot = ReviewRunSnapshot(id: id, files: files, criteria: goal, depth: selectedDepth,
+                    let snapshot = ReviewRunSnapshot(diagnosticRetention: diagnosticRetention, id: id, files: files, criteria: goal, depth: selectedDepth,
                                                      sourcePreference: selectedPreference.rawValue, retentionPolicy: retention ? .exactInputs : .compact,
                                                      renderVersion: ReviewPipelineContract.renderVersion, models: models,
                                                      stageVersions: Self.stageVersions,
@@ -294,6 +297,9 @@ final class CombinedReviewFeature {
         failureMessage = nil
         progress = "Ready"
     }
+
+    func rejectedResponse(_ key: String) async -> ReviewRejectedResponse? { try? await store.rejectedResponse(key) }
+    func clearRejectedResponses() async { try? await store.clearRejectedResponses() }
 
     func clearRetainedInputs() async {
         try? await store.clearInputs()

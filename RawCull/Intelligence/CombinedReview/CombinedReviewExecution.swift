@@ -56,15 +56,39 @@ extension CombinedReviewFeature {
             return value
         } catch is CancellationError { throw CancellationError() } catch {
             try Task.checkCancellation()
+            let diagnostic = await failureDiagnostic(error, item: item)
+            try Task.checkCancellation()
             if manifest?.work.first(where: { $0.id == id })?.state == .running {
-                try manifest?.finish(id, state: .failed, reason: String(describing: error))
+                try manifest?.finish(id, state: .failed, reason: diagnostic.compactReason)
             } else {
-                try manifest?.skip(id, reason: String(describing: error))
+                try manifest?.skip(id, reason: diagnostic.compactReason)
             }
-            result?.failures[id.rawValue] = String(describing: error)
+            if let index = manifest?.work.firstIndex(where: { $0.id == id }) { manifest?.work[index].diagnostic = diagnostic }
+            result?.failures[id.rawValue] = diagnostic.compactReason
             try await store.saveManifest(currentManifest())
             return nil
         }
+    }
+
+    func failureDiagnostic(_ error: any Error, item: ReviewWorkItem) async -> ReviewFailureDiagnostic {
+        let issue = ReviewValidationIssue.classify(error)
+        var diagnostic = ReviewFailureDiagnostic(stage: item.stage, workID: item.id, code: issue.code,
+                                                 check: issue.check, fieldPath: issue.fieldPath, evidenceReference: issue.evidenceReference)
+        if let rejection = error as? ReviewResponseRejection,
+           let snapshot = manifest?.snapshot, snapshot.diagnosticRetention == .boundedRejectedText {
+            let used = manifest?.retainedDiagnosticBytes ?? 0
+            let cap = min(ReviewDiagnosticLimits.perResponseBytes, max(0, ReviewDiagnosticLimits.perRunBytes - used))
+            let bounded = ReviewDiagnosticLimits.bounded(rejection.response, maximumBytes: cap)
+            diagnostic.responseTruncated = bounded.truncated
+            if !bounded.text.isEmpty {
+                do {
+                    diagnostic.rejectedResponseKey = try await store.retainRejectedResponse(.init(runID: snapshot.id, workID: item.id, text: bounded.text, truncated: bounded.truncated))
+                    diagnostic.retainedResponseBytes = bounded.text.utf8.count
+                    manifest?.retainedDiagnosticBytes = used + diagnostic.retainedResponseBytes
+                } catch { diagnostic.retentionUnavailable = true }
+            }
+        }
+        return diagnostic
     }
 
     func addWork(_ name: String, stage: ReviewStage, parents: [ReviewWorkID], source: String, region: String = "") throws -> ReviewWorkID {
@@ -121,20 +145,17 @@ extension CombinedReviewFeature {
                 let terminal = try await inspect(backend, context: context, plan: plan, masks: masks, segmentIDs: segments)
                 try await finish(backend, context: context, plan: plan, terminalIDs: terminal)
             } catch is CancellationError { throw CancellationError() } catch {
-                if snapshot.files.count == 1 {
-                    throw error
-                }
-                limitation("Image review unavailable: \(error)")
-                result?.failures[Self.workID(file.id, "source").rawValue] = String(describing: error)
-                for item in manifest?.work ?? [] where item.imageID == file.id && item.stage != .comparison {
-                    if item.state == .pending {
-                        try manifest?.skip(item.id, reason: "Image preparation failed: \(error)")
-                    }
-                    if item.state == .running {
-                        try manifest?.finish(item.id, state: .failed, reason: "Image preparation failed: \(error)")
-                    }
+                for item in manifest?.work ?? [] where item.imageID == file.id && (item.state == .pending || item.state == .running) {
+                    let diagnostic = await failureDiagnostic(error, item: item)
+                    try Task.checkCancellation()
+                    if item.state == .running { try manifest?.finish(item.id, state: .failed, reason: diagnostic.compactReason) }
+                    else { try manifest?.skip(item.id, reason: diagnostic.compactReason) }
+                    if let index = manifest?.work.firstIndex(where: { $0.id == item.id }) { manifest?.work[index].diagnostic = diagnostic }
                 }
                 try await store.saveManifest(currentManifest())
+                if snapshot.files.count == 1 { throw error }
+                limitation("Image review unavailable: " + ReviewValidationIssue.classify(error).check)
+                result?.failures[Self.workID(file.id, "source").rawValue] = ReviewValidationIssue.classify(error).check
             }
             if let result {
                 results.append(result)
@@ -175,7 +196,8 @@ extension CombinedReviewFeature {
         progress = "Independent overview and subject discovery"
         let overview: CombinedReviewOverview? = try await perform(overviewID, category: .overview) {
             let prompt = try CombinedReviewResponse.admitted(CombinedReviewResponse.overviewInstruction, model: qwen, outputTokens: snapshot.responseTokens)
-            return try await CombinedReviewResponse.overview(backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens))
+            let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
+            return try CombinedReviewResponse.validated(text) { try CombinedReviewResponse.overview($0) }
         }
         result?.overview = overview
         if let overview {
@@ -369,7 +391,7 @@ extension CombinedReviewFeature {
                       mask.width == technical.image.width, mask.height == technical.image.height,
                       let contract = subject.maskContract else { throw SubjectMaskDecodingError.unsafeRegistration }
                 try contract.validate(mask: mask, sourceIdentity: source.metadata.identity)
-                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: nil) else { throw ReviewRunError.invalidEvidence }
+                guard let measured = try await scorer.score(image: technical.image, subjectMask: mask, normalizedAFPoint: nil) else { throw ReviewValidationIssue(.maskDecoding, "measurement.availableScore", field: "subjectMask") }
                 var values = ["subjectDetail": Double(measured.finalScore), "fineDetail": Double(measured.fineDetailScore), "maskCoverage": Double(measured.maskCoverage)]
                 guard measured.scorerVersion == SubjectMaskFocusScorer.semanticsVersion else { throw ReviewRunError.incompatible }
                 if let count = measured.foregroundCount { values["foregroundPixelCount"] = Double(count) }
@@ -392,7 +414,7 @@ extension CombinedReviewFeature {
                 if let local = measured.localDetailScore {
                     values["localDetail"] = Double(local)
                 }
-                guard values.values.allSatisfy(\.isFinite) else { throw ReviewRunError.invalidEvidence }
+                guard values.values.allSatisfy(\.isFinite) else { throw ReviewValidationIssue(.maskDecoding, "measurement.finiteValues", field: "values") }
                 return try .init(scorerVersion: measured.scorerVersion, maskContract: contract, foregroundBounds: measured.foregroundBounds, id: .init(rawValue: id.rawValue), subjectID: subject.id, values: values, availability: .available,
                                  reason: "Render-dependent detail metric; no calibrated sharp/blur threshold or eye claim", provenance: provenance(id, source: technical))
             }
@@ -426,7 +448,8 @@ extension CombinedReviewFeature {
                 If these restrictions leave no supported observation, set insufficientEvidence to true.
                 Do not identify a species or claim edited results or calibrated quality. Do not assume other passes agree.
                 """
-                return try await CombinedReviewResponse.inspection(backend.respond(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, tokens: snapshot.responseTokens), regionID: region.id.rawValue)
+                let text = try await backend.respond(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, tokens: snapshot.responseTokens)
+                return try CombinedReviewResponse.validated(text) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue) }
             }
             if let inspection {
                 let origin = try provenance(id, source: source, input: region.inputReference)
@@ -482,9 +505,18 @@ extension CombinedReviewFeature {
             result?.report = report
         } else {
             limitation("Report synthesis failed validation; completed observations remain available. No generated claim is accepted.")
+            let summary = result.map(ReviewEvidenceOnlySummary.make)
+            result?.evidenceOnlySummary = summary
+            if let summary {
+                if manifest?.evidenceOnlySummaries == nil { manifest?.evidenceOnlySummaries = [:] }
+                manifest?.evidenceOnlySummaries?[file.id.rawValue] = summary
+            }
+            let inspected = result?.observations.filter { $0.regionID != nil && $0.availability == .available }.compactMap(\.regionID) ?? []
+            let missing = plan.regions.map(\.id).filter { !inspected.contains($0) } + plan.uninspected
             let fallback = ReviewImageReport(id: .init(rawValue: file.id.rawValue + ":report"), imageID: file.id, claims: [], limitations: result?.limitations ?? [], incomplete: true,
-                                             inspectedRegions: result?.observations.compactMap(\.regionID) ?? [], uninspectedRegions: plan.regions.map(\.id) + plan.uninspected)
+                                             inspectedRegions: inspected, uninspectedRegions: missing)
             result?.report = fallback
+            try await store.saveManifest(currentManifest())
         }
         try await store.saveManifest(currentManifest())
         progress = result?.report?.incomplete == true ? "Complete with limitations" : "Complete"
@@ -515,7 +547,7 @@ extension CombinedReviewFeature {
             try rows.append((ref, String(decoding: encoder.encode(ref), as: UTF8.self) + " " + String(decoding: encoder.encode(measurement.values), as: UTF8.self)))
             aliases[ref] = .init(kind: .measurement, id: measurement.id.rawValue)
         }
-        guard let exampleRow = rows.reversed().first(where: { $0.reference.kind == .observation }) ?? rows.last else { throw ReviewRunError.invalidEvidence }
+        guard let exampleRow = rows.reversed().first(where: { $0.reference.kind == .observation }) ?? rows.last else { throw ReviewValidationIssue(.grounding, "synthesis.availableEvidence") }
         let exampleObservation = value.observations.first { $0.id.rawValue == aliases[exampleRow.reference]?.id }
         let example = ReviewClaim(text: exampleObservation.map { String($0.text.prefix(400)) } ?? "A render-dependent subject-detail measurement is available.",
                                   type: exampleObservation == nil ? "detail" : "composition", evidence: [exampleRow.reference],
@@ -552,36 +584,38 @@ extension CombinedReviewFeature {
         let inspected = value.observations.filter { $0.regionID != nil && $0.availability == .available }.compactMap(\.regionID)
         let missing = plan.regions.map(\.id).filter { !inspected.contains($0) } + plan.uninspected
         if included.isEmpty {
-            throw ReviewRunError.invalidEvidence
+            throw ReviewValidationIssue(.grounding, "synthesis.includedEvidence")
         }
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)
         let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
-        let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
-                                                          uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
-        // Aliases exist only inside this request. Persist the real, validated provenance IDs.
-        let claims = try generated.claims.map { claim in
-            func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
-                guard included.contains(reference), let stored = aliases[reference] else { throw ReviewRunError.invalidEvidence }
-                return stored
+        return try CombinedReviewResponse.validated(text) { text in
+            let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
+                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty)
+            // Aliases exist only inside this request. Persist the real, validated provenance IDs.
+            let claims = try generated.claims.map { claim in
+                func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
+                    guard included.contains(reference), let stored = aliases[reference] else { throw ReviewValidationIssue(.unknownID, "synthesis.aliasResolution", field: "claims.evidence") }
+                    return stored
+                }
+                return try ReviewClaim(text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
+                                       uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
             }
-            return try ReviewClaim(text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
-                                   uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
-        }
-        let report = ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: claims, limitations: generated.limitations,
-                                       incomplete: generated.incomplete, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
-        for claim in report.claims {
-            guard ["composition", "exposure", "visibility", "detail", "suggestion"].contains(claim.type) else { throw ReviewRunError.invalidEvidence }
-            if claim.type == "detail" {
-                let detailIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue } + value.measurements.map { $0.id.rawValue })
-                guard claim.evidence.contains(where: { detailIDs.contains($0.id) }) else { throw ReviewRunError.invalidEvidence }
-                let lower = claim.text.lowercased()
-                if ["sharp", "blur", "soft", "focus"].contains(where: lower.contains) {
-                    let cropIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue })
-                    guard claim.evidence.contains(where: { $0.kind == .observation && cropIDs.contains($0.id) }) else { throw ReviewRunError.invalidEvidence }
+            let report = ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: claims, limitations: generated.limitations,
+                                           incomplete: generated.incomplete, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
+            for claim in report.claims {
+                guard ["composition", "exposure", "visibility", "detail", "suggestion"].contains(claim.type) else { throw ReviewValidationIssue(.unsupportedDomain, "synthesis.claimType", field: "claims.type") }
+                if claim.type == "detail" {
+                    let detailIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue } + value.measurements.map { $0.id.rawValue })
+                    guard claim.evidence.contains(where: { detailIDs.contains($0.id) }) else { throw ReviewValidationIssue(.grounding, "synthesis.detailSupport", field: "claims.evidence") }
+                    let lower = claim.text.lowercased()
+                    if ["sharp", "blur", "soft", "focus"].contains(where: lower.contains) {
+                        let cropIDs = Set(value.observations.filter { $0.regionID != nil && $0.availability == .available }.map { $0.id.rawValue })
+                        guard claim.evidence.contains(where: { $0.kind == .observation && cropIDs.contains($0.id) }) else { throw ReviewValidationIssue(.grounding, "synthesis.focusNeedsCrop", field: "claims.evidence") }
+                    }
                 }
             }
+            return report
         }
-        return report
     }
 }
 
@@ -628,7 +662,7 @@ extension CombinedReviewFeature {
             for value in values {
                 let observation = value.observations.first(where: { $0.regionID == nil && $0.availability == .available })
                     ?? value.observations.first(where: { $0.availability == .available && !$0.provenance.workID.rawValue.contains(":reconcile") })
-                guard let observation else { throw ReviewRunError.invalidEvidence }
+                guard let observation else { throw ReviewValidationIssue(.grounding, "comparison.independentObservation") }
                 let reference = try String(decoding: encoder.encode(ReviewEvidenceReference(kind: .observation, id: observation.id.rawValue)), as: UTF8.self)
                 rows.append("\(value.file.id.rawValue) \(value.source?.fidelity ?? "unavailable") missing=\(value.report?.incomplete != false) \(reference) \(observation.text.prefix(excerptLimit)) [excerpt; limits: \(observation.uncertainty.prefix(excerptLimit / 2))]")
             }
@@ -641,7 +675,7 @@ extension CombinedReviewFeature {
                 prompt = candidate; excerptLimit = limit; break
             }
         }
-        guard !prompt.isEmpty else { throw ReviewRunError.invalidEvidence }
+        guard !prompt.isEmpty else { throw ReviewValidationIssue(.responseLength, "comparison.mandatoryPromptFits") }
         var pruned = values.contains { value in
             value.observations.contains { $0.text.count > excerptLimit || $0.uncertainty.count > excerptLimit / 2 }
         }
@@ -674,7 +708,7 @@ extension CombinedReviewFeature {
     static func validatePromptReferences(_ report: ReviewSelectionReport, prompt: String) throws {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         for reference in report.claims.flatMap({ $0.claim.evidence + $0.claim.contradictions }) {
-            guard try prompt.contains(String(decoding: encoder.encode(reference), as: UTF8.self)) else { throw ReviewRunError.invalidEvidence }
+            guard try prompt.contains(String(decoding: encoder.encode(reference), as: UTF8.self)) else { throw ReviewValidationIssue(.grounding, "comparison.referenceIncludedInPrompt", field: "claims.evidence") }
         }
     }
 
@@ -699,9 +733,12 @@ extension CombinedReviewFeature {
             comparisonInputReference = input
             let prompt = try comparisonPrompt(results, model: qwen)
             let response = try await backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens)
-            var report = try ReviewSelectionReport.decode(response)
-            try report.validate(results: results)
-            try Self.validatePromptReferences(report, prompt: prompt.text)
+            var report = try CombinedReviewResponse.validated(response) { response in
+                let report = try ReviewSelectionReport.decode(response)
+                try report.validate(results: results)
+                try Self.validatePromptReferences(report, prompt: prompt.text)
+                return report
+            }
             report.cells = cells; report.inputReference = input; report.contextPruned = prompt.pruned
             report.omittedPairs = results.count * (results.count - 1) / 2
             return report
@@ -746,8 +783,13 @@ extension CombinedReviewFeature {
                 }
                 let (board, cells) = try Self.comparisonBoard(crops)
                 let prompt = try comparisonPrompt([left, right], model: model, pair: true)
-                var value = try await ReviewSelectionReport.decode(backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens))
-                try value.validate(results: [left, right]); try Self.validatePromptReferences(value, prompt: prompt.text); value.cells = cells; value.inputReference = await retain(board); value.contextPruned = prompt.pruned
+                let response = try await backend.respond(instruction: prompt.text, image: board, tokens: snapshot.responseTokens)
+                var value = try CombinedReviewResponse.validated(response) { response in
+                    let value = try ReviewSelectionReport.decode(response)
+                    try value.validate(results: [left, right]); try Self.validatePromptReferences(value, prompt: prompt.text)
+                    return value
+                }
+                value.cells = cells; value.inputReference = await retain(board); value.contextPruned = prompt.pruned
                 return value
             }
             if let value {
