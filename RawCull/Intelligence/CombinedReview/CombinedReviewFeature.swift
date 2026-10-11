@@ -9,6 +9,7 @@ nonisolated struct CombinedReviewResult: Sendable {
     var overview: CombinedReviewOverview?
     var subjects: [ReviewSubjectRecord] = []
     var regions: [ReviewRegionRecord] = []
+    var omissions: [ReviewRegionOmission] = []
     var observations: [ReviewObservation] = []
     var measurements: [ReviewMeasurement] = []
     var clip: [String: CombinedReviewCLIPResult] = [:]

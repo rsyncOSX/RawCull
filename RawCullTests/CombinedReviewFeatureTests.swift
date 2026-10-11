@@ -39,6 +39,7 @@ struct CombinedReviewFeatureTests {
         #expect(result.subjects.first?.registration?.foregroundBounds == CGRect(x: 32, y: 24, width: 64, height: 48))
         #expect(result.regions.first?.support?.qualifiesWholeSubject == true)
         #expect(result.regions.allSatisfy { !$0.purpose.contains("Head candidate") })
+        #expect(result.omissions.contains { $0.reason == .ambiguousAnatomy })
         #expect(result.measurements.first?.provenance.renderPolicy == "technical")
         #expect(result.observations.filter { $0.regionID != nil }.allSatisfy { $0.provenance.renderPolicy == "appearance" })
         #expect(feature.manifest?.work.filter { $0.stage == .report }.allSatisfy { $0.state == .completed } == true)

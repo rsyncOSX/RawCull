@@ -99,6 +99,7 @@ nonisolated struct ReviewSourceRecord: Codable, Sendable {
 nonisolated struct ReviewSubjectRecord: Codable, Sendable {
     var maskContract: SubjectMaskContract? = nil
     var registration: ReviewMaskRegistration? = nil
+    var relevance: ReviewSubjectRelevance? = nil
     let id: ReviewSubjectID
     let imageID: ReviewImageID
     let concept: String

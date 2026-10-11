@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated struct CombinedReviewOverview: Codable, Sendable {
+    var primarySubjects: [ReviewPrimarySubjectCue]? = nil
+    var contextualConcepts: [String]? = nil
     let observations: String
     let uncertainty: String
     let concepts: [String]
@@ -19,18 +21,30 @@ nonisolated enum CombinedReviewResponse {
     {"observations":"visible composition, exposure, subjects, obstructions; at most 500 characters",
     "uncertainty":"limits; at most 200 characters",
     "concepts":[{"query":"bird","displayName":"Bird","reason":"visible subject"}]}.
+    Optionally include "primarySubjects":[{"concept":"bird","location":{"x":0.5,"y":0.5},"reason":"main photographic subject"}]
+    and "contextualConcepts":["flower"]. Locations are normalized top-left points inside visible main subjects.
+    Leave primarySubjects empty when importance or location is uncertain; multiple nominations may be equally important.
     Use at most 3 concrete subject concepts. Do not invent unseen features, eye detail,
     RAW recovery or quality scores. A proposed subject is a candidate for segmentation.
     """
 
     static func overview(_ response: String) throws -> CombinedReviewOverview {
-        struct Payload: Decodable { let observations: String; let uncertainty: String }
+        struct Payload: Decodable { let observations: String; let uncertainty: String; let primarySubjects: [ReviewPrimarySubjectCue]?; let contextualConcepts: [String]? }
         let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
         try validateText(payload.observations, maximum: 500)
         try validateText(payload.uncertainty, maximum: 200)
         let concepts = try ObjectConceptDiscovery.decode(response)
         guard concepts.count <= 3 else { throw ReviewRunError.invalidEvidence }
-        return .init(observations: payload.observations, uncertainty: payload.uncertainty, concepts: concepts.map { $0.concept.query })
+        let queries = concepts.map { $0.concept.query }
+        guard (payload.primarySubjects?.count ?? 0) <= 3, (payload.contextualConcepts?.count ?? 0) <= 3 else { throw ReviewRunError.invalidEvidence }
+        for cue in payload.primarySubjects ?? [] {
+            guard queries.contains(cue.concept), !cue.reason.isEmpty, cue.reason.count <= 120 else { throw ReviewRunError.invalidEvidence }
+            if let point = cue.location {
+                guard point.x.isFinite, point.y.isFinite, (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else { throw ReviewRunError.invalidEvidence }
+            }
+        }
+        guard (payload.contextualConcepts ?? []).allSatisfy(queries.contains) else { throw ReviewRunError.invalidEvidence }
+        return .init(primarySubjects: payload.primarySubjects, contextualConcepts: payload.contextualConcepts, observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
     }
 
     static func inspection(_ response: String, regionID: String) throws -> CombinedReviewInspection {

@@ -3,9 +3,15 @@ import CoreGraphics
 import Foundation
 
 nonisolated struct CombinedReviewPlan: Codable, Sendable {
+    var omissions: [ReviewRegionOmission]? = nil
     let subjects: [ReviewSubjectRecord]
     let regions: [ReviewRegionRecord]
     let uninspected: [ReviewRegionID]
+}
+
+nonisolated struct CombinedReviewHeadCandidates: Codable, Sendable {
+    let records: [ReviewSubjectRecord]
+    let omissions: [ReviewRegionOmission]
 }
 
 nonisolated struct CombinedReviewContext: Sendable {
@@ -234,25 +240,34 @@ extension CombinedReviewFeature {
         }
         let retainedIDs = Set(ObjectInstanceDeduplicator.retain(allCandidates, maximumCount: 8).map(\.descriptor.sourceInstanceID))
         subjects = subjects.filter { retainedIDs.contains($0.id.rawValue) }
+        subjects = try ReviewSubjectPriority.assign(subjects, cues: overview?.primarySubjects ?? [], contextual: overview?.contextualConcepts ?? [], masks: masks, provenance: overviewID.rawValue)
+        if !subjects.isEmpty, !subjects.contains(where: { $0.relevance?.role == .primaryCandidate }) {
+            limitation("Main-subject priority is ambiguous or unassigned; whole foreground regions share priority in stable ID order.")
+        }
         var heads: [ReviewSubjectRecord] = []
+        var headOmissions: [ReviewRegionOmission] = []
         if snapshot.models["sam"] != nil, !subjects.isEmpty {
             let headID = try addWork("segment:head", stage: .segmentation, parents: [sourceID, overviewID], source: source.metadata.identity, region: "head")
             segmentIDs.append(headID)
-            let values: [ReviewSubjectRecord]? = try await perform(headID, category: .sam) {
+            let values: CombinedReviewHeadCandidates? = try await perform(headID, category: .sam) {
                 let candidates = try await backend.segment(image: source.image, file: file, concept: "head")
-                var records: [ReviewSubjectRecord] = []
+                var records: [ReviewSubjectRecord] = [], omissions: [ReviewRegionOmission] = []
                 for candidate in ObjectInstanceDeduplicator.retain(try registeredCandidates(candidates, source: source), maximumCount: 8) {
                     let bounds = candidate.descriptor.normalizedBoundingBox
                     // Association requires a small, contained head candidate; ambiguous overlaps abstain.
                     let parents = subjects.filter { $0.normalizedBounds.contains(bounds) && bounds.width * bounds.height < $0.normalizedBounds.width * $0.normalizedBounds.height * 0.6 }
-                    guard parents.count == 1, let parent = parents.first else { continue }
+                    guard parents.count == 1, let parent = parents.first else {
+                        omissions.append(.init(regionID: .init(rawValue: ReviewCompatibility.digest(headID.rawValue + ":" + candidate.descriptor.sourceInstanceID)), subjectID: nil,
+                                               reason: .ambiguousAnatomy, detail: "Head-query foreground has no unique parent association; no anatomical label is qualified"))
+                        continue
+                    }
                     await records.append(.init(maskContract: try SubjectMaskContract.make(mask: candidate.mask, sourceIdentity: source.metadata.identity), registration: try ReviewMaskRegistration.make(mask: candidate.mask, source: source, producerBounds: candidates.first { $0.sourceInstanceID == candidate.descriptor.sourceInstanceID }?.normalizedBoundingBox ?? bounds), id: parent.id, imageID: file.id, concept: "Generic candidate region within " + parent.concept,
                                                normalizedBounds: bounds, maskConfidence: candidate.descriptor.score, aliases: [],
                                                maskInputReference: retain(candidate.mask, force: true), availability: .available))
                 }
-                return records
+                return .init(records: records, omissions: omissions)
             }
-            heads = values ?? []
+            heads = values?.records ?? []; headOmissions = values?.omissions ?? []
         }
         limitation("Anatomy is unverified. SAM head queries and containment alone do not establish a head or eyes; retained candidates are generic regions.")
         for subject in subjects + heads {
@@ -263,11 +278,11 @@ extension CombinedReviewFeature {
         replaceDependencies(identityID, with: [sourceID, overviewID] + segmentIDs)
         let plan: CombinedReviewPlan? = try await perform(identityID) {
             var proposed: [(CGRect, String, ReviewSubjectID?)] = []
-            for manual in snapshot.userRegions ?? [] where manual.imageID == file.id {
-                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: manual.normalizedRect), manual.purpose, nil))
-            }
             for subject in subjects {
                 try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: subject.normalizedBounds), "Registered foreground: \(subject.concept); identity unverified", subject.id))
+            }
+            for manual in snapshot.userRegions ?? [] where manual.imageID == file.id {
+                try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: manual.normalizedRect), manual.purpose, nil))
             }
             for head in heads {
                 try proposed.append((source.metadata.sourceSpace.sourceRect(fromNormalized: head.normalizedBounds), head.concept + "; anatomy unverified", head.id))
@@ -276,14 +291,28 @@ extension CombinedReviewFeature {
                 proposed.append((source.metadata.sourceSpace.bounds, "Whole-frame fallback; no verified subject", nil))
             }
             let geometry = ReviewEncoderGeometry(width: qwen.encoderWidth, height: qwen.encoderHeight, strategy: .stretch)
-            var records: [ReviewRegionRecord] = [], omitted: [ReviewRegionID] = []
-            for (index, proposal) in proposed.enumerated() {
-                let region = try source.region(rect: proposal.0, purpose: proposal.1, encoder: geometry)
-                let id = ReviewRegionID(rawValue: region.id)
-                if index >= cropAllowance {
-                    omitted.append(id); continue
+            var records: [ReviewRegionRecord] = [], omitted: [ReviewRegionID] = [], omissions: [ReviewRegionOmission] = headOmissions
+            for proposal in proposed {
+                let region: ReviewRegion
+                do { region = try source.region(rect: proposal.0, purpose: proposal.1, encoder: geometry) } catch {
+                    let id = ReviewRegionID(rawValue: ReviewCompatibility.digest(source.metadata.identity + proposal.1 + String(describing: proposal.0)))
+                    omitted.append(id); omissions.append(.init(regionID: id, subjectID: proposal.2, reason: .geometryFailure, detail: "Invalid registered source rectangle; region omitted"))
+                    continue
                 }
-                let input = try await retain(source.crop(region))
+                let id = ReviewRegionID(rawValue: region.id)
+                if records.count >= cropAllowance {
+                    omitted.append(id)
+                    let contextual = subjects.first { $0.id == proposal.2 }?.relevance?.role == .contextual
+                    omissions.append(.init(regionID: id, subjectID: proposal.2, reason: contextual ? .contextualPriority : .budgetDepthPolicy,
+                                           detail: contextual ? "Contextual region follows main-subject coverage within immutable crop caps" : "Depth/allocation cap; generic anatomy follows whole-subject coverage"))
+                    continue
+                }
+                let crop: CGImage
+                do { crop = try source.crop(region) } catch {
+                    omitted.append(id); omissions.append(.init(regionID: id, subjectID: proposal.2, reason: .unavailableInput, detail: "Registered crop input unavailable"))
+                    continue
+                }
+                let input = await retain(crop)
                 var support: ReviewCropSupport?
                 if let subjectID = proposal.2, let mask = masks[subjectID] {
                     let foreground = try SubjectMaskForeground.decode(mask, width: source.image.width, height: source.image.height)
@@ -300,10 +329,10 @@ extension CombinedReviewFeature {
                                      intendedRegionRetained: region.intendedRegionRetained, fidelity: source.metadata.fidelity.rawValue,
                                      policy: source.metadata.policy.rawValue, inputReference: input))
             }
-            return .init(subjects: subjects, regions: records, uninspected: omitted)
+            return .init(omissions: omissions, subjects: subjects, regions: records, uninspected: omitted)
         }
         guard let plan else { throw ReviewRunError.invalidEvidence }
-        result?.subjects = plan.subjects; result?.regions = plan.regions
+        result?.subjects = plan.subjects; result?.regions = plan.regions; result?.omissions = plan.omissions ?? []
         if !plan.uninspected.isEmpty {
             limitation("\(plan.uninspected.count) candidate regions were outside the chosen crop budget.")
         }

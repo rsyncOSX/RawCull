@@ -5,8 +5,6 @@ struct CombinedReviewView: View {
     let files: [FileItem]
     @State private var inspectedInput: CGImage?
     @State private var showInput = false
-    @State private var showMasks = false
-    @State private var maskImages: [String: CGImage] = [:]
 
     var body: some View {
         ScrollView {
@@ -65,7 +63,7 @@ struct CombinedReviewView: View {
         }
         .sheet(isPresented: $showInput) {
             VStack(spacing: 12) {
-                Text("Exact unannotated model input").font(.headline)
+                Text("Retained request image before model preprocessing").font(.headline)
                 if let inspectedInput {
                     Image(decorative: inspectedInput, scale: 1).resizable().scaledToFit().frame(maxWidth: 900, maxHeight: 650)
                 } else {
@@ -126,8 +124,7 @@ struct CombinedReviewView: View {
         }
         Button("Inspect overview input") { inspect(result.overviewInputReference) }
         if let key = result.overviewInputReference {
-            CombinedReviewLocations(inputKey: key, feature: feature, regions: result.regions, source: result.source,
-                                    masks: showMasks ? maskImages : [:])
+            CombinedReviewLocations(inputKey: key, feature: feature, regions: result.regions, source: result.source)
             {
                 if files.count == 1 {
                     feature.userRegion = $0
@@ -136,15 +133,9 @@ struct CombinedReviewView: View {
             .frame(height: 330)
             Text("Drag across the preview to choose a region for the next rerun. A chosen location does not prove subject or eye identity.").font(.caption)
         }
-        Toggle("Show available subject masks", isOn: $showMasks)
-            .task(id: showMasks) {
-                guard showMasks else { return }
-                for subject in result.subjects {
-                    if let key = subject.maskInputReference, let image = await feature.exactInput(key) {
-                        maskImages[subject.id.rawValue] = image
-                    }
-                }
-            }
+        if let key = result.overviewInputReference {
+            CombinedReviewInspector(feature: feature, inputKey: key, source: result.source, subjects: result.subjects, regions: result.regions)
+        }
         if let report = result.report {
             Text(report.incomplete ? "Review with missing evidence" : "Review").font(.headline)
             if report.claims.isEmpty {
@@ -178,12 +169,17 @@ struct CombinedReviewView: View {
         ForEach(result.measurements, id: \.id) { measurement in
             DisclosureGroup("Measured subject detail") {
                 ForEach(measurement.values.keys.sorted(), id: \.self) { key in Text("\(key): \(measurement.values[key, default: 0].formatted(.number.precision(.fractionLength(3))))") }
+                Text("Scorer: " + (measurement.scorerVersion ?? "unknown; historical measurement is unqualified")).font(.caption)
+                Text("Subject: " + measurement.subjectID.rawValue).font(.caption2).textSelection(.enabled)
                 Text(measurement.reason ?? "").font(.caption)
                 Text(measurement.id.rawValue).font(.caption2).textSelection(.enabled)
             }
         }
         DisclosureGroup("Limitations and coverage") {
             ForEach(result.limitations, id: \.id) { Text($0.reason).font(.caption).textSelection(.enabled) }
+            ForEach(result.omissions, id: \.regionID) { omission in
+                Text(omission.regionID.rawValue + " · " + omission.reason.rawValue + ": " + omission.detail).font(.caption).textSelection(.enabled)
+            }
             if let report = result.report {
                 Text("\(report.inspectedRegions.count) inspected regions; \(report.uninspectedRegions.count) uninspected.")
             }
@@ -225,7 +221,6 @@ private struct CombinedReviewLocations: View {
     let feature: CombinedReviewFeature
     let regions: [ReviewRegionRecord]
     let source: ReviewSourceRecord?
-    let masks: [String: CGImage]
     let choose: (CGRect) -> Void
     @State private var image: CGImage?
     var body: some View {
@@ -236,11 +231,6 @@ private struct CombinedReviewLocations: View {
                 let height = width / aspect
                 ZStack(alignment: .topLeading) {
                     Image(decorative: image, scale: 1).resizable().frame(width: width, height: height)
-                    ForEach(masks.keys.sorted(), id: \.self) { key in
-                        if let mask = masks[key] {
-                            Image(decorative: mask, scale: 1).resizable().frame(width: width, height: height).opacity(0.25)
-                        }
-                    }
                     if let source {
                         ForEach(regions, id: \.id) { region in
                             Rectangle().stroke(.yellow, lineWidth: 2)
