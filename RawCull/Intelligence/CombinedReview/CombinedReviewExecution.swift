@@ -72,6 +72,42 @@ extension CombinedReviewFeature {
         }
     }
 
+    /// One fresh response may repair a malformed request-boundary payload. Every
+    /// additional model call is charged and the original rejection is retained.
+    func validatedResponse<Value>(instruction: String, image: CGImage, model: ReviewModelSnapshot,
+                                  tokens: Int, backend: any CombinedReviewBackendServing,
+                                  validation: (String) throws -> Value) async throws -> Value {
+        let text = try await backend.respond(instruction: instruction, image: image, tokens: tokens)
+        do {
+            return try CombinedReviewResponse.validated(text, validation)
+        } catch let rejection as ReviewResponseRejection {
+            guard [.json, .schema, .unknownID].contains(rejection.issue.code),
+                  let file = activeFile else { throw rejection }
+            let correction = """
+            Previous response failed validation: \(rejection.issue.check), field \(rejection.issue.fieldPath ?? "JSON").
+            Return a fresh complete JSON object. Include every required field with its exact type.
+            Evidence must use supplied reference IDs, never observation text. Do not invent IDs or evidence.
+            """
+            // Keep the full original schema and evidence; never truncate to fit a repair.
+            guard let prompt = try? CombinedReviewResponse.admitted(instruction + "\n" + correction, model: model, outputTokens: tokens) else { throw rejection }
+            do { try manifest?.budget.consume(.repair, imageID: file.id) } catch { throw rejection }
+            if let index = manifest?.work.firstIndex(where: { $0.imageID == file.id && $0.state == .running }) {
+                manifest?.work[index].attempts += 1
+            }
+            try await store.saveManifest(currentManifest())
+            try Task.checkCancellation()
+            let repaired = try await backend.respond(instruction: prompt, image: image, tokens: tokens)
+            let value = try CombinedReviewResponse.validated(repaired, validation)
+            if let item = manifest?.work.first(where: { $0.imageID == file.id && $0.state == .running }) {
+                let diagnostic = await failureDiagnostic(rejection, item: item)
+                if let index = manifest?.work.firstIndex(where: { $0.id == item.id }) {
+                    manifest?.work[index].diagnostic = diagnostic
+                }
+            }
+            return value
+        }
+    }
+
     func failureDiagnostic(_ error: any Error, item: ReviewWorkItem) async -> ReviewFailureDiagnostic {
         let issue = ReviewValidationIssue.classify(error)
         var diagnostic = ReviewFailureDiagnostic(stage: item.stage, workID: item.id, code: issue.code,
@@ -467,7 +503,8 @@ extension CombinedReviewFeature {
                 Inspect only surface texture, light/dark areas and framing in this unannotated crop.
                 User criteria: \(snapshot.criteria).
                 Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
-                Return JSON only with regionID (the exact ID above), observations and uncertainty (strings), insufficientEvidence and targetIdentified (booleans).
+                Return JSON only, including ALL five fields: {"regionID":"\(region.id.rawValue)","observations":"visible observation","uncertainty":"limitation","insufficientEvidence":false,"targetIdentified":true}.
+                Both booleans are required. Determine their values from the crop; the example values are not conclusions.
                 observations: one sentence, maximum 500 characters. uncertainty: one brief limitation, aim for 80 characters, maximum 200.
                 Write one short sentence about visible texture, illumination, framing or behavior supported by this crop. Do not infer unseen anatomy.
                 targetIdentified means the intended generic target described by Purpose is visibly present and distinguishable in this crop. It does not mean species identification, individual identity, verified anatomy or fine-detail quality.
@@ -478,8 +515,7 @@ extension CombinedReviewFeature {
                 If these restrictions leave no supported observation, set insufficientEvidence to true.
                 Do not identify a species or claim edited results or calibrated quality. Do not assume other passes agree.
                 """
-                let text = try await backend.respond(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, tokens: snapshot.responseTokens)
-                return try CombinedReviewResponse.validated(text) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue) }
+                return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue) }
             }
             if let inspection {
                 if inspection.targetIdentified != true || inspection.insufficientEvidence {
@@ -604,7 +640,7 @@ extension CombinedReviewFeature {
         JSON only: {"claims":[]}. At most four claims: one per supported type, no duplicates.
         Claim fields: text (string, max 400 characters), type, evidence, uncertainty (string, aim for 80 characters, max 200), contradictions.
         Use exact types: composition, exposure, visibility, detail. Lighting uses exposure; texture uses detail; behavior uses visibility.
-        evidence and contradictions are arrays of {"kind":"observation","id":"supplied short ID"}. Omit subjectID and regionID.
+        evidence and contradictions are arrays of {"kind":"observation","id":"o1"}, using the exact supplied short IDs. Never put observation prose in these arrays. Omit subjectID and regionID.
         Use supplied observations only. Cover all four types when supported; abstain otherwise. Rows list eligible types.
         Detail: cite exactly ONE observation reference object with subjectDetailSupported=true; describe that crop's subject texture only. Never combine crops/subjects. Without an eligible row omit detail.
         Focus/sharp/blur text requires targetSupported=true and exactly one registered subject, even for background descriptions. In composition/exposure/visibility move focus limitations to uncertainty instead.
@@ -613,11 +649,12 @@ extension CombinedReviewFeature {
         Same-model agreement is not independent confirmation.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
-        // Preserve subject observations and overview before contextual crops; disclose omissions.
+        // Reserve room for validation feedback as well as subject observations and overview.
+        // Repair never drops schema or evidence rows to fit the model context.
         var selected: [String] = []
         var included: Set<ReviewEvidenceReference> = []
         for row in orderedRows {
-            if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row.text]).joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
+            if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row.text]).joined(separator: "\n") + String(repeating: " ", count: 480), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
                 selected.append(row.text)
                 included.insert(row.reference)
             } else {
@@ -630,8 +667,7 @@ extension CombinedReviewFeature {
             throw ReviewValidationIssue(.grounding, "synthesis.includedEvidence")
         }
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)
-        let text = try await backend.respond(instruction: prompt, image: source.overview, tokens: snapshot.responseTokens)
-        return try CombinedReviewResponse.validated(text) { text in
+        return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
             let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
                                                               uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty) { claim in
                 func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {

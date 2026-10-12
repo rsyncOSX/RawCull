@@ -7,7 +7,7 @@ struct ReviewRunContractTests {
     @Test func `budgets reserve coverage and count every attempt`() throws {
         let images = (0 ..< 8).map { ReviewImageID(rawValue: String($0)) }
         var budget = try ReviewBudget(depth: .deep, images: 8)
-        #expect(budget.maximumQwenAttempts == 67)
+        #expect(budget.maximumQwenAttempts == 115)
         for image in images {
             for _ in 0 ..< 4 {
                 try budget.consume(.crop, imageID: image)
@@ -22,10 +22,21 @@ struct ReviewRunContractTests {
         try budget.recordChange(.init(category: .overview, imageID: images[0], newLimit: 2, reason: "Explicit retry plan"))
         try budget.consume(.overview, imageID: images[0])
         #expect(budget.attempts[.overview] == 9)
-        #expect(budget.maximumQwenAttempts == 68)
+        #expect(budget.maximumQwenAttempts == 116)
         let allocation = ReviewBudget.cropAllocation(images: images, counts: Dictionary(uniqueKeysWithValues: images.map { ($0, 8) }), depth: .deep)
         #expect(Array(allocation.prefix(8)) == images)
         #expect(allocation.count == 32)
+    }
+
+    @Test func `repairs have a separate finite allowance per image`() throws {
+        var budget = try ReviewBudget(depth: .standard, images: 2)
+        let image = ReviewImageID(rawValue: "first")
+        let limit = try #require(budget.perImageLimits[.repair])
+        for _ in 0 ..< limit { try budget.consume(.repair, imageID: image) }
+        #expect(throws: ReviewRunError.self) { try budget.consume(.repair, imageID: image) }
+        try budget.consume(.report, imageID: image)
+        #expect(budget.attempts[.repair] == limit)
+        #expect(budget.attempts[.report] == 1)
     }
 
     @Test func `compatibility changes only consuming stages`() throws {

@@ -7,6 +7,19 @@ import Testing
 
 @Suite("Single-image Combined Review", .tags(.smoke))
 struct CombinedReviewFeatureTests {
+    @Test @MainActor func `malformed crop and report are repaired with charged attempts`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(repairableResponses: true)
+        let feature = makeFeature(fixture, backend: backend)
+        await feature.analyze([fixture.file])
+        let run = try #require(feature.manifest)
+        #expect(run.work.allSatisfy { $0.state == .completed })
+        #expect(run.budget.attempts[.repair] == 2)
+        #expect(run.work.filter { $0.diagnostic != nil }.count == 2)
+        #expect(run.work.filter { $0.diagnostic != nil }.allSatisfy { $0.attempts == 2 })
+        #expect(feature.result?.report?.claims.isEmpty == false)
+    }
+
     @Test @MainActor func `malformed optional discovery reaches segmentation with persisted limitations and one charged attempt`() async throws {
         struct Response: Decodable { let file: String; let stage: String; let response: String }
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -39,8 +52,8 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v12")
-        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v12")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v13")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v13")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
@@ -125,7 +138,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v11"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v13"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -598,6 +611,7 @@ private nonisolated struct ReviewPreviewOnlySource: ReviewImageSourceLoading {
 private actor ReviewFakeBackend: CombinedReviewBackendServing {
     nonisolated static let qwen = ReviewModelSnapshot(identity: "fake", runtimeVersion: "test", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)
     let hasSAM: Bool, hasCLIP: Bool, comparisonTie: Bool, invalidCrop: Bool, invalidReport: Bool
+    let repairableResponses: Bool
     let rejectionPadding: Int
     let overviewResponse: String?
     var delayCrop: Bool
@@ -606,7 +620,8 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     var responses = 0
     var synthesisInstructions: [String] = []
     var cropInstructions: [String] = []
-    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil) {
+    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil, repairableResponses: Bool = false) {
+        self.repairableResponses = repairableResponses
         self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding; self.overviewResponse = overviewResponse
     }
 
@@ -658,9 +673,15 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
                 return "not JSON" + String(repeating: " ", count: rejectionPadding)
             }
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
+            if repairableResponses && !instruction.contains("Previous response failed validation:") {
+                return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture\",\"uncertainty\":\"Limited resolution\",\"targetIdentified\":true}"
+            }
             return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture in crop\",\"uncertainty\":\"Eye identity unknown\",\"insufficientEvidence\":false,\"targetIdentified\":true}"
         }
         synthesisInstructions.append(instruction)
+        if repairableResponses && !instruction.contains("Previous response failed validation:") {
+            return "{\"claims\":[{\"text\":\"Visible subject\",\"type\":\"composition\",\"evidence\":[\"observation prose\"],\"uncertainty\":\"Limited detail\"}]}"
+        }
         let reference = instruction.split(separator: "\n").compactMap { line -> ReviewEvidenceReference? in
             guard let end = line.firstIndex(of: "}") else { return nil }
             return try? JSONDecoder().decode(ReviewEvidenceReference.self, from: Data(line[...end].utf8))
