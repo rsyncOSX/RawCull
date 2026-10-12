@@ -20,8 +20,33 @@ nonisolated struct ReviewEvidenceProvenance: Codable, Equatable, Sendable {
     let inputReference: String?
 }
 
+/// Model observations are separated by criterion; flags express support, not confidence.
+nonisolated struct ReviewCriterionObservation: Codable, Sendable {
+    let supported: Bool
+    let text: String
+}
+
+nonisolated struct ReviewCriterionObservations: Codable, Sendable {
+    let composition: ReviewCriterionObservation
+    let exposure: ReviewCriterionObservation
+    let visibility: ReviewCriterionObservation
+    let detail: ReviewCriterionObservation
+
+    subscript(_ type: String) -> ReviewCriterionObservation? {
+        switch type {
+        case "composition": composition
+        case "exposure": exposure
+        case "visibility": visibility
+        case "detail": detail
+        default: nil
+        }
+    }
+    static let types = ["composition", "exposure", "visibility", "detail"]
+}
+
 nonisolated struct ReviewObservation: Codable, Sendable {
     var targetIdentified: Bool? = nil
+    var criteria: ReviewCriterionObservations? = nil
     let id: ReviewObservationID
     let regionID: ReviewRegionID?
     let text: String

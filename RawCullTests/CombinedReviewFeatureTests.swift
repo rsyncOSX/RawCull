@@ -69,15 +69,15 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v15")
-        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v13")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v16")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v16")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
             let rows = prompt.split(separator: "\n").filter { $0.hasPrefix(#"{"id":"#) }
             #expect(rows.contains { $0.contains("targetSupported=true") && !$0.contains("subject=none") })
-            #expect(rows.contains { $0.contains("region=whole-frame") && $0.contains("types=composition,visibility,exposure") && !$0.contains("types=composition,visibility,exposure,detail") })
-            #expect(rows.contains { $0.contains("subjectDetailSupported=true") && $0.contains("types=composition,visibility,exposure,detail") })
+            #expect(rows.contains { $0.contains("region=whole-frame") && $0.contains("types=composition,visibility") && !$0.contains("types=composition,visibility,exposure,detail") })
+            #expect(rows.contains { $0.contains("subjectDetailSupported=true") && $0.contains("types=composition,exposure,visibility,detail") })
             let detailLine = try #require(prompt.split(separator: "\n").first { $0.hasPrefix("Detail evidence for this request: ") })
             let start = try #require(detailLine.firstIndex(of: "["))
             let end = try #require(detailLine.firstIndex(of: "]"))
@@ -165,7 +165,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v15"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v16"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -702,13 +702,16 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
                 return "not JSON" + String(repeating: " ", count: rejectionPadding)
             }
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
-            if forbiddenCrop && !instruction.contains("Previous response failed validation:") {
-                return "{\"regionID\":\"\(region)\",\"observations\":\"A bird with a yellow eye\",\"uncertainty\":\"Limited\",\"insufficientEvidence\":false,\"targetIdentified\":true}"
+            let entry: (String) -> ReviewCriterionObservation = { .init(supported: true, text: $0) }
+            let criteria = ReviewCriterionObservations(composition: entry("Centered subject"), exposure: entry("Soft illumination"),
+                                                       visibility: entry("Visible subject"), detail: entry(forbiddenCrop && !instruction.contains("Previous response failed validation:") ? "A bird with a yellow eye" : "Visible texture"))
+            struct Crop: Encodable {
+                let regionID: String; let criteria: ReviewCriterionObservations; let uncertainty: String
+                let insufficientEvidence: Bool?; let targetIdentified: Bool
             }
-            if repairableResponses && !instruction.contains("Previous response failed validation:") {
-                return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture\",\"uncertainty\":\"Limited resolution\",\"targetIdentified\":true}"
-            }
-            return "{\"regionID\":\"\(region)\",\"observations\":\"Visible texture. Soft illumination.\",\"uncertainty\":\"Eye identity unknown\",\"insufficientEvidence\":false,\"targetIdentified\":true}"
+            let response = Crop(regionID: region, criteria: criteria, uncertainty: "Limited resolution",
+                                insufficientEvidence: repairableResponses && !instruction.contains("Previous response failed validation:") ? nil : false, targetIdentified: true)
+            return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
         }
         synthesisInstructions.append(instruction)
         if repairableResponses && !instruction.contains("Previous response failed validation:") {
@@ -720,7 +723,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
         }.first { $0.kind == .observation }
         let ref = invalidReport ? ReviewEvidenceReference(kind: .observation, id: "invented") : reference ?? .init(kind: .observation, id: "missing")
         let claims = ["composition", "exposure", "visibility", "detail"].map {
-            ReviewClaim(text: $0 == "detail" ? "Visible texture" : $0 == "exposure" ? "Soft illumination" : "Visible subject", type: $0, evidence: [ref], uncertainty: "Eye detail is unverified", contradictions: [])
+            ReviewClaim(text: $0 == "detail" ? "Visible texture" : $0 == "exposure" ? "Soft illumination" : $0 == "composition" ? "Centered subject" : "Visible subject", type: $0, evidence: [ref], uncertainty: "Eye detail is unverified", contradictions: [])
         }
         return try String(decoding: JSONEncoder().encode(["claims": claims]), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
     }
