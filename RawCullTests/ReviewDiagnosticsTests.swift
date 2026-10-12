@@ -58,7 +58,9 @@ struct ReviewDiagnosticsTests {
         let fox = try #require(fixtures.first { $0.stage == "report" })
         var value = result("fox")
         let original = value.observations[0]
-        value.observations[0] = .init(id: .init(rawValue: "o1"), regionID: nil, text: original.text, uncertainty: original.uncertainty, availability: original.availability, provenance: original.provenance)
+        struct Recorded: Decodable { let claims: [ReviewClaim] }
+        let lighting = try #require(ObjectJSONEnvelope.decode(Recorded.self, from: fox.response).claims.first { ["lighting", "exposure"].contains($0.type) })
+        value.observations[0] = .init(id: .init(rawValue: "o1"), regionID: nil, text: lighting.text, uncertainty: original.uncertainty, availability: original.availability, provenance: original.provenance)
         let allowed: Set<ReviewEvidenceReference> = [.init(kind: .observation, id: "o1")]
         let report = try CombinedReviewResponse.report(fox.response, imageID: value.file.id, allowed: allowed, limitations: [], regions: [], uninspected: [], incomplete: true, qualify: ReviewSynthesisGrounding(result: value).validate)
         #expect(report.claims.count == 1)
@@ -244,7 +246,7 @@ struct ReviewDiagnosticsTests {
         let value = groundedResult()
         let grounding = ReviewSynthesisGrounding(result: value)
         let reference = ReviewEvidenceReference(kind: .observation, id: "crop-a")
-        let claim = ReviewClaim(text: "Visible textured surface", type: "detail", evidence: [reference], uncertainty: "Render-dependent", contradictions: [])
+        let claim = ReviewClaim(text: "Visible texture", type: "detail", evidence: [reference], uncertainty: "Render-dependent", contradictions: [])
         let qualified = try grounding.validate(claim)
         #expect(qualified.subjectID?.rawValue == "a")
         #expect(qualified.regionID?.rawValue == "region-a")
@@ -317,7 +319,7 @@ struct ReviewDiagnosticsTests {
         let value = groundedResult()
         let references: Set<ReviewEvidenceReference> = [.init(kind: .observation, id: "crop-a"), .init(kind: .observation, id: "crop-b")]
         func report(_ ids: [String]) throws -> ReviewImageReport {
-            let claim = ReviewClaim(text: "Visible feather texture", type: "texture", evidence: ids.map { .init(kind: .observation, id: $0) }, uncertainty: "Limited", contradictions: [])
+            let claim = ReviewClaim(text: "Visible texture", type: "texture", evidence: ids.map { .init(kind: .observation, id: $0) }, uncertainty: "Limited", contradictions: [])
             let data = try JSONEncoder().encode(["claims": [claim]])
             return try CombinedReviewResponse.report(String(decoding: data, as: UTF8.self), imageID: value.file.id, allowed: references, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: ReviewSynthesisGrounding(result: value).validate)
         }
@@ -338,7 +340,7 @@ struct ReviewDiagnosticsTests {
         #expect(partial.limitations.contains { $0.reason.contains("synthesis.targetCropRequired") })
 
         // Real Qwen sometimes emits short IDs instead of reference objects.
-        let shorthand = #"{"claims":[{"text":"Visible feather texture","type":"texture","evidence":["crop-a"],"uncertainty":"Limited","contradictions":[]}]}"#
+        let shorthand = #"{"claims":[{"text":"Visible texture","type":"texture","evidence":["crop-a"],"uncertainty":"Limited","contradictions":[]}]}"#
         func decode(_ response: String, allowed: Set<ReviewEvidenceReference>? = nil) throws -> ReviewImageReport {
             try CombinedReviewResponse.report(response, imageID: value.file.id, allowed: allowed ?? references, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: ReviewSynthesisGrounding(result: value).validate)
         }
@@ -367,6 +369,44 @@ struct ReviewDiagnosticsTests {
         #expect(!metric.subjectDetailSupported)
     }
 
+    @Test func `v14 technical claims cannot exceed their cited observation`() throws {
+        let cases: [(String, String, String)] = [
+            ("A brown foal grazes in a grassy field under warm, golden light.", "The grassy field has a textured surface with visible blades and yellow wildflowers.", "detail"),
+            ("A red fox in motion, with visible fur texture and a bushy tail.", "The fur texture of the fox is detailed, with visible individual hairs.", "detail"),
+            ("A puffin in mid-flight, showing textured feathers.", "The puffin's wings and beak are in focus.", "visibility"),
+            ("A squirrel perched on a post with a blurred background.", "The squirrel is in focus.", "visibility"),
+            ("A puffin with textured feathers against a gray background.", "Low resolution and motion blur.", "exposure"),
+            ("The subject is not in focus.", "The subject is in focus.", "visibility"),
+            ("The subject is not sharp.", "sharp", "detail"),
+            ("The lighting is not bright.", "bright", "exposure")
+        ]
+        for (observation, text, type) in cases {
+            var value = groundedResult()
+            let original = value.observations[0]
+            value.observations[0] = .init(targetIdentified: true, id: original.id, regionID: original.regionID, text: observation, uncertainty: "Limited", availability: .available, provenance: original.provenance)
+            let claim = ReviewClaim(text: text, type: type, evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+            #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
+        }
+    }
+
+    @Test func `technical excerpts preserve support and missing texture abstains`() throws {
+        var value = groundedResult()
+        let original = value.observations[0]
+        func observe(_ text: String) {
+            value.observations[0] = .init(targetIdentified: true, id: original.id, regionID: original.regionID, text: text, uncertainty: "Limited", availability: .available, provenance: original.provenance)
+        }
+        observe("A fox. Visible fur texture. Bright sunlight.")
+        for (text, type) in [("visible fur texture", "detail"), ("Bright sunlight", "exposure")] {
+            let claim = ReviewClaim(text: text, type: type, evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+            #expect(try ReviewSynthesisGrounding(result: value).validate(claim).subjectID?.rawValue == "a")
+        }
+        observe("A brown foal grazes in a grassy field.")
+        let support = try ReviewSynthesisGrounding(result: value).support(.init(kind: .observation, id: "crop-a"))
+        #expect(!support.subjectDetailSupported)
+        #expect(!support.claimTypes.contains("detail"))
+        #expect(!support.claimTypes.contains("exposure"))
+    }
+
     private func groundedResult() -> CombinedReviewResult {
         var value = result("image")
         value.observations = []
@@ -378,7 +418,7 @@ struct ReviewDiagnosticsTests {
             value.subjects.append(.init(registration: registration, id: subjectID, imageID: value.file.id, concept: "bird", normalizedBounds: rect, maskConfidence: 1, aliases: [], maskInputReference: nil, availability: .available))
             value.regions.append(.init(id: regionID, imageID: value.file.id, subjectID: subjectID, sourceIdentity: "source", purpose: "Subject", requestedRect: rect, paddedRect: rect, sourceRect: rect, retainedSourceRect: rect, encoderSize: rect.size, scaleX: 1, scaleY: 1, edgeClipped: false, intendedRegionRetained: true, fidelity: "preview", policy: "appearance", inputReference: nil))
             let provenance = ReviewEvidenceProvenance(workID: .init(rawValue: "crop-" + id), imageID: value.file.id, sourceIdentity: "source", renderPolicy: "appearance", compatibility: .init(fields: ["stageVersion": ReviewPipelineContract.stageVersions[.cropObservation]!]), modelIdentity: nil, inputReference: nil)
-            value.observations.append(.init(targetIdentified: true, id: .init(rawValue: "crop-" + id), regionID: regionID, text: "Visible texture", uncertainty: "Limited", availability: .available, provenance: provenance))
+            value.observations.append(.init(targetIdentified: true, id: .init(rawValue: "crop-" + id), regionID: regionID, text: "Visible texture. Soft illumination.", uncertainty: "Limited", availability: .available, provenance: provenance))
             value.measurements.append(.init(scorerVersion: SubjectMaskFocusScorer.semanticsVersion, maskContract: .init(version: SubjectMaskContract.version, channel: .grayscaleIntensity, width: 10, height: 10, sourceIdentity: "source", origin: "top-left-source-raster", polarity: "white-or-opaque-foreground", threshold: 16, interpolation: "none-no-resize"), id: .init(rawValue: "metric-" + id), subjectID: subjectID, values: ["detail": metric], availability: .available, reason: nil, provenance: provenance))
         }
         return value

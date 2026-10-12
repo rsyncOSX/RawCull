@@ -113,8 +113,11 @@ struct CombinedReviewRealModelTests {
                 #expect(result.regions.contains { $0.subjectID != nil && $0.support?.subjectForegroundRetained == 1 })
             }
             if let report = result.report {
-                #expect(Set(report.claims.map(\.type)).isSuperset(of: ["composition", "exposure", "visibility", "detail"]),
-                        "Criterion coverage: \(result.file.displayName)")
+                for criterion in ["composition", "exposure", "visibility", "detail"] where !report.claims.contains(where: { $0.type == criterion }) {
+                    #expect(report.incomplete)
+                    #expect(report.limitations.contains { $0.id.rawValue == result.file.id.rawValue + ":coverage:" + criterion },
+                            "Explicit abstention: \(result.file.displayName) \(criterion)")
+                }
             } else { Issue.record("Missing synthesized report: \(result.file.displayName)") }
             for measurement in result.measurements where measurement.availability == .available {
                 #expect(measurement.hasCurrentMaskSemantics)
