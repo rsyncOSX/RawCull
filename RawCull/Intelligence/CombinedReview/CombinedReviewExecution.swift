@@ -81,12 +81,13 @@ extension CombinedReviewFeature {
         do {
             return try CombinedReviewResponse.validated(text, validation)
         } catch let rejection as ReviewResponseRejection {
-            guard [.json, .schema, .unknownID].contains(rejection.issue.code),
+            guard ([.json, .schema, .unknownID].contains(rejection.issue.code) || rejection.issue.check == "crop.supportedDomain"),
                   let file = activeFile else { throw rejection }
             let correction = """
             Previous response failed validation: \(rejection.issue.check), field \(rejection.issue.fieldPath ?? "JSON").
             Return a fresh complete JSON object. Include every required field with its exact type.
             Evidence must use supplied reference IDs, never observation text. Do not invent IDs or evidence.
+            For crop.supportedDomain, omit prohibited anatomy and RAW recovery claims; abstain if unsupported.
             """
             // Keep the full original schema and evidence; never truncate to fit a repair.
             guard let prompt = try? CombinedReviewResponse.admitted(instruction + "\n" + correction, model: model, outputTokens: tokens) else { throw rejection }
@@ -641,12 +642,12 @@ extension CombinedReviewFeature {
         Claim fields: text (string, max 400 characters), type, evidence, uncertainty (string, aim for 80 characters, max 200), contradictions.
         Use exact types: composition, exposure, visibility, detail. Lighting uses exposure; texture uses detail; behavior uses visibility.
         evidence and contradictions are arrays of {"kind":"observation","id":"o1"}, using the exact supplied short IDs. Never put observation prose in these arrays. Omit subjectID and regionID.
-        Use supplied observations only. Cover all four types when supported; abstain otherwise. Rows list eligible types.
-        Detail: cite exactly ONE observation reference object with subjectDetailSupported=true; describe that crop's subject texture only. Never combine crops/subjects. Without an eligible row omit detail.
-        Focus/sharp/blur text requires targetSupported=true and exactly one registered subject, even for background descriptions. In composition/exposure/visibility move focus limitations to uncertainty instead.
-        No eyes/iris/gaze/recovery, invented anatomy, metric numbers or calibrated quality in text. Keep uncertainty brief; preserve limitations.
-        contradictions=[] unless observations disagree, not merely different subjects/textures. Detail conflicts must share its subject; scene conflicts may span subjects.
-        Same-model agreement is not independent confirmation.
+        Use supplied observations only; omit unsupported types. Rows list eligible types.
+        Detail, exposure and focus/sharp/blur text: copy ONE complete sentence verbatim from ONE cited observation, preserving negation and modifiers. Never add technical conclusions.
+        Detail needs explicit texture and exactly ONE subjectDetailSupported=true crop reference. Describe only its subject; never combine crops or background texture.
+        Exposure needs lighting, not resolution or motion. Focus/sharp/blur needs targetSupported=true and one registered subject; move unsupported focus to uncertainty.
+        No eyes/iris/gaze/recovery, invented anatomy, metric numbers or calibrated quality. Preserve limitations.
+        contradictions=[] unless observations disagree. Detail conflicts must share its subject. Same-model agreement is not independent confirmation.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
         // Reserve 320 bytes for the concrete detail directive and 480 for validation feedback.
@@ -696,7 +697,7 @@ extension CombinedReviewFeature {
             let missingCriteria = ["composition", "exposure", "visibility", "detail"].filter { criterion in
                 !qualified.contains { $0.type == criterion }
             }
-            let coverage = missingCriteria.map { ReviewLimitation(id: .init(rawValue: value.file.id.rawValue + ":coverage:" + $0), reason: "No synthesized " + $0 + " claim; evidence coverage is incomplete.", relatedEvidence: []) }
+            let coverage = missingCriteria.map { ReviewLimitation(id: .init(rawValue: value.file.id.rawValue + ":coverage:" + $0), reason: "No supported " + $0 + " claim; abstained because admitted observations did not establish this criterion.", relatedEvidence: []) }
             return ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: qualified, limitations: generated.limitations + coverage,
                                      incomplete: generated.incomplete || !missingCriteria.isEmpty, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
         }
