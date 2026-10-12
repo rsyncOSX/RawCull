@@ -407,6 +407,46 @@ struct ReviewDiagnosticsTests {
         #expect(!support.claimTypes.contains("exposure"))
     }
 
+    @Test func `criterion crops require explicit flags and keep anatomy outside observations`() throws {
+        let good = #"{"regionID":"r","criteria":{"composition":{"supported":true,"text":"Subject left of center."},"exposure":{"supported":true,"text":"Soft illumination."},"visibility":{"supported":true,"text":"Subject partly occluded."},"detail":{"supported":false,"text":""}},"uncertainty":"Limited texture.","insufficientEvidence":false,"targetIdentified":true}"#
+        let parsed = try CombinedReviewResponse.inspection(good, regionID: "r", requireCriteria: true)
+        #expect(parsed.criteria?.exposure.supported == true)
+        #expect(parsed.criteria?.detail.supported == false)
+        #expect(!parsed.observations.contains("Limited texture"))
+        for invalid in [
+            good.replacingOccurrences(of: "Soft illumination.", with: "A bird against a light sky."),
+            good.replacingOccurrences(of: "Subject partly occluded.", with: "Species identity unknown."),
+            good.replacingOccurrences(of: "Subject partly occluded.", with: "Subject left of center."),
+            good.replacingOccurrences(of: "Subject partly occluded.", with: "A yellow eye is visible."),
+            good.replacingOccurrences(of: #""supported":false,"text":"""#, with: #""supported":false,"text":"Texture visible""#),
+            good.replacingOccurrences(of: #""insufficientEvidence":false"#, with: #""insufficientEvidence":true"#)
+        ] {
+            #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(invalid, regionID: "r", requireCriteria: true) }
+        }
+        let legacy = #"{"regionID":"r","observations":"Visible texture","uncertainty":"Limited","insufficientEvidence":false,"targetIdentified":true}"#
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(legacy, regionID: "r", requireCriteria: true) }
+    }
+
+    @Test func `criterion grounding prevents repeated prose and uncertainty becoming evidence`() throws {
+        var value = groundedResult()
+        let original = value.observations[0]
+        let entry: (String) -> ReviewCriterionObservation = { .init(supported: true, text: $0) }
+        let criteria = ReviewCriterionObservations(composition: entry("Subject left of center."), exposure: entry("Soft illumination."),
+                                                   visibility: entry("Subject partly occluded."), detail: entry("Coarse fur strands are resolved."))
+        value.observations[0] = .init(targetIdentified: true, criteria: criteria, id: original.id, regionID: original.regionID, text: "General subject scene.", uncertainty: "Species identity unknown.", availability: .available, provenance: original.provenance)
+        let grounding = ReviewSynthesisGrounding(result: value)
+        for type in ReviewCriterionObservations.types {
+            let claim = ReviewClaim(text: criteria[type]!.text, type: type, evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+            #expect(try grounding.validate(claim).subjectID?.rawValue == "a")
+        }
+        for (text, type) in [("Subject left of center.", "exposure"), ("Soft illumination.", "visibility"), ("Species identity unknown.", "visibility"), ("General subject scene.", "detail")] {
+            let claim = ReviewClaim(text: text, type: type, evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "Limited", contradictions: [])
+            #expect(throws: ReviewValidationIssue.self) { try grounding.validate(claim) }
+        }
+        let restored = try JSONDecoder().decode(ReviewObservation.self, from: JSONEncoder().encode(value.observations[0]))
+        #expect(restored.criteria?.detail.text == "Coarse fur strands are resolved.")
+    }
+
     private func groundedResult() -> CombinedReviewResult {
         var value = result("image")
         value.observations = []

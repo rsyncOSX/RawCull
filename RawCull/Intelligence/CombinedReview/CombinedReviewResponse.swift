@@ -12,6 +12,7 @@ nonisolated struct CombinedReviewOverview: Codable, Sendable {
 
 nonisolated struct CombinedReviewInspection: Codable, Sendable {
     var targetIdentified: Bool? = nil
+    var criteria: ReviewCriterionObservations? = nil
     let regionID: String
     let observations: String
     let uncertainty: String
@@ -126,8 +127,51 @@ nonisolated enum CombinedReviewResponse {
                      observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
     }
 
-    static func inspection(_ response: String, regionID: String) throws -> CombinedReviewInspection {
-        let value = try ObjectJSONEnvelope.decode(CombinedReviewInspection.self, from: response)
+    static func inspection(_ response: String, regionID: String, requireCriteria: Bool = false) throws -> CombinedReviewInspection {
+        let value: CombinedReviewInspection
+        if requireCriteria {
+            struct Payload: Decodable {
+                let regionID: String
+                let criteria: ReviewCriterionObservations
+                let uncertainty: String
+                let insufficientEvidence: Bool
+                let targetIdentified: Bool
+            }
+            let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
+            for type in ReviewCriterionObservations.types {
+                let entry = payload.criteria[type]!
+                guard entry.supported == !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    throw ReviewValidationIssue(.schema, "crop.criterionSupportConsistency", field: "criteria." + type)
+                }
+                guard entry.text.count <= 120 else { throw ReviewValidationIssue(.responseLength, "crop.criterionLength", field: "criteria." + type + ".text") }
+                guard !containsForbiddenClaimDomain(entry.text) else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text") }
+                let technicalWords = entry.text.lowercased().split(whereSeparator: { !$0.isLetter })
+                guard !technicalWords.contains(where: { $0.hasPrefix("focus") || $0.hasPrefix("sharp") }) else {
+                    throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text")
+                }
+                if entry.supported, type == "exposure", !ReviewSynthesisGrounding.hasLighting(entry.text) {
+                    throw ReviewValidationIssue(.schema, "crop.exposureEvidence", field: "criteria.exposure.text")
+                }
+                if entry.supported, type == "visibility" {
+                    let words = Set(entry.text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+                    guard words.isDisjoint(with: ["species", "identity", "identification", "identifiable", "resolution"]) else {
+                        throw ReviewValidationIssue(.schema, "crop.visibilityEvidence", field: "criteria.visibility.text")
+                    }
+                }
+            }
+            let supported = ReviewCriterionObservations.types.compactMap { payload.criteria[$0] }.filter(\.supported)
+            guard payload.insufficientEvidence == supported.isEmpty,
+                  payload.targetIdentified || !payload.criteria.detail.supported else {
+                throw ReviewValidationIssue(.grounding, "crop.criterionTargetConsistency", field: "criteria")
+            }
+            // Identical prose under multiple labels is not criterion-specific evidence.
+            let texts = supported.map { $0.text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
+            guard Set(texts).count == texts.count else { throw ReviewValidationIssue(.schema, "crop.duplicateCriterionText", field: "criteria") }
+            value = .init(targetIdentified: payload.targetIdentified, criteria: payload.criteria, regionID: payload.regionID,
+                          observations: supported.map(\.text).joined(separator: " "), uncertainty: payload.uncertainty, insufficientEvidence: payload.insufficientEvidence)
+        } else {
+            value = try ObjectJSONEnvelope.decode(CombinedReviewInspection.self, from: response)
+        }
         let forbidden = containsForbiddenClaimDomain(value.observations)
         guard !forbidden else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "observations") }
         guard value.regionID == regionID else { throw ReviewValidationIssue(.unknownID, "crop.expectedRegionID", field: "regionID", reference: .init(kind: .region, id: regionID)) }

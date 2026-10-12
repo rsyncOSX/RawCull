@@ -87,7 +87,7 @@ extension CombinedReviewFeature {
             Previous response failed validation: \(rejection.issue.check), field \(rejection.issue.fieldPath ?? "JSON").
             Return a fresh complete JSON object. Include every required field with its exact type.
             Evidence must use supplied reference IDs, never observation text. Do not invent IDs or evidence.
-            For crop.supportedDomain, omit prohibited anatomy and RAW recovery claims; abstain if unsupported.
+            For prohibited crop text, replace ONLY that criterion with a surface/framing observation, or supported=false,text="". Never repeat anatomy. Preserve all required fields.
             """
             // Keep the full original schema and evidence; never truncate to fit a repair.
             guard let prompt = try? CombinedReviewResponse.admitted(instruction + "\n" + correction, model: model, outputTokens: tokens) else { throw rejection }
@@ -501,29 +501,26 @@ extension CombinedReviewFeature {
             terminalIDs.append(id)
             let inspection: CombinedReviewInspection? = try await perform(id, category: .crop) {
                 let prompt = """
-                Inspect only surface texture, light/dark areas and framing in this unannotated crop.
-                User criteria: \(snapshot.criteria).
-                Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
-                Return JSON only, including ALL five fields: {"regionID":"\(region.id.rawValue)","observations":"visible observation","uncertainty":"limitation","insufficientEvidence":false,"targetIdentified":true}.
-                Both booleans are required. Determine their values from the crop; the example values are not conclusions.
-                observations: one sentence, maximum 500 characters. uncertainty: one brief limitation, aim for 80 characters, maximum 200.
-                Write one short sentence about visible texture, illumination, framing or behavior supported by this crop. Do not infer unseen anatomy.
-                targetIdentified means the intended generic target described by Purpose is visibly present and distinguishable in this crop. It does not mean species identification, individual identity, verified anatomy or fine-detail quality.
-                Set targetIdentified to true only when this crop visibly supports that generic target; uncertain species or limited resolution alone do not require false. Never assume presence from Purpose alone.
-                Set targetIdentified to false when the target is absent, cannot be distinguished, or Purpose gives no intended target. Keep identity and anatomical uncertainty in uncertainty.
-                Set insufficientEvidence to true if there is no supported observation; it must not be true together with targetIdentified=true.
-                Put anatomical limitations in uncertainty only. Never use eye, eyes, iris, irises, gaze or RAW recovery in observations, even to say they are absent or unverified. Observations must not discuss sharpness of individual body parts.
-                If these restrictions leave no supported observation, set insufficientEvidence to true.
-                Do not identify a species or claim edited results or calibrated quality. Do not assume other passes agree.
+                Inspect this crop for four separate criteria. Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
+                Return JSON only: {"regionID":"\(region.id.rawValue)","criteria":{"composition":{"supported":false,"text":""},"exposure":{"supported":false,"text":""},"visibility":{"supported":false,"text":""},"detail":{"supported":false,"text":""}},"uncertainty":"","insufficientEvidence":true,"targetIdentified":false}.
+                Include all fields. Determine booleans from the crop; the example is not a conclusion.
+                Each text: one criterion-specific sentence, max 120 characters. Unsupported means supported=false and text="". Never repeat a sentence across criteria.
+                composition: placement, framing or obstructions. exposure: illumination or tonal contrast; a light-colored sky alone is not exposure evidence.
+                visibility: visible extent or occlusion of the intended generic target; species/identity uncertainty is not visibility.
+                detail: resolved surface texture of that target only, never background texture or anatomical detail. If unresolved, abstain.
+                targetIdentified means the intended generic target is visibly present and distinguishable. It does not mean species identification, individual identity, verified anatomy or fine-detail quality. Never assume presence from Purpose alone. Purpose gives no intended target: false.
+                intended generic target absent/indistinguishable: targetIdentified=false and detail.supported=false.
+                insufficientEvidence=true only if all four criteria are unsupported. It cannot be true with targetIdentified=true.
+                Text must stay within framing, illumination, occlusion and surface texture. Do not describe body parts, species, focus, sharpness or RAW recovery. Anatomical limitations belong in uncertainty only (max 160 characters).
                 """
-                return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue) }
+                return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue, requireCriteria: true) }
             }
             if let inspection {
                 if inspection.targetIdentified != true || inspection.insufficientEvidence {
                     limitation("Crop \(region.id.rawValue) cannot establish target-specific detail; target support is absent or unknown.")
                 }
                 let origin = try provenance(id, source: source, input: region.inputReference)
-                result?.observations.append(.init(targetIdentified: inspection.targetIdentified, id: .init(rawValue: id.rawValue), regionID: region.id,
+                result?.observations.append(.init(targetIdentified: inspection.targetIdentified, criteria: inspection.criteria, id: .init(rawValue: id.rawValue), regionID: region.id,
                                                   text: inspection.observations, uncertainty: inspection.uncertainty,
                                                   availability: inspection.insufficientEvidence ? .unknown : .available,
                                                   provenance: origin))
@@ -615,9 +612,17 @@ extension CombinedReviewFeature {
             let support = try grounding.support(stored)
             let subjectLabel = support.subjectID.flatMap { id in value.subjects.firstIndex(where: { $0.id == id }).map { "s\($0 + 1)" } } ?? "none"
             let regionLabel = support.regionID.flatMap { id in value.regions.firstIndex(where: { $0.id == id }).map { "r\($0 + 1)" } } ?? "whole-frame"
-            let scope = " subject=\(subjectLabel) region=\(regionLabel) targetSupported=\(support.crop) subjectDetailSupported=\(support.subjectDetailSupported) types=\(support.claimTypes)"
+            let eligibleTypes = observation.criteria == nil ? "composition,visibility" : support.claimTypes
+            let scope = " subject=\(subjectLabel) region=\(regionLabel) targetSupported=\(support.crop) subjectDetailSupported=\(support.subjectDetailSupported) types=\(eligibleTypes)"
             let ref = ReviewEvidenceReference(kind: .observation, id: "o\(aliases.count + 1)")
-            let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + scope + " " + observation.text + " Uncertainty: " + observation.uncertainty
+            let evidenceText: String
+            if let criteria = observation.criteria {
+                evidenceText = ReviewCriterionObservations.types.compactMap { type in
+                    guard let entry = criteria[type], entry.supported else { return nil }
+                    return type + ": " + entry.text
+                }.joined(separator: " | ")
+            } else { evidenceText = observation.text }
+            let row = try String(decoding: encoder.encode(ref), as: UTF8.self) + scope + " " + evidenceText
             rows.append((ref, row)); aliases[ref] = .init(kind: .observation, id: observation.id.rawValue)
         }
         // Metrics are displayed deterministically. They cannot independently support generated prose,
@@ -639,15 +644,12 @@ extension CombinedReviewFeature {
         \(reconciliation ? "Reconcile independent observations; abstain when unsupported." : "Synthesize the per-image report.")
         Goal: \(snapshot.criteria)
         JSON only: {"claims":[]}. At most four claims: one per supported type, no duplicates.
-        Claim fields: text (string, max 400 characters), type, evidence, uncertainty (string, aim for 80 characters, max 200), contradictions.
-        Use exact types: composition, exposure, visibility, detail. Lighting uses exposure; texture uses detail; behavior uses visibility.
-        evidence and contradictions are arrays of {"kind":"observation","id":"o1"}, using the exact supplied short IDs. Never put observation prose in these arrays. Omit subjectID and regionID.
-        Use supplied observations only; omit unsupported types. Rows list eligible types.
-        Detail, exposure and focus/sharp/blur text: copy ONE complete sentence verbatim from ONE cited observation, preserving negation and modifiers. Never add technical conclusions.
-        Detail needs explicit texture and exactly ONE subjectDetailSupported=true crop reference. Describe only its subject; never combine crops or background texture.
-        Exposure needs lighting, not resolution or motion. Focus/sharp/blur needs targetSupported=true and one registered subject; move unsupported focus to uncertainty.
-        No eyes/iris/gaze/recovery, invented anatomy, metric numbers or calibrated quality. Preserve limitations.
-        contradictions=[] unless observations disagree. Detail conflicts must share its subject. Same-model agreement is not independent confirmation.
+        Claims: text (max 400), type, evidence, uncertainty (max 160), contradictions.
+        Types: composition, exposure, visibility, detail. Each supported criterion has its own observation text.
+        Copy only the matching criterion text from ONE supplied row; never reuse another criterion or uncertainty. Do not paraphrase, merge or invent conclusions. Legacy rows support composition/visibility only.
+        evidence/contradictions: arrays of {"kind":"observation","id":"o1"} with supplied IDs. Omit subjectID/regionID. No prose or shorthand strings in arrays.
+        Detail needs ONE subjectDetailSupported=true crop. Exposure needs its explicit exposure entry, not sky color. Visibility needs its visibility entry, not identity uncertainty.
+        Omit unsupported types. contradictions=[] unless observations conflict. No anatomy, focus, numbers, recovery or quality scores. Same-model agreement is not independent confirmation.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
         // Reserve 320 bytes for the concrete detail directive and 480 for validation feedback.
@@ -672,12 +674,12 @@ extension CombinedReviewFeature {
         let detailRow = orderedRows.first { row in
             guard included.contains(row.reference), let stored = aliases[row.reference],
                   let support = try? grounding.support(stored) else { return false }
-            return support.subjectDetailSupported
+            return support.subjectDetailSupported && support.criteria != nil
         }
         let detailInstruction: String
         if let detailRow {
             let reference = String(decoding: try encoder.encode(detailRow.reference), as: UTF8.self)
-            detailInstruction = "Detail evidence for this request: [" + reference + "]. Use this exact one-element evidence array for detail, or omit detail if its observation does not support texture. Describe only this row's subject; do not add other crops or background texture."
+            detailInstruction = "Detail evidence for this request: [" + reference + "]. Use this exact one-element evidence array for detail, or omit detail if its observation does not support texture. Copy only this row's detail entry; never another criterion or background."
         } else {
             detailInstruction = "No admitted subject crop supports detail. Omit the detail claim."
         }
@@ -691,6 +693,11 @@ extension CombinedReviewFeature {
                 }
                 let resolved = try ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
                                                uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
+                if ["exposure", "detail"].contains(resolved.type) {
+                    guard resolved.evidence.contains(where: { ref in value.observations.contains { $0.id.rawValue == ref.id && $0.criteria != nil } }) else {
+                        throw ReviewValidationIssue(.grounding, "synthesis.criterionRequired", field: "claims.evidence")
+                    }
+                }
                 return try grounding.validate(resolved)
             }
             let qualified = generated.claims
