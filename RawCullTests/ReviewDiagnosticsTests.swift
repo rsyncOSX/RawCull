@@ -407,8 +407,8 @@ struct ReviewDiagnosticsTests {
         #expect(!support.claimTypes.contains("exposure"))
     }
 
-    @Test func `criterion crops require explicit flags and keep anatomy outside observations`() throws {
-        let good = #"{"regionID":"r","criteria":{"composition":{"supported":true,"text":"Subject left of center."},"exposure":{"supported":true,"text":"Soft illumination."},"visibility":{"supported":true,"text":"Subject partly occluded."},"detail":{"supported":false,"text":""}},"uncertainty":"Limited texture.","insufficientEvidence":false,"targetIdentified":true}"#
+    @Test func `criterion crops require nullable strings and keep anatomy outside observations`() throws {
+        let good = #"{"regionID":"r","criteria":{"composition":"Subject left of center.","exposure":"Soft illumination.","visibility":"Subject partly occluded.","detail":null},"uncertainty":"Limited texture.","targetIdentified":true}"#
         let parsed = try CombinedReviewResponse.inspection(good, regionID: "r", requireCriteria: true)
         #expect(parsed.criteria?.exposure.supported == true)
         #expect(parsed.criteria?.detail.supported == false)
@@ -418,8 +418,8 @@ struct ReviewDiagnosticsTests {
             good.replacingOccurrences(of: "Subject partly occluded.", with: "Species identity unknown."),
             good.replacingOccurrences(of: "Subject partly occluded.", with: "Subject left of center."),
             good.replacingOccurrences(of: "Subject partly occluded.", with: "A yellow eye is visible."),
-            good.replacingOccurrences(of: #""supported":false,"text":"""#, with: #""supported":false,"text":"Texture visible""#),
-            good.replacingOccurrences(of: #""insufficientEvidence":false"#, with: #""insufficientEvidence":true"#)
+            good.replacingOccurrences(of: #""detail":null"#, with: #""detail":"""#),
+            good.replacingOccurrences(of: #","detail":null"#, with: "")
         ] {
             #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(invalid, regionID: "r", requireCriteria: true) }
         }
@@ -445,6 +445,40 @@ struct ReviewDiagnosticsTests {
         }
         let restored = try JSONDecoder().decode(ReviewObservation.self, from: JSONEncoder().encode(value.observations[0]))
         #expect(restored.criteria?.detail.text == "Coarse fur strands are resolved.")
+    }
+
+    @Test func `null criteria preserve explicit abstention without contradictory flags`() throws {
+        let response = #"{"regionID":"r","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":true}"#
+        let parsed = try CombinedReviewResponse.inspection(response, regionID: "r", requireCriteria: true)
+        #expect(parsed.insufficientEvidence)
+        #expect(parsed.targetIdentified == true)
+        #expect(parsed.observations.isEmpty)
+        #expect(parsed.criteria?.detail.supported == false)
+        let wire = ReviewNullableCriteria(composition: nil, exposure: nil, visibility: nil, detail: nil)
+        let roundTrip = try JSONDecoder().decode(ReviewNullableCriteria.self, from: JSONEncoder().encode(wire))
+        #expect(roundTrip.detail == nil)
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(response.replacingOccurrences(of: #","detail":null"#, with: ""), regionID: "r", requireCriteria: true) }
+    }
+
+    @Test func `v16 rejected responses stay rejected and receive stage specific feedback`() throws {
+        struct Fixture: Decodable { let stage: String; let regionID: String?; let response: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtures = try JSONDecoder().decode([Fixture].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/schema-responses-v16.json")))
+        #expect(fixtures.count == 4)
+        for fixture in fixtures {
+            if fixture.stage == "crop" {
+                #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(fixture.response, regionID: fixture.regionID!, requireCriteria: true) }
+            } else {
+                #expect(throws: (any Error).self) { try CombinedReviewResponse.report(fixture.response, imageID: .init(rawValue: "image"), allowed: [.init(kind: .observation, id: "o1")], limitations: [], regions: [], uninspected: [], incomplete: false) }
+            }
+        }
+        let crop = CombinedReviewResponse.repairInstruction(for: .init(.schema, "schema.requiredFieldOrType", field: "criteria.composition"))
+        #expect(crop.contains("string or null"))
+        #expect(crop.contains("No supported/text objects"))
+        let report = CombinedReviewResponse.repairInstruction(for: .init(.schema, "schema.requiredFieldOrType", field: "claims.text"))
+        #expect(report.contains("text STRING"))
+        #expect(report.contains("evidence ARRAY"))
+        #expect(!report.contains("criterion text"))
     }
 
     private func groundedResult() -> CombinedReviewResult {

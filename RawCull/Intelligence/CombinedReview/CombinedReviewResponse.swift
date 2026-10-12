@@ -19,6 +19,37 @@ nonisolated struct CombinedReviewInspection: Codable, Sendable {
     let insufficientEvidence: Bool
 }
 
+/// Request-boundary strings/nulls avoid redundant support flags. All keys are required.
+nonisolated struct ReviewNullableCriteria: Codable, Sendable {
+    let composition: String?
+    let exposure: String?
+    let visibility: String?
+    let detail: String?
+
+    enum CodingKeys: String, CodingKey { case composition, exposure, visibility, detail }
+    init(composition: String?, exposure: String?, visibility: String?, detail: String?) {
+        self.composition = composition; self.exposure = exposure; self.visibility = visibility; self.detail = detail
+    }
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        composition = try values.decode(String?.self, forKey: .composition)
+        exposure = try values.decode(String?.self, forKey: .exposure)
+        visibility = try values.decode(String?.self, forKey: .visibility)
+        detail = try values.decode(String?.self, forKey: .detail)
+    }
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(composition, forKey: .composition)
+        try values.encode(exposure, forKey: .exposure)
+        try values.encode(visibility, forKey: .visibility)
+        try values.encode(detail, forKey: .detail)
+    }
+    var observations: ReviewCriterionObservations {
+        func entry(_ text: String?) -> ReviewCriterionObservation { .init(supported: text != nil, text: text ?? "") }
+        return .init(composition: entry(composition), exposure: entry(exposure), visibility: entry(visibility), detail: entry(detail))
+    }
+}
+
 nonisolated enum CombinedReviewResponse {
     static let overviewInstruction = """
     Inspect this photograph. Return JSON only with three fields: observations, uncertainty, concepts.
@@ -127,21 +158,40 @@ nonisolated enum CombinedReviewResponse {
                      observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
     }
 
+    static func repairInstruction(for issue: ReviewValidationIssue) -> String {
+        let field = issue.fieldPath ?? "JSON"
+        let action: String
+        if field.hasPrefix("criteria") || issue.check.hasPrefix("crop.") {
+            switch issue.check {
+            case "crop.supportedDomain": action = "Replace prohibited criterion text with permitted evidence or null. Never repeat anatomy or focus claims."
+            case "crop.exposureEvidence": action = "criteria.exposure must describe illumination/tonal contrast, or be null; sky color alone is insufficient."
+            case "crop.visibilityEvidence": action = "criteria.visibility must describe extent/occlusion, or be null; put identity uncertainty in uncertainty."
+            case "crop.duplicateCriterionText": action = "Use different criterion-specific strings; set unsupported criteria to null."
+            default: action = "criteria must contain composition, exposure, visibility and detail, each a string or null. No supported/text objects. Include targetIdentified Boolean and uncertainty string."
+            }
+        } else if field.hasPrefix("claims") || issue.check.hasPrefix("report.") || issue.check.hasPrefix("synthesis.") {
+            action = "Each claim needs text STRING, type STRING, evidence ARRAY of supplied {kind,id} objects, uncertainty STRING and contradictions ARRAY. Observation prose belongs in text, never evidence. Omit unsupported claims."
+        } else {
+            action = "Return the complete original schema with every required field and exact type; use supplied IDs."
+        }
+        return "Previous response failed validation: " + issue.check + ", field " + field + ".\n" + action
+    }
+
     static func inspection(_ response: String, regionID: String, requireCriteria: Bool = false) throws -> CombinedReviewInspection {
         let value: CombinedReviewInspection
         if requireCriteria {
             struct Payload: Decodable {
                 let regionID: String
-                let criteria: ReviewCriterionObservations
+                let criteria: ReviewNullableCriteria
                 let uncertainty: String
-                let insufficientEvidence: Bool
                 let targetIdentified: Bool
             }
             let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
+            let criteria = payload.criteria.observations
             for type in ReviewCriterionObservations.types {
-                let entry = payload.criteria[type]!
+                let entry = criteria[type]!
                 guard entry.supported == !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    throw ReviewValidationIssue(.schema, "crop.criterionSupportConsistency", field: "criteria." + type)
+                    throw ReviewValidationIssue(.schema, "crop.nullOrObservation", field: "criteria." + type)
                 }
                 guard entry.text.count <= 120 else { throw ReviewValidationIssue(.responseLength, "crop.criterionLength", field: "criteria." + type + ".text") }
                 guard !containsForbiddenClaimDomain(entry.text) else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text") }
@@ -159,25 +209,24 @@ nonisolated enum CombinedReviewResponse {
                     }
                 }
             }
-            let supported = ReviewCriterionObservations.types.compactMap { payload.criteria[$0] }.filter(\.supported)
-            guard payload.insufficientEvidence == supported.isEmpty,
-                  payload.targetIdentified || !payload.criteria.detail.supported else {
+            let supported = ReviewCriterionObservations.types.compactMap { criteria[$0] }.filter(\.supported)
+            guard payload.targetIdentified || !criteria.detail.supported else {
                 throw ReviewValidationIssue(.grounding, "crop.criterionTargetConsistency", field: "criteria")
             }
             // Identical prose under multiple labels is not criterion-specific evidence.
             let texts = supported.map { $0.text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
             guard Set(texts).count == texts.count else { throw ReviewValidationIssue(.schema, "crop.duplicateCriterionText", field: "criteria") }
-            value = .init(targetIdentified: payload.targetIdentified, criteria: payload.criteria, regionID: payload.regionID,
-                          observations: supported.map(\.text).joined(separator: " "), uncertainty: payload.uncertainty, insufficientEvidence: payload.insufficientEvidence)
+            value = .init(targetIdentified: payload.targetIdentified, criteria: criteria, regionID: payload.regionID,
+                          observations: supported.map(\.text).joined(separator: " "), uncertainty: payload.uncertainty, insufficientEvidence: supported.isEmpty)
         } else {
             value = try ObjectJSONEnvelope.decode(CombinedReviewInspection.self, from: response)
         }
         let forbidden = containsForbiddenClaimDomain(value.observations)
         guard !forbidden else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "observations") }
         guard value.regionID == regionID else { throw ReviewValidationIssue(.unknownID, "crop.expectedRegionID", field: "regionID", reference: .init(kind: .region, id: regionID)) }
-        try validateText(value.observations, maximum: 500, field: "observations")
-        try validateText(value.uncertainty, maximum: 200, field: "uncertainty")
-        guard !(value.insufficientEvidence && value.targetIdentified == true) else { throw ReviewValidationIssue(.grounding, "crop.targetSupportConsistency", field: "targetIdentified") }
+        if !requireCriteria || !value.insufficientEvidence { try validateText(value.observations, maximum: 500, field: "observations") }
+        if !requireCriteria || !value.uncertainty.isEmpty { try validateText(value.uncertainty, maximum: 200, field: "uncertainty") }
+        guard requireCriteria || !(value.insufficientEvidence && value.targetIdentified == true) else { throw ReviewValidationIssue(.grounding, "crop.targetSupportConsistency", field: "targetIdentified") }
         return value
     }
 
