@@ -11,6 +11,7 @@ nonisolated struct CombinedReviewOverview: Codable, Sendable {
 }
 
 nonisolated struct CombinedReviewInspection: Codable, Sendable {
+    var validationNotes: [String]? = nil
     var targetIdentified: Bool? = nil
     var criteria: ReviewCriterionObservations? = nil
     let regionID: String
@@ -184,7 +185,7 @@ nonisolated enum CombinedReviewResponse {
         return "Previous response failed validation: " + issue.check + ", field " + field + ".\n" + action
     }
 
-    static func inspection(_ response: String, regionID: String, requireCriteria: Bool = false) throws -> CombinedReviewInspection {
+    static func inspection(_ response: String, regionID: String, requireCriteria: Bool = false, preserveValidCriteria: Bool = false) throws -> CombinedReviewInspection {
         let value: CombinedReviewInspection
         if requireCriteria {
             struct Payload: Decodable {
@@ -194,36 +195,60 @@ nonisolated enum CombinedReviewResponse {
                 let targetIdentified: Bool
             }
             let payload = try ObjectJSONEnvelope.decode(Payload.self, from: response)
-            let criteria = payload.criteria.observations
+            let rawCriteria = payload.criteria.observations
+            var accepted: [String: ReviewCriterionObservation] = [:]
+            var notes: [String] = []
+            var seen = Set<String>()
             for type in ReviewCriterionObservations.types {
-                let entry = criteria[type]!
-                guard entry.supported == !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    throw ReviewValidationIssue(.schema, "crop.nullOrObservation", field: "criteria." + type)
-                }
-                guard entry.text.count <= 120 else { throw ReviewValidationIssue(.responseLength, "crop.criterionLength", field: "criteria." + type + ".text") }
-                guard !containsForbiddenClaimDomain(entry.text) else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text") }
-                let technicalWords = entry.text.lowercased().split(whereSeparator: { !$0.isLetter })
-                guard !technicalWords.contains(where: { $0.hasPrefix("focus") || $0.hasPrefix("sharp") }) else {
-                    throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text")
-                }
-                if entry.supported, type == "exposure", !ReviewSynthesisGrounding.hasLighting(entry.text) {
-                    throw ReviewValidationIssue(.schema, "crop.exposureEvidence", field: "criteria.exposure.text")
-                }
-                if entry.supported, type == "visibility" {
-                    let words = Set(entry.text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
-                    guard words.isDisjoint(with: ["species", "identity", "identification", "identifiable", "resolution"]) else {
-                        throw ReviewValidationIssue(.schema, "crop.visibilityEvidence", field: "criteria.visibility.text")
+                let entry = rawCriteria[type]!
+                do {
+                    guard entry.supported == !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        throw ReviewValidationIssue(.schema, "crop.nullOrObservation", field: "criteria." + type)
                     }
+                    guard entry.text.count <= 120 else { throw ReviewValidationIssue(.responseLength, "crop.criterionLength", field: "criteria." + type + ".text") }
+                    guard !containsForbiddenClaimDomain(entry.text) else { throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text") }
+                    let technicalWords = entry.text.lowercased().split(whereSeparator: { !$0.isLetter })
+                    guard !technicalWords.contains(where: { $0.hasPrefix("focus") || $0.hasPrefix("sharp") }) else {
+                        throw ReviewValidationIssue(.unsupportedDomain, "crop.supportedDomain", field: "criteria." + type + ".text")
+                    }
+                    if entry.supported, type == "exposure", !ReviewSynthesisGrounding.hasLighting(entry.text) {
+                        throw ReviewValidationIssue(.schema, "crop.exposureEvidence", field: "criteria.exposure.text")
+                    }
+                    if entry.supported, type == "visibility" {
+                        let words = Set(entry.text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+                        guard words.isDisjoint(with: ["species", "identity", "identification", "identifiable", "resolution"]) else {
+                            throw ReviewValidationIssue(.schema, "crop.visibilityEvidence", field: "criteria.visibility.text")
+                        }
+                    }
+                    if type == "detail", entry.supported {
+                        guard payload.targetIdentified else {
+                            throw ReviewValidationIssue(.grounding, "crop.criterionTargetConsistency", field: "criteria.detail")
+                        }
+                        let lower = entry.text.lowercased()
+                        guard !["not resolved", "unresolved", "not clearly resolved", "no texture", "no surface texture", "not discernible", "not distinguishable", "background texture"].contains(where: lower.contains) else {
+                            throw ReviewValidationIssue(.grounding, "crop.unresolvedDetail", field: "criteria.detail")
+                        }
+                    }
+                    if entry.supported {
+                        let normalized = entry.text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+                        guard seen.insert(normalized).inserted else {
+                            throw ReviewValidationIssue(.schema, "crop.duplicateCriterionText", field: "criteria." + type)
+                        }
+                    }
+                    accepted[type] = entry
+                } catch let issue as ReviewValidationIssue {
+                    guard preserveValidCriteria else { throw issue }
+                    accepted[type] = .init(supported: false, text: "")
+                    notes.append("Rejected " + type + ": " + issue.check + "; criterion abstained")
                 }
             }
+            let criteria = ReviewCriterionObservations(composition: accepted["composition"]!, exposure: accepted["exposure"]!, visibility: accepted["visibility"]!, detail: accepted["detail"]!)
             let supported = ReviewCriterionObservations.types.compactMap { criteria[$0] }.filter(\.supported)
-            guard payload.targetIdentified || !criteria.detail.supported else {
-                throw ReviewValidationIssue(.grounding, "crop.criterionTargetConsistency", field: "criteria")
+            // A wholly invalid response remains a failure eligible for bounded repair.
+            if supported.isEmpty, !notes.isEmpty {
+                return try inspection(response, regionID: regionID, requireCriteria: true)
             }
-            // Identical prose under multiple labels is not criterion-specific evidence.
-            let texts = supported.map { $0.text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
-            guard Set(texts).count == texts.count else { throw ReviewValidationIssue(.schema, "crop.duplicateCriterionText", field: "criteria") }
-            value = .init(targetIdentified: payload.targetIdentified, criteria: criteria, regionID: payload.regionID,
+            value = .init(validationNotes: notes.isEmpty ? nil : notes, targetIdentified: payload.targetIdentified, criteria: criteria, regionID: payload.regionID,
                           observations: supported.map(\.text).joined(separator: " "), uncertainty: payload.uncertainty, insufficientEvidence: supported.isEmpty)
         } else {
             value = try ObjectJSONEnvelope.decode(CombinedReviewInspection.self, from: response)
