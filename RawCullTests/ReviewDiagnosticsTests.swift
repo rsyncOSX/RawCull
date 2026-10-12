@@ -283,6 +283,12 @@ struct ReviewDiagnosticsTests {
         overview.observations[0] = .init(id: original.id, regionID: nil, text: "Whole scene in focus", uncertainty: "Limited", availability: .available, provenance: origin)
         let focus = ReviewClaim(text: "Whole scene in focus", type: "composition", evidence: [.init(kind: .observation, id: original.id.rawValue)], uncertainty: "Limited", contradictions: [])
         #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: overview).validate(focus) }
+        // Species uncertainty must not override explicit generic-target support.
+        let visibleUnknownSpecies = #"{"regionID":"r","observations":"A small brown bird perches on a wire fence.","uncertainty":"Species identity is unverified.","insufficientEvidence":false,"targetIdentified":true}"#
+        #expect(try CombinedReviewResponse.inspection(visibleUnknownSpecies, regionID: "r").targetIdentified == true)
+        // Replay the supplied runs' negative flag without upgrading it from the prose.
+        let retainedNegative = #"{"regionID":"r","observations":"A small brown bird perches on a wire fence.","uncertainty":"The bird's identity is not clearly verifiable due to low resolution and partial visibility.","insufficientEvidence":false,"targetIdentified":false}"#
+        #expect(try CombinedReviewResponse.inspection(retainedNegative, regionID: "r").targetIdentified == false)
         let contradictory = #"{"regionID":"r","observations":"No target visible","uncertainty":"Limited","insufficientEvidence":true,"targetIdentified":true}"#
         #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.inspection(contradictory, regionID: "r") }
     }

@@ -470,7 +470,10 @@ extension CombinedReviewFeature {
                 Return JSON only with regionID (the exact ID above), observations and uncertainty (strings), insufficientEvidence and targetIdentified (booleans).
                 observations: one sentence, maximum 500 characters. uncertainty: one brief limitation, aim for 80 characters, maximum 200.
                 Write one short sentence about visible texture, illumination, framing or behavior supported by this crop. Do not infer unseen anatomy.
-                Set targetIdentified to false when the intended target is absent or cannot be identified; set insufficientEvidence to true if there is no supported observation.
+                targetIdentified means the intended generic target described by Purpose is visibly present and distinguishable in this crop. It does not mean species identification, individual identity, verified anatomy or fine-detail quality.
+                Set targetIdentified to true only when this crop visibly supports that generic target; uncertain species or limited resolution alone do not require false. Never assume presence from Purpose alone.
+                Set targetIdentified to false when the target is absent, cannot be distinguished, or Purpose gives no intended target. Keep identity and anatomical uncertainty in uncertainty.
+                Set insufficientEvidence to true if there is no supported observation; it must not be true together with targetIdentified=true.
                 Put anatomical limitations in uncertainty only. Never use eye, eyes, iris, irises, gaze or RAW recovery in observations, even to say they are absent or unverified. Observations must not discuss sharpness of individual body parts.
                 If these restrictions leave no supported observation, set insufficientEvidence to true.
                 Do not identify a species or claim edited results or calibrated quality. Do not assume other passes agree.

@@ -31,6 +31,16 @@ struct CombinedReviewFeatureTests {
         let backend = ReviewFakeBackend(hasSAM: true)
         let feature = makeFeature(fixture, backend: backend)
         await feature.analyze([fixture.file])
+        let cropPrompts = await backend.cropInstructions
+        #expect(!cropPrompts.isEmpty)
+        for prompt in cropPrompts {
+            #expect(prompt.contains("intended generic target"))
+            #expect(prompt.contains("It does not mean species identification"))
+            #expect(prompt.contains("Never assume presence from Purpose alone"))
+            #expect(prompt.contains("Purpose gives no intended target"))
+        }
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v12")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v12")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
@@ -595,6 +605,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     var cropStarted = false
     var responses = 0
     var synthesisInstructions: [String] = []
+    var cropInstructions: [String] = []
     init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil) {
         self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding; self.overviewResponse = overviewResponse
     }
@@ -638,6 +649,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
             return "{\"observations\":\"Centered visible subject\",\"uncertainty\":\"Overview lacks fine detail\",\"concepts\":[{\"query\":\"bird\",\"displayName\":\"Bird\",\"reason\":\"Visible subject\"}]}"
         }
         if let line = instruction.split(separator: "\n").first(where: { $0.contains("Region ID:") }) {
+            cropInstructions.append(instruction)
             cropStarted = true
             if delayCrop {
                 try await Task.sleep(for: .seconds(30))
