@@ -69,8 +69,8 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v17")
-        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v17")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v18")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v18")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
@@ -167,7 +167,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v17"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v18"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })

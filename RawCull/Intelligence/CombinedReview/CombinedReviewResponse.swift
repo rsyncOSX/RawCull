@@ -158,11 +158,18 @@ nonisolated enum CombinedReviewResponse {
                      observations: payload.observations, uncertainty: payload.uncertainty, concepts: queries)
     }
 
+    static func canRepair(_ issue: ReviewValidationIssue) -> Bool {
+        [.json, .schema, .unknownID].contains(issue.code)
+            || ["crop.supportedDomain", "crop.criterionLength", "crop.criterionTargetConsistency"].contains(issue.check)
+    }
+
     static func repairInstruction(for issue: ReviewValidationIssue) -> String {
         let field = issue.fieldPath ?? "JSON"
         let action: String
         if field.hasPrefix("criteria") || issue.check.hasPrefix("crop.") {
             switch issue.check {
+            case "crop.criterionLength": action = "Shorten each criterion to at most 120 characters; aim for 80. Preserve meaning; use null if unsupported."
+            case "crop.criterionTargetConsistency": action = "Determine visible generic-target presence from the image, not species or individual identity. If absent or indistinguishable, targetIdentified=false and detail=null. No resolved target texture also requires detail=null. Never infer presence from Purpose."
             case "crop.supportedDomain": action = "Replace prohibited criterion text with permitted evidence or null. Never repeat anatomy or focus claims."
             case "crop.exposureEvidence": action = "criteria.exposure must describe illumination/tonal contrast, or be null; sky color alone is insufficient."
             case "crop.visibilityEvidence": action = "criteria.visibility must describe extent/occlusion, or be null; put identity uncertainty in uncertainty."
