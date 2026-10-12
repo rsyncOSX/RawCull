@@ -447,6 +447,51 @@ struct ReviewDiagnosticsTests {
         #expect(restored.criteria?.detail.text == "Coarse fur strands are resolved.")
     }
 
+    @Test func `criterion background blur uses its exact registered criterion boundary`() throws {
+        var value = groundedResult()
+        let original = value.observations[0]
+        let visibility = "squirrel fully visible, no occlusion, clear outline against blurred background"
+        let criteria = ReviewCriterionObservations(
+            composition: .init(supported: true, text: "Subject beside a fence"),
+            exposure: .init(supported: true, text: "Soft lighting"),
+            visibility: .init(supported: true, text: visibility),
+            detail: .init(supported: false, text: ""))
+        value.observations[0] = .init(targetIdentified: true, criteria: criteria, id: original.id,
+            regionID: original.regionID, text: "Subject beside a fence Soft lighting " + visibility,
+            uncertainty: "", availability: .available, provenance: original.provenance)
+        let claim = ReviewClaim(text: visibility, type: "visibility", evidence: [.init(kind: .observation, id: "crop-a")], uncertainty: "", contradictions: [])
+        #expect(try ReviewSynthesisGrounding(result: value).validate(claim).subjectID?.rawValue == "a")
+        value.observations[0] = .init(targetIdentified: false, criteria: criteria, id: original.id,
+            regionID: original.regionID, text: visibility, uncertainty: "", availability: .available, provenance: original.provenance)
+        #expect(throws: ReviewValidationIssue.self) { try ReviewSynthesisGrounding(result: value).validate(claim) }
+    }
+
+    @Test func `crop repairs address target consistency and length without accepting invalid evidence`() throws {
+        let response = #"{"regionID":"r","criteria":{"composition":"Subject left of center","exposure":"Soft lighting","visibility":"Subject visible","detail":"No texture resolved"},"uncertainty":"Species unknown","targetIdentified":false}"#
+        #expect(throws: ReviewValidationIssue.self) { try CombinedReviewResponse.inspection(response, regionID: "r", requireCriteria: true) }
+        let corrected = response.replacingOccurrences(of: #""No texture resolved""#, with: "null")
+        #expect(try CombinedReviewResponse.inspection(corrected, regionID: "r", requireCriteria: true).targetIdentified == false)
+        for check in ["crop.criterionTargetConsistency", "crop.criterionLength"] {
+            let issue = ReviewValidationIssue(check == "crop.criterionLength" ? .responseLength : .grounding, check, field: "criteria")
+            #expect(CombinedReviewResponse.canRepair(issue))
+            #expect(!CombinedReviewResponse.repairInstruction(for: issue).contains("supported/text objects"))
+        }
+        #expect(!CombinedReviewResponse.canRepair(.init(.grounding, "synthesis.criterionObservation", field: "claims.text")))
+        struct Fixture: Decodable { let response: String; let regionID: String; let check: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtures = try JSONDecoder().decode([Fixture].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/crop-responses-v17.json")))
+        #expect(fixtures.count == 11)
+        for fixture in fixtures {
+            do {
+                _ = try CombinedReviewResponse.inspection(fixture.response, regionID: fixture.regionID, requireCriteria: true)
+                Issue.record("Invalid v17 evidence accepted")
+            } catch let issue as ReviewValidationIssue {
+                #expect(issue.check == fixture.check)
+                #expect(CombinedReviewResponse.canRepair(issue))
+            }
+        }
+    }
+
     @Test func `null criteria preserve explicit abstention without contradictory flags`() throws {
         let response = #"{"regionID":"r","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":true}"#
         let parsed = try CombinedReviewResponse.inspection(response, regionID: "r", requireCriteria: true)

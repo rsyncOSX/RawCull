@@ -81,7 +81,7 @@ extension CombinedReviewFeature {
         do {
             return try CombinedReviewResponse.validated(text, validation)
         } catch let rejection as ReviewResponseRejection {
-            guard ([.json, .schema, .unknownID].contains(rejection.issue.code) || rejection.issue.check == "crop.supportedDomain"),
+            guard CombinedReviewResponse.canRepair(rejection.issue),
                   let file = activeFile else { throw rejection }
             let correction = CombinedReviewResponse.repairInstruction(for: rejection.issue)
             // Keep the full original schema and evidence; never truncate to fit a repair.
@@ -498,11 +498,11 @@ extension CombinedReviewFeature {
                 let prompt = """
                 Inspect this crop for four separate criteria. Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
                 Return JSON only: {"regionID":"\(region.id.rawValue)","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":false}.
-                Include all keys. Each criterion is a visible observation STRING or null when unsupported. Replace example nulls with evidence when available; the example is not a conclusion. Determine targetIdentified from the crop.
-                Each non-null string: one criterion-specific sentence, max 120 characters. Never use an empty string or supported/text object. Never repeat a sentence across criteria.
+                Include all keys. Each criterion is a visible observation STRING or null when unsupported. Replace example nulls with evidence when available; the example is not a conclusion. Determine targetIdentified from visible generic-target presence before writing criteria. Unknown species or individual identity does not make a visible target absent.
+                Each non-null string: one criterion-specific sentence, aim for 80 characters, hard maximum 120. Never use an empty string or supported/text object. Never repeat a sentence across criteria.
                 composition: placement, framing or obstructions. exposure: illumination or tonal contrast; a light-colored sky alone is not exposure evidence.
                 visibility: visible extent or occlusion of the intended generic target; species/identity uncertainty is not visibility.
-                detail: resolved surface texture of that target only, never background texture or anatomical detail. If unresolved, abstain.
+                detail: resolved surface texture of that target only, never background texture or anatomical detail. If unresolved, use detail=null; never write a sentence saying no texture is resolved.
                 targetIdentified means the intended generic target is visibly present and distinguishable. It does not mean species identification, individual identity, verified anatomy or fine-detail quality. Never assume presence from Purpose alone. Purpose gives no intended target: false.
                 intended generic target absent/indistinguishable: targetIdentified=false and detail=null.
                 Text must stay within framing, illumination, occlusion and surface texture. Do not describe body parts, species, focus, sharpness or RAW recovery. Anatomical limitations belong in uncertainty only (max 160 characters).

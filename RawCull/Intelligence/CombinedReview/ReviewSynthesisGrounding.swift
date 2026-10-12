@@ -117,7 +117,14 @@ nonisolated struct ReviewSynthesisGrounding {
     private func validateFocusScope(_ claim: ReviewClaim, supported: [Support], subjects: Set<ReviewSubjectID>) throws {
         let words = claim.text.lowercased().split(whereSeparator: { !$0.isLetter })
         guard words.contains(where: { $0.hasPrefix("focus") || $0.hasPrefix("sharp") || $0.hasPrefix("blur") }) else { return }
-        guard subjects.count == 1, supported.contains(where: { $0.crop && $0.subjectID == subjects.first && Self.isExcerpt(claim.text, of: $0.observationText) }) else {
+        guard subjects.count == 1, supported.contains(where: { support in
+            guard support.crop, support.subjectID == subjects.first else { return false }
+            if let criteria = support.criteria {
+                guard let entry = criteria[claim.type], entry.supported else { return false }
+                return Self.sameText(claim.text, entry.text)
+            }
+            return Self.isExcerpt(claim.text, of: support.observationText)
+        }) else {
             throw ReviewValidationIssue(.grounding, "synthesis.focusNeedsRegisteredSubjectCrop", field: "claims.evidence")
         }
     }
