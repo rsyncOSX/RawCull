@@ -327,6 +327,16 @@ struct ReviewDiagnosticsTests {
         #expect(!accepted.incomplete)
         #expect(throws: ReviewValidationIssue.self) { try report(["crop-a", "crop-b"]) }
 
+        // The v13 foal report combined two crops for detail. Preserve its scene claim,
+        // but never salvage detail by dropping one cited subject or changing the prose.
+        let scene = ReviewClaim(text: "Two subjects in a grassy field", type: "composition", evidence: references.sorted { $0.id < $1.id }, uncertainty: "Limited", contradictions: [])
+        let multiCrop = ReviewClaim(text: "The coats and grass have visible texture", type: "detail", evidence: scene.evidence, uncertainty: "Limited", contradictions: [])
+        let mixedData = try JSONEncoder().encode(["claims": [scene, multiCrop]])
+        let partial = try CombinedReviewResponse.report(String(decoding: mixedData, as: UTF8.self), imageID: value.file.id, allowed: references, limitations: [], regions: [], uninspected: [], incomplete: false, qualify: ReviewSynthesisGrounding(result: value).validate)
+        #expect(partial.claims.map(\.type) == ["composition"])
+        #expect(partial.incomplete)
+        #expect(partial.limitations.contains { $0.reason.contains("synthesis.targetCropRequired") })
+
         // Real Qwen sometimes emits short IDs instead of reference objects.
         let shorthand = #"{"claims":[{"text":"Visible feather texture","type":"texture","evidence":["crop-a"],"uncertainty":"Limited","contradictions":[]}]}"#
         func decode(_ response: String, allowed: Set<ReviewEvidenceReference>? = nil) throws -> ReviewImageReport {

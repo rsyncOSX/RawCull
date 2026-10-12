@@ -649,12 +649,12 @@ extension CombinedReviewFeature {
         Same-model agreement is not independent confirmation.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
-        // Reserve room for validation feedback as well as subject observations and overview.
+        // Reserve 320 bytes for the concrete detail directive and 480 for validation feedback.
         // Repair never drops schema or evidence rows to fit the model context.
         var selected: [String] = []
         var included: Set<ReviewEvidenceReference> = []
         for row in orderedRows {
-            if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row.text]).joined(separator: "\n") + String(repeating: " ", count: 480), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
+            if (try? CombinedReviewResponse.admitted(schema + "\n" + (selected + [row.text]).joined(separator: "\n") + String(repeating: " ", count: 800), model: qwen, outputTokens: snapshot.responseTokens)) != nil {
                 selected.append(row.text)
                 included.insert(row.reference)
             } else {
@@ -666,7 +666,21 @@ extension CombinedReviewFeature {
         if included.isEmpty {
             throw ReviewValidationIssue(.grounding, "synthesis.includedEvidence")
         }
-        let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n"), model: qwen, outputTokens: snapshot.responseTokens)
+        // Nominate from admitted evidence only; ordering allocates evidence, not photographic importance.
+        // A concrete reference avoids asking the model to choose and merge eligible subject rows.
+        let detailRow = orderedRows.first { row in
+            guard included.contains(row.reference), let stored = aliases[row.reference],
+                  let support = try? grounding.support(stored) else { return false }
+            return support.subjectDetailSupported
+        }
+        let detailInstruction: String
+        if let detailRow {
+            let reference = String(decoding: try encoder.encode(detailRow.reference), as: UTF8.self)
+            detailInstruction = "Detail evidence for this request: [" + reference + "]. Use this exact one-element evidence array for detail, or omit detail if its observation does not support texture. Describe only this row's subject; do not add other crops or background texture."
+        } else {
+            detailInstruction = "No admitted subject crop supports detail. Omit the detail claim."
+        }
+        let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n") + "\n" + detailInstruction, model: qwen, outputTokens: snapshot.responseTokens)
         return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
             let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
                                                               uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty) { claim in

@@ -52,7 +52,7 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v13")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v14")
         #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v13")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
@@ -61,6 +61,13 @@ struct CombinedReviewFeatureTests {
             #expect(rows.contains { $0.contains("targetSupported=true") && !$0.contains("subject=none") })
             #expect(rows.contains { $0.contains("region=whole-frame") && $0.contains("types=composition,exposure,visibility") && !$0.contains("types=composition,exposure,visibility,detail") })
             #expect(rows.contains { $0.contains("subjectDetailSupported=true") && $0.contains("types=composition,exposure,visibility,detail") })
+            let detailLine = try #require(prompt.split(separator: "\n").first { $0.hasPrefix("Detail evidence for this request: ") })
+            let start = try #require(detailLine.firstIndex(of: "["))
+            let end = try #require(detailLine.firstIndex(of: "]"))
+            let references = try JSONDecoder().decode([ReviewEvidenceReference].self, from: Data(detailLine[start...end].utf8))
+            let reference = try #require(references.first)
+            #expect(references.count == 1)
+            #expect(rows.contains { $0.contains(#""id":""# + reference.id + #"""#) && $0.contains("subjectDetailSupported=true") })
             #expect(!prompt.contains(#""kind":"measurement""#))
             #expect(!prompt.contains("example is drawn"))
         }
@@ -75,6 +82,9 @@ struct CombinedReviewFeatureTests {
         let report = try #require(result.report)
         #expect(!report.claims.isEmpty)
         #expect(report.incomplete)
+        let synthesisPrompts = await backend.synthesisInstructions
+        #expect(!synthesisPrompts.isEmpty)
+        #expect(synthesisPrompts.allSatisfy { $0.contains("No admitted subject crop supports detail. Omit the detail claim.") })
         #expect(result.measurements.isEmpty)
         #expect(result.regions.count == 1)
         #expect(result.limitations.contains { $0.reason.contains("Eye localization unavailable") })
@@ -138,7 +148,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v13"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v14"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })

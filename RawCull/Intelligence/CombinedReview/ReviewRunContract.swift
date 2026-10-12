@@ -92,10 +92,10 @@ nonisolated struct ReviewUserRegion: Codable, Equatable, Sendable {
 
 /// A pipeline contract may intentionally retain unchanged stage schemas.
 nonisolated enum ReviewPipelineContract {
-    static let version = "combined-v13"
+    static let version = "combined-v14"
     static let renderVersion = "review-srgb-v1"
     static let stageVersions = Dictionary(uniqueKeysWithValues: ReviewStage.allCases.map {
-        ($0, [.reconciliation, .report, .comparison].contains($0) ? "combined-v13" : $0 == .overview ? "combined-v10" : $0 == .cropObservation ? "combined-v13" : [.segmentation, .identity, .measurement].contains($0) ? "combined-v6" : "combined-v1")
+        ($0, [.reconciliation, .report, .comparison].contains($0) ? "combined-v14" : $0 == .overview ? "combined-v10" : $0 == .cropObservation ? "combined-v13" : [.segmentation, .identity, .measurement].contains($0) ? "combined-v6" : "combined-v1")
     })
 
     static func validate(_ snapshot: ReviewRunSnapshot) throws {
