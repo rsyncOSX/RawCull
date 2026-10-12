@@ -70,7 +70,7 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v19")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v20")
         #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v19")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
@@ -79,17 +79,16 @@ struct CombinedReviewFeatureTests {
             #expect(rows.contains { $0.contains("targetSupported=true") && !$0.contains("subject=none") })
             #expect(rows.contains { $0.contains("region=whole-frame") && $0.contains("types=composition,visibility") && !$0.contains("types=composition,visibility,exposure,detail") })
             #expect(rows.contains { $0.contains("subjectDetailSupported=true") && $0.contains("types=composition,exposure,visibility,detail") })
-            let detailLine = try #require(prompt.split(separator: "\n").first { $0.hasPrefix("Detail evidence for this request: ") })
-            let start = try #require(detailLine.firstIndex(of: "["))
-            let end = try #require(detailLine.firstIndex(of: "]"))
-            let references = try JSONDecoder().decode([ReviewEvidenceReference].self, from: Data(detailLine[start...end].utf8))
-            let reference = try #require(references.first)
-            #expect(references.count == 1)
-            #expect(rows.contains { $0.contains(#""id":""# + reference.id + #"""#) && $0.contains("subjectDetailSupported=true") })
+            let allowed = try #require(prompt.components(separatedBy: "Allowed row IDs by category:\n").last)
+            let detailLine = try #require(allowed.split(separator: "\n").first { $0.hasPrefix("detail: ") })
+            let references = detailLine.dropFirst("detail: ".count).split(separator: ",").map(String.init)
+            #expect(!references.isEmpty)
+            for reference in references {
+                #expect(rows.contains { $0.contains(#""id":""# + reference + #"""#) && $0.contains("subjectDetailSupported=true") })
+            }
             #expect(!prompt.contains(#""kind":"measurement""#))
             #expect(!prompt.contains("example is drawn"))
-            #expect(prompt.contains(#""text":"copied observation""#))
-            #expect(prompt.contains(#""evidence":[{"kind":"observation","id":"o1"}]"#))
+            #expect(prompt.contains(#"{"composition":null,"exposure":null,"visibility":null,"detail":null}"#))
         }
     }
 
@@ -104,7 +103,7 @@ struct CombinedReviewFeatureTests {
         #expect(report.incomplete)
         let synthesisPrompts = await backend.synthesisInstructions
         #expect(!synthesisPrompts.isEmpty)
-        #expect(synthesisPrompts.allSatisfy { $0.contains("No admitted subject crop supports detail. Omit the detail claim.") })
+        #expect(synthesisPrompts.allSatisfy { $0.components(separatedBy: "Allowed row IDs by category:\n").last?.hasSuffix("detail: ") == true })
         #expect(result.measurements.isEmpty)
         #expect(result.regions.count == 1)
         #expect(result.limitations.contains { $0.reason.contains("Eye localization unavailable") })
@@ -168,7 +167,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v19"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v20"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -224,7 +223,7 @@ struct CombinedReviewFeatureTests {
         #expect(run.evidenceOnlySummaries?.count == 8)
         let diagnostics = run.work.compactMap(\.diagnostic)
         #expect(diagnostics.count == 16)
-        #expect(diagnostics.filter { $0.stage == .report }.allSatisfy { $0.code == .unknownID && $0.check == "report.requestLocalReference" })
+        #expect(diagnostics.filter { $0.stage == .report }.allSatisfy { $0.code == .unknownID && $0.check == "selection.eligibleCriterionRow" })
         #expect(diagnostics.filter { $0.stage == .cropObservation }.allSatisfy { $0.code == .json })
         #expect(diagnostics.allSatisfy { !$0.compactReason.contains("invented") })
         #expect(diagnostics.allSatisfy { $0.retainedResponseBytes <= ReviewDiagnosticLimits.perResponseBytes })
@@ -718,15 +717,16 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
         if repairableResponses && !instruction.contains("Previous response failed validation:") {
             return "{\"claims\":[{\"text\":\"Visible subject\",\"type\":\"composition\",\"evidence\":[\"observation prose\"],\"uncertainty\":\"Limited detail\"}]}"
         }
-        let reference = instruction.split(separator: "\n").compactMap { line -> ReviewEvidenceReference? in
-            guard let end = line.firstIndex(of: "}") else { return nil }
-            return try? JSONDecoder().decode(ReviewEvidenceReference.self, from: Data(line[...end].utf8))
-        }.first { $0.kind == .observation }
-        let ref = invalidReport ? ReviewEvidenceReference(kind: .observation, id: "invented") : reference ?? .init(kind: .observation, id: "missing")
-        let claims = ["composition", "exposure", "visibility", "detail"].map {
-            ReviewClaim(text: $0 == "detail" ? "Visible texture" : $0 == "exposure" ? "Soft illumination" : $0 == "composition" ? "Centered subject" : "Visible subject", type: $0, evidence: [ref], uncertainty: "Eye detail is unverified", contradictions: [])
+        let allowed = instruction.components(separatedBy: "Allowed row IDs by category:\n").last ?? ""
+        var choices: [String: String?] = [:]
+        for type in ReviewCriterionObservations.types {
+            let line = allowed.split(separator: "\n").first { $0.hasPrefix(type + ": ") }
+            let id = line.map { String($0.dropFirst(type.count + 2)).components(separatedBy: ",").first ?? "" } ?? ""
+            choices[type] = .some(invalidReport ? "invented" : id.isEmpty ? nil : id)
         }
-        return try String(decoding: JSONEncoder().encode(["claims": claims]), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
+        let response = ReviewNullableCriteria(composition: choices["composition"] ?? nil,
+            exposure: choices["exposure"] ?? nil, visibility: choices["visibility"] ?? nil, detail: choices["detail"] ?? nil)
+        return try String(decoding: JSONEncoder().encode(response), as: UTF8.self) + String(repeating: " ", count: invalidReport ? rejectionPadding : 0)
     }
 
     func segment(image: CGImage, file _: ReviewFileSnapshot, concept: String) throws -> [ObjectInstanceDeduplicator.Candidate] {

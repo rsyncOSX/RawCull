@@ -516,6 +516,37 @@ struct ReviewDiagnosticsTests {
         #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection("{}", regionID: "r", requireCriteria: true, preserveValidCriteria: true) }
     }
 
+    @Test func `row selections assemble exact evidence and abstain on wrong category IDs`() throws {
+        let image = ReviewImageID(rawValue: "image")
+        let composition = ReviewClaim(text: "Subject beside a fence", type: "composition", evidence: [.init(kind: .observation, id: "stored-crop")], uncertainty: "", contradictions: [])
+        let exposure = ReviewClaim(text: "Soft lighting", type: "exposure", evidence: [.init(kind: .observation, id: "stored-light")], uncertainty: "", contradictions: [])
+        let candidates = ["composition": ["o2": composition], "exposure": ["o3": exposure]]
+        func parse(_ text: String) throws -> ReviewImageReport {
+            try CombinedReviewResponse.selectedReport(text, imageID: image, candidates: candidates, limitations: [], regions: [], uninspected: [], incomplete: false)
+        }
+        let good = #"{"composition":"o2","exposure":"o3","visibility":null,"detail":null}"#
+        let report = try parse(good)
+        #expect(report.claims.map(\.text) == [composition.text, exposure.text])
+        #expect(report.claims[0].evidence == composition.evidence)
+        #expect(Set(report.claims.map(\.type)).count == report.claims.count)
+        let partial = try parse(good.replacingOccurrences(of: #""exposure":"o3""#, with: #""exposure":"o2""#))
+        #expect(partial.claims.count == 1)
+        #expect(partial.incomplete)
+        #expect(partial.limitations.first?.reason.contains("eligibleCriterionRow") == true)
+        #expect(try parse(#"{"composition":null,"exposure":null,"visibility":null,"detail":null}"#).claims.isEmpty)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let oldReports = try JSONDecoder().decode([String].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/report-responses-v19.json")))
+        #expect(!oldReports.isEmpty)
+        for response in oldReports {
+            #expect(throws: (any Error).self) { try parse(response) }
+        }
+        for bad in [#"{"composition":"invented","exposure":null,"visibility":null,"detail":null}"#,
+                    #"{"composition":"o2"}"#,
+                    #"{"claims":[{"text":"Borrowed prose","type":"composition"}]}"#] {
+            #expect(throws: (any Error).self) { try parse(bad) }
+        }
+    }
+
     @Test func `null criteria preserve explicit abstention without contradictory flags`() throws {
         let response = #"{"regionID":"r","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":true}"#
         let parsed = try CombinedReviewResponse.inspection(response, regionID: "r", requireCriteria: true)
