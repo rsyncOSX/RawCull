@@ -492,6 +492,30 @@ struct ReviewDiagnosticsTests {
         }
     }
 
+    @Test func `partial crop validation preserves siblings and persists detail abstention`() throws {
+        struct Fixture: Decodable { let response: String; let regionID: String }
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtures = try JSONDecoder().decode([Fixture].self, from: Data(contentsOf: root.appendingPathComponent("Docs/CombinedReviewRegression/crop-responses-v18.json")))
+        #expect(fixtures.count == 12)
+        for fixture in fixtures {
+            if fixture.regionID == "2c62fe40596e502ec75ea945f525c8dc5ac45855cf633f665ab163835be2d80e" {
+                #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(fixture.response, regionID: fixture.regionID, requireCriteria: true, preserveValidCriteria: true) }
+                continue
+            }
+            let parsed = try CombinedReviewResponse.inspection(fixture.response, regionID: fixture.regionID, requireCriteria: true, preserveValidCriteria: true)
+            #expect(parsed.criteria?.composition.supported == true || parsed.criteria?.exposure.supported == true)
+            #expect(parsed.criteria?.detail.supported == false)
+            #expect(!(parsed.validationNotes ?? []).isEmpty)
+            let restored = try JSONDecoder().decode(CombinedReviewInspection.self, from: JSONEncoder().encode(parsed))
+            #expect(restored.validationNotes == parsed.validationNotes)
+            #expect(restored.criteria?.detail.text == "")
+            #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(fixture.response, regionID: "wrong", requireCriteria: true, preserveValidCriteria: true) }
+        }
+        let bad = #"{"regionID":"r","criteria":{"composition":"","exposure":"","visibility":"","detail":""},"uncertainty":"","targetIdentified":false}"#
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection(bad, regionID: "r", requireCriteria: true, preserveValidCriteria: true) }
+        #expect(throws: (any Error).self) { try CombinedReviewResponse.inspection("{}", regionID: "r", requireCriteria: true, preserveValidCriteria: true) }
+    }
+
     @Test func `null criteria preserve explicit abstention without contradictory flags`() throws {
         let response = #"{"regionID":"r","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":true}"#
         let parsed = try CombinedReviewResponse.inspection(response, regionID: "r", requireCriteria: true)

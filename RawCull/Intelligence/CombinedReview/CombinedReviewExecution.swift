@@ -507,9 +507,10 @@ extension CombinedReviewFeature {
                 intended generic target absent/indistinguishable: targetIdentified=false and detail=null.
                 Text must stay within framing, illumination, occlusion and surface texture. Do not describe body parts, species, focus, sharpness or RAW recovery. Anatomical limitations belong in uncertainty only (max 160 characters).
                 """
-                return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue, requireCriteria: true) }
+                return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue, requireCriteria: true, preserveValidCriteria: true) }
             }
             if let inspection {
+                for note in inspection.validationNotes ?? [] { limitation("Crop " + region.id.rawValue + ": " + note) }
                 if inspection.targetIdentified != true || inspection.insufficientEvidence {
                     limitation("Crop \(region.id.rawValue) cannot establish target-specific detail; target support is absent or unknown.")
                 }
@@ -680,7 +681,7 @@ extension CombinedReviewFeature {
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n") + "\n" + detailInstruction, model: qwen, outputTokens: snapshot.responseTokens)
         return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
             let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
-                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty) { claim in
+                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") })) { claim in
                 func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
                     guard included.contains(reference), let stored = aliases[reference] else { throw ReviewValidationIssue(.unknownID, "synthesis.aliasResolution", field: "claims.evidence") }
                     return stored

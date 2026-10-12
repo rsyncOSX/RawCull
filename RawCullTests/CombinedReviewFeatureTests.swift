@@ -20,7 +20,7 @@ struct CombinedReviewFeatureTests {
         #expect(feature.result?.report?.claims.isEmpty == false)
     }
 
-    @Test @MainActor func `prohibited crop anatomy gets one charged repair and retains original rejection`() async throws {
+    @Test @MainActor func `prohibited crop criterion abstains while valid siblings survive without repair`() async throws {
         let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
         let backend = ReviewFakeBackend(forbiddenCrop: true)
         let feature = makeFeature(fixture, backend: backend)
@@ -29,12 +29,13 @@ struct CombinedReviewFeatureTests {
         let run = try #require(feature.manifest)
         let crop = try #require(run.work.first { $0.stage == .cropObservation })
         #expect(crop.state == .completed)
-        #expect(crop.attempts == 2)
-        #expect(run.budget.attempts[.repair] == 1)
-        #expect(crop.diagnostic?.check == "crop.supportedDomain")
-        #expect(await backend.cropInstructions.count == 2)
-        let key = try #require(crop.diagnostic?.rejectedResponseKey)
-        #expect(try await feature.store.rejectedResponse(key).text.contains("yellow eye"))
+        #expect(crop.attempts == 1)
+        #expect(run.budget.attempts[.repair, default: 0] == 0)
+        #expect(await backend.cropInstructions.count == 1)
+        let result = try #require(feature.result)
+        #expect(result.limitations.contains { $0.reason.contains("crop.supportedDomain") })
+        #expect(!result.observations.contains { $0.text.contains("yellow eye") })
+        #expect(result.report?.incomplete == true)
     }
 
     @Test @MainActor func `malformed optional discovery reaches segmentation with persisted limitations and one charged attempt`() async throws {
@@ -69,8 +70,8 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v18")
-        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v18")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v19")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v19")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
@@ -167,7 +168,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v18"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v19"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
