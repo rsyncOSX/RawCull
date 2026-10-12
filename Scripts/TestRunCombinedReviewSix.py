@@ -15,6 +15,31 @@ spec.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    def test_progress_tracks_execution_order_and_terminal_reports(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            runs = output / 'runs'
+            runs.mkdir()
+            manifest = runs / 'run.json'
+            run = {'snapshot': {'files': [
+                {'id': {'rawValue': 'b'}, 'displayName': 'second.ARW'},
+                {'id': {'rawValue': 'a'}, 'displayName': 'first.ARW'}]}, 'work': []}
+            def save():
+                manifest.write_text(json.dumps({'value': run}))
+            save()
+            self.assertEqual(runner.progress_message(output), 'Running 1 out of 2: first.ARW')
+            run['work'].append({'imageID': {'rawValue': 'a'}, 'stage': 'report', 'state': 'running'})
+            save()
+            self.assertEqual(runner.progress_message(output), 'Running 1 out of 2: first.ARW')
+            run['work'][0]['state'] = 'failed'
+            save()
+            self.assertEqual(runner.progress_message(output), 'Running 2 out of 2: second.ARW')
+            run['work'].append({'imageID': {'rawValue': 'b'}, 'stage': 'report', 'state': 'completed'})
+            save()
+            self.assertIn('2 out of 2; running comparison', runner.progress_message(output))
+            manifest.write_text('{')
+            self.assertIsNone(runner.progress_message(output))
+
     def run_fixture(self, callback, exit_code):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

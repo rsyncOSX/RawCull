@@ -7,6 +7,37 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import threading
+
+
+def progress_message(output):
+    """Read persisted image outcomes; progress never implies test acceptance."""
+    try:
+        paths = list((output / 'runs').glob('*.json'))
+        if not paths:
+            return None
+        run = json.loads(paths[0].read_text())['value']
+        files = sorted(run['snapshot']['files'], key=lambda file: file['id']['rawValue'])
+        terminal = {'completed', 'failed', 'skipped'}
+        finished = {item['imageID']['rawValue'] for item in run['work']
+                    if item['stage'] == 'report' and item['state'] in terminal}
+        remaining = [file for file in files if file['id']['rawValue'] not in finished]
+        if not remaining:
+            return f'Image reviews finished: {len(files)} out of {len(files)}; running comparison and final checks.'
+        return f'Running {len(files) - len(remaining) + 1} out of {len(files)}: {remaining[0]["displayName"]}'
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
+        # A missing/incomplete manifest must not interrupt the actual test.
+        return None
+
+
+def monitor_progress(output, stop):
+    previous = None
+    while not stop.is_set():
+        message = progress_message(output)
+        if message and message != previous:
+            print(message, flush=True)
+            previous = message
+        stop.wait(2)
 
 NAMES = ['DSC00639.ARW', 'DSC02022.ARW', '_DSC6564.ARW', 'DSC00113.ARW', 'DSC05921.ARW', 'DSC09214.ARW']
 
@@ -80,7 +111,15 @@ def main():
         command += ['-clonedSourcePackagesDirPath', str(args.packages.resolve()), '-disableAutomaticPackageResolution']
     print(f'Private evidence: {output}\nTest log: {output.parent / (output.name + ".log")}', flush=True)
     with (output.parent / (output.name + '.log')).open('x') as log:
-        result = subprocess.run(command, cwd=repository, env=environment, stdout=log, stderr=subprocess.STDOUT)
+        print('Building and preparing models; waiting for image reviews to start.', flush=True)
+        stop = threading.Event()
+        monitor = threading.Thread(target=monitor_progress, args=(output, stop), daemon=True)
+        monitor.start()
+        try:
+            result = subprocess.run(command, cwd=repository, env=environment, stdout=log, stderr=subprocess.STDOUT)
+        finally:
+            stop.set()
+            monitor.join()
     # Missing evidence means the selected test did not execute, even if xcodebuild exited zero.
     if not (output / 'diagnostic.json').is_file():
         print('FAILED: no completed diagnostic; inspect build/test log.', flush=True)
