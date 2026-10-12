@@ -638,16 +638,15 @@ extension CombinedReviewFeature {
         let schema = """
         \(reconciliation ? "Reconcile independent observations; abstain when unsupported." : "Synthesize the per-image report.")
         Goal: \(snapshot.criteria)
-        JSON only: {"claims":[{"text":"copied observation","type":"composition","evidence":[{"kind":"observation","id":"o1"}],"uncertainty":"","contradictions":[]}]}.
-        Schema example only. Replace text/type/ID from admitted evidence. No evidence: {"claims":[]}.
-        text/type/uncertainty are STRINGS. evidence/contradictions are ARRAYS of {kind,id} objects, never prose or shorthand strings. Omit subjectID/regionID.
-        At most four claims, one per type: composition, exposure, visibility, detail. text max 400; uncertainty max 160.
-        Copy the matching criterion text from ONE row; never borrow another criterion or uncertainty. Legacy rows allow composition/visibility only.
-        Detail needs ONE subjectDetailSupported=true crop. Exposure needs an exposure entry; visibility needs a visibility entry. Omit unsupported types.
-        contradictions=[] unless observations conflict. No invented anatomy, focus, numbers, recovery or quality. Same-model agreement is not independent evidence.
+        Return JSON only: {"composition":null,"exposure":null,"visibility":null,"detail":null}.
+        Include all four keys. Each value is ONE eligible row ID string or null to abstain.
+        Choose the most useful supported row for each category. Never write observation prose or evidence objects.
+        Allowed row IDs for each category are listed below. Use only those IDs; never borrow another category.
+        Select detail only when an eligible detail row exists. Null means no supported selection.
+        Code copies the selected criterion text and evidence ID without rewriting. No invented claims or contradictions.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
-        // Reserve 320 bytes for the concrete detail directive and 480 for validation feedback.
+        // Reserve 320 bytes for allowed row IDs and 480 for validation feedback.
         // Repair never drops schema or evidence rows to fit the model context.
         var selected: [String] = []
         var included: Set<ReviewEvidenceReference> = []
@@ -664,43 +663,42 @@ extension CombinedReviewFeature {
         if included.isEmpty {
             throw ReviewValidationIssue(.grounding, "synthesis.includedEvidence")
         }
-        // Nominate from admitted evidence only; ordering allocates evidence, not photographic importance.
-        // A concrete reference avoids asking the model to choose and merge eligible subject rows.
-        let detailRow = orderedRows.first { row in
-            guard included.contains(row.reference), let stored = aliases[row.reference],
-                  let support = try? grounding.support(stored) else { return false }
-            return support.subjectDetailSupported && support.criteria != nil
-        }
-        let detailInstruction: String
-        if let detailRow {
-            let reference = String(decoding: try encoder.encode(detailRow.reference), as: UTF8.self)
-            detailInstruction = "Detail evidence for this request: [" + reference + "]. Use this exact one-element evidence array for detail, or omit detail if its observation does not support texture. Copy only this row's detail entry; never another criterion or background."
-        } else {
-            detailInstruction = "No admitted subject crop supports detail. Omit the detail claim."
-        }
-        let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n") + "\n" + detailInstruction, model: qwen, outputTokens: snapshot.responseTokens)
-        return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
-            let generated = try CombinedReviewResponse.report(text, imageID: value.file.id, allowed: included, limitations: result?.limitations ?? [], regions: inspected,
-                                                              uninspected: missing, incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") })) { claim in
-                func resolve(_ reference: ReviewEvidenceReference) throws -> ReviewEvidenceReference {
-                    guard included.contains(reference), let stored = aliases[reference] else { throw ReviewValidationIssue(.unknownID, "synthesis.aliasResolution", field: "claims.evidence") }
-                    return stored
+        // Only already-grounded criterion/row pairs are selectable.
+        var candidates: [String: [String: ReviewClaim]] = [:]
+        for row in orderedRows where included.contains(row.reference) {
+            guard let stored = aliases[row.reference] else { continue }
+            let support = try grounding.support(stored)
+            for type in ReviewCriterionObservations.types {
+                let text: String
+                if let criteria = support.criteria {
+                    guard let entry = criteria[type], entry.supported,
+                          type != "detail" || support.subjectDetailSupported else { continue }
+                    text = entry.text
+                } else {
+                    guard ["composition", "visibility"].contains(type) else { continue }
+                    text = support.observationText
                 }
-                let resolved = try ReviewClaim(subjectID: claim.subjectID, regionID: claim.regionID, text: claim.text, type: claim.type, evidence: claim.evidence.map(resolve),
-                                               uncertainty: claim.uncertainty, contradictions: claim.contradictions.map(resolve))
-                if ["exposure", "detail"].contains(resolved.type) {
-                    guard resolved.evidence.contains(where: { ref in value.observations.contains { $0.id.rawValue == ref.id && $0.criteria != nil } }) else {
-                        throw ReviewValidationIssue(.grounding, "synthesis.criterionRequired", field: "claims.evidence")
-                    }
+                let claim = ReviewClaim(text: text, type: type, evidence: [stored], uncertainty: "", contradictions: [])
+                // Same ownership and focus checks as generated claims; unavailable pairs stay out.
+                guard (try? CombinedReviewResponse.validateSelectedClaim(claim)) != nil else { continue }
+                if let qualified = try? grounding.validate(claim) {
+                    candidates[type, default: [:]][row.reference.id] = qualified
                 }
-                return try grounding.validate(resolved)
             }
-            let qualified = generated.claims
+        }
+        let allowed = ReviewCriterionObservations.types.map { type in
+            type + ": " + orderedRows.filter { candidates[type]?[$0.reference.id] != nil }.map { $0.reference.id }.joined(separator: ",")
+        }.joined(separator: "\n")
+        let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n") + "\nAllowed row IDs by category:\n" + allowed, model: qwen, outputTokens: snapshot.responseTokens)
+        return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
+            let generated = try CombinedReviewResponse.selectedReport(text, imageID: value.file.id, candidates: candidates,
+                limitations: result?.limitations ?? [], regions: inspected, uninspected: missing,
+                incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") }))
             let missingCriteria = ["composition", "exposure", "visibility", "detail"].filter { criterion in
-                !qualified.contains { $0.type == criterion }
+                !generated.claims.contains { $0.type == criterion }
             }
             let coverage = missingCriteria.map { ReviewLimitation(id: .init(rawValue: value.file.id.rawValue + ":coverage:" + $0), reason: "No supported " + $0 + " claim; abstained because admitted observations did not establish this criterion.", relatedEvidence: []) }
-            return ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: qualified, limitations: generated.limitations + coverage,
+            return ReviewImageReport(id: generated.id, imageID: generated.imageID, claims: generated.claims, limitations: generated.limitations + coverage,
                                      incomplete: generated.incomplete || !missingCriteria.isEmpty, inspectedRegions: generated.inspectedRegions, uninspectedRegions: generated.uninspectedRegions)
         }
     }

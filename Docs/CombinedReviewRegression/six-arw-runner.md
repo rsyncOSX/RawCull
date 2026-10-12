@@ -63,8 +63,9 @@ The checks require:
   a fully retained registered subject crop are required when subjects are found.
   Frozen mode additionally requires subjects in every original wildlife image.
 - Finite available measurements with current mask/scorer semantics.
-- An accepted report for each image covering composition, exposure, visibility
-  and detail through claim categories.
+- An accepted report for each image. Each composition, exposure, visibility
+  and detail category must have an accepted claim or an explicit coverage
+  abstention in an incomplete report. Completion does not require four claims.
 - A six-cell selection report. Frozen mode requires abstention and no preferred
   image for the original unrelated set; new comparable sets may select a winner.
 

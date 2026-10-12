@@ -167,7 +167,9 @@ nonisolated enum CombinedReviewResponse {
     static func repairInstruction(for issue: ReviewValidationIssue) -> String {
         let field = issue.fieldPath ?? "JSON"
         let action: String
-        if field.hasPrefix("criteria") || issue.check.hasPrefix("crop.") {
+        if field.hasPrefix("selection") || issue.check.hasPrefix("selection.") {
+            action = "Return composition, exposure, visibility and detail keys, each an eligible row ID STRING or null. Use only the allowed IDs for that category. Never return claim prose or evidence objects."
+        } else if field.hasPrefix("criteria") || issue.check.hasPrefix("crop.") {
             switch issue.check {
             case "crop.criterionLength": action = "Shorten each criterion to at most 120 characters; aim for 80. Preserve meaning; use null if unsupported."
             case "crop.criterionTargetConsistency": action = "Determine visible generic-target presence from the image, not species or individual identity. If absent or indistinguishable, targetIdentified=false and detail=null. No resolved target texture also requires detail=null. Never infer presence from Purpose."
@@ -260,6 +262,38 @@ nonisolated enum CombinedReviewResponse {
         if !requireCriteria || !value.uncertainty.isEmpty { try validateText(value.uncertainty, maximum: 200, field: "uncertainty") }
         guard requireCriteria || !(value.insufficientEvidence && value.targetIdentified == true) else { throw ReviewValidationIssue(.grounding, "crop.targetSupportConsistency", field: "targetIdentified") }
         return value
+    }
+
+    static func validateSelectedClaim(_ claim: ReviewClaim) throws {
+        try validateText(claim.text, maximum: 400, field: "claims.text")
+        guard !containsForbiddenClaimDomain(claim.text) else {
+            throw ReviewValidationIssue(.unsupportedDomain, "report.supportedDomain", field: "claims.text")
+        }
+    }
+
+    /// The model chooses rows; validated evidence owns prose, type and stored IDs.
+    static func selectedReport(_ response: String, imageID: ReviewImageID,
+                               candidates: [String: [String: ReviewClaim]], limitations: [ReviewLimitation],
+                               regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport {
+        let choices = try ObjectJSONEnvelope.decode(ReviewNullableCriteria.self, from: response).observations
+        var claims: [ReviewClaim] = []
+        var rejected: [ReviewLimitation] = []
+        var firstIssue: ReviewValidationIssue?
+        for type in ReviewCriterionObservations.types {
+            guard let choice = choices[type], choice.supported else { continue }
+            guard let claim = candidates[type]?[choice.text], claim.type == type else {
+                let issue = ReviewValidationIssue(.unknownID, "selection.eligibleCriterionRow", field: "selection." + type)
+                firstIssue = firstIssue ?? issue
+                rejected.append(.init(id: .init(rawValue: imageID.rawValue + ":rejected-selection:" + type),
+                    reason: "Selected " + type + " rejected: " + issue.check, relatedEvidence: []))
+                continue
+            }
+            claims.append(claim)
+        }
+        if claims.isEmpty, let firstIssue { throw firstIssue }
+        return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: claims,
+            limitations: limitations + rejected, incomplete: incomplete || claims.isEmpty || !rejected.isEmpty,
+            inspectedRegions: regions, uninspectedRegions: uninspected)
     }
 
     static func report(_ response: String, imageID: ReviewImageID, allowed: Set<ReviewEvidenceReference>,
