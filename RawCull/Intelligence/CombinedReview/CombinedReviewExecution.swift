@@ -83,12 +83,7 @@ extension CombinedReviewFeature {
         } catch let rejection as ReviewResponseRejection {
             guard ([.json, .schema, .unknownID].contains(rejection.issue.code) || rejection.issue.check == "crop.supportedDomain"),
                   let file = activeFile else { throw rejection }
-            let correction = """
-            Previous response failed validation: \(rejection.issue.check), field \(rejection.issue.fieldPath ?? "JSON").
-            Return a fresh complete JSON object. Include every required field with its exact type.
-            Evidence must use supplied reference IDs, never observation text. Do not invent IDs or evidence.
-            For prohibited crop text, replace ONLY that criterion with a surface/framing observation, or supported=false,text="". Never repeat anatomy. Preserve all required fields.
-            """
+            let correction = CombinedReviewResponse.repairInstruction(for: rejection.issue)
             // Keep the full original schema and evidence; never truncate to fit a repair.
             guard let prompt = try? CombinedReviewResponse.admitted(instruction + "\n" + correction, model: model, outputTokens: tokens) else { throw rejection }
             do { try manifest?.budget.consume(.repair, imageID: file.id) } catch { throw rejection }
@@ -502,15 +497,14 @@ extension CombinedReviewFeature {
             let inspection: CombinedReviewInspection? = try await perform(id, category: .crop) {
                 let prompt = """
                 Inspect this crop for four separate criteria. Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
-                Return JSON only: {"regionID":"\(region.id.rawValue)","criteria":{"composition":{"supported":false,"text":""},"exposure":{"supported":false,"text":""},"visibility":{"supported":false,"text":""},"detail":{"supported":false,"text":""}},"uncertainty":"","insufficientEvidence":true,"targetIdentified":false}.
-                Include all fields. Determine booleans from the crop; the example is not a conclusion.
-                Each text: one criterion-specific sentence, max 120 characters. Unsupported means supported=false and text="". Never repeat a sentence across criteria.
+                Return JSON only: {"regionID":"\(region.id.rawValue)","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":false}.
+                Include all keys. Each criterion is a visible observation STRING or null when unsupported. Replace example nulls with evidence when available; the example is not a conclusion. Determine targetIdentified from the crop.
+                Each non-null string: one criterion-specific sentence, max 120 characters. Never use an empty string or supported/text object. Never repeat a sentence across criteria.
                 composition: placement, framing or obstructions. exposure: illumination or tonal contrast; a light-colored sky alone is not exposure evidence.
                 visibility: visible extent or occlusion of the intended generic target; species/identity uncertainty is not visibility.
                 detail: resolved surface texture of that target only, never background texture or anatomical detail. If unresolved, abstain.
                 targetIdentified means the intended generic target is visibly present and distinguishable. It does not mean species identification, individual identity, verified anatomy or fine-detail quality. Never assume presence from Purpose alone. Purpose gives no intended target: false.
-                intended generic target absent/indistinguishable: targetIdentified=false and detail.supported=false.
-                insufficientEvidence=true only if all four criteria are unsupported. It cannot be true with targetIdentified=true.
+                intended generic target absent/indistinguishable: targetIdentified=false and detail=null.
                 Text must stay within framing, illumination, occlusion and surface texture. Do not describe body parts, species, focus, sharpness or RAW recovery. Anatomical limitations belong in uncertainty only (max 160 characters).
                 """
                 return try await validatedResponse(instruction: CombinedReviewResponse.admitted(prompt, model: qwen, outputTokens: snapshot.responseTokens), image: crop, model: qwen, tokens: snapshot.responseTokens, backend: backend) { try CombinedReviewResponse.inspection($0, regionID: region.id.rawValue, requireCriteria: true) }
@@ -643,13 +637,13 @@ extension CombinedReviewFeature {
         let schema = """
         \(reconciliation ? "Reconcile independent observations; abstain when unsupported." : "Synthesize the per-image report.")
         Goal: \(snapshot.criteria)
-        JSON only: {"claims":[]}. At most four claims: one per supported type, no duplicates.
-        Claims: text (max 400), type, evidence, uncertainty (max 160), contradictions.
-        Types: composition, exposure, visibility, detail. Each supported criterion has its own observation text.
-        Copy only the matching criterion text from ONE supplied row; never reuse another criterion or uncertainty. Do not paraphrase, merge or invent conclusions. Legacy rows support composition/visibility only.
-        evidence/contradictions: arrays of {"kind":"observation","id":"o1"} with supplied IDs. Omit subjectID/regionID. No prose or shorthand strings in arrays.
-        Detail needs ONE subjectDetailSupported=true crop. Exposure needs its explicit exposure entry, not sky color. Visibility needs its visibility entry, not identity uncertainty.
-        Omit unsupported types. contradictions=[] unless observations conflict. No anatomy, focus, numbers, recovery or quality scores. Same-model agreement is not independent confirmation.
+        JSON only: {"claims":[{"text":"copied observation","type":"composition","evidence":[{"kind":"observation","id":"o1"}],"uncertainty":"","contradictions":[]}]}.
+        Schema example only. Replace text/type/ID from admitted evidence. No evidence: {"claims":[]}.
+        text/type/uncertainty are STRINGS. evidence/contradictions are ARRAYS of {kind,id} objects, never prose or shorthand strings. Omit subjectID/regionID.
+        At most four claims, one per type: composition, exposure, visibility, detail. text max 400; uncertainty max 160.
+        Copy the matching criterion text from ONE row; never borrow another criterion or uncertainty. Legacy rows allow composition/visibility only.
+        Detail needs ONE subjectDetailSupported=true crop. Exposure needs an exposure entry; visibility needs a visibility entry. Omit unsupported types.
+        contradictions=[] unless observations conflict. No invented anatomy, focus, numbers, recovery or quality. Same-model agreement is not independent evidence.
         Source: \(source.metadata.fidelity.rawValue), \(source.image.width)x\(source.image.height), SDR sRGB. Failed stages: \(value.failures.count).
         """
         // Reserve 320 bytes for the concrete detail directive and 480 for validation feedback.

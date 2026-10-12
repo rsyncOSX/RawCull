@@ -69,8 +69,8 @@ struct CombinedReviewFeatureTests {
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v16")
-        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v16")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v17")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v17")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
@@ -87,6 +87,8 @@ struct CombinedReviewFeatureTests {
             #expect(rows.contains { $0.contains(#""id":""# + reference.id + #"""#) && $0.contains("subjectDetailSupported=true") })
             #expect(!prompt.contains(#""kind":"measurement""#))
             #expect(!prompt.contains("example is drawn"))
+            #expect(prompt.contains(#""text":"copied observation""#))
+            #expect(prompt.contains(#""evidence":[{"kind":"observation","id":"o1"}]"#))
         }
     }
 
@@ -165,7 +167,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v16"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v17"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -702,15 +704,13 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
                 return "not JSON" + String(repeating: " ", count: rejectionPadding)
             }
             let region = line.components(separatedBy: "Region ID: ")[1].components(separatedBy: ". Purpose:")[0]
-            let entry: (String) -> ReviewCriterionObservation = { .init(supported: true, text: $0) }
-            let criteria = ReviewCriterionObservations(composition: entry("Centered subject"), exposure: entry("Soft illumination"),
-                                                       visibility: entry("Visible subject"), detail: entry(forbiddenCrop && !instruction.contains("Previous response failed validation:") ? "A bird with a yellow eye" : "Visible texture"))
+            let criteria = ReviewNullableCriteria(composition: "Centered subject", exposure: "Soft illumination", visibility: "Visible subject",
+                                                 detail: forbiddenCrop && !instruction.contains("Previous response failed validation:") ? "A bird with a yellow eye" : "Visible texture")
             struct Crop: Encodable {
-                let regionID: String; let criteria: ReviewCriterionObservations; let uncertainty: String
-                let insufficientEvidence: Bool?; let targetIdentified: Bool
+                let regionID: String; let criteria: ReviewNullableCriteria; let uncertainty: String; let targetIdentified: Bool?
             }
             let response = Crop(regionID: region, criteria: criteria, uncertainty: "Limited resolution",
-                                insufficientEvidence: repairableResponses && !instruction.contains("Previous response failed validation:") ? nil : false, targetIdentified: true)
+                                targetIdentified: repairableResponses && !instruction.contains("Previous response failed validation:") ? nil : true)
             return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
         }
         synthesisInstructions.append(instruction)
