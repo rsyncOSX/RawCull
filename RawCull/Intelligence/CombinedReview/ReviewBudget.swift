@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum ReviewAttemptCategory: String, Codable, CaseIterable, Sendable {
-    case overview, crop, followup, reconciliation, report, comparison, sam, clip
+    case overview, crop, followup, reconciliation, report, comparison, sam, clip, repair
 }
 
 nonisolated struct ReviewBudgetChange: Codable, Equatable, Sendable {
@@ -24,9 +24,9 @@ nonisolated struct ReviewBudget: Codable, Equatable, Sendable {
         let followups = min(images * depth.followupsPerImage, depth.selectionFollowups)
         limits = [.overview: images, .crop: crops, .followup: followups, .reconciliation: images,
                   .report: images, .comparison: images > 1 ? 1 + depth.pairCap : 0,
-                  .sam: 4 * images, .clip: images + crops]
+                  .sam: 4 * images, .clip: images + crops, .repair: crops + 2 * images]
         perImageLimits = [.overview: 1, .crop: depth.cropsPerImage, .followup: depth.followupsPerImage,
-                          .reconciliation: 1, .report: 1, .sam: 4, .clip: 1 + depth.cropsPerImage]
+                          .reconciliation: 1, .report: 1, .sam: 4, .clip: 1 + depth.cropsPerImage, .repair: depth.cropsPerImage + 2]
     }
 
     var maximumQwenAttempts: Int {
