@@ -208,7 +208,7 @@ struct ObjectAnalysisFeatureTests {
     @MainActor
     @Test func `Invalid assessment stays retryable and reuses cached segmentation`() async throws {
         let image = try makeMask()
-        let qwen = ObjectQwenStub(invalidFirstAssessment: true)
+        let qwen = ObjectQwenStub(invalidFirstAssessment: true, invalidAssessmentCount: 2)
         let segmenter = ObjectSegmenterStub(mask: image)
         let store = ObjectMaskMemoryStore()
         let service = try ObjectSegmentationService(provider: segmenter, stores: [store], maxSide: 4320)
@@ -231,7 +231,24 @@ struct ObjectAnalysisFeatureTests {
         #expect(feature.results.first?.isSuccessful == true)
         #expect(feature.results.first?.assessment?.objects.first?.id == "1")
         #expect(await segmenter.callCount == 1)
+        #expect(await qwen.callCount == 3)
+    }
+
+    @Test @MainActor func `Schema retry repairs assessment without repeating segmentation`() async throws {
+        let image = try makeMask()
+        let qwen = ObjectQwenStub(invalidFirstAssessment: true)
+        let segmenter = ObjectSegmenterStub(mask: image)
+        let service = try ObjectSegmentationService(provider: segmenter, stores: [], maxSide: 4320)
+        let feature = RawCullObjectAnalysisFeature(inference: qwen, imageLoader: ObjectImageLoaderStub(image: image))
+        feature.install(segmentation: service, qwenStatus: .available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
+        feature.discoveryMode = .specificConcepts
+        feature.manualConceptText = "bird"
+        let file = FileItem(id: UUID(), url: URL(filePath: "/tmp/auto-retry.jpg"), name: "retry.jpg",
+                            size: 1, dateModified: .distantPast, exifData: nil, afFocusNormalized: nil)
+        await feature.analyze([file])
+        #expect(feature.results.first?.isSuccessful == true)
         #expect(await qwen.callCount == 2)
+        #expect(await segmenter.callCount == 1)
     }
 
     private func makeMask() throws -> CGImage {
@@ -254,10 +271,12 @@ private actor ObjectQwenStub: QwenInferenceServing {
     private(set) var callCount = 0
     let delayResponse: Bool
     let invalidFirstAssessment: Bool
+    let invalidAssessmentCount: Int
     private var startWaiter: CheckedContinuation<Void, Never>?
-    init(delayResponse: Bool = false, invalidFirstAssessment: Bool = false) {
+    init(delayResponse: Bool = false, invalidFirstAssessment: Bool = false, invalidAssessmentCount: Int = 1) {
         self.delayResponse = delayResponse
         self.invalidFirstAssessment = invalidFirstAssessment
+        self.invalidAssessmentCount = invalidAssessmentCount
     }
 
     func validate(url: URL) -> QwenModelStatus {
@@ -271,7 +290,7 @@ private actor ObjectQwenStub: QwenInferenceServing {
         if delayResponse {
             try await Task.sleep(for: .seconds(1))
         }
-        if invalidFirstAssessment, callCount == 1 {
+        if invalidFirstAssessment, callCount <= invalidAssessmentCount {
             return #"{"schemaVersion":2,"imageSummary":"Incomplete"}"#
         }
         if callCount == 1, !invalidFirstAssessment {

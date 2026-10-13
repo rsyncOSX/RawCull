@@ -342,6 +342,31 @@ struct QwenFeatureTests {
         #expect(RawCullCatalogAccess.shared.retainAccess(for: [root]).isEmpty)
     }
 
+    @Test @MainActor func `Rejected oversized assessment retries once and reports field lengths`() async throws {
+        let text = String(repeating: "a", count: 284)
+        let content = "{\"compositionEvidence\":\"\(text)\"}"
+        let inference = QwenInferenceStub(response: .rejected(content))
+        let feature = RawCullQwenAnalysisFeature(inference: inference, imageLoader: QwenImageLoaderStub())
+        feature.updateModelStatus(.available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
+        await feature.analyze([makeFile(name: "oversized.ARW")])
+        #expect(await inference.assessmentCount() == 2)
+        let result = try #require(feature.results.first)
+        #expect(result.failure?.contains("compositionEvidence has 284 characters") == true)
+        #expect(!result.isSuccessful)
+    }
+
+    @Test @MainActor func `Schema retry accepts repaired Qwen assessment`() async throws {
+        let content = #"{"schemaVersion":2,"subject":"bird","compositionScore":4,"compositionEvidence":"Bird centered","exposureScore":4,"exposureEvidence":"Even lighting","subjectVisibilityScore":5,"subjectVisibilityEvidence":"Entire bird visible","eyesOpen":null,"problems":[],"strengths":[],"confidence":0.8}"#
+        let repaired = try QwenModelResponse.decode(content)
+        let inference = QwenInferenceStub(response: .rejected("{}"), repairedResponse: repaired)
+        let feature = RawCullQwenAnalysisFeature(inference: inference, imageLoader: QwenImageLoaderStub())
+        feature.updateModelStatus(.available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
+        await feature.analyze([makeFile(name: "repaired.ARW")])
+        #expect(await inference.assessmentCount() == 2)
+        #expect(feature.results.first?.assessment?.subject == "bird")
+        #expect(feature.results.first?.isSuccessful == true)
+    }
+
     private func makeQwenBundle(
         tokenizer: String = "Qwen/Qwen3-4B",
         kind: String = "llm",
@@ -435,7 +460,11 @@ private actor GateProbe {
 private actor QwenInferenceStub: QwenInferenceServing {
     private var count = 0
     let response: QwenModelResponse
-    init(response: QwenModelResponse = .freeform("Completed")) { self.response = response }
+    let repairedResponse: QwenModelResponse?
+    init(response: QwenModelResponse = .freeform("Completed"), repairedResponse: QwenModelResponse? = nil) {
+        self.response = response
+        self.repairedResponse = repairedResponse
+    }
 
     func validate(url: URL) -> QwenModelStatus {
         .available(url: url, modelName: "Qwen Test")
@@ -443,7 +472,7 @@ private actor QwenInferenceStub: QwenInferenceServing {
 
     func assess(criteria _: String, image _: CGImage) -> QwenModelResponse {
         count += 1
-        return response
+        return count > 1 ? (repairedResponse ?? response) : response
     }
 
     func respond(to _: QwenVisionRequest) -> String {

@@ -296,28 +296,38 @@ final class RawCullObjectAnalysisFeature {
             setStage(.analyzingObjects)
             failureStage = "Object assessment"
             let assessmentStart = Date()
-            let response = try await inference.respond(to: QwenVisionRequest(
-                instruction: Self.analysisInstruction(ids: board.objectIDs, concepts: descriptors, criteria: criteria),
-                image: board.image, maximumResponseTokens: 1024,
-            ))
-            captureDiagnostic(response, file: file, stage: "assessment", tokenLimit: 1024)
-            timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
-            try Task.checkCancellation()
-            do {
-                let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs),
-                    expectedConcepts: Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) }))
-                return makeResult(file, mode: mode, concepts: concepts,
-                                  descriptors: descriptors, assessment: assessment,
-                                  freeform: nil, failure: nil, modelIdentity: modelIdentity,
-                                  rawInstanceCount: rawInstanceCount, timings: timings)
-            } catch {
-                return makeResult(file, mode: mode, concepts: concepts,
-                                  descriptors: descriptors, assessment: nil,
-                                  freeform: String(response.prefix(8192)),
-                                  failure: "Object assessment: \(error.localizedDescription)",
-                                  modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
-                                  timings: timings)
+            let instruction = Self.analysisInstruction(ids: board.objectIDs, concepts: descriptors, criteria: criteria)
+            var feedback = ""
+            for attempt in 0..<2 {
+                try Task.checkCancellation()
+                let response = try await inference.respond(to: QwenVisionRequest(
+                    instruction: instruction + feedback,
+                    image: board.image, maximumResponseTokens: 1024,
+                ))
+                captureDiagnostic(response, file: file, stage: attempt == 0 ? "assessment" : "assessment-retry", tokenLimit: 1024)
+                timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
+                try Task.checkCancellation()
+                do {
+                    let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs),
+                        expectedConcepts: Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) }))
+                    return makeResult(file, mode: mode, concepts: concepts,
+                                      descriptors: descriptors, assessment: assessment,
+                                      freeform: nil, failure: nil, modelIdentity: modelIdentity,
+                                      rawInstanceCount: rawInstanceCount, timings: timings)
+                } catch {
+                    if attempt == 0 {
+                        feedback = "\nThe previous response failed validation: \(error.localizedDescription)\nRegenerate from this same board using the exact JSON types in the example. IDs and cropIDs are strings. All lists are arrays, never null. Each claim needs its own matching evidence object. Global strengths and problems must be []. Do not invent observations or copy example judgments."
+                        continue
+                    }
+                    return makeResult(file, mode: mode, concepts: concepts,
+                                      descriptors: descriptors, assessment: nil,
+                                      freeform: String(response.prefix(8192)),
+                                      failure: "Object assessment after two attempts: \(error.localizedDescription)",
+                                      modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
+                                      timings: timings)
+                }
             }
+            preconditionFailure("Assessment loop must return or throw")
         } catch is CancellationError {
             return makeResult(file, mode: mode, concepts: concepts,
                               descriptors: descriptors, assessment: nil,
@@ -365,7 +375,10 @@ final class RawCullObjectAnalysisFeature {
         Registered concepts (copy the concept exactly for each ID): \(concepts.map { "\($0.id)=\($0.concept)" }.joined(separator: "; ")).
         The numbered crops at the bottom are ordered left to right: \(ids.map { "crop \($0) is object \($0)" }.joined(separator: "; ")). Match each description to that crop's large number, not to its order of mention in the overview.
         Additional criteria: \(criteria)
-        Return exactly one JSON object and no Markdown with these keys:
+        JSON type example only (replace all observations and concepts with what this board supports; repeat one object per registered ID):
+        {"schemaVersion":2,"imageSummary":"Short scene description","objects":[{"id":"1","concept":"registered concept","description":"Short visible description","visibility":"uncertain","focusQuality":"uncertain","focusEvidence":null,"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.5}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.5}
+        For a supported focus judgment, focusEvidence is an object such as {"cropID":"1","observation":"Subject edges are soft and lack crisp detail"}, never a string. A supported strength/problem uses the same object shape in its evidence array, one per claim. IDs, cropIDs and preferredObjectIDs entries MUST be quoted strings. Never return null for list fields.
+                Return exactly one JSON object and no Markdown with these keys:
         schemaVersion (2), imageSummary (short string), objects (array of {id, concept, description, visibility,
         focusQuality, focusEvidence, expression, obstructions, strengths, strengthEvidence, problems, problemEvidence, confidence}),
         relationships (strings), strengths (strings), problems (strings),

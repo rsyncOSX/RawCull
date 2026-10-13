@@ -83,11 +83,20 @@ final class RawCullQwenAnalysisFeature {
                         throw QwenModelError.imageUnavailable
                     }
                     try Task.checkCancellation()
-                    let response = try await feature.inference.assess(
-                        criteria: criteria,
+                    var response = try await feature.inference.assess(
+                        criteria: criteria + "\nUse one short sentence per evidence field, preferably under 160 characters; the hard limit is 240. Keep subject, problems and strengths under 240 characters each. Do not contradict a score in its evidence or lists.",
                         image: image,
                     )
                     try Task.checkCancellation()
+                    if case let .rejected(value) = response {
+                        let feedback = Self.validationFeedback(value)
+                        response = try await feature.inference.assess(
+                            criteria: criteria + "\nThe previous assessment failed validation: " + feedback
+                                + "\nRegenerate the assessment from the same image. Include every schema key with the required types. Use one short sentence per evidence field, under 160 characters. All text fields and list items must be at most 240 characters. Do not invent evidence to satisfy the schema.",
+                            image: image,
+                        )
+                        try Task.checkCancellation()
+                    }
                     let assessment: QwenPhotoAssessment?
                     let freeformResponse: String?
                     let failure: String?
@@ -104,7 +113,7 @@ final class RawCullQwenAnalysisFeature {
                     case let .rejected(value):
                         assessment = nil
                         freeformResponse = value
-                        failure = QwenModelError.invalidStructuredResponse.localizedDescription
+                        failure = Self.validationFeedback(value)
                     }
                     completed.append(QwenPhotoAnalysisResult(
                         fileID: file.id,
@@ -151,6 +160,27 @@ final class RawCullQwenAnalysisFeature {
             task.cancel()
         }
         drainingTasks.removeAll { $0 == task }
+    }
+
+    // Tab-specific diagnostics: shared decoding and Combined Review are unchanged.
+    private nonisolated static func validationFeedback(_ response: String) -> String {
+        if let opening = response.firstIndex(of: "{"), let closing = response.lastIndex(of: "}"),
+           opening <= closing,
+           let object = try? JSONSerialization.jsonObject(with: Data(response[opening...closing].utf8)) as? [String: Any] {
+            let oversized = object.keys.sorted().flatMap { key -> [String] in
+                if let text = object[key] as? String, text.count > 240 {
+                    return ["\(key) has \(text.count) characters (maximum 240)"]
+                }
+                if let list = object[key] as? [String] {
+                    return list.enumerated().compactMap { index, text in
+                        text.count > 240 ? "\(key)[\(index)] has \(text.count) characters (maximum 240)" : nil
+                    }
+                }
+                return []
+            }
+            if !oversized.isEmpty { return "Invalid photo assessment: " + oversized.joined(separator: "; ") }
+        }
+        return QwenModelError.invalidStructuredResponse.localizedDescription
     }
 
     private func appendResults(_ newResults: [QwenPhotoAnalysisResult]) {
