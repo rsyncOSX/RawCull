@@ -99,12 +99,12 @@ struct QwenFeatureTests {
     }
 
     @Test
-    func `Assessment instruction keeps the existing schema`() {
+    func `Assessment instruction requires evidence and permits abstention`() {
         let instruction = QwenInferenceRuntime.assessmentInstruction(criteria: "Is the bird sharp?")
         #expect(instruction.contains("Analyze this photograph and answer the user's request:"))
         #expect(instruction.contains("Is the bird sharp?"))
-        #expect(instruction.contains("\"compositionScore\": 1-5"))
-        #expect(instruction.contains("\"subjectVisibilityScore\": 1-5"))
+        #expect(instruction.contains("\"compositionScore\": 1-5 or null"))
+        #expect(instruction.contains("\"subjectVisibilityScore\": 1-5 or null"))
         #expect(instruction.contains("answer it normally in plain text"))
     }
 
@@ -128,11 +128,15 @@ struct QwenFeatureTests {
         let response = """
         ```json
         {
+          "schemaVersion": 2,
+          "compositionEvidence": "bird framed by a branch",
+          "exposureEvidence": "subject lit without clipped highlights",
+          "subjectVisibilityEvidence": "branch crosses tail",
           "subject": "bird on a branch",
           "compositionScore": 4,
           "exposureScore": 5,
           "subjectVisibilityScore": 3,
-          "eyesOpen": true,
+          "eyesOpen": null,
           "problems": ["branch crosses tail"],
           "strengths": ["clean background"],
           "confidence": 0.8
@@ -144,8 +148,8 @@ struct QwenFeatureTests {
 
         #expect(assessment.subject == "bird on a branch")
         #expect(assessment.compositionScore == 4)
-        #expect(assessment.eyesOpen == true)
-        #expect(assessment.overallScore > 0.7)
+        #expect(assessment.eyesOpen == nil)
+        #expect(try #require(assessment.overallScore) > 0.7)
     }
 
     @Test
@@ -181,7 +185,7 @@ struct QwenFeatureTests {
 
     @Test
     func `Response decoder uses structured assessment when valid`() throws {
-        let content = #"{"subject":"bird","compositionScore":4,"exposureScore":5,"subjectVisibilityScore":3,"eyesOpen":null,"problems":[],"strengths":["clean background"],"confidence":0.8}"#
+        let content = #"{"schemaVersion":2,"compositionEvidence":"bird centered","exposureEvidence":"even subject lighting","subjectVisibilityEvidence":"tail partly hidden","subject":"bird","compositionScore":4,"exposureScore":5,"subjectVisibilityScore":3,"eyesOpen":null,"problems":[],"strengths":["clean background"],"confidence":0.8}"#
 
         let response = try QwenModelResponse.decode(content)
 
@@ -194,12 +198,12 @@ struct QwenFeatureTests {
     }
 
     @Test
-    func `Response decoder preserves invalid structured output as freeform`() throws {
+    func `Response decoder retains invalid structured output as rejected`() throws {
         let content = #"{"subject":"bird","compositionScore":7}"#
 
         let response = try QwenModelResponse.decode(content)
 
-        #expect(response == .freeform(content))
+        #expect(response == .rejected(content))
     }
 
     @Test
@@ -207,6 +211,31 @@ struct QwenFeatureTests {
         #expect(throws: QwenModelError.self) {
             try QwenModelResponse.decode("  \n  ")
         }
+    }
+
+    @Test @MainActor func `Unsupported criterion abstains without inventing an overall score`() async throws {
+        let content = #"{"schemaVersion":2,"subject":"bird","compositionScore":null,"compositionEvidence":null,"exposureScore":4,"exposureEvidence":"even lighting","subjectVisibilityScore":null,"subjectVisibilityEvidence":null,"eyesOpen":null,"problems":[],"strengths":[],"confidence":0.4}"#
+        let assessment = try QwenPhotoAssessment.decodeResponse(content)
+        #expect(assessment.compositionScore == nil)
+        #expect(assessment.overallScore == nil)
+        #expect(throws: QwenModelError.self) {
+            try QwenPhotoAssessment.decodeResponse(content.replacingOccurrences(of: "\"compositionScore\":null", with: "\"compositionScore\":4"))
+        }
+        #expect(throws: QwenModelError.self) {
+            try QwenPhotoAssessment.decodeResponse(content.replacingOccurrences(of: "\"eyesOpen\":null", with: "\"eyesOpen\":true"))
+        }
+        let failed = QwenPhotoAnalysisResult(fileID: UUID(), fileName: "bird.ARW", assessment: nil,
+                                            freeformResponse: content, failure: "Invalid assessment")
+        #expect(!failed.isSuccessful)
+        let feature = RawCullQwenAnalysisFeature(inference: QwenInferenceStub(response: .rejected(content)),
+                                                imageLoader: QwenImageLoaderStub())
+        feature.updateModelStatus(.available(url: URL(filePath: "/tmp/qwen"), modelName: "Test"))
+        await feature.analyze([makeFile(name: "invalid.ARW")])
+        let result = try #require(feature.results.first)
+        #expect(!result.isSuccessful)
+        #expect(result.freeformResponse == content)
+        #expect(result.failure != nil)
+        #expect(feature.failureMessage != nil)
     }
 
     @Test
@@ -405,6 +434,8 @@ private actor GateProbe {
 
 private actor QwenInferenceStub: QwenInferenceServing {
     private var count = 0
+    let response: QwenModelResponse
+    init(response: QwenModelResponse = .freeform("Completed")) { self.response = response }
 
     func validate(url: URL) -> QwenModelStatus {
         .available(url: url, modelName: "Qwen Test")
@@ -412,7 +443,7 @@ private actor QwenInferenceStub: QwenInferenceServing {
 
     func assess(criteria _: String, image _: CGImage) -> QwenModelResponse {
         count += 1
-        return .freeform("Completed")
+        return response
     }
 
     func respond(to _: QwenVisionRequest) -> String {

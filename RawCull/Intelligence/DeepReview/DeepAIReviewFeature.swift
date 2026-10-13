@@ -82,7 +82,9 @@ nonisolated struct DeepAIReviewCandidate: Equatable, Identifiable, Sendable {
     let maskConfidence: Float?
     let maskCoverage: Float?
     let autofocusInsideMask: Bool?
+    /// Legacy name: indicates a usable mask from the requested prompt, not verified anatomy.
     let promptVerified: Bool?
+    var requestedPromptObtained: Bool? { promptVerified }
     let usedFallbackMask: Bool
     let issues: [DeepAIReviewCandidateIssue]
 }
@@ -93,6 +95,7 @@ nonisolated struct DeepAIReviewResult: Equatable, Sendable {
     let preset: DeepAIReviewPreset
     let candidates: [DeepAIReviewCandidate]
     let recommendedFileID: UUID?
+    /// Relative score separation under the available measurement conditions, not calibrated certainty.
     let confidence: DeepAIReviewConfidence
     let reasons: [DeepAIReviewReason]
     let cautions: [DeepAIReviewCandidateIssue]
@@ -695,7 +698,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             issues.append(.poorMaskQuality)
         }
 
-        let promptVerified = Self.promptVerified(
+        let promptVerified = Self.requestedPromptObtained(
             preset: request.preset,
             selectedPrompt: selected.result.prompt,
             usedFallback: usedFallback,
@@ -808,7 +811,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
         terms.contains { value.contains($0) }
     }
 
-    private nonisolated static func promptVerified(
+    private nonisolated static func requestedPromptObtained(
         preset: DeepAIReviewPreset,
         selectedPrompt: SubjectSegmentationPrompt,
         usedFallback: Bool,
@@ -918,7 +921,7 @@ nonisolated struct RawCullDeepAIReviewPipeline: DeepAIReviewServicing, Sendable 
             if recommended.localDetailScore != nil {
                 reasons.append(.localDetailEvidence)
             }
-            if recommended.promptVerified == true {
+            if recommended.requestedPromptObtained == true {
                 reasons.append(.requestedPromptMatched)
             }
         }

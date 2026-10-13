@@ -272,12 +272,12 @@ private actor ObjectQwenStub: QwenInferenceServing {
             try await Task.sleep(for: .seconds(1))
         }
         if invalidFirstAssessment, callCount == 1 {
-            return #"{"imageSummary":"Incomplete"}"#
+            return #"{"schemaVersion":2,"imageSummary":"Incomplete"}"#
         }
         if callCount == 1, !invalidFirstAssessment {
             return #"{"concepts":[{"query":"bird","displayName":"Bird","reason":"Visible"},{"query":"animal","displayName":"Animal","reason":"Visible"}]}"#
         }
-        return #"{"imageSummary":"One bird","objects":[{"id":"1","concept":"bird","description":"A bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#
+        return #"{"schemaVersion":2,"imageSummary":"One bird","objects":[{"id":"1","concept":"bird","description":"A bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"strengthEvidence":[],"problemEvidence":[],"expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#
     }
 
     func assess(criteria _: String, image _: CGImage) -> QwenModelResponse {

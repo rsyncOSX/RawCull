@@ -31,6 +31,8 @@ struct DeepAIReviewSheetView: View {
                 Spacer()
             }
 
+            Text("Ranking confidence describes relative score separation. Detail scores are local measurements, not overall photographic quality. A requested head or face mask does not verify anatomy. Preview processing and resizing limit fine detail.")
+                .font(.caption).foregroundStyle(.secondary)
             Divider()
 
             DeepAIReviewSheetContent(
@@ -588,9 +590,9 @@ private struct DeepAIReviewCandidateTable: View {
                 Text(promptTitle(candidate))
                     .lineLimit(1)
             }
-            TableColumn("Mask") { candidate in
+            TableColumn("Prompt mask") { candidate in
                 Text(maskStatus(candidate))
-                    .foregroundStyle(maskStatusColor(candidate.promptVerified))
+                    .foregroundStyle(maskStatusColor(candidate.requestedPromptObtained))
             }
             TableColumn("AF") { candidate in
                 Text(candidate.autofocusInsideMask.map { $0 ? "In" : "Out" } ?? "—")
@@ -635,8 +637,8 @@ private struct DeepAIReviewCandidateTable: View {
     }
 
     private func maskStatus(_ candidate: DeepAIReviewCandidate) -> String {
-        guard let verified = candidate.promptVerified else { return "—" }
-        return verified ? "Matched" : "Check"
+        guard let verified = candidate.requestedPromptObtained else { return "—" }
+        return verified ? "Obtained" : "Check"
     }
 
     private func maskStatusColor(_ verified: Bool?) -> Color {

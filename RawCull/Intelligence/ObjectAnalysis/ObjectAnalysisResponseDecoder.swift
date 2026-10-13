@@ -1,8 +1,11 @@
 import Foundation
 
 nonisolated enum ObjectAnalysisResponseDecoder {
-    static func decode(_ response: String, boardIDs: Set<String>) throws -> ObjectPhotoAssessment {
+    static func decode(_ response: String, boardIDs: Set<String>, expectedConcepts: [String: String] = [:]) throws -> ObjectPhotoAssessment {
         let value = try ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response)
+        guard value.schemaVersion == ObjectPhotoAssessment.schemaVersion else {
+            throw ObjectResponseIssue.invalidValue("schemaVersion")
+        }
         if let summary = value.imageSummary,
            summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw ObjectResponseIssue.invalidValue("imageSummary")
@@ -13,6 +16,9 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         guard validConfidence(value.confidence) else { throw ObjectResponseIssue.invalidValue("confidence") }
         guard validList(value.relationships, cap: 8), validList(value.strengths, cap: 8),
               validList(value.problems, cap: 8) else { throw ObjectResponseIssue.invalidValue("photo lists") }
+        guard value.strengths.isEmpty, value.problems.isEmpty else {
+            throw ObjectResponseIssue.invalidValue("uncited photo judgments")
+        }
         let ids = value.objects.map(\.id)
         for id in ids where ids.filter({ $0 == id }).count > 1 {
             throw ObjectResponseIssue.duplicateID(id)
@@ -38,8 +44,66 @@ nonisolated enum ObjectAnalysisResponseDecoder {
             else {
                 throw ObjectResponseIssue.invalidValue("object \(object.id)")
             }
+            if let concept = expectedConcepts[object.id],
+               object.concept.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) != concept.lowercased() {
+                throw ObjectResponseIssue.invalidValue("object \(object.id) concept ownership")
+            }
+            // SAM crop ownership does not qualify facial anatomy.
+            guard object.expression == nil else { throw ObjectResponseIssue.invalidValue("unverified expression") }
+            func validEvidence(_ evidence: ObjectClaimEvidence) -> Bool {
+                evidence.cropID == object.id && validList([evidence.observation], cap: 1)
+            }
+            guard object.strengthEvidence.count == object.strengths.count,
+                  object.problemEvidence.count == object.problems.count,
+                  object.strengthEvidence.allSatisfy(validEvidence),
+                  object.problemEvidence.allSatisfy(validEvidence) else {
+                throw ObjectResponseIssue.invalidValue("object \(object.id) claim evidence")
+            }
+            if object.focusQuality == .uncertain {
+                guard object.focusEvidence == nil else { throw ObjectResponseIssue.invalidValue("uncertain focus evidence") }
+            } else {
+                guard let evidence = object.focusEvidence, validEvidence(evidence),
+                      focusDescription(evidence.observation, supports: object.focusQuality) else {
+                    throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
+                }
+            }
+            let prose = subjectFocusProse(([object.description] + object.strengths + object.problems).joined(separator: " "))
+            let sharp = mentionsSharp(prose)
+            let blurred = mentionsBlur(prose)
+            if (object.focusQuality != .sharp && sharp) || (object.focusQuality == .sharp && blurred) {
+                throw ObjectResponseIssue.invalidValue("object \(object.id) focus consistency")
+            }
         }
         return value
+    }
+
+    private static func subjectFocusProse(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: #"\b(?:blurred|soft|sharp|crisp) background\b|\bbackground (?:is |appears )?(?:blurred|soft|sharp|crisp)\b"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\b(?:not|lacks?) (?:sharp|crisp|well[- ]focused)\b"#, with: "soft", options: .regularExpression)
+    }
+
+    // Conservative wording checks catch explicit contradictions, not visual truth.
+    private static func mentionsSharp(_ text: String) -> Bool {
+        ["sharp", "crisp", "well-focused", "well focused"].contains { text.contains($0) }
+    }
+
+    private static func mentionsBlur(_ text: String) -> Bool {
+        ["blurred", "smeared", "indistinct", "out of focus", "soft focus"].contains { text.contains($0) }
+    }
+
+    private static func focusDescription(_ text: String, supports quality: ObjectFocusQuality) -> Bool {
+        let text = text.lowercased()
+        switch quality {
+        case .sharp:
+            return mentionsSharp(text) && !mentionsBlur(text) && !text.contains("not sharp") && !text.contains("not crisp")
+        case .soft:
+            return ["soft", "lack", "not crisp", "not sharp"].contains { text.contains($0) } && !text.contains("smeared")
+        case .blurred:
+            return mentionsBlur(text) && !text.contains("not blurred")
+        case .uncertain:
+            return false
+        }
     }
 
     private static func validConfidence(_ value: Float) -> Bool {

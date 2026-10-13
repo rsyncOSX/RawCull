@@ -5,6 +5,28 @@ import Testing
 
 @Suite("Object analysis boundary", .tags(.smoke))
 struct ObjectAnalysisBoundaryTests {
+    @Test func `Focus and claims require their own crop evidence and unverified expression abstains`() throws {
+        let response = #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"expression":null,"obstructions":[],"strengths":["resolved texture"],"strengthEvidence":[{"cropID":"1","observation":"subject feather texture resolved"}],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}"#
+        #expect(try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]).objects[0].focusEvidence?.cropID == "1")
+        for invalid in [
+            response.replacingOccurrences(of: "\"cropID\":\"1\"", with: "\"cropID\":\"2\""),
+            response.replacingOccurrences(of: "subject feather edges are crisp", with: "subject feather edges are smeared"),
+            response.replacingOccurrences(of: "Visible bird", with: "The subject is blurred"),
+            response.replacingOccurrences(of: "\"expression\":null", with: "\"expression\":\"alert\""),
+            response.replacingOccurrences(of: "\"schemaVersion\":2", with: "\"schemaVersion\":1"),
+            response.replacingOccurrences(of: "\"strengths\":[\"resolved texture\"]", with: "\"strengths\":[]")
+        ] {
+            #expect(throws: ObjectResponseIssue.self) { try ObjectAnalysisResponseDecoder.decode(invalid, boardIDs: ["1"]) }
+        }
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"], expectedConcepts: ["1": "fence"])
+        }
+        let background = response.replacingOccurrences(of: "Visible bird", with: "Visible bird with blurred background")
+        #expect(try ObjectAnalysisResponseDecoder.decode(background, boardIDs: ["1"]).objects[0].focusQuality == .sharp)
+        let uncertain = response.replacingOccurrences(of: "\"focusQuality\":\"sharp\",\"focusEvidence\":{\"cropID\":\"1\",\"observation\":\"subject feather edges are crisp\"}", with: "\"focusQuality\":\"uncertain\",\"focusEvidence\":null")
+        #expect(try ObjectAnalysisResponseDecoder.decode(uncertain, boardIDs: ["1"]).objects[0].focusQuality == .uncertain)
+    }
+
     @Test func `Automatic concepts normalize and deduplicate`() throws {
         let response = #"{"concepts":[{"query":"  Musk   Ox  ","displayName":"Musk Ox","reason":"Main subject"},{"query":"musk ox","displayName":"Musk ox","reason":"Duplicate"},{"query":"bird","displayName":"Bird","reason":"On branch"}]}"#
         let concepts = try ObjectConceptDiscovery.decode(response)
@@ -28,7 +50,7 @@ struct ObjectAnalysisBoundaryTests {
     }
 
     @Test func `Assessment accepts only rendered object IDs`() throws {
-        let response = #"{"imageSummary":"Two birds","objects":[{"id":"1","concept":"bird","description":"Near bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":["detail"],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}"#
+        let response = #"{"schemaVersion":2,"imageSummary":"Two birds","objects":[{"id":"1","concept":"bird","description":"Near bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"strengthEvidence":[{"cropID":"1","observation":"subject feather texture is visible"}],"problemEvidence":[],"expression":null,"obstructions":[],"strengths":["detail"],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}"#
         #expect(try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]).objects[0].id == "1")
         #expect(throws: ObjectResponseIssue.unknownID("1")) {
             try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["2"])
@@ -54,7 +76,7 @@ struct ObjectAnalysisBoundaryTests {
     }
 
     @Test func `Assessment rejects invalid confidence and duplicate object IDs`() throws {
-        let response = #"{"imageSummary":"Birds","objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}"#
+        let response = #"{"schemaVersion":2,"imageSummary":"Birds","objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"strengthEvidence":[],"problemEvidence":[],"expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}"#
         #expect(try ObjectAnalysisResponseDecoder.decode("Here is the result:\n" + response, boardIDs: ["1"]).objects.count == 1)
         #expect(throws: ObjectResponseIssue.invalidValue("confidence")) {
             try ObjectAnalysisResponseDecoder.decode(response.replacingOccurrences(of: "\"confidence\":0.8}", with: "\"confidence\":1.2}"), boardIDs: ["1"])
@@ -82,7 +104,7 @@ struct ObjectAnalysisBoundaryTests {
     }
 
     @Test func `Captured assessment shape normalizes singular text lists`() throws {
-        let observedShape = #"{"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":"none","strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#
+        let observedShape = #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"strengthEvidence":[],"problemEvidence":[],"expression":null,"obstructions":"none","strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.9}"#
         let recovered = try ObjectAnalysisResponseDecoder.decode(observedShape, boardIDs: ["1"])
         #expect(recovered.imageSummary == nil)
         #expect(recovered.objects[0].obstructions.isEmpty)
@@ -103,7 +125,7 @@ struct ObjectAnalysisBoundaryTests {
     }
 
     @Test func `Numeric board IDs normalize but still require an exact board match`() throws {
-        let response = #"{"objects":[{"id":1,"concept":"bird","description":"Flying bird","visibility":"clear","focusQuality":"sharp","expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[1],"confidence":0.8}"#
+        let response = #"{"schemaVersion":2,"objects":[{"id":1,"concept":"bird","description":"Flying bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"strengthEvidence":[],"problemEvidence":[],"expression":null,"obstructions":[],"strengths":[],"problems":[],"confidence":0.9}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[1],"confidence":0.8}"#
         let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"])
         #expect(assessment.objects.map(\.id) == ["1"])
         #expect(assessment.preferredObjectIDs == ["1"])

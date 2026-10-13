@@ -297,14 +297,15 @@ final class RawCullObjectAnalysisFeature {
             failureStage = "Object assessment"
             let assessmentStart = Date()
             let response = try await inference.respond(to: QwenVisionRequest(
-                instruction: Self.analysisInstruction(ids: board.objectIDs, criteria: criteria),
+                instruction: Self.analysisInstruction(ids: board.objectIDs, concepts: descriptors, criteria: criteria),
                 image: board.image, maximumResponseTokens: 1024,
             ))
             captureDiagnostic(response, file: file, stage: "assessment", tokenLimit: 1024)
             timings.assessmentSeconds = Date().timeIntervalSince(assessmentStart)
             try Task.checkCancellation()
             do {
-                let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs))
+                let assessment = try ObjectAnalysisResponseDecoder.decode(response, boardIDs: Set(board.objectIDs),
+                    expectedConcepts: Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0.concept) }))
                 return makeResult(file, mode: mode, concepts: concepts,
                                   descriptors: descriptors, assessment: assessment,
                                   freeform: nil, failure: nil, modelIdentity: modelIdentity,
@@ -312,7 +313,7 @@ final class RawCullObjectAnalysisFeature {
             } catch {
                 return makeResult(file, mode: mode, concepts: concepts,
                                   descriptors: descriptors, assessment: nil,
-                                  freeform: response,
+                                  freeform: String(response.prefix(8192)),
                                   failure: "Object assessment: \(error.localizedDescription)",
                                   modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
                                   timings: timings)
@@ -357,21 +358,25 @@ final class RawCullObjectAnalysisFeature {
         )
     }
 
-    private nonisolated static func analysisInstruction(ids: [String], criteria: String) -> String {
+    private nonisolated static func analysisInstruction(ids: [String], concepts: [ObjectInstanceDescriptor], criteria: String) -> String {
         """
         This board shows one photograph: the top overview and the numbered crops below are repeated views of the same photo, not separate photographs. Analyze only the numbered objects. Use visible evidence only.
         Object IDs: \(ids.joined(separator: ", ")).
+        Registered concepts (copy the concept exactly for each ID): \(concepts.map { "\($0.id)=\($0.concept)" }.joined(separator: "; ")).
         The numbered crops at the bottom are ordered left to right: \(ids.map { "crop \($0) is object \($0)" }.joined(separator: "; ")). Match each description to that crop's large number, not to its order of mention in the overview.
         Additional criteria: \(criteria)
         Return exactly one JSON object and no Markdown with these keys:
-        imageSummary (short string), objects (array of {id, concept, description, visibility,
-        focusQuality, expression, obstructions, strengths, problems, confidence}),
+        schemaVersion (2), imageSummary (short string), objects (array of {id, concept, description, visibility,
+        focusQuality, focusEvidence, expression, obstructions, strengths, strengthEvidence, problems, problemEvidence, confidence}),
         relationships (strings), strengths (strings), problems (strings),
         preferredObjectIDs (array of board IDs), confidence (0 to 1).
+        focusEvidence is null only for uncertain focus; otherwise {"cropID":"the matching object ID","observation":"visible texture/edge evidence and whether it is crisp, soft, or smeared"}.
+        strengthEvidence and problemEvidence are arrays with one evidence object per respective strength/problem, in matching order, using the same cropID and observation schema. Never cite another crop or background detail. Empty claims require empty evidence arrays. Evidence sentences maximum 240 characters. Do not contradict focusQuality in description, strengths or problems.
+        Confidence and focus classifications are model judgments; the preview, resizing and model input resolution limit detail. No RAW recovery or eye-detail claims. Global strengths/problems must be empty; put supported judgments with their crop evidence on each object.
         visibility must be clear, partial, obscured, or uncertain.
         focusQuality must be sharp, soft, blurred, or uncertain.
         Judge focus separately for each numbered subject using visible detail on that subject, not the flower, background, outline, or another crop. Use sharp only when fine texture or edges on the subject are distinctly resolved. Use soft when subject detail is visible but lacks crisp edges, blurred when subject detail is smeared or indistinct, and uncertain when the crop is too small or obscured to tell. Do not describe a subject as well-focused or list sharpness as a strength unless its own crop supports sharp.
-        The objects array must contain exactly \(ids.count) entries: one per listed ID, with no repeated IDs. Each numbered ID marks a different physical subject in the one photograph. The overview and crops repeat those subjects, so do not list a new object for each view. expression must be a visible facial expression string or null; all list fields must be arrays, using [] when empty. Use at most two short sentences per description and at most two short items per list. Each object's description must use visible evidence from its matching numbered crop. imageSummary must describe the scene without calling separate IDs the same subject or different photographs. Describe relationships only when supported by the overview; never call different IDs the same subject. Do not invent extra objects, issues, or relationships.
+        The objects array must contain exactly \(ids.count) entries: one per listed ID, with no repeated IDs. Each numbered ID marks a different physical subject in the one photograph. The overview and crops repeat those subjects, so do not list a new object for each view. expression must be null because these SAM regions do not independently verify facial anatomy; all list fields must be arrays, using [] when empty. Use at most two short sentences per description and at most two short items per list. Each object's description must use visible evidence from its matching numbered crop. imageSummary must describe the scene without calling separate IDs the same subject or different photographs. Describe relationships only when supported by the overview; never call different IDs the same subject. Do not invent extra objects, issues, or relationships.
         """
     }
 

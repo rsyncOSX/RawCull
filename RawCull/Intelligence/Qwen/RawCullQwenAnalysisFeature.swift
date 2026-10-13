@@ -90,21 +90,28 @@ final class RawCullQwenAnalysisFeature {
                     try Task.checkCancellation()
                     let assessment: QwenPhotoAssessment?
                     let freeformResponse: String?
+                    let failure: String?
                     switch response {
                     case let .structured(value):
                         assessment = value
                         freeformResponse = nil
+                        failure = nil
 
                     case let .freeform(value):
                         assessment = nil
                         freeformResponse = value
+                        failure = nil
+                    case let .rejected(value):
+                        assessment = nil
+                        freeformResponse = value
+                        failure = QwenModelError.invalidStructuredResponse.localizedDescription
                     }
                     completed.append(QwenPhotoAnalysisResult(
                         fileID: file.id,
                         fileName: file.name,
                         assessment: assessment,
                         freeformResponse: freeformResponse,
-                        failure: nil,
+                        failure: failure,
                     ))
                 } catch is CancellationError {
                     break

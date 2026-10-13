@@ -159,7 +159,7 @@ private struct QwenResultsTable: View {
             }
             .width(min: 120, ideal: 180)
 
-            TableColumn("Overall") { result in
+            TableColumn("Model score") { result in
                 Text(score(result.assessment?.overallScore))
                     .monospacedDigit()
             }
@@ -183,6 +183,8 @@ private struct QwenResultsTable: View {
                         .padding(.vertical, 2)
                         .background(Color.green.opacity(0.15), in: Capsule())
                         .foregroundStyle(.green)
+                } else if result.failure != nil {
+                    Text("Failed").foregroundStyle(.orange)
                 } else if result.freeformResponse != nil {
                     Text("Free-form")
                         .font(.caption)
@@ -232,21 +234,23 @@ private struct QwenAssessmentDetail: View {
                                 .bold()
                         }
                         GridRow {
-                            Text("Confidence")
+                            Text("Model confidence")
                                 .foregroundStyle(.secondary)
                             Text(assessment.confidence.formatted(.percent.precision(.fractionLength(0))))
                                 .monospacedDigit()
                         }
-                        if let eyesOpen = assessment.eyesOpen {
-                            GridRow {
-                                Text("Eyes")
-                                    .foregroundStyle(.secondary)
-                                Text(eyesOpen ? "Open" : "Closed")
-                            }
+                        GridRow {
+                            Text("Eyes").foregroundStyle(.secondary)
+                            Text("Unknown; anatomy unverified")
                         }
                     }
                     .font(.subheadline)
 
+                    Text("Scores and confidence are model judgments. Analysis uses a thumbnail requested at up to 2048 pixels. Preview processing, resizing and model input resolution limit detail; RAW recovery is untested.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    LabeledContent("Composition evidence", value: assessment.compositionEvidence ?? "Unsupported; abstained")
+                    LabeledContent("Exposure evidence", value: assessment.exposureEvidence ?? "Unsupported; abstained")
+                    LabeledContent("Subject visibility evidence", value: assessment.subjectVisibilityEvidence ?? "Unsupported; abstained")
                     Divider()
 
                     QwenAssessmentList(title: "Strengths", values: assessment.strengths, icon: "checkmark.circle", color: .green)
@@ -254,9 +258,12 @@ private struct QwenAssessmentDetail: View {
                 } else if let result, let response = result.freeformResponse {
                     Text(result.fileName)
                         .font(.headline)
-                    Text("Free-form Assessment")
+                    Text(result.failure == nil ? "Free-form Assessment" : "Rejected structured assessment")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
+                    if let failure = result.failure {
+                        Text(failure).foregroundStyle(.orange)
+                    }
                     Text(response)
                         .font(.callout)
                         .textSelection(.enabled)
