@@ -32,6 +32,7 @@ nonisolated struct ReviewValidationIssue: Error, Sendable {
         }
         if let value = error as? ObjectResponseIssue {
             switch value {
+            case .assessmentFailed: return .init(.schema, "schema.assessmentValidation")
             case .invalidJSON, .incompleteJSON: return .init(.json, "json.completeObject")
             case let .invalidSchema(path): return .init(.schema, "schema.requiredFieldOrType", field: safePath(path))
             case let .invalidValue(path): return .init(.schema, "schema.value", field: safePath(path))

@@ -17,7 +17,7 @@ struct ObjectAnalysisBoundaryTests {
         #expect(throws: ObjectResponseIssue.self) {
             try ObjectAnalysisResponseDecoder.decode(invalid, boardIDs: ["1"])
         }
-        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(invalid, fallback: "Generic failure")
+        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(invalid, fallback: .assessmentFailed)
         #expect(feedback.contains("strengths has \(counts.0) items but strengthEvidence has \(counts.1)"))
         #expect(feedback.contains("focusQuality is soft, so focusEvidence cannot be null"))
         #expect(feedback.contains("do not invent evidence"))
@@ -25,16 +25,19 @@ struct ObjectAnalysisBoundaryTests {
 
     @Test func `Retry feedback explains invalid visibility and vague focus`() {
         let vague = focusResponse(observation: "The subject is in focus with visible texture.")
-        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(vague, fallback: "Generic")
+        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(vague, fallback: .assessmentFailed)
         #expect(feedback.contains("does not support focusQuality=sharp"))
         #expect(feedback.contains("Do not invent detail"))
         let invalid = vague.replacingOccurrences(of: "\"visibility\":\"clear\"", with: "\"visibility\":\"visible\"")
-        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback(invalid, fallback: "Generic").contains("Use exactly clear, partial, obscured, or uncertain"))
+        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback(invalid, fallback: .assessmentFailed).contains("Use exactly clear, partial, obscured, or uncertain"))
         #expect(throws: ObjectResponseIssue.self) { try ObjectAnalysisResponseDecoder.decode(invalid, boardIDs: ["1"]) }
     }
 
-    @Test func `Schema feedback preserves original error for undecodable output`() {
-        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{", fallback: "Incomplete JSON") == "Incomplete JSON")
+    @Test func `Undecodable feedback preserves typed errors and supplies a default`() {
+        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{", fallback: .incompleteJSON)
+                == ObjectResponseIssue.incompleteJSON.localizedDescription)
+        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{")
+                == ObjectResponseIssue.assessmentFailed.localizedDescription)
     }
 
     @Test func `Focus and claims require their own crop evidence and unverified expression abstains`() throws {
@@ -95,7 +98,7 @@ struct ObjectAnalysisBoundaryTests {
     @Test func `Retry feedback identifies focus contradictions`() {
         let response = focusResponse(observation: "The subject edges are crisp.")
             .replacingOccurrences(of: "Visible bird", with: "The feathers are blurred.")
-        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(response, fallback: "Generic")
+        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(response, fallback: .assessmentFailed)
         #expect(feedback.contains("contradict focusQuality=sharp"))
         #expect(feedback.contains("Do not invent detail"))
     }

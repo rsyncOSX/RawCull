@@ -315,7 +315,7 @@ final class RawCullObjectAnalysisFeature {
                                       freeform: nil, failure: nil, modelIdentity: modelIdentity,
                                       rawInstanceCount: rawInstanceCount, timings: timings)
                 } catch {
-                    let details = Self.assessmentValidationFeedback(response, fallback: error.localizedDescription)
+                    let details = Self.assessmentValidationFeedback(response, fallback: (error as? ObjectResponseIssue) ?? .assessmentFailed)
                     if attempt == 0 {
                         feedback = "\nThe previous response failed validation: \(details)\nRegenerate from this same board using the exact JSON types in the example. IDs and cropIDs are strings. All lists are arrays, never null. Each claim needs its own matching evidence object. Global strengths and problems must be []. Do not invent observations or copy example judgments."
                         continue
@@ -370,7 +370,7 @@ final class RawCullObjectAnalysisFeature {
     }
 
     // Objects-only feedback supplements strict validation without repairing model claims.
-    nonisolated static func assessmentValidationFeedback(_ response: String, fallback: String) -> String {
+    nonisolated static func assessmentValidationFeedback(_ response: String, fallback: ObjectResponseIssue = .assessmentFailed) -> String {
         var issues: [String] = []
         // Inspect enum values before typed decoding, which rejects unknown values.
         if let data = try? ObjectJSONEnvelope.data(in: response),
@@ -383,7 +383,7 @@ final class RawCullObjectAnalysisFeature {
             }
         }
         guard let assessment = try? ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response) else {
-            return issues.isEmpty ? fallback : issues.joined(separator: "\n")
+            return issues.isEmpty ? fallback.localizedDescription : issues.joined(separator: "\n")
         }
         if !assessment.strengths.isEmpty || !assessment.problems.isEmpty {
             issues.append("Global strengths and problems must both be []; supported claims belong only on their numbered objects with matching evidence.")
@@ -417,7 +417,7 @@ final class RawCullObjectAnalysisFeature {
                 issues.append("\(prefix): focusEvidence.observation does not support focusQuality=\(object.focusQuality.rawValue). Being visible or 'in focus' alone does not demonstrate resolved detail. Describe actual subject texture or edges: crisp/distinctly resolved for sharp, lacking crisp detail for soft, smeared/indistinct for blurred. Exclude grass, fence and background texture. If this crop cannot support a focus judgment, use uncertain with null evidence and omit unsupported sharpness claims. Do not invent detail or simply insert a keyword.")
             }
         }
-        return issues.isEmpty ? fallback : issues.joined(separator: "\n")
+        return issues.isEmpty ? fallback.localizedDescription : issues.joined(separator: "\n")
     }
 
     private nonisolated static func analysisInstruction(ids: [String], concepts: [ObjectInstanceDescriptor], criteria: String) -> String {
