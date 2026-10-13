@@ -66,12 +66,13 @@ struct CombinedReviewFeatureTests {
         #expect(!cropPrompts.isEmpty)
         for prompt in cropPrompts {
             #expect(prompt.contains("intended generic target"))
+            #expect(!prompt.contains("Intended generic target: unspecified"))
             #expect(prompt.contains("It does not mean species identification"))
             #expect(prompt.contains("Never assume presence from Purpose alone"))
             #expect(prompt.contains("Purpose gives no intended target"))
         }
-        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v20")
-        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v19")
+        #expect(feature.manifest?.snapshot.pipelineVersion == "combined-v21")
+        #expect(feature.manifest?.snapshot.stageVersions[.cropObservation] == "combined-v21")
         let prompts = await backend.synthesisInstructions
         #expect(!prompts.isEmpty)
         for prompt in prompts {
@@ -90,6 +91,27 @@ struct CombinedReviewFeatureTests {
             #expect(!prompt.contains("example is drawn"))
             #expect(prompt.contains(#"{"composition":null,"exposure":null,"visibility":null,"detail":null}"#))
         }
+    }
+
+    @Test @MainActor func `invalid exposure selection retains grounded coverage and restores its substitution`() async throws {
+        let fixture = try fixture(); defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let backend = ReviewFakeBackend(hasSAM: true, hasCLIP: true, invalidExposureSelection: true)
+        let feature = makeFeature(fixture, backend: backend)
+        await feature.analyze([fixture.file])
+        let report = try #require(feature.result?.report)
+        #expect(Set(report.claims.map(\.type)) == Set(ReviewCriterionObservations.types))
+        #expect(report.incomplete)
+        let exposure = try #require(report.claims.first { $0.type == "exposure" })
+        #expect(exposure.text == "Soft illumination")
+        #expect(report.limitations.contains { $0.id.rawValue.contains(":selection-fallback:exposure") && $0.relatedEvidence == exposure.evidence })
+        let calls = await backend.responses
+        let restored = makeFeature(fixture, backend: backend)
+        await restored.restoreStoredRun()
+        await restored.resume()
+        let restoredReport = try #require(restored.result?.report)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        #expect(try encoder.encode(restoredReport) == encoder.encode(report))
+        #expect(await backend.responses == calls)
     }
 
     @Test @MainActor func `degraded review keeps crops grounded and inspectable`() async throws {
@@ -167,7 +189,7 @@ struct CombinedReviewFeatureTests {
         for stage in [ReviewStage.measurement, .reconciliation, .report, .comparison] {
             let compatibility = try ReviewCompatibility.make(snapshot: currentSnapshot, image: currentSnapshot.files[0], stage: stage)
             #expect(compatibility.fields["scorerSemantics"] == SubjectMaskFocusScorer.semanticsVersion)
-            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v20"))
+            #expect(currentSnapshot.stageVersions[stage] == (stage == .measurement ? "combined-v6" : "combined-v21"))
         }
 
         let restored = CombinedReviewFeature(store: store, scorer: SubjectMaskFocusScorer(), lease: CombinedReviewLease(), backendFactory: { backend })
@@ -641,6 +663,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     nonisolated static let qwen = ReviewModelSnapshot(identity: "fake", runtimeVersion: "test", preprocessing: "stretch", encoderWidth: 448, encoderHeight: 448, contextTokens: 4096, imageTokens: 196)
     let hasSAM: Bool, hasCLIP: Bool, comparisonTie: Bool, invalidCrop: Bool, invalidReport: Bool
     let repairableResponses: Bool
+    let invalidExposureSelection: Bool
     let forbiddenCrop: Bool
     let rejectionPadding: Int
     let overviewResponse: String?
@@ -650,7 +673,8 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
     var responses = 0
     var synthesisInstructions: [String] = []
     var cropInstructions: [String] = []
-    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil, repairableResponses: Bool = false, forbiddenCrop: Bool = false) {
+    init(hasSAM: Bool = false, hasCLIP: Bool = false, comparisonTie: Bool = false, invalidCrop: Bool = false, invalidReport: Bool = false, delayCrop: Bool = false, rejectionPadding: Int = 0, overviewResponse: String? = nil, repairableResponses: Bool = false, forbiddenCrop: Bool = false, invalidExposureSelection: Bool = false) {
+        self.invalidExposureSelection = invalidExposureSelection
         self.forbiddenCrop = forbiddenCrop
         self.repairableResponses = repairableResponses
         self.hasSAM = hasSAM; self.hasCLIP = hasCLIP; self.comparisonTie = comparisonTie; self.invalidCrop = invalidCrop; self.invalidReport = invalidReport; self.delayCrop = delayCrop; self.rejectionPadding = rejectionPadding; self.overviewResponse = overviewResponse
@@ -722,7 +746,7 @@ private actor ReviewFakeBackend: CombinedReviewBackendServing {
         for type in ReviewCriterionObservations.types {
             let line = allowed.split(separator: "\n").first { $0.hasPrefix(type + ": ") }
             let id = line.map { String($0.dropFirst(type.count + 2)).components(separatedBy: ",").first ?? "" } ?? ""
-            choices[type] = .some(invalidReport ? "invented" : id.isEmpty ? nil : id)
+            choices[type] = .some(invalidReport || (invalidExposureSelection && type == "exposure") ? "invented" : id.isEmpty ? nil : id)
         }
         let response = ReviewNullableCriteria(composition: choices["composition"] ?? nil,
             exposure: choices["exposure"] ?? nil, visibility: choices["visibility"] ?? nil, detail: choices["detail"] ?? nil)

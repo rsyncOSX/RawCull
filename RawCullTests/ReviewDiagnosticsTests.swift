@@ -547,6 +547,29 @@ struct ReviewDiagnosticsTests {
         }
     }
 
+    @Test func `invalid selections recover validated priority rows without overriding null abstention`() throws {
+        let exposure = ReviewClaim(text: "Soft lighting", type: "exposure", evidence: [.init(kind: .observation, id: "stored-light")], uncertainty: "", contradictions: [])
+        let composition = ReviewClaim(text: "Subject beside a fence", type: "composition", evidence: [.init(kind: .observation, id: "stored-crop")], uncertainty: "", contradictions: [])
+        let candidates = ["exposure": ["o3": exposure], "composition": ["o2": composition]]
+        func parse(_ response: String, preferred: [String: String]) throws -> ReviewImageReport {
+            try CombinedReviewResponse.selectedReport(response, imageID: .init(rawValue: "image"), candidates: candidates,
+                limitations: [], regions: [], uninspected: [], incomplete: false, preferredRows: preferred)
+        }
+        let wrong = #"{"composition":"o2","exposure":"o2,o3","visibility":null,"detail":"o3"}"#
+        let recovered = try parse(wrong, preferred: ["exposure": "o3", "detail": "o3"])
+        #expect(recovered.claims.count == 2)
+        #expect(recovered.claims.last?.text == exposure.text)
+        #expect(recovered.claims.last?.evidence == exposure.evidence)
+        #expect(recovered.incomplete)
+        #expect(recovered.limitations.contains { $0.id.rawValue == "image:selection-fallback:exposure" && $0.relatedEvidence == exposure.evidence })
+        #expect(!recovered.claims.contains { $0.type == "detail" })
+        #expect(try parse(wrong, preferred: ["exposure": "invented"]).claims.count == 1)
+        #expect(throws: ReviewValidationIssue.self) { try parse(wrong.replacingOccurrences(of: #""composition":"o2""#, with: #""composition":"invented""#), preferred: ["exposure": "o3"]) }
+        let abstention = try parse(#"{"composition":null,"exposure":null,"visibility":null,"detail":null}"#, preferred: ["exposure": "o3"])
+        #expect(abstention.claims.isEmpty)
+        #expect(abstention.limitations.isEmpty)
+    }
+
     @Test func `null criteria preserve explicit abstention without contradictory flags`() throws {
         let response = #"{"regionID":"r","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":true}"#
         let parsed = try CombinedReviewResponse.inspection(response, regionID: "r", requireCriteria: true)
