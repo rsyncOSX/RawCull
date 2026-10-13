@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated enum ObjectResponseIssue: Error, LocalizedError, Equatable, Sendable {
+    case assessmentFailed
     case incompleteJSON
     case invalidJSON
     case invalidSchema(String)
@@ -12,6 +13,7 @@ nonisolated enum ObjectResponseIssue: Error, LocalizedError, Equatable, Sendable
 
     var errorDescription: String? {
         switch self {
+        case .assessmentFailed: "The object assessment could not be validated. Retry the assessment."
         case .incompleteJSON: "Qwen's JSON response was incomplete. Retry the assessment."
         case .invalidJSON: "Qwen did not return a complete JSON object. Retry the assessment."
         case let .invalidSchema(field): "Qwen returned a missing or mistyped \(field) field. Retry the assessment."
