@@ -315,14 +315,15 @@ final class RawCullObjectAnalysisFeature {
                                       freeform: nil, failure: nil, modelIdentity: modelIdentity,
                                       rawInstanceCount: rawInstanceCount, timings: timings)
                 } catch {
+                    let details = Self.assessmentValidationFeedback(response, fallback: error.localizedDescription)
                     if attempt == 0 {
-                        feedback = "\nThe previous response failed validation: \(error.localizedDescription)\nRegenerate from this same board using the exact JSON types in the example. IDs and cropIDs are strings. All lists are arrays, never null. Each claim needs its own matching evidence object. Global strengths and problems must be []. Do not invent observations or copy example judgments."
+                        feedback = "\nThe previous response failed validation: \(details)\nRegenerate from this same board using the exact JSON types in the example. IDs and cropIDs are strings. All lists are arrays, never null. Each claim needs its own matching evidence object. Global strengths and problems must be []. Do not invent observations or copy example judgments."
                         continue
                     }
                     return makeResult(file, mode: mode, concepts: concepts,
                                       descriptors: descriptors, assessment: nil,
                                       freeform: String(response.prefix(8192)),
-                                      failure: "Object assessment after two attempts: \(error.localizedDescription)",
+                                      failure: "Object assessment after two attempts: \(details)",
                                       modelIdentity: modelIdentity, rawInstanceCount: rawInstanceCount,
                                       timings: timings)
                 }
@@ -368,6 +369,38 @@ final class RawCullObjectAnalysisFeature {
         )
     }
 
+    // Objects-only feedback supplements strict validation without repairing model claims.
+    nonisolated static func assessmentValidationFeedback(_ response: String, fallback: String) -> String {
+        guard let assessment = try? ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response) else {
+            return fallback
+        }
+        var issues: [String] = []
+        for object in assessment.objects {
+            let prefix = "Object \(object.id)"
+            for (claims, evidence, claimField, evidenceField) in [
+                (object.strengths, object.strengthEvidence, "strengths", "strengthEvidence"),
+                (object.problems, object.problemEvidence, "problems", "problemEvidence")
+            ] {
+                if claims.count != evidence.count {
+                    issues.append("\(prefix): \(claimField) has \(claims.count) items but \(evidenceField) has \(evidence.count). These counts must match exactly, one evidence object per claim in the same order. If \(claimField) is [], \(evidenceField) must also be []. Omit unsupported claims and their evidence together.")
+                }
+                for (index, item) in evidence.enumerated() {
+                    if item.cropID != object.id {
+                        issues.append("\(prefix): \(evidenceField)[\(index)].cropID must be the string \(object.id).")
+                    }
+                }
+            }
+            if object.focusQuality != .uncertain && object.focusEvidence == nil {
+                issues.append("\(prefix): focusQuality is \(object.focusQuality.rawValue), so focusEvidence cannot be null. Supply {\"cropID\":\"\(object.id)\",\"observation\":\"short visible focus evidence from this crop\"}. If focus cannot be judged, set focusQuality to uncertain and focusEvidence to null; do not invent evidence.")
+            } else if object.focusQuality == .uncertain && object.focusEvidence != nil {
+                issues.append("\(prefix): uncertain focusQuality requires focusEvidence to be null.")
+            } else if let evidence = object.focusEvidence, evidence.cropID != object.id {
+                issues.append("\(prefix): focusEvidence.cropID must be the string \(object.id).")
+            }
+        }
+        return issues.isEmpty ? fallback : issues.joined(separator: "\n")
+    }
+
     private nonisolated static func analysisInstruction(ids: [String], concepts: [ObjectInstanceDescriptor], criteria: String) -> String {
         """
         This board shows one photograph: the top overview and the numbered crops below are repeated views of the same photo, not separate photographs. Analyze only the numbered objects. Use visible evidence only.
@@ -376,15 +409,17 @@ final class RawCullObjectAnalysisFeature {
         The numbered crops at the bottom are ordered left to right: \(ids.map { "crop \($0) is object \($0)" }.joined(separator: "; ")). Match each description to that crop's large number, not to its order of mention in the overview.
         Additional criteria: \(criteria)
         JSON type example only (replace all observations and concepts with what this board supports; repeat one object per registered ID):
-        {"schemaVersion":2,"imageSummary":"Short scene description","objects":[{"id":"1","concept":"registered concept","description":"Short visible description","visibility":"uncertain","focusQuality":"uncertain","focusEvidence":null,"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.5}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.5}
+        {"schemaVersion":2,"imageSummary":"Short scene description","objects":[{"id":"1","concept":"registered concept","description":"Short visible description","visibility":"uncertain","focusQuality":"soft","focusEvidence":{"cropID":"1","observation":"Subject edges are soft and lack crisp detail"},"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.5}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.5}
         For a supported focus judgment, focusEvidence is an object such as {"cropID":"1","observation":"Subject edges are soft and lack crisp detail"}, never a string. A supported strength/problem uses the same object shape in its evidence array, one per claim. IDs, cropIDs and preferredObjectIDs entries MUST be quoted strings. Never return null for list fields.
-                Return exactly one JSON object and no Markdown with these keys:
+        Return exactly one JSON object and no Markdown with these keys:
         schemaVersion (2), imageSummary (short string), objects (array of {id, concept, description, visibility,
         focusQuality, focusEvidence, expression, obstructions, strengths, strengthEvidence, problems, problemEvidence, confidence}),
         relationships (strings), strengths (strings), problems (strings),
         preferredObjectIDs (array of board IDs), confidence (0 to 1).
         focusEvidence is null only for uncertain focus; otherwise {"cropID":"the matching object ID","observation":"visible texture/edge evidence and whether it is crisp, soft, or smeared"}.
         strengthEvidence and problemEvidence are arrays with one evidence object per respective strength/problem, in matching order, using the same cropID and observation schema. Never cite another crop or background detail. Empty claims require empty evidence arrays. Evidence sentences maximum 240 characters. Do not contradict focusQuality in description, strengths or problems.
+        Before returning JSON, check each object independently: strengths.count == strengthEvidence.count and problems.count == problemEvidence.count. Never leave evidence entries after removing their claims. A sharp, soft or blurred focusQuality always requires its own focusEvidence object; only uncertain uses null.
+        Claim pair shape example only: "strengths":["Subject stands out from its surroundings"], "strengthEvidence":[{"cropID":"1","observation":"Visible contrast separates the subject from the surroundings"}]. Empty pair: "strengths":[], "strengthEvidence":[]. Use the identical pairing rule for problems/problemEvidence. Replace the example with this crop's visible evidence, or return both arrays empty.
         Confidence and focus classifications are model judgments; the preview, resizing and model input resolution limit detail. No RAW recovery or eye-detail claims. Global strengths/problems must be empty; put supported judgments with their crop evidence on each object.
         visibility must be clear, partial, obscured, or uncertain.
         focusQuality must be sharp, soft, blurred, or uncertain.

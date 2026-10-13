@@ -5,6 +5,28 @@ import Testing
 
 @Suite("Object analysis boundary", .tags(.smoke))
 struct ObjectAnalysisBoundaryTests {
+    @Test(arguments: [(0, 1), (2, 1)])
+    func `Retry feedback names mismatched claim counts and missing focus evidence`(counts: (Int, Int)) throws {
+        let response = #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"soft","focusEvidence":null,"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.8}"#
+        var document = try #require(JSONSerialization.jsonObject(with: Data(response.utf8)) as? [String: Any])
+        var objects = try #require(document["objects"] as? [[String: Any]])
+        objects[0]["strengths"] = (0..<counts.0).map { "Visible strength \($0)" }
+        objects[0]["strengthEvidence"] = (0..<counts.1).map { _ in ["cropID": "1", "observation": "Visible subject contrast"] }
+        document["objects"] = objects
+        let invalid = String(decoding: try JSONSerialization.data(withJSONObject: document), as: UTF8.self)
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(invalid, boardIDs: ["1"])
+        }
+        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(invalid, fallback: "Generic failure")
+        #expect(feedback.contains("strengths has \(counts.0) items but strengthEvidence has \(counts.1)"))
+        #expect(feedback.contains("focusQuality is soft, so focusEvidence cannot be null"))
+        #expect(feedback.contains("do not invent evidence"))
+    }
+
+    @Test func `Schema feedback preserves original error for undecodable output`() {
+        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{", fallback: "Incomplete JSON") == "Incomplete JSON")
+    }
+
     @Test func `Focus and claims require their own crop evidence and unverified expression abstains`() throws {
         let response = #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":"subject feather edges are crisp"},"expression":null,"obstructions":[],"strengths":["resolved texture"],"strengthEvidence":[{"cropID":"1","observation":"subject feather texture resolved"}],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":["1"],"confidence":0.8}"#
         #expect(try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]).objects[0].focusEvidence?.cropID == "1")
