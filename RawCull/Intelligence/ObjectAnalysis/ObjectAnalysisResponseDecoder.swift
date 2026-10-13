@@ -92,7 +92,7 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         ["blurred", "smeared", "indistinct", "out of focus", "soft focus"].contains { text.contains($0) }
     }
 
-    private static func focusDescription(_ text: String, supports quality: ObjectFocusQuality) -> Bool {
+    static func focusDescription(_ text: String, supports quality: ObjectFocusQuality) -> Bool {
         let text = text.lowercased()
         switch quality {
         case .sharp:

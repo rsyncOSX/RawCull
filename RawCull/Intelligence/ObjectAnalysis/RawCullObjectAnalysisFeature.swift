@@ -371,10 +371,23 @@ final class RawCullObjectAnalysisFeature {
 
     // Objects-only feedback supplements strict validation without repairing model claims.
     nonisolated static func assessmentValidationFeedback(_ response: String, fallback: String) -> String {
-        guard let assessment = try? ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response) else {
-            return fallback
-        }
         var issues: [String] = []
+        // Inspect enum values before typed decoding, which rejects unknown values.
+        if let data = try? ObjectJSONEnvelope.data(in: response),
+           let document = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let objects = document["objects"] as? [[String: Any]] {
+            for (index, object) in objects.enumerated() {
+                if let visibility = object["visibility"] as? String, ObjectVisibility(rawValue: visibility) == nil {
+                    issues.append("objects[\(index)].visibility is invalid. Use exactly clear, partial, obscured, or uncertain. Visible is not an allowed value; choose from the permitted values using the subject's visible extent and occlusion.")
+                }
+            }
+        }
+        guard let assessment = try? ObjectJSONEnvelope.decode(ObjectPhotoAssessment.self, from: response) else {
+            return issues.isEmpty ? fallback : issues.joined(separator: "\n")
+        }
+        if !assessment.strengths.isEmpty || !assessment.problems.isEmpty {
+            issues.append("Global strengths and problems must both be []; supported claims belong only on their numbered objects with matching evidence.")
+        }
         for object in assessment.objects {
             let prefix = "Object \(object.id)"
             for (claims, evidence, claimField, evidenceField) in [
@@ -396,6 +409,9 @@ final class RawCullObjectAnalysisFeature {
                 issues.append("\(prefix): uncertain focusQuality requires focusEvidence to be null.")
             } else if let evidence = object.focusEvidence, evidence.cropID != object.id {
                 issues.append("\(prefix): focusEvidence.cropID must be the string \(object.id).")
+            } else if let evidence = object.focusEvidence,
+                      !ObjectAnalysisResponseDecoder.focusDescription(evidence.observation, supports: object.focusQuality) {
+                issues.append("\(prefix): focusEvidence.observation does not support focusQuality=\(object.focusQuality.rawValue). Being visible or 'in focus' alone does not demonstrate resolved detail. Describe actual subject texture or edges: crisp/distinctly resolved for sharp, lacking crisp detail for soft, smeared/indistinct for blurred. Exclude grass, fence and background texture. If this crop cannot support a focus judgment, use uncertain with null evidence and omit unsupported sharpness claims. Do not invent detail or simply insert a keyword.")
             }
         }
         return issues.isEmpty ? fallback : issues.joined(separator: "\n")
@@ -404,6 +420,7 @@ final class RawCullObjectAnalysisFeature {
     private nonisolated static func analysisInstruction(ids: [String], concepts: [ObjectInstanceDescriptor], criteria: String) -> String {
         """
         This board shows one photograph: the top overview and the numbered crops below are repeated views of the same photo, not separate photographs. Analyze only the numbered objects. Use visible evidence only.
+        The crops are enlargements from this SAME exposure and SAME camera viewpoint. They are not different angles, poses, moments, or separate photographs. Describe the original scene once; do not describe the board layout in imageSummary.
         Object IDs: \(ids.joined(separator: ", ")).
         Registered concepts (copy the concept exactly for each ID): \(concepts.map { "\($0.id)=\($0.concept)" }.joined(separator: "; ")).
         The numbered crops at the bottom are ordered left to right: \(ids.map { "crop \($0) is object \($0)" }.joined(separator: "; ")). Match each description to that crop's large number, not to its order of mention in the overview.
@@ -421,8 +438,8 @@ final class RawCullObjectAnalysisFeature {
         Before returning JSON, check each object independently: strengths.count == strengthEvidence.count and problems.count == problemEvidence.count. Never leave evidence entries after removing their claims. A sharp, soft or blurred focusQuality always requires its own focusEvidence object; only uncertain uses null.
         Claim pair template only: "strengths":["<one supported strength>"], "strengthEvidence":[{"cropID":"1","observation":"<the visible observation supporting that exact strength>"}]. Empty pair: "strengths":[], "strengthEvidence":[]. Use the identical pairing rule for problems/problemEvidence. Replace the example with this crop's visible evidence, or return both arrays empty.
         Confidence and focus classifications are model judgments; the preview, resizing and model input resolution limit detail. No RAW recovery or eye-detail claims. Global strengths/problems must be empty; put supported judgments with their crop evidence on each object.
-        visibility must be clear, partial, obscured, or uncertain.
-        focusQuality must be sharp, soft, blurred, or uncertain.
+        visibility must be exactly clear, partial, obscured, or uncertain; never use visible.
+        focusQuality must be sharp, soft, blurred, or uncertain. Decide independently for each subject. Visibility, recognizable anatomy, and being in focus are insufficient evidence of sharpness; identify actual resolved subject texture or edges. Do not use surrounding grass or fence texture. Use uncertain when the preview cannot resolve enough detail, and omit unsupported sharpness strengths.
         Judge focus separately for each numbered subject using visible detail on that subject, not the flower, background, outline, or another crop. Use sharp only when fine texture or edges on the subject are distinctly resolved. Use soft when subject detail is visible but lacks crisp edges, blurred when subject detail is smeared or indistinct, and uncertain when the crop is too small or obscured to tell. Do not describe a subject as well-focused or list sharpness as a strength unless its own crop supports sharp.
         The objects array must contain exactly \(ids.count) entries: one per listed ID, with no repeated IDs. Each numbered ID marks a different physical subject in the one photograph. The overview and crops repeat those subjects, so do not list a new object for each view. expression must be null because these SAM regions do not independently verify facial anatomy; all list fields must be arrays, using [] when empty. Use at most two short sentences per description. For each object, return at most ONE strength and at most ONE problem, each with exactly ONE matching evidence entry. When no claim is supported, return [] for both its claim list and evidence list. Other lists may contain at most two short items. Each object's description must use visible evidence from its matching numbered crop. imageSummary must describe the scene without calling separate IDs the same subject or different photographs. Describe relationships only when supported by the overview; never call different IDs the same subject. Do not invent extra objects, issues, or relationships.
         """
