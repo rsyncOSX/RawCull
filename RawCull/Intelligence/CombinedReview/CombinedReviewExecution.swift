@@ -496,14 +496,14 @@ extension CombinedReviewFeature {
             terminalIDs.append(id)
             let inspection: CombinedReviewInspection? = try await perform(id, category: .crop) {
                 let prompt = """
-                Inspect this crop for four separate criteria. Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
+                Inspect this crop for four separate criteria. Intended generic target: \(plan.subjects.first(where: { $0.id == region.subjectID })?.concept ?? "unspecified"). Region ID: \(region.id.rawValue). Purpose: \(region.purpose).
                 Return JSON only: {"regionID":"\(region.id.rawValue)","criteria":{"composition":null,"exposure":null,"visibility":null,"detail":null},"uncertainty":"","targetIdentified":false}.
                 Include all keys. Each criterion is a visible observation STRING or null when unsupported. Replace example nulls with evidence when available; the example is not a conclusion. Determine targetIdentified from visible generic-target presence before writing criteria. Unknown species or individual identity does not make a visible target absent.
                 Each non-null string: one criterion-specific sentence, aim for 80 characters, hard maximum 120. Never use an empty string or supported/text object. Never repeat a sentence across criteria.
                 composition: placement, framing or obstructions. exposure: illumination or tonal contrast; a light-colored sky alone is not exposure evidence.
                 visibility: visible extent or occlusion of the intended generic target; species/identity uncertainty is not visibility.
                 detail: resolved surface texture of that target only, never background texture or anatomical detail. If unresolved, use detail=null; never write a sentence saying no texture is resolved.
-                targetIdentified means the intended generic target is visibly present and distinguishable. It does not mean species identification, individual identity, verified anatomy or fine-detail quality. Never assume presence from Purpose alone. Purpose gives no intended target: false.
+                targetIdentified means the intended generic target is visibly present and distinguishable. It does not mean species identification, individual identity, verified anatomy or fine-detail quality. Never assume presence from Purpose alone. Purpose gives no intended target: false only when the explicit intended generic target is also unspecified.
                 intended generic target absent/indistinguishable: targetIdentified=false and detail=null.
                 Text must stay within framing, illumination, occlusion and surface texture. Do not describe body parts, species, focus, sharpness or RAW recovery. Anatomical limitations belong in uncertainty only (max 160 characters).
                 """
@@ -689,11 +689,15 @@ extension CombinedReviewFeature {
         let allowed = ReviewCriterionObservations.types.map { type in
             type + ": " + orderedRows.filter { candidates[type]?[$0.reference.id] != nil }.map { $0.reference.id }.joined(separator: ",")
         }.joined(separator: "\n")
+        let preferredRows = Dictionary(uniqueKeysWithValues: ReviewCriterionObservations.types.compactMap { type -> (String, String)? in
+            guard let row = orderedRows.first(where: { included.contains($0.reference) && candidates[type]?[$0.reference.id] != nil }) else { return nil }
+            return (type, row.reference.id)
+        })
         let prompt = try CombinedReviewResponse.admitted(schema + "\n" + selected.joined(separator: "\n") + "\nAllowed row IDs by category:\n" + allowed, model: qwen, outputTokens: snapshot.responseTokens)
         return try await validatedResponse(instruction: prompt, image: source.overview, model: qwen, tokens: snapshot.responseTokens, backend: backend) { text in
             let generated = try CombinedReviewResponse.selectedReport(text, imageID: value.file.id, candidates: candidates,
                 limitations: result?.limitations ?? [], regions: inspected, uninspected: missing,
-                incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") }))
+                incomplete: !missing.isEmpty || !value.failures.isEmpty || value.measurements.isEmpty || value.clip.isEmpty || value.limitations.contains(where: { $0.reason.contains("; criterion abstained") }), preferredRows: preferredRows)
             let missingCriteria = ["composition", "exposure", "visibility", "detail"].filter { criterion in
                 !generated.claims.contains { $0.type == criterion }
             }

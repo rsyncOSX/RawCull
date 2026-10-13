@@ -274,11 +274,13 @@ nonisolated enum CombinedReviewResponse {
     /// The model chooses rows; validated evidence owns prose, type and stored IDs.
     static func selectedReport(_ response: String, imageID: ReviewImageID,
                                candidates: [String: [String: ReviewClaim]], limitations: [ReviewLimitation],
-                               regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool) throws -> ReviewImageReport {
+                               regions: [ReviewRegionID], uninspected: [ReviewRegionID], incomplete: Bool,
+                               preferredRows: [String: String] = [:]) throws -> ReviewImageReport {
         let choices = try ObjectJSONEnvelope.decode(ReviewNullableCriteria.self, from: response).observations
         var claims: [ReviewClaim] = []
         var rejected: [ReviewLimitation] = []
         var firstIssue: ReviewValidationIssue?
+        var acceptedSelection = false
         for type in ReviewCriterionObservations.types {
             guard let choice = choices[type], choice.supported else { continue }
             guard let claim = candidates[type]?[choice.text], claim.type == type else {
@@ -286,11 +288,19 @@ nonisolated enum CombinedReviewResponse {
                 firstIssue = firstIssue ?? issue
                 rejected.append(.init(id: .init(rawValue: imageID.rawValue + ":rejected-selection:" + type),
                     reason: "Selected " + type + " rejected: " + issue.check, relatedEvidence: []))
+                // Recover only a prequalified criterion from the caller's stable priority order.
+                // Null remains an explicit model abstention and never reaches this path.
+                if let row = preferredRows[type], let fallback = candidates[type]?[row], fallback.type == type {
+                    claims.append(fallback)
+                    rejected.append(.init(id: .init(rawValue: imageID.rawValue + ":selection-fallback:" + type),
+                        reason: "Selected " + type + " replaced with the highest-priority validated criterion row " + row + ".", relatedEvidence: fallback.evidence))
+                }
                 continue
             }
             claims.append(claim)
+            acceptedSelection = true
         }
-        if claims.isEmpty, let firstIssue { throw firstIssue }
+        if !acceptedSelection, let firstIssue { throw firstIssue }
         return .init(id: .init(rawValue: imageID.rawValue + ":report"), imageID: imageID, claims: claims,
             limitations: limitations + rejected, incomplete: incomplete || claims.isEmpty || !rejected.isEmpty,
             inspectedRegions: regions, uninspectedRegions: uninspected)
