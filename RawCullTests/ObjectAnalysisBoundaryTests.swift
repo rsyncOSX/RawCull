@@ -82,6 +82,16 @@ struct ObjectAnalysisBoundaryTests {
         }
     }
 
+    @Test(arguments: ["The horse is not sharply focused.", "The horse lacks sharp detail.", "The horse is not sharp."])
+    func `Soft focus accepts negated sharpness without admitting positive sharpness`(description: String) throws {
+        let response = focusResponse(observation: "The coat is soft and lacks crisp edges.")
+            .replacingOccurrences(of: "\"focusQuality\":\"sharp\"", with: "\"focusQuality\":\"soft\"")
+            .replacingOccurrences(of: "Visible bird", with: description)
+        #expect(try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]).objects[0].focusQuality == .soft)
+        let contradictory = response.replacingOccurrences(of: description, with: "The horse is not sharply focused but its mane is sharp.")
+        #expect(throws: ObjectResponseIssue.self) { try ObjectAnalysisResponseDecoder.decode(contradictory, boardIDs: ["1"]) }
+    }
+
     private func focusResponse(observation: String) -> String {
         #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":""# + observation + #""},"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.8}"#
     }
