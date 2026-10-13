@@ -23,6 +23,16 @@ struct ObjectAnalysisBoundaryTests {
         #expect(feedback.contains("do not invent evidence"))
     }
 
+    @Test func `Retry feedback explains invalid visibility and vague focus`() {
+        let vague = focusResponse(observation: "The subject is in focus with visible texture.")
+        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(vague, fallback: "Generic")
+        #expect(feedback.contains("does not support focusQuality=sharp"))
+        #expect(feedback.contains("Do not invent detail"))
+        let invalid = vague.replacingOccurrences(of: "\"visibility\":\"clear\"", with: "\"visibility\":\"visible\"")
+        #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback(invalid, fallback: "Generic").contains("Use exactly clear, partial, obscured, or uncertain"))
+        #expect(throws: ObjectResponseIssue.self) { try ObjectAnalysisResponseDecoder.decode(invalid, boardIDs: ["1"]) }
+    }
+
     @Test func `Schema feedback preserves original error for undecodable output`() {
         #expect(RawCullObjectAnalysisFeature.assessmentValidationFeedback("{", fallback: "Incomplete JSON") == "Incomplete JSON")
     }
