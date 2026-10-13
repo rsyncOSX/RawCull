@@ -390,6 +390,9 @@ final class RawCullObjectAnalysisFeature {
         }
         for object in assessment.objects {
             let prefix = "Object \(object.id)"
+            if !ObjectAnalysisResponseDecoder.focusClaimsAreConsistent(object) {
+                issues.append("\(prefix): description, strengths or problems contradict focusQuality=\(object.focusQuality.rawValue). Reassess this crop independently and make its focus classification and claims consistent with visible subject detail. If detail cannot support a judgment, use uncertain with null focusEvidence and omit unsupported focus claims. Do not invent detail.")
+            }
             for (claims, evidence, claimField, evidenceField) in [
                 (object.strengths, object.strengthEvidence, "strengths", "strengthEvidence"),
                 (object.problems, object.problemEvidence, "problems", "problemEvidence")

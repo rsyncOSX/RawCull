@@ -67,20 +67,23 @@ nonisolated enum ObjectAnalysisResponseDecoder {
                     throw ObjectResponseIssue.invalidValue("object \(object.id) focus evidence")
                 }
             }
-            let prose = subjectFocusProse(([object.description] + object.strengths + object.problems).joined(separator: " "))
-            let sharp = mentionsSharp(prose)
-            let blurred = mentionsBlur(prose)
-            if (object.focusQuality != .sharp && sharp) || (object.focusQuality == .sharp && blurred) {
+            if !focusClaimsAreConsistent(object) {
                 throw ObjectResponseIssue.invalidValue("object \(object.id) focus consistency")
             }
         }
         return value
     }
 
+    static func focusClaimsAreConsistent(_ object: ObjectAssessment) -> Bool {
+        let prose = subjectFocusProse(([object.description] + object.strengths + object.problems).joined(separator: " "))
+        return !(object.focusQuality != .sharp && mentionsSharp(prose))
+            && !(object.focusQuality == .sharp && mentionsBlur(prose))
+    }
+
     private static func subjectFocusProse(_ text: String) -> String {
         text.lowercased()
             .replacingOccurrences(of: #"\b(?:blurred|soft|sharp|crisp) background\b|\bbackground (?:is |appears )?(?:blurred|soft|sharp|crisp)\b"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"\b(?:not|lacks?) (?:sharply\s+focused|sharp|crisp|well[- ]focused)\b"#, with: "soft", options: .regularExpression)
+            .replacingOccurrences(of: #"\b(?:not|lacks?) (?:in )?(?:sharply\s+focused|sharp(?:ly defined)?|crisp|well[- ]focused)\b"#, with: "soft", options: .regularExpression)
     }
 
     // Conservative wording checks catch explicit contradictions, not visual truth.
