@@ -80,7 +80,7 @@ nonisolated enum ObjectAnalysisResponseDecoder {
     private static func subjectFocusProse(_ text: String) -> String {
         text.lowercased()
             .replacingOccurrences(of: #"\b(?:blurred|soft|sharp|crisp) background\b|\bbackground (?:is |appears )?(?:blurred|soft|sharp|crisp)\b"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"\b(?:not|lacks?) (?:sharp|crisp|well[- ]focused)\b"#, with: "soft", options: .regularExpression)
+            .replacingOccurrences(of: #"\b(?:not|lacks?) (?:sharply\s+focused|sharp|crisp|well[- ]focused)\b"#, with: "soft", options: .regularExpression)
     }
 
     // Conservative wording checks catch explicit contradictions, not visual truth.
