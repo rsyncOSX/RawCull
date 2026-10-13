@@ -82,7 +82,7 @@ struct ObjectAnalysisBoundaryTests {
         }
     }
 
-    @Test(arguments: ["The horse is not sharply focused.", "The horse lacks sharp detail.", "The horse is not sharp."])
+    @Test(arguments: ["The horse is not sharply focused.", "The horse lacks sharp detail.", "The horse is not sharp.", "The cygnet is not in sharp focus.", "The feathers are not sharply defined."])
     func `Soft focus accepts negated sharpness without admitting positive sharpness`(description: String) throws {
         let response = focusResponse(observation: "The coat is soft and lacks crisp edges.")
             .replacingOccurrences(of: "\"focusQuality\":\"sharp\"", with: "\"focusQuality\":\"soft\"")
@@ -90,6 +90,14 @@ struct ObjectAnalysisBoundaryTests {
         #expect(try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]).objects[0].focusQuality == .soft)
         let contradictory = response.replacingOccurrences(of: description, with: "The horse is not sharply focused but its mane is sharp.")
         #expect(throws: ObjectResponseIssue.self) { try ObjectAnalysisResponseDecoder.decode(contradictory, boardIDs: ["1"]) }
+    }
+
+    @Test func `Retry feedback identifies focus contradictions`() {
+        let response = focusResponse(observation: "The subject edges are crisp.")
+            .replacingOccurrences(of: "Visible bird", with: "The feathers are blurred.")
+        let feedback = RawCullObjectAnalysisFeature.assessmentValidationFeedback(response, fallback: "Generic")
+        #expect(feedback.contains("contradict focusQuality=sharp"))
+        #expect(feedback.contains("Do not invent detail"))
     }
 
     private func focusResponse(observation: String) -> String {
