@@ -49,6 +49,33 @@ struct ObjectAnalysisBoundaryTests {
         #expect(try ObjectAnalysisResponseDecoder.decode(uncertain, boardIDs: ["1"]).objects[0].focusQuality == .uncertain)
     }
 
+    @Test(arguments: [
+        "The squirrel's fur texture and facial features are clearly resolved, with distinct edges and fine detail.",
+        "Subject feather texture is distinctly resolved.",
+        "Subject outline has distinct edges."
+    ])
+    func `Sharp focus accepts equivalent resolved detail wording`(observation: String) throws {
+        let response = focusResponse(observation: observation)
+        #expect(try ObjectAnalysisResponseDecoder.decode(response, boardIDs: ["1"]).objects[0].focusQuality == .sharp)
+    }
+
+    @Test(arguments: [
+        "Subject texture is not clearly resolved.",
+        "Subject texture is clearly resolved but edges are soft.",
+        "Subject edges are distinct but feathers are smeared.",
+        "Subject texture lacks clearly resolved detail.",
+        "Subject fur is visible."
+    ])
+    func `Sharp focus still rejects unsupported or contradictory detail wording`(observation: String) {
+        #expect(throws: ObjectResponseIssue.self) {
+            try ObjectAnalysisResponseDecoder.decode(focusResponse(observation: observation), boardIDs: ["1"])
+        }
+    }
+
+    private func focusResponse(observation: String) -> String {
+        #"{"schemaVersion":2,"objects":[{"id":"1","concept":"bird","description":"Visible bird","visibility":"clear","focusQuality":"sharp","focusEvidence":{"cropID":"1","observation":""# + observation + #""},"expression":null,"obstructions":[],"strengths":[],"strengthEvidence":[],"problems":[],"problemEvidence":[],"confidence":0.8}],"relationships":[],"strengths":[],"problems":[],"preferredObjectIDs":[],"confidence":0.8}"#
+    }
+
     @Test func `Automatic concepts normalize and deduplicate`() throws {
         let response = #"{"concepts":[{"query":"  Musk   Ox  ","displayName":"Musk Ox","reason":"Main subject"},{"query":"musk ox","displayName":"Musk ox","reason":"Duplicate"},{"query":"bird","displayName":"Bird","reason":"On branch"}]}"#
         let concepts = try ObjectConceptDiscovery.decode(response)

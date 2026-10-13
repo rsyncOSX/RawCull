@@ -96,7 +96,15 @@ nonisolated enum ObjectAnalysisResponseDecoder {
         let text = text.lowercased()
         switch quality {
         case .sharp:
-            return mentionsSharp(text) && !mentionsBlur(text) && !text.contains("not sharp") && !text.contains("not crisp")
+            let resolvedDetail = text.range(
+                of: #"\b(?:clearly|distinctly|well) (?:resolved|defined)\b|\b(?:distinct|well-defined) edges\b"#,
+                options: .regularExpression
+            ) != nil
+            let unsupported = text.range(
+                of: #"\b(?:not|without|lack|lacks|lacking|no)\s+(?:(?:clearly|distinctly|well)\s+)?(?:sharp|crisp|resolved|defined|distinct|fine|detail)\b|\b(?:soft|unresolved)\b"#,
+                options: .regularExpression
+            ) != nil
+            return (mentionsSharp(text) || resolvedDetail) && !mentionsBlur(text) && !unsupported
         case .soft:
             return ["soft", "lack", "not crisp", "not sharp"].contains { text.contains($0) } && !text.contains("smeared")
         case .blurred:
